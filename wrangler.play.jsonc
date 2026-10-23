@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "play",
   "main": "src/short-url.js",
-  "compatibility_date": "2026-10-24",
+  "compatibility_date": "2026-10-23",
   "services": [{ "binding": "GAME_SITE", "service": "amqtours-gatcha" }],
   "observability": {
     "enabled": true,
