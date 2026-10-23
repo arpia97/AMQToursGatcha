@@ -448,7 +448,7 @@ async function execute(path, b, after) {
 }
 function auth(register = false) {
   modal(
-    `<h2>${register ? "Welcome to the club." : "Good to see you again."}</h2><p>${register ? "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID." : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="12" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
+    `<h2>${register ? "Welcome to the club." : "Good to see you again."}</h2><p>${register ? "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID." : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
   );
 }
 function account() {
@@ -467,7 +467,7 @@ function account() {
             )
             .join("")}</tbody></table></div>`
         : "<p>No wallet activity yet.</p>"
-    }<div class="dialog-actions"><a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Edit profile", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div>`,
+    }<div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Edit profile", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div>`,
   );
 }
 document.addEventListener("click", async (ev) => {

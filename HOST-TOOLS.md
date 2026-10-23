@@ -1,6 +1,6 @@
 # Host console and external integration
 
-The player website never exposes host powers. Unlock `/host.html` with the deployment's HOST_TOKEN. The token stays in that tab's memory and is not saved to localStorage.
+The player website never exposes host powers. Sign in at `/host.html` with an administrator account to use every host tool. Existing player-site administrator sessions are also accepted. The deployment HOST_TOKEN remains available for external integrations and recovery; when used in the console it stays in that tab's memory and is not saved to localStorage.
 
 ## Import AMQ identities
 
@@ -75,3 +75,11 @@ Catalog imports accept 500 entries per request; the browser console chunks large
 Follow [CATALOG.md](CATALOG.md) to seed ACDB's published exports. Large snapshots use authenticated `acdb-chunks` and `acdb-activate` endpoints; the upload helper saves its checkpoint locally and activation rejects incomplete or inconsistent indexes. Current catalogs remain available until successful activation. GET `/api/catalog?kind=character&q=Frieren&page=1` browses/searches a 40-card page publicly. The host role form searches that same catalog and saves per-card overrides.
 
 Seiyuus have no role classification. ACDB's exports do not contain a complete voice-actor portrait database. Keep a single stable provider ID per actor and resolve identities before combining sources.
+
+## Administrator accounts
+
+The protected `POST /api/host/admin-account` accepts `{player, password}` (optional `name`) and creates an administrator for an unregistered AMQ player ID. It does not overwrite existing passwords or grant privileges through ordinary registration. Administrator passwords support 8–256 characters; one-use-code registration still requires 12. Passwords are salted and hashed. Sessions are HttpOnly and SameSite Strict. Locking an account-based console signs out that session. Gameplay resets retain administrator roles; deleting the entire registry also deletes administrator accounts, so retain the independent deployment token for recovery.
+
+## Jikan import controls
+
+GET `jikan-status` returns source-import progress. POST `jikan-start` starts or resumes the finite anime-catalog scan; POST `jikan-pause` pauses it. Use empty JSON objects for these controls. The host Catalog & prices tab exposes these controls and refreshes progress every 30 seconds. Jobs run on Cloudflare alarms, so a local computer or open browser is unnecessary. Temporary errors retain the same page/title and increase the delay; HTTP 400/403 pauses for inspection. Existing MAL actor IDs are preserved, and existing actor metadata is not overwritten by the discovery pass.

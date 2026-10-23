@@ -24,21 +24,49 @@
         private.
       </div>
       <section id="unlock" class="host-panel">
-        <h2>Unlock host tools</h2>
+        <h2>Administrator sign in</h2>
         <p>
-          Use the HOST_TOKEN configured in Cloudflare. It stays in memory for
-          this tab and is cleared when the page reloads.
+          Sign in with your AMQ Tours administrator account to use all host
+          tools.
         </p>
-        <form id="unlock-form" class="stack">
+        <form id="admin-login-form" class="stack">
           <label
-            >Host token<input
-              id="host-token"
-              type="password"
+            >AMQ player ID or alias<input
+              name="player"
               required
-              minlength="32"
-              autocomplete="off" /></label
-          ><button class="button" type="submit">Unlock console →</button>
+              maxlength="100"
+              autocomplete="username"
+          /></label>
+          <label
+            >Password<input
+              type="password"
+              name="password"
+              required
+              minlength="8"
+              maxlength="256"
+              autocomplete="current-password"
+          /></label>
+          <button class="button" type="submit">
+            Sign in to host console →
+          </button>
         </form>
+        <details class="space-top">
+          <summary>Use a deployment host token</summary>
+          <p>
+            The token stays in this tab's memory and clears when the page
+            reloads.
+          </p>
+          <form id="unlock-form" class="stack">
+            <label
+              >Host token<input
+                id="host-token"
+                type="password"
+                required
+                minlength="32"
+                autocomplete="off" /></label
+            ><button class="button" type="submit">Unlock console →</button>
+          </form>
+        </details>
       </section>
       <section id="console" hidden>
         <div class="toolbar">

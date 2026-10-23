@@ -52,6 +52,26 @@ function fixture() {
     engine.tx(() => engine.action(id, action, b));
   return { e: engine, db, grant, act, time: (n) => (now = n), now: () => now };
 }
+test("administrator authorization checks server-owned role and current session expiry", () => {
+  const f = fixture();
+  f.e.run(
+    "INSERT INTO sessions VALUES(?,?,?)",
+    "session-hash",
+    "1",
+    f.now() + 1000,
+  );
+  assert.equal(f.e.adminSession("session-hash"), false);
+  f.e.host("players", { players: [{ id: "1", name: "Alice", is_admin: 1 }] });
+  assert.equal(f.e.adminSession("session-hash"), false);
+  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "1");
+  assert.equal(f.e.adminSession("session-hash"), true);
+  f.e.run("UPDATE players SET is_admin=0 WHERE id=?", "1");
+  assert.equal(f.e.adminSession("session-hash"), false);
+  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "1");
+  f.time(f.now() + 1001);
+  assert.equal(f.e.adminSession("session-hash"), false);
+});
+
 test("daily bonus is once per player per KST day, including boundary", () => {
   const f = fixture();
   f.time(Date.UTC(2026, 9, 24, 14, 59));

@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
+import { fetchJikan, voiceCards } from "./jikan.js";
+import { JikanImport } from "./jikan-import.js";
 
 const enc = new TextEncoder();
 const token = () =>
@@ -12,13 +14,13 @@ const hex = (buf) =>
   );
 const digest = async (s) =>
   hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
-async function passwordHash(password, salt = token()) {
+async function passwordHash(password, salt = token(), minimum = 12) {
   if (
     typeof password !== "string" ||
-    password.length < 12 ||
+    password.length < minimum ||
     password.length > 256
   )
-    fail("Use a password between 12 and 256 characters.");
+    fail(`Use a password between ${minimum} and 256 characters.`);
   const key = await crypto.subtle.importKey(
     "raw",
     enc.encode(password),
@@ -68,11 +70,21 @@ export class Game extends DurableObject {
       (s, ...a) => [...ctx.storage.sql.exec(s, ...a)],
       (fn) => ctx.storage.transactionSync(fn),
     );
+    this.jikan = new JikanImport(this.engine);
   }
   async alarm() {
+    // Rescue an interrupted import without losing its checkpoint or racing a lease.
+    if (this.jikan.nextAlarm())
+      await this.ctx.storage.setAlarm(Date.now() + 65000);
+    await this.jikan.step();
     const next = this.engine.ensureAuctions();
     this.cleanup();
-    await this.ctx.storage.setAlarm(next);
+    await this.scheduleAlarm(next);
+  }
+  async scheduleAlarm(auctionEnd = this.engine.ensureAuctions()) {
+    await this.ctx.storage.setAlarm(
+      Math.min(auctionEnd, this.jikan.nextAlarm() || Infinity),
+    );
   }
   cleanup() {
     const e = this.engine,
@@ -164,23 +176,29 @@ export class Game extends DurableObject {
     }
     const secure = url.protocol === "https:",
       ip = request.headers.get("CF-Connecting-IP") || "local";
+    const raw = request.headers
+      .get("Cookie")
+      ?.match(/(?:^|;\s*)amq_session=([a-f0-9]{48})(?:;|$)/)?.[1];
+    const sessionHash = raw ? await digest(raw) : null;
     if (path === "health")
       return json({ ok: true, service: "AMQ Tours Gatcha" });
     if (path.startsWith("host/")) {
       this.rate("host:" + ip, 150);
-      if (!this.env.HOST_TOKEN || this.env.HOST_TOKEN.length < 32)
-        fail(
-          "Host access is not configured. Set HOST_TOKEN using Wrangler secrets.",
-          503,
-        );
       const provided = request.headers.get("Authorization") || "";
-      if (
-        !equal(
+      const hostTokenValid =
+        this.env.HOST_TOKEN?.length >= 32 &&
+        equal(
           await digest(provided),
           await digest("Bearer " + this.env.HOST_TOKEN),
-        )
-      )
-        fail("Invalid host token.", 401);
+        );
+      const requireHost = () => {
+        if (!hostTokenValid && !e.adminSession(sessionHash))
+          fail(
+            "Sign in with an administrator account or supply a valid host token.",
+            401,
+          );
+      };
+      requireHost();
       if (path === "host/state" && !post)
         return json({
           players: e.all(
@@ -195,10 +213,57 @@ export class Game extends DurableObject {
             .filter(([kind]) => ["character", "seiyuu"].includes(kind))
             .map(([kind, count]) => ({ kind, count })),
           catalogSummary: e.catalogStore.summary(),
+          seiyuuImport: this.jikan.status(),
           cards: e.catalogStore.page("character", "", 1, 40).cards,
           ledger: e.all("SELECT * FROM ledger ORDER BY id DESC LIMIT 100"),
         });
+      if (path === "host/jikan-status" && !post)
+        return json(this.jikan.status());
       if (!post) fail("POST required.", 405);
+      if (path === "host/jikan-start" || path === "host/jikan-pause") {
+        const status = path.endsWith("start")
+          ? this.jikan.start()
+          : this.jikan.pause();
+        await this.scheduleAlarm();
+        return json({
+          message:
+            status.status === "paused"
+              ? "Jikan import paused."
+              : "Jikan import scheduled. Progress is saved automatically.",
+          import: status,
+        });
+      }
+      if (path === "host/admin-account") {
+        const id = text(b.player, 100);
+        const hash = await passwordHash(b.password, undefined, 8);
+        requireHost();
+        e.tx(() => {
+          if (e.one("SELECT password FROM players WHERE id=?", id)?.password)
+            fail(
+              "This player already has an account. Existing passwords are not overwritten.",
+              409,
+            );
+          e.host("players", {
+            players: [{ id, name: text(b.name || id, 100) }],
+          });
+          e.run(
+            "UPDATE players SET password=?,is_admin=1,invite=NULL,invite_expires=NULL WHERE id=?",
+            hash,
+            id,
+          );
+          e.run("DELETE FROM sessions WHERE player=?", id);
+        });
+        return json({ message: "Administrator account created.", player: id });
+      }
+      if (path === "host/jikan-probe") {
+        const data = await fetchJikan("/anime/1/characters");
+        const cards = voiceCards(data.data, "Cowboy Bebop");
+        return json({
+          available: true,
+          actorCount: cards.length,
+          examples: cards.slice(0, 3),
+        });
+      }
       if (path === "host/acdb-chunk")
         return json(e.tx(() => e.catalogStore.importChunk(b)));
       if (path === "host/acdb-chunks") {
@@ -228,6 +293,7 @@ export class Game extends DurableObject {
           fail("This player already registered. Use account reset instead.");
         const code = token(),
           hash = await digest(code);
+        requireHost();
         e.run(
           "UPDATE players SET invite=?,invite_expires=? WHERE id=?",
           hash,
@@ -245,6 +311,7 @@ export class Game extends DurableObject {
         e.player(id);
         const code = token(),
           hash = await digest(code);
+        requireHost();
         e.tx(() => {
           e.run(
             "UPDATE players SET password=NULL,invite=?,invite_expires=? WHERE id=?",
@@ -304,7 +371,7 @@ export class Game extends DurableObject {
       } else {
         const salt =
           p?.password?.split(":")[0] || "unregistered-player-placeholder";
-        const hash = await passwordHash(b.password, salt);
+        const hash = await passwordHash(b.password, salt, 8);
         if (!p?.password || !equal(p.password, hash))
           fail("Player ID/alias or password is incorrect.", 401);
         // Re-check after the asynchronous hash so a concurrent host reset cannot be bypassed.
@@ -331,10 +398,6 @@ export class Game extends DurableObject {
         "Set-Cookie": cookie(session, secure),
       });
     }
-    const raw = request.headers
-      .get("Cookie")
-      ?.match(/(?:^|;\s*)amq_session=([a-f0-9]{48})(?:;|$)/)?.[1];
-    const sessionHash = raw ? await digest(raw) : null;
     const session = sessionHash
       ? e.one(
           "SELECT player FROM sessions WHERE token=? AND expires>?",

@@ -36,6 +36,7 @@ export class Engine {
     for (const [table, column, definition] of [
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
+      ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
     ]) {
@@ -64,11 +65,18 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,avatar_card FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,avatar_card,is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
     return p;
+  }
+  adminSession(hash) {
+    return !!this.one(
+      "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1",
+      hash,
+      this.now(),
+    );
   }
   wallet(id, delta, reason, earned = false) {
     const p = this.player(id);

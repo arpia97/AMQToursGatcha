@@ -58,7 +58,7 @@ The ACDB snapshot contains **70,029 anime-linked character records** from the pr
 
 See [CATALOG.md](CATALOG.md) for repeatable bulk import, resumable uploads, provenance, licensing, and role corrections. The adapted database is freely downloadable under ODbL from `public/data/acdb-catalog.json.gz`, with [attribution](public/data/README.md). Portraits/artwork retain their owners' rights.
 
-The 22-card demo/starter includes 12 MAL characters and 10 voice actors. For a live ACDB deployment, import **only its 10 seiyuus** to avoid duplicate character identities. ACDB's exports do not provide a complete voice-actor portrait catalog. Kitsu's people/character-voices API has been verified for Japanese voice credits and can supply an additional seiyuu source; cross-provider identity mapping is required before combining actor catalogs.
+The 22-card demo/starter includes 12 MAL characters and 10 voice actors. For a live ACDB deployment, import **only its 10 seiyuus** to avoid duplicate character identities. ACDB's exports do not provide a complete voice-actor portrait catalog. A resumable Jikan importer now discovers seiyuus from Japanese voice credits. It reuses the starter MAL person IDs and runs on Cloudflare with a ten-second request interval, saved checkpoints and outage backoff. The host console shows progress and pause/resume controls. Upstream availability determines when new records can be added.
 
 AniList's API terms prohibit mass collection or storage. The old optional AniList helper has been removed; use the published ACDB export for the character bulk seed.
 
@@ -66,7 +66,7 @@ The real AMQ Tours player/alias registry is **not committed to this public repos
 
 ## Architecture
 
-`public/` is a buildless, responsive frontend. `src/worker.js` serves the API and static assets. One SQLite-backed Durable Object owns the community economy. `src/engine.js` executes economic mutations synchronously inside transactions, preventing concurrent overspending. Mutations require an idempotency key. Passwords use salted PBKDF2; session tokens are hashed in storage and sent in HttpOnly SameSite cookies. Host access uses a deployment secret held in memory by the host console. Same-origin JSON requests and login throttles protect mutation endpoints.
+`public/` is a buildless, responsive frontend. `src/worker.js` serves the API and static assets. One SQLite-backed Durable Object owns the community economy. `src/engine.js` executes economic mutations synchronously inside transactions, preventing concurrent overspending. Mutations require an idempotency key. Passwords use salted PBKDF2; session tokens are hashed in storage and sent in HttpOnly SameSite cookies. Host access accepts an administrator account session or a deployment secret held in memory by the host console. Administrator permissions are checked in the database on every host request. Same-origin JSON requests and login throttles protect mutation endpoints.
 
 This design targets an AMQ community, not an unlimited global service. Catalog browsing/search is paginated (40 cards), while shared state contains only referenced card metadata. Bulk metadata uses bounded SQLite JSON chunks to keep initial row writes low. Rankings show up to 100 earners, and profile search shows up to 50 matches. Free service allowances and upstream image availability still apply.
 
