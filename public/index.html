@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101117" />
+    <meta
+      name="description"
+      content="The AMQ Tours collection hub. Earn credits, make your picks, and collect your favourite characters and voice actors."
+    />
+    <title>AMQ Tours · Gatcha</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="#home"
+        ><span class="brand-mark">a<span>✳</span></span
+        ><span>AMQ TOURS<small>GATCHA CLUB</small></span></a
+      >
+      <div class="side-label">YOUR PLAYGROUND</div>
+      <nav id="navigation" aria-label="Main navigation"></nav>
+      <div class="sidebar-bottom">
+        <div class="community-mark">✦</div>
+        <strong>Good tours. Great pulls.</strong>
+        <p>A little luck. A lot of favourites.</p>
+        <a href="host.html" class="host-link">Host console <span>↗</span></a
+        ><a
+          href="https://github.com/arpia97/AMQToursGatcha"
+          target="_blank"
+          rel="noopener"
+          class="source-link"
+          >GitHub · v0.1</a
+        >
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">AMQ TOURS</span
+          ><span class="top-divider">/</span
+          ><span id="page-name">Overview</span>
+        </div>
+        <div class="top-actions">
+          <span class="wallet"
+            ><span class="coin">✦</span><b id="balance">—</b
+            ><span>credits</span></span
+          ><button
+            class="avatar"
+            id="account"
+            aria-label="Sign in or manage account"
+          >
+            ↗
+          </button>
+        </div>
+      </header>
+      <div id="demo-banner" class="demo-banner" hidden>
+        DEMO SANDBOX
+        <span>Sample players and cards · changes stay in this browser</span
+        ><button id="reset-demo" class="text-button">Reset demo ↺</button>
+      </div>
+      <main id="main" tabindex="-1">
+        <div class="loading">Shuffling the deck…</div>
+      </main>
+      <footer>
+        Made for the AMQ community.<span
+          >Character &amp; voice actor details via
+          <a href="https://myanimelist.net" target="_blank" rel="noopener"
+            >MyAnimeList</a
+          >. Fan project; no affiliation.</span
+        >
+      </footer>
+    </div>
+    <dialog id="modal">
+      <button class="dialog-close" aria-label="Close dialog">×</button>
+      <div id="modal-body"></div>
+    </dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

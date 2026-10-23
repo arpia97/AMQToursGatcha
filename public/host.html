@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Host console · AMQ Tours Gatcha</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="host.js"></script>
+  </head>
+  <body>
+    <main class="host-shell">
+      <header class="host-header">
+        <div>
+          <span class="eyebrow">AMQ TOURS / HOST TOOLS</span>
+          <h1 class="space-top">Behind the collection.</h1>
+        </div>
+        <a class="button secondary" href="./">Player site ↗</a>
+      </header>
+      <div class="notice">
+        A separate console for AMQ hosts. Credits, registration codes, and
+        pick’em results are authorized by the backend. Keep your host token
+        private.
+      </div>
+      <section id="unlock" class="host-panel">
+        <h2>Unlock host tools</h2>
+        <p>
+          Use the HOST_TOKEN configured in Cloudflare. It stays in memory for
+          this tab and is cleared when the page reloads.
+        </p>
+        <form id="unlock-form" class="stack">
+          <label
+            >Host token<input
+              id="host-token"
+              type="password"
+              required
+              minlength="32"
+              autocomplete="off" /></label
+          ><button class="button" type="submit">Unlock console →</button>
+        </form>
+      </section>
+      <section id="console" hidden>
+        <div class="toolbar">
+          <nav class="host-tabs" aria-label="Host console tabs">
+            <button data-tab="rewards" class="active">Credit rewards</button
+            ><button data-tab="players">Players &amp; access</button
+            ><button data-tab="pickems">Pick’ems</button
+            ><button data-tab="catalog">Catalog &amp; prices</button
+            ><button data-tab="activity">Activity</button
+            ><button data-tab="resets">Reset tools</button>
+          </nav>
+          <button class="text-button" id="lock">Lock console</button>
+        </div>
+        <div id="host-content"></div>
+      </section>
+      <div
+        id="result"
+        class="host-result"
+        role="status"
+        aria-live="polite"
+      ></div>
+    </main>
+  </body>
+</html>

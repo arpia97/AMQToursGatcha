@@ -1,0 +1,190 @@
+[
+  {
+    "id": "mal-character-118763",
+    "kind": "character",
+    "name": "Rem",
+    "series": "Re:ZERO",
+    "image": "https://cdn.myanimelist.net/images/characters/9/311327.jpg",
+    "source": "https://myanimelist.net/character/118763",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-45627",
+    "kind": "character",
+    "name": "Levi",
+    "series": "Attack on Titan",
+    "image": "https://cdn.myanimelist.net/images/characters/2/241413.jpg",
+    "source": "https://myanimelist.net/character/45627",
+    "role": "supporting"
+  },
+  {
+    "id": "mal-character-417",
+    "kind": "character",
+    "name": "Lelouch Lamperouge",
+    "series": "Code Geass",
+    "image": "https://cdn.myanimelist.net/images/characters/8/406163.jpg",
+    "source": "https://myanimelist.net/character/417",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-1",
+    "kind": "character",
+    "name": "Spike Spiegel",
+    "series": "Cowboy Bebop",
+    "image": "https://cdn.myanimelist.net/images/characters/11/516853.jpg",
+    "source": "https://myanimelist.net/character/1",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-80",
+    "kind": "character",
+    "name": "Light Yagami",
+    "series": "Death Note",
+    "image": "https://cdn.myanimelist.net/images/characters/6/63870.jpg",
+    "source": "https://myanimelist.net/character/80",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-13",
+    "kind": "character",
+    "name": "Sasuke Uchiha",
+    "series": "Naruto",
+    "image": "https://cdn.myanimelist.net/images/characters/9/131317.jpg",
+    "source": "https://myanimelist.net/character/13",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-62",
+    "kind": "character",
+    "name": "Zoro Roronoa",
+    "series": "One Piece",
+    "image": "https://cdn.myanimelist.net/images/characters/3/100534.jpg",
+    "source": "https://myanimelist.net/character/62",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-1555",
+    "kind": "character",
+    "name": "Hinata Hyuuga",
+    "series": "Naruto",
+    "image": "https://cdn.myanimelist.net/images/characters/6/278736.jpg",
+    "source": "https://myanimelist.net/character/1555",
+    "role": "supporting"
+  },
+  {
+    "id": "mal-character-35252",
+    "kind": "character",
+    "name": "Rintarou Okabe",
+    "series": "Steins;Gate",
+    "image": "https://cdn.myanimelist.net/images/characters/6/122643.jpg",
+    "source": "https://myanimelist.net/character/35252",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-23602",
+    "kind": "character",
+    "name": "Shinobu Oshino",
+    "series": "Monogatari",
+    "image": "https://cdn.myanimelist.net/images/characters/16/234167.jpg",
+    "source": "https://myanimelist.net/character/23602",
+    "role": "supporting"
+  },
+  {
+    "id": "mal-character-40881",
+    "kind": "character",
+    "name": "Mikasa Ackerman",
+    "series": "Attack on Titan",
+    "image": "https://cdn.myanimelist.net/images/characters/9/215563.jpg",
+    "source": "https://myanimelist.net/character/40881",
+    "role": "main"
+  },
+  {
+    "id": "mal-character-184947",
+    "kind": "character",
+    "name": "Frieren",
+    "series": "Frieren: Beyond Journey’s End",
+    "image": "https://cdn.myanimelist.net/images/characters/7/525105.jpg",
+    "source": "https://myanimelist.net/character/184947",
+    "role": "main"
+  },
+  {
+    "id": "mal-person-118",
+    "kind": "seiyuu",
+    "name": "Hiroshi Kamiya",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/1/66163.jpg",
+    "source": "https://myanimelist.net/people/118"
+  },
+  {
+    "id": "mal-person-672",
+    "kind": "seiyuu",
+    "name": "Yuuki Kaji",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/3/89058.jpg",
+    "source": "https://myanimelist.net/people/672"
+  },
+  {
+    "id": "mal-person-185",
+    "kind": "seiyuu",
+    "name": "Kana Hanazawa",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/3/69318.jpg",
+    "source": "https://myanimelist.net/people/185"
+  },
+  {
+    "id": "mal-person-869",
+    "kind": "seiyuu",
+    "name": "Saori Hayami",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/1/86542.jpg",
+    "source": "https://myanimelist.net/people/869"
+  },
+  {
+    "id": "mal-person-34785",
+    "kind": "seiyuu",
+    "name": "Rie Takahashi",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/3/86541.jpg",
+    "source": "https://myanimelist.net/people/34785"
+  },
+  {
+    "id": "mal-person-86",
+    "kind": "seiyuu",
+    "name": "Jun Fukuyama",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/2/82978.jpg",
+    "source": "https://myanimelist.net/people/86"
+  },
+  {
+    "id": "mal-person-212",
+    "kind": "seiyuu",
+    "name": "Daisuke Ono",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/1/88897.jpg",
+    "source": "https://myanimelist.net/people/212"
+  },
+  {
+    "id": "mal-person-6686",
+    "kind": "seiyuu",
+    "name": "Aoi Yuuki",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/3/67808.jpg",
+    "source": "https://myanimelist.net/people/6686"
+  },
+  {
+    "id": "mal-person-13639",
+    "kind": "seiyuu",
+    "name": "Maaya Uchida",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/2/92150.jpg",
+    "source": "https://myanimelist.net/people/13639"
+  },
+  {
+    "id": "mal-person-65",
+    "kind": "seiyuu",
+    "name": "Mamoru Miyano",
+    "series": "Voice actor",
+    "image": "https://cdn.myanimelist.net/images/voiceactors/1/66414.jpg",
+    "source": "https://myanimelist.net/people/65"
+  }
+]
