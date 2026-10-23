@@ -74,7 +74,7 @@ const cardBy = (id) =>
   };
 const image = (c) =>
   c.image
-    ? `<img src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
+    ? `<img class="${c.id?.startsWith("acdb-") ? "acdb-portrait" : ""}" src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
     : `<div class="fallback-img" aria-label="No image">✦</div>`;
 function toast(message, error = false) {
   clearTimeout(toastTimer);

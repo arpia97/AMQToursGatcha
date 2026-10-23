@@ -550,6 +550,11 @@ main {
   background: linear-gradient(transparent, #191b2340);
   pointer-events: none;
 }
+.portrait > img.acdb-portrait,
+.profile-avatar img.acdb-portrait,
+.hero-card img.acdb-portrait {
+  object-position: center top;
+}
 .card-tag {
   position: absolute;
   left: 9px;
