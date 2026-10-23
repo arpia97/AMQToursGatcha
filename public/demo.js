@@ -125,7 +125,7 @@ export class Demo {
       const cards = s.catalog.filter(
         (c) =>
           c.kind === kind &&
-          (c.name + " " + c.series).toLowerCase().includes(q),
+          [c.name,c.series,c.series_romaji,c.series_english].filter(Boolean).join(" ").toLowerCase().includes(q),
       );
       return {
         cards: cards.slice((page - 1) * 40, page * 40),

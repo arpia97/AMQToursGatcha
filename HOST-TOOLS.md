@@ -72,9 +72,11 @@ Catalog imports accept 500 entries per request; the browser console chunks large
 
 ## Expand the catalog
 
-Follow [CATALOG.md](CATALOG.md) to seed ACDB's published exports. Large snapshots use authenticated `acdb-chunks` and `acdb-activate` endpoints; the upload helper saves its checkpoint locally and activation rejects incomplete or inconsistent indexes. Current catalogs remain available until successful activation. GET `/api/catalog?kind=character&q=Frieren&page=1` browses/searches a 40-card page publicly. The host role form searches that same catalog and saves per-card overrides.
+Use Tenrai discovery from the Catalog & prices tab. It imports MAL character portraits, Main/Supporting roles, bilingual anime titles and Japanese voice actors. The same section shows discovery/favorite scan progress, pause/resume, and a manual favorites refresh. See [CATALOG.md](CATALOG.md).
 
-Seiyuus have no role classification. ACDB's exports do not contain a complete voice-actor portrait database. Keep a single stable provider ID per actor and resolve identities before combining sources.
+GET /api/catalog?kind=character&q=Frieren&page=1 returns a public 40-card page. Search checks both title languages. Host role corrections override source classification without creating a second identity. JSON imports accept series_romaji and series_english. Actors remain unclassified.
+
+All reset scopes protect the character/seiyuu catalogues, bilingual titles, import checkpoints and rarity data. Full registry deletion still revokes every account/session and resets gameplay/prices. The one-time ACDB retirement migration is separate and never clears the Tenrai catalogue.
 
 ## Administrator accounts
 
@@ -85,3 +87,12 @@ The protected `POST /api/host/admin-account` accepts `{player, password}` (optio
 The `jikan-*` endpoint names are retained for compatibility. Requests now use Tenrai at `https://api.tenrai.org/v1`, which preserves Jikan v4 schemas and MAL IDs. Jikan’s public instance was discontinued on October 1, 2026 ([maintainer announcement](https://github.com/jikan-me/jikan-rest/issues/613)).
 
 GET `jikan-status` returns source-import progress, including the active provider. POST `jikan-start` starts or resumes the finite anime-catalog scan; POST `jikan-pause` pauses it. Use empty JSON objects for these controls. The host Catalog & prices tab exposes these controls and refreshes progress every 30 seconds. Jobs run on Cloudflare alarms, so a local computer or open browser is unnecessary. Temporary errors retain the same page/title and increase the delay; HTTP 400/403 pauses for inspection. Existing MAL actor IDs are preserved, and existing actor metadata is not overwritten by the discovery pass.
+
+## Character migration and favorite refresh API
+
+- GET /api/host/acdb-retirement: authenticated preview of affected ACDB inventory, avatars, auctions, overrides and manifest; save privately before replacement.
+- POST /api/host/replace-acdb: body {"confirmation":"REPLACE ACDB WITH TENRAI"} plus an Idempotency-Key. Retires only ACDB and enables combined Tenrai discovery. Retries preserve progress.
+- POST /api/host/favorites-refresh: body {"intervalDays":15}. Starts a batch scan, or updates an active scan's interval without losing its checkpoint. Does not bypass backoff. All upstream work uses the shared ten-second interval.
+- GET /api/host/jikan-status: discovery plus nested favorites scan state. Legacy jikan-start/jikan-pause paths control the combined Tenrai job.
+
+Catalogues and import metadata are preserved even with reset-all/deleteRegistry:true. No host reset endpoint clears them. AG is the abbreviated Anything Goes tier; rarity is derived from favorite counts, not submitted in host catalogue JSON.

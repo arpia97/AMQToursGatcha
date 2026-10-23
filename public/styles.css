@@ -1832,3 +1832,124 @@ dialog form {
     font-size: 6px;
   }
 }
+
+/* MAL popularity grades are separate from enhancement frames. */
+.title-mode {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.title-mode select {
+  font: inherit;
+  color: var(--text);
+  background: #202129;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.grade-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  min-width: 31px;
+  text-align: center;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid #ffffff50;
+  background: #20212bea;
+  color: #e2e3ec;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 3px 12px #0008;
+}
+.grade-ag {
+  color: #ffedaf;
+  background: linear-gradient(130deg, #753a75, #a54f29);
+  border-color: #ffd76e;
+  box-shadow: 0 0 18px #ffce6866;
+}
+.grade-ubers {
+  color: #fbd9ff;
+  background: #632d72ee;
+  border-color: #df8ef0;
+}
+.grade-sss {
+  color: #ffd39f;
+  background: #753a27ed;
+  border-color: #fbb06a;
+}
+.grade-ss {
+  color: #ffc6d6;
+  background: #652b43ed;
+  border-color: #ed8cac;
+}
+.grade-s {
+  color: #d6c4ff;
+  background: #493165ed;
+  border-color: #b798f1;
+}
+.grade-a {
+  color: #b9ddff;
+  background: #214c6aed;
+  border-color: #78b9ed;
+}
+.grade-b {
+  color: #c4f2df;
+  background: #245246ed;
+  border-color: #83cdb4;
+}
+.grade-c {
+  color: #e7e6bd;
+  background: #515039ed;
+  border-color: #b8b377;
+}
+.grade-d,
+.grade-pending {
+  color: #d0d0db;
+  background: #353540ed;
+  border-color: #797985;
+}
+.grade-pending {
+  font-size: 9px;
+  font-weight: 500;
+}
+.rarity-guide {
+  margin: 20px 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+.rarity-guide summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+}
+.rarity-guide p {
+  max-width: 1000px;
+  padding: 8px 0;
+}
+@media (max-width: 600px) {
+  .title-mode span {
+    display: none;
+  }
+  .title-mode select {
+    max-width: 82px;
+    padding: 7px 5px;
+    font-size: 10px;
+  }
+  .topbar {
+    padding: 0 10px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+  .topbar .top-divider,
+  .topbar .eyebrow {
+    display: none;
+  }
+}

@@ -96,7 +96,59 @@ export function personCard(person, language, series = "Voice actor") {
     series: String(series).slice(0, 180),
     image,
     source: "https://myanimelist.net/people/" + person.mal_id,
+    favorites:
+      Number.isSafeInteger(person.favorites) && person.favorites >= 0
+        ? person.favorites
+        : null,
   };
+}
+
+export function animeTitles(t) {
+  const romaji = String(
+    t.title || t.titles?.find((x) => x.type === "Default")?.title || "",
+  )
+    .trim()
+    .slice(0, 500);
+  const english = String(
+    t.title_english || t.titles?.find((x) => x.type === "English")?.title || "",
+  )
+    .trim()
+    .slice(0, 500);
+  return { series: romaji, series_romaji: romaji, series_english: english };
+}
+
+export function characterCards(data, title) {
+  if (!Array.isArray(data))
+    throw new Error("Tenrai returned an invalid cast response.");
+  const cards = new Map();
+  for (const credit of data) {
+    const c = credit.character,
+      image = c?.images?.jpg?.image_url;
+    // Only documented MAL roles enter the pool; unknown roles are never guessed.
+    if (
+      !Number.isSafeInteger(c?.mal_id) ||
+      c.mal_id < 1 ||
+      typeof c.name !== "string" ||
+      !c.name.trim() ||
+      c.name.length > 160 ||
+      !["Main", "Supporting"].includes(credit.role) ||
+      typeof image !== "string" ||
+      !/^https:\/\/cdn\.myanimelist\.net\//.test(image) ||
+      /questionmark|placeholder|apple-touch-icon/i.test(image)
+    )
+      continue;
+    const card = {
+      id: "mal-character-" + c.mal_id,
+      kind: "character",
+      name: c.name.trim(),
+      ...animeTitles(title),
+      role: credit.role.toLowerCase(),
+      image,
+      source: "https://myanimelist.net/character/" + c.mal_id,
+    };
+    if (!cards.has(card.id) || card.role === "main") cards.set(card.id, card);
+  }
+  return [...cards.values()];
 }
 
 export function voiceCards(data, title) {

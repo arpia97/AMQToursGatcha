@@ -54,13 +54,11 @@ The test suite uses real SQLite transactions for the shared economy, weighted dr
 
 ## Initial data and remaining setup
 
-The ACDB snapshot contains **70,029 anime-linked character records** from the provider's published SQL exports. Main Character and Protagonist records map to Main (8,703); Supporting/other assigned roles map to Supporting (11,195); Unsorted stays unknown (50,131) with weight 100. TV anime, movies, OVA and ONA are included; there is no gender filter. Stable ACDB IDs are retained, including separate series/age variants. This is a dated provider snapshot, not a promise of every character ever created.
+Characters and Japanese seiyuus now import gradually from the MAL catalogue through Tenrai, using MAL IDs and portraits. Character roles use documented Main/Supporting credits. Cards retain English and Romaji/default anime titles, with a persistent display toggle and search across both versions. The old ACDB snapshot and public download have been retired.
 
-See [CATALOG.md](CATALOG.md) for repeatable bulk import, resumable uploads, provenance, licensing, and role corrections. The adapted database is freely downloadable under ODbL from `public/data/acdb-catalog.json.gz`, with [attribution](public/data/README.md). Portraits/artwork retain their owners' rights.
+Popularity rarity uses separate character/seiyuu favorite-count percentiles: AG <0.1%, Ubers <0.5%, SSS <1%, SS <2.5%, S <5%, A <10%, B <20%, C <40%, and D otherwise. Tied counts share an averaged rank. Favorites refresh automatically in batches every 15 days, with manual controls in the host console. Rarity does not change enhancement levels or pack odds. Grades are provisional while the initial import grows the pool.
 
-The 22-card demo/starter includes 12 MAL characters and 10 voice actors. For a live ACDB deployment, import **only its 10 seiyuus** to avoid duplicate character identities. ACDB's exports do not provide a complete voice-actor portrait catalog. A resumable Tenrai importer (Jikan-compatible) now discovers seiyuus from Japanese voice credits. It reuses the starter MAL person IDs and runs on Cloudflare with a ten-second request interval, saved checkpoints and outage backoff. The host console shows progress and pause/resume controls. Jikan’s public service closed on October 1, 2026; Tenrai is a maintainer-listed replacement. Upstream availability determines when new records can be added.
-
-AniList's API terms prohibit mass collection or storage. The old optional AniList helper has been removed; use the published ACDB export for the character bulk seed.
+The importer and favorite scans share one request every ten seconds, persisted checkpoints, leases, and outage backoff. They run on Cloudflare when your PC is off. All host reset scopes preserve the catalogues, import progress, and popularity data. The 22-card browser demo remains a small sample. See [CATALOG.md](CATALOG.md) for coverage, source rules, migration, rarity definitions and scheduling.
 
 The real AMQ Tours player/alias registry is **not committed to this public repository**. Import a CSV through the host console. Automatic Google Sheets synchronization is not configured. AMQ Tours ratings, statistics, and the existing Python host application are unchanged; the separate command-line tool provides a supported integration point.
 

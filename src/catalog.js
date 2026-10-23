@@ -1,4 +1,6 @@
 import { fail, integer, text } from "./engine.js";
+import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
+import { Popularity } from "./popularity.js";
 
 // ACDB metadata is stored in bounded JSON chunks. A bulk seed writes hundreds
 // of SQLite rows instead of hundreds of thousands of individual row/index writes.
@@ -11,6 +13,8 @@ export class Catalog {
     engine.run(
       "CREATE TABLE IF NOT EXISTS catalog_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)",
     );
+    this.tenrai = new TenraiCatalog(engine);
+    this.popularity = new Popularity(engine);
   }
   manifest() {
     const row = this.e.one("SELECT value FROM catalog_meta WHERE key='acdb'");
@@ -28,18 +32,24 @@ export class Catalog {
     return row ? JSON.parse(row.payload) : null;
   }
   bulkCard(id) {
+    const mal = this.tenrai.card(id);
+    if (mal) return mal;
     const match = /^acdb-character-(\d+)$/.exec(id);
     return match
       ? this.chunk("cards", Math.floor(Number(match[1]) / 500))?.[id]
       : null;
   }
-  card(id) {
+  rawCard(id) {
     return (
       this.e.one("SELECT * FROM catalog WHERE id=?", id) || this.bulkCard(id)
     );
   }
+  card(id) {
+    const c = this.rawCard(id);
+    return c ? this.popularity.decorate([c])[0] : null;
+  }
   summary() {
-    const m = this.manifest(),
+    const m = this.tenrai.manifest() || this.manifest(),
       small = this.e.all(
         "SELECT kind,count(*) AS n FROM catalog WHERE active=1 GROUP BY kind",
       );
@@ -54,6 +64,22 @@ export class Catalog {
     return { ...counts, total: counts.character + counts.seiyuu, source: m };
   }
   draw(kind, rand, mainWeight = 100, excluded = new Set()) {
+    return this.popularity.decorate([
+      this.rawDraw(kind, rand, mainWeight, excluded),
+    ])[0];
+  }
+  rawDraw(kind, rand, mainWeight = 100, excluded = new Set()) {
+    if (kind === "character" && this.tenrai.manifest()) {
+      const local = this.e
+        .all(
+          "SELECT * FROM catalog WHERE kind='character' AND active=1 ORDER BY id",
+        )
+        .filter((c) => !excluded.has(c.id));
+      const overrides = this.e.all(
+        "SELECT id,bulk_role FROM catalog WHERE bulk_role IS NOT NULL",
+      );
+      return this.tenrai.draw(rand, mainWeight, excluded, local, overrides);
+    }
     const m = kind === "character" ? this.manifest() : null;
     const small = this.e
       .all("SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY id", kind)
@@ -132,13 +158,23 @@ export class Catalog {
         "SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY name COLLATE NOCASE,id",
         kind,
       )
-      .filter((c) => (c.name + " " + c.series).toLowerCase().includes(q));
+      .filter((c) => characterSearch(c).includes(q));
     const overrides = new Set(
       this.e
         .all("SELECT id FROM catalog WHERE bulk_role IS NOT NULL")
         .map((c) => c.id),
     );
     const cards = [];
+    if (kind === "character" && this.tenrai.manifest()) {
+      const result = this.tenrai.browse(q, offset, limit, local, overrides);
+      return {
+        ...result,
+        cards: this.popularity.decorate(result.cards),
+        page,
+        limit,
+        total: q ? null : this.summary()[kind],
+      };
+    }
     let seen = 0,
       more = false;
     const add = (c) => {
@@ -178,7 +214,7 @@ export class Catalog {
       }
     }
     return {
-      cards,
+      cards: this.popularity.decorate(cards),
       page,
       limit,
       hasMore: more,
@@ -186,6 +222,8 @@ export class Catalog {
     };
   }
   importChunk(b) {
+    if (this.e.one("SELECT key FROM catalog_meta WHERE key='acdb-retired'"))
+      fail("ACDB was retired. Use the Tenrai importer.", 409);
     const version = text(b.version, 80),
       section = text(b.section, 20),
       bucket = integer(b.bucket, 0, 10000);
@@ -260,6 +298,8 @@ export class Catalog {
     return { message: "Catalog chunk saved.", section, bucket };
   }
   activate(b) {
+    if (this.e.one("SELECT key FROM catalog_meta WHERE key='acdb-retired'"))
+      fail("ACDB was retired. Use the Tenrai importer.", 409);
     const m = b.manifest;
     if (!m || !/^[a-f0-9]{16}$/.test(m.version) || m.provider !== "ACDB")
       fail("Invalid catalog manifest.");
@@ -335,6 +375,85 @@ export class Catalog {
     return {
       message: `Activated ${m.count} ACDB anime characters.`,
       manifest: m,
+    };
+  }
+  retirementPreview() {
+    return {
+      at: this.e.now(),
+      manifest: this.manifest(),
+      inventory: this.e.all(
+        "SELECT * FROM inventory WHERE card LIKE 'acdb-character-%'",
+      ),
+      auctions: this.e.all(
+        "SELECT * FROM auctions WHERE card LIKE 'acdb-character-%'",
+      ),
+      avatars: this.e.all(
+        "SELECT id,avatar_card FROM players WHERE avatar_card LIKE 'acdb-character-%'",
+      ),
+      overrides: this.e.all(
+        "SELECT * FROM catalog WHERE id LIKE 'acdb-character-%'",
+      ),
+    };
+  }
+  retireAcdb(confirmation) {
+    if (confirmation !== "REPLACE ACDB WITH TENRAI")
+      fail("Type REPLACE ACDB WITH TENRAI to confirm.");
+    if (this.e.one("SELECT key FROM catalog_meta WHERE key='acdb-retired'"))
+      return { message: "ACDB has already been replaced." };
+    const plan = this.retirementPreview();
+    let refunded = 0;
+    for (const a of plan.auctions)
+      if (a.winner && a.bid > 0 && !a.claimed) {
+        this.e.wallet(
+          a.winner,
+          a.bid,
+          "ACDB catalogue replacement: auction refund",
+        );
+        refunded += a.bid;
+      }
+    this.e.run("DELETE FROM inventory WHERE card LIKE 'acdb-character-%'");
+    this.e.run("DELETE FROM auctions WHERE card LIKE 'acdb-character-%'");
+    this.e.run(
+      "UPDATE players SET avatar_card=NULL WHERE avatar_card LIKE 'acdb-character-%'",
+    );
+    this.e.run("DELETE FROM catalog WHERE id LIKE 'acdb-character-%'");
+    this.e.run("DELETE FROM catalog_bulk");
+    this.e.run("DELETE FROM catalog_meta WHERE key='acdb'");
+    // Keep idempotency receipts so old pack requests cannot charge again. Remove
+    // their retired card payloads, rather than resurrecting cards on a retry.
+    for (const r of this.e.all(
+      "SELECT scope,key,result FROM receipts WHERE instr(result,'acdb-character-')>0",
+    )) {
+      const result = JSON.parse(r.result);
+      if (Array.isArray(result.cards))
+        result.cards = result.cards.filter(
+          (c) => !c.id?.startsWith("acdb-character-"),
+        );
+      result.message =
+        "This action was already completed before the ACDB catalogue was retired.";
+      this.e.run(
+        "UPDATE receipts SET result=? WHERE scope=? AND key=?",
+        JSON.stringify(result),
+        r.scope,
+        r.key,
+      );
+    }
+    this.tenrai.initialize();
+    this.e.run(
+      "INSERT INTO catalog_meta VALUES('acdb-retired',?)",
+      JSON.stringify({
+        at: this.e.now(),
+        inventory: plan.inventory.length,
+        auctions: plan.auctions.length,
+        refunded,
+      }),
+    );
+    return {
+      message: "ACDB removed. Tenrai character import enabled.",
+      removedInventory: plan.inventory.length,
+      removedAuctions: plan.auctions.length,
+      clearedAvatars: plan.avatars.length,
+      refunded,
     };
   }
 }

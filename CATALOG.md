@@ -1,47 +1,47 @@
-# Catalog sources and bulk seed
+# MAL catalogue through Tenrai
 
-## ACDB characters
+Characters and Japanese voice actors are discovered from the public MyAnimeList catalogue through [Tenrai](https://api.tenrai.org/llms.txt). Tenrai serves its own collected data and uses MAL IDs and the Jikan v4 response format. Jikan's public instance closed on October 1, 2026; compatibility module and `jikan-*` endpoint names remain for existing tools.
 
-Use Python 3.10+ and Node 24. The three [published ACDB exports](https://www.animecharactersdatabase.com/databasedumps.php) are downloaded once and cached. Individual character pages and portrait images are not crawled. Downloaded SQL is parsed as literal data and never executed.
+## Discovery and character identities
 
-```sh
-python tools/acdb.py --cache ../../work/acdb --out ../../work/acdb-bundle --public public/data
-```
+The importer pages `/anime?order_by=mal_id&sort=asc&limit=25&page=N`, then reads each `/anime/{id}/characters` response. One response provides character portraits, Main/Supporting roles, favorite counts, and Japanese voice credits with actor portraits and favorite counts. Only real MAL portraits and valid identities enter the pool; missing images and undocumented character roles are skipped. There is no gender filter. Actors have no Main/Supporting classification.
 
-The cache and upload bundle are local intermediate files, outside the public web root. The adapted JSON download and manifest in `public/data/` are public and contain no player data. The database is adapted under [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/); retain its attribution and public download. Linked artwork has separate rights.
+Character IDs are `mal-character-{id}`; actor IDs are `mal-person-{id}`. Repeated appearances do not create a second collectible. The first Main appearance becomes the character's primary anime; later Supporting credits cannot demote it. Host overrides take precedence. Cards record `series_romaji` (MAL's default title) and `series_english` separately. The viewer's title preference is saved in their browser; missing English titles fall back to the default. Search checks both title versions regardless of display preference.
 
-Only characters linked to TV anime, movies, OVA or ONA are selected. Anime links from the assignments export are considered even when the primary title is not anime. The displayed series prefers the primary anime title, then the lowest anime title ID. There are no sex filters. ACDB IDs and series variants are retained; this importer does not guess cross-series identities. Main Character/Protagonist map to Main; Unsorted is unknown; other assigned roles use Supporting. Unknown uses weight 100. Seiyuus are not classified.
+Character metadata is kept in bounded buckets of at most 500 MAL identities, with Main/Supporting counts and search indexes. Pack draws and auctions read bounded buckets. Public browsing returns 40 cards per page; shared state includes only referenced metadata. Host JSON imports accept optional bilingual title fields and never set popularity tiers directly.
 
-Input SHA-256 hashes, filtering/mapping policy and counts are recorded in `acdb-manifest.json`. Catalog version is derived from the converted records, so unchanged inputs produce the same version. To fetch a newer dump, use a new cache directory. Validate its manifest before uploading.
+## Popularity rarity
 
-## Upload and activate
+Characters and seiyuus are ranked separately within the imported eligible pools using their MAL favorite counts. Missing favorites are Pending, never an invented zero. Zero is valid when reported by the source. Equal counts share their average ordinal rank. The top percentile is `100 * (strictly greater count + (tie count - 1) / 2) / ranked population`. Ties never split between tiers, and a large zero-favorite tie stays near the bottom.
 
-Set `AMQ_HOST_TOKEN` from a private local source, then:
+| Tier               | Cumulative top-percentile cutoff |
+| ------------------ | -------------------------------: |
+| AG (Anything Goes) |                           < 0.1% |
+| Ubers              |                           < 0.5% |
+| SSS                |                             < 1% |
+| SS                 |                           < 2.5% |
+| S                  |                             < 5% |
+| A                  |                            < 10% |
+| B                  |                            < 20% |
+| C                  |                            < 40% |
+| D                  |             Remaining population |
 
-```sh
-node tools/seed-acdb.mjs --bundle ../../work/acdb-bundle --url https://YOUR-GAME.workers.dev
-```
+Grades are computed from sparse favorite-count histograms when cards are returned, so an updated count does not require rewriting every card. Grades are provisional while discovery grows the population. Popularity rarity is separate from enhancement level and does not change pack odds. Main characters retain the configured lower relative draw weight; seiyuus retain equal odds.
 
-Alternatively use `--token-file .production.vars` (ignored file with `HOST_TOKEN=...`). Do not pass a token as a command argument. The helper sends up to eight bounded chunks per request, waits between batches, retries temporary errors, and saves acknowledged chunks in the local bundle. Run the same command to resume. Do not reuse a checkpoint after deleting/recreating the database; remove that specific local checkpoint first.
+## Gentle automatic refresh
 
-Uploads remain staged until activation checks card/pool/browse counts, chunk continuity, unique IDs and role consistency. Activation changes the active snapshot in a transaction. Pack draws and auctions use indexed chunks rather than loading every card. Public browsing is paginated at 40 cards. Host role changes override the corresponding source record without making it a second collectible.
+One persisted scheduler handles discovery and favorite refreshes. All upstream work shares one request at a time and a minimum ten-second interval (six requests/minute). Discovery gets four out of every five requests while a favorite scan is active. Favorites use `/characters` and `/people` pages of up to 100 profiles in stable MAL ID order. Only favorite counts for existing eligible cards are retained; biographies and unrelated staff records are discarded.
 
-Import only the seiyuu records from `public/sample-catalog.json` if using ACDB characters. The host starter button does this automatically when an ACDB snapshot is active. The 10 sample seiyuus are a small initial pool, not complete coverage.
+The first favorite scan starts with character discovery; subsequent scans start **15 days after the previous scan completes**. After discovery finishes, the scheduler sleeps between scans. The host console shows progress, last completion, and next due time, with manual refresh and interval controls. Pausing the importer pauses all upstream requests. Updating an already-running scan preserves its checkpoint. Periodic scans refresh favorites, not the title catalogue; a future discovery sweep is needed to discover anime added after the initial pass.
 
-The original AniList bulk helper was removed because AniList prohibits mass collection/storage. Lowering request frequency does not change that restriction.
+Each request has a 20-second timeout and bounded response size. Temporary failures use exponential backoff from five minutes to six hours and honor Retry-After. HTTP 400/403 pauses the job. Persisted leases and generation fencing prevent overlapping requests or stale responses after a pause/source switch. Durable Object alarms continue when the browser and PC are off and preserve weekly auction alarms.
 
-## Kitsu seiyuu source
+## Protected catalogue and ACDB retirement
 
-The public JSON:API responds at `/api/edge/people/{id}` with `data.attributes.name` and `data.attributes.image.original`. The people collection includes non-voice production staff. Use `/api/edge/character-voices?include=person,mediaCharacter` to identify credited voice actors and inspect `attributes.locale` (`ja_jp` for Japanese credits), then deduplicate by the related person ID. An actor's card has no Main/Supporting classification, regardless of the character role attached to the credit.
+Player resets and both community reset scopes always retain character/seiyuu catalogues, import checkpoints, bilingual titles, and popularity data. Even `deleteRegistry: true` only removes players/gameplay and resets prices; it cannot delete the catalogue. There is no host operation to clear the Tenrai catalogue.
 
-The endpoint was verified with Yui Ishikawa (person 6487). A Kitsu-wide import is not active. Any future importer should use one request at a time, saved pagination progress, a conservative delay, Retry-After/backoff, and stable IDs. Missing portraits and cross-provider actor matches need explicit handling. API availability is not a blanket license for portrait photographs.
+The retired ACDB snapshot is no longer deployed or used. The one-time protected `replace-acdb` migration removes only ACDB-prefixed inventory, auctions, avatars, overrides and bulk metadata, refunds unclaimed auction holds once without increasing lifetime earnings, and starts Tenrai discovery from page one. Existing seiyuus and unrelated accounts/gameplay survive. Old idempotency receipts remain so retried purchases cannot charge again; retired card results are removed. A host-only `acdb-retirement` preview can be saved privately before migration. Repeated migration requests do not restart progress. ACDB uploads/reactivation are rejected after retirement. Legacy conversion code and source history remain for migration/testing only.
 
-## Tenrai seiyuu import (Jikan-compatible)
+## Source rights
 
-Tenrai implements Jikan-compatible `people/{id}` and `people/{id}/full` endpoints that provide person profiles and portrait URLs. The people collection also includes producers, animators and other staff; person voice-credit entries do not carry a language field. This importer therefore reads the documented `anime/{id}/characters` response, where each `voice_actors` entry includes `person` and `language`. Only Japanese credits with a usable portrait enter the pool. Character Main/Supporting roles never classify or weight the actor.
-
-Anime titles are visited in ascending MAL ID order through paginated `/anime` searches. There is one API request at a time with at least ten seconds between successful requests. Tenrai documents 4 requests/second and 120/minute; this job targets six/minute. Errors use exponential backoff from five minutes to six hours and respect Retry-After. HTTP 400/403 pauses rather than bypassing an upstream refusal. The current queue/page, lease and counters are saved in SQLite before/after each request, with generation fencing for pause/reset races.
-
-Actor IDs are `mal-person-{id}`, matching the starter catalog. Repeated credits do not create duplicate collectibles, and the discovery pass does not overwrite existing metadata. Missing portraits are skipped. The scan is finite and reports completed only after reaching the final page and processing its title queue; coverage depends on Tenrai/MAL's available cast credits. Run and inspect it from the host console's Catalog & prices tab.
-
-Jikan’s maintainer [announced the public service was discontinued on October 1, 2026](https://github.com/jikan-me/jikan-rest/issues/613). Repeated timeouts/522s from that host are not treated as a recoverable source. Tenrai is a maintainer-listed replacement; it was verified against people details, paginated anime search, and anime voice credits before switching. [Tenrai documentation](https://api.tenrai.org/llms.txt) describes the compatibility and public limits. Its [terms](https://tenrai.org/terms) permit storing/caching responses in applications while preserving third-party rights. The compatibility modules and `jikan-*` host endpoint names remain for existing tools. A provider change retains the checkpoint and actor IDs, but clears the retired provider’s failure backoff. API access does not license linked portrait photographs. Portraits stay on provider URLs; no images or biographies are copied into this repository.
+[Tenrai's terms](https://tenrai.org/terms) permit collecting, caching, transforming and displaying API responses within applications while preserving third-party rights and access limits. This app does not expose a raw Tenrai database dump or competing API. Portraits remain on MAL CDN URLs; API access does not transfer artwork or portrait rights. No biographies are retained. The older adapted ACDB download is removed from the deployed site; historical attribution remains in Git history. AniList bulk collection is not used.

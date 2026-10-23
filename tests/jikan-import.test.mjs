@@ -153,3 +153,116 @@ test("migrating a retired-provider job keeps its checkpoint and clears retired-p
   assert.equal(resumed.lastError, null);
   assert.equal(f.job.read().queue[0].id, 99);
 });
+
+test("combined import saves bilingual MAL characters and schedules lightweight favorite scans every 15 days", async () => {
+  const calls = [];
+  const f = fixture(async (path) => {
+    calls.push(path);
+    if (path.startsWith("/anime?"))
+      return {
+        data: [
+          { mal_id: 1, title: "Romaji title", title_english: "English title" },
+        ],
+        pagination: { has_next_page: false, items: { total: 1 } },
+      };
+    if (path === "/anime/1/characters")
+      return {
+        data: [
+          {
+            character: {
+              mal_id: 1,
+              name: "Character",
+              images: {
+                jpg: {
+                  image_url:
+                    "https://cdn.myanimelist.net/images/characters/1/1.jpg",
+                },
+              },
+            },
+            role: "Main",
+            favorites: 10,
+            voice_actors: [
+              { person: { ...person, favorites: 20 }, language: "Japanese" },
+            ],
+          },
+        ],
+      };
+    if (path.startsWith("/characters?"))
+      return {
+        data: [{ mal_id: 1, favorites: 30 }],
+        pagination: { has_next_page: false },
+      };
+    if (path.startsWith("/people?"))
+      return {
+        data: [{ mal_id: 118, favorites: 40 }],
+        pagination: { has_next_page: false },
+      };
+    assert.fail("unexpected path " + path);
+  });
+  f.e.tx(() => {
+    f.e.catalogStore.tenrai.initialize();
+    f.job.enableCharacters();
+  });
+  for (let i = 0; i < 4; i++) {
+    f.advance(10000);
+    await f.job.step();
+  }
+  assert.equal(f.job.status().importedCharacters, 1);
+  assert.equal(f.job.status().importedActors, 1);
+  assert.equal(
+    f.e.catalogStore.card("mal-character-1").series_english,
+    "English title",
+  );
+  assert.equal(f.e.catalogStore.card("mal-character-1").favorites, 30);
+  assert.equal(f.e.catalogStore.card("mal-person-118").favorites, 40);
+  const state = f.job.status();
+  assert.equal(state.status, "completed");
+  assert.equal(state.favorites.status, "idle");
+  assert.equal(
+    state.favorites.nextRefreshAt - state.favorites.lastCompletedAt,
+    15 * 86400000,
+  );
+  assert.ok(f.job.nextAlarm());
+  await f.job.step();
+  assert.equal(calls.length, 4);
+  f.job.pause();
+  f.job.start();
+  assert.equal(f.job.status().nextAt, state.favorites.nextRefreshAt);
+  await f.job.step();
+  assert.equal(calls.length, 4);
+  f.e.tx(() =>
+    f.e.host("reset-all", {
+      deleteRegistry: true,
+      confirmation: "DELETE EVERYTHING",
+    }),
+  );
+  assert.equal(
+    f.job.status().favorites.nextRefreshAt,
+    state.favorites.nextRefreshAt,
+  );
+  f.advance(15 * 86400000);
+  await f.job.step();
+  assert.ok(calls.at(-1).startsWith("/characters?"));
+  assert.equal(f.job.status().favorites.kind, "seiyuu");
+  f.advance(10000);
+  await f.job.step();
+  assert.equal(f.job.status().favorites.status, "idle");
+});
+
+test("enabling character import fences an old in-flight seiyuu scan and resets discovery without deleting actors", async () => {
+  let finish;
+  const f = fixture(() => new Promise((resolve) => (finish = resolve)));
+  f.job.start();
+  f.advance(1000);
+  const pending = f.job.step();
+  f.e.tx(() => f.job.enableCharacters());
+  finish({
+    data: [{ mal_id: 999, title: "Stale title" }],
+    pagination: { has_next_page: false },
+  });
+  await pending;
+  assert.equal(f.job.read().queue.length, 0);
+  assert.equal(f.job.status().includeCharacters, true);
+  assert.equal(f.job.status().page, 1);
+  assert.equal(f.job.status().scannedTitles, 0);
+});

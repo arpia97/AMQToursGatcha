@@ -16,7 +16,7 @@ Host console: https://amqtours-gatcha.amqtours-gatcha.workers.dev/host.html
 
 The production HOST_TOKEN is saved in the local ignored `.production.vars` file. Open it locally to unlock the host console; keep it private. It is deployed as an encrypted runtime secret and is not part of GitHub or public assets. Authentication setup used the account's verified email and Wrangler OAuth. The administrator account can sign in directly at the host console. Additional AMQ players and aliases still need a host import.
 
-The ACDB character snapshot is seeded separately from code deployment. See [CATALOG.md](CATALOG.md). The 10 sample seiyuus are an initial pool. Tenrai discovery can expand it in the background; inspect its actual status in the host console. Kitsu-wide actor import is not active. Production gameplay has not been populated with fictional demo players.
+Tenrai discovery imports MAL characters and Japanese seiyuus in the background, including MAL portraits, character roles, and bilingual anime titles. Favorite scans refresh rarity every 15 days. Inspect progress in the host console; see [CATALOG.md](CATALOG.md). All host reset scopes preserve catalogues, import checkpoints, and rarity data. The old ACDB snapshot is retired. Production gameplay is not populated with fictional demo players.
 
 ## Option A: Deploy from your computer
 

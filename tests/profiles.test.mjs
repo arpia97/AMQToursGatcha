@@ -154,7 +154,7 @@ test("reset-player requires exact confirmation and clears only that player’s g
   assert.equal(f.e.profile("001").stats.participation, 0);
   assert.equal(f.e.player("002").balance, 200);
 });
-test("reset-all gameplay retains identity/catalog; full reset deletes registry and catalog", () => {
+test("reset-all gameplay retains identity; full reset deletes registry while protecting catalog", () => {
   const f = fixture();
   f.host("catalog", { cards: [{ id: "c", kind: "character", name: "Card" }] });
   f.host("grant", {
@@ -182,6 +182,6 @@ test("reset-all gameplay retains identity/catalog; full reset deletes registry a
     deleteRegistry: true,
   });
   assert.equal(f.e.all("SELECT * FROM players").length, 0);
-  assert.equal(f.e.all("SELECT * FROM catalog").length, 0);
+  assert.equal(f.e.all("SELECT * FROM catalog").length, 1);
   assert.equal(f.e.all("SELECT * FROM aliases").length, 0);
 });

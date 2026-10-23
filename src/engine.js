@@ -39,6 +39,8 @@ export class Engine {
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
+      ["catalog", "series_romaji", "TEXT NOT NULL DEFAULT ''"],
+      ["catalog", "series_english", "TEXT NOT NULL DEFAULT ''"],
     ]) {
       if (
         !this.all(`PRAGMA table_info(${table})`).some((c) => c.name === column)
@@ -452,6 +454,11 @@ export class Engine {
       if (!Array.isArray(b.cards) || b.cards.length > 500)
         fail("Import up to 500 cards per request.");
       for (const c of b.cards) {
+        if (
+          c.id?.startsWith("acdb-character-") &&
+          this.one("SELECT key FROM catalog_meta WHERE key='acdb-retired'")
+        )
+          fail("ACDB was retired. Use MAL character IDs.", 409);
         if (!["character", "seiyuu"].includes(c.kind))
           fail("Invalid catalog type.");
         const image = c.image || "",
@@ -463,14 +470,16 @@ export class Engine {
           c.kind === "seiyuu" ? "supporting" : c.role || "supporting";
         if (!["main", "supporting", "unknown"].includes(role))
           fail("Character role must be main, supporting, or unknown.");
-        const old = this.one(
-          "SELECT kind FROM catalog WHERE id=?",
-          text(c.id, 100),
-        );
+        const old = this.catalogStore.rawCard(text(c.id, 100));
+        if (
+          (c.id.startsWith("mal-person-") && c.kind !== "seiyuu") ||
+          (c.id.startsWith("mal-character-") && c.kind !== "character")
+        )
+          fail("MAL IDs must retain their character or person card type.");
         if (old && old.kind !== c.kind)
           fail("A catalog ID cannot change card type.");
         this.run(
-          "INSERT INTO catalog(id,kind,name,series,image,source,role,bulk_role) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role,bulk_role=excluded.bulk_role",
+          "INSERT INTO catalog(id,kind,name,series,image,source,role,bulk_role,series_romaji,series_english) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role,bulk_role=excluded.bulk_role,series_romaji=excluded.series_romaji,series_english=excluded.series_english",
           c.id,
           c.kind,
           text(c.name),
@@ -479,6 +488,8 @@ export class Engine {
           source.slice(0, 1000),
           role,
           this.catalogStore.bulkCard(c.id)?.role || null,
+          String(c.series_romaji || c.series || "").slice(0, 500),
+          String(c.series_english || "").slice(0, 500),
         );
       }
       return { message: `Imported ${b.cards.length} catalog cards.` };
@@ -529,11 +540,8 @@ export class Engine {
           "players",
           "aliases",
           "usernames",
-          "catalog",
           "receipts",
           "throttle",
-          "catalog_bulk",
-          "catalog_meta",
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
@@ -542,7 +550,7 @@ export class Engine {
       }
       return {
         message: full
-          ? "All stored players, aliases, usernames, cards, and gameplay data deleted. Host token remains configured."
+          ? "All players, aliases, usernames, passwords, and gameplay data deleted. Character and seiyuu catalogues, import progress, and rarity data retained. Host token remains configured."
           : "All gameplay reset. AMQ identities, usernames, account passwords, catalog, and prices retained. Everyone must sign in again.",
       };
     }
@@ -573,7 +581,7 @@ export class Engine {
       ...ranks.map((p) => p.avatar_card),
       me?.avatar_card,
     ]);
-    if (summary.source)
+    if (summary.source?.provider === "ACDB")
       for (const id of [
         "acdb-character-76951",
         "acdb-character-130626",

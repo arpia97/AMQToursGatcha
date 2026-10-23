@@ -219,7 +219,33 @@ export class Game extends DurableObject {
         });
       if (path === "host/jikan-status" && !post)
         return json(this.jikan.status());
+      if (path === "host/acdb-retirement" && !post)
+        return json(e.catalogStore.retirementPreview());
       if (!post) fail("POST required.", 405);
+      if (path === "host/replace-acdb") {
+        const result = e.mutate(
+          "host:replace-acdb",
+          request.headers.get("Idempotency-Key"),
+          b,
+          () => ({
+            ...e.catalogStore.retireAcdb(b.confirmation),
+            import: this.jikan.enableCharacters(),
+          }),
+        );
+        await this.scheduleAlarm();
+        return json(result);
+      }
+      if (path === "host/favorites-refresh") {
+        const status = e.tx(() =>
+          this.jikan.refreshFavorites(b.intervalDays ?? 15),
+        );
+        await this.scheduleAlarm();
+        return json({
+          message:
+            "Favorites refresh scheduled. Progress and retries are automatic.",
+          import: status,
+        });
+      }
       if (path === "host/jikan-start" || path === "host/jikan-pause") {
         const status = path.endsWith("start")
           ? this.jikan.start()
@@ -228,8 +254,8 @@ export class Game extends DurableObject {
         return json({
           message:
             status.status === "paused"
-              ? "Seiyuu import paused."
-              : "Tenrai seiyuu import scheduled. Progress is saved automatically.",
+              ? "Tenrai import and favorites refresh paused."
+              : "Tenrai import scheduled. Progress is saved automatically.",
           import: status,
         });
       }

@@ -1,4 +1,13 @@
+import { seriesTitle, rarityClass, popularityLabel } from "./card-display.js";
 const $ = (s) => document.querySelector(s);
+let titleMode = "romaji";
+try {
+  if (localStorage.getItem("amqtours-title-mode") === "english")
+    titleMode = "english";
+} catch {}
+const series = (c) => seriesTitle(c, titleMode);
+const gradeBadge = (c) =>
+  `<span class="grade-badge grade-${rarityClass(c.rarity)}" title="${escape(popularityLabel(c))}">${escape(c.rarity || "Pending")}</span>`;
 const escape = (s) =>
   String(s ?? "").replace(
     /[&<>"']/g,
@@ -110,7 +119,7 @@ function remaining(end) {
 }
 function cardHTML(c, a = null, item = null) {
   const mine = a?.winner === state.me?.id;
-  return `<article class="collect-card ${item ? "rarity-" + rarity(item.level) : ""}"><div class="portrait">${image(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${item ? `<span class="level-tag">LV. ${item.level}</span>` : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(c.series || "Voice actor")}</div>${a ? `<div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${escape(remaining(a.ends))}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || 1)} <span class="subtext">credits</span></div><button class="bid-button ${mine ? "winning" : ""}" data-action="${a.ends <= state.now ? "claim" : "bid"}" data-id="${a.id}">${a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗"}</button>` : item ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button>` : ""}</div></article>`;
+  return `<article class="collect-card ${item ? "rarity-" + rarity(item.level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${item ? `<span class="level-tag">LV. ${item.level}</span>` : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${a ? `<div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${escape(remaining(a.ends))}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || 1)} <span class="subtext">credits</span></div><button class="bid-button ${mine ? "winning" : ""}" data-action="${a.ends <= state.now ? "claim" : "bid"}" data-id="${a.id}">${a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗"}</button>` : item ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button>` : ""}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -156,7 +165,11 @@ function collection() {
     .filter(
       (i) =>
         i.c.kind === tab &&
-        i.c.name.toLowerCase().includes(search.toLowerCase()),
+        [i.c.name, i.c.series, i.c.series_romaji, i.c.series_english]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase()),
     );
   return (
     intro(
@@ -193,9 +206,9 @@ function packs() {
     ) +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
     <div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
-    <div class="rule"><strong>＝</strong><h3>A little more supporting luck</h3><p>Main characters have weight ${state.settings.main_weight ?? 80}, versus 100 for Supporting and Unsorted records. Seiyuu odds are equal.</p></div>
+    <div class="rule"><strong>＝</strong><h3>A little more supporting luck</h3><p>Main characters have weight ${state.settings.main_weight ?? 80}, versus 100 for Supporting characters. Seiyuu odds are equal.</p></div>
     <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>
-    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source ? "ACDB includes Unsorted roles; these are preserved rather than guessed." : ""} Gender never changes the odds.</div>
+    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""} Gender never changes the odds.</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Ranks are separate for characters and seiyuus in the imported pools. Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D the remaining 60%. Equal favorite counts share a tier. Rarity can change as the catalogue grows or favorites refresh every 15 days. Pending means favorites have not been checked. Popularity rarity does not change pack odds or enhancement level.</p></details>
     <div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}"></div>
     <div class="card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
     <div class="toolbar space-top">${btn("← Previous", "catalog-prev", catalogPageNumber <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${catalogPageNumber}${catalogPageData?.total != null ? " · " + number(catalogPageData.total) + " cards" : ""}</span>${btn("Next →", "catalog-next", catalogPageData?.hasMore ? "" : "disabled", "secondary")}</div>`
@@ -296,7 +309,7 @@ function profile() {
           .slice(0, 20)
           .map((item) => {
             const c = cardBy(item.card);
-            return `<article class="collect-card rarity-${rarity(item.level)}"><div class="portrait">${image(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(c.series)}</div></div></article>`;
+            return `<article class="collect-card rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
           })
           .join(
             "",
@@ -704,3 +717,13 @@ try {
     ) +
     `<div class="notice warm">${escape(err.message)}</div><a class="button" href="?demo=1">Explore the demo ↗</a>`;
 }
+
+const titleSelect = $("#title-mode");
+titleSelect.value = titleMode;
+titleSelect.addEventListener("change", () => {
+  titleMode = titleSelect.value;
+  try {
+    localStorage.setItem("amqtours-title-mode", titleMode);
+  } catch {}
+  if (state) render();
+});
