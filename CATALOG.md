@@ -26,7 +26,11 @@ Characters and seiyuus are ranked separately within the imported eligible pools 
 | C                  |                            < 40% |
 | D                  |             Remaining population |
 
-Grades are computed from sparse favorite-count histograms when cards are returned, so an updated count does not require rewriting every card. Grades are provisional while discovery grows the population. Popularity rarity is separate from enhancement level and does not change pack odds. Main characters retain the configured lower relative draw weight; seiyuus retain equal odds.
+Grades are computed from sparse favorite-count histograms when cards are returned, so an updated count does not require rewriting every card. Grades are provisional while discovery grows the population. Popularity rarity is separate from enhancement level and does not change normal-pack odds. Main characters retain the configured lower relative draw weight; normal seiyuu packs retain equal odds.
+
+Premium packs cost 2,000 credits for five cards by default and multiply base draw weights by rarity: AG 30, Ubers 24, SSS 20, SS 15, S 10, A 6, B 3, C 2, D/Pending 1. These are relative weights, not fixed percentages; final odds depend on the imported pool, favorites, and character roles. There is no guaranteed rare card. Prices are editable in the host console; weights are provisional code constants. A per-pack cache avoids repeating bucket and favorite-histogram reads during rejection sampling.
+
+Catalogue search accepts a rarity filter and a Main/Supporting/Unsorted role filter for characters. Seiyuus have only the rarity filter. Filters combine with either title language or name search and paginate 40 matching cards at a time. No gender classification is used.
 
 ## Gentle automatic refresh
 
@@ -35,6 +39,8 @@ One persisted scheduler handles discovery and favorite refreshes. All upstream w
 The first favorite scan starts with character discovery; subsequent scans start **15 days after the previous scan completes**. After discovery finishes, the scheduler sleeps between scans. The host console shows progress, last completion, and next due time, with manual refresh and interval controls. Pausing the importer pauses all upstream requests. Updating an already-running scan preserves its checkpoint. Periodic scans refresh favorites, not the title catalogue; a future discovery sweep is needed to discover anime added after the initial pass.
 
 Each request has a 20-second timeout and bounded response size. Temporary failures use exponential backoff from five minutes to six hours and honor Retry-After. HTTP 400/403 pauses the job. Persisted leases and generation fencing prevent overlapping requests or stale responses after a pause/source switch. Durable Object alarms continue when the browser and PC are off and preserve weekly auction alarms.
+
+Discovery and local index backfill also rest when the app's tracked daily SQL use reaches 2 million rows read or 30,000 rows written. They keep checkpoints and resume after midnight UTC. This reserves capacity for players on the free plan. The host console shows the app-local estimate; account-wide and platform operations may use additional allowance. Transactional catalogue counts and indexed housekeeping reduce repeated table scans. Anime collection progress uses an incremental primary-series index and makes no extra Tenrai requests.
 
 ## Protected catalogue and ACDB retirement
 

@@ -105,11 +105,18 @@ export class TenraiCatalog {
         this.e.run("UPDATE catalog SET bulk_role=? WHERE id=?", role, c.id);
     }
     m.count = m.groups.main + m.groups.other;
+    this.e.economy?.anime.index(
+      cards.map(
+        (c) =>
+          this.e.one("SELECT * FROM catalog WHERE id=?", c.id) ||
+          buckets.get(this.bucket(c.id))[c.id],
+      ),
+    );
     m.updatedAt = this.e.now();
     this.saveManifest(m);
     return added;
   }
-  draw(rand, mainWeight, excluded, local, overrides) {
+  draw(rand, mainWeight, excluded, local, overrides, context = {}) {
     const m = this.manifest(),
       blocked = new Set([...excluded, ...overrides.map((c) => c.id)]);
     const groups = ["main", "other"].map((role) => {
@@ -146,9 +153,9 @@ export class TenraiCatalog {
     }
     const index = Math.floor(roll / g.weight);
     if (index < g.own.length) return g.own[index];
-    const rows = this.e.all(
+    const rows = (context.bucketRows ||= this.e.all(
       "SELECT bucket,main_count,other_count FROM tenrai_characters ORDER BY bucket",
-    );
+    ));
     for (let attempt = 0; attempt < 200; attempt++) {
       let pos = blocked.size ? rand(g.original) : index - g.own.length;
       for (const row of rows) {
@@ -157,9 +164,16 @@ export class TenraiCatalog {
           pos -= count;
           continue;
         }
-        const c = Object.values(this.read(row.bucket)).filter(
-          (c) => (c.role === "main" ? "main" : "other") === g.role,
-        )[pos];
+        const buckets = (context.buckets ||= new Map()),
+          key = row.bucket + ":" + g.role;
+        if (!buckets.has(key))
+          buckets.set(
+            key,
+            Object.values(this.read(row.bucket)).filter(
+              (c) => (c.role === "main" ? "main" : "other") === g.role,
+            ),
+          );
+        const c = buckets.get(key)[pos];
         if (c && !blocked.has(c.id)) return c;
         break;
       }

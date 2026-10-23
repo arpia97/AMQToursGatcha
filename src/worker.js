@@ -2,6 +2,12 @@ import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
 import { fetchJikan, voiceCards } from "./jikan.js";
 import { JikanImport } from "./jikan-import.js";
+import { AliasSync } from "./aliases.js";
+import {
+  SqlBudget,
+  nextBudgetDay,
+  storageQuotaResponse,
+} from "./sql-budget.js";
 
 const enc = new TextEncoder();
 const token = () =>
@@ -67,23 +73,58 @@ export class Game extends DurableObject {
     this.ctx = ctx;
     this.env = env;
     this.engine = new Engine(
-      (s, ...a) => [...ctx.storage.sql.exec(s, ...a)],
+      (s, ...a) => {
+        const cursor = ctx.storage.sql.exec(s, ...a),
+          rows = [...cursor];
+        this.budget?.observe(cursor.rowsRead, cursor.rowsWritten);
+        return rows;
+      },
       (fn) => ctx.storage.transactionSync(fn),
     );
     this.jikan = new JikanImport(this.engine);
+    this.aliases = new AliasSync(this.engine);
+    this.budget = new SqlBudget(
+      () => {
+        const row = [
+          ...ctx.storage.sql.exec(
+            "SELECT value FROM catalog_meta WHERE key='sql-budget'",
+          ),
+        ][0];
+        return row ? JSON.parse(row.value) : null;
+      },
+      (value) =>
+        ctx.storage.sql.exec(
+          "INSERT OR REPLACE INTO catalog_meta VALUES('sql-budget',?)",
+          JSON.stringify(value),
+        ),
+    );
   }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.
-    if (this.jikan.nextAlarm())
+    if (this.jikan.nextAlarm() || this.aliases.nextAlarm())
       await this.ctx.storage.setAlarm(Date.now() + 65000);
-    await this.jikan.step();
+    if (!this.budget.paused()) await this.jikan.step();
+    await this.aliases.step();
+    this.engine.tx(() => this.engine.economy.fundStarters());
+    if (!this.budget.paused())
+      this.engine.tx(() => this.engine.economy.anime.step());
     const next = this.engine.ensureAuctions();
     this.cleanup();
+    this.budget.flush();
     await this.scheduleAlarm(next);
   }
   async scheduleAlarm(auctionEnd = this.engine.ensureAuctions()) {
     await this.ctx.storage.setAlarm(
-      Math.min(auctionEnd, this.jikan.nextAlarm() || Infinity),
+      Math.min(
+        auctionEnd,
+        this.budget.paused()
+          ? nextBudgetDay(Date.now())
+          : this.jikan.nextAlarm() || Infinity,
+        this.aliases.nextAlarm() || Infinity,
+        this.budget.paused()
+          ? Infinity
+          : this.engine.economy.anime.nextAlarm() || Infinity,
+      ),
     );
   }
   cleanup() {
@@ -115,6 +156,8 @@ export class Game extends DurableObject {
     try {
       return await this.handle(request);
     } catch (err) {
+      const limited = storageQuotaResponse(err);
+      if (limited) return limited;
       if (!err.status)
         console.error(
           JSON.stringify({ event: "request_failed", name: err.name }),
@@ -127,6 +170,12 @@ export class Game extends DurableObject {
         },
         err.status || 500,
       );
+    } finally {
+      try {
+        this.budget.flush();
+      } catch {
+        /* The original quota failure must remain visible. */
+      }
     }
   }
   async handle(request) {
@@ -134,6 +183,7 @@ export class Game extends DurableObject {
       url = new URL(request.url),
       path = url.pathname.slice(5),
       post = request.method === "POST";
+    e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -214,6 +264,8 @@ export class Game extends DurableObject {
             .map(([kind, count]) => ({ kind, count })),
           catalogSummary: e.catalogStore.summary(),
           seiyuuImport: this.jikan.status(),
+          aliasSync: this.aliases.status(),
+          resourceBudget: this.budget.status(),
           cards: e.catalogStore.page("character", "", 1, 40).cards,
           ledger: e.all("SELECT * FROM ledger ORDER BY id DESC LIMIT 100"),
         });
@@ -222,6 +274,18 @@ export class Game extends DurableObject {
       if (path === "host/acdb-retirement" && !post)
         return json(e.catalogStore.retirementPreview());
       if (!post) fail("POST required.", 405);
+      if (path === "host/aliases-sync") {
+        const status = await this.aliases.step(true);
+        requireHost();
+        await this.scheduleAlarm();
+        return json({
+          message:
+            status.status === "synced"
+              ? "AMQ Tours aliases synchronized."
+              : "Alias sync: " + status.status,
+          aliasSync: status,
+        });
+      }
       if (path === "host/replace-acdb") {
         const result = e.mutate(
           "host:replace-acdb",
@@ -362,17 +426,22 @@ export class Game extends DurableObject {
         () => e.host(path.slice(5), b),
       );
       const next = e.ensureAuctions();
-      if (!(await this.ctx.storage.getAlarm()))
-        await this.ctx.storage.setAlarm(next);
+      await this.scheduleAlarm(next);
       return json(result);
     }
     if (["login", "register"].includes(path) && post) {
       this.rate("auth:" + ip, 20);
-      const alias = text(b.player, 100).toLowerCase(),
-        owner = e.one("SELECT player FROM aliases WHERE alias=?", alias);
-      const p = owner
-        ? e.one("SELECT * FROM players WHERE id=?", owner.player)
-        : null;
+      const supplied = text(b.player, 110).toLowerCase(),
+        alias = supplied.replace(/^(?:alias|id):/, "");
+      const owner = e.one("SELECT player FROM aliases WHERE alias=?", alias);
+      const direct = supplied.startsWith("alias:")
+        ? null
+        : e.one("SELECT * FROM players WHERE id=?", alias);
+      const p =
+        direct ||
+        (!supplied.startsWith("id:") && owner
+          ? e.one("SELECT * FROM players WHERE id=?", owner.player)
+          : null);
       let expectedPassword;
       if (path === "register") {
         const invite = await digest(String(b.code || "")),
@@ -448,9 +517,45 @@ export class Game extends DurableObject {
           url.searchParams.get("kind") || "character",
           url.searchParams.get("q") || "",
           Number(url.searchParams.get("page") || 1),
+          40,
+          {
+            rarity: url.searchParams.get("rarity") || "",
+            role: url.searchParams.get("role") || "",
+          },
         ),
       );
     }
+    if (path === "rankings" && !post)
+      return json(
+        e.economy.rankings(
+          url.searchParams.get("metric") || "earned",
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    if (path === "anime-collection" && !post) {
+      if (!session) fail("Sign in to view your anime collection.", 401);
+      return json(
+        e.economy.anime.page(
+          session.player,
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
+    if (path === "pickems" && !post)
+      return json(
+        e.pickemPage(
+          session?.player,
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    if (path === "market" && !post)
+      return json(
+        e.economy.market(
+          url.searchParams.get("venue") || "shop",
+          url.searchParams.get("kind") || "character",
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
     if (path === "profiles" && !post) {
       this.rate("search:" + ip, 150);
       const profiles = e.searchProfiles(url.searchParams.get("q"));
@@ -465,7 +570,12 @@ export class Game extends DurableObject {
       this.rate("search:" + ip, 150);
       return json(e.profile(text(url.searchParams.get("id"), 100)));
     }
-    if (path === "state" && !post) return json(e.state(session?.player));
+    if (path === "state" && !post) {
+      const loginReward = session
+        ? e.tx(() => e.economy.daily(session.player, true))
+        : null;
+      return json({ ...e.state(session?.player), loginReward });
+    }
     if (!session) fail("Sign in to use credits and collect cards.", 401);
     if (
       !e.one(
@@ -477,14 +587,14 @@ export class Game extends DurableObject {
       fail("Your session ended. Please sign in again.", 401);
     if (!post) fail("Unknown endpoint.", 404);
     this.rate("player:" + session.player, 120);
-    return json(
-      e.mutate(
-        session.player + ":" + path,
-        request.headers.get("Idempotency-Key"),
-        b,
-        () => e.action(session.player, path, b),
-      ),
+    const result = e.mutate(
+      session.player + ":" + path,
+      request.headers.get("Idempotency-Key"),
+      b,
+      () => e.action(session.player, path, b),
     );
+    await this.scheduleAlarm();
+    return json(result);
   }
 }
 
@@ -494,9 +604,15 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       const size = Number(request.headers.get("Content-Length") || 0);
       if (size > 1000000) return json({ error: "Request too large." }, 413);
-      return env.GAME.get(env.GAME.idFromName("amqtours-economy-v1")).fetch(
-        request,
-      );
+      try {
+        return await env.GAME.get(
+          env.GAME.idFromName("amqtours-economy-v1"),
+        ).fetch(request);
+      } catch (err) {
+        const limited = storageQuotaResponse(err);
+        if (limited) return limited;
+        throw err;
+      }
     }
     const response = await env.ASSETS.fetch(request),
       headers = new Headers(response.headers);

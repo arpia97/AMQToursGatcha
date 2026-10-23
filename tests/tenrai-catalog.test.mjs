@@ -142,6 +142,22 @@ test("favorite tiers use cumulative percentiles, average tied ranks, and separat
   ];
   for (const [id, tier] of expected)
     assert.equal(c.card("mal-character-" + id).rarity, tier);
+  const commonPage = c.page("character", "Attack on Titan", 1, 40, {
+    rarity: "D",
+    role: "supporting",
+  });
+  assert.equal(commonPage.cards.length, 40);
+  assert.equal(commonPage.hasMore, true);
+  assert.ok(commonPage.cards.every((entry) => entry.rarity === "D"));
+  e.host("catalog", { cards: [{ ...card(501), role: "main" }] });
+  const overridden = c.page("character", "Attack on Titan", 1, 40, {
+    rarity: "D",
+    role: "main",
+  });
+  assert.deepEqual(
+    overridden.cards.map((entry) => entry.id),
+    ["mal-character-501"],
+  );
   c.popularity.sync("character", [["mal-character-2", 1000]]);
   assert.equal(c.card("mal-character-2").rarity, "AG");
   assert.equal(c.card("mal-character-1").rankedPopulation, 1000);

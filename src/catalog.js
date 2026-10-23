@@ -13,6 +13,35 @@ export class Catalog {
     engine.run(
       "CREATE TABLE IF NOT EXISTS catalog_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)",
     );
+    engine.run(
+      "CREATE TABLE IF NOT EXISTS catalog_totals(key TEXT PRIMARY KEY,n INTEGER NOT NULL)",
+    );
+    if (!engine.one("SELECT key FROM catalog_totals WHERE key='character'")) {
+      for (const kind of ["character", "seiyuu"])
+        engine.run(
+          "INSERT INTO catalog_totals SELECT ?,count(*) FROM catalog WHERE kind=? AND active=1",
+          kind,
+          kind,
+        );
+      engine.run(
+        "INSERT INTO catalog_totals SELECT 'overrides',count(*) FROM catalog WHERE bulk_role IS NOT NULL",
+      );
+    }
+    engine.run(`CREATE TRIGGER IF NOT EXISTS catalog_count_insert AFTER INSERT ON catalog BEGIN
+      UPDATE catalog_totals SET n=n+1 WHERE key=NEW.kind AND NEW.active=1;
+      UPDATE catalog_totals SET n=n+1 WHERE key='overrides' AND NEW.bulk_role IS NOT NULL;
+    END`);
+    engine.run(`CREATE TRIGGER IF NOT EXISTS catalog_count_delete AFTER DELETE ON catalog BEGIN
+      UPDATE catalog_totals SET n=n-1 WHERE key=OLD.kind AND OLD.active=1;
+      UPDATE catalog_totals SET n=n-1 WHERE key='overrides' AND OLD.bulk_role IS NOT NULL;
+    END`);
+    engine.run(`CREATE TRIGGER IF NOT EXISTS catalog_count_update AFTER UPDATE OF kind,active,bulk_role ON catalog
+      WHEN OLD.kind IS NOT NEW.kind OR OLD.active IS NOT NEW.active OR OLD.bulk_role IS NOT NEW.bulk_role BEGIN
+      UPDATE catalog_totals SET n=n-1 WHERE key=OLD.kind AND OLD.active=1;
+      UPDATE catalog_totals SET n=n+1 WHERE key=NEW.kind AND NEW.active=1;
+      UPDATE catalog_totals SET n=n-1 WHERE key='overrides' AND OLD.bulk_role IS NOT NULL;
+      UPDATE catalog_totals SET n=n+1 WHERE key='overrides' AND NEW.bulk_role IS NOT NULL;
+    END`);
     this.tenrai = new TenraiCatalog(engine);
     this.popularity = new Popularity(engine);
   }
@@ -51,39 +80,44 @@ export class Catalog {
   summary() {
     const m = this.tenrai.manifest() || this.manifest(),
       small = this.e.all(
-        "SELECT kind,count(*) AS n FROM catalog WHERE active=1 GROUP BY kind",
+        "SELECT key AS kind,n FROM catalog_totals WHERE key IN ('character','seiyuu')",
       );
     const counts = { character: m?.count || 0, seiyuu: 0 };
     for (const row of small) counts[row.kind] += row.n;
     const overrides = m
-      ? this.e.one(
-          "SELECT count(*) AS n FROM catalog WHERE bulk_role IS NOT NULL",
-        ).n
+      ? this.e.one("SELECT n FROM catalog_totals WHERE key='overrides'").n
       : 0;
     counts.character -= overrides;
     return { ...counts, total: counts.character + counts.seiyuu, source: m };
   }
-  draw(kind, rand, mainWeight = 100, excluded = new Set()) {
-    return this.popularity.decorate([
-      this.rawDraw(kind, rand, mainWeight, excluded),
-    ])[0];
+  draw(kind, rand, mainWeight = 100, excluded = new Set(), context = {}) {
+    return this.popularity.decorate(
+      [this.rawDraw(kind, rand, mainWeight, excluded, context)],
+      context,
+    )[0];
   }
-  rawDraw(kind, rand, mainWeight = 100, excluded = new Set()) {
+  rawDraw(kind, rand, mainWeight = 100, excluded = new Set(), context = {}) {
     if (kind === "character" && this.tenrai.manifest()) {
-      const local = this.e
-        .all(
-          "SELECT * FROM catalog WHERE kind='character' AND active=1 ORDER BY id",
-        )
-        .filter((c) => !excluded.has(c.id));
-      const overrides = this.e.all(
+      const local = (context.local ||= this.e.all(
+        "SELECT * FROM catalog WHERE kind='character' AND active=1 ORDER BY id",
+      )).filter((c) => !excluded.has(c.id));
+      const overrides = (context.overrides ||= this.e.all(
         "SELECT id,bulk_role FROM catalog WHERE bulk_role IS NOT NULL",
+      ));
+      return this.tenrai.draw(
+        rand,
+        mainWeight,
+        excluded,
+        local,
+        overrides,
+        context,
       );
-      return this.tenrai.draw(rand, mainWeight, excluded, local, overrides);
     }
     const m = kind === "character" ? this.manifest() : null;
-    const small = this.e
-      .all("SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY id", kind)
-      .filter((c) => !excluded.has(c.id));
+    const small = (context.local ||= this.e.all(
+      "SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY id",
+      kind,
+    )).filter((c) => !excluded.has(c.id));
     const overridden = m
       ? this.e.all(
           "SELECT id,bulk_role FROM catalog WHERE bulk_role IS NOT NULL",
@@ -144,13 +178,31 @@ export class Catalog {
     }
     fail("Could not select a card. Please retry.", 503);
   }
-  page(kind = "character", query = "", page = 1, limit = 40) {
+  page(kind = "character", query = "", page = 1, limit = 40, filters = {}) {
     if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
     integer(page, 1, 10000);
     integer(limit, 1, 100);
+    if (filters.rarity || filters.role)
+      return this.filteredPage(kind, query, page, limit, filters);
     const q = String(query).trim().toLowerCase().slice(0, 100),
       m = this.manifest(),
       offset = (page - 1) * limit;
+    if (kind === "seiyuu") {
+      const rows = this.e.all(
+        "SELECT * FROM catalog WHERE kind='seiyuu' AND active=1 AND (?='' OR instr(lower(name||' '||series||' '||series_romaji||' '||series_english),?)>0) ORDER BY name COLLATE NOCASE,id LIMIT ? OFFSET ?",
+        q,
+        q,
+        limit + 1,
+        offset,
+      );
+      return {
+        cards: this.popularity.decorate(rows.slice(0, limit)),
+        page,
+        limit,
+        hasMore: rows.length > limit,
+        total: q ? null : this.summary().seiyuu,
+      };
+    }
     // Local cards and host overrides are usually a small set. Bulk browse rows
     // are already alphabetized and only matching bounded chunks are decoded.
     const local = this.e
@@ -220,6 +272,101 @@ export class Catalog {
       hasMore: more,
       total: q ? null : this.summary()[kind],
     };
+  }
+  filteredPage(kind, query, page, limit, filters) {
+    if (
+      filters.role &&
+      (kind !== "character" ||
+        !["main", "supporting", "unknown"].includes(filters.role))
+    )
+      fail("Choose a character role.");
+    if (
+      filters.rarity &&
+      ![
+        "AG",
+        "Ubers",
+        "SSS",
+        "SS",
+        "S",
+        "A",
+        "B",
+        "C",
+        "D",
+        "Pending",
+      ].includes(filters.rarity)
+    )
+      fail("Choose a rarity.");
+    const q = String(query).trim().toLowerCase().slice(0, 100),
+      offset = (page - 1) * limit,
+      overrides = new Set(
+        this.e
+          .all("SELECT id FROM catalog WHERE bulk_role IS NOT NULL")
+          .map((c) => c.id),
+      );
+    const cards = [],
+      decorationContext = {};
+    let matched = 0,
+      more = false;
+    const addBatch = (raw) => {
+      const narrowed = raw.filter(
+        (c) =>
+          (!filters.role || c.role === filters.role) &&
+          characterSearch(c).includes(q),
+      );
+      for (const c of this.popularity.decorate(narrowed, decorationContext)) {
+        if (filters.rarity && (c.rarity || "Pending") !== filters.rarity)
+          continue;
+        if (matched++ < offset) continue;
+        if (cards.length === limit) {
+          more = true;
+          return true;
+        }
+        cards.push(c);
+      }
+      return false;
+    };
+    let cursor = "";
+    while (true) {
+      const rows = this.e.all(
+        "SELECT * FROM catalog WHERE kind=? AND active=1 AND id>? ORDER BY id LIMIT 500",
+        kind,
+        cursor,
+      );
+      if (!rows.length) break;
+      if (addBatch(rows)) break;
+      cursor = rows.at(-1).id;
+    }
+    if (kind === "character" && !more && this.tenrai.manifest()) {
+      const buckets = this.e.all(
+        "SELECT bucket FROM tenrai_characters WHERE ?='' OR instr(search,?)>0 ORDER BY bucket",
+        q,
+        q,
+      );
+      for (const { bucket } of buckets)
+        if (
+          addBatch(
+            Object.values(this.tenrai.read(bucket)).filter(
+              (c) => !overrides.has(c.id),
+            ),
+          )
+        )
+          break;
+    } else if (kind === "character" && !more && this.manifest()) {
+      const m = this.manifest();
+      for (const { bucket } of this.e.all(
+        "SELECT bucket FROM catalog_bulk WHERE version=? AND section='browse' ORDER BY bucket",
+        m.version,
+      ))
+        if (
+          addBatch(
+            this.chunk("browse", bucket, m.version).filter(
+              (c) => !overrides.has(c.id),
+            ),
+          )
+        )
+          break;
+    }
+    return { cards, page, limit, hasMore: more, total: null };
   }
   importChunk(b) {
     if (this.e.one("SELECT key FROM catalog_meta WHERE key='acdb-retired'"))

@@ -1,4 +1,5 @@
 import { Catalog } from "./catalog.js";
+import { Economy, PREMIUM_WEIGHTS } from "./economy.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -51,7 +52,18 @@ export class Engine {
       "INSERT OR IGNORE INTO settings VALUES ('character_price',500),('seiyuu_price',500)",
     );
     this.run("INSERT OR IGNORE INTO settings VALUES ('main_weight',80)");
+    for (const sql of [
+      "CREATE INDEX IF NOT EXISTS catalog_kind_name ON catalog(kind,active,name COLLATE NOCASE,id)",
+      "CREATE INDEX IF NOT EXISTS catalog_kind_id ON catalog(kind,active,id)",
+      "CREATE INDEX IF NOT EXISTS catalog_bulk_overrides ON catalog(bulk_role) WHERE bulk_role IS NOT NULL",
+      "CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires)",
+      "CREATE INDEX IF NOT EXISTS throttle_expiry ON throttle(expires)",
+      "CREATE INDEX IF NOT EXISTS players_invite_expiry ON players(invite_expires)",
+      "CREATE INDEX IF NOT EXISTS player_earned ON players(earned DESC,id)",
+    ])
+      this.run(sql);
     this.catalogStore = new Catalog(this);
+    this.economy = new Economy(this);
   }
   all(sql, ...args) {
     return this.db(sql, ...args);
@@ -142,7 +154,7 @@ export class Engine {
       for (const kind of ["character", "seiyuu"]) {
         if (
           this.one(
-            "SELECT id FROM auctions WHERE starts=? AND kind=?",
+            "SELECT id FROM auctions WHERE starts=? AND kind=? AND seller IS NULL",
             start,
             kind,
           )
@@ -162,38 +174,44 @@ export class Engine {
           );
         }
       }
-      return start + WEEK;
+      return Math.min(start + WEEK, this.economy.tick(start));
     });
   }
   action(player, action, b) {
     const now = this.now();
     this.player(player);
+    const additional = this.economy.action(player, action, b);
+    if (additional) return additional;
     if (action === "daily") {
-      const day = new Date(now + 9 * 3600000).toISOString().slice(0, 10);
-      if (this.player(player).daily === day)
-        fail(
-          "You already claimed today’s bonus. Come back after midnight KST.",
-          409,
-        );
-      this.wallet(player, 100, "Daily login", true);
-      this.run("UPDATE players SET daily=? WHERE id=?", day, player);
-      return { message: "100 credits added. See you tomorrow!" };
+      return this.economy.daily(player);
     }
     if (action === "pack") {
       if (!["character", "seiyuu"].includes(b.kind))
         fail("Choose a pack type.");
       if (this.catalogStore.summary()[b.kind] < 5)
         fail("The host needs to add at least five cards to this catalog.");
+      if (b.premium !== undefined && typeof b.premium !== "boolean")
+        fail("Invalid pack type.");
+      const premium = b.premium === true;
       const price = this.one(
         "SELECT value FROM settings WHERE key=?",
-        b.kind + "_price",
+        (premium ? "premium_" : "") + b.kind + "_price",
       ).value;
-      this.wallet(player, -price, `${b.kind} pack`);
+      this.wallet(player, -price, `${premium ? "Premium " : ""}${b.kind} pack`);
       const weight = this.one(
         "SELECT value FROM settings WHERE key='main_weight'",
       ).value;
+      const drawContext = {};
       const pulls = Array.from({ length: 5 }, () =>
-        this.catalogStore.draw(b.kind, this.rand, weight),
+        premium
+          ? this.economy.premiumDraw(b.kind, weight, drawContext)
+          : this.catalogStore.draw(
+              b.kind,
+              this.rand,
+              weight,
+              new Set(),
+              drawContext,
+            ),
       );
       for (const card of pulls) this.addCard(player, card.id);
       return { message: "Five new cards for your collection.", cards: pulls };
@@ -223,8 +241,12 @@ export class Engine {
         integer(b.auction, 1),
       );
       if (!a || a.closed || now >= a.ends) fail("This auction has ended.", 409);
+      if (a.seller === player) fail("You cannot bid on your own auction.");
       const amount = integer(b.amount, 1);
-      if (amount <= a.bid) fail(`Your bid must be greater than ${a.bid}.`);
+      if (a.buyout && amount >= a.buyout)
+        return this.economy.buyout(player, a.id);
+      if (amount < (a.bid ? a.bid + 1 : a.reserve))
+        fail(`The minimum bid is ${a.bid ? a.bid + 1 : a.reserve} credits.`);
       if (a.winner === player)
         this.wallet(player, -(amount - a.bid), "Auction bid increase");
       else {
@@ -249,7 +271,11 @@ export class Engine {
       );
       if (!a || now < a.ends || a.winner !== player || a.claimed)
         fail("This auction cannot be claimed.", 409);
-      this.addCard(player, a.card);
+      this.economy.acquire(player, a.card, a.level);
+      if (a.seller && !a.paid) {
+        this.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
+        this.run("UPDATE auctions SET paid=1 WHERE id=?", a.id);
+      }
       this.run("UPDATE auctions SET claimed=1,closed=1 WHERE id=?", a.id);
       return { message: "Auction card added to your collection." };
     }
@@ -338,9 +364,11 @@ export class Engine {
         else this.run("UPDATE players SET name=? WHERE id=?", name, id);
         if (p.aliases !== undefined && !Array.isArray(p.aliases))
           fail("Aliases must be a list.");
-        const aliases = [id, name, ...(p.aliases || [])].map((a) =>
-          text(a, 100).toLowerCase(),
-        );
+        const aliases = [
+          ...(b.reserveIds === false ? [] : [id]),
+          name,
+          ...(p.aliases || []),
+        ].map((a) => text(a, 100).toLowerCase());
         // Old aliases are deliberately retained: imports must not strand existing logins.
         for (const alias of new Set(aliases)) {
           const owner = this.one(
@@ -438,6 +466,13 @@ export class Engine {
     }
     if (action === "settings") {
       for (const kind of ["character", "seiyuu"])
+        if (b["premium_" + kind] !== undefined)
+          this.run(
+            "UPDATE settings SET value=? WHERE key=?",
+            integer(b["premium_" + kind], 1, 1000000),
+            "premium_" + kind + "_price",
+          );
+      for (const kind of ["character", "seiyuu"])
         this.run(
           "UPDATE settings SET value=? WHERE key=?",
           integer(b[kind], 1, 1000000),
@@ -492,6 +527,9 @@ export class Engine {
           String(c.series_english || "").slice(0, 500),
         );
       }
+      this.economy.anime.index(
+        b.cards.map((c) => this.one("SELECT * FROM catalog WHERE id=?", c.id)),
+      );
       return { message: `Imported ${b.cards.length} catalog cards.` };
     }
     if (action === "reset-player") {
@@ -499,6 +537,7 @@ export class Engine {
       this.player(id);
       if (b.confirmation !== `RESET PLAYER ${id}`)
         fail(`Type RESET PLAYER ${id} to confirm.`);
+      this.economy.resetPlayer(id);
       for (const table of [
         "inventory",
         "ledger",
@@ -508,7 +547,7 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
-        "UPDATE players SET balance=0,earned=0,daily=NULL,avatar_card=NULL WHERE id=?",
+        "UPDATE players SET balance=0,earned=0,daily=NULL,daily_pack=NULL,avatar_card=NULL WHERE id=?",
         id,
       );
       this.run("UPDATE auctions SET winner=NULL,bid=0 WHERE winner=?", id);
@@ -530,10 +569,14 @@ export class Engine {
         "sessions",
         "pickems",
         "auctions",
+        "weekly_shop",
+        "market_listings",
+        "gambling_rounds",
+        "profile_showcase",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
-        "UPDATE players SET balance=0,earned=0,daily=NULL,avatar_card=NULL",
+        "UPDATE players SET balance=0,earned=0,daily=NULL,daily_pack=NULL,avatar_card=NULL",
       );
       if (full) {
         for (const table of [
@@ -545,8 +588,25 @@ export class Engine {
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
-          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 80 ELSE 500 END",
+          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 80 WHEN key LIKE 'premium_%' THEN 2000 ELSE 500 END",
         );
+        const registry = this.one(
+          "SELECT value FROM catalog_meta WHERE key='alias-sync'",
+        );
+        if (registry) {
+          const sync = JSON.parse(registry.value);
+          Object.assign(sync, {
+            status: "pending",
+            nextAt: this.now() + 1000,
+            lease: 0,
+            players: 0,
+            aliases: 0,
+          });
+          this.run(
+            "UPDATE catalog_meta SET value=? WHERE key='alias-sync'",
+            JSON.stringify(sync),
+          );
+        }
       }
       return {
         message: full
@@ -561,7 +621,7 @@ export class Engine {
       me = id ? this.player(id) : null;
     const summary = this.catalogStore.summary();
     const auctions = this.all(
-      "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE a.ends>? OR (a.winner=? AND a.claimed=0) ORDER BY a.ends,a.id",
+      "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE (a.seller IS NULL AND a.ends>?) OR (a.winner=? AND a.claimed=0) ORDER BY a.ends,a.id",
       now,
       id || "",
     );
@@ -581,6 +641,18 @@ export class Engine {
       ...ranks.map((p) => p.avatar_card),
       me?.avatar_card,
     ]);
+    const shop = this.all(
+      "SELECT * FROM weekly_shop WHERE ends>? ORDER BY id",
+      now,
+    );
+    const showcase = id
+      ? this.all(
+          "SELECT card FROM profile_showcase WHERE player=? ORDER BY position",
+          id,
+        ).map((c) => c.card)
+      : [];
+    for (const s of shop) references.add(s.card);
+    for (const c of showcase) references.add(c);
     if (summary.source?.provider === "ACDB")
       for (const id of [
         "acdb-character-76951",
@@ -612,6 +684,14 @@ export class Engine {
           )
         : [],
       ranks,
+      shop,
+      showcase,
+      activePickem:
+        this.one(
+          "SELECT * FROM pickems WHERE settled=0 AND ends>? ORDER BY id DESC LIMIT 1",
+          now,
+        ) || null,
+      premiumWeights: PREMIUM_WEIGHTS,
       catalogSummary: summary,
       counts: {
         players: this.one("SELECT count(*) AS n FROM players").n,
@@ -633,6 +713,7 @@ export class Engine {
     );
   }
   profile(id) {
+    id = this.resolvePlayer(id);
     const p = this.player(id);
     const stats = Object.fromEntries(
       this.all(
@@ -642,6 +723,10 @@ export class Engine {
     );
     const picks = this.one(
       "SELECT count(*) AS total,COALESCE(sum(CASE WHEN (v.winner='a' AND p.result_a>p.result_b) OR (v.winner='b' AND p.result_b>p.result_a) THEN 1 ELSE 0 END),0) AS correct FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE v.player=? AND p.settled=1",
+      id,
+    );
+    const showcase = this.all(
+      "SELECT s.card,i.level,i.copies FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
       id,
     );
     return {
@@ -660,6 +745,8 @@ export class Engine {
         reporting: stats.reporting || 0,
         pickems: picks,
       },
+      showcase,
+      completion: this.economy.completion(id),
       inventory: this.all("SELECT * FROM inventory WHERE player=?", id),
       cards: [
         ...new Set([
@@ -668,12 +755,32 @@ export class Engine {
             id,
           ).map((i) => i.card),
           p.avatar_card,
+          ...showcase.map((c) => c.card),
         ]),
       ]
         .filter(Boolean)
         .map((card) => this.catalogStore.card(card))
         .filter(Boolean),
     };
+  }
+  resolvePlayer(value) {
+    return (
+      this.one("SELECT id FROM players WHERE id=?", value)?.id ||
+      this.one(
+        "SELECT player FROM aliases WHERE alias=?",
+        String(value).trim().toLowerCase(),
+      )?.player ||
+      value
+    );
+  }
+  pickemPage(player, page = 1) {
+    integer(page, 1, 10000);
+    const rows = this.all(
+      "SELECT p.*,v.winner AS prediction,v.score_a AS prediction_a,v.score_b AS prediction_b FROM pickems p LEFT JOIN predictions v ON v.pickem=p.id AND v.player=? ORDER BY p.id DESC LIMIT 21 OFFSET ?",
+      player || "",
+      (page - 1) * 20,
+    );
+    return { pickems: rows.slice(0, 20), page, hasMore: rows.length > 20 };
   }
 }
 const SCHEMA = `

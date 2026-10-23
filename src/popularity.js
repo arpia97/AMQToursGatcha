@@ -82,9 +82,9 @@ export class Popularity {
     }
     return changed;
   }
-  decorate(cards) {
-    const snapshots = new Map(),
-      histograms = new Map();
+  decorate(cards, context = {}) {
+    const snapshots = (context.popSnapshots ||= new Map()),
+      histograms = (context.popHistograms ||= new Map());
     return cards.map((c) => {
       if (!c) return c;
       const m = identity(c.id);

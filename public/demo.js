@@ -1,4 +1,5 @@
 // Explicit browser-only sandbox. The production API never reads this state.
+import { demoFeatures } from "./demo-features.js";
 const KEY = "amqtours-demo-v2";
 export class Demo {
   static async create() {
@@ -117,6 +118,11 @@ export class Demo {
   async request(path, b) {
     const s = this.s;
     s.now = Date.now();
+    const extra = demoFeatures(this, path, b);
+    if (extra !== undefined) {
+      this.save();
+      return structuredClone(extra);
+    }
     if (path.startsWith("catalog?")) {
       const p = new URLSearchParams(path.split("?")[1]),
         kind = p.get("kind") || "character",
@@ -125,7 +131,11 @@ export class Demo {
       const cards = s.catalog.filter(
         (c) =>
           c.kind === kind &&
-          [c.name,c.series,c.series_romaji,c.series_english].filter(Boolean).join(" ").toLowerCase().includes(q),
+          [c.name, c.series, c.series_romaji, c.series_english]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(q),
       );
       return {
         cards: cards.slice((page - 1) * 40, page * 40),
@@ -193,7 +203,10 @@ export class Demo {
       s.me.daily = day;
     } else if (path === "pack") {
       const pool = s.catalog.filter((c) => c.kind === b.kind);
-      this.wallet(-s.settings[b.kind + "_price"], `${b.kind} pack`);
+      this.wallet(
+        -s.settings[(b.premium ? "premium_" : "") + b.kind + "_price"],
+        `${b.premium ? "Premium " : ""}${b.kind} pack`,
+      );
       const weights = pool.map((c) =>
           c.kind === "character" && c.role === "main"
             ? s.settings.main_weight
