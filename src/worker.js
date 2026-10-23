@@ -121,17 +121,17 @@ export class Game extends DurableObject {
       post = request.method === "POST";
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
+    let b = {};
     if (post) {
+      // Drain the forwarded body before rejecting so the proxy does not try to
+      // transfer a request stream after this object has returned its response.
+      const raw = await request.text();
+      if (raw.length > 1000000) fail("Request too large.", 413);
       const origin = request.headers.get("Origin");
       if (origin && origin !== url.origin)
         fail("Cross-origin requests are not allowed.", 403);
       if (!request.headers.get("Content-Type")?.startsWith("application/json"))
         fail("JSON is required.", 415);
-    }
-    let b = {};
-    if (post) {
-      const raw = await request.text();
-      if (raw.length > 1000000) fail("Request too large.", 413);
       try {
         b = JSON.parse(raw);
       } catch {
