@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { voiceCards, fetchJikan } from "../src/jikan.js";
+import { voiceCards, fetchJikan, VOICE_SOURCE } from "../src/jikan.js";
 
 const person = {
   mal_id: 118,
@@ -55,5 +55,21 @@ test("Jikan responses respect Retry-After and reject unusable upstream data", as
       "/anime/1/characters",
       async () => new Response("<html>unavailable</html>"),
     ),
+  );
+});
+
+test("voice requests use the live Tenrai replacement and report network timeouts distinctly", async () => {
+  let requested;
+  await fetchJikan("/anime/1/characters", async (url) => {
+    requested = url;
+    return new Response('{"data":[]}');
+  });
+  assert.equal(requested, "https://api.tenrai.org/v1/anime/1/characters");
+  assert.equal(VOICE_SOURCE.name, "Tenrai");
+  await assert.rejects(
+    fetchJikan("/anime/1/characters", async () => {
+      throw new DOMException("request timed out", "TimeoutError");
+    }),
+    (e) => e.errorCode === "UPSTREAM_TIMEOUT" && e.status === 502,
   );
 });

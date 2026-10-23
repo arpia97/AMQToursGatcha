@@ -130,3 +130,26 @@ test("a pause discards an in-flight response and the persisted lease prevents ov
   assert.equal(f.job.status().status, "paused");
   assert.equal(f.job.status().scannedTitles, 0);
 });
+
+test("migrating a retired-provider job keeps its checkpoint and clears retired-provider backoff", () => {
+  const f = fixture(async () => ({}));
+  f.job.start();
+  const saved = f.job.read();
+  Object.assign(saved, {
+    provider: "Jikan",
+    status: "paused",
+    page: 7,
+    queue: [{ id: 99, title: "Saved title" }],
+    failures: 6,
+    lastError: "Jikan returned HTTP 522.",
+    retryUntil: 9999999,
+  });
+  f.job.save(saved);
+  const resumed = f.job.start();
+  assert.equal(resumed.provider, "Tenrai");
+  assert.equal(resumed.page, 7);
+  assert.equal(resumed.status, "running");
+  assert.equal(resumed.failures, 0);
+  assert.equal(resumed.lastError, null);
+  assert.equal(f.job.read().queue[0].id, 99);
+});

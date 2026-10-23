@@ -228,8 +228,8 @@ export class Game extends DurableObject {
         return json({
           message:
             status.status === "paused"
-              ? "Jikan import paused."
-              : "Jikan import scheduled. Progress is saved automatically.",
+              ? "Seiyuu import paused."
+              : "Tenrai seiyuu import scheduled. Progress is saved automatically.",
           import: status,
         });
       }
@@ -260,6 +260,7 @@ export class Game extends DurableObject {
         const cards = voiceCards(data.data, "Cowboy Bebop");
         return json({
           available: true,
+          provider: "Tenrai",
           actorCount: cards.length,
           examples: cards.slice(0, 3),
         });

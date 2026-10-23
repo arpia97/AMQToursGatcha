@@ -1,4 +1,4 @@
-import { fetchJikan, voiceCards } from "./jikan.js";
+import { fetchJikan, voiceCards, VOICE_SOURCE } from "./jikan.js";
 
 const KEY = "jikan-import",
   INTERVAL = 10000,
@@ -38,7 +38,11 @@ export class JikanImport {
   start() {
     return this.e.tx(() => {
       const old = this.read();
-      if (active(old) || old?.status === "completed") return this.status();
+      if (
+        (active(old) && old.provider === VOICE_SOURCE.name) ||
+        old?.status === "completed"
+      )
+        return this.status();
       const now = this.e.now();
       const s = old || {
         page: 1,
@@ -51,6 +55,15 @@ export class JikanImport {
         skippedTitles: 0,
         startedAt: now,
       };
+      // A provider migration keeps the queue and collectible IDs, but clears
+      // backoff that belongs to the retired service.
+      if (s.provider !== VOICE_SOURCE.name) {
+        s.failures = 0;
+        s.retryUntil = 0;
+        s.lastError = null;
+        s.lastStatus = null;
+      }
+      s.provider = VOICE_SOURCE.name;
       s.generation = crypto.randomUUID();
       s.leaseId = null;
       s.leaseUntil = 0;
@@ -136,7 +149,7 @@ export class JikanImport {
             data.data.length > 25 ||
             typeof data.pagination?.has_next_page !== "boolean"
           )
-            throw new Error("Invalid Jikan anime pagination.");
+            throw new Error("Invalid voice source anime pagination.");
           s.queue = data.data
             .map((t) => ({ id: t.mal_id, title: t.title }))
             .filter((t) => Number.isSafeInteger(t.id) && t.id > 0);
@@ -150,6 +163,7 @@ export class JikanImport {
         }
         s.failures = 0;
         s.lastError = null;
+        s.lastErrorType = null;
         s.lastStatus = null;
         s.retryUntil = 0;
         s.nextAt = now + INTERVAL;
@@ -158,8 +172,16 @@ export class JikanImport {
         s.failures++;
         s.lastStatus = err.upstreamStatus || 0;
         s.lastError = s.lastStatus
-          ? "Jikan returned HTTP " + s.lastStatus + "."
-          : "Jikan request failed or returned invalid data.";
+          ? (s.provider || VOICE_SOURCE.name) +
+            " returned HTTP " +
+            s.lastStatus +
+            "."
+          : error?.errorCode === "UPSTREAM_TIMEOUT"
+            ? "Tenrai request timed out after 20 seconds."
+            : error?.errorCode === "UPSTREAM_NETWORK"
+              ? "Could not connect to Tenrai."
+              : "Voice source returned invalid data.";
+        s.lastErrorType = error?.errorCode || "UPSTREAM_RESPONSE";
         s.nextAt =
           now +
           Math.max(
