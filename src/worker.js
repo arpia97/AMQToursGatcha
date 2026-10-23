@@ -103,7 +103,10 @@ export class Game extends DurableObject {
     try {
       return await this.handle(request);
     } catch (err) {
-      if (!err.status) console.error("Request failed", err.name);
+      if (!err.status)
+        console.error(
+          JSON.stringify({ event: "request_failed", name: err.name }),
+        );
       return json(
         {
           error: err.status
@@ -125,8 +128,27 @@ export class Game extends DurableObject {
     if (post) {
       // Drain the forwarded body before rejecting so the proxy does not try to
       // transfer a request stream after this object has returned its response.
-      const raw = await request.text();
-      if (raw.length > 1000000) fail("Request too large.", 413);
+      const reader = request.body?.getReader();
+      let bytes = 0;
+      const parts = [];
+      if (reader)
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          bytes += value.byteLength;
+          if (bytes > 1000000) {
+            await reader.cancel();
+            fail("Request too large.", 413);
+          }
+          parts.push(value);
+        }
+      const buffer = new Uint8Array(bytes);
+      let offset = 0;
+      for (const part of parts) {
+        buffer.set(part, offset);
+        offset += part.byteLength;
+      }
+      const raw = new TextDecoder().decode(buffer);
       const origin = request.headers.get("Origin");
       if (origin && origin !== url.origin)
         fail("Cross-origin requests are not allowed.", 403);
@@ -169,13 +191,36 @@ export class Game extends DurableObject {
           settings: Object.fromEntries(
             e.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
           ),
-          catalog: e.all(
-            "SELECT kind,count(*) AS count FROM catalog WHERE active=1 GROUP BY kind",
-          ),
-          cards: e.all("SELECT * FROM catalog ORDER BY kind,name"),
+          catalog: Object.entries(e.catalogStore.summary())
+            .filter(([kind]) => ["character", "seiyuu"].includes(kind))
+            .map(([kind, count]) => ({ kind, count })),
+          catalogSummary: e.catalogStore.summary(),
+          cards: e.catalogStore.page("character", "", 1, 40).cards,
           ledger: e.all("SELECT * FROM ledger ORDER BY id DESC LIMIT 100"),
         });
       if (!post) fail("POST required.", 405);
+      if (path === "host/acdb-chunk")
+        return json(e.tx(() => e.catalogStore.importChunk(b)));
+      if (path === "host/acdb-chunks") {
+        if (
+          !Array.isArray(b.chunks) ||
+          b.chunks.length < 1 ||
+          b.chunks.length > 8
+        )
+          fail("Send one to eight catalog chunks.");
+        return json(
+          e.tx(() => ({
+            saved: b.chunks.map((c) => e.catalogStore.importChunk(c)),
+          })),
+        );
+      }
+      if (path === "host/acdb-activate") {
+        const result = e.tx(() => e.catalogStore.activate(b));
+        const next = e.ensureAuctions();
+        if (!(await this.ctx.storage.getAlarm()))
+          await this.ctx.storage.setAlarm(next);
+        return json(result);
+      }
       if (path === "host/invite") {
         const id = text(b.player, 100),
           p = e.player(id);
@@ -306,9 +351,25 @@ export class Game extends DurableObject {
     const next = e.ensureAuctions();
     if (!(await this.ctx.storage.getAlarm()))
       await this.ctx.storage.setAlarm(next);
+    if (path === "catalog" && !post) {
+      this.rate("search:" + ip, 150);
+      return json(
+        e.catalogStore.page(
+          url.searchParams.get("kind") || "character",
+          url.searchParams.get("q") || "",
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
     if (path === "profiles" && !post) {
       this.rate("search:" + ip, 150);
-      return json({ profiles: e.searchProfiles(url.searchParams.get("q")) });
+      const profiles = e.searchProfiles(url.searchParams.get("q"));
+      return json({
+        profiles,
+        cards: [...new Set(profiles.map((p) => p.avatar_card).filter(Boolean))]
+          .map((id) => e.catalogStore.card(id))
+          .filter(Boolean),
+      });
     }
     if (path === "player" && !post) {
       this.rate("search:" + ip, 150);

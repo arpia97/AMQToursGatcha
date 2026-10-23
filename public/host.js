@@ -81,11 +81,11 @@ function render() {
         "",
       )}</select></label><div class="form-grid">${input("Team A final score", "scoreA", "number", 'min="0" max="1000"')}${input("Team B final score", "scoreB", "number", 'min="0" max="1000"')}</div><button class="button secondary" type="submit">Settle and distribute rewards →</button></form></section><div class="table-wrap"><table><thead><tr><th>MATCH</th><th>TEAMS</th><th>CLOSES</th><th>RESULT</th></tr></thead><tbody>${state.pickems.map((p) => `<tr><td>${esc(p.title)}</td><td>${esc(p.team_a)} / ${esc(p.team_b)}</td><td>${esc(new Date(p.ends).toLocaleString())}</td><td>${p.settled ? p.result_a + "–" + p.result_b : "Pending"}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
-    html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Character packs use Main/Supporting weights; seiyuu packs use equal odds, with replacement. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. The included AniList importer can collect additional records without gender filters.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Main weight is relative to a Supporting weight of 100. For example, 80 makes each Main character 20% less likely than each Supporting character. The total chance for each class depends on its pool size. Seiyuu odds stay equal. Daily login rewards remain 100 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div>${input("Main character relative weight (Supporting = 100)", "mainWeight", "number", `min="1" max="99" value="${state.settings.main_weight}"`)}<button class="button secondary" type="submit">Save pack prices &amp; odds →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Character packs use Main/Supporting weights; seiyuu packs use equal odds, with replacement. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. ACDB snapshots use the published bulk exports, with no gender filter. Unsorted roles remain unknown and use weight 100. See the repository catalog guide for bulk refreshes.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Main weight is relative to a Supporting weight of 100. For example, 80 makes each Main character 20% less likely than each Supporting character. The total chance for each class depends on its pool size. Seiyuu odds stay equal. Daily login rewards remain 100 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div>${input("Main character relative weight (Supporting = 100)", "mainWeight", "number", `min="1" max="99" value="${state.settings.main_weight}"`)}<button class="button secondary" type="submit">Save pack prices &amp; odds →</button></form></section>`;
   if (tab === "activity")
     html = `<section class="host-panel"><h2>Every credit leaves a trail.</h2><p>Latest 100 wallet movements, including grants, pack purchases, auction holds, refunds, and pick’em payouts. Refunds do not increase lifetime earnings.</p><button class="button secondary" id="export-ledger">Download recent activity CSV</button></section><div class="table-wrap"><table><thead><tr><th>TIME</th><th>PLAYER ID</th><th>CREDITS</th><th>REASON</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
-    html += `<section class="host-panel"><h2>Character Main / Supporting roles</h2><p>Classification is tied to the series shown on the card. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role" class="stack"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
+    html += `<section class="host-panel"><h2>Character Main / Supporting roles</h2><p>Classification is tied to the series shown on the card. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role-search" class="stack"><label>Find a character by name or series<input name="query" maxlength="100" placeholder="Frieren"></label><button class="button secondary" type="submit">Search catalog →</button></form><form id="role" class="stack space-top"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
       .filter((c) => c.kind === "character")
       .map(
         (c) =>
@@ -93,7 +93,7 @@ function render() {
       )
       .join(
         "",
-      )}</select></label><label>Role<select name="role"><option value="supporting">Supporting</option><option value="main">Main</option></select></label><button class="button secondary" type="submit">Save character role →</button></form></section>`;
+      )}</select></label><label>Role<select name="role"><option value="supporting">Supporting</option><option value="main">Main</option><option value="unknown">Unsorted</option></select></label><button class="button secondary" type="submit">Save character role →</button></form></section>`;
   if (tab === "resets")
     html = `<section class="host-panel danger-panel"><h2>Reset an individual player</h2><p class="warning-copy">WARNING: Removes this player’s credits, lifetime earnings, cards, daily claims, tour activity, and predictions. Their bids and unclaimed wins are removed; open lots restart at zero. Sessions are revoked. AMQ identity, username history, and password remain. This cannot be undone through this console.</p><form id="reset-player" class="stack"><label>Player<select name="player" required><option value="">Choose carefully</option>${players()}</select></label>${input("Type RESET PLAYER followed by their exact ID", "confirmation", "text", 'autocomplete="off" placeholder="RESET PLAYER 00123"')}<button class="button danger" type="submit">Reset this player’s gameplay</button></form></section><section class="host-panel danger-panel"><h2>Reset the entire community</h2><p class="warning-copy">WARNING: This impacts every player. All credits, collections, tour counts, wallet activity, pick’ems, predictions, auctions, and sessions will be cleared. Create an export or backup first. This cannot be undone through this console.</p><form id="reset-all" class="stack"><label>Reset scope<select name="scope" id="reset-scope"><option value="game">Reset gameplay · keep player registry, passwords, usernames, catalog, and prices</option><option value="everything">Delete everything · include players, aliases, passwords, username history, catalog, and settings</option></select></label><p class="form-hint">Gameplay: type <code>RESET ALL GAME DATA</code><br>Delete everything: type <code>DELETE EVERYTHING</code>. The host token is a deployment secret and remains available.</p>${input("Exact confirmation phrase", "confirmation", "text", 'autocomplete="off"')}<button class="button danger" type="submit">Reset all selected data</button></form></section>`;
   $("#host-content").innerHTML = html;
@@ -159,6 +159,20 @@ document.addEventListener("submit", async (ev) => {
     }
     const b = Object.fromEntries(new FormData(form));
     let result;
+    if (form.id === "role-search") {
+      const response = await fetch(
+        "api/catalog?kind=character&q=" + encodeURIComponent(b.query),
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      state.cards = data.cards;
+      render();
+      report(
+        data.cards.length +
+          " results shown (up to 40). Refine the search if needed.",
+      );
+      return;
+    }
     if (form.id === "grant") {
       b.amount = Number(b.amount);
       result = await api("grant", b, key);
@@ -308,7 +322,9 @@ document.addEventListener("click", async (ev) => {
     working = true;
     t.disabled = true;
     try {
-      const cards = await (await fetch("sample-catalog.json")).json();
+      let cards = await (await fetch("sample-catalog.json")).json();
+      if (state.catalogSummary?.source)
+        cards = cards.filter((c) => c.kind === "seiyuu");
       const result = await importCatalog(cards);
       await load();
       report(result.message);

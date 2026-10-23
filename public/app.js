@@ -44,6 +44,13 @@ let state,
   profileResults = [],
   searchTimer;
 const pendingMutations = new Map();
+const cardCache = new Map();
+let catalogPageData = null,
+  catalogPageNumber = 1;
+function rememberCards(cards = []) {
+  for (const c of cards) cardCache.set(c.id, c);
+  while (cardCache.size > 5000) cardCache.delete(cardCache.keys().next().value);
+}
 const isDemo =
   new URLSearchParams(location.search).has("demo") ||
   location.hostname.endsWith(".github.io");
@@ -57,6 +64,7 @@ const rarity = (level) =>
   level >= 10 ? 5 : level >= 6 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1;
 const profileURL = (id) => "#player/" + encodeURIComponent(id);
 const cardBy = (id) =>
+  cardCache.get(id) ||
   state.catalog.find((c) => c.id === id) || {
     id,
     name: "Archived card",
@@ -102,7 +110,7 @@ function remaining(end) {
 }
 function cardHTML(c, a = null, item = null) {
   const mine = a?.winner === state.me?.id;
-  return `<article class="collect-card ${item ? "rarity-" + rarity(item.level) : ""}"><div class="portrait">${image(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : "SUPPORTING"}</span>${item ? `<span class="level-tag">LV. ${item.level}</span>` : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(c.series || "Voice actor")}</div>${a ? `<div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${escape(remaining(a.ends))}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || 1)} <span class="subtext">credits</span></div><button class="bid-button ${mine ? "winning" : ""}" data-action="${a.ends <= state.now ? "claim" : "bid"}" data-id="${a.id}">${a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗"}</button>` : item ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button>` : ""}</div></article>`;
+  return `<article class="collect-card ${item ? "rarity-" + rarity(item.level) : ""}"><div class="portrait">${image(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${item ? `<span class="level-tag">LV. ${item.level}</span>` : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(c.series || "Voice actor")}</div>${a ? `<div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${escape(remaining(a.ends))}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || 1)} <span class="subtext">credits</span></div><button class="bid-button ${mine ? "winning" : ""}" data-action="${a.ends <= state.now ? "claim" : "bid"}" data-id="${a.id}">${a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗"}</button>` : item ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button>` : ""}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -122,7 +130,8 @@ function home() {
   const cs = state.catalog.filter((c) => c.kind === "character"),
     hero = [
       cs.find((c) => c.name.includes("Rem")),
-      cs.find((c) => c.name.includes("Levi")),
+      cs.find((c) => c.name.includes("Levi")) ||
+        cs.find((c) => c.name.includes("Spike")),
       cs.find((c) => c.name.includes("Frieren")),
     ].filter(Boolean);
   const featured = state.auctions
@@ -172,18 +181,24 @@ function collection() {
   );
 }
 function packs() {
+  const pool = state.catalogSummary || {
+    character: state.catalog.filter((c) => c.kind === "character").length,
+    seiyuu: state.catalog.filter((c) => c.kind === "seiyuu").length,
+  };
+  const list = catalogPageData?.cards || [];
   return (
     intro(
       "Five cards. One little thrill.",
       "Characters, husbandos, waifus, and the voices you know by heart.",
     ) +
-    `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="section-head"><h2>Inside every pack</h2></div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Each pack gives five cards. Duplicates can appear, including within the same pack.</p></div><div class="rule"><strong>＝</strong><h3>A little more supporting luck</h3><p>Main characters have a ${state.settings.main_weight ?? 80}:100 pull weight versus Supporting characters. Each seiyuu has equal odds. Gender never affects the draw.</p></div><div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Use extra copies to enhance a card. Your collection keeps a base copy at its new level.</p></div></div><div class="notice">Current pool: ${state.catalog.filter((c) => c.kind === "character").length} characters and ${state.catalog.filter((c) => c.kind === "seiyuu").length} voice actors. The host can expand this catalog. Character art and actor portraits belong to their respective owners.</div><div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search the card pool…" value="${escape(search)}"></div><div class="card-grid">${state.catalog
-      .filter(
-        (c) =>
-          c.kind === tab && c.name.toLowerCase().includes(search.toLowerCase()),
-      )
-      .map((c) => cardHTML(c))
-      .join("")}</div>`
+    `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
+    <div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
+    <div class="rule"><strong>＝</strong><h3>A little more supporting luck</h3><p>Main characters have weight ${state.settings.main_weight ?? 80}, versus 100 for Supporting and Unsorted records. Seiyuu odds are equal.</p></div>
+    <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>
+    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source ? "ACDB includes Unsorted roles; these are preserved rather than guessed." : ""} Gender never changes the odds.</div>
+    <div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}"></div>
+    <div class="card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
+    <div class="toolbar space-top">${btn("← Previous", "catalog-prev", catalogPageNumber <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${catalogPageNumber}${catalogPageData?.total != null ? " · " + number(catalogPageData.total) + " cards" : ""}</span>${btn("Next →", "catalog-next", catalogPageData?.hasMore ? "" : "disabled", "secondary")}</div>`
   );
 }
 function auctions() {
@@ -293,14 +308,46 @@ function profile() {
   }`;
 }
 async function loadDynamic() {
-  if (page() === "players")
-    profileResults = (await api("profiles?q=" + encodeURIComponent(search)))
-      .profiles;
-  if (page() === "profile")
-    profileData = await api(
-      "player?id=" +
-        encodeURIComponent(decodeURIComponent(location.hash.slice(8))),
+  const current = page(),
+    requestedTab = tab,
+    requestedSearch = search,
+    requestedPage = catalogPageNumber;
+  if (current === "packs") {
+    const data = await api(
+      "catalog?kind=" +
+        tab +
+        "&q=" +
+        encodeURIComponent(search) +
+        "&page=" +
+        catalogPageNumber,
     );
+    if (
+      page() === "packs" &&
+      tab === requestedTab &&
+      search === requestedSearch &&
+      catalogPageNumber === requestedPage
+    ) {
+      catalogPageData = data;
+      rememberCards(data.cards);
+    }
+  }
+  if (current === "players") {
+    const data = await api("profiles?q=" + encodeURIComponent(search));
+    if (page() === "players" && search === requestedSearch) {
+      profileResults = data.profiles;
+      rememberCards(data.cards);
+    }
+  }
+  if (current === "profile") {
+    const hash = location.hash;
+    const data = await api(
+      "player?id=" + encodeURIComponent(decodeURIComponent(hash.slice(8))),
+    );
+    if (location.hash === hash) {
+      profileData = data;
+      rememberCards(data.cards);
+    }
+  }
 }
 function render() {
   if (!state) return;
@@ -359,6 +406,7 @@ async function api(path, body, key) {
 }
 async function refresh() {
   state = await api("state");
+  rememberCards(state.catalog);
   await loadDynamic();
   render();
 }
@@ -372,6 +420,7 @@ async function execute(path, b, after) {
   buttons.forEach((x) => (x.disabled = true));
   try {
     const result = await api(path, b, key);
+    rememberCards(result.cards);
     pendingMutations.delete(signature);
     try {
       await refresh();
@@ -426,10 +475,18 @@ document.addEventListener("click", async (ev) => {
   if (!t || busy) return;
   if (t.dataset.tab) {
     tab = t.dataset.tab;
+    catalogPageNumber = 1;
+    await loadDynamic();
     render();
     return;
   }
   const a = t.dataset.action;
+  if (a === "catalog-prev" || a === "catalog-next") {
+    catalogPageNumber += a === "catalog-next" ? 1 : -1;
+    await loadDynamic();
+    render();
+    return;
+  }
   if (a === "account") {
     account();
     return;
@@ -540,6 +597,7 @@ document.addEventListener("input", (ev) => {
         const data = await api("profiles?q=" + encodeURIComponent(q));
         if (q === search && page() === "players") {
           profileResults = data.profiles;
+          rememberCards(data.cards);
           const pos = $("#profile-search")?.selectionStart;
           render();
           $("#profile-search")?.focus();
@@ -552,11 +610,26 @@ document.addEventListener("input", (ev) => {
     return;
   }
   if (ev.target.id === "search") {
-    const pos = ev.target.selectionStart;
+    const position = ev.target.selectionStart;
     search = ev.target.value;
-    render();
-    $("#search")?.focus();
-    $("#search")?.setSelectionRange(pos, pos);
+    if (page() === "packs") {
+      catalogPageNumber = 1;
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        try {
+          await loadDynamic();
+          render();
+          $("#search")?.focus();
+          $("#search")?.setSelectionRange(position, position);
+        } catch (err) {
+          toast(err.message, true);
+        }
+      }, 350);
+    } else {
+      render();
+      $("#search")?.focus();
+      $("#search")?.setSelectionRange(position, position);
+    }
   }
 });
 document.addEventListener(
@@ -591,6 +664,7 @@ document.addEventListener("click", (e) => {
 });
 window.addEventListener("hashchange", async () => {
   search = "";
+  catalogPageNumber = 1;
   profileData = null;
   try {
     await loadDynamic();

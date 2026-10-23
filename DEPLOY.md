@@ -8,6 +8,16 @@ As checked on 2026-10-24, Cloudflare documents 100,000 Worker requests/day and f
 - [Durable Object pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/)
 - [Durable Object limits](https://developers.cloudflare.com/durable-objects/platform/limits/)
 
+## Current deployment
+
+Live game: https://amqtours-gatcha.amqtours-gatcha.workers.dev/
+
+Host console: https://amqtours-gatcha.amqtours-gatcha.workers.dev/host.html
+
+The production HOST_TOKEN is saved in the local ignored `.production.vars` file. Open it locally to unlock the host console; keep it private. It is deployed as an encrypted runtime secret and is not part of GitHub or public assets. Authentication setup used the account's verified email and Wrangler OAuth. The real AMQ player registry still needs a host import.
+
+The ACDB character snapshot is seeded separately from code deployment. See [CATALOG.md](CATALOG.md). The 10 sample seiyuus remain an initial pool; Kitsu-wide actor import is not active. Production gameplay has not been populated with fictional demo players.
+
 ## Option A: Deploy from your computer
 
 1. Create a free Cloudflare account and select the Workers Free plan. You can use the included `workers.dev` address; purchasing a domain is unnecessary.

@@ -1,0 +1,33 @@
+{
+  "provider": "ACDB",
+  "version": "1384e1abd4201de1",
+  "count": 70029,
+  "groups": {
+    "main": 8703,
+    "other": 61326
+  },
+  "roles": {
+    "unknown": 50131,
+    "main": 8703,
+    "supporting": 11195
+  },
+  "generatedAt": "2026-10-23T17:10:11.065253+00:00",
+  "source": "https://www.animecharactersdatabase.com/databasedumps.php",
+  "license": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "scope": "Characters linked to TV Anime, Movie, OVA or ONA. No sex filter. ACDB IDs retained; series variants may be separate cards.",
+  "roleMapping": "Main Character and Protagonist → main; Unsorted → unknown; other listed roles → supporting. Unknown has weight 100.",
+  "exports": {
+    "characters": {
+      "url": "https://www.animecharactersdatabase.com/hosted/characters.sql.gz",
+      "sha256": "875f5e0b7657fa8981bc42ee5eab81856034584dcab0455cf7c2405869374afe"
+    },
+    "publishers": {
+      "url": "https://www.animecharactersdatabase.com/hosted/publishers.sql.gz",
+      "sha256": "d672d11f2438c07c5e44c95b7ae298f29d93c728779f657b94068e5199c7f031"
+    },
+    "assignments": {
+      "url": "https://www.animecharactersdatabase.com/hosted/assignments.sql.gz",
+      "sha256": "300d0343106e97848084d43a167c47bcdeaf7c17f03ecb26c46dc6b8a78dd34d"
+    }
+  }
+}

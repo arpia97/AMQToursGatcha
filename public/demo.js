@@ -117,6 +117,23 @@ export class Demo {
   async request(path, b) {
     const s = this.s;
     s.now = Date.now();
+    if (path.startsWith("catalog?")) {
+      const p = new URLSearchParams(path.split("?")[1]),
+        kind = p.get("kind") || "character",
+        q = (p.get("q") || "").toLowerCase(),
+        page = Number(p.get("page") || 1);
+      const cards = s.catalog.filter(
+        (c) =>
+          c.kind === kind &&
+          (c.name + " " + c.series).toLowerCase().includes(q),
+      );
+      return {
+        cards: cards.slice((page - 1) * 40, page * 40),
+        page,
+        total: cards.length,
+        hasMore: cards.length > page * 40,
+      };
+    }
     if (path === "state") return structuredClone(s);
     if (path.startsWith("profiles?")) {
       const q =

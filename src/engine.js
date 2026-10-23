@@ -1,3 +1,4 @@
+import { Catalog } from "./catalog.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -16,7 +17,7 @@ export function text(s, max = 160) {
   return s.trim();
 }
 export function randomInt(n) {
-  integer(n, 1, 10000000);
+  integer(n, 1, 100000000);
   const limit = Math.floor(4294967296 / n) * n;
   let v;
   do {
@@ -36,6 +37,7 @@ export class Engine {
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
+      ["catalog", "bulk_role", "TEXT"],
     ]) {
       if (
         !this.all(`PRAGMA table_info(${table})`).some((c) => c.name === column)
@@ -46,6 +48,7 @@ export class Engine {
       "INSERT OR IGNORE INTO settings VALUES ('character_price',500),('seiyuu_price',500)",
     );
     this.run("INSERT OR IGNORE INTO settings VALUES ('main_weight',80)");
+    this.catalogStore = new Catalog(this);
   }
   all(sql, ...args) {
     return this.db(sql, ...args);
@@ -135,14 +138,11 @@ export class Engine {
           )
         )
           continue;
-        const cards = this.all(
-          "SELECT id FROM catalog WHERE kind=? AND active=1 ORDER BY id",
-          kind,
-        );
-        if (cards.length < 5) continue;
+        if (this.catalogStore.summary()[kind] < 5) continue;
+        const selected = new Set();
         for (let i = 0; i < 5; i++) {
-          const index = this.rand(cards.length);
-          const [card] = cards.splice(index, 1);
+          const card = this.catalogStore.draw(kind, this.rand, 100, selected);
+          selected.add(card.id);
           this.run(
             "INSERT INTO auctions(card,kind,starts,ends) VALUES(?,?,?,?)",
             card.id,
@@ -172,11 +172,7 @@ export class Engine {
     if (action === "pack") {
       if (!["character", "seiyuu"].includes(b.kind))
         fail("Choose a pack type.");
-      const cards = this.all(
-        "SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY id",
-        b.kind,
-      );
-      if (cards.length < 5)
+      if (this.catalogStore.summary()[b.kind] < 5)
         fail("The host needs to add at least five cards to this catalog.");
       const price = this.one(
         "SELECT value FROM settings WHERE key=?",
@@ -186,18 +182,9 @@ export class Engine {
       const weight = this.one(
         "SELECT value FROM settings WHERE key='main_weight'",
       ).value;
-      const weights = cards.map((c) =>
-          b.kind === "character" && c.role === "main" ? weight : 100,
-        ),
-        total = weights.reduce((a, b) => a + b, 0);
-      const pulls = Array.from({ length: 5 }, () => {
-        let r = this.rand(total);
-        for (let i = 0; i < cards.length; i++) {
-          r -= weights[i];
-          if (r < 0) return cards[i];
-        }
-        return cards.at(-1);
-      });
+      const pulls = Array.from({ length: 5 }, () =>
+        this.catalogStore.draw(b.kind, this.rand, weight),
+      );
       for (const card of pulls) this.addCard(player, card.id);
       return { message: "Five new cards for your collection.", cards: pulls };
     }
@@ -466,8 +453,8 @@ export class Engine {
             fail("Image and source URLs must use HTTPS.");
         const role =
           c.kind === "seiyuu" ? "supporting" : c.role || "supporting";
-        if (!["main", "supporting"].includes(role))
-          fail("Character role must be main or supporting.");
+        if (!["main", "supporting", "unknown"].includes(role))
+          fail("Character role must be main, supporting, or unknown.");
         const old = this.one(
           "SELECT kind FROM catalog WHERE id=?",
           text(c.id, 100),
@@ -475,7 +462,7 @@ export class Engine {
         if (old && old.kind !== c.kind)
           fail("A catalog ID cannot change card type.");
         this.run(
-          "INSERT INTO catalog(id,kind,name,series,image,source,role) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role",
+          "INSERT INTO catalog(id,kind,name,series,image,source,role,bulk_role) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role,bulk_role=excluded.bulk_role",
           c.id,
           c.kind,
           text(c.name),
@@ -483,6 +470,7 @@ export class Engine {
           image.slice(0, 1000),
           source.slice(0, 1000),
           role,
+          this.catalogStore.bulkCard(c.id)?.role || null,
         );
       }
       return { message: `Imported ${b.cards.length} catalog cards.` };
@@ -536,6 +524,8 @@ export class Engine {
           "catalog",
           "receipts",
           "throttle",
+          "catalog_bulk",
+          "catalog_meta",
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
@@ -553,9 +543,7 @@ export class Engine {
   state(id) {
     const now = this.now(),
       me = id ? this.player(id) : null;
-    const catalog = this.all(
-      "SELECT * FROM catalog WHERE active=1 ORDER BY name",
-    );
+    const summary = this.catalogStore.summary();
     const auctions = this.all(
       "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE a.ends>? OR (a.winner=? AND a.claimed=0) ORDER BY a.ends,a.id",
       now,
@@ -565,6 +553,32 @@ export class Engine {
       "SELECT p.*,v.winner AS prediction,v.score_a AS prediction_a,v.score_b AS prediction_b FROM pickems p LEFT JOIN predictions v ON v.pickem=p.id AND v.player=? ORDER BY p.id DESC LIMIT 100",
       id || "",
     );
+    const inventory = id
+      ? this.all("SELECT * FROM inventory WHERE player=?", id)
+      : [];
+    const ranks = this.all(
+      "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
+    );
+    const references = new Set([
+      ...auctions.map((a) => a.card),
+      ...inventory.map((i) => i.card),
+      ...ranks.map((p) => p.avatar_card),
+      me?.avatar_card,
+    ]);
+    if (summary.source)
+      for (const id of [
+        "acdb-character-76951",
+        "acdb-character-130626",
+        "acdb-character-7841",
+      ])
+        references.add(id);
+    else
+      for (const c of this.catalogStore.page("character", "", 1, 12).cards)
+        references.add(c.id);
+    const catalog = [...references]
+      .filter(Boolean)
+      .map((id) => this.catalogStore.card(id))
+      .filter(Boolean);
     return {
       now,
       me,
@@ -574,21 +588,18 @@ export class Engine {
       settings: Object.fromEntries(
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
       ),
-      inventory: id
-        ? this.all("SELECT * FROM inventory WHERE player=?", id)
-        : [],
+      inventory,
       ledger: id
         ? this.all(
             "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
             id,
           )
         : [],
-      ranks: this.all(
-        "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
-      ),
+      ranks,
+      catalogSummary: summary,
       counts: {
         players: this.one("SELECT count(*) AS n FROM players").n,
-        cards: catalog.length,
+        cards: summary.total,
       },
     };
   }
@@ -634,6 +645,18 @@ export class Engine {
         pickems: picks,
       },
       inventory: this.all("SELECT * FROM inventory WHERE player=?", id),
+      cards: [
+        ...new Set([
+          ...this.all(
+            "SELECT card FROM inventory WHERE player=? LIMIT 20",
+            id,
+          ).map((i) => i.card),
+          p.avatar_card,
+        ]),
+      ]
+        .filter(Boolean)
+        .map((card) => this.catalogStore.card(card))
+        .filter(Boolean),
     };
   }
 }

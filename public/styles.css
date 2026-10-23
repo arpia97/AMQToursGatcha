@@ -1308,6 +1308,7 @@ dialog form {
   }
   .two-col {
     gap: 14px;
+    grid-template-columns: 1fr;
   }
   .pack-panel p {
     max-width: 65%;

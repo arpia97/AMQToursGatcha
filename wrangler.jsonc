@@ -10,5 +10,9 @@
   },
   "durable_objects": { "bindings": [{ "name": "GAME", "class_name": "Game" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Game"] }],
-  "observability": { "enabled": false },
+  "observability": {
+    "enabled": true,
+    "logs": { "enabled": true, "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 },
+  },
 }

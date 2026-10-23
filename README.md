@@ -2,9 +2,9 @@
 
 A collection game for the AMQ Tours community: earn credits, collect characters and seiyuus, bid on weekly auctions, and predict tour results.
 
-**[Open the GitHub Pages demo](https://arpia97.github.io/AMQToursGatcha/)** · [Deploy the shared game](DEPLOY.md) · [Host tool / API](HOST-TOOLS.md)
+**[Open the shared Cloudflare game](https://amqtours-gatcha.amqtours-gatcha.workers.dev/)** · [GitHub Pages demo](https://arpia97.github.io/AMQToursGatcha/) · [Deploy the shared game](DEPLOY.md) · [Host tool / API](HOST-TOOLS.md)
 
-The GitHub Pages site is an explicitly labelled **browser-only demo** with fictional players. It does not award real community credits. The same frontend and a working shared backend are ready to deploy together on Cloudflare Workers. No paid database, separate server, or custom domain is required for a small deployment within Cloudflare's free allowances.
+The GitHub Pages site is an explicitly labelled **browser-only demo** with fictional players. It does not award real community credits. The same frontend and the shared backend are deployed together on Cloudflare Workers. No paid database, separate server, or custom domain is required for a small deployment within Cloudflare's free allowances.
 
 ## Included
 
@@ -54,11 +54,13 @@ The test suite uses real SQLite transactions for the shared economy, weighted dr
 
 ## Initial data and remaining setup
 
-The included starter catalog has **12 characters and 10 voice actors**, with remote MyAnimeList portraits. It is a small review/test pool, not the full anime universe. Classification is per associated series and can be adjusted in the host console. Expand the catalog before inviting the community. Names and images were read from the linked source profiles; artwork and portraits retain their owners' rights.
+The ACDB snapshot contains **70,029 anime-linked character records** from the provider's published SQL exports. Main Character and Protagonist records map to Main (8,703); Supporting/other assigned roles map to Supporting (11,195); Unsorted stays unknown (50,131) with weight 100. TV anime, movies, OVA and ONA are included; there is no gender filter. Stable ACDB IDs are retained, including separate series/age variants. This is a dated provider snapshot, not a promise of every character ever created.
 
-The optional `tools/import-anilist.mjs` builds a larger catalog, page by page, from AniList. It uses a character's most popular associated anime to derive the displayed series and Main/Supporting role; a host can override that role. Staff entries are limited to people whose listed occupation includes voice actor. The import has no gender filter. Provider blocking and rate limits can interrupt it; completed pages are written after every response. AniList was blocked from the development environment, so this optional external-provider import has not been verified end to end here. JSON imports and the bundled starter catalog were verified.
+See [CATALOG.md](CATALOG.md) for repeatable bulk import, resumable uploads, provenance, licensing, and role corrections. The adapted database is freely downloadable under ODbL from `public/data/acdb-catalog.json.gz`, with [attribution](public/data/README.md). Portraits/artwork retain their owners' rights.
 
-Do not import the same identity from both MAL and AniList without deduplicating/mapping provider IDs: those would otherwise become separate cards. Choose one catalog ID scheme before community launch.
+The 22-card demo/starter includes 12 MAL characters and 10 voice actors. For a live ACDB deployment, import **only its 10 seiyuus** to avoid duplicate character identities. ACDB's exports do not provide a complete voice-actor portrait catalog. Kitsu's people/character-voices API has been verified for Japanese voice credits and can supply an additional seiyuu source; cross-provider identity mapping is required before combining actor catalogs.
+
+AniList's API terms prohibit mass collection or storage. The old optional AniList helper has been removed; use the published ACDB export for the character bulk seed.
 
 The real AMQ Tours player/alias registry is **not committed to this public repository**. Import a CSV through the host console. Automatic Google Sheets synchronization is not configured. AMQ Tours ratings, statistics, and the existing Python host application are unchanged; the separate command-line tool provides a supported integration point.
 
@@ -66,6 +68,6 @@ The real AMQ Tours player/alias registry is **not committed to this public repos
 
 `public/` is a buildless, responsive frontend. `src/worker.js` serves the API and static assets. One SQLite-backed Durable Object owns the community economy. `src/engine.js` executes economic mutations synchronously inside transactions, preventing concurrent overspending. Mutations require an idempotency key. Passwords use salted PBKDF2; session tokens are hashed in storage and sent in HttpOnly SameSite cookies. Host access uses a deployment secret held in memory by the host console. Same-origin JSON requests and login throttles protect mutation endpoints.
 
-This design targets an AMQ community, not an unlimited global service. Catalog responses currently include the complete active pool, rankings show up to 100 earners, and profile search shows up to 50 matches. Free service allowances and upstream image availability still apply. A very large catalog or community would need pagination and quota monitoring.
+This design targets an AMQ community, not an unlimited global service. Catalog browsing/search is paginated (40 cards), while shared state contains only referenced card metadata. Bulk metadata uses bounded SQLite JSON chunks to keep initial row writes low. Rankings show up to 100 earners, and profile search shows up to 50 matches. Free service allowances and upstream image availability still apply.
 
 Collection and search inspiration: [karitham/WaifuBot](https://github.com/karitham/WaifuBot). This is an independent implementation of the requested AMQ economy, rather than a deployment of that Discord bot.

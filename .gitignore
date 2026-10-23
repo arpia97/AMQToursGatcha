@@ -6,3 +6,5 @@ dist/
 *.sqlite*
 *.log
 coverage/
+__pycache__/
+.production.vars
