@@ -63,7 +63,8 @@ export function sheetPlayers(raw) {
 export class AliasSync {
   constructor(e, get = fetch) {
     this.e = e;
-    this.get = get;
+    // Workers' native fetch rejects a class instance as its receiver.
+    this.get = (...args) => get(...args);
     if (!e.one("SELECT key FROM catalog_meta WHERE key='alias-sync'"))
       this.save({ enabled: true, nextAt: e.now() + 1000, status: "pending" });
   }

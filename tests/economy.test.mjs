@@ -575,11 +575,14 @@ test("sheet aliases group IDs, reject ambiguity and migrate legacy admin identit
     e.addCard("arpia97", "mal-character-1");
     e.run("INSERT INTO sessions VALUES('token','arpia97',9999999999999)");
   });
-  const sync = new AliasSync(
-    e,
-    async () =>
-      new Response("Player Name,Player ID\narpia97,368\ntwo_squirds,368"),
-  );
+  const sync = new AliasSync(e, async function () {
+    assert.equal(
+      this,
+      undefined,
+      "Fetch must be called without a class receiver, as required by Workers",
+    );
+    return new Response("Player Name,Player ID\narpia97,368\ntwo_squirds,368");
+  });
   await sync.step(true);
   assert.equal(sync.status().status, "synced");
   assert.equal(e.player("368").balance, 123);
