@@ -38,7 +38,27 @@ test("real free-plan quota errors return a retryable response without implying d
     now,
   );
   assert.equal(r.status, 503);
-  assert.equal(Number(r.headers.get("Retry-After")), 1801);
-  assert.equal((await r.json()).retryAt, nextBudgetDay(now));
+  assert.equal(Number(r.headers.get("Retry-After")), 300);
+  assert.equal((await r.json()).retryAt, now + 5 * 60000);
+  const afterReset = Date.UTC(2026, 9, 24, 0, 1);
+  assert.equal(
+    (
+      await storageQuotaResponse(
+        new Error("Exceeded allowed rows read in Durable Objects free tier."),
+        afterReset,
+      ).json()
+    ).retryAt,
+    afterReset + 5 * 60000,
+  );
+  const nearReset = Date.UTC(2026, 9, 23, 23, 59);
+  assert.equal(
+    (
+      await storageQuotaResponse(
+        new Error("Exceeded allowed rows read in Durable Objects free tier."),
+        nearReset,
+      ).json()
+    ).retryAt,
+    nextBudgetDay(nearReset),
+  );
   assert.equal(storageQuotaResponse(new Error("Unrelated error")), null);
 });

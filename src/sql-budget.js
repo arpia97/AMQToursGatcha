@@ -45,11 +45,13 @@ export function storageQuotaResponse(err, now = Date.now()) {
     )
   )
     return null;
-  const next = nextBudgetDay(now);
+  // Enforcement can remain active shortly after the published daily boundary.
+  // Offer a bounded retry instead of incorrectly telling clients to wait a day.
+  const next = Math.min(nextBudgetDay(now), now + 5 * 60000);
   return new Response(
     JSON.stringify({
       error:
-        "The free database allowance is temporarily exhausted. It resets at 09:00 KST. Your saved data is retained; please return after the reset.",
+        "Cloudflare is temporarily enforcing the free database limit. Daily limits normally reset at 09:00 KST. Your saved data is retained; please try again in a few minutes.",
       retryAt: next,
     }),
     {
