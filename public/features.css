@@ -1017,12 +1017,6 @@
   }
 }
 
-.collect-card.tier-ss {
-  border: 2px solid #eef3fc;
-  box-shadow:
-    0 0 19px #d6e1f380,
-    inset 0 0 0 1px #ffffff80;
-}
 .hero-card:is(.tier-sss, .tier-ubers, .tier-ag) {
   border-color: var(--tier-color);
   box-shadow:
@@ -1136,11 +1130,134 @@
   .tier-ubers,
   .tier-ag
 ) {
+  border-width: 3px;
+  border-style: solid;
   border-color: var(--tier-color);
   box-shadow:
     0 0 var(--glow-size) var(--tier-glow),
     inset 0 0 0 1px var(--tier-glow);
   animation: tier-pulse var(--pulse-time) ease-in-out infinite;
+}
+
+.collect-card.tier-ag::after,
+.profile-avatar.tier-ag::after {
+  inset: -3px;
+  padding: 3px;
+}
+.hero-card.tier-ag::after {
+  inset: -3px;
+  border-width: 3px;
+}
+.pack-cinematic:is(.aura-s, .aura-ss, .aura-sss, .aura-ubers, .aura-ag)
+  .sealed-pack {
+  border-width: 3px;
+}
+.aura-ag .sealed-pack::after {
+  inset: -3px;
+  padding: 3px;
+}
+
+/* Quiet effects for packs whose best pull is A or below. */
+.pack-cinematic:is(.aura-a, .aura-b, .aura-c, .aura-d, .aura-pending)
+  .sealed-pack {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--aura) 18%, transparent);
+  animation: low-pack-glow 5s ease-in-out infinite;
+}
+@keyframes low-pack-glow {
+  50% {
+    box-shadow: 0 0 16px color-mix(in srgb, var(--aura) 25%, transparent);
+  }
+}
+.auction-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.section-head {
+  flex-wrap: wrap;
+}
+.fusion-slot-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+.fusion-slot-pick .fusion-portrait {
+  width: 100%;
+}
+.fusion-slot:has(.fusion-slot-pick):hover,
+button.fusion-slot:hover {
+  border-color: #d2a3ff;
+}
+.fusion-slot-pick:focus-visible,
+button.fusion-slot:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 4px;
+}
+.fusion-pool {
+  color: #c7b6df;
+  font-size: 12px;
+  margin-top: 18px;
+}
+.fusion-picker-open {
+  overflow: hidden;
+}
+.fusion-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: #06070bd9;
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.fusion-picker-backdrop[hidden] {
+  display: none;
+}
+.fusion-picker-dialog {
+  width: min(1050px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: #171820;
+  border: 1px solid #474052;
+  border-radius: 18px;
+  padding: 28px;
+  box-shadow: 0 25px 80px #0009;
+}
+.fusion-picker-dialog > .section-head:first-child {
+  margin-top: 0;
+}
+.fusion-picker-dialog .fusion-material-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (max-width: 800px) {
+  .fusion-picker-dialog .fusion-material-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .auction-header-actions {
+    justify-content: flex-start;
+  }
+  .fusion-picker-backdrop {
+    padding: 10px;
+  }
+  .fusion-picker-dialog {
+    padding: 18px;
+    max-height: calc(100dvh - 20px);
+  }
+  .fusion-picker-dialog .fusion-material-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @keyframes tier-pulse {
   50% {
@@ -1234,4 +1351,59 @@
   .aura-ag .sealed-pack::after {
     animation: none !important;
   }
+}
+.aura-ag .sealed-pack::after {
+  inset: -3px;
+}
+.card-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-top: 10px;
+  align-items: start;
+}
+.card-controls .bid-button {
+  margin: 0;
+  padding: 8px 6px;
+  font-size: 10px;
+  min-height: 32px;
+}
+.card-menu summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 9px 8px;
+  border: 1px solid #424550;
+  border-radius: 6px;
+  background: #292c36;
+  color: #e8e8eb;
+  text-align: center;
+}
+.card-menu summary::-webkit-details-marker {
+  display: none;
+}
+.card-menu[open] {
+  grid-column: 1/-1;
+}
+.card-menu .collection-actions {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+  gap: 4px;
+}
+.card-menu .collection-actions .text-button {
+  margin: 0;
+  padding: 7px 3px;
+  font-size: 10px;
+  text-align: left;
+}
+.card-menu summary:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+.auction-leader {
+  overflow-wrap: anywhere;
+}
+.auction-leader a {
+  color: var(--mint);
 }

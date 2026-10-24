@@ -44,6 +44,7 @@ export class Fusion {
         card: id,
         name: group.card.name,
         rarity: group.card.rarity,
+        kind: group.card.kind,
         variant,
         level,
       });
@@ -67,7 +68,8 @@ export class Fusion {
           409,
         );
     const needed = [odds.baseline, ...(odds.upgrade ? [odds.upgraded] : [])];
-    for (const kind of ["character", "seiyuu"])
+    const kinds = [...new Set(materials.map((m) => m.kind))];
+    for (const kind of kinds)
       for (const card of this.e.catalogStore.pool(kind).cards)
         if (needed.includes(card.rarity))
           (pools[card.rarity] ||= []).push(card);

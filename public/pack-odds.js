@@ -1,5 +1,5 @@
 export const PREMIUM_RULE = {
-  boosted: ["AG", "Ubers", "SSS", "SS"],
+  boosted: ["AG", "Ubers", "SSS", "SS", "S"],
   multiplier: 2,
   from: "D",
 };
@@ -21,7 +21,7 @@ export function premiumPool(cards) {
 
 export function drawPremium({ cards, high, d }, rand) {
   let c = cards[rand(cards.length)];
-  // Redirect H/D of D draws to a uniformly chosen above-S card.
+  // Redirect H/D of D draws to a uniformly chosen S-or-higher card.
   // Each high card becomes 2/N; all non-D lower tiers stay at 1/N.
   if (c.rarity === "D" && high.length && rand(d) < high.length)
     c = high[rand(high.length)];

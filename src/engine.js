@@ -687,7 +687,7 @@ export class Engine {
       : [];
     for (const listing of myListings) references.add(listing.card);
     const shop = this.all(
-      "SELECT * FROM weekly_shop WHERE ends>? ORDER BY id",
+      "SELECT * FROM weekly_shop WHERE ends>? AND buyer IS NULL ORDER BY id",
       now,
     );
     const showcase = id

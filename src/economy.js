@@ -189,6 +189,7 @@ export class Economy {
     }
     if (!e.one("SELECT id FROM weekly_shop WHERE starts=? LIMIT 1", start))
       this.seedShop(start, start + WEEK);
+    else this.refillShop(start, start + WEEK);
     return (
       e.one(
         "SELECT min(ends) AS ends FROM auctions WHERE seller IS NOT NULL AND ends>? AND paid=0",
@@ -223,6 +224,34 @@ export class Economy {
         start,
         ends,
       );
+    }
+  }
+  refillShop(start, ends, avoid = null) {
+    const e = this.e;
+    const current = e.all(
+      "SELECT card FROM weekly_shop WHERE ends>? AND buyer IS NULL ORDER BY id LIMIT 10",
+      e.now(),
+    );
+    if (current.length >= 10 || e.catalogStore.summary().total < 10) return;
+    const pool = ["character", "seiyuu"].flatMap(
+      (kind) => e.catalogStore.pool(kind).cards,
+    );
+    const excluded = new Set(current.map((s) => s.card));
+    while (excluded.size < 10) {
+      const available = pool.filter((c) => !excluded.has(c.id));
+      const different = available.filter((c) => c.id !== avoid);
+      const candidates = different.length ? different : available;
+      if (!candidates.length) break;
+      const c = candidates[e.rand(candidates.length)];
+      e.run(
+        "INSERT INTO weekly_shop(card,kind,price,starts,ends) VALUES(?,?,?,?,?)",
+        c.id,
+        c.kind,
+        SHOP_PRICES[c.rarity || "Pending"],
+        start,
+        ends,
+      );
+      excluded.add(c.id);
     }
   }
   refreshAuctions() {
@@ -476,6 +505,7 @@ export class Economy {
       e.wallet(player, -s.price, "Weekly shop: " + s.card);
       this.acquire(player, s.card);
       e.run("UPDATE weekly_shop SET buyer=? WHERE id=?", player, s.id);
+      this.refillShop(s.starts, s.ends, s.card);
       return {
         message: "Weekly shop card added to your collection.",
         cards: [e.catalogStore.card(s.card)],
@@ -573,11 +603,13 @@ export class Economy {
     const expression = {
       earned: "p.earned",
       balance: "p.balance",
-      gambling_won: "COALESCE(g.won,0)",
-      gambling_lost: "COALESCE(g.lost,0)",
+      gambling_won: "COALESCE(g.net,0)",
+      gambling_lost: "COALESCE(g.net,0)",
     }[metric];
+    const gambling = metric.startsWith("gambling_");
+    const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} DESC) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(max(net,0)) AS won,sum(max(-net,0)) AS lost,sum(net) AS net FROM gambling_rounds GROUP BY player) g ON g.player=p.id WHERE ${expression}>0 ORDER BY value DESC,p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
     return { metric, page, rows: rows.slice(0, 50), hasMore: rows.length > 50 };
@@ -635,6 +667,7 @@ CREATE INDEX IF NOT EXISTS listings_open ON market_listings(status,kind,id);
 CREATE INDEX IF NOT EXISTS listings_seller ON market_listings(seller,status);
 CREATE TABLE IF NOT EXISTS weekly_shop(id INTEGER PRIMARY KEY AUTOINCREMENT,card TEXT NOT NULL,kind TEXT NOT NULL,price INTEGER NOT NULL,starts INTEGER NOT NULL,ends INTEGER NOT NULL,buyer TEXT);
 CREATE INDEX IF NOT EXISTS shop_week ON weekly_shop(starts,kind);
+CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL;
 CREATE TABLE IF NOT EXISTS gambling_rounds(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,game TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL,net INTEGER NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS gambling_player ON gambling_rounds(player,id);
 CREATE TABLE IF NOT EXISTS profile_showcase(player TEXT NOT NULL,card TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(player,card));

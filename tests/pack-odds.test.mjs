@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
 
-test("premium exactly doubles every above-S card, funding it only from D", () => {
+test("premium exactly doubles every S-through-AG card, funding it only from D", () => {
   const cards = [
     "AG",
     "Ubers",
@@ -21,17 +21,17 @@ test("premium exactly doubles every above-S card, funding it only from D", () =>
   // probability proof without a flaky Monte Carlo assertion.
   for (let i = 0; i < cards.length; i++)
     for (let d = 0; d < 6; d++)
-      for (let h = 0; h < 4; h++) {
+      for (let h = 0; h < 5; h++) {
         const rolls = [i, d, h];
         const c = drawPremium(pool, () => rolls.shift());
         counts[Number(c.id)]++;
       }
-  assert.deepEqual(counts.slice(0, 4), [48, 48, 48, 48]);
-  assert.deepEqual(counts.slice(4, 9), [24, 24, 24, 24, 24]);
-  assert.deepEqual(counts.slice(9), Array(6).fill(8));
+  assert.deepEqual(counts.slice(0, 5), [60, 60, 60, 60, 60]);
+  assert.deepEqual(counts.slice(5, 9), [30, 30, 30, 30]);
+  assert.deepEqual(counts.slice(9), Array(6).fill(5));
   assert.equal(
     counts.reduce((a, b) => a + b),
-    cards.length * 6 * 4,
+    cards.length * 6 * 5,
   );
 });
 test("premium works with Pending cards, permits all-D mass to be reassigned, and rejects unfundable odds", () => {

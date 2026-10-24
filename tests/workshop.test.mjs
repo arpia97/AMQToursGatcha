@@ -46,6 +46,14 @@ function fixture() {
       },
     ]),
   );
+  for (const card of [...cards.values()]) {
+    const other = {
+      ...card,
+      id: card.id + "-other",
+      kind: card.kind === "character" ? "seiyuu" : "character",
+    };
+    cards.set(other.id, other);
+  }
   e.host("catalog", { cards: [...cards.values()] });
   // Model a deterministic classified source while keeping real SQLite ownership,
   // wallet, escrow, receipt and rollback behaviour under test.
@@ -256,7 +264,7 @@ test("fusion permits one-card stays, mixed types, and duplicate extras but prese
     f.body([f.material("D", "extra"), f.material("C")]),
   );
   assert.equal(mixed.odds.baseline, "C");
-  assert.equal(mixed.cards[0].kind, "seiyuu");
+  assert.equal(mixed.cards[0].kind, "character");
 });
 test("invalid fusion ownership, stale terms, excessive odds, missing result pools and escrow fail before consuming", () => {
   const f = fixture(),
@@ -311,4 +319,47 @@ test("invalid fusion ownership, stale terms, excessive odds, missing result pool
     /no longer/,
   );
   assert.equal(e.economy.market("shop", "seiyuu").items.length, 1);
+});
+
+test("fusion result type follows single-type materials and mixed materials can draw either type", () => {
+  for (const type of ["character", "seiyuu"])
+    for (const upgrade of [false, true]) {
+      const f = fixture(),
+        id = type === "character" ? "D" : "D-other";
+      f.add(id, 2);
+      let rolls = [upgrade ? 200 : 0, 0];
+      f.e.rand = () => rolls.shift();
+      const r = f.act(
+        "fusion",
+        f.body([f.material(id), f.material(id, "extra")]),
+      );
+      assert.equal(r.cards[0].kind, type);
+      assert.equal(r.cards[0].rarity, upgrade ? "C" : "D");
+    }
+  for (const type of ["character", "seiyuu"]) {
+    const f = fixture();
+    f.add("D");
+    f.add("D-other");
+    let n = 0;
+    f.e.rand = (max) => (n++ === 0 ? 200 : type === "character" ? 0 : max - 1);
+    const r = f.act("fusion", f.body([f.material("D"), f.material("D-other")]));
+    assert.equal(r.cards[0].kind, type);
+    assert.equal(r.cards[0].rarity, "C");
+  }
+});
+test("fusion never substitutes a different type if a required result tier is missing", () => {
+  const f = fixture();
+  f.add("D", 2);
+  const before = f.e.state("p").inventory;
+  const pool = f.e.catalogStore.pool;
+  f.e.catalogStore.pool = (kind) => ({
+    cards: pool(kind).cards.filter(
+      (c) => kind !== "character" || c.rarity !== "C",
+    ),
+  });
+  assert.throws(
+    () => f.act("fusion", f.body([f.material("D"), f.material("D", "extra")])),
+    /No C result/,
+  );
+  assert.deepEqual(f.e.state("p").inventory, before);
 });

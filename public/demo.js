@@ -14,7 +14,7 @@ export class Demo {
           "D",
           "C",
           "B",
-          "A",
+          "D",
           "S",
           "SS",
           "SSS",
@@ -24,7 +24,7 @@ export class Demo {
           "D",
           "D",
         ],
-        seiyuu: ["D", "D", "D", "D", "S", "SS", "SSS", "Ubers", "AG", "C"],
+        seiyuu: ["D", "D", "D", "D", "S", "SS", "SSS", "Ubers", "AG", "D"],
       },
       counts = { character: 0, seiyuu: 0 };
     cards = cards.map((c) => ({
@@ -297,6 +297,7 @@ export class Demo {
       );
       a.bid = b.amount;
       a.winner = s.me.id;
+      a.winner_name = s.me.name;
     } else if (path === "enhance") {
       const i = s.inventory.find((i) => i.card === b.card),
         cost = 2 ** (i.level - 1);

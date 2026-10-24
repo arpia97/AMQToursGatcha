@@ -1,4 +1,5 @@
 import { integer, text, fail } from "./engine.js";
+import { animeProgressComparator } from "../public/card-display.js";
 
 // Only primary anime associations are stored by the catalogue importer.
 export class AnimeCollection {
@@ -148,7 +149,8 @@ export class AnimeCollection {
         player,
       )
       .map(({ series_key }) => this.progress(player, series_key))
-      .filter(Boolean);
+      .filter(Boolean)
+      .sort(animeProgressComparator);
   }
   search(query, player) {
     const q = String(query || "")
@@ -170,7 +172,8 @@ export class AnimeCollection {
     integer(page, 1, 10000);
     const e = this.e;
     const rows = e.all(
-      `WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0), progress AS (SELECT s.series_key,min(s.romaji) AS series_romaji,max(s.english) AS series_english,count(*) AS owned FROM owned o JOIN character_series s ON s.card=o.card GROUP BY s.series_key) SELECT p.*,(SELECT count(*) FROM character_series c WHERE c.series_key=p.series_key) AS total FROM progress p ORDER BY owned DESC,series_romaji LIMIT 25 OFFSET ?`,
+      `WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0), progress AS (SELECT s.series_key,min(s.romaji) AS series_romaji,max(s.english) AS series_english,count(*) AS owned FROM owned o JOIN character_series s ON s.card=o.card GROUP BY s.series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_series c WHERE c.series_key=p.series_key) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
+      player,
       player,
       player,
       player,

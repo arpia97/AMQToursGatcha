@@ -1,6 +1,6 @@
 import { fusionQuote } from "./fusion-rules.js";
-import { instantSalePrice } from "./card-values.js";
-import { cardComparator } from "./card-display.js";
+import { instantSalePrice, SHOP_PRICES } from "./card-values.js";
+import { cardComparator, animeProgressComparator } from "./card-display.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
   const s = d.s,
@@ -192,8 +192,17 @@ export function demoFeatures(d, path, b) {
   if (path.startsWith("anime-collection?")) {
     const groups = animeGroups();
     return {
-      series: groups.filter((g) => g.owned).sort((a, b) => b.owned - a.owned),
-      pinned: groups.filter((g) => s.pinnedAnime.includes(g.series_key)),
+      series: groups
+        .filter((g) => g.owned)
+        .sort(
+          (a, b) =>
+            Number(s.pinnedAnime.includes(b.series_key)) -
+              Number(s.pinnedAnime.includes(a.series_key)) ||
+            animeProgressComparator(a, b),
+        ),
+      pinned: groups
+        .filter((g) => s.pinnedAnime.includes(g.series_key))
+        .sort(animeProgressComparator),
       page: 1,
       hasMore: false,
       indexing: false,
@@ -250,8 +259,8 @@ export function demoFeatures(d, path, b) {
   if (path.startsWith("rankings?")) {
     const p = new URLSearchParams(path.split("?")[1]),
       metric = p.get("metric") || "earned";
-    const won = s.gambling.reduce((n, g) => n + Math.max(g.net, 0), 0),
-      lost = s.gambling.reduce((n, g) => n + Math.max(-g.net, 0), 0);
+    const net = s.gambling.reduce((n, g) => n + g.payout - g.stake, 0),
+      gambling = metric.startsWith("gambling_");
     const rows = s.ranks
       .map((p) => {
         const own = p.id === me.id;
@@ -267,14 +276,16 @@ export function demoFeatures(d, path, b) {
                   ? me.balance
                   : Math.floor(p.earned / 3)
                 : own
-                  ? metric === "gambling_won"
-                    ? won
-                    : lost
+                  ? net
                   : 0,
         };
       })
-      .filter((p) => p.value > 0)
-      .sort((a, b) => b.value - a.value);
+      .filter((p) =>
+        gambling ? p.id === me.id && s.gambling.length > 0 : p.value > 0,
+      )
+      .sort((a, b) =>
+        metric === "gambling_lost" ? a.value - b.value : b.value - a.value,
+      );
     return {
       rows: rows.map((p, i) => ({
         ...p,
@@ -398,7 +409,9 @@ export function demoFeatures(d, path, b) {
     const pools = Object.fromEntries(
       [odds.baseline, ...(odds.upgrade ? [odds.upgraded] : [])].map((r) => [
         r,
-        d.cards.filter((c) => c.rarity === r),
+        d.cards.filter(
+          (c) => c.rarity === r && materials.some((m) => m.kind === c.kind),
+        ),
       ]),
     );
     if (Object.values(pools).some((p) => !p.length))
@@ -529,6 +542,26 @@ export function demoFeatures(d, path, b) {
     add(l.card, l.level || 1);
     l.buyer = me.id;
     l.status = "sold";
+    if (path === "shop-buy") {
+      const nextId = Math.max(0, ...s.shop.map((x) => x.id)) + 1;
+      const occupied = new Set(
+        s.shop.filter((x) => !x.buyer).map((x) => x.card),
+      );
+      const choices = d.cards.filter(
+        (c) => !occupied.has(c.id) && c.id !== l.card,
+      );
+      const c = choices[Math.floor(Math.random() * choices.length)];
+      s.shop = s.shop.filter((x) => x !== l);
+      if (c)
+        s.shop.push({
+          id: nextId,
+          card: c.id,
+          kind: c.kind,
+          price: SHOP_PRICES[c.rarity || "Pending"],
+          ends: l.ends,
+          buyer: null,
+        });
+    }
     return {
       message: "Demo card added to your collection.",
       cards: [d.cards.find((c) => c.id === l.card)],

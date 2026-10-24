@@ -65,3 +65,56 @@ export function cardComparator(sort = "name") {
     return d || name(a, b);
   };
 }
+
+export function collectionView(
+  inventory,
+  cardBy,
+  { kind, query = "", rarity = "", role = "", sort = "rarity" } = {},
+) {
+  const q = query.toLowerCase();
+  return inventory
+    .map((i) => ({ ...i, c: cardBy(i.card) }))
+    .filter(
+      ({ c }) =>
+        c.kind === kind &&
+        (!rarity || (c.rarity || "Pending") === rarity) &&
+        (kind !== "character" || !role || c.role === role) &&
+        [c.name, c.series, c.series_romaji, c.series_english]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+    )
+    .sort((a, b) => {
+      const order =
+        sort === "collected"
+          ? (b.acquired_at || 0) - (a.acquired_at || 0)
+          : sort === "level"
+            ? b.level - a.level
+            : sort === "copies"
+              ? b.copies - a.copies
+              : cardComparator(sort)(a.c, b.c);
+      return order || cardComparator("name")(a.c, b.c);
+    });
+}
+
+export function collectionPage(items, requested = 1, limit = 40) {
+  const pages = Math.max(1, Math.ceil(items.length / limit));
+  const page = Math.min(
+    pages,
+    Math.max(1, Number.isSafeInteger(requested) ? requested : 1),
+  );
+  return {
+    items: items.slice((page - 1) * limit, page * limit),
+    page,
+    total: items.length,
+    hasMore: page < pages,
+  };
+}
+export function animeProgressComparator(a, b) {
+  return (
+    b.owned * a.total - a.owned * b.total ||
+    String(a.series_romaji).localeCompare(String(b.series_romaji)) ||
+    String(a.series_key).localeCompare(String(b.series_key))
+  );
+}

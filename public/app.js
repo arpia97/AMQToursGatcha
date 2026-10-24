@@ -7,7 +7,8 @@ import {
   seriesTitle,
   rarityClass,
   popularityLabel,
-  cardComparator,
+  collectionView,
+  collectionPage,
 } from "./card-display.js";
 const $ = (s) => document.querySelector(s);
 let titleMode = "romaji";
@@ -75,6 +76,8 @@ const ui = {
   filters: { rarity: "", role: "" },
   catalogSort: "name",
   collectionSort: "rarity",
+  collectionPage: 1,
+  collectionFilters: { rarity: "", role: "" },
   playerPage: 1,
   playerData: null,
   tab: () => tab,
@@ -175,7 +178,13 @@ function tickCountdowns() {
       expired = true;
     }
   }
-  if (expired && !busy && !document.hidden && !$("#modal").open)
+  if (
+    expired &&
+    !busy &&
+    !document.hidden &&
+    !$("#modal").open &&
+    !workshop.pickerOpen()
+  )
     refresh().catch(() => {});
 }
 setInterval(() => {
@@ -204,7 +213,14 @@ function revealAcquired(result, title = "A new favourite is yours.") {
   );
 }
 function showAuctionWin() {
-  if (!state?.me || busy || document.hidden || $("#modal").open) return;
+  if (
+    !state?.me ||
+    busy ||
+    document.hidden ||
+    $("#modal").open ||
+    workshop.pickerOpen()
+  )
+    return;
   const a = (state.auctionWins || []).find(
     (a) => !shownWins.has(state.me.id + ":" + a.id),
   );
@@ -234,11 +250,11 @@ function cardHTML(c, a = null, item = null) {
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
   const auction = a
-    ? `<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a>" : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${remaining(a.ends)}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
+    ? `<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a>" : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a>${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button><div class="collection-actions"><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="fusion-card" data-id="${escape(c.id)}">Add to fusion ↗</button><button class="text-button" data-action="instant-sell" data-id="${escape(c.id)}">Sell now · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">List / auction ↗</button></div>`
+      ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button class="text-button" data-action="set-avatar" data-id="${escape(c.id)}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="fusion-card" data-id="${escape(c.id)}">Add to fusion ↗</button><button class="text-button" data-action="instant-sell" data-id="${escape(c.id)}">Sell now · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">List / auction ↗</button></div></details></div>`
       : "";
   return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
 }
@@ -278,6 +294,69 @@ const features = createFeatures(
   },
   ui,
 );
+let fusionPickerFocus = null;
+function renderFusionPicker(focusSearch = false, position = null) {
+  const overlay = $("#fusion-picker");
+  overlay.innerHTML = workshop.renderPicker();
+  overlay.hidden = false;
+  const input = overlay.querySelector("#fusion-search");
+  if (focusSearch) {
+    input?.focus();
+    if (position !== null) input?.setSelectionRange(position, position);
+  }
+}
+function openFusionPicker(index) {
+  fusionPickerFocus = document.activeElement;
+  workshop.openPicker(index);
+  if ($("#modal").open) $("#modal").close();
+  document.querySelectorAll(".sidebar,.workspace").forEach((el) => {
+    el.inert = true;
+  });
+  document.body.classList.add("fusion-picker-open");
+  renderFusionPicker(true);
+}
+function closeFusionPicker() {
+  workshop.closePicker();
+  const overlay = $("#fusion-picker");
+  overlay.hidden = true;
+  overlay.innerHTML = "";
+  document.querySelectorAll(".sidebar,.workspace").forEach((el) => {
+    el.inert = false;
+  });
+  document.body.classList.remove("fusion-picker-open");
+  if (fusionPickerFocus?.isConnected) fusionPickerFocus.focus();
+  fusionPickerFocus = null;
+}
+document.addEventListener("keydown", (ev) => {
+  if (!workshop.pickerOpen()) return;
+  if (ev.key === "Escape") {
+    ev.preventDefault();
+    closeFusionPicker();
+    return;
+  }
+  if (ev.key !== "Tab") return;
+  const items = [
+    ...$("#fusion-picker").querySelectorAll(
+      "button:not([disabled]),input,select,a[href]",
+    ),
+  ];
+  const first = items[0],
+    last = items.at(-1);
+  if (
+    ev.shiftKey &&
+    (document.activeElement === first ||
+      !$("#fusion-picker").contains(document.activeElement))
+  ) {
+    ev.preventDefault();
+    last?.focus();
+  } else if (!ev.shiftKey && document.activeElement === last) {
+    ev.preventDefault();
+    first?.focus();
+  }
+});
+$("#fusion-picker").addEventListener("click", (ev) => {
+  if (ev.target === $("#fusion-picker")) closeFusionPicker();
+});
 function shop() {
   return features.shop();
 }
@@ -307,7 +386,7 @@ function packPanel(kind, premium = false) {
     price =
       state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
       (premium ? 2000 : 500);
-  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} card pack</h3><p>${premium ? "Double the normal chance of SS, SSS, Ubers and AG. The extra chance comes from D." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
+  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} card pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers and AG. The extra chance comes from D." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
 }
 function home() {
   const hero = heroCards || [];
@@ -326,33 +405,18 @@ function home() {
       ? pickemHero(state.activePickem)
       : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Build a deck of your favourite characters and the voices that bring them to life.</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     `<div class="daily-rewards ${dailyPack() ? "two-col" : ""}">${daily()}${dailyPack()}</div>` +
-    `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><a class="text-button" href="#auctions">View auctions ↗</a></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
+    `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
 function collection() {
-  let items = state.inventory
-    .map((i) => ({ ...i, c: cardBy(i.card) }))
-    .filter(
-      (i) =>
-        i.c.kind === tab &&
-        [i.c.name, i.c.series, i.c.series_romaji, i.c.series_english]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(search.toLowerCase()),
-    );
-  items.sort((a, b) => {
-    if (ui.collectionSort === "collected")
-      return (
-        (b.acquired_at || 0) - (a.acquired_at || 0) ||
-        cardComparator("name")(a.c, b.c)
-      );
-    if (ui.collectionSort === "level")
-      return b.level - a.level || cardComparator("name")(a.c, b.c);
-    if (ui.collectionSort === "copies")
-      return b.copies - a.copies || cardComparator("name")(a.c, b.c);
-    return cardComparator(ui.collectionSort)(a.c, b.c);
+  const items = collectionView(state.inventory, cardBy, {
+    kind: tab,
+    query: search,
+    sort: ui.collectionSort,
+    ...ui.collectionFilters,
   });
+  const collectionData = collectionPage(items, ui.collectionPage);
+  ui.collectionPage = collectionData.page;
   return (
     intro(
       "Your collection. Your favourites.",
@@ -360,13 +424,20 @@ function collection() {
     ) +
     (state.me ? features.pinnedAnime() : "") +
     `<div class="filters">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}"></div>` +
-    features.sortControl("collection") +
+    features.filters("collection") +
+    (state.me
+      ? features.catalogPager(
+          collectionData,
+          ui.collectionPage,
+          "collection-top",
+        )
+      : "") +
     (state.me
       ? items.length
-        ? `<div class="card-grid">${items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
+        ? `<div class="card-grid">${collectionData.items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
         : empty(
-            "Your deck has room for a new favourite.",
-            "Open a five-card pack or win an auction to start collecting.",
+            "No matching cards in your collection.",
+            "Try another search or clear the rarity and role filters.",
             '<a class="button" href="#packs">Explore card packs ↗</a>',
           )
       : empty(
@@ -374,7 +445,10 @@ function collection() {
           "Sign in using your AMQ player ID or alias to see your cards.",
           btn("Sign in", "account"),
         )) +
-    (state.me ? features.animeCollection() : "") +
+    (state.me
+      ? features.catalogPager(collectionData, ui.collectionPage, "collection") +
+        features.animeCollection()
+      : "") +
     `<div class="notice space-top">Enhancement uses extra copies of the same card: Lv. 1 → 2 costs 1, Lv. 2 → 3 costs 2, then 4, 8, and so on. Your base card is kept. There is no extra credit fee.</div>`
   );
 }
@@ -391,7 +465,7 @@ function packs() {
     ) +
     dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
-    <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances above S · reduced D chance</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
+    <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances S and above · reduced D chance</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every card, equal chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool. Role and rarity do not affect normal pulls.</p></div>
     <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>
     <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""} Gender never changes the odds.</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
@@ -409,7 +483,7 @@ function auctions() {
       "A new week. A new lineup.",
       "Five characters. Five seiyuus. Higher tiers in the spotlight.",
     ) +
-    `<div class="notice">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}<br>Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to join your deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly community auctions</h2>${active.length ? `<span class="pill live"><span class="dot"></span> ${remaining(active[0].ends)}</span>` : ""}</div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No auctions just yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
+    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to join your deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly community auctions</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No auctions just yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
     features.userAuctions()
   );
 }
@@ -579,17 +653,12 @@ function render() {
         : route === "players"
           ? !profileResults.length
           : route === "collection"
-            ? !state.inventory.some((i) => {
-                const c = cardBy(i.card);
-                return (
-                  c.kind === tab &&
-                  [c.name, c.series, c.series_romaji, c.series_english]
-                    .filter(Boolean)
-                    .join(" ")
-                    .toLowerCase()
-                    .includes(search.toLowerCase())
-                );
-              })
+            ? !collectionView(state.inventory, cardBy, {
+                kind: tab,
+                query: search,
+                sort: ui.collectionSort,
+                ...ui.collectionFilters,
+              }).length
             : false;
     queryInput.classList.toggle("no-results", none);
     queryInput.setAttribute("aria-invalid", String(none));
@@ -705,6 +774,8 @@ document.addEventListener("click", async (ev) => {
     tab = t.dataset.tab;
     ui.marketPage = 1;
     ui.filters.role = "";
+    ui.collectionFilters.role = "";
+    ui.collectionPage = 1;
     if (tab === "seiyuu" && ui.catalogSort === "role") ui.catalogSort = "name";
     if (tab === "seiyuu" && ui.collectionSort === "role")
       ui.collectionSort = "name";
@@ -867,6 +938,7 @@ document.addEventListener("input", (ev) => {
     return;
   }
   if (ev.target.id === "search") {
+    if (page() === "collection") ui.collectionPage = 1;
     const position = ev.target.selectionStart;
     search = ev.target.value;
     if (page() === "packs") {
@@ -921,6 +993,7 @@ document.addEventListener("click", (e) => {
     $("#modal").close();
 });
 window.addEventListener("hashchange", async () => {
+  if (workshop.pickerOpen()) closeFusionPicker();
   search = "";
   catalogPageNumber = 1;
   ui.marketPage = 1;
@@ -941,10 +1014,12 @@ window.addEventListener("hashchange", async () => {
   window.scrollTo(0, 0);
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !busy && !$("#modal").open) refresh().catch(() => {});
+  if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
+    refresh().catch(() => {});
 });
 setInterval(() => {
-  if (!document.hidden && !busy && !$("#modal").open) refresh().catch(() => {});
+  if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
+    refresh().catch(() => {});
 }, 60000);
 $("#reset-demo").addEventListener("click", () => {
   demo?.reset();
@@ -984,6 +1059,14 @@ async function handleFeatureClick(a, t) {
         auth();
         return true;
       }
+      if (a === "fusion-pick") {
+        openFusionPicker(Number(t.dataset.index));
+        return true;
+      }
+      if (a === "fusion-picker-close") {
+        closeFusionPicker();
+        return true;
+      }
       if (a === "fusion-add" || a === "fusion-card") {
         const item = state.inventory.find((i) => i.card === t.dataset.id);
         workshop.add({
@@ -995,6 +1078,7 @@ async function handleFeatureClick(a, t) {
                 : "card"
               : t.dataset.variant,
         });
+        if (a === "fusion-add") closeFusionPicker();
         if (a === "fusion-card") location.hash = "fusion";
       }
       if (a === "fusion-remove") workshop.remove(Number(t.dataset.index));
@@ -1002,6 +1086,11 @@ async function handleFeatureClick(a, t) {
       if (a === "fusion-dismiss") workshop.dismiss();
       if (a === "fusion-prev") workshop.prev();
       if (a === "fusion-next") workshop.next();
+      if (a === "fusion-prev" || a === "fusion-next") {
+        renderFusionPicker();
+        $("#fusion-picker .fusion-picker-dialog")?.focus();
+        return true;
+      }
       if (a === "fusion-run") {
         const body = workshop.request();
         t.disabled = true;
@@ -1017,6 +1106,19 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       render();
+      return true;
+    }
+    if (
+      [
+        "collection-prev",
+        "collection-next",
+        "collection-top-prev",
+        "collection-top-next",
+      ].includes(a)
+    ) {
+      ui.collectionPage += a.endsWith("next") ? 1 : -1;
+      render();
+      $("#main .filters")?.scrollIntoView({ block: "start" });
       return true;
     }
     if (a === "rank-metric") {
@@ -1038,6 +1140,12 @@ async function handleFeatureClick(a, t) {
         render();
         return true;
       }
+    if (a === "clear-collection-filters") {
+      ui.collectionPage = 1;
+      ui.collectionFilters = { rarity: "", role: "" };
+      render();
+      return true;
+    }
     if (a === "clear-filters") {
       ui.filters = { rarity: "", role: "" };
       catalogPageNumber = 1;
@@ -1071,7 +1179,7 @@ async function handleFeatureClick(a, t) {
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
           (premium ? 2000 : 500);
       modal(
-        `<h2>${premium ? "A rarer kind of luck." : "A new favourite could be inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS and SS each have double their normal chances, taken only from D. No guaranteed minimum." : "Normal pack odds apply."} Duplicates are possible.</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
+        `<h2>${premium ? "A rarer kind of luck." : "A new favourite could be inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances, taken only from D. No guaranteed minimum." : "Normal pack odds apply."} Duplicates are possible.</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
       );
       return true;
     }
@@ -1285,7 +1393,10 @@ document.addEventListener("change", async (ev) => {
     if (ev.target.id === "catalog-sort") {
       ui.catalogSort = ev.target.value;
       catalogPageNumber = 1;
-    } else ui.collectionSort = ev.target.value;
+    } else {
+      ui.collectionSort = ev.target.value;
+      ui.collectionPage = 1;
+    }
     try {
       if (page() === "packs") await loadDynamic();
       render();
@@ -1316,9 +1427,7 @@ document.addEventListener("input", (ev) => {
   if (ev.target.id !== "fusion-search") return;
   const pos = ev.target.selectionStart;
   workshop.filter("query", ev.target.value);
-  render();
-  $("#fusion-search")?.focus();
-  $("#fusion-search")?.setSelectionRange(pos, pos);
+  renderFusionPicker(true, pos);
 });
 document.addEventListener("change", (ev) => {
   if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;
@@ -1326,5 +1435,37 @@ document.addEventListener("change", (ev) => {
     ev.target.id === "fusion-kind" ? "kind" : "grade",
     ev.target.value,
   );
+  const id = ev.target.id;
+  renderFusionPicker();
+  $("#" + id)?.focus();
+});
+
+document.addEventListener("change", (ev) => {
+  if (
+    !["collection-filter-rarity", "collection-filter-role"].includes(
+      ev.target.id,
+    )
+  )
+    return;
+  ui.collectionPage = 1;
+  ui.collectionFilters[ev.target.id.endsWith("rarity") ? "rarity" : "role"] =
+    ev.target.value;
   render();
+});
+
+document.addEventListener("change", (ev) => {
+  if (
+    ![
+      "collection-page-input",
+      "collection-page-select",
+      "collection-top-page-input",
+      "collection-top-page-select",
+    ].includes(ev.target.id)
+  )
+    return;
+  const value = Number(ev.target.value);
+  if (!Number.isSafeInteger(value) || value < 1) return;
+  ui.collectionPage = value;
+  render();
+  $("#main .filters")?.scrollIntoView({ block: "start" });
 });
