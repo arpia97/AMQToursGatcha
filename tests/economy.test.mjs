@@ -38,6 +38,151 @@ test("catalogue filters combine rarity and role and reject seiyuu roles", () => 
   );
 });
 
+test("collectors paginate without omission and alias searches retain a matching total", () => {
+  const { e } = fixture();
+  e.host("players", {
+    players: Array.from({ length: 121 }, (_, i) => ({
+      id: "p" + i,
+      name: "Player " + i,
+      aliases: ["alias-" + i],
+    })),
+  });
+  const pages = [1, 2, 3].map((p) => e.profilesPage("", p));
+  assert.deepEqual(
+    pages.map((p) => p.profiles.length),
+    [50, 50, 23],
+  );
+  assert.equal(
+    new Set(pages.flatMap((p) => p.profiles.map((x) => x.id))).size,
+    123,
+  );
+  assert.deepEqual(
+    pages.map((p) => p.hasMore),
+    [true, true, false],
+  );
+  assert.ok(pages.every((p) => p.total === 123));
+  assert.equal(e.profilesPage("alias-120").profiles[0].id, "p120");
+  assert.equal(e.profilesPage("alias-120").total, 1);
+  assert.throws(() => e.profilesPage("", 0), /whole number/);
+});
+test("global sorted catalogue pages include bulk cards, preserve filters, and invalidate on source changes", () => {
+  const { e } = fixture();
+  e.catalogStore.tenrai.upsert([
+    {
+      id: "mal-character-999",
+      kind: "character",
+      name: "Zebra",
+      role: "supporting",
+      series: "Bulk",
+    },
+    {
+      id: "mal-character-2000",
+      kind: "character",
+      name: "Aardvark",
+      role: "main",
+      series: "Bulk",
+    },
+  ]);
+  const page = (sort, p = 1, extra = {}) =>
+    e.catalogStore.page("character", "", p, 2, { sort, ...extra });
+  assert.equal(page("name").cards[0].name, "Aardvark");
+  assert.equal(page("name-desc").cards[0].name, "Zebra");
+  assert.equal(page("name").total, 8);
+  const all = [1, 2, 3, 4].flatMap((p) => page("name", p).cards);
+  assert.equal(new Set(all.map((c) => c.id)).size, 8);
+  e.catalogStore.popularity.sync("character", [
+    ["mal-character-999", 1000],
+    ["mal-character-2000", 0],
+  ]);
+  assert.equal(page("rarity").cards[0].id, "mal-character-999");
+  assert.equal(page("favorites").cards[0].id, "mal-character-999");
+  assert.equal(page("newest").cards[0].id, "mal-character-2000");
+  assert.ok(
+    page("role", 1, { role: "main" }).cards.every((c) => c.role === "main"),
+  );
+  e.host("catalog", {
+    cards: [
+      {
+        id: "mal-character-2000",
+        kind: "character",
+        name: "ZZZ override",
+        role: "main",
+      },
+    ],
+  });
+  assert.equal(page("name-desc").cards[0].name, "ZZZ override");
+  assert.throws(() => page("__proto__"), /sort/);
+  assert.throws(
+    () => e.catalogStore.page("seiyuu", "", 1, 40, { sort: "role" }),
+    /sort/,
+  );
+});
+test("anime pins track unowned series, escrow progress, public profiles, limits, and reset scopes", () => {
+  const f = fixture(),
+    { e } = f;
+  e.host("catalog", {
+    cards: Array.from({ length: 14 }, (_, i) => ({
+      id: "mal-character-" + (3000 + i),
+      kind: "character",
+      name: "New " + i,
+      series: "Anime " + i,
+      series_english: "English " + i,
+    })),
+  });
+  assert.equal(
+    e.economy.anime.search("English 0", "seller").series[0].owned,
+    0,
+  );
+  const pin = (key, pinned = true) =>
+    f.act("seller", "pin-anime", { series: key, pinned });
+  pin("anime 0");
+  pin("anime 0");
+  assert.equal(e.profile("seller").pinnedAnime.length, 1);
+  assert.equal(e.profile("seller").pinnedAnime[0].owned, 0);
+  e.addCard("seller", "mal-character-3000");
+  assert.equal(e.profile("seller").pinnedAnime[0].owned, 1);
+  f.act("seller", "list-card", {
+    card: "mal-character-3000",
+    variant: "card",
+    venue: "shop",
+    price: 20,
+  });
+  assert.equal(e.profile("seller").pinnedAnime[0].owned, 1);
+  f.act("buyer", "buy-listing", { listing: e.economy.market().items[0].id });
+  assert.equal(e.profile("seller").pinnedAnime[0].owned, 0);
+  for (let i = 1; i < 12; i++) pin("anime " + i);
+  assert.throws(() => pin("anime 12"), /12 anime/);
+  assert.throws(() => pin("not imported"), /catalogue/);
+  pin("anime 0", false);
+  pin("anime 12");
+  assert.equal(e.economy.anime.page("seller").pinned.length, 12);
+  assert.equal(e.profile("buyer").pinnedAnime.length, 0);
+  e.host("reset-player", {
+    player: "seller",
+    confirmation: "RESET PLAYER seller",
+  });
+  assert.equal(e.profile("seller").pinnedAnime.length, 0);
+  assert.ok(e.economy.anime.search("English 0").series.length);
+});
+test("collection dates preserve first ownership across duplicate pulls and stamp transfers", () => {
+  const f = fixture(),
+    { e } = f;
+  e.addCard("seller", "mal-character-1");
+  const first = e.profile("seller").inventory[0].acquired_at;
+  f.tick(10000);
+  e.addCard("seller", "mal-character-1");
+  assert.equal(e.profile("seller").inventory[0].acquired_at, first);
+  f.act("seller", "list-card", {
+    card: "mal-character-1",
+    variant: "extra",
+    venue: "shop",
+    price: 10,
+  });
+  const id = e.economy.market().items[0].id;
+  assert.equal(e.state("seller").myListings[0].id, id);
+  f.act("buyer", "buy-listing", { listing: id });
+  assert.equal(e.profile("buyer").inventory[0].acquired_at, first + 10000);
+});
 test("rankings share tied positions and reject unknown metrics", () => {
   const { e } = fixture();
   const rows = e.economy.rankings("earned").rows;
@@ -155,7 +300,7 @@ test("catalogue counts remain accurate across metadata edits, deletes, and rolle
   e.run("DELETE FROM catalog WHERE id='mal-person-100'");
   assert.equal(e.catalogStore.summary().seiyuu, original.seiyuu);
 });
-test("daily rewards give one mixed pack per KST day and can add a pack after credits were claimed", () => {
+test("daily credits and manually claimed mixed packs are independent and once per KST day", () => {
   const f = fixture(),
     e = f.e;
   let kindCalls = 0;
@@ -167,16 +312,20 @@ test("daily rewards give one mixed pack per KST day and can add a pack after cre
   };
   e.rand = (n) => (n === 12 ? (kindCalls++ % 2 ? 11 : 0) : 0);
   const result = f.act("buyer", "daily", {});
-  assert.equal(result.cards.length, 5);
+  assert.equal(result.cards.length, 0);
+  assert.equal(e.all("SELECT * FROM inventory WHERE player='buyer'").length, 0);
   assert.equal(e.player("buyer").balance, 10100);
-  assert.ok(kinds.includes("character") && kinds.includes("seiyuu"));
   assert.equal(e.economy.daily("buyer", true), null);
   assert.throws(() => f.act("buyer", "daily", {}), /already claimed/);
-  e.run("UPDATE players SET daily_pack=NULL WHERE id='buyer'");
-  const catchup = f.act("buyer", "daily", {});
+  const catchup = f.act("buyer", "daily-pack", {}, "daily-key");
   assert.equal(catchup.credits, 0);
   assert.equal(catchup.cards.length, 5);
+  assert.ok(kinds.includes("character") && kinds.includes("seiyuu"));
+  assert.deepEqual(f.act("buyer", "daily-pack", {}, "daily-key"), catchup);
+  assert.throws(() => f.act("buyer", "daily-pack", {}), /already claimed/);
+  assert.equal(e.player("buyer").balance, 10100);
   f.tick(86400000);
+  assert.equal(f.act("buyer", "daily-pack", {}).cards.length, 5);
   assert.equal(f.act("buyer", "daily", {}).credits, 100);
 });
 test("buyouts refund a third-party bidder, preserve level, and cannot pay twice", () => {

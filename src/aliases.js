@@ -200,6 +200,7 @@ export class AliasSync {
       "predictions",
       "gambling_rounds",
       "profile_showcase",
+      "profile_anime",
     ])
       this.e.run(`UPDATE ${table} SET player=? WHERE player=?`, id, old);
     this.e.run("UPDATE auctions SET winner=? WHERE winner=?", id, old);

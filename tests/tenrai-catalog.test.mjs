@@ -201,8 +201,12 @@ test("ACDB retirement refunds unclaimed auction escrow once and preserves unrela
       { ...card(2), id: "mal-person-2", kind: "seiyuu" },
     ],
   });
-  e.run("INSERT INTO inventory VALUES('p','acdb-character-1',1,2)");
-  e.run("INSERT INTO inventory VALUES('p','mal-person-2',1,1)");
+  e.run(
+    "INSERT INTO inventory(player,card,copies,level) VALUES('p','acdb-character-1',1,2)",
+  );
+  e.run(
+    "INSERT INTO inventory(player,card,copies,level) VALUES('p','mal-person-2',1,1)",
+  );
   e.run("UPDATE players SET avatar_card='acdb-character-1' WHERE id='p'");
   e.run(
     "INSERT INTO auctions(card,kind,starts,ends,bid,winner) VALUES('acdb-character-1','character',0,200000,200,'p')",

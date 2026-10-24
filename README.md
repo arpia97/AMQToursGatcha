@@ -9,7 +9,7 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 ## Included
 
 - Host-issued, one-use registration codes linked to stable AMQ Tours IDs; automatic alias-sheet synchronization every six hours, plus ID and alias sign-in.
-- One-time 1,000-credit starter grant for every identity, including existing users. Daily sign-in automatically adds 100 credits and five cards chosen uniformly from the combined character/seiyuu pool, resetting at midnight in `Asia/Seoul`.
+- One-time 1,000-credit starter grant for every identity, including existing users. Daily sign-in automatically adds 100 credits. A separate free five-card pack is claimable from Overview or Card packs and disappears after claiming. Both reset at midnight in `Asia/Seoul`; cards are chosen uniformly from the combined character/seiyuu pool. Previously auto-granted packs still count as that day's claim.
 - Separate authenticated host console at `/host.html`, plus a command-line tool for external host scripts.
 - Credit awards for reporting, counting, and participation, with an audit note and distinct tour identifier.
 - Free pick’em entry with a deadline, editable predictions before closing, and one-time settlement by the host. Correct winner and each exact team score pay separately.
@@ -19,15 +19,19 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 - Character pack weights: Main `80`, Supporting `100` by default. The host can adjust Main weight from 1–99. Gender does not affect odds. Seiyuus have **no classification and equal odds**. Auction selection remains unweighted.
 - Enhancement costs 1, 2, 4, 8… extra copies. One base copy stays in the inventory. No additional credit fee; maximum level 20.
 - Cumulative earned-credit, current balance, gambling profit, and gambling loss rankings. Spending, refunds, trading proceeds, and gambling payouts do not inflate Cumulative earnings.
-- Searchable public profiles with current username, all previous usernames, AMQ aliases, available credits, tour participation/counting/reporting counts, and pick’em winner accuracy.
-- Profile pictures selected from owned cards. Frames progress from silver to blue, violet, gold, and iridescent at levels 1, 2, 4, 6, and 10. Avatar levels follow the inventory automatically.
+- Searchable public profiles with current username, all previous usernames, AMQ aliases, available credits, tour participation/counting/reporting counts, and pick’em winner accuracy. Players lists every Tours identity, 50 per page, with page input and selection; Rankings stays last in the navigation.
+- Circular profile pictures cropped from owned cards, with rarity effects around the rim and the enhancement badge outside the crop. Avatar levels follow the inventory automatically.
 - Username changes are free. Another player's registered AMQ aliases and historical usernames are reserved, case-insensitively.
 - Six-card profile showcases, collection completion by card type, and catalogue filters for rarity and character role.
 - Pick’em history with Open, Locked, and Settled states, newest first; an open pick’em replaces the overview hero.
 - Weekly fixed-price shop with five characters and five seiyuus, one shared stock per card, rotating Monday at 00:00 UTC. Prices are provisional and based on rarity.
-- User Marketplace and User Auctions, with escrowed cards, enhanced-level transfers, immediate outbid refunds, and one-time seller payouts. User auctions last 1–168 hours, with a minimum opening bid and optional buyout. Withdrawals are allowed before the first bid; buyouts deliver the enhanced card immediately.
+- User Marketplace and User Auctions, with separate fixed-price and timed-auction forms, escrowed cards, enhanced-level transfers, immediate outbid refunds, and one-time seller payouts. User auctions last 1–168 hours, with a minimum opening bid and optional buyout. Your listings remain accessible above each venue's public listings. Marketplace withdrawals are allowed before sale; auction withdrawals before the first bid. Buyouts deliver the enhanced card immediately.
 - Catalogue page-number input and nearby-page selection, green active searches, and red empty-result searches. My collection includes a paginated anime progress board with unique collected character counts and completion bars for each primary anime.
 - Premium five-card packs at 2,000 credits by default, favoring rarer cards. Prices and rarity weights are provisional; see [CATALOG.md](CATALOG.md).
+- Packs glow with their highest actual pull's rarity, then reveal five cards with a staggered flip and an Open another pack button for paid packs. Cards are granted atomically before the animation; closing it never loses a pull or charges twice. Reduced-motion preferences disable animations.
+- Rainbow AG badges and borders; increasing S/SS/SSS/Ubers/AG glows, animated at Ubers and AG. Enhancement levels remain separate from popularity rarity.
+- Pin up to 12 imported anime, including those with no owned cards, to your public profile and the top of your collection progress board. Counts include cards held in open listings.
+- Catalogue sorting across the full pool: alphabetical, rarity, MAL favourites, character role, and newest MAL ID. Collection adds enhancement, copy count, and collection date. First-ownership dates are recorded from this update; older cards have unknown dates and sort last. Catalogue browse views are cached briefly in the object and invalidated on catalogue/popularity writes.
 - Coin Flip, High / Low, and Lucky Seven credit games, with displayed odds, payouts, and stakes of 10–10,000 credits.
 - Host reset tools for one player, all gameplay, or all player accounts, with warnings and exact typed confirmation phrases. Every scope protects the catalogues.
 

@@ -521,6 +521,7 @@ export class Game extends DurableObject {
           {
             rarity: url.searchParams.get("rarity") || "",
             role: url.searchParams.get("role") || "",
+            sort: url.searchParams.get("sort") || "",
           },
         ),
       );
@@ -541,6 +542,12 @@ export class Game extends DurableObject {
         ),
       );
     }
+    if (path === "anime-search" && !post) {
+      this.rate("search:" + ip, 150);
+      return json(
+        e.economy.anime.search(url.searchParams.get("q"), session?.player),
+      );
+    }
     if (path === "pickems" && !post)
       return json(
         e.pickemPage(
@@ -558,9 +565,13 @@ export class Game extends DurableObject {
       );
     if (path === "profiles" && !post) {
       this.rate("search:" + ip, 150);
-      const profiles = e.searchProfiles(url.searchParams.get("q"));
+      const result = e.profilesPage(
+        url.searchParams.get("q"),
+        Number(url.searchParams.get("page") || 1),
+      );
+      const profiles = result.profiles;
       return json({
-        profiles,
+        ...result,
         cards: [...new Set(profiles.map((p) => p.avatar_card).filter(Boolean))]
           .map((id) => e.catalogStore.card(id))
           .filter(Boolean),

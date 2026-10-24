@@ -38,6 +38,7 @@ export class Engine {
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
+      ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
       ["catalog", "series_romaji", "TEXT NOT NULL DEFAULT ''"],
@@ -73,13 +74,20 @@ export class Engine {
   }
   run(sql, ...args) {
     this.db(sql, ...args);
+    if (
+      /\b(catalog|catalog_meta|catalog_popularity|tenrai_characters|catalog_bulk)\b/i.test(
+        sql,
+      ) &&
+      this.catalogStore
+    )
+      this.catalogStore.browseCache = null;
   }
   tx(fn) {
     return this.transaction(fn);
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,avatar_card,is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -114,10 +122,11 @@ export class Engine {
   }
   addCard(player, card, count = 1) {
     this.run(
-      "INSERT INTO inventory(player,card,copies,level) VALUES(?,?,?,1) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
       player,
       card,
       count,
+      this.now(),
     );
   }
   mutate(scope, key, body, fn) {
@@ -573,6 +582,7 @@ export class Engine {
         "market_listings",
         "gambling_rounds",
         "profile_showcase",
+        "profile_anime",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
@@ -641,6 +651,19 @@ export class Engine {
       ...ranks.map((p) => p.avatar_card),
       me?.avatar_card,
     ]);
+    const myListings = id
+      ? [
+          ...this.all(
+            "SELECT *, 'shop' AS venue FROM market_listings WHERE seller=? AND status='open' ORDER BY id DESC LIMIT 20",
+            id,
+          ),
+          ...this.all(
+            "SELECT *, 'auction' AS venue FROM auctions WHERE seller=? AND paid=0 AND closed=0 ORDER BY id DESC LIMIT 20",
+            id,
+          ),
+        ]
+      : [];
+    for (const listing of myListings) references.add(listing.card);
     const shop = this.all(
       "SELECT * FROM weekly_shop WHERE ends>? ORDER BY id",
       now,
@@ -677,6 +700,7 @@ export class Engine {
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
       ),
       inventory,
+      myListings,
       ledger: id
         ? this.all(
             "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
@@ -699,18 +723,45 @@ export class Engine {
       },
     };
   }
-  searchProfiles(query) {
+  searchProfiles(query, page = 1, limit = 50) {
+    integer(page, 1, 10000);
+    integer(limit, 1, 100);
     const q =
       typeof query === "string" ? query.trim().toLowerCase().slice(0, 100) : "";
     return this.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ?='' OR instr(lower(p.id),?)>0 OR instr(lower(p.name),?)>0 OR instr(lower(COALESCE(p.display_name,'')),?)>0 OR EXISTS(SELECT 1 FROM aliases a WHERE a.player=p.id AND instr(a.alias,?)>0) OR EXISTS(SELECT 1 FROM usernames u WHERE u.player=p.id AND instr(u.username,?)>0) ORDER BY p.earned DESC,p.id LIMIT 50`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ?='' OR instr(lower(p.id),?)>0 OR instr(lower(p.name),?)>0 OR instr(lower(COALESCE(p.display_name,'')),?)>0 OR EXISTS(SELECT 1 FROM aliases a WHERE a.player=p.id AND instr(a.alias,?)>0) OR EXISTS(SELECT 1 FROM usernames u WHERE u.player=p.id AND instr(u.username,?)>0) ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
       q,
       q,
       q,
       q,
       q,
       q,
+      limit,
+      (page - 1) * 50,
     );
+  }
+  profilesPage(query, page = 1) {
+    const rows = this.searchProfiles(query, page, 51);
+    const q = String(query || "")
+      .trim()
+      .toLowerCase()
+      .slice(0, 100);
+    const total = this.one(
+      `SELECT count(*) AS n FROM players p WHERE ?='' OR instr(lower(p.id),?)>0 OR instr(lower(p.name),?)>0 OR instr(lower(COALESCE(p.display_name,'')),?)>0 OR EXISTS(SELECT 1 FROM aliases a WHERE a.player=p.id AND instr(a.alias,?)>0) OR EXISTS(SELECT 1 FROM usernames u WHERE u.player=p.id AND instr(u.username,?)>0)`,
+      q,
+      q,
+      q,
+      q,
+      q,
+      q,
+    ).n;
+    return {
+      profiles: rows.slice(0, 50),
+      page,
+      total,
+      limit: 50,
+      hasMore: rows.length > 50,
+    };
   }
   profile(id) {
     id = this.resolvePlayer(id);
@@ -746,6 +797,7 @@ export class Engine {
         pickems: picks,
       },
       showcase,
+      pinnedAnime: this.economy.anime.pinned(id),
       completion: this.economy.completion(id),
       inventory: this.all("SELECT * FROM inventory WHERE player=?", id),
       cards: [

@@ -67,10 +67,33 @@ export class Economy {
   daily(player, automatic = false) {
     const e = this.e,
       day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
+    if (e.player(player).daily === day) {
+      if (automatic) return null;
+      fail(
+        "You already claimed today’s credits. Come back after midnight KST.",
+        409,
+      );
+    }
+    e.wallet(player, 100, "Daily login", true);
+    e.run("UPDATE players SET daily=? WHERE id=?", day, player);
+    return { message: "100 daily credits added.", credits: 100, cards: [] };
+  }
+  dailyPack(player) {
+    const e = this.e,
+      day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
     const p = e.one("SELECT daily,daily_pack FROM players WHERE id=?", player);
     const summary = e.catalogStore.summary(),
       total = summary.character + summary.seiyuu;
-    const credits = p.daily !== day ? 100 : 0;
+    if (p.daily_pack === day)
+      fail(
+        "You already claimed today’s card pack. Come back after midnight KST.",
+        409,
+      );
+    if (!total)
+      fail(
+        "The daily pack will be available when the catalogue has cards.",
+        409,
+      );
     const cards = [];
     if (p.daily_pack !== day && total > 0) {
       const contexts = { character: {}, seiyuu: {} };
@@ -83,20 +106,9 @@ export class Economy {
       for (const c of cards) e.addCard(player, c.id);
       e.run("UPDATE players SET daily_pack=? WHERE id=?", day, player);
     }
-    if (credits) {
-      e.wallet(player, credits, "Daily login", true);
-      e.run("UPDATE players SET daily=? WHERE id=?", day, player);
-    }
-    if (!credits && !cards.length) {
-      if (automatic) return null;
-      fail(
-        "You already claimed today’s available rewards. Come back after midnight KST.",
-        409,
-      );
-    }
     return {
-      message: `${credits ? "100 credits added. " : ""}${cards.length ? "Your daily five-card pack is here!" : "Daily pack will be available when the catalogue has cards."}`,
-      credits,
+      message: "Your daily five-card pack is here!",
+      credits: 0,
       cards,
     };
   }
@@ -126,10 +138,11 @@ export class Economy {
   }
   acquire(player, card, level = 1) {
     this.e.run(
-      "INSERT INTO inventory(player,card,copies,level) VALUES(?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+1,level=max(level,excluded.level)",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,1,?,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+1,level=max(level,excluded.level)",
       player,
       card,
       level,
+      this.e.now(),
     );
   }
   take(player, id, variant) {
@@ -235,6 +248,8 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    if (action === "daily-pack") return this.dailyPack(player);
+    if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
     if (action === "showcase") {
       if (
@@ -513,6 +528,7 @@ export class Economy {
     );
     e.run("DELETE FROM gambling_rounds WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
+    e.run("DELETE FROM profile_anime WHERE player=?", player);
   }
 }
 const SCHEMA = `

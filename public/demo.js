@@ -113,6 +113,7 @@ export class Demo {
         card,
         copies: 1,
         level: 1,
+        acquired_at: Date.now(),
       });
   }
   async request(path, b) {
@@ -146,26 +147,32 @@ export class Demo {
     }
     if (path === "state") return structuredClone(s);
     if (path.startsWith("profiles?")) {
-      const q =
-        new URLSearchParams(path.split("?")[1]).get("q")?.toLowerCase() || "";
+      const params = new URLSearchParams(path.split("?")[1]),
+        q = (params.get("q") || "").toLowerCase(),
+        page = Number(params.get("page") || 1);
+      const rows = s.ranks
+        .filter((p) =>
+          [
+            p.id,
+            p.name,
+            ...s.history[p.id].aliases,
+            ...s.history[p.id].usernames,
+          ].some((n) => n.toLowerCase().includes(q)),
+        )
+        .map((p) => ({
+          ...p,
+          avatar_card: p.id === s.me.id ? s.me.avatar_card : this.cards[2].id,
+          avatar_level:
+            p.id === s.me.id
+              ? s.inventory.find((i) => i.card === s.me.avatar_card)?.level
+              : 6,
+        }));
       return {
-        profiles: s.ranks
-          .filter((p) =>
-            [
-              p.id,
-              p.name,
-              ...s.history[p.id].aliases,
-              ...s.history[p.id].usernames,
-            ].some((n) => n.toLowerCase().includes(q)),
-          )
-          .map((p) => ({
-            ...p,
-            avatar_card: p.id === s.me.id ? s.me.avatar_card : this.cards[2].id,
-            avatar_level:
-              p.id === s.me.id
-                ? s.inventory.find((i) => i.card === s.me.avatar_card)?.level
-                : 6,
-          })),
+        profiles: rows.slice((page - 1) * 50, page * 50),
+        total: rows.length,
+        page,
+        limit: 50,
+        hasMore: rows.length > page * 50,
       };
     }
     if (path.startsWith("player?")) {

@@ -1,3 +1,4 @@
+import { cardComparator } from "./card-display.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
   const s = d.s,
@@ -74,26 +75,34 @@ export function demoFeatures(d, path, b) {
     d.wallet(1000, "Starting credits", true);
     s.starterGranted = true;
   }
-  if (path === "state" || path === "daily") {
+  s.pinnedAnime ||= [];
+  if (path === "state") {
+    s.myListings = [
+      ...s.market
+        .filter((l) => l.seller === me.id && l.status === "open")
+        .map((l) => ({ ...l, venue: "shop" })),
+      ...s.auctions
+        .filter((a) => a.seller === me.id && !a.closed && a.ends > now)
+        .map((a) => ({ ...a, venue: "auction" })),
+    ];
+  }
+  if (["state", "daily", "daily-pack"].includes(path)) {
     const day = new Date(now + 9 * 3600000).toISOString().slice(0, 10);
-    let reward = null;
-    if (me.daily !== day || me.daily_pack !== day) {
-      const cards =
-        me.daily_pack !== day
-          ? Array.from(
-              { length: 5 },
-              () => d.cards[Math.floor(Math.random() * d.cards.length)],
-            )
-          : [];
-      if (me.daily !== day) d.wallet(100, "Daily login", true);
+    if (path === "daily-pack") {
+      if (me.daily_pack === day) throw Error("Already claimed today.");
+      const cards = Array.from(
+        { length: 5 },
+        () => d.cards[Math.floor(Math.random() * d.cards.length)],
+      );
       cards.forEach((c) => d.add(c.id));
-      me.daily = day;
       me.daily_pack = day;
-      reward = {
-        message:
-          "Daily rewards added: 100 credits and five random mixed cards.",
-        cards,
-      };
+      return { cards, message: "Daily pack claimed.", credits: 0 };
+    }
+    let reward = null;
+    if (me.daily !== day) {
+      d.wallet(100, "Daily login", true);
+      me.daily = day;
+      reward = { message: "100 daily credits added.", credits: 100, cards: [] };
     }
     if (path === "daily") {
       if (!reward) throw Error("Already claimed today.");
@@ -101,31 +110,56 @@ export function demoFeatures(d, path, b) {
     }
     s.loginReward = reward;
   }
-  if (path.startsWith("anime-collection?")) {
-    const owned = new Set(s.inventory.map((i) => i.card)),
+  function animeGroups(owner = me.id) {
+    const inv = owner === me.id ? s.inventory : [{ card: d.cards[2].id }],
+      ids = new Set(inv.map((i) => i.card)),
       groups = new Map();
+    if (owner === me.id) for (const l of s.myListings || []) ids.add(l.card);
     for (const c of d.cards.filter((c) => c.kind === "character")) {
-      const key = c.series_romaji || c.series;
+      const title = c.series_romaji || c.series,
+        key = title.trim().toLowerCase();
       if (!groups.has(key))
         groups.set(key, {
-          series_romaji: key,
+          series_key: key,
+          series_romaji: title,
           series_english: c.series_english || "",
           owned: 0,
           total: 0,
         });
       const g = groups.get(key);
       g.total++;
-      if (owned.has(c.id)) g.owned++;
+      if (ids.has(c.id)) g.owned++;
     }
+    return [...groups.values()];
+  }
+  if (path === "pin-anime") {
+    if (b.pinned) {
+      if (s.pinnedAnime.length >= 12) throw Error("Pin up to 12 anime.");
+      if (!s.pinnedAnime.includes(b.series)) s.pinnedAnime.push(b.series);
+    } else s.pinnedAnime = s.pinnedAnime.filter((k) => k !== b.series);
+    return { message: b.pinned ? "Anime pinned." : "Anime unpinned." };
+  }
+  if (path.startsWith("anime-search?")) {
+    const q = (
+      new URLSearchParams(path.split("?")[1]).get("q") || ""
+    ).toLowerCase();
     return {
-      series: [...groups.values()]
-        .filter((g) => g.owned)
-        .sort((a, b) => b.owned - a.owned),
+      series: animeGroups().filter((g) =>
+        (g.series_romaji + " " + g.series_english).toLowerCase().includes(q),
+      ),
+    };
+  }
+  if (path.startsWith("anime-collection?")) {
+    const groups = animeGroups();
+    return {
+      series: groups.filter((g) => g.owned).sort((a, b) => b.owned - a.owned),
+      pinned: groups.filter((g) => s.pinnedAnime.includes(g.series_key)),
       page: 1,
       hasMore: false,
       indexing: false,
     };
   }
+
   s.settings.premium_seiyuu_price ??= 2000;
   s.activePickem =
     s.pickems
@@ -248,6 +282,7 @@ export function demoFeatures(d, path, b) {
             .includes(q),
       ),
       page = Number(p.get("page") || 1);
+    all.sort(cardComparator(p.get("sort") || "name"));
     return {
       cards: all.slice((page - 1) * 40, page * 40),
       page,
@@ -285,6 +320,9 @@ export function demoFeatures(d, path, b) {
             .filter(Boolean)
         : inventory,
       completion: completion(inventory, id),
+      pinnedAnime: animeGroups(id).filter((g) =>
+        mine ? s.pinnedAnime.includes(g.series_key) : false,
+      ),
     };
   }
   if (path === "showcase") {

@@ -1,6 +1,7 @@
 import { fail, integer, text } from "./engine.js";
 import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
 import { Popularity } from "./popularity.js";
+import { cardComparator } from "../public/card-display.js";
 
 // ACDB metadata is stored in bounded JSON chunks. A bulk seed writes hundreds
 // of SQLite rows instead of hundreds of thousands of individual row/index writes.
@@ -182,6 +183,7 @@ export class Catalog {
     if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
     integer(page, 1, 10000);
     integer(limit, 1, 100);
+    if (filters.sort) return this.sortedPage(kind, query, page, limit, filters);
     if (filters.rarity || filters.role)
       return this.filteredPage(kind, query, page, limit, filters);
     const q = String(query).trim().toLowerCase().slice(0, 100),
@@ -273,7 +275,7 @@ export class Catalog {
       total: q ? null : this.summary()[kind],
     };
   }
-  filteredPage(kind, query, page, limit, filters) {
+  validateFilters(kind, filters) {
     if (
       filters.role &&
       (kind !== "character" ||
@@ -296,6 +298,71 @@ export class Catalog {
       ].includes(filters.rarity)
     )
       fail("Choose a rarity.");
+  }
+  sortedPage(kind, query, page, limit, filters) {
+    this.validateFilters(kind, filters);
+    if (
+      !["name", "name-desc", "rarity", "role", "favorites", "newest"].includes(
+        filters.sort,
+      ) ||
+      (kind === "seiyuu" && filters.sort === "role")
+    )
+      fail("Choose a valid catalogue sort.");
+    // Read the packed catalogue once, then reuse this derived, short-lived view.
+    // Any catalogue/popularity write invalidates it through Engine.run().
+    if (!this.browseCache || this.e.now() - this.browseCache.at > 60000)
+      this.browseCache = { at: this.e.now(), kinds: new Map() };
+    if (!this.browseCache.kinds.has(kind)) {
+      const local = this.e.all("SELECT * FROM catalog WHERE kind=?", kind);
+      const overrides = new Set(local.map((c) => c.id));
+      const raw = local.filter((c) => c.active);
+      if (kind === "character" && this.tenrai.manifest()) {
+        for (const row of this.e.all(
+          "SELECT payload FROM tenrai_characters ORDER BY bucket",
+        ))
+          for (const c of Object.values(JSON.parse(row.payload)))
+            if (!overrides.has(c.id)) raw.push(c);
+      } else if (kind === "character" && this.manifest()) {
+        for (const row of this.e.all(
+          "SELECT payload FROM catalog_bulk WHERE version=? AND section='browse' ORDER BY bucket",
+          this.manifest().version,
+        ))
+          for (const c of JSON.parse(row.payload))
+            if (!overrides.has(c.id)) raw.push(c);
+      }
+      this.browseCache.kinds.set(kind, {
+        cards: this.popularity.decorate(raw),
+        orders: new Map(),
+      });
+    }
+    const q = String(query).trim().toLowerCase().slice(0, 100);
+    const view = this.browseCache.kinds.get(kind);
+    if (!view.orders.has(filters.sort))
+      view.orders.set(
+        filters.sort,
+        [...view.cards].sort(cardComparator(filters.sort)),
+      );
+    const ordered = view.orders.get(filters.sort);
+    const rows =
+      q || filters.role || filters.rarity
+        ? ordered.filter(
+            (c) =>
+              (!filters.role || c.role === filters.role) &&
+              (!filters.rarity || (c.rarity || "Pending") === filters.rarity) &&
+              (!q || characterSearch(c).includes(q)),
+          )
+        : ordered;
+    const offset = (page - 1) * limit;
+    return {
+      cards: rows.slice(offset, offset + limit),
+      page,
+      limit,
+      total: rows.length,
+      hasMore: rows.length > offset + limit,
+    };
+  }
+  filteredPage(kind, query, page, limit, filters) {
+    this.validateFilters(kind, filters);
     const q = String(query).trim().toLowerCase().slice(0, 100),
       offset = (page - 1) * limit,
       overrides = new Set(

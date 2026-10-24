@@ -1,5 +1,11 @@
+import { createPackReveal } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
-import { seriesTitle, rarityClass, popularityLabel } from "./card-display.js";
+import {
+  seriesTitle,
+  rarityClass,
+  popularityLabel,
+  cardComparator,
+} from "./card-display.js";
 const $ = (s) => document.querySelector(s);
 let titleMode = "romaji";
 try {
@@ -42,9 +48,9 @@ const routes = [
   ["shop", "Shop"],
   ["auctions", "Auctions"],
   ["pickems", "Pick’ems"],
-  ["ranks", "Rankings"],
   ["players", "Players"],
   ["arcade", "Gambling"],
+  ["ranks", "Rankings"],
 ];
 let state,
   tab = "character",
@@ -57,6 +63,10 @@ let state,
   searchTimer;
 const ui = {
   filters: { rarity: "", role: "" },
+  catalogSort: "name",
+  collectionSort: "rarity",
+  playerPage: 1,
+  playerData: null,
   tab: () => tab,
   metric: "earned",
   rankPage: 1,
@@ -142,7 +152,7 @@ function cardHTML(c, a = null, item = null) {
   const owned = item
     ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button><div class="collection-actions"><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">Sell / auction ↗</button></div>`
     : "";
-  return `<article class="collect-card ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
+  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -156,6 +166,7 @@ const features = createFeatures(
     cardBy,
     image,
     gradeBadge,
+    rarityClass,
     rarity,
     series,
     empty,
@@ -172,11 +183,23 @@ function shop() {
 function pickemHero(p) {
   return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make your call.<br><span>Back your team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
 }
+const packReveal = createPackReveal({
+  modal,
+  cardHTML,
+  escape,
+  number,
+  getState: () => state,
+});
+function dailyPack() {
+  const day = new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
+  if (state.me?.daily_pack === day) return "";
+  return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your daily pack is waiting.</h3><p>5 random cards · characters + seiyuus · free each day</p></div>${btn("Claim & open →", "daily-pack", "", "mint")}</div>`;
+}
 function daily() {
   const claimed =
     state.me?.daily ===
     new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
-  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>${claimed ? "Today’s bonus is in your wallet." : "A little something for showing up."}</h3><p>Daily check-in · 100 credits + 5 random mixed cards · midnight KST</p></div>${btn(claimed ? "Claimed ✓" : "+ Claim 100", "daily", claimed ? "disabled" : "", claimed ? "secondary" : "mint")}</div>`;
+  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>${claimed ? "Today’s bonus is in your wallet." : "A little something for showing up."}</h3><p>Daily check-in · 100 credits · resets at midnight KST</p></div>${btn(claimed ? "Claimed ✓" : "+ Claim 100", "daily", claimed ? "disabled" : "", claimed ? "secondary" : "mint")}</div>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
@@ -207,7 +230,7 @@ function home() {
     (state.activePickem
       ? pickemHero(state.activePickem)
       : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Build a deck of your favourite characters and the voices that bring them to life.</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card">${image(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
-    daily() +
+    `<div class="daily-rewards ${dailyPack() ? "two-col" : ""}">${daily()}${dailyPack()}</div>` +
     `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><a class="text-button" href="#auctions">View auctions ↗</a></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
@@ -223,12 +246,26 @@ function collection() {
           .toLowerCase()
           .includes(search.toLowerCase()),
     );
+  items.sort((a, b) => {
+    if (ui.collectionSort === "collected")
+      return (
+        (b.acquired_at || 0) - (a.acquired_at || 0) ||
+        cardComparator("name")(a.c, b.c)
+      );
+    if (ui.collectionSort === "level")
+      return b.level - a.level || cardComparator("name")(a.c, b.c);
+    if (ui.collectionSort === "copies")
+      return b.copies - a.copies || cardComparator("name")(a.c, b.c);
+    return cardComparator(ui.collectionSort)(a.c, b.c);
+  });
   return (
     intro(
       "Your collection. Your favourites.",
       "Every card has a story. Build yours, one pull at a time.",
     ) +
+    (state.me ? features.pinnedAnime() : "") +
     `<div class="filters">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}"></div>` +
+    features.sortControl("collection") +
     (state.me
       ? items.length
         ? `<div class="card-grid">${items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
@@ -257,6 +294,7 @@ function packs() {
       "Five cards. One little thrill.",
       "Characters, husbandos, waifus, and the voices you know by heart.",
     ) +
+    dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
     <div class="section-head"><h2>Premium packs</h2><span class="subtext">Provisional odds · enhanced rare-tier weights</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><details class="rarity-guide"><summary>How premium selection works</summary><p>Relative rarity weights: AG ×30 · Ubers ×24 · SSS ×20 · SS ×15 · S ×10 · A ×6 · B ×3 · C ×2 · D/Pending ×1. Normal-pack odds and Main/Supporting weights still form the base. Exact tier chances depend on the current pool. Five independent draws; duplicates can appear.</p></details><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>A little more supporting luck</h3><p>Main characters have weight ${state.settings.main_weight ?? 80}, versus 100 for Supporting characters. Normal seiyuu odds are equal; premium packs also apply rarity weights.</p></div>
@@ -312,7 +350,7 @@ function avatarHTML(p, large = false) {
       (i) => i.card === p.avatar_card,
     ),
     card = p.avatar_card ? cardBy(p.avatar_card) : null;
-  return `<span class="profile-avatar ${large ? "large" : ""} rarity-${rarity(p.avatar_level || item?.level || 1)}">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}${item || p.avatar_level ? `<b>Lv. ${p.avatar_level || item?.level}</b>` : ""}</span>`;
+  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} rarity-${rarity(p.avatar_level || item?.level || 1)}"><span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>Lv. ${p.avatar_level || item?.level}</b>` : ""}</span>`;
 }
 function players() {
   return (
@@ -320,7 +358,7 @@ function players() {
       "Meet the collectors.",
       "Find a player by their AMQ Tours ID, alias, or any of their usernames.",
     ) +
-    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${profileResults.length} results · showing up to 50 collectors</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No player found.", "Try another alias, username, or AMQ Tours ID.")}</div>`
+    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No player found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
   );
 }
 function profile() {
@@ -335,7 +373,7 @@ function profile() {
           .slice(0, 20)
           .map((item) => {
             const c = cardBy(item.card);
-            return `<article class="collect-card rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
+            return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
           })
           .join(
             "",
@@ -362,7 +400,9 @@ async function loadDynamic() {
         "&rarity=" +
         encodeURIComponent(ui.filters.rarity) +
         "&role=" +
-        encodeURIComponent(tab === "character" ? ui.filters.role : ""),
+        encodeURIComponent(tab === "character" ? ui.filters.role : "") +
+        "&sort=" +
+        encodeURIComponent(ui.catalogSort),
     );
   if (current === "collection" && state.me)
     data = await api("anime-collection?page=" + (ui.animePage || 1));
@@ -379,7 +419,9 @@ async function loadDynamic() {
         ui.marketPage,
     );
   if (current === "players")
-    data = await api("profiles?q=" + encodeURIComponent(search));
+    data = await api(
+      "profiles?q=" + encodeURIComponent(search) + "&page=" + ui.playerPage,
+    );
   if (current === "profile")
     data = await api(
       "player?id=" + encodeURIComponent(decodeURIComponent(hash.slice(8))),
@@ -392,7 +434,10 @@ async function loadDynamic() {
     if (current === "ranks") ui.rankData = data;
     if (current === "pickems") ui.pickemData = data;
     if (["shop", "auctions"].includes(current)) ui.marketData = data;
-    if (current === "players") profileResults = data.profiles;
+    if (current === "players") {
+      profileResults = data.profiles;
+      ui.playerData = data;
+    }
     if (current === "profile") profileData = data;
   }
 }
@@ -549,6 +594,9 @@ document.addEventListener("click", async (ev) => {
     tab = t.dataset.tab;
     ui.marketPage = 1;
     ui.filters.role = "";
+    if (tab === "seiyuu" && ui.catalogSort === "role") ui.catalogSort = "name";
+    if (tab === "seiyuu" && ui.collectionSort === "role")
+      ui.collectionSort = "name";
     catalogPageNumber = 1;
     await loadDynamic();
     render();
@@ -556,6 +604,24 @@ document.addEventListener("click", async (ev) => {
   }
   const a = t.dataset.action;
   if (await handleFeatureClick(a, t)) return;
+  if (a === "reveal-pack") {
+    packReveal.reveal();
+    return;
+  }
+  if (a === "daily-pack") {
+    if (!state.me) {
+      auth();
+      return;
+    }
+    await execute("daily-pack", {}, (r) => packReveal.show(r, { daily: true }));
+    return;
+  }
+  if (a === "players-prev" || a === "players-next") {
+    ui.playerPage += a.endsWith("next") ? 1 : -1;
+    await loadDynamic();
+    render();
+    return;
+  }
   if (a === "catalog-prev" || a === "catalog-next") {
     catalogPageNumber += a === "catalog-next" ? 1 : -1;
     await loadDynamic();
@@ -633,6 +699,7 @@ document.addEventListener("submit", async (ev) => {
   }
   if (f.id === "player-search") {
     search = b.q;
+    ui.playerPage = 1;
     await loadDynamic();
     render();
   }
@@ -656,12 +723,11 @@ document.addEventListener("submit", async (ev) => {
     await execute(
       "pack",
       { kind: b.kind, premium: b.premium === "true" },
-      (result) => {
-        modal(
-          `<div class="pack-results"><div class="pull-label">FIVE NEW POSSIBILITIES</div><h2>Meet your newest additions.</h2><p>Added to your collection. Duplicates are saved as extra copies.</p><div class="card-grid">${result.cards.map((c) => cardHTML(c)).join("")}</div><a class="button full" href="#collection" id="view-pulls">Take me to my collection ↗</a></div>`,
-          true,
-        );
-      },
+      (result) =>
+        packReveal.show(result, {
+          kind: b.kind,
+          premium: b.premium === "true",
+        }),
     );
 });
 document.addEventListener("input", (ev) => {
@@ -671,19 +737,15 @@ document.addEventListener("input", (ev) => {
   }
   if (ev.target.id === "profile-search") {
     search = ev.target.value;
+    ui.playerPage = 1;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
       try {
-        const q = search;
-        const data = await api("profiles?q=" + encodeURIComponent(q));
-        if (q === search && page() === "players") {
-          profileResults = data.profiles;
-          rememberCards(data.cards);
-          const pos = $("#profile-search")?.selectionStart;
-          render();
-          $("#profile-search")?.focus();
-          $("#profile-search")?.setSelectionRange(pos, pos);
-        }
+        const pos = $("#profile-search")?.selectionStart;
+        await loadDynamic();
+        render();
+        $("#profile-search")?.focus();
+        $("#profile-search")?.setSelectionRange(pos, pos);
       } catch (err) {
         toast(err.message, true);
       }
@@ -741,7 +803,8 @@ $("#modal").addEventListener("click", (e) => {
   }
 });
 document.addEventListener("click", (e) => {
-  if (e.target.closest("#view-pulls,#view-profile")) $("#modal").close();
+  if (e.target.closest("#view-pulls,#view-profile,[data-close-dialog]"))
+    $("#modal").close();
 });
 window.addEventListener("hashchange", async () => {
   search = "";
@@ -749,6 +812,7 @@ window.addEventListener("hashchange", async () => {
   ui.marketPage = 1;
   ui.rankPage = 1;
   ui.pickemPage = 1;
+  ui.playerPage = 1;
   profileData = null;
   try {
     await loadDynamic();
@@ -832,6 +896,8 @@ async function handleFeatureClick(a, t) {
         "pack",
         "showcase-toggle",
         "sell-card",
+        "listing-venue",
+        "pin-anime",
         "shop-buy",
         "buy-listing",
         "cancel-listing",
@@ -887,19 +953,26 @@ async function handleFeatureClick(a, t) {
       );
       return true;
     }
+    if (a === "listing-venue") {
+      const variant = $("#listing-form [name=variant]")?.value;
+      listingForm(t.dataset.id, t.dataset.venue, variant);
+      return true;
+    }
     if (a === "sell-card") {
-      const c = cardBy(t.dataset.id),
-        item = state.inventory.find((i) => i.card === c.id);
-      modal(
-        `<h2>Find ${escape(c.name)} a new home.</h2><p>The listed copy is held until it sells or you withdraw it. Enhanced card sales keep their level; any extra copies left behind become Lv. 1.</p><form id="listing-form" class="stack"><input type="hidden" name="card" value="${escape(c.id)}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra">Extra copy · Lv. 1</option>' : ""}<option value="card">Your card · Lv. ${item.level}</option></select></label><label>Where to sell<select name="venue"><option value="shop">User Marketplace · fixed price</option><option value="auction">User Auctions · highest bid</option></select></label><label>Fixed price / minimum opening bid<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label><label>Auction duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional auction buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label><p class="form-hint">Buyout must be at least the opening bid. A bid reaching it completes the sale immediately. Duration and buyout apply only to auctions.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">List card →</button></form>`,
-      );
+      listingForm(t.dataset.id, "shop");
+      return true;
+    }
+    if (a === "pin-anime") {
+      await execute("pin-anime", {
+        series: t.dataset.series,
+        pinned: t.dataset.pinned !== "true",
+      });
       return true;
     }
     if (a === "cancel-listing") {
-      await execute("cancel-listing", {
-        listing: Number(t.dataset.id),
-        venue: t.dataset.venue,
-      });
+      modal(
+        `<h2>Withdraw this listing?</h2><p>Your card returns with its enhancement level. ${t.dataset.venue === "auction" ? "Only auctions without bids can be withdrawn." : "It will no longer be available to buy."}</p><form id="withdraw-form"><input name="listing" type="hidden" value="${Number(t.dataset.id)}"><input name="venue" type="hidden" value="${escape(t.dataset.venue)}"><div class="form-error" role="alert"></div><button class="button full" type="submit">Withdraw & return card</button></form>`,
+      );
       return true;
     }
     if (a === "shop-buy" || a === "buy-listing") {
@@ -918,14 +991,39 @@ async function handleFeatureClick(a, t) {
   }
   return false;
 }
+function listingForm(id, venue, variant) {
+  const c = cardBy(id),
+    item = state.inventory.find((i) => i.card === id),
+    auction = venue === "auction";
+  modal(
+    `<h2>${auction ? "Start an auction" : "List on the marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
+  );
+}
 async function handleFeatureSubmit(f, b) {
+  if (f.id === "withdraw-form") {
+    await execute("cancel-listing", {
+      listing: Number(b.listing),
+      venue: b.venue,
+    });
+    return true;
+  }
+  if (f.id === "anime-pin-search") {
+    try {
+      const r = await api("anime-search?q=" + encodeURIComponent(b.q));
+      ui.animeSearch = r.series;
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return true;
+  }
   if (f.id === "listing-form") {
     await execute("list-card", {
       card: b.card,
       variant: b.variant,
       venue: b.venue,
       price: Number(b.price),
-      hours: Number(b.hours),
+      ...(b.venue === "auction" ? { hours: Number(b.hours) } : {}),
       buyout: b.buyout ? Number(b.buyout) : null,
     });
     return true;
@@ -990,5 +1088,32 @@ document.addEventListener("change", async (ev) => {
     render();
   } catch (err) {
     toast(err.message, true);
+  }
+});
+
+document.addEventListener("change", async (ev) => {
+  if (["catalog-sort", "collection-sort"].includes(ev.target.id)) {
+    if (ev.target.id === "catalog-sort") {
+      ui.catalogSort = ev.target.value;
+      catalogPageNumber = 1;
+    } else ui.collectionSort = ev.target.value;
+    try {
+      if (page() === "packs") await loadDynamic();
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+  if (["players-page-input", "players-page-select"].includes(ev.target.id)) {
+    const p = Number(ev.target.value),
+      max = Math.max(1, Math.ceil((ui.playerData?.total || 1) / 50));
+    if (!Number.isSafeInteger(p) || p < 1) return;
+    ui.playerPage = Math.min(p, max);
+    try {
+      await loadDynamic();
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
   }
 });
