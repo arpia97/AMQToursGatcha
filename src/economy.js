@@ -1,28 +1,18 @@
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
-export const PREMIUM_WEIGHTS = {
-  AG: 30,
-  Ubers: 24,
-  SSS: 20,
-  SS: 15,
-  S: 10,
-  A: 6,
-  B: 3,
-  C: 2,
-  D: 1,
-  Pending: 1,
-};
+import { premiumPool, drawPremium } from "../public/pack-odds.js";
+export { PREMIUM_RULE } from "../public/pack-odds.js";
 export const SHOP_PRICES = {
-  AG: 25000,
-  Ubers: 15000,
-  SSS: 10000,
-  SS: 7000,
-  S: 4000,
-  A: 2200,
-  B: 1200,
-  C: 700,
-  D: 400,
-  Pending: 400,
+  AG: 25600,
+  Ubers: 12800,
+  SSS: 6400,
+  SS: 3200,
+  S: 1600,
+  A: 800,
+  B: 400,
+  C: 200,
+  D: 100,
+  Pending: 100,
 };
 const MONDAY = Date.UTC(2026, 0, 5);
 export class Economy {
@@ -200,30 +190,8 @@ export class Economy {
         e.run("UPDATE auctions SET paid=1,closed=1,claimed=1 WHERE id=?", a.id);
       }
     }
-    for (const kind of ["character", "seiyuu"]) {
-      if (
-        e.one(
-          "SELECT id FROM weekly_shop WHERE starts=? AND kind=?",
-          start,
-          kind,
-        ) ||
-        e.catalogStore.summary()[kind] < 5
-      )
-        continue;
-      const chosen = new Set();
-      for (let i = 0; i < 5; i++) {
-        const c = e.catalogStore.draw(kind, e.rand, 100, chosen);
-        chosen.add(c.id);
-        e.run(
-          "INSERT INTO weekly_shop(card,kind,price,starts,ends) VALUES(?,?,?,?,?)",
-          c.id,
-          kind,
-          SHOP_PRICES[c.rarity || "Pending"],
-          start,
-          start + WEEK,
-        );
-      }
-    }
+    if (!e.one("SELECT id FROM weekly_shop WHERE starts=? LIMIT 1", start))
+      this.seedShop(start, start + WEEK);
     return (
       e.one(
         "SELECT min(ends) AS ends FROM auctions WHERE seller IS NOT NULL AND ends>? AND paid=0",
@@ -231,19 +199,82 @@ export class Economy {
       )?.ends || Infinity
     );
   }
-  premiumDraw(kind, weight, context = {}) {
-    for (let i = 0; i < 1200; i++) {
-      const c = this.e.catalogStore.draw(
+  seedShop(start, ends) {
+    const e = this.e,
+      summary = e.catalogStore.summary(),
+      total = summary.character + summary.seiyuu;
+    if (total < 10) return;
+    const chosen = { character: new Set(), seiyuu: new Set() },
+      contexts = { character: {}, seiyuu: {} };
+    for (let i = 0; i < 10; i++) {
+      const availableCharacters = summary.character - chosen.character.size;
+      const kind =
+        e.rand(total - i) < availableCharacters ? "character" : "seiyuu";
+      const c = e.catalogStore.draw(
         kind,
-        this.e.rand,
-        weight,
-        new Set(),
-        context,
+        e.rand,
+        100,
+        chosen[kind],
+        contexts[kind],
       );
-      if (this.e.rand(30) < (PREMIUM_WEIGHTS[c.rarity || "Pending"] || 1))
-        return c;
+      chosen[kind].add(c.id);
+      e.run(
+        "INSERT INTO weekly_shop(card,kind,price,starts,ends) VALUES(?,?,?,?,?)",
+        c.id,
+        kind,
+        SHOP_PRICES[c.rarity || "Pending"],
+        start,
+        ends,
+      );
     }
-    fail("Could not select a premium card. Please retry.", 503);
+  }
+  refreshWeekly() {
+    const e = this.e,
+      now = e.now(),
+      start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
+    const before = e.catalogStore.summary();
+    if (before.character < 5 || before.seiyuu < 5)
+      fail(
+        "At least five cards of each type are needed to refresh the selections.",
+        409,
+      );
+    const lots = e.all(
+      "SELECT * FROM auctions WHERE seller IS NULL AND ends>? AND closed=0",
+      now,
+    );
+    let refunded = 0;
+    for (const a of lots) {
+      if (a.winner && a.bid) {
+        e.wallet(a.winner, a.bid, "Weekly selection refresh: auction refund");
+        refunded += a.bid;
+      }
+      e.run(
+        "UPDATE auctions SET closed=1,claimed=1,ends=? WHERE id=?",
+        now,
+        a.id,
+      );
+    }
+    e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
+    e.seedCommunityAuctions(start);
+    this.seedShop(start, start + WEEK);
+    return {
+      message:
+        "Weekly community auctions and shop refreshed. Active community bids refunded; player listings and owned cards preserved.",
+      refunded,
+      auctionIds: e
+        .all(
+          "SELECT id FROM auctions WHERE seller IS NULL AND closed=0 AND ends>? ORDER BY id",
+          now,
+        )
+        .map((x) => x.id),
+      shopIds: e
+        .all("SELECT id FROM weekly_shop WHERE ends>? ORDER BY id", now)
+        .map((x) => x.id),
+    };
+  }
+  premiumDraw(kind, context = {}) {
+    context.pool ||= premiumPool(this.e.catalogStore.pool(kind).cards);
+    return drawPremium(context.pool, this.e.rand);
   }
   action(player, action, b) {
     const e = this.e,

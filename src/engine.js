@@ -1,5 +1,5 @@
 import { Catalog } from "./catalog.js";
-import { Economy, PREMIUM_WEIGHTS } from "./economy.js";
+import { Economy, PREMIUM_RULE } from "./economy.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -52,7 +52,10 @@ export class Engine {
     this.run(
       "INSERT OR IGNORE INTO settings VALUES ('character_price',500),('seiyuu_price',500)",
     );
-    this.run("INSERT OR IGNORE INTO settings VALUES ('main_weight',80)");
+    this.run("INSERT OR IGNORE INTO settings VALUES ('main_weight',100)");
+    this.run(
+      "UPDATE settings SET value=100 WHERE key='main_weight' AND value!=100",
+    );
     for (const sql of [
       "CREATE INDEX IF NOT EXISTS catalog_kind_name ON catalog(kind,active,name COLLATE NOCASE,id)",
       "CREATE INDEX IF NOT EXISTS catalog_kind_id ON catalog(kind,active,id)",
@@ -155,6 +158,22 @@ export class Engine {
       return result;
     });
   }
+  seedCommunityAuctions(start, onlyKind) {
+    for (const kind of onlyKind ? [onlyKind] : ["character", "seiyuu"]) {
+      const selected = new Set();
+      for (let i = 0; i < 5; i++) {
+        const card = this.catalogStore.draw(kind, this.rand, 100, selected);
+        selected.add(card.id);
+        this.run(
+          "INSERT INTO auctions(card,kind,starts,ends) VALUES(?,?,?,?)",
+          card.id,
+          kind,
+          start,
+          start + WEEK,
+        );
+      }
+    }
+  }
   ensureAuctions() {
     return this.tx(() => {
       const now = this.now();
@@ -170,18 +189,7 @@ export class Engine {
         )
           continue;
         if (this.catalogStore.summary()[kind] < 5) continue;
-        const selected = new Set();
-        for (let i = 0; i < 5; i++) {
-          const card = this.catalogStore.draw(kind, this.rand, 100, selected);
-          selected.add(card.id);
-          this.run(
-            "INSERT INTO auctions(card,kind,starts,ends) VALUES(?,?,?,?)",
-            card.id,
-            kind,
-            start,
-            start + WEEK,
-          );
-        }
+        this.seedCommunityAuctions(start, kind);
       }
       return Math.min(start + WEEK, this.economy.tick(start));
     });
@@ -207,13 +215,11 @@ export class Engine {
         (premium ? "premium_" : "") + b.kind + "_price",
       ).value;
       this.wallet(player, -price, `${premium ? "Premium " : ""}${b.kind} pack`);
-      const weight = this.one(
-        "SELECT value FROM settings WHERE key='main_weight'",
-      ).value;
+      const weight = 100;
       const drawContext = {};
       const pulls = Array.from({ length: 5 }, () =>
         premium
-          ? this.economy.premiumDraw(b.kind, weight, drawContext)
+          ? this.economy.premiumDraw(b.kind, drawContext)
           : this.catalogStore.draw(
               b.kind,
               this.rand,
@@ -361,6 +367,11 @@ export class Engine {
     fail("Unknown action.", 404);
   }
   host(action, b) {
+    if (action === "refresh-weekly") {
+      if (b.confirmation !== "REFRESH WEEKLY SELECTIONS")
+        fail("Type REFRESH WEEKLY SELECTIONS to confirm.");
+      return this.economy.refreshWeekly();
+    }
     if (action === "players") {
       if (!Array.isArray(b.players) || b.players.length > 5000)
         fail("Import up to 5,000 player rows.");
@@ -487,11 +498,11 @@ export class Engine {
           integer(b[kind], 1, 1000000),
           kind + "_price",
         );
-      if (b.mainWeight !== undefined)
-        this.run(
-          "UPDATE settings SET value=? WHERE key='main_weight'",
-          integer(b.mainWeight, 1, 99),
-        );
+      // Legacy clients may still send mainWeight; current packs stay uniform.
+      if (b.mainWeight !== undefined) {
+        integer(b.mainWeight, 1, 100);
+        this.run("UPDATE settings SET value=100 WHERE key='main_weight'");
+      }
       return { message: "Pack prices updated." };
     }
     if (action === "catalog") {
@@ -598,7 +609,7 @@ export class Engine {
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
-          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 80 WHEN key LIKE 'premium_%' THEN 2000 ELSE 500 END",
+          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 100 WHEN key LIKE 'premium_%' THEN 2000 ELSE 500 END",
         );
         const registry = this.one(
           "SELECT value FROM catalog_meta WHERE key='alias-sync'",
@@ -715,7 +726,7 @@ export class Engine {
           "SELECT * FROM pickems WHERE settled=0 AND ends>? ORDER BY id DESC LIMIT 1",
           now,
         ) || null,
-      premiumWeights: PREMIUM_WEIGHTS,
+      premiumRule: PREMIUM_RULE,
       catalogSummary: summary,
       counts: {
         players: this.one("SELECT count(*) AS n FROM players").n,

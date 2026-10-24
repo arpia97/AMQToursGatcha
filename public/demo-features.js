@@ -70,6 +70,35 @@ export function demoFeatures(d, path, b) {
       );
     }
   }
+  if (!s.shopMixVersion) {
+    const pool = [...d.cards];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const prices = {
+      AG: 25600,
+      Ubers: 12800,
+      SSS: 6400,
+      SS: 3200,
+      S: 1600,
+      A: 800,
+      B: 400,
+      C: 200,
+      D: 100,
+    };
+    s.shop = pool
+      .slice(0, 10)
+      .map((c, i) => ({
+        id: i + 1,
+        card: c.id,
+        kind: c.kind,
+        price: prices[c.rarity] || 100,
+        ends: now + 4 * 86400000,
+        buyer: null,
+      }));
+    s.shopMixVersion = 1;
+  }
   s.settings.premium_character_price ??= 2000;
   if (!s.starterGranted) {
     d.wallet(1000, "Starting credits", true);

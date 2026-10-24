@@ -44,6 +44,7 @@ test("pack reveal uses the highest actual pull, keeps duplicate cards and repeat
   reveal.show(result, { kind: "seiyuu", premium: true });
   assert.match(views[0], /aura-ag/);
   assert.match(views[0], /data-action="reveal-pack"/);
+  assert.doesNotMatch(views[0], /AG GLOW|Pending GLOW/);
   assert.doesNotMatch(views[0], /<article>/);
   reveal.reveal();
   assert.equal((views[1].match(/<article>/g) || []).length, 5);

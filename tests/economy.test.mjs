@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { SHOP_PRICES } from "../src/economy.js";
 import { Engine, WEEK } from "../src/engine.js";
 import { AliasSync, sheetPlayers } from "../src/aliases.js";
 
@@ -566,17 +567,21 @@ test("unsold auctions return cards automatically and do not suppress community w
     1,
   );
 });
-test("weekly shop has ten unique per-kind slots, one shared stock and atomic affordability checks", () => {
+test("weekly shop has ten unique mixed-pool slots, one shared stock and atomic affordability checks", () => {
   const f = fixture(),
     e = f.e;
   e.ensureAuctions();
   const slots = e.state("buyer").shop;
   assert.equal(slots.length, 10);
-  for (const kind of ["character", "seiyuu"])
-    assert.equal(
-      new Set(slots.filter((s) => s.kind === kind).map((s) => s.card)).size,
-      5,
-    );
+  assert.equal(new Set(slots.map((s) => s.card)).size, 10);
+  assert.equal(slots.filter((s) => s.kind === "character").length, 4);
+  assert.equal(slots.filter((s) => s.kind === "seiyuu").length, 6);
+  assert.deepEqual(
+    ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers", "AG"].map(
+      (r) => SHOP_PRICES[r],
+    ),
+    [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600],
+  );
   const s = slots[0];
   e.run("UPDATE players SET balance=0 WHERE id='buyer'");
   assert.throws(() => f.act("buyer", "shop-buy", { slot: s.id }), /enough/);
@@ -589,6 +594,84 @@ test("weekly shop has ten unique per-kind slots, one shared stock and atomic aff
   f.tick(WEEK);
   e.ensureAuctions();
   assert.equal(e.state().shop.length, 10);
+});
+test("weekly selection refresh refunds community bids once and preserves owned cards and user listings", () => {
+  const f = fixture(),
+    { e } = f;
+  e.ensureAuctions();
+  const oldShop = e.state().shop.map((s) => s.id),
+    oldLots = e
+      .state()
+      .auctions.filter((a) => !a.seller)
+      .map((a) => a.id);
+  f.act("buyer", "bid", { auction: oldLots[0], amount: 200 });
+  e.addCard("seller", "mal-character-1", 2);
+  f.act("seller", "list-card", {
+    card: "mal-character-1",
+    variant: "extra",
+    venue: "auction",
+    price: 10,
+    hours: 5,
+  });
+  f.act("seller", "list-card", {
+    card: "mal-character-1",
+    variant: "card",
+    venue: "shop",
+    price: 25,
+  });
+  const bought = oldShop[0];
+  f.act("buyer", "shop-buy", { slot: bought });
+  const inventory = e.state("buyer").inventory,
+    balance = e.player("buyer").balance,
+    earned = e.player("buyer").earned;
+  const b = { confirmation: "REFRESH WEEKLY SELECTIONS" },
+    key = "weekly-reset";
+  assert.throws(
+    () => e.tx(() => e.host("refresh-weekly", {})),
+    /REFRESH WEEKLY/,
+  );
+  const refresh = () =>
+    e.mutate("host:host/refresh-weekly", key, b, () =>
+      e.host("refresh-weekly", b),
+    );
+  const r = refresh();
+  assert.equal(r.refunded, 200);
+  assert.deepEqual(refresh(), r);
+  assert.equal(e.player("buyer").balance, balance + 200);
+  assert.equal(e.player("buyer").earned, earned);
+  assert.deepEqual(e.state("buyer").inventory, inventory);
+  assert.equal(r.auctionIds.length, 10);
+  assert.equal(r.shopIds.length, 10);
+  assert.ok(r.auctionIds.every((id) => !oldLots.includes(id)));
+  assert.ok(r.shopIds.every((id) => !oldShop.includes(id)));
+  assert.equal(e.economy.market("auction").items.length, 1);
+  assert.equal(e.economy.market("shop").items.length, 1);
+  e.ensureAuctions();
+  assert.equal(e.state().shop.length, 10);
+  assert.equal(
+    e.one(
+      "SELECT count(*) AS n FROM auctions WHERE seller IS NULL AND closed=0",
+    ).n,
+    10,
+  );
+  assert.throws(
+    () => f.act("buyer", "claim", { auction: oldLots[0] }),
+    /cannot/,
+  );
+});
+test("an impossible premium boost rolls back the price and inventory", () => {
+  const f = fixture(),
+    { e } = f,
+    before = e.player("buyer").balance;
+  const saved = e.catalogStore.pool;
+  e.catalogStore.pool = () => ({ cards: [{ id: "a", rarity: "AG" }] });
+  assert.throws(
+    () => f.act("buyer", "pack", { kind: "character", premium: true }),
+    /not enough D/,
+  );
+  assert.equal(e.player("buyer").balance, before);
+  assert.equal(e.state("buyer").inventory.length, 0);
+  e.catalogStore.pool = saved;
 });
 test("gambling payouts, losses and retries cannot inflate earned credits or double-pay", () => {
   const f = fixture(),
@@ -630,7 +713,7 @@ test("gambling payouts, losses and retries cannot inflate earned credits or doub
     /heads/,
   );
 });
-test("premium packs charge the premium price and rarity acceptance favors rare cards", () => {
+test("premium packs charge the premium price and validate the chosen pack type", () => {
   const f = fixture(),
     e = f.e;
   e.rand = () => 0;
@@ -641,16 +724,6 @@ test("premium packs charge the premium price and rarity acceptance favors rare c
     () => f.act("buyer", "pack", { kind: "character", premium: "true" }),
     /pack type/,
   );
-  const draws = [
-      { id: "common", rarity: "D" },
-      { id: "rare", rarity: "AG" },
-    ],
-    saved = e.catalogStore.draw;
-  e.catalogStore.draw = () => draws.shift();
-  let rolls = [29, 29];
-  e.rand = () => rolls.shift();
-  assert.equal(e.economy.premiumDraw("character", 80).id, "rare");
-  e.catalogStore.draw = saved;
 });
 test("showcase requires owned unique cards, maintains order and completion ignores duplicates", () => {
   const f = fixture(),

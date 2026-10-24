@@ -299,15 +299,8 @@ export class Catalog {
     )
       fail("Choose a rarity.");
   }
-  sortedPage(kind, query, page, limit, filters) {
-    this.validateFilters(kind, filters);
-    if (
-      !["name", "name-desc", "rarity", "role", "favorites", "newest"].includes(
-        filters.sort,
-      ) ||
-      (kind === "seiyuu" && filters.sort === "role")
-    )
-      fail("Choose a valid catalogue sort.");
+  pool(kind) {
+    if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
     // Read the packed catalogue once, then reuse this derived, short-lived view.
     // Any catalogue/popularity write invalidates it through Engine.run().
     if (!this.browseCache || this.e.now() - this.browseCache.at > 60000)
@@ -335,8 +328,19 @@ export class Catalog {
         orders: new Map(),
       });
     }
+    return this.browseCache.kinds.get(kind);
+  }
+  sortedPage(kind, query, page, limit, filters) {
+    this.validateFilters(kind, filters);
+    if (
+      !["name", "name-desc", "rarity", "role", "favorites", "newest"].includes(
+        filters.sort,
+      ) ||
+      (kind === "seiyuu" && filters.sort === "role")
+    )
+      fail("Choose a valid catalogue sort.");
+    const view = this.pool(kind);
     const q = String(query).trim().toLowerCase().slice(0, 100);
-    const view = this.browseCache.kinds.get(kind);
     if (!view.orders.has(filters.sort))
       view.orders.set(
         filters.sort,

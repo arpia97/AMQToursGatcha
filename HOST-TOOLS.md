@@ -66,7 +66,7 @@ All paths start with `/api/host/`. GET `state` reads console data; all other lis
 | `grant`        | `{"player":"00123","amount":100,"reason":"counting","event":"tour42","note":"Tour 42"}`                                                                                                          |
 | `pickem`       | `{"title":"Final","tour":"Usual","teamA":"A","teamB":"B","ends":1792857600000,"winnerReward":300,"scoreReward":100}`                                                                             |
 | `settle`       | `{"pickem":1,"scoreA":3,"scoreB":2}`                                                                                                                                                             |
-| `settings`     | `{"character":500,"seiyuu":500,"premium_character":2000,"premium_seiyuu":2000,"mainWeight":80}`                                                                                                  |
+| `settings`     | `{"character":500,"seiyuu":500,"premium_character":2000,"premium_seiyuu":2000}`                                                                                                                  |
 | `aliases-sync` | `{}` → synchronize the configured public source; response includes status/error and counts                                                                                                       |
 | `catalog`      | `{"cards":[{"id":"provider-character-123","kind":"character","name":"Example","series":"Series","role":"main","image":"https://example.com/image.jpg","source":"https://example.com/profile"}]}` |
 | `reset-player` | `{"player":"00123","confirmation":"RESET PLAYER 00123"}`                                                                                                                                         |
@@ -119,3 +119,9 @@ GET `jikan-status` returns source-import progress, including the active provider
 - GET /api/host/jikan-status: discovery plus nested favorites scan state. Legacy jikan-start/jikan-pause paths control the combined Tenrai job.
 
 Catalogues and import metadata are preserved even with reset-all/deleteRegistry:true. No host reset endpoint clears them. AG is the abbreviated Anything Goes tier; rarity is derived from favorite counts, not submitted in host catalogue JSON.
+
+## Refresh weekly selections
+
+`POST /api/host/refresh-weekly` accepts `{ "confirmation": "REFRESH WEEKLY SELECTIONS" }` with normal administrator authorization and an Idempotency-Key. It closes active community auction lots and refunds held bids, expires the current weekly shop, then generates five community auctions of each type and ten mixed-pool shop cards. Timers keep the regular Monday boundary. Past unclaimed wins, already purchased cards, player auctions, marketplace listings, catalogue and importer progress remain intact. Retry with the same key to avoid repeating the refresh. This is separate from player/gameplay reset tools.
+
+Normal packs are uniform; the legacy `mainWeight` settings parameter is ignored. Premium doubles AG/Ubers/SSS/SS probabilities, funded only by D. Weekly shop prices double from D 100 to AG 25,600; Pending is 100. Players choose their own marketplace prices.

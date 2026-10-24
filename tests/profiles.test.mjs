@@ -93,8 +93,9 @@ test("activity counts distinct tour IDs per category, independent of credit amou
   assert.equal(stats.counting, 1);
   assert.deepEqual({ ...stats.pickems }, { total: 0, correct: 0 });
 });
-test("character weighted draws use 80:100 while seiyuu draws remain uniform", () => {
+test("normal packs use uniform card odds for both characters and seiyuus", () => {
   const f = fixture();
+  f.e.run("UPDATE settings SET value=80 WHERE key='main_weight'");
   for (const kind of ["character", "seiyuu"])
     f.host("catalog", {
       cards: Array.from({ length: 5 }, (_, i) => ({
@@ -116,10 +117,10 @@ test("character weighted draws use 80:100 while seiyuu draws remain uniform", ()
     return 79;
   };
   f.act("pack", { kind: "character" });
-  assert.equal(total, 480);
+  assert.equal(total, 500);
   f.e.rand = (n) => {
     total = n;
-    return 80;
+    return 100;
   };
   const pulls = f.act("pack", { kind: "character" });
   assert.ok(pulls.cards.every((c) => c.id === "character1"));

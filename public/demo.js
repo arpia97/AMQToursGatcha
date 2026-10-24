@@ -1,3 +1,4 @@
+import { premiumPool, drawPremium } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
 import { demoFeatures } from "./demo-features.js";
 const KEY = "amqtours-demo-v2";
@@ -210,24 +211,15 @@ export class Demo {
       s.me.daily = day;
     } else if (path === "pack") {
       const pool = s.catalog.filter((c) => c.kind === b.kind);
+      const enhanced = b.premium ? premiumPool(pool) : null;
       this.wallet(
         -s.settings[(b.premium ? "premium_" : "") + b.kind + "_price"],
         `${b.premium ? "Premium " : ""}${b.kind} pack`,
       );
-      const weights = pool.map((c) =>
-          c.kind === "character" && c.role === "main"
-            ? s.settings.main_weight
-            : 100,
-        ),
-        total = weights.reduce((a, b) => a + b, 0);
-      const cards = Array.from({ length: 5 }, () => {
-        let r = Math.random() * total;
-        for (let i = 0; i < pool.length; i++) {
-          r -= weights[i];
-          if (r < 0) return pool[i];
-        }
-        return pool.at(-1);
-      });
+      const rand = (n) => Math.floor(Math.random() * n);
+      const cards = Array.from({ length: 5 }, () =>
+        enhanced ? drawPremium(enhanced, rand) : pool[rand(pool.length)],
+      );
       cards.forEach((c) => this.add(c.id));
       this.save();
       return { message: "Five new demo cards.", cards };

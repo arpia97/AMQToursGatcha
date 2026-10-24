@@ -1874,24 +1874,24 @@ dialog form {
   box-shadow: 0 0 18px #ffce6866;
 }
 .grade-ubers {
-  color: #fbd9ff;
-  background: #632d72ee;
-  border-color: #df8ef0;
+  color: #edd9ff;
+  background: #563078ee;
+  border-color: #bb8af5;
 }
 .grade-sss {
-  color: #ffd39f;
-  background: #753a27ed;
-  border-color: #fbb06a;
+  color: #fff0b6;
+  background: #685320ed;
+  border-color: #edc763;
 }
 .grade-ss {
-  color: #ffc6d6;
-  background: #652b43ed;
-  border-color: #ed8cac;
+  color: #eef1f5;
+  background: #49505bed;
+  border-color: #c4cbd4;
 }
 .grade-s {
-  color: #d6c4ff;
-  background: #493165ed;
-  border-color: #b798f1;
+  color: #ffe0be;
+  background: #773e23ed;
+  border-color: #f5a35d;
 }
 .grade-a {
   color: #b9ddff;
@@ -1904,9 +1904,9 @@ dialog form {
   border-color: #83cdb4;
 }
 .grade-c {
-  color: #e7e6bd;
-  background: #515039ed;
-  border-color: #b8b377;
+  color: #d2bd99;
+  background: #4b4030ed;
+  border-color: #a68a62;
 }
 .grade-d,
 .grade-pending {

@@ -366,23 +366,23 @@
   position: relative;
 }
 .tier-s {
-  --tier-color: #f0c875;
-  --tier-glow: #f0c87526;
+  --tier-color: #f5a35d;
+  --tier-glow: #f5a35d26;
   --glow-size: 9px;
 }
 .tier-ss {
-  --tier-color: #bd9bff;
-  --tier-glow: #bd9bff40;
+  --tier-color: #c4cbd4;
+  --tier-glow: #c4cbd440;
   --glow-size: 15px;
 }
 .tier-sss {
-  --tier-color: #f58dc5;
-  --tier-glow: #f58dc560;
+  --tier-color: #edc763;
+  --tier-glow: #edc76360;
   --glow-size: 22px;
 }
 .tier-ubers {
-  --tier-color: #ffb760;
-  --tier-glow: #ffae5678;
+  --tier-color: #bb8af5;
+  --tier-glow: #bb8af578;
   --glow-size: 28px;
 }
 .tier-ag {
@@ -509,25 +509,25 @@
   --aura: #a5b4c3;
 }
 .aura-c {
-  --aura: #87cba1;
+  --aura: #a68a62;
 }
 .aura-b {
-  --aura: #80bcff;
+  --aura: #83cdb4;
 }
 .aura-a {
-  --aura: #c4a1ed;
+  --aura: #78b9ed;
 }
 .aura-s {
-  --aura: #f0c875;
+  --aura: #f5a35d;
 }
 .aura-ss {
-  --aura: #bd9bff;
+  --aura: #c4cbd4;
 }
 .aura-sss {
-  --aura: #f58dc5;
+  --aura: #edc763;
 }
 .aura-ubers {
-  --aura: #ffb760;
+  --aura: #bb8af5;
 }
 .aura-ag {
   --aura: #ccf6ff;
