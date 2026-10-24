@@ -1,3 +1,5 @@
+import { fusionQuote } from "./fusion-rules.js";
+import { instantSalePrice } from "./card-values.js";
 import { cardComparator } from "./card-display.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
@@ -70,7 +72,7 @@ export function demoFeatures(d, path, b) {
       );
     }
   }
-  if (!s.shopMixVersion) {
+  if (s.shopMixVersion !== 2) {
     const pool = [...d.cards];
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -87,17 +89,15 @@ export function demoFeatures(d, path, b) {
       C: 200,
       D: 100,
     };
-    s.shop = pool
-      .slice(0, 10)
-      .map((c, i) => ({
-        id: i + 1,
-        card: c.id,
-        kind: c.kind,
-        price: prices[c.rarity] || 100,
-        ends: now + 4 * 86400000,
-        buyer: null,
-      }));
-    s.shopMixVersion = 1;
+    s.shop = pool.slice(0, 10).map((c, i) => ({
+      id: i + 1,
+      card: c.id,
+      kind: c.kind,
+      price: prices[c.rarity] || 100,
+      ends: now + 4 * 86400000,
+      buyer: null,
+    }));
+    s.shopMixVersion = 2;
   }
   s.settings.premium_character_price ??= 2000;
   if (!s.starterGranted) {
@@ -105,7 +105,18 @@ export function demoFeatures(d, path, b) {
     s.starterGranted = true;
   }
   s.pinnedAnime ||= [];
+  if (path === "auction-notice") {
+    const a = s.auctions.find(
+      (a) => a.id === b.auction && a.winner === me.id && a.ends <= now,
+    );
+    if (!a) throw Error("Auction win unavailable.");
+    a.notified = 1;
+    return { message: "Auction win notification seen." };
+  }
   if (path === "state") {
+    s.auctionWins = s.auctions.filter(
+      (a) => a.winner === me.id && a.ends <= now && !a.claimed && !a.notified,
+    );
     s.myListings = [
       ...s.market
         .filter((l) => l.seller === me.id && l.status === "open")
@@ -354,6 +365,91 @@ export function demoFeatures(d, path, b) {
       ),
     };
   }
+  if (path === "fusion") {
+    if (!Array.isArray(b.cards) || b.cards.length < 1 || b.cards.length > 5)
+      throw Error("Choose one to five materials.");
+    const groups = new Map(),
+      materials = [];
+    for (const row of b.cards) {
+      const c = d.cards.find((c) => c.id === row.card),
+        item = s.inventory.find((i) => i.card === row.card);
+      if (!c || !item || !["extra", "card"].includes(row.variant))
+        throw Error("Invalid material.");
+      const level = row.variant === "extra" ? 1 : item.level;
+      if (level !== row.expectedLevel || c.rarity !== row.expectedRarity)
+        throw Error("Material changed. Review the board.");
+      const g = groups.get(c.id) || { base: 0, extra: 0, item };
+      g[row.variant === "extra" ? "extra" : "base"]++;
+      groups.set(c.id, g);
+      if (g.base > 1 || g.extra > item.copies - 1)
+        throw Error("The same copy cannot be used twice.");
+      materials.push({ ...c, card: c.id, level, variant: row.variant });
+    }
+    const odds = fusionQuote(materials);
+    for (const k of [
+      "baseline",
+      "upgraded",
+      "stay",
+      "upgrade",
+      "break",
+      "count",
+    ])
+      if (b.expectedOdds?.[k] !== odds[k]) throw Error("Fusion odds changed.");
+    const pools = Object.fromEntries(
+      [odds.baseline, ...(odds.upgrade ? [odds.upgraded] : [])].map((r) => [
+        r,
+        d.cards.filter((c) => c.rarity === r),
+      ]),
+    );
+    if (Object.values(pools).some((p) => !p.length))
+      throw Error("A result rarity is unavailable.");
+    const roll = Math.floor(Math.random() * 10000),
+      outcome =
+        roll < odds.stay
+          ? "stay"
+          : roll < odds.stay + odds.upgrade
+            ? "upgrade"
+            : "break";
+    const grade =
+      outcome === "stay"
+        ? odds.baseline
+        : outcome === "upgrade"
+          ? odds.upgraded
+          : null;
+    const card = grade
+      ? pools[grade][Math.floor(Math.random() * pools[grade].length)]
+      : null;
+    for (const [id, g] of groups) {
+      for (let i = 0; i < g.extra; i++) take(id, "extra");
+      if (g.base) take(id, "card");
+    }
+    if (card) add(card.id);
+    return {
+      message: card
+        ? "Demo fusion produced a Lv. 1 " + grade + " card."
+        : "Demo fusion broke; materials consumed.",
+      outcome,
+      odds,
+      materials,
+      cards: card ? [card] : [],
+    };
+  }
+  if (path === "sell-instant") {
+    const c = d.cards.find((c) => c.id === b.card),
+      item = s.inventory.find((i) => i.card === b.card);
+    if (!c || !item) throw Error("You do not own that card.");
+    const level = b.variant === "extra" ? 1 : item.level,
+      price = instantSalePrice(c, level);
+    if (
+      price !== b.expectedPrice ||
+      level !== b.expectedLevel ||
+      (c.rarity || "Pending") !== b.expectedRarity
+    )
+      throw Error("Sale quote changed. Review the price again.");
+    take(b.card, b.variant);
+    d.wallet(price, "Instant card sale: " + c.name);
+    return { message: "Card sold for " + price + " credits.", price };
+  }
   if (path === "showcase") {
     if (
       b.cards.length > 6 ||
@@ -433,7 +529,11 @@ export function demoFeatures(d, path, b) {
     add(l.card, l.level || 1);
     l.buyer = me.id;
     l.status = "sold";
-    return { message: "Demo card added to your collection." };
+    return {
+      message: "Demo card added to your collection.",
+      cards: [d.cards.find((c) => c.id === l.card)],
+      level: l.level || 1,
+    };
   }
   if (path === "gamble") {
     if (!Number.isSafeInteger(b.stake) || b.stake < 10 || b.stake > 10000)

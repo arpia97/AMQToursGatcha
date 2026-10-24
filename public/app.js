@@ -1,3 +1,6 @@
+import { countdownText, nextDailyReset, nextWeeklyReset } from "./countdown.js";
+import { createWorkshop } from "./workshop-ui.js";
+import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { createPackReveal } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
 import {
@@ -38,12 +41,15 @@ const icons = {
   arcade:
     '<path d="M7 7h10l4 10c1 3-2 4-4 2l-3-3h-4l-3 3c-2 2-5 1-4-2zM6 11h5m-2.5-2.5v5m7-2h.01m2 2h.01"/>',
 };
+icons.fusion =
+  '<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3zM3 3l3 3m12 12 3 3"/>';
 icons.shop = '<path d="M3 9h18l-2-6H5zM5 9v12h14V9M9 21v-7h6v7"/>';
 icons.players =
   '<circle cx="10" cy="8" r="4"/><path d="M3 21v-3a7 7 0 0 1 11-5m3 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6m2 5 3 3"/>';
 const routes = [
   ["home", "Overview"],
   ["collection", "My collection"],
+  ["fusion", "Card fusion"],
   ["packs", "Card packs"],
   ["shop", "Shop"],
   ["auctions", "Auctions"],
@@ -52,6 +58,10 @@ const routes = [
   ["arcade", "Gambling"],
   ["ranks", "Rankings"],
 ];
+let heroCards = null,
+  clockOffset = 0;
+const handledDeadlines = new Set();
+const shownWins = new Set();
 let state,
   tab = "character",
   search = "",
@@ -129,34 +139,123 @@ function intro(title, description, extra = "") {
 }
 const btn = (label, action, extra = "", cls = "") =>
   `<button class="button ${cls}" data-action="${action}" ${extra}>${label}</button>`;
+function countdown(end, prefix = "", days = true, ended = "Ended") {
+  return (
+    '<span class="countdown" data-countdown-end="' +
+    Number(end) +
+    '" data-countdown-prefix="' +
+    escape(prefix) +
+    '" data-countdown-days="' +
+    days +
+    '" data-countdown-ended="' +
+    escape(ended) +
+    '">' +
+    (end <= Date.now() + clockOffset
+      ? ended
+      : prefix + countdownText(end, Date.now() + clockOffset, days)) +
+    "</span>"
+  );
+}
 function remaining(end) {
-  const ms = Math.max(0, end - state.now),
-    d = Math.floor(ms / 86400000),
-    h = Math.floor((ms % 86400000) / 3600000),
-    m = Math.floor((ms % 3600000) / 60000);
-  return d
-    ? `${d}d ${h}h left`
-    : h
-      ? `${h}h ${m}m left`
-      : ms
-        ? `${m}m left`
-        : "Ended";
+  return countdown(end);
+}
+function tickCountdowns() {
+  if (!state) return;
+  const now = Date.now() + clockOffset;
+  let expired = false;
+  for (const el of document.querySelectorAll("[data-countdown-end]")) {
+    const end = Number(el.dataset.countdownEnd);
+    el.textContent =
+      now >= end
+        ? el.dataset.countdownEnded
+        : el.dataset.countdownPrefix +
+          countdownText(end, now, el.dataset.countdownDays === "true");
+    if (now >= end && end > state.now && !handledDeadlines.has(end)) {
+      handledDeadlines.add(end);
+      expired = true;
+    }
+  }
+  if (expired && !busy && !document.hidden && !$("#modal").open)
+    refresh().catch(() => {});
+}
+setInterval(() => {
+  tickCountdowns();
+  showAuctionWin();
+}, 1000);
+function revealAcquired(result, title = "A new favourite is yours.") {
+  const c = result.cards?.[0];
+  if (!c) {
+    if ($("#modal").open) $("#modal").close();
+    toast(result.message);
+    return;
+  }
+  modal(
+    '<section class="pack-results acquisition"><div class="pull-label">ADDED TO YOUR COLLECTION</div><h2>' +
+      escape(title) +
+      "</h2><p>" +
+      escape(result.message) +
+      '</p><div class="acquisition-card pull-slot">' +
+      cardHTML(c, null, {
+        level: result.level || 1,
+        copies: 1,
+        preview: true,
+      }) +
+      '</div><a class="button mint" href="#collection" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
+  );
+}
+function showAuctionWin() {
+  if (!state?.me || busy || document.hidden || $("#modal").open) return;
+  const a = (state.auctionWins || []).find(
+    (a) => !shownWins.has(state.me.id + ":" + a.id),
+  );
+  if (!a) return;
+  const c = cardBy(a.card),
+    key = state.me.id + ":" + a.id;
+  modal(
+    '<section class="pack-results acquisition"><div class="pull-label">WINNING BID · ✦ ' +
+      number(a.bid) +
+      "</div><h2>You won the auction!</h2><p>" +
+      escape(c.name) +
+      ' is ready to join your collection.</p><div class="acquisition-card pull-slot">' +
+      cardHTML(c, null, { level: a.level || 1, copies: 1, preview: true }) +
+      '</div><button class="button mint" data-action="claim" data-id="' +
+      a.id +
+      '">Claim your card →</button><button class="text-button" data-close-dialog>Claim later</button></section>',
+  );
+  if ($("#modal").open) {
+    shownWins.add(key);
+    api("auction-notice", { auction: a.id }, "auction-notice-" + a.id).catch(
+      () => {},
+    );
+  }
 }
 function cardHTML(c, a = null, item = null) {
   const mine = a?.winner === state.me?.id,
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
   const auction = a
-    ? `<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a>" : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${escape(remaining(a.ends))}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
+    ? `<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a>" : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span><span>${remaining(a.ends)}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
     : "";
-  const owned = item
-    ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button><div class="collection-actions"><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">Sell / auction ↗</button></div>`
-    : "";
+  const owned =
+    item && !item.preview
+      ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><button class="bid-button space-top" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → Lv. " + (item.level + 1)}</button><button class="text-button avatar-pick" data-action="set-avatar" data-id="${escape(c.id)}">Use as profile picture</button><div class="collection-actions"><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="fusion-card" data-id="${escape(c.id)}">Add to fusion ↗</button><button class="text-button" data-action="instant-sell" data-id="${escape(c.id)}">Sell now · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">List / auction ↗</button></div>`
+      : "";
   return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
 }
+const workshop = createWorkshop({
+  escape,
+  number,
+  cardBy,
+  cardHTML,
+  image,
+  gradeBadge,
+  btn,
+  getState: () => state,
+  empty,
+});
 const features = createFeatures(
   {
     escape,
@@ -171,6 +270,8 @@ const features = createFeatures(
     series,
     empty,
     remaining,
+    countdown,
+    nextWeeklyReset,
     profileURL,
     tabs,
     getState: () => state,
@@ -199,7 +300,7 @@ function daily() {
   const claimed =
     state.me?.daily ===
     new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
-  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>${claimed ? "Today’s bonus is in your wallet." : "A little something for showing up."}</h3><p>Daily check-in · 100 credits · resets at midnight KST</p></div>${btn(claimed ? "Claimed ✓" : "+ Claim 100", "daily", claimed ? "disabled" : "", claimed ? "secondary" : "mint")}</div>`;
+  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>${claimed ? "Today’s bonus is in your wallet." : "A little something for showing up."}</h3><p>${claimed ? countdown(nextDailyReset(state.now), "Claim again in ", false, "Available now") : "Daily check-in · 100 credits"}</p></div>${btn(claimed ? "Claimed ✓" : "+ Claim 100", "daily", claimed ? "disabled" : "", claimed ? "secondary" : "mint")}</div>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
@@ -209,13 +310,7 @@ function packPanel(kind, premium = false) {
   return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} card pack</h3><p>${premium ? "Double the normal chance of SS, SSS, Ubers and AG. The extra chance comes from D." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
 }
 function home() {
-  const cs = state.catalog.filter((c) => c.kind === "character"),
-    hero = [
-      cs.find((c) => c.name.includes("Rem")),
-      cs.find((c) => c.name.includes("Levi")) ||
-        cs.find((c) => c.name.includes("Spike")),
-      cs.find((c) => c.name.includes("Frieren")),
-    ].filter(Boolean);
+  const hero = heroCards || [];
   const featured = state.auctions
     .filter((a) => a.kind === "character" && a.ends > state.now)
     .slice(0, 5);
@@ -229,7 +324,7 @@ function home() {
     ) +
     (state.activePickem
       ? pickemHero(state.activePickem)
-      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Build a deck of your favourite characters and the voices that bring them to life.</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card">${image(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
+      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Build a deck of your favourite characters and the voices that bring them to life.</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     `<div class="daily-rewards ${dailyPack() ? "two-col" : ""}">${daily()}${dailyPack()}</div>` +
     `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><a class="text-button" href="#auctions">View auctions ↗</a></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
@@ -296,10 +391,10 @@ function packs() {
     ) +
     dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
-    <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances above S · reduced D chance</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><details class="rarity-guide"><summary>How premium selection works</summary><p>Every card has the same chance in a normal pack. Premium doubles the chance of every AG, Ubers, SSS and SS card; only D loses probability. S, A, B, C and Pending keep their normal chances. Five independent draws, with duplicates possible and no guaranteed rarity.</p></details><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
+    <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances above S · reduced D chance</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every card, equal chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool. Role and rarity do not affect normal pulls.</p></div>
     <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>
-    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""} Gender never changes the odds.</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Ranks are separate for characters and seiyuus in the imported pools. Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D the remaining 60%. Equal favorite counts share a tier. Rarity can change as the catalogue grows or favorites refresh every 15 days. Pending means favorites have not been checked. Normal packs are completely random. Premium packs double above-S chances by reducing D; enhancement levels remain separate.</p></details>
+    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""} Gender never changes the odds.</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
     <div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}"></div>
     ${features.filters()}<div class="card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
     ${features.catalogPager(catalogPageData, catalogPageNumber)}`
@@ -312,9 +407,9 @@ function auctions() {
   return (
     intro(
       "A new week. A new lineup.",
-      "Five random characters. Five random seiyuus. One highest bidder per card.",
+      "Five characters. Five seiyuus. Higher tiers in the spotlight.",
     ) +
-    `<div class="notice">Weeks run Monday–Monday, 00:00 UTC (09:00 KST). Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to join your deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly community auctions</h2>${active.length ? `<span class="pill live"><span class="dot"></span> ${remaining(active[0].ends)}</span>` : ""}</div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No auctions just yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
+    `<div class="notice">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}<br>Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to join your deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly community auctions</h2>${active.length ? `<span class="pill live"><span class="dot"></span> ${remaining(active[0].ends)}</span>` : ""}</div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No auctions just yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
     features.userAuctions()
   );
 }
@@ -466,6 +561,7 @@ function render() {
   $("#main").innerHTML = {
     home,
     collection,
+    fusion: () => workshop.render(),
     packs,
     auctions,
     shop,
@@ -498,6 +594,7 @@ function render() {
     queryInput.classList.toggle("no-results", none);
     queryInput.setAttribute("aria-invalid", String(none));
   }
+  tickCountdowns();
   document.title = title + " · AMQ Tours Gatcha";
 }
 async function api(path, body, key) {
@@ -521,7 +618,18 @@ async function api(path, body, key) {
   return data;
 }
 async function refresh() {
+  const previousPlayer = state?.me?.id;
   state = await api("state");
+  clockOffset = state.now - Date.now();
+  if (heroCards === null) {
+    try {
+      heroCards = (await api("featured")).cards || [];
+      rememberCards(heroCards);
+    } catch {
+      heroCards = [];
+    }
+  }
+  if (previousPlayer && previousPlayer !== state.me?.id) workshop.clear();
   if (state.loginReward) toast(state.loginReward.message);
   rememberCards(state.catalog);
   await loadDynamic();
@@ -548,7 +656,9 @@ async function execute(path, b, after) {
       );
     }
     if (after) after(result);
-    else {
+    else if (path === "bid" && result.cards?.length) {
+      revealAcquired(result, "Your auction prize is here.");
+    } else {
       if ($("#modal").open) $("#modal").close();
       toast(result.message);
     }
@@ -561,6 +671,7 @@ async function execute(path, b, after) {
   } finally {
     busy = false;
     buttons.forEach((x) => (x.disabled = false));
+    showAuctionWin();
   }
 }
 function auth(register = false) {
@@ -666,6 +777,9 @@ document.addEventListener("click", async (ev) => {
         : a === "enhance"
           ? { card: t.dataset.id }
           : { auction: Number(t.dataset.id) },
+      a === "claim"
+        ? (r) => revealAcquired(r, "Your auction prize is here.")
+        : undefined,
     );
     return;
   }
@@ -865,6 +979,46 @@ titleSelect.addEventListener("change", () => {
 
 async function handleFeatureClick(a, t) {
   try {
+    if (a?.startsWith("fusion-")) {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      if (a === "fusion-add" || a === "fusion-card") {
+        const item = state.inventory.find((i) => i.card === t.dataset.id);
+        workshop.add({
+          card: t.dataset.id,
+          variant:
+            a === "fusion-card"
+              ? item?.copies > 1
+                ? "extra"
+                : "card"
+              : t.dataset.variant,
+        });
+        if (a === "fusion-card") location.hash = "fusion";
+      }
+      if (a === "fusion-remove") workshop.remove(Number(t.dataset.index));
+      if (a === "fusion-clear") workshop.clear();
+      if (a === "fusion-dismiss") workshop.dismiss();
+      if (a === "fusion-prev") workshop.prev();
+      if (a === "fusion-next") workshop.next();
+      if (a === "fusion-run") {
+        const body = workshop.request();
+        t.disabled = true;
+        try {
+          await execute("fusion", body, (r) => {
+            workshop.complete(r);
+            render();
+            toast(r.message, r.outcome === "break");
+          });
+        } finally {
+          if (t.isConnected) t.disabled = false;
+        }
+        return true;
+      }
+      render();
+      return true;
+    }
     if (a === "rank-metric") {
       ui.metric = t.dataset.metric;
       ui.rankPage = 1;
@@ -896,6 +1050,7 @@ async function handleFeatureClick(a, t) {
         "pack",
         "showcase-toggle",
         "sell-card",
+        "instant-sell",
         "listing-venue",
         "pin-anime",
         "shop-buy",
@@ -958,6 +1113,10 @@ async function handleFeatureClick(a, t) {
       listingForm(t.dataset.id, t.dataset.venue, variant);
       return true;
     }
+    if (a === "instant-sell") {
+      openInstantSale(t.dataset.id);
+      return true;
+    }
     if (a === "sell-card") {
       listingForm(t.dataset.id, "shop");
       return true;
@@ -999,7 +1158,30 @@ function listingForm(id, venue, variant) {
     `<h2>${auction ? "Start an auction" : "List on the marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
   );
 }
+function openInstantSale(id, variant) {
+  const c = cardBy(id),
+    item = state.inventory.find((i) => i.card === id);
+  if (!item) {
+    toast("You no longer own that card.", true);
+    return;
+  }
+  variant ||= item.copies > 1 ? "extra" : "card";
+  const level = variant === "extra" ? 1 : item.level,
+    price = instantSalePrice(c, level);
+  modal(
+    `<h2>Sell ${escape(c.name)} now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
+  );
+}
 async function handleFeatureSubmit(f, b) {
+  if (f.id === "instant-sell-form") {
+    await execute("sell-instant", {
+      ...b,
+      expectedPrice: Number(b.expectedPrice),
+      expectedLevel: Number(b.expectedLevel),
+    });
+    return true;
+  }
+
   if (f.id === "withdraw-form") {
     await execute("cancel-listing", {
       listing: Number(b.listing),
@@ -1036,6 +1218,13 @@ async function handleFeatureSubmit(f, b) {
         : b.action === "buyout"
           ? { auction: Number(b.id) }
           : { listing: Number(b.id) },
+      (r) =>
+        revealAcquired(
+          r,
+          b.action === "buyout"
+            ? "Your auction prize is here."
+            : "Your new card is here.",
+        ),
     );
     return true;
   }
@@ -1116,4 +1305,26 @@ document.addEventListener("change", async (ev) => {
       toast(err.message, true);
     }
   }
+});
+
+document.addEventListener("change", (ev) => {
+  if (ev.target.closest("#instant-sell-form") && ev.target.name === "variant")
+    openInstantSale(ev.target.form.elements.card.value, ev.target.value);
+});
+
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "fusion-search") return;
+  const pos = ev.target.selectionStart;
+  workshop.filter("query", ev.target.value);
+  render();
+  $("#fusion-search")?.focus();
+  $("#fusion-search")?.setSelectionRange(pos, pos);
+});
+document.addEventListener("change", (ev) => {
+  if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;
+  workshop.filter(
+    ev.target.id === "fusion-kind" ? "kind" : "grade",
+    ev.target.value,
+  );
+  render();
 });

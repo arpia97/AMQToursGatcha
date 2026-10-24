@@ -510,6 +510,10 @@ export class Game extends DurableObject {
     const next = e.ensureAuctions();
     if (!(await this.ctx.storage.getAlarm()))
       await this.ctx.storage.setAlarm(next);
+    if (path === "featured" && !post) {
+      this.rate("search:" + ip, 150);
+      return json({ cards: e.featuredCards() });
+    }
     if (path === "catalog" && !post) {
       this.rate("search:" + ip, 150);
       return json(

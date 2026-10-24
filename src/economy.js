@@ -1,19 +1,10 @@
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
+import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
+import { Fusion } from "./fusion.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
-export const SHOP_PRICES = {
-  AG: 25600,
-  Ubers: 12800,
-  SSS: 6400,
-  SS: 3200,
-  S: 1600,
-  A: 800,
-  B: 400,
-  C: 200,
-  D: 100,
-  Pending: 100,
-};
+export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
 export class Economy {
   constructor(e) {
@@ -25,6 +16,7 @@ export class Economy {
       ["reserve", "INTEGER NOT NULL DEFAULT 1"],
       ["paid", "INTEGER NOT NULL DEFAULT 0"],
       ["buyout", "INTEGER"],
+      ["notified", "INTEGER NOT NULL DEFAULT 0"],
     ])
       if (!e.all("PRAGMA table_info(auctions)").some((c) => c.name === column))
         e.run(`ALTER TABLE auctions ADD COLUMN ${column} ${definition}`);
@@ -45,6 +37,7 @@ export class Economy {
       "CREATE INDEX IF NOT EXISTS starter_pending ON players(starter_granted)",
     );
     this.anime = new AnimeCollection(e);
+    this.fusion = new Fusion(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -124,7 +117,11 @@ export class Economy {
       e.now(),
       a.id,
     );
-    return { message: "Auction bought out. Card added to your collection." };
+    return {
+      message: "Auction bought out. Card added to your collection.",
+      cards: [e.catalogStore.card(a.card)],
+      level: a.level,
+    };
   }
   acquire(player, card, level = 1) {
     this.e.run(
@@ -228,7 +225,7 @@ export class Economy {
       );
     }
   }
-  refreshWeekly() {
+  refreshAuctions() {
     const e = this.e,
       now = e.now(),
       start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
@@ -254,12 +251,10 @@ export class Economy {
         a.id,
       );
     }
-    e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
     e.seedCommunityAuctions(start);
-    this.seedShop(start, start + WEEK);
     return {
       message:
-        "Weekly community auctions and shop refreshed. Active community bids refunded; player listings and owned cards preserved.",
+        "Community auctions refreshed. Active community bids refunded; shop, player listings and owned cards preserved.",
       refunded,
       auctionIds: e
         .all(
@@ -272,6 +267,22 @@ export class Economy {
         .map((x) => x.id),
     };
   }
+  refreshWeekly() {
+    const result = this.refreshAuctions(),
+      e = this.e,
+      now = e.now();
+    const start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
+    e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
+    this.seedShop(start, start + WEEK);
+    return {
+      ...result,
+      message:
+        "Weekly community auctions and shop refreshed. Active community bids refunded; player listings and owned cards preserved.",
+      shopIds: e
+        .all("SELECT id FROM weekly_shop WHERE ends>? ORDER BY id", now)
+        .map((x) => x.id),
+    };
+  }
   premiumDraw(kind, context = {}) {
     context.pool ||= premiumPool(this.e.catalogStore.pool(kind).cards);
     return drawPremium(context.pool, this.e.rand);
@@ -279,6 +290,54 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    if (action === "auction-notice") {
+      const a = e.one(
+        "SELECT * FROM auctions WHERE id=?",
+        integer(b.auction, 1),
+      );
+      if (!a || a.winner !== player || a.ends > now || a.claimed)
+        fail("This auction win is not available.", 409);
+      e.run("UPDATE auctions SET notified=1 WHERE id=?", a.id);
+      return { message: "Auction win notification seen." };
+    }
+    if (action === "fusion") return this.fusion.fuse(player, b);
+    if (action === "sell-instant") {
+      const id = text(b.card, 100),
+        c = e.catalogStore.card(id);
+      if (!c) fail("Unknown card.");
+      const item = e.one(
+        "SELECT * FROM inventory WHERE player=? AND card=?",
+        player,
+        id,
+      );
+      if (!item) fail("You do not own that card.");
+      const variant = b.variant || "extra";
+      if (!["extra", "card"].includes(variant))
+        fail("Choose an extra copy or your enhanced card.");
+      const level = variant === "extra" ? 1 : item.level;
+      const price = instantSalePrice(c, level);
+      if (
+        b.expectedPrice !== price ||
+        b.expectedRarity !== (c.rarity || "Pending") ||
+        b.expectedLevel !== level
+      )
+        fail(
+          "This card’s rarity, level or sale value changed. Refresh and review the new price.",
+          409,
+        );
+      this.take(player, id, variant);
+      e.wallet(
+        player,
+        price,
+        "Instant card sale: " + c.name + " · Lv. " + level,
+      );
+      return {
+        message: "Card sold for " + price.toLocaleString("en-US") + " credits.",
+        price,
+        card: id,
+        level,
+      };
+    }
     if (action === "daily-pack") return this.dailyPack(player);
     if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
@@ -401,7 +460,11 @@ export class Economy {
         now,
         l.id,
       );
-      return { message: "Card purchased and added to your collection." };
+      return {
+        message: "Card purchased and added to your collection.",
+        cards: [e.catalogStore.card(l.card)],
+        level: l.level,
+      };
     }
     if (action === "shop-buy") {
       const s = e.one(
@@ -413,7 +476,11 @@ export class Economy {
       e.wallet(player, -s.price, "Weekly shop: " + s.card);
       this.acquire(player, s.card);
       e.run("UPDATE weekly_shop SET buyer=? WHERE id=?", player, s.id);
-      return { message: "Weekly shop card added to your collection." };
+      return {
+        message: "Weekly shop card added to your collection.",
+        cards: [e.catalogStore.card(s.card)],
+        level: 1,
+      };
     }
     if (action === "gamble") {
       const stake = integer(b.stake, 10, 10000);

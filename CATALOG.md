@@ -51,3 +51,22 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 ## Source rights
 
 [Tenrai's terms](https://tenrai.org/terms) permit collecting, caching, transforming and displaying API responses within applications while preserving third-party rights and access limits. This app does not expose a raw Tenrai database dump or competing API. Portraits remain on MAL CDN URLs; API access does not transfer artwork or portrait rights. No biographies are retained. The older adapted ACDB download is removed from the deployed site; historical attribution remains in Git history. AniList bulk collection is not used.
+
+## Card fusion
+
+Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 50 × 8 = 400 credits. Extra copies are level 1. Pending uses D pricing. Quotes include rarity, level and price; changes reject the sale for review before any consumption. Credits fit safely up to the wallet limit of one trillion.
+
+Fusion selects one to five physical copies, including extras and enhanced bases. The highest printed rarity sets the result baseline. Upgrade requires at least two materials and gives exactly the next rarity; one material can only stay or break. Every selected copy is consumed, and a successful outcome draws a uniformly random level-1 card across both types in the result tier. An existing enhanced copy is retained if the result is a duplicate. Missing result pools reject before consuming anything. AG and Pending materials are excluded.
+
+| Material rarity | Stay | Upgrade |
+| --------------- | ---: | ------: |
+| D               |   1% |    0.5% |
+| C               |   2% |      1% |
+| B               |   4% |      2% |
+| A               |   8% |      4% |
+| S               |  12% |      6% |
+| SS              |  16% |      8% |
+| SSS             |  24% |     12% |
+| Ubers           |  32% |     16% |
+
+Each enhancement level above 1 adds half a probability tier, interpolated linearly between rows. D level 2 contributes 1.5% stay and 0.75% upgrade; D level 3 contributes 2% and 1%. Beyond Ubers, each full virtual tier doubles its contribution. The printed rarity and one-tier result target do not change. Add contributions, and break is the remainder. Boards above 100% stay + upgrade are rejected, never clamped. Server quotes, ownership validation, synchronous transactions and idempotency prevent stale terms or repeated consumption.

@@ -17,6 +17,8 @@ export const rarityClass = (grade) =>
     D: "d",
   })[grade] || "pending";
 export function popularityLabel(card) {
+  if (card.demoRarity)
+    return "Illustrative demo rarity; not the live MAL ranking.";
   if (!card.rarity || card.favorites == null)
     return "MAL favorites have not been checked yet";
   return `${card.rarity === "AG" ? "Anything Goes (AG)" : card.rarity} · ${Number(card.favorites).toLocaleString("en-US")} MAL favorites · top ${Number(card.topPercent).toFixed(2)}% of ${Number(card.rankedPopulation).toLocaleString("en-US")} ranked ${card.kind === "seiyuu" ? "seiyuus" : "characters"}. Equal counts share an averaged rank and tier.`;

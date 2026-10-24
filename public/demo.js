@@ -1,3 +1,4 @@
+import { drawFeatured } from "./auction-odds.js";
 import { premiumPool, drawPremium } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
 import { demoFeatures } from "./demo-features.js";
@@ -8,6 +9,29 @@ export class Demo {
     return new Demo(cards);
   }
   constructor(cards) {
+    const grades = {
+        character: [
+          "D",
+          "C",
+          "B",
+          "A",
+          "S",
+          "SS",
+          "SSS",
+          "Ubers",
+          "AG",
+          "D",
+          "D",
+          "D",
+        ],
+        seiyuu: ["D", "D", "D", "D", "S", "SS", "SSS", "Ubers", "AG", "C"],
+      },
+      counts = { character: 0, seiyuu: 0 };
+    cards = cards.map((c) => ({
+      ...c,
+      rarity: grades[c.kind][counts[c.kind]++] || "D",
+      demoRarity: true,
+    }));
     this.cards = cards;
     try {
       this.s = JSON.parse(localStorage.getItem(KEY));
@@ -120,6 +144,10 @@ export class Demo {
   async request(path, b) {
     const s = this.s;
     s.now = Date.now();
+    if (path === "featured")
+      return {
+        cards: drawFeatured(this.cards, (n) => Math.floor(Math.random() * n)),
+      };
     const extra = demoFeatures(this, path, b);
     if (extra !== undefined) {
       this.save();
@@ -300,6 +328,12 @@ export class Demo {
       this.add(a.card);
       a.claimed = 1;
       s.auctions = s.auctions.filter((x) => x.id !== a.id);
+      this.save();
+      return {
+        message: "Demo auction card added to your collection.",
+        cards: [this.cards.find((c) => c.id === a.card)],
+        level: a.level || 1,
+      };
     } else throw new Error("This action is available on the live backend.");
     const rank = s.ranks.find((x) => x.id === s.me.id);
     rank.earned = s.me.earned;

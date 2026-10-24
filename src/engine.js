@@ -1,5 +1,6 @@
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
+import { drawAuction, drawFeatured } from "../public/auction-odds.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -107,7 +108,7 @@ export class Engine {
     const p = this.player(id);
     const balance = p.balance + delta;
     if (balance < 0) fail("Not enough available credits.");
-    if (!Number.isSafeInteger(balance) || balance > 1000000000)
+    if (!Number.isSafeInteger(balance) || balance > 1000000000000)
       fail("Wallet limit exceeded.");
     this.run(
       "UPDATE players SET balance=?,earned=earned+? WHERE id=?",
@@ -161,8 +162,9 @@ export class Engine {
   seedCommunityAuctions(start, onlyKind) {
     for (const kind of onlyKind ? [onlyKind] : ["character", "seiyuu"]) {
       const selected = new Set();
+      const pool = this.catalogStore.pool(kind).cards;
       for (let i = 0; i < 5; i++) {
-        const card = this.catalogStore.draw(kind, this.rand, 100, selected);
+        const card = drawAuction(pool, this.rand, selected);
         selected.add(card.id);
         this.run(
           "INSERT INTO auctions(card,kind,starts,ends) VALUES(?,?,?,?)",
@@ -292,7 +294,11 @@ export class Engine {
         this.run("UPDATE auctions SET paid=1 WHERE id=?", a.id);
       }
       this.run("UPDATE auctions SET claimed=1,closed=1 WHERE id=?", a.id);
-      return { message: "Auction card added to your collection." };
+      return {
+        message: "Auction card added to your collection.",
+        cards: [this.catalogStore.card(a.card)],
+        level: a.level,
+      };
     }
     if (action === "predict") {
       const p = this.one(
@@ -367,6 +373,11 @@ export class Engine {
     fail("Unknown action.", 404);
   }
   host(action, b) {
+    if (action === "refresh-auctions") {
+      if (b.confirmation !== "REFRESH COMMUNITY AUCTIONS")
+        fail("Type REFRESH COMMUNITY AUCTIONS to confirm.");
+      return this.economy.refreshAuctions();
+    }
     if (action === "refresh-weekly") {
       if (b.confirmation !== "REFRESH WEEKLY SELECTIONS")
         fail("Type REFRESH WEEKLY SELECTIONS to confirm.");
@@ -706,6 +717,9 @@ export class Engine {
       me,
       catalog,
       auctions,
+      auctionWins: auctions.filter(
+        (a) => a.winner === id && a.ends <= now && !a.claimed && !a.notified,
+      ),
       pickems,
       settings: Object.fromEntries(
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
@@ -733,6 +747,14 @@ export class Engine {
         cards: summary.total,
       },
     };
+  }
+  featuredCards() {
+    return drawFeatured(
+      ["character", "seiyuu"].flatMap(
+        (kind) => this.catalogStore.pool(kind).cards,
+      ),
+      this.rand,
+    );
   }
   searchProfiles(query, page = 1, limit = 50) {
     integer(page, 1, 10000);
