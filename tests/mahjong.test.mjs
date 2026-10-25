@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
+import { createMahjongUI } from "../public/mahjong-ui.js";
 import {
   dealMahjong,
   replaceMahjong,
@@ -353,6 +354,88 @@ test("retired games are disabled server-side and never charge credits", (t) => {
       (err) => err.status === 410,
     );
   assert.equal(e.player("p").balance, before);
+});
+
+test("clicking the selected tile returns one paid discard intent and resets after a revision", (t) => {
+  const f = fixture(t),
+    g = f.start();
+  let state = f.e.state("p");
+  const ui = createMahjongUI({
+    getState: () => state,
+    escape: String,
+    number: String,
+  });
+  assert.equal(ui.select(3), null);
+  assert.equal(ui.select(4), null); // Different tile changes selection only.
+  const intent = ui.select(4);
+  assert.deepEqual(intent, { game: g.id, version: 0, index: 4 });
+  f.act("mahjong-discard", intent, "two-click");
+  assert.equal(f.e.player("p").balance, 100000 - 1000 - 100);
+  f.act("mahjong-discard", intent, "two-click");
+  assert.equal(f.e.player("p").balance, 100000 - 1000 - 100);
+  state = f.e.state("p");
+  assert.equal(ui.select(4), null); // Replacement needs a new first click.
+  state.mahjong.version++;
+  assert.equal(ui.select(4), null); // Remote update cannot turn selection into a discard.
+  state.me.balance = 99;
+  assert.throws(() => ui.select(4), /Not enough credits/);
+  state.me.balance = 100;
+  state.mahjong.remaining = 0;
+  assert.throws(() => ui.select(4), /wall is empty/);
+});
+
+test("private paged history retains final hands and discards without exposing walls, including older summaries", (t) => {
+  const f = fixture(t),
+    { e, act } = f;
+  for (let i = 0; i < 12; i++) {
+    const g = f.start();
+    act("mahjong-discard", { game: g.id, version: 0, index: i % 14 });
+    act("mahjong-end", { game: g.id, version: 1 });
+  }
+  const first = e.economy.mahjong.history("p"),
+    second = e.economy.mahjong.history("p", 2);
+  assert.equal(first.items.length, 10);
+  assert.equal(first.hasMore, true);
+  assert.equal(second.items.length, 2);
+  assert.equal(second.hasMore, false);
+  assert.ok(first.items[0].id > second.items[0].id);
+  assert.ok(
+    first.items.every(
+      (r) =>
+        r.hand.length === 14 &&
+        r.discards.length === 1 &&
+        r.cost === 1100 &&
+        r.net === -1100,
+    ),
+  );
+  assert.ok(first.items.every((r) => !("wall" in r)));
+  assert.equal(e.economy.mahjong.history("q").items.length, 0);
+  assert.throws(() => e.economy.mahjong.history("p", 0), /whole number/);
+  const latest = e.economy.mahjong.read("p");
+  e.run(
+    "UPDATE gambling_rounds SET outcome=? WHERE id=?",
+    JSON.stringify({
+      status: "ended",
+      seat: latest.seat,
+      discards: 1,
+      result: null,
+    }),
+    latest.id,
+  );
+  assert.equal(e.economy.mahjong.history("p").items[0].hand.length, 14);
+  f.start(); // Backfills the old last-hand summary before replacing it.
+  assert.equal(e.economy.mahjong.history("p").items[0].hand.length, 14);
+  const old = second.items[0];
+  e.run(
+    "UPDATE gambling_rounds SET outcome=? WHERE id=?",
+    JSON.stringify({ status: "ended", seat: 1, discards: 3, result: null }),
+    old.id,
+  );
+  const legacy = e.economy.mahjong
+    .history("p", 2)
+    .items.find((r) => r.id === old.id);
+  assert.deepEqual(legacy.hand, []);
+  assert.equal(legacy.discardCount, 3);
 });
 
 test("host reset scopes clear saved Mahjong hands while retaining the catalogue", (t) => {

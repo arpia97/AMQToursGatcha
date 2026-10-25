@@ -39,6 +39,7 @@ export class Engine {
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
@@ -54,6 +55,9 @@ export class Engine {
       "INSERT OR IGNORE INTO settings VALUES ('character_price',500),('seiyuu_price',500)",
     );
     this.run("INSERT OR IGNORE INTO settings VALUES ('main_weight',100)");
+    this.run(
+      "INSERT OR IGNORE INTO settings VALUES ('beta_registration_enabled',1)",
+    );
     this.run(
       "UPDATE settings SET value=100 WHERE key='main_weight' AND value!=100",
     );
@@ -495,6 +499,19 @@ export class Engine {
       );
       return { message: "Results published and rewards distributed." };
     }
+    if (action === "beta-registration") {
+      if (typeof b.enabled !== "boolean")
+        fail("Choose whether shared beta registration is enabled.");
+      this.run(
+        "UPDATE settings SET value=? WHERE key='beta_registration_enabled'",
+        b.enabled ? 1 : 0,
+      );
+      return {
+        message: b.enabled
+          ? "Shared beta registration enabled."
+          : "Shared beta registration disabled. One-use codes still work.",
+      };
+    }
     if (action === "settings") {
       for (const kind of ["character", "seiyuu"])
         if (b["premium_" + kind] !== undefined)
@@ -621,7 +638,7 @@ export class Engine {
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
-          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 100 WHEN key LIKE 'premium_%' THEN 2000 ELSE 500 END",
+          "UPDATE settings SET value=CASE WHEN key='main_weight' THEN 100 WHEN key LIKE 'premium_%' THEN 2000 ELSE 500 END WHERE key!='beta_registration_enabled'",
         );
         const registry = this.one(
           "SELECT value FROM catalog_meta WHERE key='alias-sync'",

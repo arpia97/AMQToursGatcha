@@ -14,7 +14,41 @@ export function demoFeatures(d, path, b) {
   const s = d.s,
     me = s.me,
     now = Date.now();
+  s.betaRegistration = true;
   s.mahjong = publicMahjong(s._mahjong);
+  if (path.startsWith("mahjong-history")) {
+    const page = Number(
+      new URLSearchParams(path.split("?")[1]).get("page") || 1,
+    );
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000)
+      throw Error("Choose a valid history page.");
+    const rows = (s.gambling || [])
+      .filter((r) => r.game === "mahjong")
+      .map((r) => {
+        const detail = s._mahjong?.id === r.id ? publicMahjong(s._mahjong) : r;
+        return {
+          ...detail,
+          id: r.id,
+          at: r.at || now,
+          cost: r.stake,
+          payout: r.payout,
+          net: r.payout - r.stake,
+          status: detail.status || (r.payout ? "won" : "ended"),
+          hand: detail.hand || [],
+          discards: Array.isArray(detail.discards) ? detail.discards : [],
+          discardCount: Array.isArray(detail.discards)
+            ? detail.discards.length
+            : detail.discardCount || 0,
+        };
+      })
+      .filter((r) => r.status !== "active")
+      .sort((a, b) => b.id - a.id);
+    return {
+      page,
+      items: rows.slice((page - 1) * 10, page * 10),
+      hasMore: rows.length > page * 10,
+    };
+  }
   if (path.startsWith("mahjong-")) {
     let g = s._mahjong;
     if (path === "mahjong-start") {
@@ -27,6 +61,7 @@ export function demoFeatures(d, path, b) {
       g.id = s.mahjongCounter = (s.mahjongCounter || 0) + 1;
       s.gambling ||= [];
       s.gambling.push({
+        at: now,
         id: g.id,
         game: "mahjong",
         stake: g.cost,
@@ -68,6 +103,7 @@ export function demoFeatures(d, path, b) {
     s.mahjong = publicMahjong(g);
     const round = s.gambling.find((r) => r.game === "mahjong" && r.id === g.id);
     Object.assign(round, {
+      ...publicMahjong(g),
       stake: g.cost,
       payout: g.payout,
       net: g.payout - g.cost,

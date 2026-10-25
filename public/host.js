@@ -75,9 +75,16 @@ function render() {
       )
       .join("")}</tbody></table></div>`;
   if (tab === "players") {
+    html =
+      '<section class="host-panel"><h2>Beta registration</h2><p>A shared beta code lets unregistered AMQ Tours players create their accounts. Existing accounts and administrator identities remain protected. Account recovery still uses individual codes.</p><form id="beta-registration" class="stack"><label>Shared beta registration<select name="enabled"><option value="true" ' +
+      (state.settings.beta_registration_enabled === 1 ? "selected" : "") +
+      '>Enabled</option><option value="false" ' +
+      (state.settings.beta_registration_enabled !== 1 ? "selected" : "") +
+      '>Disabled · individual codes only</option></select></label><button class="button secondary" type="submit">Save beta registration</button></form></section>' +
+      html;
     const a = state.aliasSync || {};
     html =
-      `<section class="host-panel"><h2>AMQ Tours alias sheet</h2><p>Automatically reads the IDs worksheet every six hours. The first name for each Player ID becomes its original Tours name; all names remain searchable aliases. Host-issued registration codes are still required.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Sync aliases now →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
+      `<section class="host-panel"><h2>AMQ Tours alias sheet</h2><p>Automatically reads the IDs worksheet every six hours. The first name for each Player ID becomes its original Tours name; all names remain searchable aliases. During beta, unregistered players can use the shared registration code when enabled. Individual codes remain available.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Sync aliases now →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
       html;
   }
   if (tab === "pickems")
@@ -220,6 +227,12 @@ document.addEventListener("submit", async (ev) => {
       );
       return;
     }
+    if (form.id === "beta-registration")
+      result = await api(
+        "beta-registration",
+        { enabled: b.enabled === "true" },
+        key,
+      );
     if (form.id === "favorites-refresh")
       result = await api(
         "favorites-refresh",

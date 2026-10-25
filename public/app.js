@@ -129,6 +129,9 @@ const ui = {
   pickemData: null,
   marketPage: 1,
   marketData: null,
+  mahjongHistoryOpen: false,
+  mahjongHistoryPage: 1,
+  mahjongHistoryData: null,
 };
 let loadVersion = 0;
 const pendingMutations = new Map();
@@ -313,7 +316,15 @@ const workshop = createWorkshop({
   getState: () => state,
   empty,
 });
-const mahjongUI = createMahjongUI({ getState: () => state, escape, number });
+const mahjongUI = createMahjongUI({
+  getState: () => state,
+  escape,
+  number,
+  getHistory: () => ({
+    open: ui.mahjongHistoryOpen,
+    data: ui.mahjongHistoryData,
+  }),
+});
 const features = createFeatures(
   {
     escape,
@@ -615,6 +626,8 @@ async function loadDynamic() {
   if (current === "ranks")
     data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage);
   if (current === "pickems") data = await api("pickems?page=" + ui.pickemPage);
+  if (current === "arcade" && state.me && ui.mahjongHistoryOpen)
+    data = await api("mahjong-history?page=" + ui.mahjongHistoryPage);
   if (["shop", "auctions"].includes(current))
     data = await api(
       "market?venue=" +
@@ -639,6 +652,7 @@ async function loadDynamic() {
     if (current === "packs") catalogPageData = data;
     if (current === "ranks") ui.rankData = data;
     if (current === "pickems") ui.pickemData = data;
+    if (current === "arcade") ui.mahjongHistoryData = data;
     if (["shop", "auctions"].includes(current)) ui.marketData = data;
     if (current === "players") {
       profileResults = data.profiles;
@@ -662,6 +676,7 @@ function render() {
     .join("");
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
+  $("#beta-phase")?.toggleAttribute("hidden", !state.betaRegistration);
   $("#account").innerHTML = state.me?.avatar_card
     ? avatarHTML(state.me)
     : escape(state.me ? state.me.name.slice(0, 2).toUpperCase() : "↗");
@@ -735,7 +750,12 @@ async function refresh() {
       heroCards = [];
     }
   }
-  if (previousPlayer && previousPlayer !== state.me?.id) workshop.clear();
+  if (previousPlayer && previousPlayer !== state.me?.id) {
+    workshop.clear();
+    ui.mahjongHistoryData = null;
+    ui.mahjongHistoryOpen = false;
+    ui.mahjongHistoryPage = 1;
+  }
   if (state.loginReward) toast(state.loginReward.message);
   rememberCards(state.catalog);
   await loadDynamic();
@@ -787,7 +807,7 @@ async function execute(path, b, after) {
 }
 function auth(register = false) {
   modal(
-    `<h2>${register ? "Welcome to the club." : "Good to see you again."}</h2><p>${register ? "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID." : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
+    `<h2>${register ? "Welcome to the club." : "Good to see you again."}</h2><p>${register ? (state.betaRegistration ? "We’re in beta. Use the shared beta registration code supplied by the host to link your AMQ Tours ID." : "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID.") : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
   );
 }
 function account() {
@@ -1101,8 +1121,29 @@ async function handleFeatureClick(a, t) {
         auth();
         return true;
       }
+      if (
+        a === "mahjong-history" ||
+        a === "mahjong-history-next" ||
+        a === "mahjong-history-prev"
+      ) {
+        if (a === "mahjong-history") {
+          ui.mahjongHistoryOpen = !ui.mahjongHistoryOpen;
+          ui.mahjongHistoryPage = 1;
+        } else
+          ui.mahjongHistoryPage = Math.max(
+            1,
+            ui.mahjongHistoryPage + (a.endsWith("next") ? 1 : -1),
+          );
+        await loadDynamic();
+        render();
+        return true;
+      }
       if (a === "mahjong-select") {
-        mahjongUI.select(Number(t.dataset.index));
+        const discard = mahjongUI.select(Number(t.dataset.index));
+        if (discard) {
+          await execute("mahjong-discard", discard);
+          return true;
+        }
         render();
         $(
           "[data-action=mahjong-select][data-index='" + t.dataset.index + "']",

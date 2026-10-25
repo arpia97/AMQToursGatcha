@@ -1,5 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
+import {
+  betaRegistrationEnabled,
+  registrationAllowed,
+} from "./registration.js";
 import { fetchJikan, voiceCards } from "./jikan.js";
 import { JikanImport } from "./jikan-import.js";
 import { AliasSync } from "./aliases.js";
@@ -405,7 +409,7 @@ export class Game extends DurableObject {
         requireHost();
         e.tx(() => {
           e.run(
-            "UPDATE players SET password=NULL,invite=?,invite_expires=? WHERE id=?",
+            "UPDATE players SET password=NULL,invite=?,invite_expires=?,access_reset=1 WHERE id=?",
             hash,
             Date.now() + 7 * 86400000,
             id,
@@ -444,21 +448,26 @@ export class Game extends DurableObject {
           : null);
       let expectedPassword;
       if (path === "register") {
-        const invite = await digest(String(b.code || "")),
+        const invite = await digest(String(b.code || "").trim()),
           hash = await passwordHash(b.password);
+        const betaMatches =
+          !!this.env.BETA_REGISTRATION_CODE &&
+          equal(invite, await digest(this.env.BETA_REGISTRATION_CODE));
         e.tx(() => {
           const current = p
             ? e.one("SELECT * FROM players WHERE id=?", p.id)
             : null;
           if (
-            !current ||
-            current.password ||
-            !equal(current.invite, invite) ||
-            current.invite_expires < Date.now()
+            !registrationAllowed(
+              current,
+              equal(current?.invite, invite),
+              betaMatches && betaRegistrationEnabled(e, this.env),
+              Date.now(),
+            )
           )
             fail("Invalid or expired registration code.", 401);
           e.run(
-            "UPDATE players SET password=?,invite=NULL,invite_expires=NULL WHERE id=?",
+            "UPDATE players SET password=?,invite=NULL,invite_expires=NULL,access_reset=0 WHERE id=?",
             hash,
             p.id,
           );
@@ -589,7 +598,11 @@ export class Game extends DurableObject {
       const loginReward = session
         ? e.tx(() => e.economy.daily(session.player, true))
         : null;
-      return json({ ...e.state(session?.player), loginReward });
+      return json({
+        ...e.state(session?.player),
+        loginReward,
+        betaRegistration: betaRegistrationEnabled(e, this.env),
+      });
     }
     if (!session) fail("Sign in to use credits and collect cards.", 401);
     if (
@@ -600,6 +613,15 @@ export class Game extends DurableObject {
       )
     )
       fail("Your session ended. Please sign in again.", 401);
+    if (path === "mahjong-history" && !post) {
+      this.rate("search:" + ip, 150);
+      return json(
+        e.economy.mahjong.history(
+          session.player,
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
     if (!post) fail("Unknown endpoint.", 404);
     this.rate("player:" + session.player, 120);
     const result = e.mutate(
