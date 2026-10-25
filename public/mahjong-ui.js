@@ -19,90 +19,15 @@ export function tileName(tile) {
   );
 }
 export function tileFace(tile) {
-  const rank = (tile % 9) + 1,
-    suit = Math.floor(tile / 9);
-  let art;
-  if (tile >= 27) {
-    art =
-      tile === 31
-        ? '<rect x="13" y="20" width="30" height="40" rx="3" fill="none" stroke="#3d617a" stroke-width="3"/>'
-        : `<text x="28" y="55" text-anchor="middle" font-size="34" font-family="serif" font-weight="700" fill="${tile === 32 ? "#197957" : tile === 33 ? "#b82c3b" : "#263344"}">${["東", "南", "西", "北", "", "發", "中"][tile - 27]}</text>`;
-  } else if (suit === 0) {
-    art = `<text x="28" y="35" text-anchor="middle" font-size="27" font-family="serif" font-weight="700" fill="#263344">${["一", "二", "三", "四", "五", "六", "七", "八", "九"][rank - 1]}</text><text x="28" y="64" text-anchor="middle" font-size="25" font-family="serif" fill="#b82c3b">萬</text>`;
-  } else {
-    const patterns = [
-      [],
-      [[28, 42]],
-      [
-        [28, 27],
-        [28, 56],
-      ],
-      [
-        [16, 23],
-        [28, 42],
-        [40, 61],
-      ],
-      [
-        [16, 25],
-        [40, 25],
-        [16, 59],
-        [40, 59],
-      ],
-      [
-        [16, 23],
-        [40, 23],
-        [28, 42],
-        [16, 61],
-        [40, 61],
-      ],
-      [
-        [16, 23],
-        [40, 23],
-        [16, 42],
-        [40, 42],
-        [16, 61],
-        [40, 61],
-      ],
-      [
-        [16, 19],
-        [28, 29],
-        [40, 39],
-        [16, 53],
-        [40, 53],
-        [16, 67],
-        [40, 67],
-      ],
-      [
-        [16, 19],
-        [40, 19],
-        [16, 34],
-        [40, 34],
-        [16, 50],
-        [40, 50],
-        [16, 65],
-        [40, 65],
-      ],
-      [
-        [14, 22],
-        [28, 22],
-        [42, 22],
-        [14, 42],
-        [28, 42],
-        [42, 42],
-        [14, 62],
-        [28, 62],
-        [42, 62],
-      ],
-    ];
-    art = patterns[rank]
-      .map(([x, y], i) =>
-        suit === 1
-          ? `<circle cx="${x}" cy="${y}" r="${rank === 1 ? 14 : 6}" fill="none" stroke="${i % 3 === 1 ? "#b82c3b" : "#345f91"}" stroke-width="3"/><circle cx="${x}" cy="${y}" r="2" fill="#263344"/>`
-          : `<path d="M${x - 3} ${y - 6}h6v12h-6z" fill="${i % 3 === 2 ? "#b82c3b" : "#197957"}"/><path d="M${x - 5} ${y}h10" stroke="#eceddd" stroke-width="1.5"/>`,
-      )
-      .join("");
-  }
-  return `<svg viewBox="0 0 56 80" aria-hidden="true">${art}<text x="5" y="10" font-size="7" fill="#526274" font-family="sans-serif">${tile < 27 ? rank + "mps"[suit] : ["E", "S", "W", "N", "Wh", "G", "R"][tile - 27]}</text></svg>`;
+  const name =
+    tile < 27
+      ? (tile % 9) + 1 + "mps"[Math.floor(tile / 9)]
+      : ["e", "s", "w", "n", "haku", "hatsu", "chun"][tile - 27];
+  return (
+    '<img class="mj-tile-art" src="mahjong-tiles/' +
+    name +
+    '.svg" alt="" aria-hidden="true" width="45" height="67" draggable="false">'
+  );
 }
 export function mahjongScoreHTML(score, e, n) {
   return `<div class="mj-score"><div class="mj-score-total"><span>${score.limit ? e(score.limit) : score.han + " han · " + score.fu + " fu"}</span><strong>✦ ${n(score.payout)}</strong><small>credits on tsumo</small></div><div class="mj-yaku">${score.yaku.map((y) => `<span>${e(y.name)}<b>${y.yakuman ? y.yakuman + "× yakuman" : y.han + " han"}</b></span>`).join("")}<small>${score.payments.map((p) => e(p.seat) + " " + n(p.amount)).join(" · ")}</small></div></div>`;

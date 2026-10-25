@@ -118,10 +118,9 @@
 .mj-tile {
   display: block;
   min-width: 0;
-  border: 1px solid #d1d0ba;
-  border-bottom: 5px solid #81ae9d;
-  border-radius: 5px;
-  background: linear-gradient(120deg, #fffff2, #e2e4d2);
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
   box-shadow: 0 3px 0 #0c1f1d66;
   position: relative;
   transition:
@@ -132,10 +131,13 @@
   line-height: 0;
   overflow: hidden;
 }
-.mj-tile svg {
+.mj-tile-art {
   width: 100%;
   height: auto;
   display: block;
+  aspect-ratio: 45 / 67.317;
+  object-fit: contain;
+  user-select: none;
 }
 .mj-hand button {
   cursor: pointer;
@@ -163,7 +165,6 @@
   margin-left: 6px;
 }
 .mj-preview-hand {
-  opacity: 0.75;
   pointer-events: none;
 }
 .mj-indicator {
@@ -274,7 +275,6 @@
 }
 .mj-discards .mj-tile {
   width: 30px;
-  border-bottom-width: 3px;
   border-radius: 3px;
 }
 .mj-rules {

@@ -42,6 +42,8 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 
 Mahjong uses a standard 136-tile set without red fives, one dora indicator, 14 reserved dead-wall tiles and 39 unseen opponent tiles. The opening hand has 13 sorted tiles plus the drawn tile, leaving 69 replacements. This solo variant has no opponent turns, calls, kans or riichi declaration; it awards no heavenly/earthly-hand bonus. Last-tile tsumo, seven pairs, thirteen orphans, counted yakuman and multiple/double yakuman are supported; no kiriage mangan, honba or riichi deposits. Exhaustion without a win and ending a hand have no refund. The server stores the hidden wall and validates game/revision on every charged action; idempotent requests prevent duplicate charges and claims. Host player/game resets clear Mahjong hands while leaving the catalogue intact, and alias identity migration preserves them.
 
+Tile artwork uses the host-supplied set of 34 SVGs under `public/mahjong-tiles`, shared by hands, the dora indicator and discard history. Tile names remain available to assistive technology and on hover; the images scale without cropping.
+
 Scoring uses [@kobalab/majiang-core](https://github.com/kobalab/majiang-core) 1.4.1 (MIT). `pnpm build:mahjong` regenerates the committed browser/server scoring module under `public/vendor`; its license is included. The explicit demo sandbox uses the same rules and costs with local credits. Pricing was chosen by the host as 1,000/100 after reviewing a 2,000-hand, first-tsumo simulation; those estimates are not optimal-play or guaranteed return rates.
 
 - Host reset tools for one player, all gameplay, or all player accounts, with warnings and exact typed confirmation phrases. Every scope protects the catalogues.
