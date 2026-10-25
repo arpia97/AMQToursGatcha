@@ -1584,3 +1584,6 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
     flex-basis: 100%;
   }
 }
+.host-link[hidden] {
+  display: none !important;
+}

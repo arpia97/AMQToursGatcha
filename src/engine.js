@@ -73,6 +73,10 @@ export class Engine {
       this.run(sql);
     this.catalogStore = new Catalog(this);
     this.economy = new Economy(this);
+    this.run(
+      "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
+    );
+    this.run("UPDATE players SET is_admin=0 WHERE is_admin!=0 AND id!='368'");
   }
   all(sql, ...args) {
     return this.db(sql, ...args);
@@ -95,7 +99,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,CASE WHEN id='368' THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -103,7 +107,7 @@ export class Engine {
   }
   adminSession(hash) {
     return !!this.one(
-      "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1",
+      "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1 AND p.id='368'",
       hash,
       this.now(),
     );
@@ -579,6 +583,30 @@ export class Engine {
         b.cards.map((c) => this.one("SELECT * FROM catalog WHERE id=?", c.id)),
       );
       return { message: `Imported ${b.cards.length} catalog cards.` };
+    }
+    if (action === "beta-reset") {
+      if (b.confirmation !== "START CLEAN BETA")
+        fail("Type START CLEAN BETA to confirm.");
+      this.host("reset-all", {
+        deleteRegistry: false,
+        confirmation: "RESET ALL GAME DATA",
+      });
+      this.run("DELETE FROM receipts WHERE scope NOT LIKE 'host:%'");
+      this.run(
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000",
+      );
+      const now = this.now();
+      for (const p of this.all("SELECT id FROM players"))
+        this.run(
+          "INSERT INTO ledger(player,delta,reason,at) VALUES(?,5000,'Beta starting credits',?)",
+          p.id,
+          now,
+        );
+      return {
+        message:
+          "Clean beta started. Gameplay cleared, everyone starts with5000credits, and weekly auctions/shop refreshed. Accounts and catalogue retained.",
+        players: this.one("SELECT count(*) AS n FROM players").n,
+      };
     }
     if (action === "reset-player") {
       const id = text(b.player, 100);

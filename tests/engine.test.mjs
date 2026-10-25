@@ -54,20 +54,21 @@ function fixture() {
 }
 test("administrator authorization checks server-owned role and current session expiry", () => {
   const f = fixture();
+  f.e.host("players", { players: [{ id: "368", name: "arpia97" }] });
   f.e.run(
     "INSERT INTO sessions VALUES(?,?,?)",
     "session-hash",
-    "1",
+    "368",
     f.now() + 1000,
   );
   assert.equal(f.e.adminSession("session-hash"), false);
-  f.e.host("players", { players: [{ id: "1", name: "Alice", is_admin: 1 }] });
+  f.e.host("players", { players: [{ id: "368", name: "arpia97", is_admin: 1 }] });
   assert.equal(f.e.adminSession("session-hash"), false);
-  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "1");
+  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "368");
   assert.equal(f.e.adminSession("session-hash"), true);
-  f.e.run("UPDATE players SET is_admin=0 WHERE id=?", "1");
+  f.e.run("UPDATE players SET is_admin=0 WHERE id=?", "368");
   assert.equal(f.e.adminSession("session-hash"), false);
-  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "1");
+  f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "368");
   f.time(f.now() + 1001);
   assert.equal(f.e.adminSession("session-hash"), false);
 });

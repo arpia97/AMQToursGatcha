@@ -434,7 +434,8 @@ function daily() {
   const claimed =
     state.me?.daily ===
     new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
-  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>${claimed ? "Today’s bonus is in your wallet." : "A little something for showing up."}</h3><p>${claimed ? countdown(nextDailyReset(state.now), "Claim again in ", false, "Available now") : "Daily check-in · 100 credits"}</p></div>${btn(claimed ? "Claimed ✓" : "+ Claim 100", "daily", claimed ? "disabled" : "", claimed ? "secondary" : "mint")}</div>`;
+  if (claimed) return "";
+  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>A little something for showing up.</h3><p>Daily check-in · 100 credits</p></div>${btn("+ Claim 100", "daily", "", "mint")}</div>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
@@ -445,6 +446,7 @@ function packPanel(kind, premium = false) {
 }
 function home() {
   const hero = heroCards || [];
+  const rewards = [daily(), dailyPack()].filter(Boolean);
   const featured = state.auctions
     .filter((a) => a.kind === "character" && a.ends > state.now)
     .slice(0, 5);
@@ -459,7 +461,9 @@ function home() {
     (state.activePickem
       ? pickemHero(state.activePickem)
       : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Build a deck of your favourite characters and the voices that bring them to life.</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
-    `<div class="daily-rewards ${dailyPack() ? "two-col" : ""}">${daily()}${dailyPack()}</div>` +
+    (rewards.length
+      ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
+      : "") +
     `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
@@ -677,6 +681,7 @@ function render() {
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
   $("#beta-phase")?.toggleAttribute("hidden", !state.betaRegistration);
+  $(".host-link")?.toggleAttribute("hidden", !state.me?.is_admin);
   $("#account").innerHTML = state.me?.avatar_card
     ? avatarHTML(state.me)
     : escape(state.me ? state.me.name.slice(0, 2).toUpperCase() : "↗");

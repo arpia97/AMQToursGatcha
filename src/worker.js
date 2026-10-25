@@ -256,7 +256,7 @@ export class Game extends DurableObject {
       if (path === "host/state" && !post)
         return json({
           players: e.all(
-            "SELECT id,COALESCE(display_name,name) AS name,balance,earned,password IS NOT NULL AS registered FROM players ORDER BY name",
+            "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,password IS NOT NULL AS registered FROM players ORDER BY name",
           ),
           aliases: e.all("SELECT * FROM aliases ORDER BY alias"),
           pickems: e.all("SELECT * FROM pickems ORDER BY id DESC LIMIT 100"),
@@ -329,6 +329,7 @@ export class Game extends DurableObject {
       }
       if (path === "host/admin-account") {
         const id = text(b.player, 100);
+        if (id !== "368") fail("Host access belongs only to arpia97.", 403);
         const hash = await passwordHash(b.password, undefined, 8);
         requireHost();
         e.tx(() => {
