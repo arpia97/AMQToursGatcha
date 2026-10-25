@@ -13,6 +13,8 @@ jobs:
           version: 11.25.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - run: pnpm build:mahjong
+      - run: git diff --exit-code -- public/vendor
       - run: pnpm test
       - run: python -m unittest discover -s tests -p "test_*.py"
       - run: pnpm build

@@ -193,21 +193,6 @@ test("rankings share tied positions and reject unknown metrics", () => {
   assert.throws(() => e.economy.rankings("__proto__"), /ranking/);
 });
 
-test("Lucky seven has exactly six winning outcomes among 36 dice combinations", () => {
-  const f = fixture(),
-    e = f.e;
-  let wins = 0;
-  for (let a = 0; a < 6; a++)
-    for (let b = 0; b < 6; b++) {
-      let dice = [a, b];
-      e.rand = () => dice.shift();
-      const r = f.act("buyer", "gamble", { game: "seven", stake: 100 });
-      if (r.won) wins++;
-    }
-  assert.equal(wins, 6);
-  assert.equal(e.player("buyer").balance, 9640);
-  assert.equal(e.player("buyer").earned, 10000);
-});
 function fixture() {
   const db = new DatabaseSync(":memory:");
   let time = Date.UTC(2026, 9, 24),
@@ -851,46 +836,6 @@ test("an impossible premium boost rolls back the price and inventory", () => {
   assert.equal(e.player("buyer").balance, before);
   assert.equal(e.state("buyer").inventory.length, 0);
   e.catalogStore.pool = saved;
-});
-test("gambling payouts, losses and retries cannot inflate earned credits or double-pay", () => {
-  const f = fixture(),
-    e = f.e;
-  e.rand = () => 0;
-  let r = f.act(
-    "buyer",
-    "gamble",
-    { game: "coin", choice: "heads", stake: 100 },
-    "coin",
-  );
-  assert.equal(r.payout, 190);
-  assert.equal(e.player("buyer").balance, 10090);
-  f.act(
-    "buyer",
-    "gamble",
-    { game: "coin", choice: "heads", stake: 100 },
-    "coin",
-  );
-  assert.equal(e.player("buyer").balance, 10090);
-  r = f.act("buyer", "gamble", { game: "dice", choice: "high", stake: 100 });
-  assert.equal(r.payout, 0);
-  assert.equal(e.player("buyer").balance, 9990);
-  let rolls = [0, 5];
-  e.rand = () => rolls.shift();
-  r = f.act("buyer", "gamble", { game: "seven", stake: 100 });
-  assert.deepEqual(r.outcome, [1, 6]);
-  assert.equal(r.payout, 540);
-  assert.equal(e.player("buyer").balance, 10430);
-  assert.equal(e.player("buyer").earned, 10000);
-  assert.equal(e.economy.rankings("gambling_won").rows[0].value, 430);
-  assert.equal(e.economy.rankings("gambling_lost").rows[0].value, 430);
-  assert.throws(
-    () => f.act("buyer", "gamble", { game: "coin", choice: "heads", stake: 0 }),
-    /whole number/,
-  );
-  assert.throws(
-    () => f.act("buyer", "gamble", { game: "coin", choice: "bad", stake: 100 }),
-    /heads/,
-  );
 });
 test("premium packs charge the premium price and validate the chosen pack type", () => {
   const f = fixture(),

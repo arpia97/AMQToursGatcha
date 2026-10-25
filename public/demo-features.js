@@ -1,15 +1,89 @@
 import { fusionQuote } from "./fusion-rules.js";
 import { instantSalePrice, SHOP_PRICES } from "./card-values.js";
 import { cardComparator, animeProgressComparator } from "./card-display.js";
+import {
+  dealMahjong,
+  replaceMahjong,
+  scoreMahjong,
+  publicMahjong,
+  MAHJONG_START,
+  MAHJONG_DISCARD,
+} from "./mahjong-rules.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
   const s = d.s,
     me = s.me,
     now = Date.now();
+  s.mahjong = publicMahjong(s._mahjong);
+  if (path.startsWith("mahjong-")) {
+    let g = s._mahjong;
+    if (path === "mahjong-start") {
+      if (g?.status === "active")
+        throw Error("Finish or end your current hand first.");
+      if (b.previousGame !== (g?.id ?? null))
+        throw Error("Your Mahjong hand changed.");
+      d.wallet(-MAHJONG_START, "Demo Mahjong: start hand");
+      g = dealMahjong((n) => Math.floor(Math.random() * n));
+      g.id = s.mahjongCounter = (s.mahjongCounter || 0) + 1;
+      s.gambling ||= [];
+      s.gambling.push({
+        id: g.id,
+        game: "mahjong",
+        stake: g.cost,
+        payout: 0,
+        net: -g.cost,
+      });
+    } else {
+      if (
+        !g ||
+        g.status !== "active" ||
+        g.id !== b.game ||
+        g.version !== b.version
+      )
+        throw Error("Your Mahjong hand changed. Refresh before acting.");
+      if (path === "mahjong-discard") {
+        if (
+          !Number.isInteger(b.index) ||
+          b.index < 0 ||
+          b.index > 13 ||
+          !g.wall.length
+        )
+          throw Error("Choose a tile while replacements remain.");
+        d.wallet(-MAHJONG_DISCARD, "Demo Mahjong: discard and draw");
+        g = replaceMahjong(g, b.index);
+      } else if (path === "mahjong-tsumo") {
+        const score = scoreMahjong(g);
+        if (!score) throw Error("This hand does not qualify for tsumo.");
+        d.wallet(score.payout, "Demo Mahjong: tsumo");
+        g.result = score;
+        g.payout = score.payout;
+        g.status = "won";
+        g.version++;
+      } else if (path === "mahjong-end") {
+        g.status = "ended";
+        g.version++;
+      } else throw Error("Unknown Mahjong action.");
+    }
+    s._mahjong = g;
+    s.mahjong = publicMahjong(g);
+    const round = s.gambling.find((r) => r.game === "mahjong" && r.id === g.id);
+    Object.assign(round, {
+      stake: g.cost,
+      payout: g.payout,
+      net: g.payout - g.cost,
+    });
+    return {
+      message:
+        g.status === "won"
+          ? "Tsumo! " + g.payout.toLocaleString("en-US") + " demo credits won."
+          : "Demo Mahjong hand saved.",
+      mahjong: s.mahjong,
+    };
+  }
   if (!s.featureVersion) {
     s.featureVersion = 1;
     s.showcase = s.inventory.slice(0, 2).map((i) => i.card);
-    s.gambling = [];
+    s.gambling ||= [];
     s.market = [
       {
         id: 1,
@@ -579,37 +653,7 @@ export function demoFeatures(d, path, b) {
       level: l.level || 1,
     };
   }
-  if (path === "gamble") {
-    if (!Number.isSafeInteger(b.stake) || b.stake < 10 || b.stake > 10000)
-      throw Error("Bet 10–10,000 credits.");
-    d.wallet(-b.stake, "Demo gambling stake");
-    const die = () => Math.floor(Math.random() * 6) + 1;
-    let outcome, won, rate;
-    if (b.game === "coin") {
-      outcome = Math.random() < 0.5 ? "heads" : "tails";
-      won = b.choice === outcome;
-      rate = 1.9;
-    } else if (b.game === "dice") {
-      outcome = die();
-      won = b.choice === "low" ? outcome <= 3 : outcome >= 4;
-      rate = 1.9;
-    } else {
-      outcome = [die(), die()];
-      won = outcome[0] + outcome[1] === 7;
-      rate = 5.4;
-    }
-    const payout = won ? Math.floor(b.stake * rate) : 0;
-    if (payout) d.wallet(payout, "Demo gambling payout");
-    const result = {
-      game: b.game,
-      outcome,
-      won,
-      stake: b.stake,
-      payout,
-      net: payout - b.stake,
-    };
-    s.gambling.push(result);
-    return { ...result, message: "Demo round completed." };
-  }
+  if (path === "gamble")
+    throw Error("This game has been retired. Visit Mahjong instead.");
   return undefined;
 }

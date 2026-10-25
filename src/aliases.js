@@ -199,6 +199,7 @@ export class AliasSync {
       "ledger",
       "predictions",
       "gambling_rounds",
+      "mahjong_games",
       "profile_showcase",
       "profile_anime",
     ])

@@ -3,6 +3,8 @@ import { createWorkshop } from "./workshop-ui.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { createPackReveal } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
+import { createMahjongUI } from "./mahjong-ui.js";
+import { MAHJONG_START } from "./mahjong-rules.js";
 import {
   seriesTitle,
   rarityClass,
@@ -311,6 +313,7 @@ const workshop = createWorkshop({
   getState: () => state,
   empty,
 });
+const mahjongUI = createMahjongUI({ getState: () => state, escape, number });
 const features = createFeatures(
   {
     escape,
@@ -330,6 +333,7 @@ const features = createFeatures(
     profileURL,
     tabs,
     getState: () => state,
+    mahjongHTML: () => mahjongUI.render(),
   },
   ui,
 );
@@ -767,6 +771,11 @@ async function execute(path, b, after) {
     return result;
   } catch (err) {
     if (err.status && err.status < 500) pendingMutations.delete(signature);
+    if (path.startsWith("mahjong-") && err.status === 409) {
+      try {
+        await refresh();
+      } catch {}
+    }
     if ($("#modal").open && $("#modal .form-error"))
       $("#modal .form-error").textContent = err.message;
     else toast(err.message, true);
@@ -1087,6 +1096,39 @@ titleSelect.addEventListener("change", () => {
 
 async function handleFeatureClick(a, t) {
   try {
+    if (a?.startsWith("mahjong-")) {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      if (a === "mahjong-select") {
+        mahjongUI.select(Number(t.dataset.index));
+        render();
+        $(
+          "[data-action=mahjong-select][data-index='" + t.dataset.index + "']",
+        )?.focus();
+        return true;
+      }
+      if (a === "mahjong-start") {
+        modal(
+          `<h2>Take your seat?</h2><p>Pay <strong>✦ ${number(MAHJONG_START)} credits</strong> for a new Mahjong hand. Your seat will be randomly assigned.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-start"><input type="hidden" name="previousGame" value="${state.mahjong?.id ?? ""}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Start hand · ✦ ${number(MAHJONG_START)}</button></form>`,
+        );
+        return true;
+      }
+      const body = {
+        game: Number(t.dataset.game),
+        version: Number(t.dataset.version),
+      };
+      if (a === "mahjong-end") {
+        modal(
+          `<h2>End this hand?</h2><p>Your ${number(state.mahjong.cost)} credits spent will not be refunded. You can leave this page and return later instead.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">End hand</button></form>`,
+        );
+        return true;
+      }
+      if (a === "mahjong-discard") body.index = Number(t.dataset.index);
+      await execute(a, body);
+      return true;
+    }
     if (a?.startsWith("fusion-")) {
       if (!state.me) {
         auth();
@@ -1314,6 +1356,17 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
+  if (f.id === "mahjong-confirm") {
+    const { action } = b;
+    const body =
+      action === "mahjong-start"
+        ? {
+            previousGame: b.previousGame === "" ? null : Number(b.previousGame),
+          }
+        : { game: Number(b.game), version: Number(b.version) };
+    await execute(action, body);
+    return true;
+  }
   if (f.id === "instant-sell-form") {
     await execute("sell-instant", {
       ...b,
@@ -1365,21 +1418,6 @@ async function handleFeatureSubmit(f, b) {
           b.action === "buyout"
             ? "Your auction prize is here."
             : "Your new card is here.",
-        ),
-    );
-    return true;
-  }
-  if (f.classList.contains("gambling-form")) {
-    if (!state.me) {
-      auth();
-      return true;
-    }
-    await execute(
-      "gamble",
-      { game: b.game, choice: b.choice || "", stake: Number(b.stake) },
-      (r) =>
-        modal(
-          `<div class="game-result"><div class="game-symbol">${r.won ? "✦" : "♧"}</div><h2>${r.won ? "Luck found you." : "Another roll of the dice."}</h2><p>Result: <strong>${escape(Array.isArray(r.outcome) ? r.outcome.join(" + ") : r.outcome)}</strong></p><strong class="${r.net > 0 ? "ledger-positive" : "ledger-negative"}">${r.net > 0 ? "+" : ""}${number(r.net)} credits</strong><p>Bet: ${number(r.stake)} · Payout: ${number(r.payout)} (includes stake)</p><button class="button full" data-action="close-result">Back to the arcade</button></div>`,
         ),
     );
     return true;

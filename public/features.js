@@ -119,39 +119,7 @@ export function createFeatures(h, ui) {
       )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>RANK</th><th>COLLECTOR</th><th>${e(labels[metric][1].toUpperCase())}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}"><span class="mini-avatar">${e(p.name.slice(0, 2).toUpperCase())}</span>${e(p.name)} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A place on the board is waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
   }
   function gambling() {
-    return `<div class="page-intro"><div><h1>A little luck. A few credits.</h1><p>Three simple games while the arcade takes shape.</p></div><span class="pill">CREDITS ONLY</span></div><div class="notice">Bets: 10–10,000 credits. Payouts below include your stake and round down to whole credits. Gambling does not increase Cumulative earnings.</div><div class="game-grid space-top">${[
-      [
-        "coin",
-        "◑",
-        "Coin flip",
-        "Pick heads or tails. A fair coin, one call.",
-        "50% win chance · 1.9× payout",
-        '<label>Your call<select name="choice"><option value="heads">Heads</option><option value="tails">Tails</option></select></label>',
-      ],
-      [
-        "dice",
-        "⚄",
-        "High / Low",
-        "One die. Low is 1–3; High is 4–6.",
-        "50% win chance · 1.9× payout",
-        '<label>Your call<select name="choice"><option value="low">Low · 1, 2, 3</option><option value="high">High · 4, 5, 6</option></select></label>',
-      ],
-      [
-        "seven",
-        "♢",
-        "Lucky seven",
-        "Two dice. Hit a total of seven to win.",
-        "1 in 6 win chance · 5.4× payout",
-        '<p class="form-hint">Any pair adding to seven wins.</p>',
-      ],
-    ]
-      .map(
-        ([game, symbol, title, copy, odds, choice]) =>
-          `<article class="game-panel"><div class="game-symbol">${symbol}</div><h2>${title}</h2><p>${copy}</p><strong class="game-odds">${odds}</strong><form class="stack space-top gambling-form"><input type="hidden" name="game" value="${game}">${choice}<label>Bet (credits)<input type="number" name="stake" min="10" max="10000" step="1" value="50" required></label><button class="button secondary" type="submit">Play ${title.toLowerCase()} →</button></form></article>`,
-      )
-      .join(
-        "",
-      )}</div><p class="form-hint space-top">Coin flip and High / Low return 95% on average; Lucky seven returns 90%, before rounding. These are long-run averages, not a promised result.</p>`;
+    return h.mahjongHTML();
   }
   function catalogPager(data, page, prefix = "catalog", limit = 40) {
     const totalPages =

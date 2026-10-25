@@ -603,6 +603,7 @@ export class Engine {
         "weekly_shop",
         "market_listings",
         "gambling_rounds",
+        "mahjong_games",
         "profile_showcase",
         "profile_anime",
       ])
@@ -715,6 +716,7 @@ export class Engine {
     return {
       now,
       me,
+      mahjong: this.economy.mahjong.state(id),
       catalog,
       auctions,
       auctionWins: auctions.filter(

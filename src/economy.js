@@ -3,6 +3,7 @@ import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
 import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
+import { Mahjong } from "./mahjong.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -52,6 +53,7 @@ export class Economy {
     );
     this.anime = new AnimeCollection(e);
     this.fusion = new Fusion(e);
+    this.mahjong = new Mahjong(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -343,6 +345,8 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    const mahjong = this.mahjong.action(player, action, b);
+    if (mahjong) return mahjong;
     if (action === "auction-notice") {
       const a = e.one(
         "SELECT * FROM auctions WHERE id=?",
@@ -536,55 +540,8 @@ export class Economy {
         level: 1,
       };
     }
-    if (action === "gamble") {
-      const stake = integer(b.stake, 10, 10000);
-      if (!["coin", "dice", "seven"].includes(b.game)) fail("Choose a game.");
-      if (b.game === "coin" && !["heads", "tails"].includes(b.choice))
-        fail("Choose heads or tails.");
-      if (b.game === "dice" && !["low", "high"].includes(b.choice))
-        fail("Choose Low or High.");
-      e.wallet(player, -stake, "Gambling stake: " + b.game);
-      let won, outcome, multiplier;
-      if (b.game === "coin") {
-        outcome = e.rand(2) === 0 ? "heads" : "tails";
-        won = outcome === b.choice;
-        multiplier = 190;
-      }
-      if (b.game === "dice") {
-        outcome = e.rand(6) + 1;
-        won = b.choice === "low" ? outcome <= 3 : outcome >= 4;
-        multiplier = 190;
-      }
-      if (b.game === "seven") {
-        const dice = [e.rand(6) + 1, e.rand(6) + 1];
-        outcome = dice;
-        won = dice[0] + dice[1] === 7;
-        multiplier = 540;
-      }
-      const payout = won ? Math.floor((stake * multiplier) / 100) : 0;
-      if (payout) e.wallet(player, payout, "Gambling payout: " + b.game);
-      e.run(
-        "INSERT INTO gambling_rounds(player,game,stake,payout,net,outcome,at) VALUES(?,?,?,?,?,?,?)",
-        player,
-        b.game,
-        stake,
-        payout,
-        payout - stake,
-        JSON.stringify(outcome),
-        now,
-      );
-      return {
-        message: won
-          ? "You won " + payout + " credits (including your stake)."
-          : "No win this time.",
-        game: b.game,
-        outcome,
-        won,
-        stake,
-        payout,
-        net: payout - stake,
-      };
-    }
+    if (action === "gamble")
+      fail("This game has been retired. Visit Mahjong instead.", 410);
     return null;
   }
   market(venue = "shop", kind = "character", page = 1) {
@@ -681,6 +638,7 @@ export class Economy {
       player,
     );
     e.run("DELETE FROM gambling_rounds WHERE player=?", player);
+    e.run("DELETE FROM mahjong_games WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }
