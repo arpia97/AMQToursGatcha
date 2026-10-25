@@ -695,6 +695,28 @@ export class Engine {
     }
     fail("Unknown host action.", 404);
   }
+  gameState(id) {
+    const now = this.now();
+    const auctionWins = this.all(
+      "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE a.winner=? AND a.ends<=? AND a.claimed=0 AND a.notified=0 ORDER BY a.ends,a.id",
+      id,
+      now,
+    );
+    return {
+      now,
+      me: this.player(id),
+      mahjong: this.economy.mahjong.state(id),
+      gem: this.economy.gem.read(id),
+      ledger: this.all(
+        "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
+        id,
+      ),
+      auctionWins,
+      cards: [...new Set(auctionWins.map((a) => a.card))]
+        .map((card) => this.catalogStore.card(card))
+        .filter(Boolean),
+    };
+  }
   state(id) {
     const now = this.now(),
       me = id ? this.player(id) : null;

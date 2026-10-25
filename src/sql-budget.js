@@ -9,6 +9,8 @@ export class SqlBudget {
     this.now = now;
     this.value = load() || {};
     this.rollDay();
+    this.checkpoint = { ...this.value };
+    this.lastFlush = this.now();
   }
   rollDay() {
     const day = new Date(this.now()).toISOString().slice(0, 10);
@@ -32,9 +34,30 @@ export class SqlBudget {
       nextResumeAt: paused ? nextBudgetDay(this.now()) : null,
     };
   }
-  flush() {
+  flush(force = false) {
     this.rollDay();
+    const reads = this.value.rowsRead - (this.checkpoint.rowsRead || 0);
+    const writes = this.value.rowsWritten - (this.checkpoint.rowsWritten || 0);
+    const newDay = this.value.day !== this.checkpoint.day;
+    if (!newDay && reads === 0 && writes === 0) return;
+    // Keep conservative import-budget checkpoints without writing a SQL row
+    // for every read-only poll. A restart can lose only this small tail.
+    const newlyPaused =
+      this.paused() &&
+      this.checkpoint.rowsRead < 2000000 &&
+      this.checkpoint.rowsWritten < 30000;
+    if (
+      !force &&
+      !newDay &&
+      !newlyPaused &&
+      reads < 1000 &&
+      writes < 100 &&
+      this.now() - this.lastFlush < 60000
+    )
+      return;
     this.save(this.value);
+    this.checkpoint = { ...this.value };
+    this.lastFlush = this.now();
   }
 }
 

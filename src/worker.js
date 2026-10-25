@@ -7,6 +7,7 @@ import {
 import { fetchJikan, voiceCards } from "./jikan.js";
 import { JikanImport } from "./jikan-import.js";
 import { AliasSync } from "./aliases.js";
+import { BurstLimits } from "./request-limits.js";
 import {
   SqlBudget,
   nextBudgetDay,
@@ -76,6 +77,7 @@ export class Game extends DurableObject {
     super(ctx, env);
     this.ctx = ctx;
     this.env = env;
+    this.bursts = new BurstLimits();
     this.engine = new Engine(
       (s, ...a) => {
         const cursor = ctx.storage.sql.exec(s, ...a),
@@ -114,7 +116,7 @@ export class Game extends DurableObject {
       this.engine.tx(() => this.engine.economy.anime.step());
     const next = this.engine.ensureAuctions();
     this.cleanup();
-    this.budget.flush();
+    this.budget.flush(true);
     await this.scheduleAlarm(next);
   }
   async scheduleAlarm(auctionEnd = this.engine.ensureAuctions()) {
@@ -173,6 +175,7 @@ export class Game extends DurableObject {
             : "The request could not be completed. Please try again.",
         },
         err.status || 500,
+        err.retryAfter ? { "Retry-After": String(err.retryAfter) } : {},
       );
     } finally {
       try {
@@ -237,7 +240,6 @@ export class Game extends DurableObject {
     if (path === "health")
       return json({ ok: true, service: "AMQ Tours Gatcha" });
     if (path.startsWith("host/")) {
-      this.rate("host:" + ip, 150);
       const provided = request.headers.get("Authorization") || "";
       const hostTokenValid =
         this.env.HOST_TOKEN?.length >= 32 &&
@@ -246,11 +248,13 @@ export class Game extends DurableObject {
           await digest("Bearer " + this.env.HOST_TOKEN),
         );
       const requireHost = () => {
-        if (!hostTokenValid && !e.adminSession(sessionHash))
+        if (!hostTokenValid && !e.adminSession(sessionHash)) {
+          this.rate("host:" + ip, 20);
           fail(
             "Sign in with an administrator account or supply a valid host token.",
             401,
           );
+        }
       };
       requireHost();
       if (path === "host/state" && !post)
@@ -517,15 +521,35 @@ export class Game extends DurableObject {
         "Set-Cookie": cookie("", secure, 0),
       });
     }
+    // Paid game moves never need catalogue, inventory, auction settlement or
+    // global rankings. Keep their authoritative wallet/state response small.
+    if (
+      (path === "game-state" && !post) ||
+      (post &&
+        (path.startsWith("mahjong-") ||
+          path.startsWith("gem-") ||
+          path === "gamble"))
+    ) {
+      if (!session) fail("Sign in to play.", 401);
+      this.bursts.take("play:" + session.player);
+      if (!post) return json(e.gameState(session.player));
+      const result = e.mutate(
+        session.player + ":" + path,
+        request.headers.get("Idempotency-Key"),
+        b,
+        () => e.action(session.player, path, b),
+      );
+      return json({ ...result, gameState: e.gameState(session.player) });
+    }
     const next = e.ensureAuctions();
     if (!(await this.ctx.storage.getAlarm()))
       await this.ctx.storage.setAlarm(next);
     if (path === "featured" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json({ cards: e.featuredCards() });
     }
     if (path === "catalog" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
         e.catalogStore.page(
           url.searchParams.get("kind") || "character",
@@ -557,7 +581,7 @@ export class Game extends DurableObject {
       );
     }
     if (path === "anime-search" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
         e.economy.anime.search(url.searchParams.get("q"), session?.player),
       );
@@ -578,7 +602,7 @@ export class Game extends DurableObject {
         ),
       );
     if (path === "profiles" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const result = e.profilesPage(
         url.searchParams.get("q"),
         Number(url.searchParams.get("page") || 1),
@@ -592,7 +616,7 @@ export class Game extends DurableObject {
       });
     }
     if (path === "player" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(e.profile(text(url.searchParams.get("id"), 100)));
     }
     if (path === "state" && !post) {
@@ -615,7 +639,7 @@ export class Game extends DurableObject {
     )
       fail("Your session ended. Please sign in again.", 401);
     if (path === "mahjong-history" && !post) {
-      this.rate("search:" + ip, 150);
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
         e.economy.mahjong.history(
           session.player,
@@ -624,7 +648,7 @@ export class Game extends DurableObject {
       );
     }
     if (!post) fail("Unknown endpoint.", 404);
-    this.rate("player:" + session.player, 120);
+    this.bursts.take("play:" + session.player);
     const result = e.mutate(
       session.player + ":" + path,
       request.headers.get("Idempotency-Key"),

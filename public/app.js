@@ -6,6 +6,7 @@ import { createFeatures } from "./features.js";
 import { createMahjongUI } from "./mahjong-ui.js";
 import { MAHJONG_START } from "./mahjong-rules.js";
 import { createPachinkoUI } from "./pachinko-ui.js";
+import { applyGameState } from "./game-state.js";
 import {
   seriesTitle,
   rarityClass,
@@ -753,9 +754,11 @@ async function api(path, body, key) {
     });
   return data;
 }
+let sharedRefreshNeeded = false;
 async function refresh() {
   const previousPlayer = state?.me?.id;
   state = await api("state");
+  sharedRefreshNeeded = false;
   clockOffset = state.now - Date.now();
   if (heroCards === null) {
     try {
@@ -777,6 +780,17 @@ async function refresh() {
   await loadDynamic();
   render();
 }
+async function refreshCurrent() {
+  if (demo || page() !== "arcade" || !state?.me) return refresh();
+  const update = await api("game-state");
+  const next = applyGameState(state, update);
+  if (!next) return refresh();
+  state = next;
+  sharedRefreshNeeded = true;
+  rememberCards(update.cards);
+  clockOffset = update.now - Date.now();
+  render();
+}
 async function execute(path, b, after) {
   if (busy) return;
   busy = true;
@@ -790,7 +804,20 @@ async function execute(path, b, after) {
     rememberCards(result.cards);
     pendingMutations.delete(signature);
     try {
-      await refresh();
+      const next = result.gameState && applyGameState(state, result.gameState);
+      if (next) {
+        state = next;
+        sharedRefreshNeeded = true;
+        rememberCards(result.gameState.cards);
+        clockOffset = result.gameState.now - Date.now();
+        if (
+          path.startsWith("mahjong-") &&
+          ui.mahjongHistoryOpen &&
+          result.mahjong?.status !== "active"
+        )
+          await loadDynamic();
+        render();
+      } else await refresh();
     } catch {
       toast(
         "Action saved. The latest view could not be loaded; refresh to check your account.",
@@ -807,9 +834,12 @@ async function execute(path, b, after) {
     return result;
   } catch (err) {
     if (err.status && err.status < 500) pendingMutations.delete(signature);
-    if (path.startsWith("mahjong-") && err.status === 409) {
+    if (
+      (path.startsWith("mahjong-") || path.startsWith("gem-")) &&
+      err.status === 409
+    ) {
       try {
-        await refresh();
+        await refreshCurrent();
       } catch {}
     }
     if ($("#modal").open && $("#modal .form-error"))
@@ -1080,8 +1110,11 @@ window.addEventListener("hashchange", async () => {
   ui.playerPage = 1;
   profileData = null;
   try {
-    await loadDynamic();
-    render();
+    if (sharedRefreshNeeded && page() !== "arcade") await refresh();
+    else {
+      await loadDynamic();
+      render();
+    }
   } catch (err) {
     $("#main").innerHTML = empty(
       "That collector could not be found.",
@@ -1093,11 +1126,11 @@ window.addEventListener("hashchange", async () => {
 });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
-    refresh().catch(() => {});
+    refreshCurrent().catch(() => {});
 });
 setInterval(() => {
   if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
-    refresh().catch(() => {});
+    refreshCurrent().catch(() => {});
 }, 60000);
 $("#reset-demo").addEventListener("click", () => {
   demo?.reset();

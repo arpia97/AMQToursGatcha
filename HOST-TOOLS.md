@@ -138,6 +138,8 @@ Starting-credit upgrade: existing identities with the old 1,000-credit grant rec
 
 ## Pachinko API and clean beta launch
 
+`GET /api/game-state` requires a player session and returns only that player's wallet, Mahjong/faceting state, recent ledger and pending auction-win notifications/card metadata. Mahjong, gem and coin mutations also include this compact snapshot alongside their original result. Clients should apply it directly instead of fetching full `/api/state` after each move. Full shared state remains available for navigation and other features. Gameplay uses a short per-player burst guard (30 immediate requests, 6 restored per second), replacing the old 120-actions/15-minute lockout. Authentication throttles remain persistent and unchanged.
+
 Authenticated, idempotent POST `gem-start` takes `{previousGame:null|id}`; POST `gem-facet` takes `{game,version,row:"good"|"bad"}`. State includes only the current owner’s gem. A stale game/revision or full row is rejected before charging; repeated keys replay the original result. Coin flip uses POST `gamble` with `{game:"coin",choice:"heads"|"tails",stake}`. Mahjong APIs/history remain supported. Gem state follows alias migrations and is cleared by the existing gameplay reset scopes.
 
 The explicitly authorized October 25 clean-beta reset is complete. `beta-reset` requires `{confirmation:"START CLEAN BETA"}` and a stable idempotency key; it clears gameplay, revokes sessions, restores 5,000 balance/earned/starter markers, and regenerates shop/auctions without touching identities, passwords or catalogue/imports. Do not repeat it on continuation or deployment. Ordinary user activity after that reset must be preserved.
