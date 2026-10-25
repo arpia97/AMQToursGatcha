@@ -463,18 +463,10 @@ function collection() {
       "Every card has a story. Build yours, one pull at a time.",
     ) +
     (state.me ? features.pinnedAnime() : "") +
-    `<div class="filters">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}"></div>` +
-    features.filters("collection") +
-    (state.me
-      ? features.catalogPager(
-          collectionData,
-          ui.collectionPage,
-          "collection-top",
-        )
-      : "") +
+    `<section class="collection-toolbar" aria-label="Collection controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}">${features.filters("collection")}</div>${state.me ? features.catalogPager(collectionData, ui.collectionPage, "collection-top") : ""}</section>` +
     (state.me
       ? items.length
-        ? `<div class="card-grid">${collectionData.items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
+        ? `<div class="card-grid collection-card-grid">${collectionData.items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
         : empty(
             "No matching cards in your collection.",
             "Try another search or clear the rarity and role filters.",
@@ -486,7 +478,7 @@ function collection() {
           btn("Sign in", "account"),
         )) +
     (state.me
-      ? features.catalogPager(collectionData, ui.collectionPage, "collection") +
+      ? `<div class="collection-footer-pager">${features.catalogPager(collectionData, ui.collectionPage, "collection")}</div>` +
         features.animeCollection()
       : "") +
     `<div class="notice space-top">Enhancement uses extra copies of the same card: Lv. 1 → 2 costs 1, Lv. 2 → 3 costs 2, then 4, 8, and so on. Your base card is kept. There is no extra credit fee.</div>`

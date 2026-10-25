@@ -91,3 +91,5 @@ Collection controls include independent rarity and character-role filters plus s
 Owned card footers keep Enhance visible, with secondary controls under an expandable Actions menu. Weekly shop purchases refill atomically with a new listing ID, keeping ten available cards and the same weekly reset deadline.
 
 Actions stays beside Enhance while its full-width menu expands below. Card packs and reveal screens offer System / Full / Reduced animation preferences, saved per browser; Full explicitly enables pack effects even when the system requests reduced motion. Lower-tier glow strength remains subdued. New players receive 5,000 starting credits, and identities previously given 1,000 receive the 4,000 difference exactly once. Premium character and seiyuu packs default to 1,000 each.
+
+Collection tabs, search, sorting and rarity/role filters share a compact responsive toolbar. Pagination sits directly below the controls, with a separate 36px gap before the cards and additional space around the lower pager.
