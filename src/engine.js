@@ -649,6 +649,7 @@ export class Engine {
         "market_listings",
         "gambling_rounds",
         "mahjong_games",
+        "gem_games",
         "profile_showcase",
         "profile_anime",
       ])
@@ -762,6 +763,7 @@ export class Engine {
       now,
       me,
       mahjong: this.economy.mahjong.state(id),
+      gem: id ? this.economy.gem.read(id) : null,
       catalog,
       auctions,
       auctionWins: auctions.filter(

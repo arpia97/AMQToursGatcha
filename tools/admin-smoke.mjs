@@ -5,8 +5,9 @@ const root = "http://127.0.0.1:8787/api/";
 const host = (await readFile(".dev.vars", "utf8"))
   .match(/^HOST_TOKEN=(.+)$/m)[1]
   .trim();
-const id = "test-admin-" + Date.now(),
-  ordinary = id + "-player",
+// Use a fresh local store: this check never overwrites an existing owner.
+const id = "368",
+  ordinary = "test-ordinary-" + Date.now(),
   password = "Test123!";
 async function call(path, body, { token = false, cookie = "" } = {}) {
   const r = await fetch(root + path, {
@@ -30,9 +31,25 @@ async function call(path, body, { token = false, cookie = "" } = {}) {
   };
 }
 assert.equal(
-  (await call("host/admin-account", { player: id, password }, { token: true }))
-    .status,
+  (
+    await call(
+      "host/admin-account",
+      { player: id, name: "arpia97", password },
+      { token: true },
+    )
+  ).status,
   200,
+  "Run this smoke check against a fresh local store with an unregistered owner.",
+);
+assert.equal(
+  (
+    await call(
+      "host/admin-account",
+      { player: "not-the-owner", password },
+      { token: true },
+    )
+  ).status,
+  403,
 );
 assert.equal(
   (await call("host/admin-account", { player: id, password }, { token: true }))

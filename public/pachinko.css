@@ -1,0 +1,274 @@
+.pachinko-games {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line, #2b2c36);
+  margin: 22px 0;
+}
+.pachinko-games button {
+  padding: 11px 18px;
+  border: 1px solid #353b45;
+  border-radius: 8px;
+  background: #191c23;
+  color: #b8bfcb;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pachinko-games button.active {
+  background: #234339;
+  border-color: #4d7963;
+  color: #c9edd6;
+}
+.pachinko-games > span {
+  font-size: 11px;
+  color: #8e96a6;
+  margin-left: 12px;
+}
+.facet-panel,
+.coin-panel {
+  border: 1px solid #3a4551;
+  border-radius: 16px;
+  padding: 28px;
+  background: radial-gradient(ellipse at top, #253047, #171c29 70%);
+}
+.facet-panel h2,
+.coin-panel h2 {
+  margin: 8px 0;
+  font-size: 24px;
+}
+.facet-panel p,
+.coin-panel > p {
+  font-size: 12px;
+  color: #aeb9cc;
+  line-height: 1.7;
+}
+.facet-panel .section-head {
+  margin: 0;
+  align-items: center;
+  gap: 20px;
+}
+.facet-chance {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.facet-chance small {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #b5c2dc;
+}
+.facet-chance strong {
+  font-size: 40px;
+  color: #bde3d4;
+}
+.facet-gem {
+  font-size: 90px;
+  line-height: 1.2;
+  text-align: center;
+  color: #bfb8ff;
+  text-shadow: 0 0 22px #9a8ee74d;
+  margin: 14px 0;
+}
+.facet-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid #53607840;
+}
+.facet-row h3 {
+  font-size: 14px;
+  margin: 0 0 7px;
+}
+.facet-row h3 span {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  margin-top: 5px;
+}
+.facet-row small {
+  font-size: 10px;
+  color: #9faac0;
+}
+.facet-row.good h3 {
+  color: #bbdfdc;
+}
+.facet-row.bad h3 {
+  color: #e6a3b3;
+}
+.facet-row .button {
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 10px 13px;
+}
+.facet-nodes {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 5px;
+}
+.facet-node {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid #5a657954;
+  background: #0e14216b;
+  font-size: clamp(15px, 2vw, 26px);
+  color: #59647a;
+}
+.facet-node.success.good {
+  color: #b2f1db;
+  background: #315648;
+  border-color: #89ba9e;
+  box-shadow: 0 0 12px #99d3ad25;
+}
+.facet-node.success.bad {
+  color: #edb2c1;
+  background: #65354d;
+  border-color: #aa657c;
+}
+.facet-node.miss {
+  color: #697286;
+  background: #1b2030;
+}
+.facet-last {
+  min-height: 20px;
+  margin: 6px 0 16px;
+}
+.facet-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  padding: 22px 0;
+  border-top: 1px solid #53607840;
+}
+.facet-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.facet-summary small {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #a6b0c7;
+}
+.facet-summary strong {
+  font-size: 23px;
+  color: #eee5b0;
+}
+.facet-start {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid #53607840;
+  padding-top: 18px;
+}
+.facet-start .button {
+  white-space: nowrap;
+}
+.coin-panel {
+  max-width: 650px;
+}
+.coin-emblem {
+  font-size: 80px;
+  color: #e7d9a1;
+  float: right;
+  margin: 0 15px;
+}
+.coin-panel form {
+  max-width: 340px;
+  margin: 24px 0;
+}
+.coin-result {
+  border-top: 1px solid #53607840;
+  padding-top: 20px;
+  margin-top: 20px;
+}
+.coin-result h3 {
+  text-transform: capitalize;
+  margin: 0 0 12px;
+}
+.coin-result strong {
+  font-size: 25px;
+}
+.coin-result p {
+  font-size: 12px;
+  color: #aeb9cc;
+}
+#main > .daily-pack {
+  margin-bottom: 24px;
+}
+@media (max-width: 1100px) {
+  .facet-row {
+    grid-template-columns: 1fr auto;
+  }
+  .facet-nodes {
+    grid-row: 2;
+    grid-column: 1/-1;
+  }
+  .facet-row .button {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .facet-gem {
+    font-size: 70px;
+  }
+}
+@media (max-width: 600px) {
+  .facet-panel,
+  .coin-panel {
+    padding: 18px 14px;
+  }
+  .facet-panel h2,
+  .coin-panel h2 {
+    font-size: 21px;
+  }
+  .facet-chance strong {
+    font-size: 32px;
+  }
+  .facet-chance small {
+    font-size: 8px;
+  }
+  .facet-panel .section-head {
+    flex-wrap: wrap;
+  }
+  .facet-summary {
+    gap: 10px;
+  }
+  .facet-summary strong {
+    font-size: 18px;
+  }
+  .facet-summary small {
+    font-size: 8px;
+  }
+  .facet-start {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .pachinko-games button {
+    padding: 9px 11px;
+  }
+  .pachinko-games > span {
+    margin: 8px 0 0;
+  }
+  .facet-node {
+    border-radius: 4px;
+    font-size: 18px;
+  }
+  .facet-nodes {
+    gap: 3px;
+  }
+  .coin-emblem {
+    font-size: 50px;
+    margin: 0;
+  }
+}

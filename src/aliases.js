@@ -200,6 +200,7 @@ export class AliasSync {
       "predictions",
       "gambling_rounds",
       "mahjong_games",
+      "gem_games",
       "profile_showcase",
       "profile_anime",
     ])

@@ -4,6 +4,7 @@ import { premiumPool, drawPremium } from "../public/pack-odds.js";
 import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
 import { Mahjong } from "./mahjong.js";
+import { GemFaceting } from "./gem.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -54,6 +55,7 @@ export class Economy {
     this.anime = new AnimeCollection(e);
     this.fusion = new Fusion(e);
     this.mahjong = new Mahjong(e);
+    this.gem = new GemFaceting(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -345,6 +347,8 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    const gem = this.gem.action(player, action, b);
+    if (gem) return gem;
     const mahjong = this.mahjong.action(player, action, b);
     if (mahjong) return mahjong;
     if (action === "auction-notice") {
@@ -540,8 +544,40 @@ export class Economy {
         level: 1,
       };
     }
-    if (action === "gamble")
-      fail("This game has been retired. Visit Mahjong instead.", 410);
+    if (action === "gamble") {
+      if (b.game !== "coin")
+        fail("This game has been retired. Visit Pachinko instead.", 410);
+      const stake = integer(b.stake, 1, 1000000);
+      if (!["heads", "tails"].includes(b.choice))
+        fail("Choose heads or tails.");
+      e.wallet(player, -stake, "Coin flip: bet");
+      const outcome = e.rand(2) === 0 ? "heads" : "tails",
+        won = outcome === b.choice,
+        payout = won ? Math.floor(stake * 1.5) : 0;
+      if (payout) e.wallet(player, payout, "Coin flip: win");
+      e.run(
+        "INSERT INTO gambling_rounds(player,game,stake,payout,net,outcome,at) VALUES(?,'coin',?,?,?,?,?)",
+        player,
+        stake,
+        payout,
+        payout - stake,
+        JSON.stringify(outcome),
+        now,
+      );
+      return {
+        message: won
+          ? "You won " +
+            payout.toLocaleString("en-US") +
+            " credits (including your bet)."
+          : "The coin landed " + outcome + ". No payout.",
+        game: "coin",
+        outcome,
+        won,
+        stake,
+        payout,
+        net: payout - stake,
+      };
+    }
     return null;
   }
   market(venue = "shop", kind = "character", page = 1) {
@@ -590,7 +626,7 @@ export class Economy {
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
     return { metric, page, rows: rows.slice(0, 50), hasMore: rows.length > 50 };
@@ -639,6 +675,7 @@ export class Economy {
     );
     e.run("DELETE FROM gambling_rounds WHERE player=?", player);
     e.run("DELETE FROM mahjong_games WHERE player=?", player);
+    e.run("DELETE FROM gem_games WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }

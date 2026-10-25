@@ -348,7 +348,7 @@ test("ending, identity migration and host resets preserve financial history and 
 test("retired games are disabled server-side and never charge credits", (t) => {
   const { e, act } = fixture(t),
     before = e.player("p").balance;
-  for (const game of ["coin", "dice", "seven"])
+  for (const game of ["dice", "seven"])
     assert.throws(
       () => act("gamble", { game, stake: 100, choice: "heads" }),
       (err) => err.status === 410,

@@ -16,7 +16,7 @@ Host console: https://play.amqtours-gatcha.workers.dev/host.html
 
 The shorter address uses a tiny `play` Worker with a service binding to the existing `amqtours-gatcha` Worker. Both addresses share the original database and catalogue. The original repeated-name URL remains available; sessions are separate per hostname. Deploy the game with `pnpm deploy`, then the address alias with `pnpm deploy:short-url`. `wrangler.play.jsonc` intentionally has no Durable Object migration or database of its own. Do not rename or recreate the original economy Worker to change the public address.
 
-The production HOST_TOKEN is saved in the local ignored `.production.vars` file. Open it locally to unlock the host console; keep it private. It is deployed as an encrypted runtime secret and is not part of GitHub or public assets. Authentication setup used the account's verified email and Wrangler OAuth. The administrator account can sign in directly at the host console. Player IDs and aliases automatically synchronize from the public AMQ Tours IDs worksheet every six hours. Issue host registration codes to allow those identities to register.
+The production HOST_TOKEN is saved in the local ignored `.production.vars` file. Keep it private for trusted external host-tool integration; it is no longer entered in the browser console. It is deployed as an encrypted runtime secret and is not part of GitHub or public assets. Authentication setup used the account's verified email and Wrangler OAuth. Only the arpia97 account (canonical Tours ID 368) can sign in to the host console. Player IDs and aliases automatically synchronize from the public AMQ Tours IDs worksheet every six hours. Issue host registration codes to allow those identities to register.
 
 Tenrai discovery imports MAL characters and Japanese seiyuus in the background, including MAL portraits, character roles, and bilingual anime titles. Favorite scans refresh rarity every 15 days. Inspect progress in the host console; see [CATALOG.md](CATALOG.md). All host reset scopes preserve catalogues, import checkpoints, and rarity data. The old ACDB snapshot is retired. Production gameplay is not populated with fictional demo players.
 
@@ -28,10 +28,10 @@ Tenrai discovery imports MAL characters and Japanese seiyuus in the background, 
 4. Generate a new private token of at least 32 characters. For example, `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` prints one in your own terminal. Keep it in a password manager.
 5. Run `pnpm exec wrangler secret put HOST_TOKEN` and paste that token at Wrangler's hidden prompt. Do not put it in the command line, GitHub files, or chat. If prompted to create the Worker, use the configured name `amqtours-gatcha`.
 6. Run `pnpm deploy`. Wrangler creates the SQLite-backed Durable Object namespace and uploads static assets. No D1/R2 provisioning is needed.
-7. Open the returned HTTPS `workers.dev` URL and `/host.html`. Unlock the host console with the token you just set.
+7. Open the returned HTTPS `workers.dev` URL and `/host.html`. Provision the owner account for Tours ID 368 through the protected admin-account API, then sign in as arpia97.
 8. Check automatic alias sync, populate the real catalog, configure prices and Main weight, and issue each player their registration code privately. A manual CSV import remains available. Then share the player URL.
 
-If setting a secret before the initial deployment is unavailable for your account, run `pnpm deploy` first, set the secret, then deploy again. The host console fails closed until a valid HOST_TOKEN is set; public registration still requires a host-issued code.
+If setting a secret before the initial deployment is unavailable for your account, run `pnpm deploy` first, set the secret, then deploy again. Trusted token integrations fail closed without HOST_TOKEN; console access requires the owner account. Public registration accepts the configured shared beta code only while enabled, otherwise individual host-issued codes.
 
 The SQLite database persists across deployments. Keep the Durable Object class name, binding, named object ID, and `v1` migration stable. Changing these can create a separate empty economy. `Game` / `GAME` / `amqtours-economy-v1` are intentional persistent identifiers.
 

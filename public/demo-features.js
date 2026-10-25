@@ -1,3 +1,9 @@
+import {
+  GEM_CLICK_PRICE,
+  gemCounts,
+  gemValue,
+  nextFacetChance,
+} from "./gem-rules.js";
 import { fusionQuote } from "./fusion-rules.js";
 import { instantSalePrice, SHOP_PRICES } from "./card-values.js";
 import { cardComparator, animeProgressComparator } from "./card-display.js";
@@ -15,6 +21,68 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.betaRegistration = true;
+  if (path === "gem-start" || path === "gem-facet") {
+    let g = s.gem ? structuredClone(s.gem) : null;
+    s.gambling ||= [];
+    if (path === "gem-start") {
+      if (g?.status === "active") throw Error("Finish the current gem first.");
+      if (b.previousGame !== (g?.id ?? null)) throw Error("Your gem changed.");
+      g = {
+        id: (s.gemCounter = (s.gemCounter || 0) + 1),
+        version: 0,
+        good: [],
+        bad: [],
+        chance: 75,
+        cost: 0,
+        payout: 0,
+        status: "active",
+        last: null,
+      };
+      s.gambling.push({
+        game: "faceting",
+        id: g.id,
+        stake: 0,
+        payout: 0,
+        net: 0,
+      });
+    } else {
+      if (
+        !g ||
+        g.status !== "active" ||
+        b.game !== g.id ||
+        b.version !== g.version
+      )
+        throw Error("Your gem changed. Refresh before faceting.");
+      if (!["good", "bad"].includes(b.row) || g[b.row].length >= 10)
+        throw Error("Choose a row with an empty node.");
+      d.wallet(-GEM_CLICK_PRICE, "Demo gem facet");
+      const success = Math.random() * 100 < g.chance;
+      g.last = { row: b.row, success, chance: g.chance };
+      g[b.row].push(success);
+      g.chance = nextFacetChance(g.chance, success);
+      g.cost += GEM_CLICK_PRICE;
+      g.version++;
+      if (g.good.length === 10 && g.bad.length === 10) {
+        const c = gemCounts(g);
+        g.payout = gemValue(c.good, c.bad);
+        g.status = "complete";
+        if (g.payout) d.wallet(g.payout, "Demo gem payout");
+      }
+    }
+    s.gem = g;
+    Object.assign(
+      s.gambling.find((r) => r.game === "faceting" && r.id === g.id),
+      { stake: g.cost, payout: g.payout, net: g.payout - g.cost },
+    );
+    return {
+      message:
+        g.status === "complete"
+          ? "Gem complete. " + g.payout + " demo credits paid."
+          : "Demo gem saved.",
+      gem: g,
+    };
+  }
+
   s.mahjong = publicMahjong(s._mahjong);
   if (path.startsWith("mahjong-history")) {
     const page = Number(
@@ -402,7 +470,9 @@ export function demoFeatures(d, path, b) {
         };
       })
       .filter((p) =>
-        gambling ? p.id === me.id && s.gambling.length > 0 : p.value > 0,
+        gambling
+          ? p.id === me.id && s.gambling.some((r) => r.stake > 0)
+          : p.value > 0,
       )
       .sort((a, b) =>
         metric === "gambling_lost" ? a.value - b.value : b.value - a.value,
@@ -689,7 +759,31 @@ export function demoFeatures(d, path, b) {
       level: l.level || 1,
     };
   }
-  if (path === "gamble")
-    throw Error("This game has been retired. Visit Mahjong instead.");
+  if (path === "gamble") {
+    if (b.game !== "coin") throw Error("This game is retired.");
+    if (
+      !Number.isSafeInteger(b.stake) ||
+      b.stake < 1 ||
+      b.stake > 1000000 ||
+      !["heads", "tails"].includes(b.choice)
+    )
+      throw Error("Choose a valid coin bet.");
+    d.wallet(-b.stake, "Demo coin bet");
+    const outcome = Math.random() < 0.5 ? "heads" : "tails",
+      won = outcome === b.choice,
+      payout = won ? Math.floor(b.stake * 1.5) : 0;
+    if (payout) d.wallet(payout, "Demo coin win");
+    const result = {
+      game: "coin",
+      outcome,
+      won,
+      stake: b.stake,
+      payout,
+      net: payout - b.stake,
+    };
+    s.gambling ||= [];
+    s.gambling.push(result);
+    return { ...result, message: won ? "Coin flip won." : "Coin flip lost." };
+  }
   return undefined;
 }

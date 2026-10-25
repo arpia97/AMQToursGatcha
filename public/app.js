@@ -5,6 +5,7 @@ import { createPackReveal } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
 import { createMahjongUI } from "./mahjong-ui.js";
 import { MAHJONG_START } from "./mahjong-rules.js";
+import { createPachinkoUI } from "./pachinko-ui.js";
 import {
   seriesTitle,
   rarityClass,
@@ -97,7 +98,7 @@ const routes = [
   ["auctions", "Auctions"],
   ["pickems", "Pick’ems"],
   ["players", "Players"],
-  ["arcade", "Gambling"],
+  ["arcade", "Pachinko"],
   ["ranks", "Rankings"],
 ];
 let heroCards = null,
@@ -129,6 +130,8 @@ const ui = {
   pickemData: null,
   marketPage: 1,
   marketData: null,
+  pachinkoGame: "mahjong",
+  coinResult: null,
   mahjongHistoryOpen: false,
   mahjongHistoryPage: 1,
   mahjongHistoryData: null,
@@ -324,6 +327,13 @@ const mahjongUI = createMahjongUI({
     open: ui.mahjongHistoryOpen,
     data: ui.mahjongHistoryData,
   }),
+});
+const pachinkoUI = createPachinkoUI({
+  getState: () => state,
+  escape,
+  number,
+  ui,
+  mahjong: () => mahjongUI.render({ embedded: true }),
 });
 const features = createFeatures(
   {
@@ -564,7 +574,7 @@ function ranks() {
   return features.ranks();
 }
 function arcade() {
-  return features.gambling();
+  return pachinkoUI.render();
 }
 function avatarHTML(p, large = false) {
   const item = (p.inventory || state.inventory).find(
@@ -757,6 +767,7 @@ async function refresh() {
   }
   if (previousPlayer && previousPlayer !== state.me?.id) {
     workshop.clear();
+    ui.coinResult = null;
     ui.mahjongHistoryData = null;
     ui.mahjongHistoryOpen = false;
     ui.mahjongHistoryPage = 1;
@@ -1121,6 +1132,28 @@ titleSelect.addEventListener("change", () => {
 
 async function handleFeatureClick(a, t) {
   try {
+    if (a === "pachinko-game") {
+      ui.pachinkoGame = t.dataset.game;
+      render();
+      return true;
+    }
+    if (a === "gem-start" || a === "gem-facet") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      await execute(
+        a,
+        a === "gem-start"
+          ? { previousGame: state.gem?.id ?? null }
+          : {
+              game: Number(t.dataset.game),
+              version: Number(t.dataset.version),
+              row: t.dataset.row,
+            },
+      );
+      return true;
+    }
     if (a?.startsWith("mahjong-")) {
       if (!state.me) {
         auth();
@@ -1402,6 +1435,22 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
+  if (f.id === "coin-form") {
+    if (!state.me) {
+      auth();
+      return true;
+    }
+    await execute(
+      "gamble",
+      { game: "coin", choice: b.choice, stake: Number(b.stake) },
+      (r) => {
+        ui.coinResult = r;
+        render();
+        toast(r.message);
+      },
+    );
+    return true;
+  }
   if (f.id === "mahjong-confirm") {
     const { action } = b;
     const body =
