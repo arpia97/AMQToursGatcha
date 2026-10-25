@@ -1356,23 +1356,31 @@ button.fusion-slot:focus-visible {
   inset: -3px;
 }
 .card-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  position: relative;
   margin-top: 10px;
-  align-items: start;
 }
 .card-controls .bid-button {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% - 70px);
   margin: 0;
   padding: 8px 6px;
   font-size: 10px;
   min-height: 32px;
 }
 .card-menu summary {
+  width: 63px;
+  min-height: 32px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
   list-style: none;
   cursor: pointer;
   font-size: 10px;
-  padding: 9px 8px;
+  padding: 8px;
   border: 1px solid #424550;
   border-radius: 6px;
   background: #292c36;
@@ -1381,9 +1389,6 @@ button.fusion-slot:focus-visible {
 }
 .card-menu summary::-webkit-details-marker {
   display: none;
-}
-.card-menu[open] {
-  grid-column: 1/-1;
 }
 .card-menu .collection-actions {
   margin-top: 8px;
@@ -1406,4 +1411,79 @@ button.fusion-slot:focus-visible {
 }
 .auction-leader a {
   color: var(--mint);
+}
+.pack-motion-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.pack-motion-control select {
+  background: #24252e;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px;
+  font: inherit;
+}
+.pack-cinematic .pack-motion-control,
+.pack-results .pack-motion-control {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.pack-cinematic:is(.aura-s, .aura-ss, .aura-sss, .aura-ubers, .aura-ag) {
+  --pack-animation: tier-pack-charge var(--pulse-time) ease-in-out infinite;
+}
+.pack-cinematic:is(.aura-a, .aura-b, .aura-c, .aura-d, .aura-pending) {
+  --pack-animation: low-pack-glow 5s ease-in-out infinite;
+}
+html[data-pack-motion="full"] .pack-cinematic .sealed-pack {
+  animation: var(
+    --pack-animation,
+    sealed-charge 2.5s ease-in-out infinite
+  ) !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .collect-card {
+  animation: card-arrive 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both !important;
+}
+html[data-pack-motion="full"]
+  .pack-results
+  .pull-reveal
+  .collect-card:is(.tier-s, .tier-ss, .tier-sss, .tier-ubers, .tier-ag) {
+  animation:
+    card-arrive 0.8s ease both,
+    tier-pulse var(--pulse-time) ease-in-out infinite !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .pull-1 .collect-card {
+  animation-delay: 0.15s !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .pull-2 .collect-card {
+  animation-delay: 0.3s !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .pull-3 .collect-card {
+  animation-delay: 0.45s !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .pull-4 .collect-card {
+  animation-delay: 0.6s !important;
+}
+html[data-pack-motion="full"] .pack-results .pull-reveal .portrait::after {
+  display: block;
+  animation: reveal-sheen 1.6s ease both !important;
+}
+html[data-pack-motion="full"] .pack-results .collect-card.tier-ag::after,
+html[data-pack-motion="full"] .pack-cinematic.aura-ag .sealed-pack::after {
+  animation: rainbow-flow 6s ease infinite !important;
+}
+html[data-pack-motion="reduced"] .pack-cinematic .sealed-pack,
+html[data-pack-motion="reduced"] .pack-cinematic .sealed-pack::after,
+html[data-pack-motion="reduced"] .pack-results .collect-card,
+html[data-pack-motion="reduced"] .pack-results .collect-card::after,
+html[data-pack-motion="reduced"] .pack-results .portrait::after {
+  animation: none !important;
+}
+html[data-pack-motion="reduced"] .pack-results .portrait::after {
+  display: none;
 }

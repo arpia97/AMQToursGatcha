@@ -351,10 +351,10 @@ test("anime progress prioritizes pins and sorts by percentage globally before pa
 test("starting grants are once per identity, including existing users", () => {
   const { e } = fixture();
   e.tx(() => e.economy.fundStarters());
-  assert.equal(e.player("buyer").balance, 11000);
-  assert.equal(e.player("buyer").earned, 11000);
+  assert.equal(e.player("buyer").balance, 15000);
+  assert.equal(e.player("buyer").earned, 15000);
   e.tx(() => e.economy.fundStarters());
-  assert.equal(e.player("buyer").balance, 11000);
+  assert.equal(e.player("buyer").balance, 15000);
   e.tx(() =>
     e.host("reset-player", {
       player: "buyer",
@@ -363,6 +363,59 @@ test("starting grants are once per identity, including existing users", () => {
   );
   e.tx(() => e.economy.fundStarters());
   assert.equal(e.player("buyer").balance, 0);
+});
+test("starter upgrade tops up the old grant once and survives restart, alias sync and reset", () => {
+  const { e } = fixture();
+  e.run(
+    "UPDATE players SET balance=42,earned=1000,starter_granted=1 WHERE id='buyer'",
+  );
+  e.tx(() => e.economy.fundStarters());
+  assert.equal(e.player("buyer").balance, 4042);
+  assert.equal(e.player("buyer").earned, 5000);
+  assert.equal(
+    e.one("SELECT starter_amount FROM players WHERE id='buyer'").starter_amount,
+    5000,
+  );
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  restarted.tx(() => restarted.economy.fundStarters());
+  assert.equal(restarted.player("buyer").balance, 4042);
+  restarted.host("players", {
+    players: [{ id: "buyer", name: "Renamed", aliases: ["newalias"] }],
+  });
+  restarted.tx(() => restarted.economy.fundStarters());
+  assert.equal(restarted.player("buyer").balance, 4042);
+  restarted.host("reset-player", {
+    player: "buyer",
+    confirmation: "RESET PLAYER buyer",
+  });
+  restarted.tx(() => restarted.economy.fundStarters());
+  assert.equal(restarted.player("buyer").balance, 0);
+});
+test("premium prices migrate to 1000 once while later host edits survive restarts", () => {
+  const { e } = fixture();
+  e.run(
+    "UPDATE settings SET value=2000 WHERE key IN ('premium_character_price','premium_seiyuu_price')",
+  );
+  e.run("UPDATE settings SET value=0 WHERE key='premium_price_revision'");
+  const migrated = new Engine(e.db, e.transaction, e.now, e.rand);
+  for (const kind of ["character", "seiyuu"])
+    assert.equal(
+      migrated.one(
+        "SELECT value FROM settings WHERE key=?",
+        `premium_${kind}_price`,
+      ).value,
+      1000,
+    );
+  migrated.run(
+    "UPDATE settings SET value=777 WHERE key='premium_character_price'",
+  );
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  assert.equal(
+    restarted.one(
+      "SELECT value FROM settings WHERE key='premium_character_price'",
+    ).value,
+    777,
+  );
 });
 test("catalogue counts remain accurate across metadata edits, deletes, and rolled-back imports", () => {
   const { e } = fixture();
@@ -844,7 +897,7 @@ test("premium packs charge the premium price and validate the chosen pack type",
     e = f.e;
   e.rand = () => 0;
   f.act("buyer", "pack", { kind: "character", premium: true });
-  assert.equal(e.player("buyer").balance, 8000);
+  assert.equal(e.player("buyer").balance, 9000);
   assert.equal(e.state("buyer").inventory[0].copies, 5);
   assert.throws(
     () => f.act("buyer", "pack", { kind: "character", premium: "true" }),

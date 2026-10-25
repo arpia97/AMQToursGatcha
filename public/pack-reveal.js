@@ -7,6 +7,7 @@ export function createPackReveal({
   escape,
   number,
   getState,
+  motionControl = () => "",
 }) {
   let pull = null;
   function show(result, pack) {
@@ -16,7 +17,7 @@ export function createPackReveal({
     )[0];
     const tier = rarityClass(best?.rarity);
     modal(
-      `<section class="pack-cinematic aura-${tier}"><span class="eyebrow">${pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>A little light. A new favourite.</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your five cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">Your five cards are already safely in your collection.</p><button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
+      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>A little light. A new favourite.</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your five cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">Your five cards are already safely in your collection.</p><button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
       true,
     );
   }
@@ -27,9 +28,9 @@ export function createPackReveal({
     const price =
       getState().settings[
         (pack.premium ? "premium_" : "") + pack.kind + "_price"
-      ] || (pack.premium ? 2000 : 500);
+      ] || (pack.premium ? 1000 : 500);
     modal(
-      `<section class="pack-results"><div class="pull-label">${pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who found their way to you?</h2><p>Five cards added. Duplicates are saved as extra copies.</p><div class="card-grid pull-reveal">${result.cards.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c)}</div>`).join("")}</div><div class="reveal-actions">${!pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}">Open another pack · ✦ ${number(price)}</button>` : '<a class="button mint" href="#packs" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="#collection" data-close-dialog>My collection ↗</a></div></section>`,
+      `<section class="pack-results">${motionControl()}<div class="pull-label">${pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who found their way to you?</h2><p>Five cards added. Duplicates are saved as extra copies.</p><div class="card-grid pull-reveal">${result.cards.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c)}</div>`).join("")}</div><div class="reveal-actions">${!pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}">Open another pack · ✦ ${number(price)}</button>` : '<a class="button mint" href="#packs" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="#collection" data-close-dialog>My collection ↗</a></div></section>`,
       true,
     );
   }

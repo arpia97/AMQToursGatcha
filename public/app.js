@@ -16,6 +16,45 @@ try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
     titleMode = "english";
 } catch {}
+let packMotion = "system";
+try {
+  const saved = localStorage.getItem("amqtours-pack-motion");
+  if (["system", "full", "reduced"].includes(saved)) packMotion = saved;
+} catch {}
+document.documentElement.dataset.packMotion = packMotion;
+function packMotionControl() {
+  return (
+    '<label class="pack-motion-control">Pack animations<select class="pack-motion-select" aria-label="Pack animations">' +
+    [
+      ["system", "System setting"],
+      ["full", "Full animation"],
+      ["reduced", "Reduced motion"],
+    ]
+      .map(
+        ([id, label]) =>
+          '<option value="' +
+          id +
+          '" ' +
+          (packMotion === id ? "selected" : "") +
+          ">" +
+          label +
+          "</option>",
+      )
+      .join("") +
+    "</select></label>"
+  );
+}
+document.addEventListener("change", (ev) => {
+  if (!ev.target.matches(".pack-motion-select")) return;
+  packMotion = ev.target.value;
+  document.documentElement.dataset.packMotion = packMotion;
+  try {
+    localStorage.setItem("amqtours-pack-motion", packMotion);
+  } catch {}
+  document.querySelectorAll(".pack-motion-select").forEach((el) => {
+    el.value = packMotion;
+  });
+});
 const series = (c) => seriesTitle(c, titleMode);
 const gradeBadge = (c) =>
   `<span class="grade-badge grade-${rarityClass(c.rarity)}" title="${escape(popularityLabel(c))}">${escape(c.rarity || "Pending")}</span>`;
@@ -364,6 +403,7 @@ function pickemHero(p) {
   return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make your call.<br><span>Back your team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
 }
 const packReveal = createPackReveal({
+  motionControl: packMotionControl,
   modal,
   cardHTML,
   escape,
@@ -385,7 +425,7 @@ function packPanel(kind, premium = false) {
   const char = kind === "character",
     price =
       state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
-      (premium ? 2000 : 500);
+      (premium ? 1000 : 500);
   return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} card pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers and AG. The extra chance comes from D." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
 }
 function home() {
@@ -462,6 +502,7 @@ function packs() {
     intro(
       "Five cards. One little thrill.",
       "Characters, husbandos, waifus, and the voices you know by heart.",
+      packMotionControl(),
     ) +
     dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
@@ -1177,7 +1218,7 @@ async function handleFeatureClick(a, t) {
         premium = t.dataset.premium === "true",
         price =
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
-          (premium ? 2000 : 500);
+          (premium ? 1000 : 500);
       modal(
         `<h2>${premium ? "A rarer kind of luck." : "A new favourite could be inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances, taken only from D. No guaranteed minimum." : "Normal pack odds apply."} Duplicates are possible.</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
       );

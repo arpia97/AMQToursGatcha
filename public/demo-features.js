@@ -99,10 +99,21 @@ export function demoFeatures(d, path, b) {
     }));
     s.shopMixVersion = 2;
   }
-  s.settings.premium_character_price ??= 2000;
-  if (!s.starterGranted) {
-    d.wallet(1000, "Starting credits", true);
+  if (!s.premiumPriceRevision) {
+    s.settings.premium_character_price = 1000;
+    s.settings.premium_seiyuu_price = 1000;
+    s.premiumPriceRevision = 1;
+  }
+  s.settings.premium_character_price ??= 1000;
+  const starterReceived = s.starterAmount || (s.starterGranted ? 1000 : 0);
+  if (starterReceived < 5000) {
+    d.wallet(
+      5000 - starterReceived,
+      s.starterGranted ? "Starting credits adjustment" : "Starting credits",
+      true,
+    );
     s.starterGranted = true;
+    s.starterAmount = 5000;
   }
   s.pinnedAnime ||= [];
   if (path === "auction-notice") {
@@ -209,7 +220,7 @@ export function demoFeatures(d, path, b) {
     };
   }
 
-  s.settings.premium_seiyuu_price ??= 2000;
+  s.settings.premium_seiyuu_price ??= 1000;
   s.activePickem =
     s.pickems
       .filter((p) => !p.settled && p.ends > now)

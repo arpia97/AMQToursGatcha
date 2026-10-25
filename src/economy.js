@@ -21,14 +21,25 @@ export class Economy {
       if (!e.all("PRAGMA table_info(auctions)").some((c) => c.name === column))
         e.run(`ALTER TABLE auctions ADD COLUMN ${column} ${definition}`);
     e.run(
-      "INSERT OR IGNORE INTO settings VALUES('premium_character_price',2000),('premium_seiyuu_price',2000)",
+      "INSERT OR IGNORE INTO settings VALUES('premium_character_price',1000),('premium_seiyuu_price',1000),('premium_price_revision',0)",
     );
+    if (
+      e.one("SELECT value FROM settings WHERE key='premium_price_revision'")
+        .value < 1
+    )
+      e.tx(() => {
+        e.run(
+          "UPDATE settings SET value=1000 WHERE key IN ('premium_character_price','premium_seiyuu_price')",
+        );
+        e.run("UPDATE settings SET value=1 WHERE key='premium_price_revision'");
+      });
     e.run("CREATE INDEX IF NOT EXISTS auctions_due ON auctions(closed,ends)");
     e.run(
       "CREATE INDEX IF NOT EXISTS user_auctions_due ON auctions(ends) WHERE seller IS NOT NULL AND paid=0",
     );
     for (const [name, definition] of [
       ["starter_granted", "INTEGER NOT NULL DEFAULT 0"],
+      ["starter_amount", "INTEGER NOT NULL DEFAULT 0"],
       ["daily_pack", "TEXT"],
     ])
       if (!e.all("PRAGMA table_info(players)").some((c) => c.name === name))
@@ -36,15 +47,28 @@ export class Economy {
     e.run(
       "CREATE INDEX IF NOT EXISTS starter_pending ON players(starter_granted)",
     );
+    e.run(
+      "CREATE INDEX IF NOT EXISTS starter_amount_pending ON players(starter_amount) WHERE starter_amount<5000",
+    );
     this.anime = new AnimeCollection(e);
     this.fusion = new Fusion(e);
   }
   fundStarters() {
     for (const p of this.e.all(
-      "SELECT id FROM players WHERE starter_granted=0",
+      "SELECT id,starter_granted,starter_amount FROM players WHERE starter_amount<5000",
     )) {
-      this.e.wallet(p.id, 1000, "Starting credits", true);
-      this.e.run("UPDATE players SET starter_granted=1 WHERE id=?", p.id);
+      // Old funded identities received 1,000 before the amount marker existed.
+      const received = p.starter_amount || (p.starter_granted ? 1000 : 0);
+      this.e.wallet(
+        p.id,
+        5000 - received,
+        p.starter_granted ? "Starting credits adjustment" : "Starting credits",
+        true,
+      );
+      this.e.run(
+        "UPDATE players SET starter_granted=1,starter_amount=5000 WHERE id=?",
+        p.id,
+      );
     }
   }
   daily(player, automatic = false) {
