@@ -155,7 +155,7 @@ test("Riichi options require a tenpai discard and four live tiles; first-discard
   const double = declareRiichi(g, 13);
   assert.equal(double.riichi, 2);
   assert.equal(double.ippatsu, true);
-  assert.equal(double.cost, 2100);
+  assert.equal(double.cost, 1000 + MAHJONG_RIICHI + MAHJONG_DISCARD);
   assert.equal(double.version, 1);
   assert.equal(double.wall.length, 5);
   assert.equal(scoreMahjong(double).han, 5);
@@ -252,8 +252,8 @@ test("server declares Riichi atomically once, returns the winning stake once and
   assert.equal(row.riichi, 2);
   assert.equal(row.riichiReturned, 1000);
   assert.equal(row.uraIndicator, 9);
-  assert.equal(row.cost, 2100);
-  assert.equal(row.net, 10900);
+  assert.equal(row.cost, 1000 + MAHJONG_RIICHI + MAHJONG_DISCARD);
+  assert.equal(row.net, 13000 - 1000 - MAHJONG_RIICHI - MAHJONG_DISCARD);
   assert.equal(e.gameState("q").mahjong, null);
 });
 
@@ -268,11 +268,11 @@ test("Riichi rejects invalid/late/stale/foreign/unaffordable declarations withou
     body = { game: a.id, version: 0, index: 13 };
   assert.throws(() => act("mahjong-riichi", { ...body, index: 0 }), /tenpai/);
   assert.throws(() => act("mahjong-riichi", body, undefined, "q"), /no active/);
-  e.run("UPDATE players SET balance=1099 WHERE id='p'");
+  e.run("UPDATE players SET balance=1049 WHERE id='p'");
   const saved = e.economy.mahjong.read("p");
   assert.throws(() => act("mahjong-riichi", body), /credits/i);
   assert.deepEqual(e.economy.mahjong.read("p"), saved);
-  assert.equal(e.player("p").balance, 1099);
+  assert.equal(e.player("p").balance, 1049);
   e.run("UPDATE players SET balance=? WHERE id='p'", before);
   f.save({ ...g, wall: [1, 2, 3] });
   assert.throws(() => act("mahjong-riichi", body), /four live/);
@@ -282,9 +282,12 @@ test("Riichi rejects invalid/late/stale/foreign/unaffordable declarations withou
   assert.equal(draw.tenpai, true);
   assert.equal(draw.refund, 1000);
   assert.equal(draw.payout, 1000);
-  assert.equal(e.player("p").balance, before - 1100 + 1000);
+  assert.equal(
+    e.player("p").balance,
+    before - MAHJONG_RIICHI - MAHJONG_DISCARD + 1000,
+  );
   act("mahjong-riichi", body, "draw-riichi");
-  assert.equal(e.player("p").balance, before - 100);
+  assert.equal(e.player("p").balance, before - MAHJONG_DISCARD);
   assert.equal(draw.hand.length, 13);
 });
 
@@ -453,16 +456,16 @@ test("invalid actions and insufficient balance roll back wallet, wall and versio
   );
   assert.equal(e.player("p").balance, before);
   assert.deepEqual(e.state("p").mahjong, state);
-  e.run("UPDATE players SET balance=99 WHERE id='p'");
+  e.run("UPDATE players SET balance=49 WHERE id='p'");
   assert.throws(
     () => act("mahjong-discard", { game: a.id, version: 0, index: 0 }),
     /Not enough/,
   );
-  assert.equal(e.player("p").balance, 99);
+  assert.equal(e.player("p").balance, 49);
   assert.deepEqual(e.state("p").mahjong, state);
   act("mahjong-end", { game: a.id, version: 0 });
   assert.throws(() => f.start(), /Not enough/);
-  assert.equal(e.player("p").balance, 99);
+  assert.equal(e.player("p").balance, 49);
 });
 test("wall exhaustion keeps a final tsumo claimable and ends non-tenpai hands without a refund", (t) => {
   const f = fixture(t),
@@ -520,7 +523,7 @@ test("four-player draw pacing consumes up to four wall tiles per turn and haitei
     turns++;
   }
   assert.equal(turns, 18);
-  assert.equal(dealt.cost, 1000 + 18 * 100);
+  assert.equal(dealt.cost, MAHJONG_START + 18 * MAHJONG_DISCARD);
 });
 test("tenpai handles normal hands, seven pairs and thirteen orphans without permitting five identical tiles", () => {
   assert.ok(tenpaiMahjong(tiles("m123p22456s23456"))?.waits.includes(24));
@@ -542,10 +545,10 @@ test("exhaustive tenpai refunds only the entry fee once, records private draw hi
   assert.equal(result.refund, 1000);
   assert.equal(result.payout, 1000);
   assert.equal(result.hand.length, 13);
-  assert.equal(e.player("p").balance, before.balance - 100 + 1000);
+  assert.equal(e.player("p").balance, before.balance - MAHJONG_DISCARD + 1000);
   assert.equal(e.player("p").earned, before.earned);
   act("mahjong-discard", body, "tenpai-final");
-  assert.equal(e.player("p").balance, before.balance - 100 + 1000);
+  assert.equal(e.player("p").balance, before.balance - MAHJONG_DISCARD + 1000);
   assert.throws(
     () => act("mahjong-end", { game: a.id, version: 1 }),
     /no active/,
@@ -553,7 +556,7 @@ test("exhaustive tenpai refunds only the entry fee once, records private draw hi
   const row = e.economy.mahjong.history("p").items[0];
   assert.equal(row.tenpai, true);
   assert.equal(row.refund, 1000);
-  assert.equal(row.net, -100);
+  assert.equal(row.net, -MAHJONG_DISCARD);
   assert.equal(e.economy.mahjong.history("q").items.length, 0);
   const b = f.start();
   f.save({ ...pinfu(), id: b.id, wall: [8, 7, 6, 5] });
@@ -613,16 +616,22 @@ test("clicking the selected tile returns one paid discard intent and resets afte
   const intent = ui.select(4);
   assert.deepEqual(intent, { game: g.id, version: 0, index: 4 });
   f.act("mahjong-discard", intent, "two-click");
-  assert.equal(f.e.player("p").balance, 100000 - 1000 - 100);
+  assert.equal(
+    f.e.player("p").balance,
+    100000 - MAHJONG_START - MAHJONG_DISCARD,
+  );
   f.act("mahjong-discard", intent, "two-click");
-  assert.equal(f.e.player("p").balance, 100000 - 1000 - 100);
+  assert.equal(
+    f.e.player("p").balance,
+    100000 - MAHJONG_START - MAHJONG_DISCARD,
+  );
   state = f.e.state("p");
   assert.equal(ui.select(4), null); // Replacement needs a new first click.
   state.mahjong.version++;
   assert.equal(ui.select(4), null); // Remote update cannot turn selection into a discard.
-  state.me.balance = 99;
+  state.me.balance = MAHJONG_DISCARD - 1;
   assert.throws(() => ui.select(4), /Not enough credits/);
-  state.me.balance = 100;
+  state.me.balance = MAHJONG_DISCARD;
   state.mahjong.remaining = 0;
   assert.throws(() => ui.select(4), /wall is empty/);
 });
@@ -647,8 +656,8 @@ test("private paged history retains final hands and discards without exposing wa
       (r) =>
         r.hand.length === 14 &&
         r.discards.length === 1 &&
-        r.cost === 1100 &&
-        r.net === -1100,
+        r.cost === MAHJONG_START + MAHJONG_DISCARD &&
+        r.net === -MAHJONG_START - MAHJONG_DISCARD,
     ),
   );
   assert.ok(first.items.every((r) => !("wall" in r)));
@@ -879,7 +888,7 @@ test("only latest50 Mahjong hands retain details; old financial totals and idemp
   );
   assert.equal(e.player("p").balance, balance);
   assert.equal(e.economy.rankings("gambling_lost").rows[0].value, rank);
-  assert.equal(rank, -60000);
+  assert.equal(rank, -60 * MAHJONG_START);
   const receipt = e.one(
     "SELECT result FROM receipts WHERE scope='p:mahjong-start' AND key='old-start'",
   );
@@ -970,7 +979,7 @@ test("host Mahjong reversal restores net costs once, preserves other games/earne
   const third = f.start();
   const preview = e.economy.mahjong.reversalPreview("p", 2);
   assert.equal(preview.count, 2);
-  assert.equal(preview.adjustment, 2000);
+  assert.equal(preview.adjustment, 2 * MAHJONG_START);
   const body = {
     player: "p",
     limit: 2,
@@ -984,7 +993,7 @@ test("host Mahjong reversal restores net costs once, preserves other games/earne
     );
   const before = e.player("p");
   const result = reverse();
-  assert.equal(result.balance, before.balance + 2000);
+  assert.equal(result.balance, before.balance + 2 * MAHJONG_START);
   assert.equal(e.player("p").earned, before.earned);
   assert.equal(e.economy.mahjong.state("p"), null);
   assert.equal(
@@ -993,7 +1002,10 @@ test("host Mahjong reversal restores net costs once, preserves other games/earne
     ).n,
     2,
   );
-  assert.equal(e.economy.rankings("gambling_lost").rows[0].value, -1000);
+  assert.equal(
+    e.economy.rankings("gambling_lost").rows[0].value,
+    -MAHJONG_START,
+  );
   assert.deepEqual(reverse(), result);
   assert.equal(e.player("p").balance, result.balance);
   assert.throws(() => reverse("new-key"), /changed/);
@@ -1009,4 +1021,43 @@ test("host Mahjong reversal restores net costs once, preserves other games/earne
     expectedActive: stale.active,
   };
   assert.throws(() => e.tx(() => e.host("mahjong-revert", input)), /changed/);
+});
+
+test("new pricing charges500/50 and refunds the saved entry fee for new and pre-change hands without replaying refunds", (t) => {
+  const f = fixture(t),
+    { e, act } = f,
+    before = e.player("p").balance;
+  const g = f.start();
+  assert.equal(g.cost, 500);
+  assert.equal(g.entryFee, 500);
+  assert.equal(e.player("p").balance, before - 500);
+  f.save({
+    ...pinfu(),
+    id: g.id,
+    entryFee: g.entryFee,
+    cost: g.cost,
+    wall: [8],
+  });
+  const body = { game: g.id, version: 0, index: 13 },
+    ended = act("mahjong-discard", body, "new-price").mahjong;
+  assert.equal(ended.cost, 550);
+  assert.equal(ended.refund, 500);
+  assert.match(act("mahjong-discard", body, "new-price").message, /500-credit/);
+  assert.equal(e.player("p").balance, before - 50);
+  const old = f.start();
+  f.save({ ...pinfu(), id: old.id, wall: [8] });
+  const legacyBefore = e.player("p").balance;
+  const legacy = act("mahjong-discard", {
+    game: old.id,
+    version: 0,
+    index: 13,
+  }).mahjong;
+  assert.equal(legacy.cost, 1050);
+  assert.equal(legacy.refund, 1000);
+  assert.equal(e.player("p").balance, legacyBefore - 50 + 1000);
+  const explicit = f.start();
+  f.save({ ...pinfu(), id: explicit.id, entryFee: 500, cost: 500, wall: [] });
+  const settled = act("mahjong-end", { game: explicit.id, version: 0 });
+  assert.equal(settled.mahjong.refund, 500);
+  assert.match(settled.message, /500-credit/);
 });

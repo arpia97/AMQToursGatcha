@@ -71,20 +71,20 @@ test("compact game snapshots preserve wallet/history/privacy without loading cat
   let game = act("mahjong-start", { previousGame: null }).mahjong;
   const body = { game: game.id, version: game.version, index: 13 };
   const result = act("mahjong-discard", body, "discard");
-  assert.equal(e.player("p").balance, 8900);
+  assert.equal(e.player("p").balance, 9450);
   act("mahjong-discard", body, "discard");
-  assert.equal(e.player("p").balance, 8900);
+  assert.equal(e.player("p").balance, 9450);
   assert.throws(
     () => act("mahjong-discard", body),
     (e) => e.status === 409,
   );
   queries.length = 0;
   const snapshot = e.gameState("p");
-  assert.equal(snapshot.me.balance, 8900);
+  assert.equal(snapshot.me.balance, 9450);
   assert.equal(snapshot.me.earned, 10000);
   assert.deepEqual(snapshot.mahjong, result.mahjong);
   assert.equal("wall" in snapshot.mahjong, false);
-  assert.equal(snapshot.ledger[0].delta, -100);
+  assert.equal(snapshot.ledger[0].delta, -50);
   assert.ok(queries.length <= 6);
   assert.equal(
     queries.some((q) =>

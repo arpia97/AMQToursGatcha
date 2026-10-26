@@ -9,6 +9,7 @@ import {
   MAHJONG_START,
   MAHJONG_RIICHI,
   MAHJONG_DISCARD,
+  mahjongEntryFee,
 } from "./mahjong-rules.js";
 import { createPachinkoUI } from "./pachinko-ui.js";
 import { applyGameState } from "./game-state.js";
@@ -1274,7 +1275,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "mahjong-end") {
         modal(
-          `<h2>${state.mahjong.remaining ? "End this hand?" : "Settle as a draw instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the 1,000-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
+          `<h2>${state.mahjong.remaining ? "End this hand?" : "Settle as a draw instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the " + number(mahjongEntryFee(state.mahjong)) + "-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
         );
         return true;
       }

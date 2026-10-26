@@ -7,9 +7,11 @@ import {
   tingpai,
 } from "./vendor/mahjong-scoring.js";
 
-export const MAHJONG_START = 1000;
-export const MAHJONG_DISCARD = 100;
+export const MAHJONG_START = 500;
+export const MAHJONG_DISCARD = 50;
 export const MAHJONG_RIICHI = 1000;
+// Hands saved before per-hand entry fees existed were charged 1,000.
+export const mahjongEntryFee = (game) => game?.entryFee ?? 1000;
 export const WINDS = ["East", "South", "West", "North"];
 export const isRedTile = (t) => Number.isInteger(t) && t >= 34 && t <= 36;
 export const tileBase = (t) => (isRedTile(t) ? [4, 13, 22][t - 34] : t);
@@ -100,6 +102,7 @@ export function dealMahjong(rand) {
     version: 0,
     status: "active",
     cost: MAHJONG_START,
+    entryFee: MAHJONG_START,
     payout: 0,
     result: null,
   };
@@ -279,7 +282,7 @@ export function exhaustMahjong(game) {
     game.hand.splice(index, 1);
   }
   game.status = "exhausted";
-  game.refund = ready ? MAHJONG_START : 0;
+  game.refund = ready ? mahjongEntryFee(game) : 0;
   game.payout = game.refund;
   return game;
 }

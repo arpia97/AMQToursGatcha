@@ -67,7 +67,7 @@ export class Mahjong {
   }
   reversalPreview(player, limit = 100) {
     const e = this.e,
-      id = e.resolvePlayer(String(player || '').trim());
+      id = e.resolvePlayer(String(player || "").trim());
     integer(limit, 1, 100);
     e.player(id);
     const rounds = e.all(
@@ -259,7 +259,9 @@ export class Mahjong {
         message:
           next.status === "exhausted"
             ? next.tenpai
-              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              ? "Tenpai! Your " +
+                next.refund.toLocaleString("en-US") +
+                "-credit hand fee was refunded."
               : "Not tenpai. Start a new hand?"
             : "Kan! Replacement drawn from the dead wall; a new dora indicator is revealed.",
         mahjong: this.save(player, next),
@@ -293,7 +295,9 @@ export class Mahjong {
         message:
           next.status === "exhausted"
             ? next.tenpai
-              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              ? "Tenpai! Your " +
+                next.refund.toLocaleString("en-US") +
+                "-credit hand fee was refunded."
               : "Not tenpai. The wall is empty. Start a new hand?"
             : declaring
               ? (next.riichi === 2 ? "Double Riichi" : "Riichi") +
@@ -329,7 +333,9 @@ export class Mahjong {
           ? "Tsumo! " + game.payout.toLocaleString("en-US") + " credits won."
           : game.status === "exhausted"
             ? game.tenpai
-              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              ? "Tenpai! Your " +
+                game.refund.toLocaleString("en-US") +
+                "-credit hand fee was refunded."
               : "Not tenpai. Start a new hand?"
             : "Hand ended. Entry and discard costs are not refunded.",
       mahjong: this.save(player, game),
