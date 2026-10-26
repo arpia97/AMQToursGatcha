@@ -14,6 +14,7 @@ import {
   publicMahjong,
   MAHJONG_START,
   MAHJONG_DISCARD,
+  exhaustMahjong,
 } from "./mahjong-rules.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
@@ -154,6 +155,8 @@ export function demoFeatures(d, path, b) {
           throw Error("Choose a tile while replacements remain.");
         d.wallet(-MAHJONG_DISCARD, "Demo Mahjong: discard and draw");
         g = replaceMahjong(g, b.index);
+        if (g.refund)
+          d.wallet(g.refund, "Demo Mahjong: tenpai entry fee refund");
       } else if (path === "mahjong-tsumo") {
         const score = scoreMahjong(g);
         if (!score) throw Error("This hand does not qualify for tsumo.");
@@ -163,7 +166,11 @@ export function demoFeatures(d, path, b) {
         g.status = "won";
         g.version++;
       } else if (path === "mahjong-end") {
-        g.status = "ended";
+        if (!g.wall.length) {
+          exhaustMahjong(g);
+          if (g.refund)
+            d.wallet(g.refund, "Demo Mahjong: tenpai entry fee refund");
+        } else g.status = "ended";
         g.version++;
       } else throw Error("Unknown Mahjong action.");
     }

@@ -131,6 +131,8 @@ const ui = {
   pickemData: null,
   marketPage: 1,
   marketData: null,
+  shopSection: "buy",
+  shopSell: { query: "", rarity: "", sort: "rarity", page: 1 },
   pachinkoGame: "mahjong",
   coinResult: null,
   mahjongHistoryOpen: false,
@@ -643,7 +645,10 @@ async function loadDynamic() {
   if (current === "pickems") data = await api("pickems?page=" + ui.pickemPage);
   if (current === "arcade" && state.me && ui.mahjongHistoryOpen)
     data = await api("mahjong-history?page=" + ui.mahjongHistoryPage);
-  if (["shop", "auctions"].includes(current))
+  if (
+    current === "auctions" ||
+    (current === "shop" && ui.shopSection === "market")
+  )
     data = await api(
       "market?venue=" +
         (current === "shop" ? "shop" : "auction") +
@@ -880,6 +885,7 @@ document.addEventListener("click", async (ev) => {
   if (!t || busy) return;
   if (t.dataset.tab) {
     tab = t.dataset.tab;
+    ui.shopSell.page = 1;
     ui.marketPage = 1;
     ui.filters.role = "";
     ui.collectionFilters.role = "";
@@ -1165,6 +1171,24 @@ titleSelect.addEventListener("change", () => {
 
 async function handleFeatureClick(a, t) {
   try {
+    if (a === "shop-section") {
+      if (!["buy", "sell", "market", "listings"].includes(t.dataset.section))
+        return true;
+      ui.shopSection = t.dataset.section;
+      ui.marketPage = 1;
+      await loadDynamic();
+      render();
+      return true;
+    }
+    if (a === "shop-sign-in") {
+      auth();
+      return true;
+    }
+    if (a === "shop-sell-prev" || a === "shop-sell-next") {
+      ui.shopSell.page += a.endsWith("next") ? 1 : -1;
+      render();
+      return true;
+    }
     if (a === "pachinko-game") {
       ui.pachinkoGame = t.dataset.game;
       render();
@@ -1233,7 +1257,7 @@ async function handleFeatureClick(a, t) {
       };
       if (a === "mahjong-end") {
         modal(
-          `<h2>End this hand?</h2><p>Your ${number(state.mahjong.cost)} credits spent will not be refunded. You can leave this page and return later instead.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">End hand</button></form>`,
+          `<h2>${state.mahjong.remaining ? "End this hand?" : "Settle as a draw instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the 1,000-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
         );
         return true;
       }
@@ -1434,6 +1458,10 @@ async function handleFeatureClick(a, t) {
         l = (weekly ? state.shop : ui.marketData?.items || []).find(
           (l) => l.id === Number(t.dataset.id),
         );
+      if (!l) {
+        toast("This listing changed. Refresh the shop and try again.", true);
+        return true;
+      }
       modal(
         `<h2>${escape(cardBy(l.card).name)}</h2><p>Buy this card for <strong>${number(l.price)} credits</strong>. ${l.level > 1 ? "Level " + l.level + " · your higher existing level is kept." : ""}</p><form id="purchase-form"><input type="hidden" name="action" value="${a}"><input type="hidden" name="id" value="${l.id}"><div class="form-error" role="alert"></div><button class="button full" type="submit">Buy for ${number(l.price)} credits →</button></form>`,
       );
@@ -1522,7 +1550,7 @@ async function handleFeatureSubmit(f, b) {
     return true;
   }
   if (f.id === "listing-form") {
-    await execute("list-card", {
+    const result = await execute("list-card", {
       card: b.card,
       variant: b.variant,
       venue: b.venue,
@@ -1530,6 +1558,10 @@ async function handleFeatureSubmit(f, b) {
       ...(b.venue === "auction" ? { hours: Number(b.hours) } : {}),
       buyout: b.buyout ? Number(b.buyout) : null,
     });
+    if (result && page() === "shop" && b.venue === "shop") {
+      ui.shopSection = "listings";
+      render();
+    }
     return true;
   }
   if (f.id === "purchase-form") {
@@ -1552,6 +1584,34 @@ async function handleFeatureSubmit(f, b) {
   }
   return false;
 }
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "shop-search") return;
+  const position = ev.target.selectionStart;
+  ui.shopSell.query = ev.target.value;
+  ui.shopSell.page = 1;
+  render();
+  $("#shop-search")?.focus();
+  $("#shop-search")?.setSelectionRange(position, position);
+});
+document.addEventListener("change", (ev) => {
+  const fields = {
+    "shop-rarity": "rarity",
+    "shop-sort": "sort",
+    "shop-sell-page": "page",
+    "shop-sell-page-bottom": "page",
+  };
+  const key = fields[ev.target.id];
+  if (!key) return;
+  if (key === "page") {
+    const value = Number(ev.target.value);
+    if (!Number.isSafeInteger(value) || value < 1) return;
+    ui.shopSell.page = value;
+  } else {
+    ui.shopSell[key] = ev.target.value;
+    ui.shopSell.page = 1;
+  }
+  render();
+});
 document.addEventListener("change", async (ev) => {
   if (!["filter-rarity", "filter-role"].includes(ev.target.id)) return;
   ui.filters[ev.target.id === "filter-role" ? "role" : "rarity"] =

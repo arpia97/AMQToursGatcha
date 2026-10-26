@@ -1,3 +1,4 @@
+import { createShopUI } from "./shop-ui.js";
 export function createFeatures(h, ui) {
   const {
     escape: e,
@@ -60,20 +61,9 @@ export function createFeatures(h, ui) {
       prefix = collection ? "collection-" : "";
     return `${sortControl(context)}<div class="catalog-refinements"><label>Rarity<select id="${prefix}filter-rarity"><option value="">All rarities</option>${["AG", "Ubers", "SSS", "SS", "S", "A", "B", "C", "D", "Pending"].map((r) => `<option value="${r}" ${filters.rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${ui.tab() === "character" ? `<label>Character role<select id="${prefix}filter-role"><option value="">All roles</option><option value="main" ${filters.role === "main" ? "selected" : ""}>Main</option><option value="supporting" ${filters.role === "supporting" ? "selected" : ""}>Supporting</option></select></label>` : ""}<button class="text-button" data-action="${collection ? "clear-collection-filters" : "clear-filters"}">Clear filters</button></div>`;
   }
+  const shopUI = createShopUI({ ...h, pager }, ui);
   function shop() {
-    const s = getState(),
-      kind = ui.tab(),
-      weekly = s.shop || [],
-      market = ui.marketData || { items: [] };
-    const shopCard = (l, weekly = false) => {
-      const c = cardBy(l.card),
-        mine = l.seller === s.me?.id;
-      return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(l.level || 1)}"><div class="portrait">${image(c)}${gradeBadge(c)}${l.level > 1 ? `<span class="level-tag">LV. ${l.level}</span>` : ""}</div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${weekly ? `Weekly selection · ${l.buyer ? "sold out" : "1 in stock"}` : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> · Lv. ${l.level}`}</p><div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${weekly ? btn(l.buyer ? "Sold out" : "Buy card →", "shop-buy", `data-id="${l.id}" ${l.buyer ? "disabled" : ""}`, "secondary") : mine ? btn("Withdraw listing", "cancel-listing", `data-id="${l.id}" data-venue="shop"`, "secondary") : btn("Buy from collector →", "buy-listing", `data-id="${l.id}"`, "secondary")}</div></article>`;
-    };
-    const own = (s.myListings || []).filter(
-      (x) => x.venue === "shop" && x.kind === kind,
-    );
-    return `<div class="page-intro"><div><h1>A new week. New favourites.</h1><p>Handpicked by chance. Add a known card to your collection.</p></div><span class="pill">PROVISIONAL SHOP</span></div><div class="section-head"><h2>This week’s shop</h2><span class="subtext">${h.countdown(weekly[0]?.ends || h.nextWeeklyReset(s.now), "Shop resets in ", true, "Restocking…")}</span></div><div class="notice">Ten random cards from the combined character and seiyuu pool each week. Each card has one shared copy at a fixed price. Buying one immediately brings in a new random card. Prices start at 100 credits for D and double each rarity tier. Pending cards cost 100. Prices are locked for the week.</div>${weekly.length ? `<div class="card-grid space-top">${weekly.map((l) => shopCard(l, true)).join("")}</div>` : empty("Restocking soon.", "The weekly selection appears once at least ten cards are available.")}${own.length ? `<section class="own-listings"><div class="section-head"><h2>Your marketplace listings</h2><span class="pill">${own.length} OPEN</span></div><div class="card-grid">${own.map((l) => shopCard(l)).join("")}</div></section>` : ""}${h.tabs()}<div class="section-head"><h2>User Marketplace</h2><a href="#collection" class="text-button">Sell a card from your collection ↗</a></div><p class="subtext">Buy directly from another collector. No selling fee during this provisional launch.</p>${market.items.length ? `<div class="card-grid space-top">${market.items.map((l) => shopCard(l)).join("")}</div>` : empty("The stalls are ready.", "List an extra copy or an enhanced card from My collection.")}${pager("market", ui.marketPage, market.hasMore)}<p class="form-hint space-top">Enhanced purchases keep the higher of the purchased and existing card levels; the other copy becomes an extra.</p>`;
+    return shopUI.render();
   }
   function userAuctions() {
     const data = ui.marketData || { items: [] };

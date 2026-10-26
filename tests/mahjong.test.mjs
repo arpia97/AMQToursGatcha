@@ -11,6 +11,7 @@ import {
   publicMahjong,
   MAHJONG_START,
   MAHJONG_DISCARD,
+  tenpaiMahjong,
 } from "../public/mahjong-rules.js";
 
 function tiles(s) {
@@ -195,7 +196,8 @@ test("start and replacement charges persist once, retries replay and stale versi
   const move = { game: a.id, version: 0, index: 4 };
   const b = act("mahjong-discard", move, "draw").mahjong;
   assert.equal(b.cost, MAHJONG_START + MAHJONG_DISCARD);
-  assert.equal(b.remaining, 68);
+  assert.equal(b.remaining, 65);
+  assert.equal(b.turnsLeft, 17);
   assert.equal(b.discards[0], discarded);
   assert.equal(b.hand[13], drawn);
   assert.deepEqual(act("mahjong-discard", move, "draw").mahjong, b);
@@ -234,7 +236,7 @@ test("winning hands can be claimed exactly once or discarded while still winning
   assert.equal(e.player("p").earned, before.earned);
   assert.equal(e.economy.rankings("gambling_won").rows[0].value, 500);
   const b = f.start();
-  f.save({ ...pinfu(), id: b.id, wall: [8, 7] });
+  f.save({ ...pinfu(), id: b.id, wall: [8, 7, 6, 5, 4] });
   const next = act("mahjong-discard", {
     game: b.id,
     version: 0,
@@ -286,7 +288,7 @@ test("invalid actions and insufficient balance roll back wallet, wall and versio
   assert.throws(() => f.start(), /Not enough/);
   assert.equal(e.player("p").balance, 99);
 });
-test("wall exhaustion keeps a final tsumo claimable, otherwise ends without a refund", (t) => {
+test("wall exhaustion keeps a final tsumo claimable and ends non-tenpai hands without a refund", (t) => {
   const f = fixture(t),
     a = f.start(),
     { e, act } = f;
@@ -308,7 +310,12 @@ test("wall exhaustion keeps a final tsumo claimable, otherwise ends without a re
   const claimed = act("mahjong-tsumo", { game: a.id, version: 1 }).mahjong;
   assert.equal(claimed.payout, 2700);
   const b = f.start();
-  const bad = { ...pinfu(), id: b.id, wall: [8] };
+  const bad = {
+    ...pinfu(),
+    id: b.id,
+    hand: tiles("m147p258s369z12345"),
+    wall: [7],
+  };
   f.save(bad);
   const exhausted = act("mahjong-discard", {
     game: b.id,
@@ -319,6 +326,66 @@ test("wall exhaustion keeps a final tsumo claimable, otherwise ends without a re
   assert.equal(exhausted.payout, 0);
   assert.equal(exhausted.remaining, 0);
   assert.ok(f.start().id > b.id);
+});
+test("four-player draw pacing consumes up to four wall tiles per turn and haitei belongs only to the player's last-tile draw", () => {
+  const g = { ...pinfu(), wall: [24, 5, 6, 7] };
+  g.hand[13] = 8;
+  const next = replaceMahjong(g, 13);
+  assert.equal(next.wall.length, 0);
+  assert.equal(next.lastDrawFinal, false);
+  assert.equal(scoreMahjong(next).han, 2);
+  const last = replaceMahjong({ ...g, wall: [24] }, 13);
+  assert.equal(last.lastDrawFinal, true);
+  assert.equal(scoreMahjong(last).han, 3);
+  let dealt = dealMahjong(() => 0),
+    turns = 0;
+  while (dealt.wall.length) {
+    dealt = replaceMahjong(dealt, 13);
+    turns++;
+  }
+  assert.equal(turns, 18);
+  assert.equal(dealt.cost, 1000 + 18 * 100);
+});
+test("tenpai handles normal hands, seven pairs and thirteen orphans without permitting five identical tiles", () => {
+  assert.ok(tenpaiMahjong(tiles("m123p22456s23456"))?.waits.includes(24));
+  assert.deepEqual(tenpaiMahjong(tiles("m112233p445566z1")).waits, [27]);
+  assert.equal(tenpaiMahjong(tiles("m19p19s19z1234567")).waits.length, 13);
+  assert.equal(tenpaiMahjong(tiles("m147p258s369z1234")), null);
+  assert.equal(tenpaiMahjong(Array(13).fill(0)), null);
+});
+test("exhaustive tenpai refunds only the entry fee once, records private draw history, and early endings do not refund", (t) => {
+  const f = fixture(t),
+    { e, act } = f,
+    a = f.start();
+  f.save({ ...pinfu(), id: a.id, wall: [8] });
+  const before = e.player("p"),
+    body = { game: a.id, version: 0, index: 13 };
+  const result = act("mahjong-discard", body, "tenpai-final").mahjong;
+  assert.equal(result.status, "exhausted");
+  assert.equal(result.tenpai, true);
+  assert.equal(result.refund, 1000);
+  assert.equal(result.payout, 1000);
+  assert.equal(result.hand.length, 13);
+  assert.equal(e.player("p").balance, before.balance - 100 + 1000);
+  assert.equal(e.player("p").earned, before.earned);
+  act("mahjong-discard", body, "tenpai-final");
+  assert.equal(e.player("p").balance, before.balance - 100 + 1000);
+  assert.throws(
+    () => act("mahjong-end", { game: a.id, version: 1 }),
+    /no active/,
+  );
+  const row = e.economy.mahjong.history("p").items[0];
+  assert.equal(row.tenpai, true);
+  assert.equal(row.refund, 1000);
+  assert.equal(row.net, -100);
+  assert.equal(e.economy.mahjong.history("q").items.length, 0);
+  const b = f.start();
+  f.save({ ...pinfu(), id: b.id, wall: [8, 7, 6, 5] });
+  const balance = e.player("p").balance;
+  const ended = act("mahjong-end", { game: b.id, version: 0 }).mahjong;
+  assert.equal(ended.status, "ended");
+  assert.equal(ended.payout, 0);
+  assert.equal(e.player("p").balance, balance);
 });
 test("ending, identity migration and host resets preserve financial history and clean active hands", (t) => {
   const f = fixture(t),

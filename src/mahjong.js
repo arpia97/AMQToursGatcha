@@ -6,6 +6,7 @@ import {
   publicMahjong,
   MAHJONG_START,
   MAHJONG_DISCARD,
+  exhaustMahjong,
 } from "../public/mahjong-rules.js";
 
 export class Mahjong {
@@ -59,6 +60,8 @@ export class Mahjong {
             ? detail.discards.length
             : detail.discards || 0,
           result: detail.result || null,
+          tenpai: detail.tenpai ?? null,
+          refund: detail.refund || 0,
         };
       }),
     };
@@ -118,9 +121,17 @@ export class Mahjong {
       if (!game.wall.length)
         fail("The wall is empty. Claim tsumo or end this hand.", 409);
       e.wallet(player, -MAHJONG_DISCARD, "Mahjong: discard and draw");
+      const next = replaceMahjong(game, body.index);
+      if (next.refund)
+        e.wallet(player, next.refund, "Mahjong: tenpai entry fee refund");
       return {
-        message: "Tile replaced.",
-        mahjong: this.save(player, replaceMahjong(game, body.index)),
+        message:
+          next.status === "exhausted"
+            ? next.tenpai
+              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              : "Not tenpai. The wall is empty. Start a new hand?"
+            : "Tile replaced. Three opponents also draw when tiles remain.",
+        mahjong: this.save(player, next),
       };
     }
     if (action === "mahjong-tsumo") {
@@ -131,14 +142,22 @@ export class Mahjong {
       game.payout = score.payout;
       game.result = score;
     } else {
-      game.status = "ended";
+      if (!game.wall.length) {
+        exhaustMahjong(game);
+        if (game.refund)
+          e.wallet(player, game.refund, "Mahjong: tenpai entry fee refund");
+      } else game.status = "ended";
     }
     game.version++;
     return {
       message:
         game.status === "won"
           ? "Tsumo! " + game.payout.toLocaleString("en-US") + " credits won."
-          : "Hand ended. Entry and discard costs are not refunded.",
+          : game.status === "exhausted"
+            ? game.tenpai
+              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              : "Not tenpai. Start a new hand?"
+            : "Hand ended. Entry and discard costs are not refunded.",
       mahjong: this.save(player, game),
     };
   }

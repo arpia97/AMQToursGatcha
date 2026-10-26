@@ -1,4 +1,10 @@
-import { Shoupai, hule, rule } from "./vendor/mahjong-scoring.js";
+import {
+  Shoupai,
+  hule,
+  rule,
+  xiangting,
+  tingpai,
+} from "./vendor/mahjong-scoring.js";
 
 export const MAHJONG_START = 1000;
 export const MAHJONG_DISCARD = 100;
@@ -7,7 +13,8 @@ const tileCode = (t) =>
   t < 27 ? "mps"[Math.floor(t / 9)] + ((t % 9) + 1) : "z" + (t - 26);
 
 // Solo draw-and-replace variant: 14 dead tiles and 39 unseen opponent tiles
-// are set aside. The first self-draw leaves 69 available replacements.
+// are set aside. The 69 live tiles advance by one self-draw and up to three
+// unseen opponent draws per paid discard.
 export function dealMahjong(rand) {
   const tiles = Array.from({ length: 136 }, (_, i) => Math.floor(i / 4));
   for (let i = tiles.length - 1; i > 0; i--) {
@@ -100,7 +107,7 @@ export function scoreMahjong(game) {
     rule: rule({ 赤牌: { m: 0, p: 0, s: 0 } }),
     zhuangfeng: 0,
     menfeng: game.seat,
-    hupai: { haidi: game.wall.length === 0 ? 1 : 0 },
+    hupai: { haidi: (game.lastDrawFinal ?? game.wall.length === 0) ? 1 : 0 },
     baopai: [tileCode(game.indicator)],
     fubaopai: [],
     jicun: { changbang: 0, lizhibang: 0 },
@@ -139,14 +146,64 @@ export function scoreMahjong(game) {
       .filter((p) => p.amount > 0),
   };
 }
+export function tenpaiMahjong(hand) {
+  if (!Array.isArray(hand) || ![13, 14].includes(hand.length)) return null;
+  const counts = Array(34).fill(0);
+  if (
+    hand.some((t) => !Number.isInteger(t) || t < 0 || t > 33 || ++counts[t] > 4)
+  )
+    return null;
+  const choices =
+    hand.length === 13
+      ? [-1]
+      : [13, ...Array.from({ length: 13 }, (_, i) => i)];
+  const seen = new Set();
+  for (const index of choices) {
+    if (index >= 0 && seen.has(hand[index])) continue;
+    if (index >= 0) seen.add(hand[index]);
+    const tiles = hand.filter((_, i) => i !== index);
+    const shoupai = new Shoupai(tiles.map(tileCode));
+    if (xiangting(shoupai) !== 0) continue;
+    const waits = tingpai(shoupai).map((code) =>
+      code[0] === "z"
+        ? 26 + Number(code[1])
+        : "mps".indexOf(code[0]) * 9 + Number(code[1]) - 1,
+    );
+    if (waits.length)
+      return {
+        discardIndex: index,
+        discard: index >= 0 ? hand[index] : null,
+        waits,
+      };
+  }
+  return null;
+}
+export function exhaustMahjong(game) {
+  const ready = tenpaiMahjong(game.hand);
+  game.tenpai = !!ready;
+  game.waits = ready?.waits || [];
+  // Resolve the final free discard optimally, leaving the actual 13-tile hand
+  // used for the tenpai check. No extra draw or discard fee is charged.
+  if (game.hand.length === 14) {
+    const index = ready?.discardIndex ?? 13;
+    game.discards.push(game.hand[index]);
+    game.hand.splice(index, 1);
+  }
+  game.status = "exhausted";
+  game.refund = ready ? MAHJONG_START : 0;
+  game.payout = game.refund;
+  return game;
+}
 export function replaceMahjong(game, index) {
   const next = structuredClone(game);
   next.discards.push(next.hand[index]);
   const kept = next.hand.filter((_, i) => i !== index).sort((a, b) => a - b);
+  next.lastDrawFinal = next.wall.length === 1;
   next.hand = [...kept, next.wall.shift()];
+  next.wall.splice(0, 3);
   next.cost += MAHJONG_DISCARD;
   next.version++;
-  if (!next.wall.length && !scoreMahjong(next)) next.status = "exhausted";
+  if (!next.wall.length && !scoreMahjong(next)) exhaustMahjong(next);
   return next;
 }
 export function publicMahjong(game) {
@@ -155,6 +212,7 @@ export function publicMahjong(game) {
   return {
     ...visible,
     remaining: wall.length,
+    turnsLeft: Math.ceil(wall.length / 4),
     score: game.status === "active" ? scoreMahjong(game) : game.result,
   };
 }
