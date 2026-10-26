@@ -153,6 +153,23 @@
 .facet-summary.complete {
   grid-template-columns: repeat(2, 1fr);
 }
+.mj-riichi-status {
+  margin: 20px 0 12px;
+  padding: 12px 16px;
+  border: 1px solid #c7b87888;
+  border-radius: 10px;
+  background: #c7b8780d;
+  color: #e4d49f;
+  line-height: 1.6;
+}
+.mj-tile.mj-riichi-choice {
+  outline: 2px solid #b4dfc8;
+  outline-offset: 3px;
+}
+.mj-hand .mj-tile:disabled {
+  opacity: 0.85;
+  cursor: default;
+}
 .facet-summary > div {
   display: flex;
   flex-direction: column;

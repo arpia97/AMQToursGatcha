@@ -8,6 +8,7 @@ import {
 
 export const MAHJONG_START = 1000;
 export const MAHJONG_DISCARD = 100;
+export const MAHJONG_RIICHI = 1000;
 export const WINDS = ["East", "South", "West", "North"];
 const tileCode = (t) =>
   t < 27 ? "mps"[Math.floor(t / 9)] + ((t % 9) + 1) : "z" + (t - 26);
@@ -28,6 +29,7 @@ export function dealMahjong(rand) {
   return {
     seat,
     indicator,
+    uraIndicator: tiles[1],
     hand,
     wall: tiles.slice(67),
     discards: [],
@@ -40,6 +42,10 @@ export function dealMahjong(rand) {
 }
 
 const names = {
+  立直: "Riichi",
+  ダブル立直: "Double Riichi",
+  一発: "Ippatsu",
+  裏ドラ: "Ura-dora",
   門前清自摸和: "Menzen tsumo",
   平和: "Pinfu",
   断幺九: "Tanyao",
@@ -88,7 +94,7 @@ function yakuName(name) {
     );
   return names[name] || name;
 }
-export function scoreMahjong(game) {
+export function scoreMahjong(game, { revealUra = false } = {}) {
   if (
     !game ||
     game.hand?.length !== 14 ||
@@ -107,9 +113,16 @@ export function scoreMahjong(game) {
     rule: rule({ 赤牌: { m: 0, p: 0, s: 0 } }),
     zhuangfeng: 0,
     menfeng: game.seat,
-    hupai: { haidi: (game.lastDrawFinal ?? game.wall.length === 0) ? 1 : 0 },
+    hupai: {
+      lizhi: game.riichi || 0,
+      yifa: !!game.riichi && !!game.ippatsu,
+      haidi: (game.lastDrawFinal ?? game.wall.length === 0) ? 1 : 0,
+    },
     baopai: [tileCode(game.indicator)],
-    fubaopai: [],
+    fubaopai:
+      revealUra && game.riichi && Number.isInteger(game.uraIndicator)
+        ? [tileCode(game.uraIndicator)]
+        : [],
     jicun: { changbang: 0, lizhibang: 0 },
   });
   if (!value?.defen) return null;
@@ -194,8 +207,38 @@ export function exhaustMahjong(game) {
   game.payout = game.refund;
   return game;
 }
-export function replaceMahjong(game, index) {
+export function riichiDiscards(game) {
+  const remaining = game?.wall?.length ?? game?.remaining ?? 0;
+  if (
+    !game ||
+    game.status !== "active" ||
+    game.riichi ||
+    remaining < 4 ||
+    game.hand?.length !== 14
+  )
+    return [];
+  return game.hand.flatMap((_, index) => {
+    const ready = tenpaiMahjong(game.hand.filter((_, i) => i !== index));
+    return ready ? [{ index, waits: ready.waits }] : [];
+  });
+}
+export function declareRiichi(game, index) {
+  const option = riichiDiscards(game).find((o) => o.index === index);
+  if (!option) return null;
   const next = structuredClone(game);
+  next.riichi = next.discards.length === 0 ? 2 : 1;
+  next.riichiDiscard = next.discards.length;
+  next.riichiWaits = option.waits;
+  next.riichiStake = MAHJONG_RIICHI;
+  next.ippatsu = true;
+  next.cost += MAHJONG_RIICHI;
+  return replaceMahjong(next, index, { declaring: true });
+}
+export function replaceMahjong(game, index, { declaring = false } = {}) {
+  if (game.riichi && !declaring && index !== 13)
+    throw Error("After Riichi, only the newly drawn tile may be discarded.");
+  const next = structuredClone(game);
+  if (next.riichi && !declaring) next.ippatsu = false;
   next.discards.push(next.hand[index]);
   const kept = next.hand.filter((_, i) => i !== index).sort((a, b) => a - b);
   next.lastDrawFinal = next.wall.length === 1;
@@ -208,11 +251,16 @@ export function replaceMahjong(game, index) {
 }
 export function publicMahjong(game) {
   if (!game) return null;
-  const { wall, ...visible } = game;
+  const { wall, uraIndicator, ...visible } = game;
   return {
     ...visible,
+    uraAvailable: Number.isInteger(uraIndicator),
+    ...(game.status === "won" && game.riichi && Number.isInteger(uraIndicator)
+      ? { uraIndicator }
+      : {}),
     remaining: wall.length,
     turnsLeft: Math.ceil(wall.length / 4),
     score: game.status === "active" ? scoreMahjong(game) : game.result,
+    riichiOptions: riichiDiscards(game),
   };
 }

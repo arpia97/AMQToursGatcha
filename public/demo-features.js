@@ -15,6 +15,8 @@ import {
   MAHJONG_START,
   MAHJONG_DISCARD,
   exhaustMahjong,
+  declareRiichi,
+  MAHJONG_RIICHI,
 } from "./mahjong-rules.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
@@ -145,7 +147,7 @@ export function demoFeatures(d, path, b) {
         g.version !== b.version
       )
         throw Error("Your Mahjong hand changed. Refresh before acting.");
-      if (path === "mahjong-discard") {
+      if (path === "mahjong-discard" || path === "mahjong-riichi") {
         if (
           !Number.isInteger(b.index) ||
           b.index < 0 ||
@@ -153,16 +155,33 @@ export function demoFeatures(d, path, b) {
           !g.wall.length
         )
           throw Error("Choose a tile while replacements remain.");
-        d.wallet(-MAHJONG_DISCARD, "Demo Mahjong: discard and draw");
-        g = replaceMahjong(g, b.index);
+        if (g.riichi && b.index !== 13)
+          throw Error(
+            "After Riichi, only the newly drawn tile may be discarded.",
+          );
+        const declaring = path === "mahjong-riichi";
+        const next = declaring
+          ? declareRiichi(g, b.index)
+          : replaceMahjong(g, b.index);
+        if (!next)
+          throw Error(
+            "Choose a tenpai-preserving discard with at least four live tiles and no prior Riichi.",
+          );
+        d.wallet(
+          -(MAHJONG_DISCARD + (declaring ? MAHJONG_RIICHI : 0)),
+          "Demo Mahjong: " +
+            (declaring ? "Riichi stake and discard/draw" : "discard and draw"),
+        );
+        g = next;
         if (g.refund)
           d.wallet(g.refund, "Demo Mahjong: tenpai entry fee refund");
       } else if (path === "mahjong-tsumo") {
-        const score = scoreMahjong(g);
+        const score = scoreMahjong(g, { revealUra: true });
         if (!score) throw Error("This hand does not qualify for tsumo.");
-        d.wallet(score.payout, "Demo Mahjong: tsumo");
+        g.riichiReturned = g.riichi ? g.riichiStake || 0 : 0;
+        d.wallet(score.payout + g.riichiReturned, "Demo Mahjong: tsumo");
         g.result = score;
-        g.payout = score.payout;
+        g.payout = score.payout + g.riichiReturned;
         g.status = "won";
         g.version++;
       } else if (path === "mahjong-end") {

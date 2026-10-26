@@ -5,7 +5,11 @@ import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { createPackReveal } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
 import { createMahjongUI } from "./mahjong-ui.js";
-import { MAHJONG_START } from "./mahjong-rules.js";
+import {
+  MAHJONG_START,
+  MAHJONG_RIICHI,
+  MAHJONG_DISCARD,
+} from "./mahjong-rules.js";
 import { createPachinkoUI } from "./pachinko-ui.js";
 import { applyGameState } from "./game-state.js";
 import {
@@ -1256,6 +1260,13 @@ async function handleFeatureClick(a, t) {
         game: Number(t.dataset.game),
         version: Number(t.dataset.version),
       };
+      if (a === "mahjong-riichi") {
+        const index = Number(t.dataset.index);
+        modal(
+          `<h2>Declare ${state.mahjong.discards.length === 0 ? "Double Riichi" : "Riichi"}?</h2><p>Lock your hand, discard the selected tile and draw. Pay <strong>✦ ${number(MAHJONG_RIICHI)} Riichi stake + ✦ ${number(MAHJONG_DISCARD)} discard/draw fee</strong> (✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)} total). The stake returns on a winning tsumo. After declaring, only newly drawn tiles can be discarded.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-riichi"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><input type="hidden" name="index" value="${index}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Declare & draw · ✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)}</button></form>`,
+        );
+        return true;
+      }
       if (a === "mahjong-end") {
         modal(
           `<h2>${state.mahjong.remaining ? "End this hand?" : "Settle as a draw instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the 1,000-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
@@ -1520,7 +1531,11 @@ async function handleFeatureSubmit(f, b) {
         ? {
             previousGame: b.previousGame === "" ? null : Number(b.previousGame),
           }
-        : { game: Number(b.game), version: Number(b.version) };
+        : {
+            game: Number(b.game),
+            version: Number(b.version),
+            ...(action === "mahjong-riichi" ? { index: Number(b.index) } : {}),
+          };
     await execute(action, body);
     return true;
   }

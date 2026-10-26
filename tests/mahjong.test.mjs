@@ -12,6 +12,9 @@ import {
   MAHJONG_START,
   MAHJONG_DISCARD,
   tenpaiMahjong,
+  declareRiichi,
+  riichiDiscards,
+  MAHJONG_RIICHI,
 } from "../public/mahjong-rules.js";
 
 function tiles(s) {
@@ -125,14 +128,182 @@ test("dealing uses four copies of 34 tiles, 69 replacements, a separate drawn ti
       g.hand.slice(0, 13).toSorted((a, b) => a - b),
     );
     const counts = Array(34).fill(0);
-    for (const t of [...g.hand, ...g.wall, g.indicator]) {
+    for (const t of [...g.hand, ...g.wall, g.indicator, g.uraIndicator]) {
       assert.ok(t >= 0 && t < 34);
       counts[t]++;
     }
     assert.ok(counts.every((n) => n <= 4));
     assert.equal("wall" in publicMahjong(g), false);
+    assert.equal("uraIndicator" in publicMahjong(g), false);
   }
   assert.equal(seats.size, 4);
+});
+
+test("Riichi options require a tenpai discard and four live tiles; first-discard declaration is double and locks the hand", () => {
+  const g = { ...pinfu(), wall: [24, 1, 2, 3, 8, 5, 6, 7, 24] };
+  g.hand[13] = 8;
+  assert.ok(
+    riichiDiscards(g).some((o) => o.index === 13 && o.waits.includes(24)),
+  );
+  assert.deepEqual(riichiDiscards({ ...g, wall: [1, 2, 3] }), []);
+  assert.equal(declareRiichi(g, 0), null);
+  const double = declareRiichi(g, 13);
+  assert.equal(double.riichi, 2);
+  assert.equal(double.ippatsu, true);
+  assert.equal(double.cost, 2100);
+  assert.equal(double.version, 1);
+  assert.equal(double.wall.length, 5);
+  assert.equal(scoreMahjong(double).han, 5);
+  assert.equal(scoreMahjong(double).payout, 8000);
+  assert.ok(
+    scoreMahjong(double).yaku.some(
+      (y) => y.name === "Double Riichi" && y.han === 2,
+    ),
+  );
+  assert.ok(
+    scoreMahjong(double).yaku.some((y) => y.name === "Ippatsu" && y.han === 1),
+  );
+  assert.equal(declareRiichi(double, 13), null);
+  assert.throws(() => replaceMahjong(double, 0), /newly drawn/);
+  const normal = declareRiichi({ ...g, discards: [0] }, 13);
+  assert.equal(normal.riichi, 1);
+  assert.equal(scoreMahjong(normal).han, 4);
+  assert.equal(scoreMahjong(normal).payout, 5200);
+  const miss = declareRiichi({ ...g, wall: [8, 1, 2, 3, 24, 5, 6, 7, 8] }, 13);
+  assert.equal(scoreMahjong(miss), null);
+  const laterWin = replaceMahjong(miss, 13);
+  assert.equal(laterWin.ippatsu, false);
+  assert.equal(scoreMahjong(laterWin).han, 4);
+  assert.equal(
+    scoreMahjong(laterWin).yaku.some((y) => y.name === "Ippatsu"),
+    false,
+  );
+});
+
+test("Riichi bonuses respect dealer limits, special hands and hidden ura-dora reveal", () => {
+  for (const seat of [0, 1, 2, 3]) {
+    const g = { ...pinfu(seat), riichi: 2, ippatsu: true, uraIndicator: 9 };
+    assert.equal(scoreMahjong(g).han, 5);
+    assert.equal(scoreMahjong(g).payout, seat === 0 ? 12000 : 8000);
+    const revealed = scoreMahjong(g, { revealUra: true });
+    assert.equal(revealed.han, 7);
+    assert.equal(revealed.payout, seat === 0 ? 18000 : 12000);
+    assert.equal(publicMahjong(g).uraIndicator, undefined);
+    assert.equal(publicMahjong(g).score.han, 5);
+    assert.equal(
+      publicMahjong({ ...g, status: "won", result: revealed }).uraIndicator,
+      9,
+    );
+    assert.equal(
+      publicMahjong({ ...g, status: "ended" }).uraIndicator,
+      undefined,
+    );
+    assert.equal(scoreMahjong({ ...g, riichi: 0 }, { revealUra: true }).han, 2);
+  }
+  const pairs = hand("m1199p2288s3377z11", "z1");
+  pairs.hand[13] = 28;
+  pairs.wall = [27, 1, 2, 3];
+  assert.ok(riichiDiscards(pairs).some((o) => o.index === 13));
+  assert.equal(scoreMahjong(declareRiichi(pairs, 13)).han, 6); // Opponents consume the last tile, so no haitei.
+});
+
+test("server declares Riichi atomically once, returns the winning stake once and records total net without leaking hidden tiles", (t) => {
+  const f = fixture(t),
+    a = f.start(),
+    { e, act } = f;
+  const g = { ...pinfu(), id: a.id, uraIndicator: 9, wall: [24, 1, 2, 3, 8] };
+  g.hand[13] = 8;
+  f.save(g);
+  const before = e.player("p"),
+    body = { game: a.id, version: 0, index: 13 };
+  const declared = act("mahjong-riichi", body, "riichi").mahjong;
+  assert.equal(
+    e.player("p").balance,
+    before.balance - MAHJONG_RIICHI - MAHJONG_DISCARD,
+  );
+  assert.equal(declared.riichi, 2);
+  assert.equal(declared.uraIndicator, undefined);
+  assert.deepEqual(act("mahjong-riichi", body, "riichi").mahjong, declared);
+  assert.throws(() => act("mahjong-riichi", body), /hand changed/);
+  assert.throws(
+    () => act("mahjong-discard", { game: a.id, version: 1, index: 0 }),
+    /newly drawn/,
+  );
+  const balance = e.player("p").balance;
+  const won = act(
+    "mahjong-tsumo",
+    { game: a.id, version: 1 },
+    "riichi-win",
+  ).mahjong;
+  assert.equal(won.result.han, 7);
+  assert.equal(won.result.payout, 12000);
+  assert.equal(won.riichiReturned, 1000);
+  assert.equal(won.payout, 13000);
+  assert.equal(e.player("p").balance, balance + 13000);
+  act("mahjong-tsumo", { game: a.id, version: 1 }, "riichi-win");
+  assert.equal(e.player("p").balance, balance + 13000);
+  assert.equal(e.player("p").earned, before.earned);
+  const row = e.economy.mahjong.history("p").items[0];
+  assert.equal(row.riichi, 2);
+  assert.equal(row.riichiReturned, 1000);
+  assert.equal(row.uraIndicator, 9);
+  assert.equal(row.cost, 2100);
+  assert.equal(row.net, 10900);
+  assert.equal(e.gameState("q").mahjong, null);
+});
+
+test("Riichi rejects invalid/late/stale/foreign/unaffordable declarations without changes and draw refunds exclude the Riichi stake", (t) => {
+  const f = fixture(t),
+    a = f.start(),
+    { e, act } = f;
+  const g = { ...pinfu(), id: a.id, wall: [8, 1, 2, 3] };
+  g.hand[13] = 8;
+  f.save(g);
+  const before = e.player("p").balance,
+    body = { game: a.id, version: 0, index: 13 };
+  assert.throws(() => act("mahjong-riichi", { ...body, index: 0 }), /tenpai/);
+  assert.throws(() => act("mahjong-riichi", body, undefined, "q"), /no active/);
+  e.run("UPDATE players SET balance=1099 WHERE id='p'");
+  const saved = e.economy.mahjong.read("p");
+  assert.throws(() => act("mahjong-riichi", body), /credits/i);
+  assert.deepEqual(e.economy.mahjong.read("p"), saved);
+  assert.equal(e.player("p").balance, 1099);
+  e.run("UPDATE players SET balance=? WHERE id='p'", before);
+  f.save({ ...g, wall: [1, 2, 3] });
+  assert.throws(() => act("mahjong-riichi", body), /four live/);
+  f.save(g);
+  const draw = act("mahjong-riichi", body, "draw-riichi").mahjong;
+  assert.equal(draw.status, "exhausted");
+  assert.equal(draw.tenpai, true);
+  assert.equal(draw.refund, 1000);
+  assert.equal(draw.payout, 1000);
+  assert.equal(e.player("p").balance, before - 1100 + 1000);
+  act("mahjong-riichi", body, "draw-riichi");
+  assert.equal(e.player("p").balance, before - 100);
+  assert.equal(draw.hand.length, 13);
+});
+
+test("Riichi UI enables only eligible selections and locks existing tiles after declaration", () => {
+  const raw = { ...pinfu(), id: 1, wall: [8, 1, 2, 3, 24] };
+  raw.hand[13] = 8;
+  let state = { me: { balance: 5000 }, mahjong: publicMahjong(raw) };
+  const ui = createMahjongUI({
+    getState: () => state,
+    escape: String,
+    number: String,
+  });
+  assert.match(ui.render(), /Call Double Riichi/);
+  ui.select(13);
+  assert.match(
+    ui.render(),
+    /data-action="mahjong-riichi"[^>]*data-index="13"\s*>/,
+  );
+  state = { ...state, mahjong: publicMahjong(declareRiichi(raw, 13)) };
+  assert.equal(ui.select(0), null);
+  assert.match(ui.render(), /Hand locked/);
+  assert.doesNotMatch(ui.render(), /data-action="mahjong-riichi"/);
+  assert.equal(ui.select(13), null);
+  assert.deepEqual(ui.select(13), { game: 1, version: 1, index: 13 });
 });
 
 function fixture(t) {

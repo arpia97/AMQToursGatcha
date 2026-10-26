@@ -7,6 +7,8 @@ import {
   MAHJONG_START,
   MAHJONG_DISCARD,
   exhaustMahjong,
+  declareRiichi,
+  MAHJONG_RIICHI,
 } from "../public/mahjong-rules.js";
 
 export class Mahjong {
@@ -62,6 +64,9 @@ export class Mahjong {
           result: detail.result || null,
           tenpai: detail.tenpai ?? null,
           refund: detail.refund || 0,
+          riichi: detail.riichi || 0,
+          riichiReturned: detail.riichiReturned || 0,
+          uraIndicator: detail.uraIndicator ?? null,
         };
       }),
     };
@@ -110,18 +115,41 @@ export class Mahjong {
         mahjong: this.save(player, next),
       };
     }
-    if (!["mahjong-discard", "mahjong-tsumo", "mahjong-end"].includes(action))
+    if (
+      ![
+        "mahjong-discard",
+        "mahjong-riichi",
+        "mahjong-tsumo",
+        "mahjong-end",
+      ].includes(action)
+    )
       fail("Unknown Mahjong action.", 404);
     if (!game || game.status !== "active")
       fail("There is no active Mahjong hand.", 409);
     if (body.game !== game.id || body.version !== game.version)
       fail("Your Mahjong hand changed. Refresh before acting.", 409);
-    if (action === "mahjong-discard") {
+    if (action === "mahjong-discard" || action === "mahjong-riichi") {
       integer(body.index, 0, 13);
       if (!game.wall.length)
         fail("The wall is empty. Claim tsumo or end this hand.", 409);
-      e.wallet(player, -MAHJONG_DISCARD, "Mahjong: discard and draw");
-      const next = replaceMahjong(game, body.index);
+      if (game.riichi && body.index !== 13)
+        fail("After Riichi, only the newly drawn tile may be discarded.", 409);
+      const declaring = action === "mahjong-riichi";
+      const next = declaring
+        ? declareRiichi(game, body.index)
+        : replaceMahjong(game, body.index);
+      if (!next)
+        fail(
+          "Riichi requires a tenpai-preserving discard, no previous Riichi, and at least four live tiles.",
+          409,
+        );
+      e.wallet(
+        player,
+        -(MAHJONG_DISCARD + (declaring ? MAHJONG_RIICHI : 0)),
+        declaring
+          ? "Mahjong: Riichi stake and discard/draw"
+          : "Mahjong: discard and draw",
+      );
       if (next.refund)
         e.wallet(player, next.refund, "Mahjong: tenpai entry fee refund");
       return {
@@ -130,16 +158,25 @@ export class Mahjong {
             ? next.tenpai
               ? "Tenpai! Your 1,000-credit hand fee was refunded."
               : "Not tenpai. The wall is empty. Start a new hand?"
-            : "Tile replaced. Three opponents also draw when tiles remain.",
+            : declaring
+              ? (next.riichi === 2 ? "Double Riichi" : "Riichi") +
+                " declared. Your hand is locked; ippatsu applies to this first draw."
+              : "Tile replaced. Three opponents also draw when tiles remain.",
         mahjong: this.save(player, next),
       };
     }
     if (action === "mahjong-tsumo") {
-      const score = scoreMahjong(game);
+      const score = scoreMahjong(game, { revealUra: true });
       if (!score) fail("This hand does not qualify for tsumo.", 409);
-      e.wallet(player, score.payout, "Mahjong: tsumo");
+      game.riichiReturned = game.riichi ? game.riichiStake || 0 : 0;
+      e.wallet(
+        player,
+        score.payout + game.riichiReturned,
+        "Mahjong: tsumo" +
+          (game.riichiReturned ? " and Riichi stake returned" : ""),
+      );
       game.status = "won";
-      game.payout = score.payout;
+      game.payout = score.payout + game.riichiReturned;
       game.result = score;
     } else {
       if (!game.wall.length) {
