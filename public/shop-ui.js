@@ -32,7 +32,7 @@ export function createShopUI(h, ui) {
   function listingCard(l, weekly = false) {
     const s = getState(),
       c = cardBy(l.card),
-      mine = l.seller === s.me?.id;
+      mine = !weekly && !!s.me && l.seller === s.me.id;
     const shortfall = s.me ? Math.max(0, l.price - s.me.balance) : 0;
     const action = weekly ? "shop-buy" : "buy-listing";
     const control = mine

@@ -125,6 +125,10 @@ test("shop exposes enhanced instant quotes, fixed-price listings, withdrawals, a
   assert.match(html, /Lv. 3/);
   state.me = null;
   state.inventory = [];
+  ui.shopSection = "buy";
+  html = shop.render();
+  assert.match(html, /Sign in to buy/);
+  assert.doesNotMatch(html, /data-action="cancel-listing"/);
   ui.shopSection = "sell";
   html = shop.render();
   assert.match(html, /Sign in/);
