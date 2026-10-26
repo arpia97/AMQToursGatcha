@@ -65,6 +65,80 @@ export class Mahjong {
     );
     return row ? JSON.parse(row.data) : null;
   }
+  reversalPreview(player, limit = 100) {
+    const e = this.e,
+      id = e.resolvePlayer(String(player || '').trim());
+    integer(limit, 1, 100);
+    e.player(id);
+    const rounds = e.all(
+      "SELECT id,stake,payout FROM gambling_rounds WHERE player=? AND game='mahjong' ORDER BY id DESC LIMIT ?",
+      id,
+      limit,
+    );
+    const current = this.read(id);
+    const active =
+      current?.status === "active"
+        ? { id: current.id, version: current.version }
+        : null;
+    const adjustment = rounds.reduce((sum, r) => sum + r.stake - r.payout, 0);
+    return {
+      player: id,
+      limit,
+      count: rounds.length,
+      rounds,
+      active,
+      adjustment,
+      balance: e.player(id).balance,
+    };
+  }
+  reverse(body) {
+    const e = this.e,
+      p = this.reversalPreview(body.player, body.limit);
+    if (body.confirmation !== `REVERT MAHJONG ${p.player} ${p.limit}`)
+      fail("Exact Mahjong reversal confirmation required.");
+    if (!p.count) fail("There are no Mahjong hands to reverse.", 409);
+    if (
+      JSON.stringify(body.expectedRounds) !== JSON.stringify(p.rounds) ||
+      JSON.stringify(body.expectedActive) !== JSON.stringify(p.active)
+    )
+      fail(
+        "The selected Mahjong hands changed. Preview again before reversing.",
+        409,
+      );
+    if (p.balance + p.adjustment < 0)
+      fail(
+        "This reversal would make the balance negative. No changes applied.",
+        409,
+      );
+    const ids = p.rounds.map((r) => r.id),
+      slots = ids.map(() => "?").join(",");
+    if (p.adjustment)
+      e.wallet(
+        p.player,
+        p.adjustment,
+        `Host reversal: latest ${p.count} Mahjong hands`,
+      );
+    e.run(
+      `UPDATE gambling_rounds SET game='mahjong-reverted' WHERE player=? AND id IN (${slots})`,
+      p.player,
+      ...ids,
+    );
+    e.run(
+      `UPDATE receipts SET result='{"message":"This Mahjong action was already applied and its hand was later reverted by the host."}' WHERE json_extract(result,'$.mahjong.id') IS NOT NULL AND json_extract(result,'$.mahjong.id') IN (${slots})`,
+      ...ids,
+    );
+    const current = this.read(p.player);
+    if (current && ids.includes(current.id))
+      e.run("DELETE FROM mahjong_games WHERE player=?", p.player);
+    return {
+      message: `Reverted ${p.count} Mahjong hands.`,
+      player: p.player,
+      count: p.count,
+      roundIds: ids,
+      adjustment: p.adjustment,
+      balance: e.player(p.player).balance,
+    };
+  }
   state(player) {
     return player ? publicMahjong(this.read(player)) : null;
   }

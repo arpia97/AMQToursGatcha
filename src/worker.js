@@ -274,6 +274,20 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      if (path === "host/mahjong-reversal-preview" && !post)
+        return json(
+          e.economy.mahjong.reversalPreview(
+            url.searchParams.get("player"),
+            Number(url.searchParams.get("limit") || 100),
+          ),
+        );
+      if (path === "host/mahjong-reversal-receipt" && !post) {
+        const r = e.one(
+          "SELECT result FROM receipts WHERE scope='host:host/mahjong-revert' AND key=?",
+          text(url.searchParams.get("key"), 100),
+        );
+        return json({ result: r ? JSON.parse(r.result) : null });
+      }
       if (path === "host/state" && !post)
         return json({
           players: e.all(

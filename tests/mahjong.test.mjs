@@ -959,3 +959,54 @@ test("one-time retention migration caps existing players and compacts old receip
   assert.equal(r.input, "{}");
   assert.equal(JSON.parse(r.result).mahjong, undefined);
 });
+
+test("host Mahjong reversal restores net costs once, preserves other games/earned/cards, excludes reverted ranks and fences activity", (t) => {
+  const f = fixture(t),
+    { e, act } = f;
+  const first = f.start();
+  act("mahjong-end", { game: first.id, version: 0 });
+  const second = f.start();
+  act("mahjong-end", { game: second.id, version: 0 });
+  const third = f.start();
+  const preview = e.economy.mahjong.reversalPreview("p", 2);
+  assert.equal(preview.count, 2);
+  assert.equal(preview.adjustment, 2000);
+  const body = {
+    player: "p",
+    limit: 2,
+    confirmation: "REVERT MAHJONG p 2",
+    expectedRounds: preview.rounds,
+    expectedActive: preview.active,
+  };
+  const reverse = (key = "reversal") =>
+    e.mutate("host:host/mahjong-revert", key, body, () =>
+      e.host("mahjong-revert", body),
+    );
+  const before = e.player("p");
+  const result = reverse();
+  assert.equal(result.balance, before.balance + 2000);
+  assert.equal(e.player("p").earned, before.earned);
+  assert.equal(e.economy.mahjong.state("p"), null);
+  assert.equal(
+    e.one(
+      "SELECT count(*) n FROM gambling_rounds WHERE game='mahjong-reverted'",
+    ).n,
+    2,
+  );
+  assert.equal(e.economy.rankings("gambling_lost").rows[0].value, -1000);
+  assert.deepEqual(reverse(), result);
+  assert.equal(e.player("p").balance, result.balance);
+  assert.throws(() => reverse("new-key"), /changed/);
+  assert.equal(e.economy.mahjong.history("p").items.length, 1);
+  const g = f.start(),
+    stale = e.economy.mahjong.reversalPreview("p", 1);
+  act("mahjong-discard", { game: g.id, version: 0, index: 13 });
+  const input = {
+    player: "p",
+    limit: 1,
+    confirmation: "REVERT MAHJONG p 1",
+    expectedRounds: stale.rounds,
+    expectedActive: stale.active,
+  };
+  assert.throws(() => e.tx(() => e.host("mahjong-revert", input)), /changed/);
+});

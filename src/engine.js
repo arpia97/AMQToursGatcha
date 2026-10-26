@@ -418,6 +418,7 @@ export class Engine {
         fail("Type REFRESH WEEKLY SELECTIONS to confirm.");
       return this.economy.refreshWeekly();
     }
+    if (action === "mahjong-revert") return this.economy.mahjong.reverse(b);
     if (action === "players") {
       if (!Array.isArray(b.players) || b.players.length > 5000)
         fail("Import up to 5,000 player rows.");
