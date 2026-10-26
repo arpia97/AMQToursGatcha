@@ -198,6 +198,10 @@ test("source accounting keeps earlier totals unattributed, persists breakdown an
     rowsWritten: 2,
   });
   assert.equal(saved.rowsRead, 114);
+  const snapshot = b.status();
+  b.observe(3, 0);
+  assert.equal(snapshot.rowsRead, 114);
+  assert.equal(snapshot.sources.requests.rowsRead, 4);
   const restored = new SqlBudget(
     () => saved,
     () => {},

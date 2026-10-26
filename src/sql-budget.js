@@ -50,7 +50,7 @@ export class SqlBudget {
   status() {
     const paused = this.paused();
     return {
-      ...this.value,
+      ...structuredClone(this.value),
       backgroundPaused: paused,
       nextResumeAt: paused ? nextBudgetDay(this.now()) : null,
     };
