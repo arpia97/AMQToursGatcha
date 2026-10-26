@@ -6,7 +6,7 @@ await mkdir(new URL("public/vendor/", root), { recursive: true });
 const result = await build({
   stdin: {
     contents: `export { default as Shoupai } from './node_modules/@kobalab/majiang-core/lib/shoupai.js';
-export { hule } from './node_modules/@kobalab/majiang-core/lib/hule.js';
+export { hule, hule_mianzi } from './node_modules/@kobalab/majiang-core/lib/hule.js';
 export { xiangting, tingpai } from './node_modules/@kobalab/majiang-core/lib/xiangting.js';
 export { default as rule } from './node_modules/@kobalab/majiang-core/lib/rule.js';`,
     resolveDir: fileURLToPath(root),

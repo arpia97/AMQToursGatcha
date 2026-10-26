@@ -17,6 +17,7 @@ import {
   exhaustMahjong,
   declareRiichi,
   MAHJONG_RIICHI,
+  kanMahjong,
 } from "./mahjong-rules.js";
 // Browser-only examples. The shared economy never reads this state.
 export function demoFeatures(d, path, b) {
@@ -94,7 +95,7 @@ export function demoFeatures(d, path, b) {
     if (!Number.isSafeInteger(page) || page < 1 || page > 10000)
       throw Error("Choose a valid history page.");
     const rows = (s.gambling || [])
-      .filter((r) => r.game === "mahjong")
+      .filter((r) => r.game === "mahjong" && r.status !== "archived")
       .map((r) => {
         const detail = s._mahjong?.id === r.id ? publicMahjong(s._mahjong) : r;
         return {
@@ -147,15 +148,22 @@ export function demoFeatures(d, path, b) {
         g.version !== b.version
       )
         throw Error("Your Mahjong hand changed. Refresh before acting.");
-      if (path === "mahjong-discard" || path === "mahjong-riichi") {
+      if (path === "mahjong-kan") {
+        const next = kanMahjong(g, b.tile);
+        if (!next)
+          throw Error("This Kan is not legal or no replacement remains.");
+        g = next;
+        if (g.refund)
+          d.wallet(g.refund, "Demo Mahjong: tenpai entry fee refund");
+      } else if (path === "mahjong-discard" || path === "mahjong-riichi") {
         if (
           !Number.isInteger(b.index) ||
           b.index < 0 ||
-          b.index > 13 ||
+          b.index >= g.hand.length ||
           !g.wall.length
         )
           throw Error("Choose a tile while replacements remain.");
-        if (g.riichi && b.index !== 13)
+        if (g.riichi && b.index !== g.hand.length - 1)
           throw Error(
             "After Riichi, only the newly drawn tile may be discarded.",
           );
@@ -192,6 +200,23 @@ export function demoFeatures(d, path, b) {
         } else g.status = "ended";
         g.version++;
       } else throw Error("Unknown Mahjong action.");
+    }
+    const prior = s.gambling
+      .filter((r) => r.game === "mahjong")
+      .sort((a, b) => b.id - a.id)
+      .slice(50);
+    for (const r of prior) {
+      const { id, at, game, stake, payout, net } = r;
+      Object.keys(r).forEach((k) => delete r[k]);
+      Object.assign(r, {
+        id,
+        at,
+        game,
+        stake,
+        payout,
+        net,
+        status: "archived",
+      });
     }
     s._mahjong = g;
     s.mahjong = publicMahjong(g);

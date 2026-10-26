@@ -1260,10 +1260,15 @@ async function handleFeatureClick(a, t) {
         game: Number(t.dataset.game),
         version: Number(t.dataset.version),
       };
+      if (a === "mahjong-kan") {
+        body.tile = Number(t.dataset.tile);
+        await execute(a, body);
+        return true;
+      }
       if (a === "mahjong-riichi") {
         const index = Number(t.dataset.index);
         modal(
-          `<h2>Declare ${state.mahjong.discards.length === 0 ? "Double Riichi" : "Riichi"}?</h2><p>Lock your hand, discard the selected tile and draw. Pay <strong>✦ ${number(MAHJONG_RIICHI)} Riichi stake + ✦ ${number(MAHJONG_DISCARD)} discard/draw fee</strong> (✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)} total). The stake returns on a winning tsumo. After declaring, only newly drawn tiles can be discarded.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-riichi"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><input type="hidden" name="index" value="${index}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Declare & draw · ✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)}</button></form>`,
+          `<h2>Declare ${state.mahjong.discards.length === 0 && !state.mahjong.melds?.length ? "Double Riichi" : "Riichi"}?</h2><p>Lock your hand, discard the selected tile and draw. Pay <strong>✦ ${number(MAHJONG_RIICHI)} Riichi stake + ✦ ${number(MAHJONG_DISCARD)} discard/draw fee</strong> (✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)} total). The stake returns on a winning tsumo. After declaring, only newly drawn tiles can be discarded.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-riichi"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><input type="hidden" name="index" value="${index}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Declare & draw · ✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)}</button></form>`,
         );
         return true;
       }

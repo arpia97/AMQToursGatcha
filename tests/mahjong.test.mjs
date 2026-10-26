@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
-import { createMahjongUI } from "../public/mahjong-ui.js";
+import { createMahjongUI, tileName, tileFace } from "../public/mahjong-ui.js";
 import {
   dealMahjong,
   replaceMahjong,
@@ -15,6 +15,11 @@ import {
   declareRiichi,
   riichiDiscards,
   MAHJONG_RIICHI,
+  mahjongTilePool,
+  kanOptions,
+  kanMahjong,
+  tileBase,
+  tileSort,
 } from "../public/mahjong-rules.js";
 
 function tiles(s) {
@@ -125,12 +130,12 @@ test("dealing uses four copies of 34 tiles, 69 replacements, a separate drawn ti
     assert.equal(g.wall.length, 69);
     assert.deepEqual(
       g.hand.slice(0, 13),
-      g.hand.slice(0, 13).toSorted((a, b) => a - b),
+      g.hand.slice(0, 13).toSorted(tileSort),
     );
     const counts = Array(34).fill(0);
     for (const t of [...g.hand, ...g.wall, g.indicator, g.uraIndicator]) {
-      assert.ok(t >= 0 && t < 34);
-      counts[t]++;
+      assert.ok(t >= 0 && t <= 36);
+      counts[tileBase(t)]++;
     }
     assert.ok(counts.every((n) => n <= 4));
     assert.equal("wall" in publicMahjong(g), false);
@@ -706,4 +711,251 @@ test("host reset scopes clear saved Mahjong hands while retaining the catalogue"
   assert.equal(e.state("q").mahjong, null);
   assert.ok(e.catalogStore.card("kept"));
   assert.equal(e.one("SELECT count(*) n FROM mahjong_games").n, 0);
+});
+
+const kanHand = () => ({
+  ...hand("m123p456s789z15555", "z5"),
+  wall: [5, 6, 7, 8, 9],
+  rinshanTiles: [27, 2, 3, 4],
+  nextIndicators: [
+    [8, 9],
+    [10, 11],
+    [12, 13],
+    [14, 15],
+  ],
+  indicators: [33],
+  uraIndicators: [33],
+  uraIndicator: 33,
+  melds: [],
+  deadWallTail: [],
+});
+test("new pool replaces exactly one five per suit with a red five while preserving 136 tiles and four of each face", () => {
+  const pool = mahjongTilePool();
+  assert.equal(pool.length, 136);
+  for (let t = 0; t < 34; t++)
+    assert.equal(pool.filter((x) => tileBase(x) === t).length, 4);
+  for (const r of [34, 35, 36])
+    assert.equal(pool.filter((t) => t === r).length, 1);
+  const g = pinfu();
+  g.hand[g.hand.indexOf(13)] = 35;
+  assert.equal(scoreMahjong(g).han, 3);
+  assert.ok(
+    scoreMahjong(g).yaku.some((y) => y.name === "Aka-dora" && y.han === 1),
+  );
+  g.indicator = 12;
+  assert.equal(scoreMahjong(g).han, 4); // Red five also matches the normal dora indicator.
+  const invalid = { ...g, hand: [34, 34, ...g.hand.slice(2)] };
+  assert.equal(scoreMahjong(invalid), null);
+  assert.ok(tenpaiMahjong(g.hand.slice(0, -1))?.waits.includes(24));
+  assert.equal(tileName(34), "Red 5 man");
+  assert.equal(tileName(35), "Red 5 pin");
+  assert.equal(tileName(36), "Red 5 sou");
+  assert.match(tileFace(34), /0m.svg/);
+  assert.match(tileFace(35), /0p.svg/);
+  assert.match(tileFace(36), /0s.svg/);
+});
+test("concealed Kan draws from the dead wall, reveals another indicator, pays no fee and scores rinshan without haitei", () => {
+  const g = kanHand(),
+    before = structuredClone(g);
+  assert.ok(kanOptions(g).some((o) => o.tile === 31));
+  const k = kanMahjong(g, 31);
+  assert.deepEqual(g, before);
+  assert.equal(k.hand.length, 11);
+  assert.equal(k.hand.at(-1), 27);
+  assert.equal(k.melds[0].length, 4);
+  assert.equal(k.wall.length, 4);
+  assert.equal(k.deadWallTail[0], 9);
+  assert.equal(k.rinshanTiles.length, 3);
+  assert.equal(k.indicators.length, 2);
+  assert.equal(k.uraIndicators.length, 2);
+  assert.equal(k.cost, g.cost);
+  assert.equal(k.version, 1);
+  const score = scoreMahjong(k);
+  assert.ok(score);
+  assert.ok(score.yaku.some((y) => y.name === "Rinshan kaihou"));
+  assert.ok(score.yaku.some((y) => y.name === "Menzen tsumo"));
+  assert.equal(
+    score.yaku.some((y) => y.name === "Haitei"),
+    false,
+  );
+  const exposed = publicMahjong(k);
+  for (const f of [
+    "wall",
+    "nextIndicators",
+    "uraIndicators",
+    "rinshanTiles",
+    "deadWallTail",
+  ])
+    assert.equal(exposed[f], undefined);
+  const last = kanMahjong({ ...g, wall: [3] }, 31);
+  assert.equal(last.status, "active");
+  assert.equal(last.lastDrawFinal, false);
+  assert.ok(scoreMahjong(last));
+  assert.equal(kanMahjong({ ...g, wall: [] }, 31), null);
+  assert.equal(kanMahjong({ ...g, rinshanTiles: [] }, 31), null);
+  assert.equal(kanMahjong({ ...g, rinshanTiles: undefined }, 31), null); // Older hands keep their original pool.
+  const after = replaceMahjong({ ...k, wall: [...k.wall, 1, 2, 3, 4] }, 10);
+  assert.equal(after.rinshan, false);
+  assert.equal(after.hand.length, 11);
+});
+test("Kan after Riichi requires a drawn fourth tile and unchanged waits/interpretations, cancels ippatsu, and later Riichi is not double", () => {
+  const g = { ...kanHand(), riichi: 1, ippatsu: true };
+  const k = kanMahjong(g, 31);
+  assert.ok(k);
+  assert.equal(k.ippatsu, false);
+  assert.equal(k.riichi, 1);
+  const score = scoreMahjong(k);
+  assert.ok(score.yaku.some((y) => y.name === "Riichi"));
+  assert.equal(
+    score.yaku.some((y) => y.name === "Ippatsu"),
+    false,
+  );
+  const wrongDraw = { ...g, hand: g.hand.slice() };
+  [wrongDraw.hand[0], wrongDraw.hand[13]] = [
+    wrongDraw.hand[13],
+    wrongDraw.hand[0],
+  ];
+  assert.equal(kanMahjong(wrongDraw, 31), null);
+  const changed = { ...g, hand: tiles("m11122233334455") };
+  assert.equal(kanMahjong(changed, 2), null);
+  assert.ok(riichiDiscards({ ...k, riichi: 0 }).length);
+  const option = riichiDiscards({ ...k, riichi: 0 })[0];
+  assert.equal(declareRiichi({ ...k, riichi: 0 }, option.index).riichi, 1);
+});
+test("Kan endpoint preserves cost, rejects stale/foreign/impossible calls and persists melds through history and retries", (t) => {
+  const f = fixture(t),
+    a = f.start(),
+    { e, act } = f;
+  f.save({ ...kanHand(), id: a.id });
+  const balance = e.player("p").balance;
+  const body = { game: a.id, version: 0, tile: 31 };
+  assert.throws(() => act("mahjong-kan", body, undefined, "q"), /no active/);
+  assert.throws(() => act("mahjong-kan", { ...body, tile: 0 }), /not legal/);
+  const k = act("mahjong-kan", body, "kan").mahjong;
+  assert.equal(k.cost, 1000);
+  assert.equal(e.player("p").balance, balance);
+  assert.deepEqual(act("mahjong-kan", body, "kan").mahjong, k);
+  assert.throws(() => act("mahjong-kan", body), /hand changed/);
+  const won = act("mahjong-tsumo", { game: a.id, version: 1 }).mahjong;
+  assert.equal(won.melds.length, 1);
+  const row = e.economy.mahjong.history("p").items[0];
+  assert.equal(row.melds[0].length, 4);
+  assert.equal(row.indicators.length, 2);
+});
+test("only latest50 Mahjong hands retain details; old financial totals and idempotency protection survive archiving", (t) => {
+  const f = fixture(t),
+    { e, act } = f;
+  let oldBody = { previousGame: null };
+  for (let i = 0; i < 60; i++) {
+    const current = e.economy.mahjong.read("p");
+    const b = { previousGame: current?.id ?? null };
+    const g = act(
+      "mahjong-start",
+      b,
+      i === 0 ? "old-start" : crypto.randomUUID(),
+    ).mahjong;
+    act("mahjong-end", { game: g.id, version: 0 });
+  }
+  assert.equal(
+    e.one("SELECT count(*) n FROM gambling_rounds WHERE game='mahjong'").n,
+    60,
+  );
+  assert.equal(
+    e.one(
+      "SELECT count(*) n FROM gambling_rounds WHERE game='mahjong' AND json_extract(outcome,'$.status')!='archived'",
+    ).n,
+    50,
+  );
+  const rows = [1, 2, 3, 4, 5].flatMap(
+    (page) => e.economy.mahjong.history("p", page).items,
+  );
+  assert.equal(rows.length, 50);
+  assert.equal(e.economy.mahjong.history("p", 6).items.length, 0);
+  const balance = e.player("p").balance,
+    rank = e.economy.rankings("gambling_lost").rows[0].value;
+  assert.match(
+    act("mahjong-start", oldBody, "old-start").message,
+    /already applied/,
+  );
+  assert.equal(e.player("p").balance, balance);
+  assert.equal(e.economy.rankings("gambling_lost").rows[0].value, rank);
+  assert.equal(rank, -60000);
+  const receipt = e.one(
+    "SELECT result FROM receipts WHERE scope='p:mahjong-start' AND key='old-start'",
+  );
+  assert.equal(JSON.parse(receipt.result).mahjong, undefined);
+});
+
+test("successive Kans shorten the concealed hand and stack dora/ura indicators without changing physical red fives", () => {
+  assert.deepEqual(
+    tenpaiMahjong(tiles("m23p456s789z11"), [tiles("m1111")]).waits,
+    [3],
+  );
+  const g = {
+    ...kanHand(),
+    hand: tiles("m1111p2222s345z11m2"),
+    rinshanTiles: [2, 3, 4, 5],
+    wall: [1, 2, 3, 4, 5, 6, 7, 8],
+  };
+  const a = kanMahjong(g, 0);
+  assert.equal(a.hand.length, 11);
+  assert.equal(a.indicators.length, 2);
+  const b = kanMahjong(a, 10);
+  assert.equal(b.hand.length, 8);
+  assert.equal(b.indicators.length, 3);
+  assert.equal(b.uraIndicators.length, 3);
+  assert.ok(scoreMahjong(b));
+  assert.equal(b.melds.length, 2);
+  assert.equal(b.wall.length, 6);
+  const next = replaceMahjong(b, 7);
+  assert.equal(next.hand.length, 8);
+  assert.equal(next.rinshan, false);
+  const red = {
+    ...kanHand(),
+    hand: tiles("m5555p123s456z1112"),
+    rinshanTiles: [28, 2, 3, 4],
+  };
+  red.hand[red.hand.indexOf(4)] = 34;
+  const k = kanMahjong(red, 4);
+  assert.ok(k);
+  assert.ok(k.melds[0].includes(34));
+  assert.ok(scoreMahjong(k)?.yaku.some((y) => y.name === "Aka-dora"));
+});
+test("one-time retention migration caps existing players and compacts old receipts while preserving amounts and keys", (t) => {
+  const f = fixture(t),
+    { e } = f;
+  for (let i = 0; i < 55; i++)
+    e.run(
+      "INSERT INTO gambling_rounds(player,game,stake,payout,net,outcome,at) VALUES('q','mahjong',1000,0,-1000,?,?)",
+      JSON.stringify({ status: "ended", hand: [1, 2, 3], discards: [4] }),
+      i,
+    );
+  const old = e.one(
+    "SELECT min(id) id FROM gambling_rounds WHERE player='q'",
+  ).id;
+  e.run(
+    "INSERT INTO receipts VALUES('q:mahjong-end','old','{}',?,0)",
+    JSON.stringify({ mahjong: { id: old, hand: [1, 2, 3] } }),
+  );
+  e.run("DELETE FROM catalog_meta WHERE key='mahjong-history-retention'");
+  const restarted = new Engine(
+    (s, ...a) => f.db.prepare(s).all(...a),
+    f.transaction,
+  );
+  assert.equal(restarted.economy.mahjong.history("q", 1).items.length, 10);
+  assert.equal(
+    e.one(
+      "SELECT count(*) n FROM gambling_rounds WHERE player='q' AND json_extract(outcome,'$.status')='archived'",
+    ).n,
+    5,
+  );
+  assert.equal(
+    e.one("SELECT sum(stake) n FROM gambling_rounds WHERE player='q'").n,
+    55000,
+  );
+  const r = e.one(
+    "SELECT * FROM receipts WHERE scope='q:mahjong-end' AND key='old'",
+  );
+  assert.equal(r.input, "{}");
+  assert.equal(JSON.parse(r.result).mahjong, undefined);
 });

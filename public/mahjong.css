@@ -171,6 +171,32 @@
   width: 44px;
   margin-top: 12px;
 }
+.mj-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 260px;
+}
+.mj-melds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 16px 0;
+}
+.mj-melds small {
+  display: block;
+  color: #b5c7bb;
+  font-size: 10px;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.mj-melds > div > div {
+  display: flex;
+  gap: 3px;
+}
+.mj-melds .mj-tile {
+  width: clamp(28px, 4vw, 45px);
+}
 .mj-actions {
   border-top: 1px solid #58827355;
   padding-top: 20px;

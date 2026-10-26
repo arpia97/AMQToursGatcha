@@ -9,6 +9,7 @@ import {
   exhaustMahjong,
   declareRiichi,
   MAHJONG_RIICHI,
+  kanMahjong,
 } from "../public/mahjong-rules.js";
 
 export class Mahjong {
@@ -19,6 +20,42 @@ export class Mahjong {
     );
     e.run(
       "CREATE INDEX IF NOT EXISTS gambling_history ON gambling_rounds(player,game,id)",
+    );
+    e.run(
+      "CREATE INDEX IF NOT EXISTS mahjong_receipt_hand ON receipts(json_extract(result,'$.mahjong.id')) WHERE json_extract(result,'$.mahjong.id') IS NOT NULL",
+    );
+    if (
+      !e.one(
+        "SELECT key FROM catalog_meta WHERE key='mahjong-history-retention'",
+      )
+    )
+      e.tx(() => {
+        this.prune();
+        e.run(
+          "INSERT INTO catalog_meta VALUES('mahjong-history-retention','50')",
+        );
+      });
+  }
+  prune(player = null) {
+    const e = this.e;
+    const old = player
+      ? "SELECT id FROM gambling_rounds WHERE player=? AND game='mahjong' ORDER BY id DESC LIMIT -1 OFFSET 50"
+      : "SELECT id FROM (SELECT id,row_number() OVER(PARTITION BY player ORDER BY id DESC) AS n FROM gambling_rounds WHERE game='mahjong') WHERE n>50";
+    const args = player ? [player] : [];
+    // Preserve economic totals and idempotency keys; only hand detail is removed.
+    const scopes = player
+      ? ["start", "discard", "riichi", "kan", "tsumo", "end"].map(
+          (a) => player + ":mahjong-" + a,
+        )
+      : [];
+    e.run(
+      `UPDATE receipts SET result='{"message":"This Mahjong action was already applied. Older hand details were archived."}' WHERE ${player ? "scope IN (" + scopes.map(() => "?").join(",") + ") AND " : ""}json_extract(result,'$.mahjong.id') IS NOT NULL AND json_extract(result,'$.mahjong.id') IN (${old})`,
+      ...scopes,
+      ...args,
+    );
+    e.run(
+      `UPDATE gambling_rounds SET outcome='{"status":"archived"}' WHERE id IN (${old}) AND outcome!='{"status":"archived"}'`,
+      ...args,
     );
   }
   read(player) {
@@ -67,6 +104,11 @@ export class Mahjong {
           riichi: detail.riichi || 0,
           riichiReturned: detail.riichiReturned || 0,
           uraIndicator: detail.uraIndicator ?? null,
+          uraIndicators: detail.uraIndicators || [],
+          indicators:
+            detail.indicators ||
+            (detail.indicator == null ? [] : [detail.indicator]),
+          melds: detail.melds || [],
         };
       }),
     };
@@ -87,6 +129,7 @@ export class Mahjong {
       game.id,
       player,
     );
+    if (game.version === 0) this.prune(player);
     return visible;
   }
   action(player, action, body) {
@@ -119,6 +162,7 @@ export class Mahjong {
       ![
         "mahjong-discard",
         "mahjong-riichi",
+        "mahjong-kan",
         "mahjong-tsumo",
         "mahjong-end",
       ].includes(action)
@@ -128,11 +172,30 @@ export class Mahjong {
       fail("There is no active Mahjong hand.", 409);
     if (body.game !== game.id || body.version !== game.version)
       fail("Your Mahjong hand changed. Refresh before acting.", 409);
+    if (action === "mahjong-kan") {
+      const next = kanMahjong(game, integer(body.tile, 0, 33));
+      if (!next)
+        fail(
+          "This concealed Kan is not legal, or no dead-wall replacement is available.",
+          409,
+        );
+      if (next.refund)
+        e.wallet(player, next.refund, "Mahjong: tenpai entry fee refund");
+      return {
+        message:
+          next.status === "exhausted"
+            ? next.tenpai
+              ? "Tenpai! Your 1,000-credit hand fee was refunded."
+              : "Not tenpai. Start a new hand?"
+            : "Kan! Replacement drawn from the dead wall; a new dora indicator is revealed.",
+        mahjong: this.save(player, next),
+      };
+    }
     if (action === "mahjong-discard" || action === "mahjong-riichi") {
-      integer(body.index, 0, 13);
+      integer(body.index, 0, game.hand.length - 1);
       if (!game.wall.length)
         fail("The wall is empty. Claim tsumo or end this hand.", 409);
-      if (game.riichi && body.index !== 13)
+      if (game.riichi && body.index !== game.hand.length - 1)
         fail("After Riichi, only the newly drawn tile may be discarded.", 409);
       const declaring = action === "mahjong-riichi";
       const next = declaring
