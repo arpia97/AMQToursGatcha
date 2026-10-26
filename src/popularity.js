@@ -38,8 +38,10 @@ export class Popularity {
   sync(kind, entries) {
     const buckets = new Map(),
       hist = this.histogram(kind),
-      known = new Map();
-    let changed = 0;
+      known = new Map(),
+      dirty = new Set();
+    let changed = 0,
+      histogramChanged = false;
     for (const [id, favorites] of entries) {
       if (!validFavorites(favorites)) continue;
       const match = identity(id);
@@ -57,6 +59,7 @@ export class Popularity {
       )
         continue;
       if (old?.favorites !== favorites) {
+        histogramChanged = true;
         if (old) {
           hist[old.favorites]--;
           if (!hist[old.favorites]) delete hist[old.favorites];
@@ -64,21 +67,23 @@ export class Popularity {
         hist[favorites] = (hist[favorites] || 0) + 1;
       }
       data[id] = { favorites, checkedAt: this.e.now() };
+      dirty.add(b);
       changed++;
     }
     if (changed) {
-      for (const [b, data] of buckets)
+      for (const b of dirty)
         this.e.run(
           "INSERT OR REPLACE INTO catalog_popularity VALUES(?,?,?)",
           kind,
           b,
-          JSON.stringify(data),
+          JSON.stringify(buckets.get(b)),
         );
-      this.e.run(
-        "INSERT OR REPLACE INTO catalog_meta VALUES(?,?)",
-        "popularity-" + kind,
-        JSON.stringify(hist),
-      );
+      if (histogramChanged)
+        this.e.run(
+          "INSERT OR REPLACE INTO catalog_meta VALUES(?,?)",
+          "popularity-" + kind,
+          JSON.stringify(hist),
+        );
     }
     return changed;
   }

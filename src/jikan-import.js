@@ -21,6 +21,9 @@ export class JikanImport {
     this.e = engine;
     this.get = get;
   }
+  tx(fn) {
+    return this.e.track("catalogImport", () => this.e.tx(fn));
+  }
   read() {
     const row = this.e.one("SELECT value FROM catalog_meta WHERE key=?", KEY);
     return row ? JSON.parse(row.value) : null;
@@ -118,7 +121,7 @@ export class JikanImport {
     return this.status();
   }
   start() {
-    return this.e.tx(() => {
+    return this.tx(() => {
       const old = this.read();
       if (
         (active(old) && old.provider === VOICE_SOURCE.name) ||
@@ -166,7 +169,7 @@ export class JikanImport {
     });
   }
   pause() {
-    return this.e.tx(() => {
+    return this.tx(() => {
       const s = this.read();
       if (!s) return this.status();
       s.status = "paused";
@@ -179,7 +182,7 @@ export class JikanImport {
     });
   }
   async step() {
-    const claimed = this.e.tx(() => {
+    const claimed = this.tx(() => {
       const s = this.read(),
         now = this.e.now();
       if (!active(s) || s.nextAt > now || s.leaseUntil > now) return null;
@@ -219,7 +222,7 @@ export class JikanImport {
     } catch (err) {
       error = err;
     }
-    return this.e.tx(() => {
+    return this.tx(() => {
       const s = this.read(),
         now = this.e.now();
       if (

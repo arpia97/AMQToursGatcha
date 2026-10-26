@@ -78,11 +78,21 @@ export class Game extends DurableObject {
     this.ctx = ctx;
     this.env = env;
     this.bursts = new BurstLimits();
+    const startup = { read: 0, written: 0 };
     this.engine = new Engine(
       (s, ...a) => {
         const cursor = ctx.storage.sql.exec(s, ...a),
           rows = [...cursor];
-        this.budget?.observe(cursor.rowsRead, cursor.rowsWritten);
+        if (this.budget)
+          this.budget.observe(
+            cursor.rowsRead,
+            cursor.rowsWritten,
+            this.engine.usageSource || "requests",
+          );
+        else {
+          startup.read += cursor.rowsRead;
+          startup.written += cursor.rowsWritten;
+        }
         return rows;
       },
       (fn) => ctx.storage.transactionSync(fn),
@@ -104,6 +114,7 @@ export class Game extends DurableObject {
           JSON.stringify(value),
         ),
     );
+    this.budget.observe(startup.read, startup.written, "startup");
   }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.
@@ -111,27 +122,33 @@ export class Game extends DurableObject {
       await this.ctx.storage.setAlarm(Date.now() + 65000);
     if (!this.budget.paused()) await this.jikan.step();
     await this.aliases.step();
-    this.engine.tx(() => this.engine.economy.fundStarters());
+    this.engine.track("maintenance", () =>
+      this.engine.tx(() => this.engine.economy.fundStarters()),
+    );
     if (!this.budget.paused())
-      this.engine.tx(() => this.engine.economy.anime.step());
-    const next = this.engine.ensureAuctions();
-    this.cleanup();
+      this.engine.track("indexing", () =>
+        this.engine.tx(() => this.engine.economy.anime.step()),
+      );
+    const next = this.engine.track("maintenance", () =>
+      this.engine.ensureAuctions(),
+    );
+    this.engine.track("maintenance", () => this.cleanup());
     this.budget.flush(true);
     await this.scheduleAlarm(next);
   }
   async scheduleAlarm(auctionEnd = this.engine.ensureAuctions()) {
-    await this.ctx.storage.setAlarm(
-      Math.min(
-        auctionEnd,
-        this.budget.paused()
-          ? nextBudgetDay(Date.now())
-          : this.jikan.nextAlarm() || Infinity,
-        this.aliases.nextAlarm() || Infinity,
-        this.budget.paused()
-          ? Infinity
-          : this.engine.economy.anime.nextAlarm() || Infinity,
-      ),
+    const next = Math.min(
+      auctionEnd,
+      this.budget.paused()
+        ? nextBudgetDay(Date.now())
+        : this.jikan.nextAlarm() || Infinity,
+      this.aliases.nextAlarm() || Infinity,
+      this.budget.paused()
+        ? Infinity
+        : this.engine.economy.anime.nextAlarm() || Infinity,
     );
+    if ((await this.ctx.storage.getAlarm()) !== next)
+      await this.ctx.storage.setAlarm(next);
   }
   cleanup() {
     const e = this.engine,
@@ -610,9 +627,9 @@ export class Game extends DurableObject {
       const profiles = result.profiles;
       return json({
         ...result,
-        cards: [...new Set(profiles.map((p) => p.avatar_card).filter(Boolean))]
-          .map((id) => e.catalogStore.card(id))
-          .filter(Boolean),
+        cards: e.catalogStore.cards([
+          ...new Set(profiles.map((p) => p.avatar_card).filter(Boolean)),
+        ]),
       });
     }
     if (path === "player" && !post) {

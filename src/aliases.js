@@ -92,8 +92,11 @@ export class AliasSync {
       ? Math.max(this.e.now() + 1000, s.nextAt || 0, s.lease || 0)
       : null;
   }
+  tx(fn) {
+    return this.e.track("aliases", () => this.e.tx(fn));
+  }
   async step(force = false) {
-    const claimed = this.e.tx(() => {
+    const claimed = this.tx(() => {
       const s = this.read(),
         now = this.e.now();
       if (s.lease > now || (!force && s.nextAt > now)) return null;
@@ -137,7 +140,7 @@ export class AliasSync {
     s.lease = 0;
     try {
       if (error) throw error;
-      const result = this.e.tx(() => this.import(players));
+      const result = this.tx(() => this.import(players));
       Object.assign(s, {
         status: "synced",
         lastAt: this.e.now(),

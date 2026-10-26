@@ -9,18 +9,39 @@ export class SqlBudget {
     this.now = now;
     this.value = load() || {};
     this.rollDay();
+    if (!this.value.sources) {
+      this.value.sources = {
+        unattributed: {
+          rowsRead: this.value.rowsRead,
+          rowsWritten: this.value.rowsWritten,
+        },
+      };
+      this.value.breakdownSince = this.now();
+    }
     this.checkpoint = { ...this.value };
     this.lastFlush = this.now();
   }
   rollDay() {
     const day = new Date(this.now()).toISOString().slice(0, 10);
     if (this.value.day !== day)
-      this.value = { day, rowsRead: 0, rowsWritten: 0 };
+      this.value = {
+        day,
+        rowsRead: 0,
+        rowsWritten: 0,
+        sources: {},
+        breakdownSince: this.now(),
+      };
   }
-  observe(read = 0, written = 0) {
+  observe(read = 0, written = 0, source = "requests") {
     this.rollDay();
     this.value.rowsRead += read;
     this.value.rowsWritten += written;
+    const usage = (this.value.sources[source] ||= {
+      rowsRead: 0,
+      rowsWritten: 0,
+    });
+    usage.rowsRead += read;
+    usage.rowsWritten += written;
   }
   paused() {
     this.rollDay();

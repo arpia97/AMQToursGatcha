@@ -86,16 +86,43 @@ export class Engine {
   }
   run(sql, ...args) {
     this.db(sql, ...args);
+    const metaOnly =
+      /\bcatalog_meta\b/i.test(sql) &&
+      !/\b(catalog|catalog_popularity|tenrai_characters|catalog_bulk)\b/i.test(
+        sql,
+      );
+    const housekeeping =
+      metaOnly &&
+      ["jikan-import", "alias-sync", "series-backfill", "sql-budget"].some(
+        (key) => args[0] === key || sql.includes("'" + key + "'"),
+      );
     if (
       /\b(catalog|catalog_meta|catalog_popularity|tenrai_characters|catalog_bulk)\b/i.test(
         sql,
       ) &&
-      this.catalogStore
+      this.catalogStore &&
+      !housekeeping
     )
-      this.catalogStore.browseCache = null;
+      this.catalogStore.invalidate();
   }
   tx(fn) {
-    return this.transaction(fn);
+    try {
+      return this.transaction(fn);
+    } catch (err) {
+      this.catalogStore?.invalidate();
+      throw err;
+    }
+  }
+  track(source, fn) {
+    // The scope is synchronous. Never hold it across an upstream await: another
+    // player's request can run while an importer fetch is in flight.
+    const previous = this.usageSource;
+    this.usageSource = source;
+    try {
+      return fn();
+    } finally {
+      this.usageSource = previous;
+    }
   }
   player(id) {
     const p = this.one(
@@ -397,10 +424,11 @@ export class Engine {
       for (const p of b.players) {
         const id = text(p.id, 100),
           name = text(p.name, 100);
-        const existing = this.one("SELECT id FROM players WHERE id=?", id);
+        const existing = this.one("SELECT id,name FROM players WHERE id=?", id);
         if (!existing)
           this.run("INSERT INTO players(id,name) VALUES(?,?)", id, name);
-        else this.run("UPDATE players SET name=? WHERE id=?", name, id);
+        else if (existing.name !== name)
+          this.run("UPDATE players SET name=? WHERE id=?", name, id);
         if (p.aliases !== undefined && !Array.isArray(p.aliases))
           fail("Aliases must be a list.");
         const aliases = [
@@ -426,7 +454,7 @@ export class Engine {
             fail(
               `Alias “${alias}” conflicts with another player’s username history. Resolve this identity conflict before importing.`,
             );
-          this.run("INSERT OR IGNORE INTO aliases VALUES(?,?)", alias, id);
+          if (!owner) this.run("INSERT INTO aliases VALUES(?,?)", alias, id);
         }
       }
       return { message: `Imported ${b.players.length} players.` };
@@ -712,9 +740,9 @@ export class Engine {
         id,
       ),
       auctionWins,
-      cards: [...new Set(auctionWins.map((a) => a.card))]
-        .map((card) => this.catalogStore.card(card))
-        .filter(Boolean),
+      cards: this.catalogStore.cards([
+        ...new Set(auctionWins.map((a) => a.card)),
+      ]),
     };
   }
   state(id) {
@@ -777,10 +805,7 @@ export class Engine {
     else
       for (const c of this.catalogStore.page("character", "", 1, 12).cards)
         references.add(c.id);
-    const catalog = [...references]
-      .filter(Boolean)
-      .map((id) => this.catalogStore.card(id))
-      .filter(Boolean);
+    const catalog = this.catalogStore.cards([...references]);
     return {
       now,
       me,
@@ -904,7 +929,7 @@ export class Engine {
       pinnedAnime: this.economy.anime.pinned(id),
       completion: this.economy.completion(id),
       inventory: this.all("SELECT * FROM inventory WHERE player=?", id),
-      cards: [
+      cards: this.catalogStore.cards([
         ...new Set([
           ...this.all(
             "SELECT card FROM inventory WHERE player=? LIMIT 20",
@@ -913,10 +938,7 @@ export class Engine {
           p.avatar_card,
           ...showcase.map((c) => c.card),
         ]),
-      ]
-        .filter(Boolean)
-        .map((card) => this.catalogStore.card(card))
-        .filter(Boolean),
+      ]),
     };
   }
   resolvePlayer(value) {

@@ -75,8 +75,53 @@ export class Catalog {
     );
   }
   card(id) {
-    const c = this.rawCard(id);
-    return c ? this.popularity.decorate([c])[0] : null;
+    return this.cards([id])[0] || null;
+  }
+  invalidate() {
+    this.browseCache = null;
+    this.lookupCache = null;
+  }
+  cards(ids) {
+    const requested = ids.filter(Boolean),
+      now = this.e.now();
+    if (!this.lookupCache || now - this.lookupCache.at > 300000)
+      this.lookupCache = { at: now, cards: new Map() };
+    const cache = this.lookupCache.cards;
+    const missing = [...new Set(requested)].filter((id) => !cache.has(id));
+    const raw = new Map(),
+      buckets = new Map(),
+      legacy = new Map();
+    for (let i = 0; i < missing.length; i += 80) {
+      const group = missing.slice(i, i + 80);
+      for (const c of this.e.all(
+        `SELECT * FROM catalog WHERE id IN (${group.map(() => "?").join(",")})`,
+        ...group,
+      ))
+        raw.set(c.id, c);
+    }
+    for (const id of missing) {
+      if (raw.has(id)) continue;
+      const b = this.tenrai.bucket(id);
+      if (b !== null) {
+        if (!buckets.has(b)) buckets.set(b, this.tenrai.read(b));
+        if (buckets.get(b)[id]) raw.set(id, buckets.get(b)[id]);
+      } else {
+        const match = /^acdb-character-(\d+)$/.exec(id);
+        if (match) {
+          const b = Math.floor(Number(match[1]) / 500);
+          if (!legacy.has(b)) legacy.set(b, this.chunk("cards", b) || {});
+          if (legacy.get(b)[id]) raw.set(id, legacy.get(b)[id]);
+        }
+      }
+    }
+    for (const c of this.popularity.decorate([...raw.values()]))
+      cache.set(c.id, c);
+    const result = requested
+      .map((id) => cache.get(id))
+      .filter(Boolean)
+      .map((c) => ({ ...c }));
+    while (cache.size > 5000) cache.delete(cache.keys().next().value);
+    return result;
   }
   summary() {
     const m = this.tenrai.manifest() || this.manifest(),
@@ -303,7 +348,7 @@ export class Catalog {
     if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
     // Read the packed catalogue once, then reuse this derived, short-lived view.
     // Any catalogue/popularity write invalidates it through Engine.run().
-    if (!this.browseCache || this.e.now() - this.browseCache.at > 60000)
+    if (!this.browseCache || this.e.now() - this.browseCache.at > 300000)
       this.browseCache = { at: this.e.now(), kinds: new Map() };
     if (!this.browseCache.kinds.has(kind)) {
       const local = this.e.all("SELECT * FROM catalog WHERE kind=?", kind);

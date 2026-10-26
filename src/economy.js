@@ -260,17 +260,34 @@ export class Economy {
       "SELECT card FROM weekly_shop WHERE ends>? AND buyer IS NULL ORDER BY id LIMIT 10",
       e.now(),
     );
-    if (current.length >= 10 || e.catalogStore.summary().total < 10) return;
-    const pool = ["character", "seiyuu"].flatMap(
-      (kind) => e.catalogStore.pool(kind).cards,
-    );
+    const summary = e.catalogStore.summary();
+    if (current.length >= 10 || summary.total < 10) return;
     const excluded = new Set(current.map((s) => s.card));
+    const chosen = { character: new Set(), seiyuu: new Set() },
+      contexts = { character: {}, seiyuu: {} };
+    const cards = e.catalogStore.cards([...excluded, avoid]);
+    for (const c of cards)
+      if (c.active !== 0 && excluded.has(c.id)) chosen[c.kind].add(c.id);
+    const skipped = cards.find((c) => c.id === avoid && c.active !== 0);
     while (excluded.size < 10) {
-      const available = pool.filter((c) => !excluded.has(c.id));
-      const different = available.filter((c) => c.id !== avoid);
-      const candidates = different.length ? different : available;
-      if (!candidates.length) break;
-      const c = candidates[e.rand(candidates.length)];
+      const blocked = {
+        character: new Set(chosen.character),
+        seiyuu: new Set(chosen.seiyuu),
+      };
+      const remaining =
+        summary.total - blocked.character.size - blocked.seiyuu.size;
+      if (skipped && remaining > 1) blocked[skipped.kind].add(avoid);
+      const characters = summary.character - blocked.character.size,
+        total = characters + summary.seiyuu - blocked.seiyuu.size;
+      if (!total) break;
+      const kind = e.rand(total) < characters ? "character" : "seiyuu";
+      const c = e.catalogStore.draw(
+        kind,
+        e.rand,
+        100,
+        blocked[kind],
+        contexts[kind],
+      );
       e.run(
         "INSERT INTO weekly_shop(card,kind,price,starts,ends) VALUES(?,?,?,?,?)",
         c.id,
@@ -280,6 +297,7 @@ export class Economy {
         ends,
       );
       excluded.add(c.id);
+      chosen[c.kind].add(c.id);
     }
   }
   refreshAuctions() {
@@ -606,9 +624,7 @@ export class Economy {
       items,
       page,
       hasMore: rows.length > 40,
-      cards: [...new Set(items.map((i) => i.card))]
-        .map((id) => e.catalogStore.card(id))
-        .filter(Boolean),
+      cards: e.catalogStore.cards([...new Set(items.map((i) => i.card))]),
     };
   }
   rankings(metric = "earned", page = 1) {
@@ -640,10 +656,18 @@ export class Economy {
         player,
       );
     const counts = { character: 0, seiyuu: 0 };
+    const localKinds = new Map();
+    for (let i = 0; i < rows.length; i += 80) {
+      const ids = rows.slice(i, i + 80).map((r) => r.card);
+      for (const c of e.all(
+        `SELECT id,kind FROM catalog WHERE id IN (${ids.map(() => "?").join(",")})`,
+        ...ids,
+      ))
+        localKinds.set(c.id, c.kind);
+    }
     for (const { card } of rows) {
-      const local = e.one("SELECT kind FROM catalog WHERE id=?", card);
       const kind =
-        local?.kind ||
+        localKinds.get(card) ||
         (card.startsWith("mal-person-") ? "seiyuu" : "character");
       counts[kind]++;
     }

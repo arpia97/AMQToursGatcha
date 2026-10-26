@@ -54,7 +54,9 @@ export class TenraiCatalog {
   upsert(cards) {
     this.initialize();
     const m = this.manifest(),
-      buckets = new Map();
+      buckets = new Map(),
+      dirty = new Set(),
+      changed = new Map();
     let added = 0;
     for (const c of cards) {
       const b = this.bucket(c.id);
@@ -64,13 +66,20 @@ export class TenraiCatalog {
         old = data[c.id];
       if (!old) {
         data[c.id] = c;
+        dirty.add(b);
+        changed.set(c.id, c);
         added++;
       }
       // Prefer a Main appearance as the primary series; later Supporting credits
       // cannot demote a character or replace the chosen series unpredictably.
-      else if (old.role !== "main" && c.role === "main") data[c.id] = c;
+      else if (old.role !== "main" && c.role === "main") {
+        data[c.id] = c;
+        dirty.add(b);
+        changed.set(c.id, c);
+      }
     }
-    for (const [b, data] of buckets) {
+    for (const b of dirty) {
+      const data = buckets.get(b);
       const cards = Object.values(data),
         old = this.e.one(
           "SELECT main_count,other_count FROM tenrai_characters WHERE bucket=?",
@@ -95,7 +104,7 @@ export class TenraiCatalog {
           cards.map(characterSearch).join("\n"),
         );
     }
-    for (const c of cards) {
+    for (const c of changed.values()) {
       const role = buckets.get(this.bucket(c.id))[c.id].role;
       const override = this.e.one(
         "SELECT bulk_role FROM catalog WHERE id=?",
@@ -106,14 +115,16 @@ export class TenraiCatalog {
     }
     m.count = m.groups.main + m.groups.other;
     this.e.economy?.anime.index(
-      cards.map(
+      [...changed.values()].map(
         (c) =>
           this.e.one("SELECT * FROM catalog WHERE id=?", c.id) ||
           buckets.get(this.bucket(c.id))[c.id],
       ),
     );
-    m.updatedAt = this.e.now();
-    this.saveManifest(m);
+    if (dirty.size) {
+      m.updatedAt = this.e.now();
+      this.saveManifest(m);
+    }
     return added;
   }
   draw(rand, mainWeight, excluded, local, overrides, context = {}) {
