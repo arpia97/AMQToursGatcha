@@ -1,3 +1,4 @@
+import { formIdentifier } from "./form-actions.js";
 import { countdownText, nextDailyReset, nextWeeklyReset } from "./countdown.js";
 import { createWorkshop } from "./workshop-ui.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
@@ -991,34 +992,34 @@ document.addEventListener("submit", async (ev) => {
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
   if (await handleFeatureSubmit(f, b)) return;
-  if (f.id === "auth-form") {
+  if (formIdentifier(f) === "auth-form") {
     const mode = b.mode;
     delete b.mode;
     await execute(mode, b);
   }
-  if (f.id === "player-search") {
+  if (formIdentifier(f) === "player-search") {
     search = b.q;
     ui.playerPage = 1;
     await loadDynamic();
     render();
   }
-  if (f.id === "profile-form") {
+  if (formIdentifier(f) === "profile-form") {
     b.avatar = b.avatar || null;
     await execute("profile", b);
   }
-  if (f.id === "bid-form")
+  if (formIdentifier(f) === "bid-form")
     await execute("bid", {
       auction: Number(b.auction),
       amount: Number(b.amount),
     });
-  if (f.id === "predict-form")
+  if (formIdentifier(f) === "predict-form")
     await execute("predict", {
       pickem: Number(b.pickem),
       winner: b.winner,
       scoreA: Number(b.scoreA),
       scoreB: Number(b.scoreB),
     });
-  if (f.id === "pack-form")
+  if (formIdentifier(f) === "pack-form")
     await execute(
       "pack",
       { kind: b.kind, premium: b.premium === "true" },
@@ -1496,7 +1497,7 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
-  if (f.id === "coin-form") {
+  if (formIdentifier(f) === "coin-form") {
     if (!state.me) {
       auth();
       return true;
@@ -1512,7 +1513,7 @@ async function handleFeatureSubmit(f, b) {
     );
     return true;
   }
-  if (f.id === "mahjong-confirm") {
+  if (formIdentifier(f) === "mahjong-confirm") {
     const { action } = b;
     const body =
       action === "mahjong-start"
@@ -1523,7 +1524,7 @@ async function handleFeatureSubmit(f, b) {
     await execute(action, body);
     return true;
   }
-  if (f.id === "instant-sell-form") {
+  if (formIdentifier(f) === "instant-sell-form") {
     await execute("sell-instant", {
       ...b,
       expectedPrice: Number(b.expectedPrice),
@@ -1532,14 +1533,14 @@ async function handleFeatureSubmit(f, b) {
     return true;
   }
 
-  if (f.id === "withdraw-form") {
+  if (formIdentifier(f) === "withdraw-form") {
     await execute("cancel-listing", {
       listing: Number(b.listing),
       venue: b.venue,
     });
     return true;
   }
-  if (f.id === "anime-pin-search") {
+  if (formIdentifier(f) === "anime-pin-search") {
     try {
       const r = await api("anime-search?q=" + encodeURIComponent(b.q));
       ui.animeSearch = r.series;
@@ -1549,7 +1550,7 @@ async function handleFeatureSubmit(f, b) {
     }
     return true;
   }
-  if (f.id === "listing-form") {
+  if (formIdentifier(f) === "listing-form") {
     const result = await execute("list-card", {
       card: b.card,
       variant: b.variant,
@@ -1564,7 +1565,7 @@ async function handleFeatureSubmit(f, b) {
     }
     return true;
   }
-  if (f.id === "purchase-form") {
+  if (formIdentifier(f) === "purchase-form") {
     await execute(
       b.action,
       b.action === "shop-buy"
