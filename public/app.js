@@ -7,7 +7,7 @@ import {
 import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
-import { countdownText, nextDailyReset, nextWeeklyReset } from "./countdown.js";
+import { countdownText, nextWeeklyReset } from "./countdown.js";
 import { createWorkshop } from "./workshop-ui.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { createPackReveal } from "./pack-reveal.js";
@@ -384,7 +384,6 @@ const features = createFeatures(
     profileURL,
     tabs,
     getState: () => state,
-    mahjongHTML: () => mahjongUI.render(),
   },
   ui,
 );

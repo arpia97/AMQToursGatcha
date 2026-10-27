@@ -16,5 +16,4 @@ jobs:
       - run: pnpm build:mahjong
       - run: git diff --exit-code -- public/vendor
       - run: pnpm test
-      - run: python -m unittest discover -s tests -p "test_*.py"
       - run: pnpm build

@@ -21,7 +21,7 @@ export function accessPanel(state, e) {
       : '<p class="form-hint">Ask arpia97 to change host permissions.</p>'
   }</section>`;
 }
-export function participationPanel(e) {
+export function participationPanel() {
   return `<section class="host-panel"><h2>Reward a whole tour</h2><p>Paste team results in the format <code>name (score) name (score) | Total = … | Guesses = […]</code>. Scores are ignored. Aliases resolve to AMQ Tours IDs; repeated players receive one reward. Review everyone before awarding.</p><form id="participation-preview" class="stack"><label>Team results<textarea name="text" rows="7" maxlength="60000" required placeholder="sabetin (98.893) thjalago (83.829) | Total = 182.722 | Guesses = [54]"></textarea></label><div class="form-grid"><label>Credits per player<input name="amount" type="number" min="1" max="1000000" step="1" value="1000" required></label><label>Unique tour identifier<input name="event" maxlength="240" placeholder="usual-2026-10-27-1" required></label></div><label>Audit note<input name="note" maxlength="240" placeholder="Tour participation" required></label><button class="button secondary" type="submit">Review participants →</button></form><div id="participation-preview-result"></div><p class="form-hint space-top">A tour identifier can reward each player’s participation only once. Unknown aliases block the whole batch.</p></section>`;
 }
 export function tournamentPanel(state, e) {

@@ -85,7 +85,7 @@ pnpm test
 pnpm build
 ```
 
-The test suite uses real SQLite transactions for the shared economy, weighted draws, aliases, profiles, and reset operations. `pnpm build` performs a Cloudflare deployment dry run. With the local dev server running, `node tools/smoke.mjs` checks the actual API, auth, and concurrent mutations using synthetic players. It creates local test data only. Do not point it at production.
+`pnpm check` discovers JavaScript modules in `src`, `public`, `tools`, and `tests` automatically. Generated `public/vendor` files are checked separately by rebuilding them in CI. The test suite uses real SQLite transactions for the shared economy, weighted draws, aliases, profiles, and reset operations. `pnpm build` performs a Cloudflare deployment dry run. With the local dev server running, `node tools/smoke.mjs` checks the actual API, auth, and concurrent mutations using synthetic players. It creates local test data only. Do not point it at production.
 
 ## Initial data and remaining setup
 

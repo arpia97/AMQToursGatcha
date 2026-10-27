@@ -13,7 +13,6 @@ export function createFeatures(h, ui) {
     rarity,
     series,
     empty,
-    remaining,
     profileURL,
     getState,
   } = h;
@@ -26,7 +25,7 @@ export function createFeatures(h, ui) {
   function profileExtras(p, own) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span><h2>${own ? "Your favourites, front and centre." : "Collector’s favourites"}</h2></div>${own ? '<a class="text-button" href="#collection">Choose showcase cards ↗</a>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level)).join("")}</div>` : empty(own ? "No spotlights yet!" : "No spotlights yet!", own ? "Choose up to 20 favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span><h2>${own ? "Your favourites, front and centre." : "Collector’s favourites"}</h2></div>${own ? '<a class="text-button" href="#collection">Choose showcase cards ↗</a>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level)).join("")}</div>` : empty("No spotlights yet!", own ? "Choose up to 20 favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]
@@ -109,9 +108,6 @@ export function createFeatures(h, ui) {
         "",
       )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>RANK</th><th>COLLECTOR</th><th>${e(labels[metric][1].toUpperCase())}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}"><span class="mini-avatar">${e(p.name.slice(0, 2).toUpperCase())}</span>${e(p.name)} ${roleBadge(getState().roles?.[p.id])} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A place on the board is waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
   }
-  function gambling() {
-    return h.mahjongHTML();
-  }
   function catalogPager(data, page, prefix = "catalog", limit = 40) {
     const totalPages =
       data?.total == null ? null : Math.max(1, Math.ceil(data.total / limit));
@@ -150,12 +146,10 @@ export function createFeatures(h, ui) {
 
   return {
     filters,
-    sortControl,
     profileExtras,
     shop,
     userAuctions,
     ranks,
-    gambling,
     pager,
     catalogPager,
     animeCollection,

@@ -32,8 +32,7 @@ const $ = (s) => document.querySelector(s),
           "'": "&#39;",
         })[c],
     );
-let secret = "",
-  adminSession = false,
+let adminSession = false,
   state,
   tab = "rewards",
   working = false;
@@ -61,7 +60,6 @@ async function api(path, body, key) {
   const r = await fetch("api/host/" + path, {
     method: body ? "POST" : "GET",
     headers: {
-      Authorization: "Bearer " + secret,
       ...(body
         ? {
             "Content-Type": "application/json",
@@ -173,7 +171,7 @@ function render() {
       `<section class="host-panel"><h2>Background import usage</h2><p>${b.mode === "continuous" ? "Continuous import enabled. The daily free-plan pause is disabled; saved progress and upstream backoff are retained." : b.backgroundPaused ? "Automatic scans are resting until " + esc(new Date(b.nextResumeAt).toLocaleString()) + " to leave capacity for players." : "Automatic scans are within today’s reserved budget."}</p><p class="form-hint">App-local SQL estimate since tracking began: ${b.rowsRead.toLocaleString()} rows read · ${b.rowsWritten.toLocaleString()} rows written (${esc(b.day)}, UTC). ${b.mode === "continuous" ? "The importer makes one source request at a time, at least 10 seconds apart. No daily app-level row limit is applied." : "Background work rests at 2 million reads or 30,000 writes and resumes the next UTC day."} Account-wide usage and platform overhead can differ.</p>${sources ? `<table><thead><tr><th>Source</th><th>Rows read</th><th>Rows written</th></tr></thead><tbody>${sources}</tbody></table><p class="form-hint">Source breakdown started ${esc(new Date(b.breakdownSince).toLocaleString())}. Earlier totals remain unattributed. Counts exclude platform storage operations and checkpoint overhead.</p>` : ""}</section>` +
       html;
   }
-  if (tab === "rewards") html = participationPanel(esc) + html;
+  if (tab === "rewards") html = participationPanel() + html;
   if (tab === "players") html = accessPanel(state, esc) + html;
   if (tab === "pickems")
     html = tournamentPanel(state, esc) + pickemManagement(state, esc) + html;
@@ -241,22 +239,12 @@ document.addEventListener("submit", async (ev) => {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      secret = "";
       adminSession = true;
       await load();
       form.reset();
       $("#unlock").hidden = true;
       $("#console").hidden = false;
       report("Administrator signed in. All host tools are available.");
-      return;
-    }
-    if (form.id === "unlock-form") {
-      secret = $("#host-token").value;
-      await load();
-      $("#host-token").value = "";
-      $("#unlock").hidden = true;
-      $("#console").hidden = false;
-      report("Host console unlocked.");
       return;
     }
     const b = Object.fromEntries(new FormData(form));
@@ -534,7 +522,6 @@ document.addEventListener("submit", async (ev) => {
     }
   } catch (err) {
     report(err.message, true, form);
-    if (form.id === "unlock-form") secret = "";
   } finally {
     working = false;
     if (submit) submit.disabled = false;
@@ -626,7 +613,6 @@ document.addEventListener("click", async (ev) => {
       }
       adminSession = false;
     }
-    secret = "";
     state = null;
     $("#host-content").innerHTML = "";
     $("#console").hidden = true;

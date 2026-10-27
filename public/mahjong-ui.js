@@ -4,7 +4,6 @@ import {
   MAHJONG_RIICHI,
   riichiDiscards,
   WINDS,
-  tileBase,
   isRedTile,
 } from "./mahjong-rules.js";
 

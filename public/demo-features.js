@@ -542,7 +542,7 @@ export function demoFeatures(d, path, b) {
         metric === "gambling_lost" ? a.value - b.value : b.value - a.value,
       );
     return {
-      rows: rows.map((p, i) => ({
+      rows: rows.map((p) => ({
         ...p,
         rank: rows.findIndex((x) => x.value === p.value) + 1,
       })),
