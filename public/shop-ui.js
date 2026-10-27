@@ -1,3 +1,4 @@
+import { roleBadge } from "./role-label.js";
 import { collectionView, collectionPage } from "./card-display.js";
 import { RARITIES, SHOP_PRICES, instantSalePrice } from "./card-values.js";
 
@@ -54,7 +55,7 @@ export function createShopUI(h, ui) {
           `data-id="${l.id}" ${shortfall ? "disabled" : ""}`,
           "mint",
         );
-    return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(l.level || 1)}"><div class="portrait">${image(c)}${gradeBadge(c)}${l.level > 1 ? `<span class="level-tag">LV. ${l.level}</span>` : ""}</div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${weekly ? "Weekly selection · 1 shared copy" : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> · Lv. ${l.level}`}</p><div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}</div></article>`;
+    return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(l.level || 1)}"><div class="portrait">${image(c)}${gradeBadge(c)}${l.level > 1 ? `<span class="level-tag">LV. ${l.level}</span>` : ""}</div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${weekly ? "Weekly selection · 1 shared copy" : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · Lv. ${l.level}`}</p><div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}</div></article>`;
   }
   function batchReview() {
     const draft = ui.shopBatchReview;

@@ -62,7 +62,9 @@ test("administrator authorization checks server-owned role and current session e
     f.now() + 1000,
   );
   assert.equal(f.e.adminSession("session-hash"), false);
-  f.e.host("players", { players: [{ id: "368", name: "arpia97", is_admin: 1 }] });
+  f.e.host("players", {
+    players: [{ id: "368", name: "arpia97", is_admin: 1 }],
+  });
   assert.equal(f.e.adminSession("session-hash"), false);
   f.e.run("UPDATE players SET is_admin=1 WHERE id=?", "368");
   assert.equal(f.e.adminSession("session-hash"), true);
@@ -77,11 +79,11 @@ test("daily bonus is once per player per KST day, including boundary", () => {
   const f = fixture();
   f.time(Date.UTC(2026, 9, 24, 14, 59));
   f.act("1", "daily");
-  assert.equal(f.e.player("1").balance, 100);
+  assert.equal(f.e.player("1").balance, 300);
   assert.throws(() => f.act("1", "daily"), /already claimed/);
   f.time(Date.UTC(2026, 9, 24, 15, 0));
   f.act("1", "daily");
-  assert.equal(f.e.player("1").earned, 200);
+  assert.equal(f.e.player("1").earned, 600);
 });
 test("grants are validated, audit logged and idempotent across retries", () => {
   const f = fixture(),

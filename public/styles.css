@@ -2040,3 +2040,27 @@ dialog form {
   line-height: 1.7;
   color: var(--muted);
 }
+
+.role-title {
+  display: inline-block;
+  vertical-align: middle;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  padding: 3px 7px;
+  border: 1px solid #9ad6b466;
+  border-radius: 5px;
+  color: var(--mint, #9ad6b4);
+  background: #9ad6b412;
+  white-space: nowrap;
+}
+
+.reporting-games[hidden] {
+  display: none;
+}
+.deadline-fields {
+  display: grid;
+  gap: 10px;
+}

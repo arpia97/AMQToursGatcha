@@ -1,3 +1,4 @@
+import { MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { integer, text, fail } from "./engine.js";
 import { animeProgressComparator } from "../public/card-display.js";
 
@@ -116,9 +117,9 @@ export class AnimeCollection {
         this.e.one(
           "SELECT count(*) AS n FROM profile_anime WHERE player=?",
           player,
-        ).n >= 12
+        ).n >= MAX_PINNED_ANIME
       )
-        fail("You can pin up to 12 anime. Unpin one first.");
+        fail("You can pin up to 20 anime. Unpin one first.");
       this.e.run(
         "INSERT OR IGNORE INTO profile_anime VALUES(?,?,?)",
         player,

@@ -122,7 +122,7 @@ test("anime pins track unowned series, escrow progress, public profiles, limits,
   const f = fixture(),
     { e } = f;
   e.host("catalog", {
-    cards: Array.from({ length: 14 }, (_, i) => ({
+    cards: Array.from({ length: 22 }, (_, i) => ({
       id: "mal-character-" + (3000 + i),
       kind: "character",
       name: "New " + i,
@@ -151,12 +151,12 @@ test("anime pins track unowned series, escrow progress, public profiles, limits,
   assert.equal(e.profile("seller").pinnedAnime[0].owned, 1);
   f.act("buyer", "buy-listing", { listing: e.economy.market().items[0].id });
   assert.equal(e.profile("seller").pinnedAnime[0].owned, 0);
-  for (let i = 1; i < 12; i++) pin("anime " + i);
-  assert.throws(() => pin("anime 12"), /12 anime/);
+  for (let i = 1; i < 20; i++) pin("anime " + i);
+  assert.throws(() => pin("anime 20"), /20 anime/);
   assert.throws(() => pin("not imported"), /catalogue/);
   pin("anime 0", false);
-  pin("anime 12");
-  assert.equal(e.economy.anime.page("seller").pinned.length, 12);
+  pin("anime 20");
+  assert.equal(e.economy.anime.page("seller").pinned.length, 20);
   assert.equal(e.profile("buyer").pinnedAnime.length, 0);
   e.host("reset-player", {
     player: "seller",
@@ -441,7 +441,7 @@ test("daily credits and manually claimed mixed packs are independent and once pe
   const result = f.act("buyer", "daily", {});
   assert.equal(result.cards.length, 0);
   assert.equal(e.all("SELECT * FROM inventory WHERE player='buyer'").length, 0);
-  assert.equal(e.player("buyer").balance, 10100);
+  assert.equal(e.player("buyer").balance, 10300);
   assert.equal(e.economy.daily("buyer", true), null);
   assert.throws(() => f.act("buyer", "daily", {}), /already claimed/);
   const catchup = f.act("buyer", "daily-pack", {}, "daily-key");
@@ -450,10 +450,10 @@ test("daily credits and manually claimed mixed packs are independent and once pe
   assert.ok(kinds.includes("character") && kinds.includes("seiyuu"));
   assert.deepEqual(f.act("buyer", "daily-pack", {}, "daily-key"), catchup);
   assert.throws(() => f.act("buyer", "daily-pack", {}), /already claimed/);
-  assert.equal(e.player("buyer").balance, 10100);
+  assert.equal(e.player("buyer").balance, 10300);
   f.tick(86400000);
   assert.equal(f.act("buyer", "daily-pack", {}).cards.length, 5);
-  assert.equal(f.act("buyer", "daily", {}).credits, 100);
+  assert.equal(f.act("buyer", "daily", {}).credits, 300);
 });
 test("buyouts refund a third-party bidder, preserve level, and cannot pay twice", () => {
   const f = fixture(),

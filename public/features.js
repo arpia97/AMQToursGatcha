@@ -1,3 +1,4 @@
+import { roleBadge } from "./role-label.js";
 import { createShopUI } from "./shop-ui.js";
 export function createFeatures(h, ui) {
   const {
@@ -25,7 +26,7 @@ export function createFeatures(h, ui) {
   function profileExtras(p, own) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span><h2>${own ? "Your favourites, front and centre." : "Collector’s favourites"}</h2></div>${own ? '<a class="text-button" href="#collection">Choose showcase cards ↗</a>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level)).join("")}</div>` : empty(own ? "The spotlight is yours." : "No favourites showcased yet.", own ? "Choose up to six favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span><h2>${own ? "Your favourites, front and centre." : "Collector’s favourites"}</h2></div>${own ? '<a class="text-button" href="#collection">Choose showcase cards ↗</a>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level)).join("")}</div>` : empty(own ? "No spotlights yet!" : "No spotlights yet!", own ? "Choose up to 20 favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]
@@ -97,7 +98,7 @@ export function createFeatures(h, ui) {
         "Total payouts minus total stakes, lowest first. All players who have gambled are included, even if every result is positive.",
       ],
     };
-    return `<div class="page-intro"><div><h1>Every collector has a story.</h1><p>Earn it, save it, or try your luck.</p></div></div><div class="tabs ranking-tabs">${Object.entries(
+    return `<div class="page-intro"><div><h1>A list of our beloved tour addicts and chronic gamblers.</h1></div></div><div class="tabs ranking-tabs">${Object.entries(
       labels,
     )
       .map(
@@ -106,7 +107,7 @@ export function createFeatures(h, ui) {
       )
       .join(
         "",
-      )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>RANK</th><th>COLLECTOR</th><th>${e(labels[metric][1].toUpperCase())}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}"><span class="mini-avatar">${e(p.name.slice(0, 2).toUpperCase())}</span>${e(p.name)} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A place on the board is waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
+      )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>RANK</th><th>COLLECTOR</th><th>${e(labels[metric][1].toUpperCase())}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}"><span class="mini-avatar">${e(p.name.slice(0, 2).toUpperCase())}</span>${e(p.name)} ${roleBadge(getState().roles?.[p.id])} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A place on the board is waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
   }
   function gambling() {
     return h.mahjongHTML();
@@ -138,13 +139,13 @@ export function createFeatures(h, ui) {
   }
   function pinnedPanel(pins, own) {
     if (!pins.length) return "";
-    return `<section class="pinned-anime"><div class="section-head"><div><span class="eyebrow">THE STORIES THAT STAY</span><h2>${own ? "Your pinned anime" : "Favourite anime"}</h2></div><span class="pill">${pins.length} / 12</span></div><div class="anime-progress-grid">${pins.map((c) => animeCard(c, own, true)).join("")}</div></section>`;
+    return `<section class="pinned-anime"><div class="section-head"><div><span class="eyebrow">THE STORIES THAT STAY</span><h2>${own ? "Your pinned anime" : "Favourite anime"}</h2></div><span class="pill">${pins.length} / 20</span></div><div class="anime-progress-grid">${pins.map((c) => animeCard(c, own, true)).join("")}</div></section>`;
   }
   function animeCollection() {
     const data = ui.animeData || { series: [], pinned: [] },
       pins = data.pinned || [],
       keys = new Set(pins.map((c) => c.series_key));
-    return `<section class="anime-completion"><div class="section-head"><div><span class="eyebrow">ONE STORY AT A TIME</span><h2>Your anime collection</h2></div></div><p class="subtext">Unique character cards by their primary anime. Includes cards listed for sale; duplicates count once. Pinned anime first, then highest completion percentage. ${data.indexing ? "The catalogue index is still catching up." : ""}</p><form id="anime-pin-search" class="player-search space-top"><input class="search" name="q" minlength="2" maxlength="100" required aria-label="Find anime to pin" placeholder="Find an anime to pin, even before your first card…"><button class="button secondary" type="submit">Find anime ↗</button></form><p class="form-hint">Pin up to 12 anime to your public profile and keep their progress at the top of your board. Searches cover the currently imported catalogue.</p>${ui.animeSearch ? `<div class="anime-progress-grid">${ui.animeSearch.map((c) => animeCard(pins.find((p) => p.series_key === c.series_key) || c, true, keys.has(c.series_key))).join("") || '<p class="subtext">No matching anime imported yet.</p>'}</div>` : ""}${data.series.length ? `<div class="anime-progress-grid">${data.series.map((c) => animeCard(c, true, keys.has(c.series_key))).join("")}</div>` : empty("Every story starts with one character.", "Collect character cards or pin an anime to start tracking.")}${pager("anime", ui.animePage || 1, data.hasMore)}</section>`;
+    return `<section class="anime-completion"><div class="section-head"><div><span class="eyebrow">ONE STORY AT A TIME</span><h2>Your anime collection</h2></div></div><form id="anime-pin-search" class="player-search space-top"><input class="search" name="q" minlength="2" maxlength="100" required aria-label="Find anime to pin" placeholder="Find an anime to pin, even before your first card…"><button class="button secondary" type="submit">Find anime ↗</button></form><p class="form-hint">Pin up to 20 anime to your public profile and keep their progress at the top of your board.</p>${ui.animeSearch ? `<div class="anime-progress-grid">${ui.animeSearch.map((c) => animeCard(pins.find((p) => p.series_key === c.series_key) || c, true, keys.has(c.series_key))).join("") || '<p class="subtext">No matching anime imported yet.</p>'}</div>` : ""}${data.series.length ? `<div class="anime-progress-grid">${data.series.map((c) => animeCard(c, true, keys.has(c.series_key))).join("")}</div>` : empty("Every story starts with one character.", "Collect character cards or pin an anime to start tracking.")}${pager("anime", ui.animePage || 1, data.hasMore)}</section>`;
   }
 
   return {

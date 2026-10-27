@@ -1,3 +1,4 @@
+import { PICKEM_WINDOW, defaultReward } from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
@@ -137,7 +138,7 @@ export class Engine {
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
-    return p;
+    return { ...p, role: p.is_admin ? "Host" : null };
   }
   hostIdentity(hash) {
     return (
@@ -510,7 +511,15 @@ export class Engine {
       )
         fail("Choose a grant category.");
       const id = text(b.player, 100),
-        amount = integer(b.amount, 1, 1000000),
+        amount = integer(
+          b.amount ??
+            defaultReward(
+              b.reason,
+              b.reason === "reporting" ? integer(b.games ?? 1, 1, 2000) : 1,
+            ),
+          1,
+          1000000,
+        ),
         note = text(b.note, 240);
       this.wallet(id, amount, `${b.reason}: ${note}`, true);
       if (["participation", "reporting", "counting"].includes(b.reason))
@@ -526,7 +535,7 @@ export class Engine {
     }
     if (action === "pickem") {
       const end = integer(
-        b.ends,
+        b.ends ?? this.now() + PICKEM_WINDOW,
         this.now() + 60000,
         this.now() + 90 * 86400000,
       );
@@ -869,6 +878,7 @@ export class Engine {
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
       ),
       inventory,
+      roles: this.publicRoles(),
       myListings,
       ledger: id
         ? this.all(
@@ -898,6 +908,13 @@ export class Engine {
         (kind) => this.catalogStore.pool(kind).cards,
       ),
       this.rand,
+    );
+  }
+  publicRoles() {
+    return Object.fromEntries(
+      this.all(
+        "SELECT id FROM players WHERE is_admin=1 AND (id='368' OR id IN (SELECT player FROM host_delegations))",
+      ).map((p) => [p.id, "Host"]),
     );
   }
   searchProfiles(query, page = 1, limit = 50) {

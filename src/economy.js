@@ -1,3 +1,4 @@
+import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
@@ -87,9 +88,13 @@ export class Economy {
         409,
       );
     }
-    e.wallet(player, 100, "Daily login", true);
+    e.wallet(player, DAILY_CREDITS, "Daily login", true);
     e.run("UPDATE players SET daily=? WHERE id=?", day, player);
-    return { message: "100 daily credits added.", credits: 100, cards: [] };
+    return {
+      message: `${DAILY_CREDITS} daily credits added.`,
+      credits: DAILY_CREDITS,
+      cards: [],
+    };
   }
   dailyPack(player) {
     const e = this.e,
@@ -432,10 +437,10 @@ export class Economy {
     if (action === "showcase") {
       if (
         !Array.isArray(b.cards) ||
-        b.cards.length > 6 ||
+        b.cards.length > MAX_SPOTLIGHTS ||
         new Set(b.cards).size !== b.cards.length
       )
-        fail("Choose up to six different owned cards.");
+        fail("Choose up to 20 different owned cards.");
       for (const id of b.cards)
         if (
           !e.one(

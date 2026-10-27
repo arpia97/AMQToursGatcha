@@ -1,3 +1,4 @@
+import { PICKEM_WINDOW } from "../public/site-defaults.js";
 import { fail, integer, text } from "./engine.js";
 import {
   validateTeams,
@@ -26,12 +27,17 @@ export class PickemEvents {
   }
   publish(event, rounds, deadlines, b, startRound = 1) {
     const e = this.e;
+    deadlines ??= rounds.map(() => null);
     if (!Array.isArray(deadlines) || deadlines.length !== rounds.length)
       fail("Set a deadline for each round.");
     const winner = integer(b.winnerReward ?? 500, 0, 100000),
       score = integer(b.scoreReward ?? 500, 0, 100000);
     const ends = deadlines.map((d) =>
-      integer(d, e.now() + 60000, e.now() + 90 * 86400000),
+      integer(
+        d ?? e.now() + PICKEM_WINDOW,
+        e.now() + 60000,
+        e.now() + 90 * 86400000,
+      ),
     );
     if (ends.some((d, i) => i && d < ends[i - 1]))
       fail("Round deadlines must be in chronological order.");

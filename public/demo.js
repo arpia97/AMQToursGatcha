@@ -1,3 +1,4 @@
+import { DAILY_CREDITS } from "./site-defaults.js";
 import { drawFeatured } from "./auction-odds.js";
 import { premiumPool, drawPremium } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
@@ -235,7 +236,7 @@ export class Demo {
     if (path === "daily") {
       const day = new Date(s.now + 9 * 3600000).toISOString().slice(0, 10);
       if (s.me.daily === day) throw new Error("Already claimed today.");
-      this.wallet(100, "Daily login", true);
+      this.wallet(DAILY_CREDITS, "Daily login", true);
       s.me.daily = day;
     } else if (path === "pack") {
       const pool = s.catalog.filter((c) => c.kind === b.kind);

@@ -1,3 +1,4 @@
+import { deadlineFields, updateRewardDefaults } from "./host-defaults.js";
 import {
   accessPanel,
   participationPanel,
@@ -72,7 +73,7 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
   if (tab === "rewards")
-    html = `<section class="host-panel"><h2>Reward the work behind the tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack"><label>AMQ player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1"')}</div>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Friday Usual #42 · reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Reward the work behind the tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack"><label>AMQ player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games">Games reported<input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 2,000 · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Friday Usual #42 · reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
     html = `<section class="host-panel"><h2>One player. One AMQ identity.</h2><p>Import stable AMQ Tours IDs and aliases. Upload a CSV with headers <code>id,name,aliases</code>. Separate aliases with a pipe: <code>alias1|alias2</code>. Existing aliases are retained; conflicts roll back the entire import.</p><form id="players" class="stack"><label>CSV player / alias sheet<input type="file" id="players-file" accept=".csv,text/csv" required></label><button class="button" type="submit">Import players &amp; aliases →</button></form><p class="form-hint space-top">The alias sheet remains the identity source. Manual imports supplement the automatic sheet sync. Neither operation edits AMQ Tours ratings or writes to the source sheet.</p></section><section class="host-panel"><h2>Issue account access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue registration code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>NAME</th><th>ACCESS</th><th>ALIASES</th></tr></thead><tbody>${state.players
       .map(
@@ -97,7 +98,7 @@ function render() {
       html;
   }
   if (tab === "pickems")
-    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Scores must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${input("Predictions close (your browser’s local time)", "ends", "datetime-local")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
+    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Scores must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
       .filter((p) => !p.settled && p.ends <= Date.now())
       .map(
         (p) =>
@@ -107,7 +108,7 @@ function render() {
         "",
       )}</select></label><div class="form-grid">${input("Team A final score", "scoreA", "number", 'min="0" max="1000"')}${input("Team B final score", "scoreB", "number", 'min="0" max="1000"')}</div><button class="button secondary" type="submit">Settle and distribute rewards →</button></form></section><div class="table-wrap"><table><thead><tr><th>MATCH</th><th>TEAMS</th><th>CLOSES</th><th>RESULT</th></tr></thead><tbody>${state.pickems.map((p) => `<tr><td>${esc(p.title)}</td><td>${esc(p.team_a)} / ${esc(p.team_b)}</td><td>${esc(new Date(p.ends).toLocaleString())}</td><td>${p.settled ? p.result_a + "–" + p.result_b : "Pending"}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
-    html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Normal packs select every card equally, with replacement. Premium packs double AG/Ubers/SSS/SS/S chances by reducing D. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. Tenrai imports MAL characters with Main/Supporting roles and MAL portraits. Optional series_romaji and series_english fields preserve both title versions.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Normal packs are uniform within each card type, regardless of role or rarity. Premium doubles the chances S and above, taking the additional probability only from D. Daily login rewards remain 100 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div><div class="form-grid">${input("Premium character pack (five cards)", "premium_character", "number", `min="1" max="1000000" value="${state.settings.premium_character_price || 1000}"`)}${input("Premium seiyuu pack (five cards)", "premium_seiyuu", "number", `min="1" max="1000000" value="${state.settings.premium_seiyuu_price || 1000}"`)}</div><button class="button secondary" type="submit">Save pack prices →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Normal packs select every card equally, with replacement. Premium packs double AG/Ubers/SSS/SS/S chances by reducing D. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. Tenrai imports MAL characters with Main/Supporting roles and MAL portraits. Optional series_romaji and series_english fields preserve both title versions.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Normal packs are uniform within each card type, regardless of role or rarity. Premium doubles the chances S and above, taking the additional probability only from D. Daily login rewards are 300 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div><div class="form-grid">${input("Premium character pack (five cards)", "premium_character", "number", `min="1" max="1000000" value="${state.settings.premium_character_price || 1000}"`)}${input("Premium seiyuu pack (five cards)", "premium_seiyuu", "number", `min="1" max="1000000" value="${state.settings.premium_seiyuu_price || 1000}"`)}</div><button class="button secondary" type="submit">Save pack prices →</button></form></section>`;
   if (tab === "catalog") {
     const j = state.seiyuuImport || {
       status: "idle",
@@ -272,7 +273,9 @@ document.addEventListener("submit", async (ev) => {
         {
           ...scheduleDraft.body,
           deadlines: scheduleDraft.rounds.map((_, i) =>
-            new Date(b["deadline-" + i]).getTime(),
+            b["deadline-" + i + "Automatic"]
+              ? null
+              : new Date(b["deadline-" + i]).getTime(),
           ),
           winnerReward: Number(b.winnerReward),
           scoreReward: Number(b.scoreReward),
@@ -318,6 +321,7 @@ document.addEventListener("submit", async (ev) => {
       result = await api(ev.submitter.value, {}, key);
     if (form.id === "grant") {
       b.amount = Number(b.amount);
+      if (b.games) b.games = Number(b.games);
       result = await api("grant", b, key);
     }
     if (form.id === "players") {
@@ -350,7 +354,8 @@ document.addEventListener("submit", async (ev) => {
       result = await api(b.operation, { player: b.player });
     }
     if (form.id === "pickem") {
-      b.ends = new Date(b.ends).getTime();
+      b.ends = b.endsAutomatic ? undefined : new Date(b.ends).getTime();
+      delete b.endsAutomatic;
       b.winnerReward = Number(b.winnerReward);
       b.scoreReward = Number(b.scoreReward);
       result = await api("pickem", b, key);
@@ -439,10 +444,20 @@ document.addEventListener("submit", async (ev) => {
 });
 document.addEventListener("input", (ev) => {
   const form = ev.target.closest("form");
+  if (form?.id === "grant" && ev.target.name === "games")
+    updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });
 document.addEventListener("change", (ev) => {
+  if (ev.target.dataset.deadlineTarget) {
+    const target = ev.target.form.elements.namedItem(
+      ev.target.dataset.deadlineTarget,
+    );
+    target.disabled = ev.target.checked;
+  }
   const form = ev.target.closest("form");
+  if (form?.id === "grant" && ["reason", "games"].includes(ev.target.name))
+    updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });
 document.addEventListener("click", async (ev) => {

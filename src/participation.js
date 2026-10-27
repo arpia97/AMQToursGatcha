@@ -1,3 +1,4 @@
+import { TOUR_REWARDS } from "../public/site-defaults.js";
 import { participationNames } from "../public/participation.js";
 import { fail, integer, text } from "./engine.js";
 export class Participation {
@@ -31,7 +32,7 @@ export class Participation {
       { players } = this.preview(b.text),
       event = text(b.event, 240),
       note = text(b.note, 240),
-      amount = integer(b.amount, 1, 1000000);
+      amount = integer(b.amount ?? TOUR_REWARDS.participation, 1, 1000000);
     if (
       JSON.stringify(players.map((p) => p.id)) !==
       JSON.stringify(b.expectedPlayers)

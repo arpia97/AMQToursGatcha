@@ -1,3 +1,8 @@
+import {
+  DAILY_CREDITS,
+  MAX_PINNED_ANIME,
+  MAX_SPOTLIGHTS,
+} from "./site-defaults.js";
 import { batchSaleQuote } from "./card-management.js";
 import {
   GEM_CLICK_PRICE,
@@ -381,9 +386,13 @@ export function demoFeatures(d, path, b) {
     }
     let reward = null;
     if (me.daily !== day) {
-      d.wallet(100, "Daily login", true);
+      d.wallet(DAILY_CREDITS, "Daily login", true);
       me.daily = day;
-      reward = { message: "100 daily credits added.", credits: 100, cards: [] };
+      reward = {
+        message: `${DAILY_CREDITS} daily credits added.`,
+        credits: DAILY_CREDITS,
+        cards: [],
+      };
     }
     if (path === "daily") {
       if (!reward) throw Error("Already claimed today.");
@@ -415,7 +424,8 @@ export function demoFeatures(d, path, b) {
   }
   if (path === "pin-anime") {
     if (b.pinned) {
-      if (s.pinnedAnime.length >= 12) throw Error("Pin up to 12 anime.");
+      if (s.pinnedAnime.length >= MAX_PINNED_ANIME)
+        throw Error("Pin up to 20 anime.");
       if (!s.pinnedAnime.includes(b.series)) s.pinnedAnime.push(b.series);
     } else s.pinnedAnime = s.pinnedAnime.filter((k) => k !== b.series);
     return { message: b.pinned ? "Anime pinned." : "Anime unpinned." };
@@ -748,10 +758,10 @@ export function demoFeatures(d, path, b) {
   }
   if (path === "showcase") {
     if (
-      b.cards.length > 6 ||
+      b.cards.length > MAX_SPOTLIGHTS ||
       b.cards.some((id) => !s.inventory.some((i) => i.card === id))
     )
-      throw Error("Choose up to six owned cards.");
+      throw Error("Choose up to 20 owned cards.");
     s.showcase = [...b.cards];
     return { message: "Demo showcase updated." };
   }
