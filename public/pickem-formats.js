@@ -49,6 +49,29 @@ export function roundRobin(format, teams) {
     ? [...rounds, ...rounds.map((pairs) => pairs.map(([a, b]) => [b, a]))]
     : rounds;
 }
+// Physical double round robin still has two legs; each prediction covers both.
+export function pickemRounds(format, teams) {
+  const rounds = roundRobin(format, teams);
+  return format === "double-4" ? rounds.slice(0, teams.length - 1) : rounds;
+}
+export function pickemOutcome(a, b, mode = "match") {
+  if (
+    mode === "pair" &&
+    (!Number.isInteger(a) ||
+      !Number.isInteger(b) ||
+      a < 0 ||
+      b < 0 ||
+      a + b !== 2)
+  )
+    throw invalid(
+      "Choose 2:0, 1:1 or 0:2 for a combined double-round-robin matchup.",
+    );
+  if (a === b && mode !== "pair")
+    throw invalid(
+      "A winning team is required; draws are not supported for this match.",
+    );
+  return a === b ? "draw" : a > b ? "a" : "b";
+}
 export function swissRound(teams, matches = [], byes = []) {
   teams = validateTeams("swiss", teams);
   const rows = new Map(

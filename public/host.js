@@ -122,7 +122,7 @@ function render() {
       html;
   }
   if (tab === "pickems")
-    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Scores must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
+    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Combined double-round-robin results use 2:0, 1:1 or 0:2. Other matches must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>For combined matchups, enter game wins: 2:0, 1:1 or 0:2. Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
       .filter((p) => !p.settled && p.ends <= Date.now())
       .map(
         (p) =>
@@ -265,6 +265,19 @@ document.addEventListener("submit", async (ev) => {
       managedTour = await api("pickem-event?event=" + Number(b.event));
       $("#pickem-tour-manager").innerHTML = tourManager(managedTour, esc);
       return;
+    }
+    if (form.id === "combine-pickem-tour") {
+      if (!managedTour) throw Error("Open a tour first.");
+      result = await api(
+        "pickem-combine",
+        {
+          event: managedTour.id,
+          expectedMatches: managedTour.matches,
+          confirmation: b.confirmation,
+          clearPredictions: !!b.clearPredictions,
+        },
+        key,
+      );
     }
     if (form.id === "rename-pickem-tour") {
       if (!managedTour) throw Error("Open a tour first.");

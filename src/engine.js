@@ -3,6 +3,7 @@ import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
 import { PickemEvents } from "./pickem-events.js";
+import { pickemOutcome } from "../public/pickem-formats.js";
 import { Participation } from "./participation.js";
 import { RARITIES } from "../public/card-values.js";
 // All economic operations run inside one synchronous SQLite transaction.
@@ -386,13 +387,10 @@ export class Engine {
       );
       if (!p || now >= p.ends || p.settled)
         fail("Predictions are closed.", 409);
-      if (!["a", "b"].includes(b.winner)) fail("Choose a winner.");
       const a = integer(b.scoreA, 0, 1000),
         c = integer(b.scoreB, 0, 1000);
-      if (a === c || (b.winner === "a" && a < c) || (b.winner === "b" && c < a))
-        fail(
-          "Scores must agree with the selected winner; draws are not supported.",
-        );
+      if (b.winner !== pickemOutcome(a, c, p.mode))
+        fail("Scores must agree with the selected outcome.");
       this.run(
         "INSERT INTO predictions VALUES(?,?,?,?,?) ON CONFLICT(pickem,player) DO UPDATE SET winner=excluded.winner,score_a=excluded.score_a,score_b=excluded.score_b",
         p.id,
@@ -569,8 +567,7 @@ export class Engine {
         fail("Wait until predictions close before settling.");
       const a = integer(b.scoreA, 0, 1000),
         c = integer(b.scoreB, 0, 1000);
-      if (a === c) fail("A winning team is required.");
-      const winner = a > c ? "a" : "b";
+      const winner = pickemOutcome(a, c, p.mode);
       for (const v of this.all(
         "SELECT * FROM predictions WHERE pickem=?",
         p.id,
@@ -983,7 +980,7 @@ export class Engine {
       ).map((r) => [r.category, r.n]),
     );
     const picks = this.one(
-      "SELECT count(*) AS total,COALESCE(sum(CASE WHEN (v.winner='a' AND p.result_a>p.result_b) OR (v.winner='b' AND p.result_b>p.result_a) THEN 1 ELSE 0 END),0) AS correct FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE v.player=? AND p.settled=1",
+      "SELECT count(*) AS total,COALESCE(sum(CASE WHEN (v.winner='a' AND p.result_a>p.result_b) OR (v.winner='b' AND p.result_b>p.result_a) OR (v.winner='draw' AND p.mode='pair' AND p.result_a=p.result_b) THEN 1 ELSE 0 END),0) AS correct FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE v.player=? AND p.settled=1",
       id,
     );
     const showcase = this.all(

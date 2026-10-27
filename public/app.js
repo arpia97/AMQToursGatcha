@@ -455,7 +455,11 @@ function shop() {
   return features.shop();
 }
 function pickemHero(p) {
-  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make your call.<br><span>Back your team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
+  const reward =
+    p.mode === "pair"
+      ? `✦ ${number(p.winner_reward + 2 * p.score_reward)} for the correct two-game result`
+      : `✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score`;
+  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make your call.<br><span>Back your team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
 }
 const packReveal = createPackReveal({
   motionControl: packMotionControl,
@@ -582,7 +586,7 @@ function pickems() {
       "Know the match? Make the call.",
       "Back a winner, predict both scores, and turn good reads into credits.",
     ) +
-    `<div class="notice">Choose a winner and both scores, then confirm each match. Entry is free; predictions stay editable until voting closes.</div>` +
+    `<div class="notice">Choose each matchup’s result and confirm. Entry is free; predictions stay editable until voting closes. Double round robin uses 2:0, 1:1 or 0:2 across both games.</div>` +
     ((ui.pickemData?.tours || tourSummaries(state.pickems, state.now)).length
       ? pickemBoard(
           ui.pickemData?.tours || tourSummaries(state.pickems, state.now),
@@ -1055,6 +1059,12 @@ document.addEventListener("click", async (ev) => {
     const p = (ui.pickemDetail?.matches || state.pickems).find(
       (x) => x.id === Number(t.dataset.id),
     );
+    if (p.mode === "pair") {
+      modal(
+        `<h2>Predict the two-game result.</h2><p>${escape(p.team_a)} vs ${escape(p.team_b)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Game wins (A : B)<select name="result" required><option value="">Choose result…</option>${["2:0", "1:1", "0:2"].map((r) => `<option value="${r}" ${p.prediction && r === p.prediction_a + ":" + p.prediction_b ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button class="button full" type="submit">Confirm</button></form>`,
+      );
+      return;
+    }
     modal(
       `<h2>Make your call.</h2><p>${escape(p.title)} · closes ${remaining(p.ends)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Winning team<select name="winner"><option value="a" ${p.prediction === "a" ? "selected" : ""}>${escape(p.team_a)}</option><option value="b" ${p.prediction === "b" ? "selected" : ""}>${escape(p.team_b)}</option></select></label><div class="form-grid"><label>${escape(p.team_a)} score<input type="number" name="scoreA" min="0" max="1000" required value="${p.prediction_a ?? ""}"></label><label>${escape(p.team_b)} score<input type="number" name="scoreB" min="0" max="1000" required value="${p.prediction_b ?? ""}"></label></div><span class="form-hint">✦ ${p.winner_reward} winner + ${p.score_reward} per correct team score</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Save prediction →</button></form>`,
     );
@@ -1108,13 +1118,13 @@ document.addEventListener("submit", async (ev) => {
       auction: Number(b.auction),
       amount: Number(b.amount),
     });
-  if (formIdentifier(f) === "predict-form")
-    await execute("predict", {
-      pickem: Number(b.pickem),
-      winner: b.winner,
-      scoreA: Number(b.scoreA),
-      scoreB: Number(b.scoreB),
-    });
+  if (formIdentifier(f) === "predict-form") {
+    try {
+      await execute("predict", predictionBody(b));
+    } catch (err) {
+      f.querySelector(".form-error").textContent = err.message;
+    }
+  }
   if (formIdentifier(f) === "pack-form")
     await execute(
       "pack",
@@ -1183,6 +1193,7 @@ function savePredictionDraft(input) {
   const values = Object.fromEntries(new FormData(form));
   ui.pickemDrafts[p.id] = {
     ...predictionDraft(p),
+    ...(p.mode === "pair" ? { result: values.result } : {}),
     winner: values.winner,
     scoreA: values.scoreA,
     scoreB: values.scoreB,

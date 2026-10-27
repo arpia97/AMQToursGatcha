@@ -2,7 +2,7 @@ import { PICKEM_WINDOW } from "../public/site-defaults.js";
 import { fail, integer, text } from "./engine.js";
 import {
   validateTeams,
-  roundRobin,
+  pickemRounds,
   swissRound,
 } from "../public/pickem-formats.js";
 export class PickemEvents {
@@ -15,6 +15,7 @@ export class PickemEvents {
     for (const [name, type] of [
       ["event_id", "INTEGER"],
       ["round", "INTEGER"],
+      ["mode", "TEXT NOT NULL DEFAULT 'match'"],
     ])
       if (!columns.some((c) => c.name === name))
         e.run(`ALTER TABLE pickems ADD COLUMN ${name} ${type}`);
@@ -45,8 +46,8 @@ export class PickemEvents {
     rounds.forEach((pairs, i) =>
       pairs.forEach(([a, c]) => {
         e.run(
-          "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round) VALUES(?,?,?,?,?,?,?,?,?)",
-          `${event.name} · Round ${startRound + i} · ${a} vs ${c}`,
+          "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          `${event.name} · ${event.format === "double-4" ? "Group" : "Round"} ${startRound + i} · ${a} vs ${c}`,
           event.name,
           a,
           c,
@@ -55,12 +56,13 @@ export class PickemEvents {
           score,
           event.id,
           startRound + i,
+          event.format === "double-4" ? "pair" : "match",
         );
         count++;
       }),
     );
     return {
-      message: `Published ${count} pick’ems across ${rounds.length} round${rounds.length === 1 ? "" : "s"}.`,
+      message: `Published ${count} pick’ems across ${rounds.length} ${event.format === "double-4" ? "prediction group" : "round"}${rounds.length === 1 ? "" : "s"}.`,
       event: event.id,
     };
   }
@@ -86,7 +88,7 @@ export class PickemEvents {
     integer(page, 1, 10000);
     const rows = e.all(
       `SELECT CASE WHEN p.event_id IS NULL THEN -p.id ELSE p.event_id END AS key,
-      COALESCE(ev.name,p.tour) AS name,ev.format,COUNT(*) AS matches,
+      COALESCE(ev.name,p.tour) AS name,ev.format,COUNT(*) AS matches,SUM(CASE WHEN p.mode='pair' THEN 1 ELSE 0 END) AS pairs,
       COUNT(DISTINCT COALESCE(p.round,1)) AS rounds,SUM(p.settled) AS settled,
       SUM(CASE WHEN p.settled=0 AND p.ends>? THEN 1 ELSE 0 END) AS open,
       MIN(CASE WHEN p.settled=0 AND p.ends>? THEN p.ends END) AS nextEnds,
@@ -149,6 +151,7 @@ export class PickemEvents {
       "score_reward",
       "settled",
       "votes",
+      "mode",
     ];
     if (!expected || fields.some((k) => p[k] !== expected[k]))
       fail("This pick’em changed. Reload it and review again.", 409);
@@ -160,6 +163,88 @@ export class PickemEvents {
   }
   action(action, b) {
     const e = this.e;
+    if (action === "pickem-combine") {
+      const event = this.read(b.event);
+      if (event.format !== "double-4")
+        fail("Choose a four-team double-round-robin tour.");
+      if (event.matches.length && event.matches.every((p) => p.mode === "pair"))
+        return {
+          message: "This tour already uses combined matchup results.",
+          event: event.id,
+        };
+      if (b.confirmation !== `COMBINE TOUR ${event.id}`)
+        fail("Confirm conversion to combined matchup results.");
+      if (
+        !Array.isArray(b.expectedMatches) ||
+        b.expectedMatches.length !== event.matches.length
+      )
+        fail("The tour changed. Reload it and review again.", 409);
+      for (const p of event.matches)
+        this.assertUnchanged(
+          p,
+          b.expectedMatches.find((x) => x.id === p.id),
+        );
+      const votes = event.matches.reduce((n, p) => n + p.votes, 0);
+      if (votes && b.clearPredictions !== true)
+        fail(
+          "Combining matchups replaces the old prediction format. Confirm clearing existing predictions first.",
+          409,
+        );
+      const pairKey = (p) => JSON.stringify([p.team_a, p.team_b].sort()),
+        groups = new Map();
+      for (const p of event.matches) {
+        const key = pairKey(p);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(p);
+      }
+      const expectedPairs = pickemRounds("double-4", event.teams)
+        .flat()
+        .map(([a, c]) => pairKey({ team_a: a, team_b: c }));
+      if (
+        groups.size !== 6 ||
+        event.matches.length !== 12 ||
+        expectedPairs.some((key) => !groups.has(key))
+      )
+        fail(
+          "Conversion needs the original twelve matches, with each team pairing appearing twice.",
+        );
+      for (const rows of groups.values()) {
+        const [a, c] = rows;
+        if (
+          rows.length !== 2 ||
+          a.mode !== "match" ||
+          c.mode !== "match" ||
+          a.team_a !== c.team_b ||
+          a.team_b !== c.team_a
+        )
+          fail(
+            "Both legs must have matching reversed team names before combining.",
+          );
+        if (
+          a.winner_reward !== c.winner_reward ||
+          a.score_reward !== c.score_reward
+        )
+          fail("Make both legs’ rewards equal before combining.");
+      }
+      e.run(
+        "DELETE FROM predictions WHERE pickem IN (SELECT id FROM pickems WHERE event_id=?)",
+        event.id,
+      );
+      for (const [a, c] of groups.values()) {
+        e.run(
+          "UPDATE pickems SET mode='pair',ends=?,title=? WHERE id=?",
+          Math.min(a.ends, c.ends),
+          `${event.name} · Group ${a.round} · ${a.team_a} vs ${a.team_b}`,
+          a.id,
+        );
+        e.run("DELETE FROM pickems WHERE id=?", c.id);
+      }
+      return {
+        message:
+          "Combined into six matchup pick’ems. Choose 2:0, 1:1 or 0:2 for each pair.",
+        event: event.id,
+      };
+    }
     if (action === "pickem-event-edit") {
       const event = e.one(
         "SELECT * FROM pickem_events WHERE id=?",
@@ -253,7 +338,7 @@ export class PickemEvents {
       const teams = validateTeams(b.format, b.teams),
         name = text(b.name, 100);
       const swiss = b.format === "swiss" ? swissRound(teams) : null;
-      const rounds = swiss ? [swiss.pairs] : roundRobin(b.format, teams);
+      const rounds = swiss ? [swiss.pairs] : pickemRounds(b.format, teams);
       e.run(
         "INSERT INTO pickem_events(name,format,teams,created) VALUES(?,?,?,?)",
         name,

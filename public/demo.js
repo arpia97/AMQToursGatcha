@@ -1,4 +1,5 @@
 import { DAILY_CREDITS } from "./site-defaults.js";
+import { pickemOutcome } from "./pickem-formats.js";
 import { drawFeatured } from "./auction-odds.js";
 import { premiumPool, drawPremium } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
@@ -316,8 +317,7 @@ export class Demo {
         b.scoreB < 0 ||
         b.scoreA > 1000 ||
         b.scoreB > 1000 ||
-        b.scoreA === b.scoreB ||
-        (b.winner === "a") !== b.scoreA > b.scoreB
+        b.winner !== pickemOutcome(b.scoreA, b.scoreB, p.mode)
       )
         throw new Error("Scores must agree with the selected winner.");
       p.prediction = b.winner;

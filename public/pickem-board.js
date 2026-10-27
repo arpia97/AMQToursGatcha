@@ -1,3 +1,4 @@
+import { pickemOutcome } from "./pickem-formats.js";
 export function tourSummaries(matches, now) {
   const groups = new Map();
   for (const p of matches) {
@@ -10,6 +11,7 @@ export function tourSummaries(matches, now) {
           key,
           name: p.tour,
           matches: 0,
+          pairs: 0,
           rounds: new Set(),
           open: 0,
           settled: 0,
@@ -18,6 +20,7 @@ export function tourSummaries(matches, now) {
         }),
       );
     g.matches++;
+    if (p.mode === "pair") g.pairs++;
     g.rounds.add(p.round || 1);
     g.newest = Math.max(g.newest, p.id);
     if (p.settled) g.settled++;
@@ -31,17 +34,39 @@ export function tourSummaries(matches, now) {
     .sort((a, b) => b.newest - a.newest);
 }
 export function predictionDraft(p, draft) {
-  return draft?.teamA === p.team_a && draft?.teamB === p.team_b
+  return draft?.teamA === p.team_a &&
+    draft?.teamB === p.team_b &&
+    (draft.mode || "match") === (p.mode || "match")
     ? draft
     : {
         teamA: p.team_a,
         teamB: p.team_b,
+        mode: p.mode || "match",
+        ...(p.mode === "pair"
+          ? {
+              result: p.prediction ? `${p.prediction_a}:${p.prediction_b}` : "",
+            }
+          : {}),
         winner: p.prediction || "",
         scoreA: p.prediction_a ?? "",
         scoreB: p.prediction_b ?? "",
       };
 }
 export function predictionBody(values) {
+  if (Object.hasOwn(values, "result")) {
+    if (!["2:0", "1:1", "0:2"].includes(values.result))
+      throw Error("Choose 2:0, 1:1 or 0:2.");
+    const [scoreA, scoreB] = values.result.split(":").map(Number),
+      pickem = Number(values.pickem);
+    if (!Number.isSafeInteger(pickem) || pickem < 1)
+      throw Error("Choose a matchup.");
+    return {
+      pickem,
+      winner: pickemOutcome(scoreA, scoreB, "pair"),
+      scoreA,
+      scoreB,
+    };
+  }
   if (!["a", "b"].includes(values.winner))
     throw Error("Choose a winning team.");
   if (
@@ -65,6 +90,74 @@ export function predictionBody(values) {
   )
     throw Error("Scores must agree with the selected winner.");
   return { pickem, winner: values.winner, scoreA, scoreB };
+}
+function predictionCells(p, draft, form, e, open, label) {
+  if (p.mode === "pair")
+    return (
+      '<td colspan="2" class="pair-result-cell">' +
+      (open
+        ? '<select name="result" form="' +
+          form +
+          '" required aria-label="Two-game result: ' +
+          label +
+          '"><option value="">Choose result…</option>' +
+          ["2:0", "1:1", "0:2"]
+            .map(
+              (v) =>
+                '<option value="' +
+                v +
+                '" ' +
+                (draft.result === v ? "selected" : "") +
+                ">" +
+                v.replace(":", " : ") +
+                "</option>",
+            )
+            .join("") +
+          "</select>"
+        : p.prediction
+          ? p.prediction_a + " : " + p.prediction_b
+          : "—") +
+      "</td>"
+    );
+  const winner = open
+    ? '<select name="winner" form="' +
+      form +
+      '" required aria-label="Winner: ' +
+      label +
+      '"><option value="">Choose…</option><option value="a" ' +
+      (draft.winner === "a" ? "selected" : "") +
+      ">" +
+      e(p.team_a) +
+      '</option><option value="b" ' +
+      (draft.winner === "b" ? "selected" : "") +
+      ">" +
+      e(p.team_b) +
+      "</option></select>"
+    : p.prediction
+      ? e(p.prediction === "a" ? p.team_a : p.team_b)
+      : "—";
+  const scoreInput = (name, value, team) =>
+    '<input name="' +
+    name +
+    '" form="' +
+    form +
+    '" type="number" min="0" max="1000" step="1" required value="' +
+    e(value) +
+    '" aria-label="' +
+    e(team) +
+    ' predicted score">';
+  const scores = open
+    ? '<div class="pickem-score">' +
+      scoreInput("scoreA", draft.scoreA, p.team_a) +
+      "<span>:</span>" +
+      scoreInput("scoreB", draft.scoreB, p.team_b) +
+      "</div>"
+    : p.prediction
+      ? p.prediction_a + " : " + p.prediction_b
+      : "—";
+  return (
+    "<td>" + winner + '</td><td class="pickem-score-cell">' + scores + "</td>"
+  );
 }
 export function pickemBoard(
   tours,
@@ -99,43 +192,9 @@ export function pickemBoard(
           (p.round || 1) +
           '</td><th scope="row" class="match-name">' +
           label +
-          "</th><td>" +
-          (open
-            ? '<select name="winner" form="' +
-              form +
-              '" required aria-label="Winner: ' +
-              label +
-              '"><option value="">Choose…</option><option value="a" ' +
-              (draft.winner === "a" ? "selected" : "") +
-              ">" +
-              e(p.team_a) +
-              '</option><option value="b" ' +
-              (draft.winner === "b" ? "selected" : "") +
-              ">" +
-              e(p.team_b) +
-              "</option></select>"
-            : p.prediction
-              ? e(p.prediction === "a" ? p.team_a : p.team_b)
-              : "—") +
-          '</td><td class="pickem-score-cell">' +
-          (open
-            ? '<div class="pickem-score"><input name="scoreA" form="' +
-              form +
-              '" type="number" min="0" max="1000" step="1" required value="' +
-              e(draft.scoreA) +
-              '" aria-label="' +
-              e(p.team_a) +
-              ' predicted score"><span>:</span><input name="scoreB" form="' +
-              form +
-              '" type="number" min="0" max="1000" step="1" required value="' +
-              e(draft.scoreB) +
-              '" aria-label="' +
-              e(p.team_b) +
-              ' predicted score"></div>'
-            : p.prediction
-              ? p.prediction_a + " : " + p.prediction_b
-              : "—") +
-          '</td><td class="pickem-state" title="' +
+          "</th>" +
+          predictionCells(p, draft, form, e, open, label) +
+          '<td class="pickem-state" title="' +
           e(deadline(p)) +
           '"><span class="' +
           (open ? "ledger-positive" : "muted") +
@@ -172,6 +231,9 @@ export function pickemBoard(
     tours
       .map((t) => {
         const expanded = detail?.key === t.key;
+        const pairMode =
+          t.pairs === t.matches ||
+          (expanded && detail.matches.every((p) => p.mode === "pair"));
         const label = t.open
           ? "OPEN"
           : t.settled === t.matches
@@ -188,13 +250,17 @@ export function pickemBoard(
             ).values(),
           ];
           const rewardText =
-            terms.length === 1
+            terms.length === 1 && pairMode
               ? "✦ " +
-                n(terms[0][0]) +
-                " winner · ✦ " +
-                n(terms[0][1]) +
-                " per exact team score"
-              : "Rewards vary by match; hover a match for details.";
+                n(terms[0][0] + 2 * terms[0][1]) +
+                " for the correct two-game result"
+              : terms.length === 1
+                ? "✦ " +
+                  n(terms[0][0]) +
+                  " winner · ✦ " +
+                  n(terms[0][1]) +
+                  " per exact team score"
+                : "Rewards vary by match; hover a match for details.";
           table =
             '<div class="tour-rounds" id="tour-rounds-' +
             t.key +
@@ -206,7 +272,13 @@ export function pickemBoard(
                 e(deadline({ ends: t.nextEnds })) +
                 "</span>"
               : "") +
-            '</div><div class="table-wrap pickem-table-wrap"><table class="pickem-table"><thead><tr><th>Rd</th><th>Match</th><th>Your winner</th><th>Score A : B</th><th>Status / result</th><th>Save</th></tr></thead><tbody>' +
+            '</div><div class="table-wrap pickem-table-wrap"><table class="pickem-table"><thead><tr><th>' +
+            (pairMode ? "Group" : "Rd") +
+            "</th><th>Match</th>" +
+            (pairMode
+              ? '<th colspan="2">Two-game result (A : B)</th>'
+              : "<th>Your winner</th><th>Score A : B</th>") +
+            "<th>Status / result</th><th>Submit</th></tr></thead><tbody>" +
             rows +
             "</tbody></table></div>" +
             (detail.byes || [])
@@ -226,9 +298,21 @@ export function pickemBoard(
           e(t.name) +
           '</h3><p class="form-hint">' +
           t.rounds +
-          (t.rounds === 1 ? " round · " : " rounds · ") +
+          (pairMode
+            ? t.rounds === 1
+              ? " group · "
+              : " groups · "
+            : t.rounds === 1
+              ? " round · "
+              : " rounds · ") +
           t.matches +
-          (t.matches === 1 ? " match · " : " matches · ") +
+          (pairMode
+            ? t.matches === 1
+              ? " matchup · "
+              : " matchups · "
+            : t.matches === 1
+              ? " match · "
+              : " matches · ") +
           t.open +
           " open · " +
           t.settled +

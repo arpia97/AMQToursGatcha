@@ -144,7 +144,7 @@ test("event publishing is atomic, defaults to 500 per award, preserves standalon
     format: "double-4",
     teams: teams(4),
     deadlines: Array.from(
-      { length: 6 },
+      { length: 3 },
       (_, i) => now() + 3600000 + i * 86400000,
     ),
   };
@@ -152,7 +152,7 @@ test("event publishing is atomic, defaults to 500 per award, preserves standalon
     e.mutate("host:event", "event-key", b, () => e.host("pickem-event", b));
   run();
   run();
-  assert.equal(e.one("SELECT count(*) n FROM pickems").n, 12);
+  assert.equal(e.one("SELECT count(*) n FROM pickems").n, 6);
   assert.ok(
     e
       .all("SELECT * FROM pickems")
@@ -300,7 +300,7 @@ test("host schedule review escapes names and exposes per-round editable deadline
   );
   const html = scheduleReview(d, escape);
   assert.match(html, /&lt;Tour>/);
-  assert.match(html, /deadline-5/);
+  assert.match(html, /deadline-2/);
   assert.match(html, /value="500"/);
   assert.doesNotMatch(
     accessPanel({ players: [], canManageHosts: false }, escape),
@@ -330,7 +330,7 @@ test("schedule preparation explains missing names, wrong team counts, duplicates
 });
 test("reviewed host schedules publish active public pickems once for every supported format", (t) => {
   for (const [format, count, matches] of [
-    ["double-4", 4, 12],
+    ["double-4", 4, 6],
     ["single-6", 6, 15],
     ["swiss", 8, 4],
   ]) {
@@ -372,8 +372,8 @@ test("reviewed host schedules publish active public pickems once for every suppo
       e.action("p", "predict", {
         pickem: p.id,
         winner: "a",
-        scoreA: 3,
-        scoreB: 1,
+        scoreA: format === "double-4" ? 2 : 3,
+        scoreB: format === "double-4" ? 0 : 1,
       }),
     );
     assert.equal(
@@ -402,20 +402,17 @@ test("public tours paginate by complete tour and expand every round with private
   assert.equal(p2.tours.length, 1);
   assert.equal(new Set([...p1.tours, ...p2.tours].map((t) => t.key)).size, 21);
   assert.ok(
-    p1.tours.every((t) => t.matches === 12 && t.rounds === 6 && t.open === 12),
+    p1.tours.every((t) => t.matches === 6 && t.rounds === 3 && t.open === 6),
   );
   const detail = e.pickemEvents.detail(first, "p");
-  assert.equal(detail.matches.length, 12);
-  assert.deepEqual(
-    [...new Set(detail.matches.map((p) => p.round))],
-    [1, 2, 3, 4, 5, 6],
-  );
+  assert.equal(detail.matches.length, 6);
+  assert.deepEqual([...new Set(detail.matches.map((p) => p.round))], [1, 2, 3]);
   e.tx(() =>
     e.action("p", "predict", {
       pickem: detail.matches[0].id,
       winner: "a",
-      scoreA: 3,
-      scoreB: 1,
+      scoreA: 2,
+      scoreB: 0,
     }),
   );
   assert.equal(e.pickemEvents.detail(first, "p").matches[0].prediction, "a");
@@ -433,7 +430,7 @@ test("public tours paginate by complete tour and expand every round with private
 });
 test("match edits preserve votes unless team changes are confirmed, reject stale reviews, and delete exactly once without credits", (t) => {
   const { e, host, now } = fixture(t);
-  host("pickem-event", { name: "Tour", format: "double-4", teams: teams(4) });
+  host("pickem-event", { name: "Tour", format: "single-6", teams: teams(6) });
   let p = e.pickemEvents.match(1);
   const edit = () => ({
     pickem: 1,
@@ -510,7 +507,7 @@ test("whole-tour deletion removes predictions/byes atomically and rejects concur
   }).event;
   time(now() + 600001);
   const match = e.pickemEvents.read(paid).matches[0];
-  host("settle", { pickem: match.id, scoreA: 3, scoreB: 1 });
+  host("settle", { pickem: match.id, scoreA: 2, scoreB: 0 });
   const p = e.pickemEvents.match(match.id);
   assert.throws(
     () =>
