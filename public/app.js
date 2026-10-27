@@ -34,7 +34,7 @@ try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
     titleMode = "english";
 } catch {}
-let packMotion = "system";
+let packMotion = "full";
 try {
   const saved = localStorage.getItem("amqtours-pack-motion");
   if (["system", "full", "reduced"].includes(saved)) packMotion = saved;
@@ -44,8 +44,8 @@ function packMotionControl() {
   return (
     '<label class="pack-motion-control">Pack animations<select class="pack-motion-select" aria-label="Pack animations">' +
     [
-      ["system", "System setting"],
       ["full", "Full animation"],
+      ["system", "System setting"],
       ["reduced", "Reduced motion"],
     ]
       .map(
