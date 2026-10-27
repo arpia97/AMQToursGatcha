@@ -1,3 +1,4 @@
+import { canUpgrade } from "./card-management.js";
 export function seriesTitle(card, mode = "romaji") {
   if (card.kind === "seiyuu") return card.series || "Voice actor";
   return mode === "english"
@@ -69,13 +70,21 @@ export function cardComparator(sort = "name") {
 export function collectionView(
   inventory,
   cardBy,
-  { kind, query = "", rarity = "", role = "", sort = "rarity" } = {},
+  {
+    kind,
+    query = "",
+    rarity = "",
+    role = "",
+    upgradable = false,
+    sort = "rarity",
+  } = {},
 ) {
   const q = query.toLowerCase();
   return inventory
     .map((i) => ({ ...i, c: cardBy(i.card) }))
     .filter(
-      ({ c }) =>
+      ({ c, ...item }) =>
+        (!upgradable || canUpgrade(item)) &&
         c.kind === kind &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&

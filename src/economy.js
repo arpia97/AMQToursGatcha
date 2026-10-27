@@ -5,6 +5,7 @@ import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
 import { Mahjong } from "./mahjong.js";
 import { GemFaceting } from "./gem.js";
+import { CardManagement } from "./card-management.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -56,6 +57,7 @@ export class Economy {
     this.fusion = new Fusion(e);
     this.mahjong = new Mahjong(e);
     this.gem = new GemFaceting(e);
+    this.cards = new CardManagement(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -168,6 +170,11 @@ export class Economy {
         id,
       );
     if (!item) fail("You do not own that card.");
+    if (item.protected)
+      fail(
+        "This card is protected. Unprotect it before selling, listing or fusion.",
+        409,
+      );
     if (!["extra", "card"].includes(variant))
       fail("Choose an extra copy or the enhanced card.");
     if (variant === "extra") {
@@ -365,6 +372,8 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    const managed = this.cards.action(player, action, b);
+    if (managed) return managed;
     const gem = this.gem.action(player, action, b);
     if (gem) return gem;
     const mahjong = this.mahjong.action(player, action, b);

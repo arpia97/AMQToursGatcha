@@ -8,6 +8,8 @@ export function shopSellPage(inventory, cardBy, options, kind) {
       query: options.query,
       rarity: options.rarity,
       sort: options.sort,
+      role: options.role,
+      upgradable: options.upgradable,
     }),
     options.page,
     24,
@@ -54,6 +56,12 @@ export function createShopUI(h, ui) {
         );
     return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(l.level || 1)}"><div class="portrait">${image(c)}${gradeBadge(c)}${l.level > 1 ? `<span class="level-tag">LV. ${l.level}</span>` : ""}</div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${weekly ? "Weekly selection · 1 shared copy" : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> · Lv. ${l.level}`}</p><div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}</div></article>`;
   }
+  function batchReview() {
+    const draft = ui.shopBatchReview;
+    if (!draft || draft.filters.kind !== ui.tab()) return "";
+    const { filters, quote } = draft;
+    return `<section class="batch-review-panel" id="batch-sale-review" aria-label="Review batch sale"><div class="section-head"><h2>Review batch sale</h2>${btn("Cancel review", "batch-cancel", "", "secondary")}</div><p>Sell <strong>${n(quote.count)} ${quote.count === 1 ? "copy" : "copies"}</strong> for <strong>✦ ${n(quote.total)} credits</strong>. ${filters.mode === "extras" ? "Your base cards and enhancement levels are kept." : "All matching copies, including enhanced base cards, will be consumed."} Protected cards are always excluded.${quote.hasMore ? " This batch contains the first 200 card types; review another batch afterward." : ""}</p><div class="batch-sale-review">${quote.items.map((i) => `<div><span>${e(cardBy(i.card).name)} · ${i.rarity} · ×${i.count}${filters.mode === "all" ? " · base Lv. " + i.level : ""}</span><strong>✦ ${n(i.price)}</strong></div>`).join("")}</div><form id="batch-sell-form"><div class="form-error" role="alert"></div><button class="button" type="submit">Sell ${n(quote.count)} ${quote.count === 1 ? "copy" : "copies"} for ${n(quote.total)} credits</button></form></section>`;
+  }
   function sell() {
     const s = getState();
     if (!s.me)
@@ -82,16 +90,18 @@ export function createShopUI(h, ui) {
         ([value, label]) =>
           `<option value="${value}" ${f.sort === value ? "selected" : ""}>${label}</option>`,
       )
-      .join("")}</select></label></div>`;
+      .join(
+        "",
+      )}</select></label>${ui.tab() === "character" ? `<label>Role<select id="shop-role"><option value="">All roles</option><option value="main" ${f.role === "main" ? "selected" : ""}>Main</option><option value="supporting" ${f.role === "supporting" ? "selected" : ""}>Supporting</option></select></label>` : ""}<label class="check-label"><input type="checkbox" id="shop-upgradable" ${f.upgradable ? "checked" : ""}> Upgradable only</label></div><div class="batch-sale-controls"><label>Batch sale<select id="shop-sale-mode"><option value="extras" ${f.mode !== "all" ? "selected" : ""}>Spare copies only · keep base cards</option><option value="all" ${f.mode === "all" ? "selected" : ""}>All matching copies · including base cards</option></select></label>${btn("Review batch sale →", "batch-sell", "", "secondary")}<span class="form-hint">Uses all matching pages. Protected cards are excluded.</span></div>`;
     const pager = `<div class="toolbar shop-pager">${btn("← Previous", "shop-sell-prev", data.page === 1 ? "disabled" : "", "secondary")}<label>Page <input id="shop-sell-page" aria-label="Go to sell cards page" type="number" min="1" max="${pages}" value="${data.page}"></label><span class="subtext">of ${n(pages)} · ${n(data.total)} ${data.total === 1 ? "card" : "cards"}</span>${btn("Next →", "shop-sell-next", data.hasMore ? "" : "disabled", "secondary")}</div>`;
-    return `<div class="section-head"><h2>Sell your cards</h2><span class="subtext">Instant credits or your own asking price</span></div><p class="subtext">Sell to the shop for 50% of the rarity price, or list a card for another player to buy. Enhanced sale values account for every card invested. Listed cards are held until sold or withdrawn.</p>${controls}${pager}${
+    return `<div class="section-head"><h2>Sell your cards</h2><span class="subtext">Instant credits or your own asking price</span></div><p class="subtext">Sell to the shop for 50% of the rarity price, or list a card for another player to buy. Enhanced sale values account for every card invested. Listed cards are held until sold or withdrawn.</p>${controls}${batchReview()}${pager}${
       data.items.length
         ? `<div class="card-grid shop-card-grid">${data.items
             .map((item) => {
               const c = item.c,
                 extra = item.copies > 1,
                 level = extra ? 1 : item.level;
-              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your Lv. " + item.level + " card"}</p><div class="shop-sell-actions">${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}"`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}"`, "mint")}</div></div></article>`;
+              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your Lv. " + item.level + " card"}</p><div class="shop-sell-actions">${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}</div></div></article>`;
             })
             .join("")}</div>`
         : empty(

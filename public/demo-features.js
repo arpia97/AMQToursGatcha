@@ -1,3 +1,4 @@
+import { batchSaleQuote } from "./card-management.js";
 import {
   GEM_CLICK_PRICE,
   gemCounts,
@@ -462,6 +463,7 @@ export function demoFeatures(d, path, b) {
   function take(id, variant) {
     const i = s.inventory.find((i) => i.card === id);
     if (!i) throw Error("You do not own that card.");
+    if (i.protected) throw Error("This card is protected. Unprotect it first.");
     if (variant === "extra" && i.copies < 2)
       throw Error("No extra copy is available.");
     const level = variant === "extra" ? 1 : i.level;
@@ -687,6 +689,45 @@ export function demoFeatures(d, path, b) {
       odds,
       materials,
       cards: card ? [card] : [],
+    };
+  }
+  if (path === "protect-card") {
+    const item = s.inventory.find((i) => i.card === b.card);
+    if (!item || typeof b.protected !== "boolean")
+      throw Error("Choose an owned card.");
+    item.protected = b.protected ? 1 : 0;
+    return {
+      message: item.protected ? "Card protected." : "Card unprotected.",
+    };
+  }
+  if (path === "sell-batch") {
+    const quote = batchSaleQuote(
+      s.inventory,
+      (id) => d.cards.find((c) => c.id === id),
+      b.filters,
+    );
+    if (
+      !quote.items.length ||
+      JSON.stringify(quote.items) !== JSON.stringify(b.expectedItems)
+    )
+      throw Error(
+        "The matching cards or sale values changed. Review the batch again.",
+      );
+    for (const sold of quote.items) {
+      const item = s.inventory.find((i) => i.card === sold.card);
+      if (b.filters.mode === "extras") item.copies = 1;
+      else {
+        s.inventory = s.inventory.filter((i) => i !== item);
+        s.showcase = (s.showcase || []).filter((c) => c !== sold.card);
+        if (me.avatar_card === sold.card) me.avatar_card = null;
+      }
+    }
+    d.wallet(quote.total, "Batch card sale");
+    return {
+      message:
+        "Sold " + quote.count + " copies for " + quote.total + " credits.",
+      price: quote.total,
+      count: quote.count,
     };
   }
   if (path === "sell-instant") {

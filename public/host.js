@@ -1,3 +1,12 @@
+import {
+  accessPanel,
+  participationPanel,
+  tournamentPanel,
+  prepareSchedule,
+  scheduleReview,
+} from "./host-panels.js";
+let scheduleDraft = null,
+  participationDraft = null;
 const importActive = (j) =>
   ["running", "waiting"].includes(j.status) ||
   (j.status === "completed" && !!j.favorites);
@@ -88,7 +97,7 @@ function render() {
       html;
   }
   if (tab === "pickems")
-    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Scores must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${input("Predictions close (your browser’s local time)", "ends", "datetime-local")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="300"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="100"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
+    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Scores must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${input("Predictions close (your browser’s local time)", "ends", "datetime-local")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
       .filter((p) => !p.settled && p.ends <= Date.now())
       .map(
         (p) =>
@@ -139,6 +148,11 @@ function render() {
       `<section class="host-panel"><h2>Background import budget</h2><p>${b.backgroundPaused ? "Automatic scans are resting until " + esc(new Date(b.nextResumeAt).toLocaleString()) + " to leave capacity for players." : "Automatic scans are within today’s reserved budget."}</p><p class="form-hint">App-local SQL estimate since tracking began: ${b.rowsRead.toLocaleString()} rows read · ${b.rowsWritten.toLocaleString()} rows written (${esc(b.day)}, UTC). Background work rests at 2 million reads or 30,000 writes and resumes the next UTC day. Account-wide usage and platform overhead can differ.</p>${sources ? `<table><thead><tr><th>Source</th><th>Rows read</th><th>Rows written</th></tr></thead><tbody>${sources}</tbody></table><p class="form-hint">Source breakdown started ${esc(new Date(b.breakdownSince).toLocaleString())}. Earlier totals remain unattributed. Counts exclude platform storage operations and checkpoint overhead.</p>` : ""}</section>` +
       html;
   }
+  if (tab === "rewards") html = participationPanel(esc) + html;
+  if (tab === "players") html = accessPanel(state, esc) + html;
+  if (tab === "pickems") html = tournamentPanel(state, esc) + html;
+  scheduleDraft = null;
+  participationDraft = null;
   $("#host-content").innerHTML = html;
 }
 async function load() {
@@ -219,6 +233,60 @@ document.addEventListener("submit", async (ev) => {
     }
     const b = Object.fromEntries(new FormData(form));
     let result;
+    if (form.id === "participation-preview") {
+      const preview = await api("participation-preview", { text: b.text });
+      participationDraft = {
+        ...b,
+        amount: Number(b.amount),
+        expectedPlayers: preview.players.map((p) => p.id),
+      };
+      $("#participation-preview-result").innerHTML =
+        `<h3 class="space-top">Review participation rewards</h3><p>${preview.players.length} players · ${Number(b.amount).toLocaleString()} each · <strong>${(preview.players.length * Number(b.amount)).toLocaleString()} credits total</strong><br>Tour: ${esc(b.event)} · ${esc(b.note)}</p><div class="host-round">${preview.players.map((p) => esc(p.name) + " (" + esc(p.id) + ")").join(" · ")}</div><form id="participation-batch" class="space-top"><button class="button" type="submit">Award reviewed participation credits →</button></form>`;
+      report("Review the resolved players and total before awarding.");
+      return;
+    }
+    if (form.id === "participation-batch") {
+      if (!participationDraft) throw Error("Review participants first.");
+      result = await api("participation-batch", participationDraft, key);
+    }
+    if (form.id === "prepare-event" || form.id === "prepare-swiss") {
+      if (form.id === "prepare-swiss") {
+        const event = await api("pickem-event?event=" + Number(b.event));
+        state.pickemEvents = state.pickemEvents.map((x) =>
+          x.id === event.id ? event : x,
+        );
+      }
+      scheduleDraft = prepareSchedule(b, state);
+      $("#schedule-preview").innerHTML = scheduleReview(scheduleDraft, esc);
+      $("#schedule-preview").scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      report("Review every pairing, deadline and reward before publishing.");
+      return;
+    }
+    if (form.id === "publish-schedule") {
+      if (!scheduleDraft) throw Error("Prepare a schedule first.");
+      result = await api(
+        scheduleDraft.path,
+        {
+          ...scheduleDraft.body,
+          deadlines: scheduleDraft.rounds.map((_, i) =>
+            new Date(b["deadline-" + i]).getTime(),
+          ),
+          winnerReward: Number(b.winnerReward),
+          scoreReward: Number(b.scoreReward),
+        },
+        key,
+      );
+    }
+    if (form.id === "host-permissions") {
+      result = await api(
+        "permissions",
+        { player: b.player, enabled: b.enabled === "true" },
+        key,
+      );
+    }
     if (form.id === "role-search") {
       const response = await fetch(
         "api/catalog?kind=character&q=" + encodeURIComponent(b.query),

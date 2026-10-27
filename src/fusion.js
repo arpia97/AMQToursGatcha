@@ -25,6 +25,11 @@ export class Fusion {
           card = this.e.catalogStore.card(id);
         if (!item || !card)
           fail("A selected card is no longer in your collection.", 409);
+        if (item.protected)
+          fail(
+            "A selected card is protected. Unprotect it before fusion.",
+            409,
+          );
         groups.set(id, { item, card, extra: 0, base: 0 });
       }
       const group = groups.get(id),

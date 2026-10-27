@@ -1,6 +1,8 @@
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
+import { PickemEvents } from "./pickem-events.js";
+import { Participation } from "./participation.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -41,6 +43,7 @@ export class Engine {
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
+      ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
       ["catalog", "series_romaji", "TEXT NOT NULL DEFAULT ''"],
@@ -73,10 +76,14 @@ export class Engine {
       this.run(sql);
     this.catalogStore = new Catalog(this);
     this.economy = new Economy(this);
+    this.pickemEvents = new PickemEvents(this);
+    this.participation = new Participation(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
-    this.run("UPDATE players SET is_admin=0 WHERE is_admin!=0 AND id!='368'");
+    this.run(
+      "UPDATE players SET is_admin=0 WHERE is_admin!=0 AND id!='368' AND id NOT IN (SELECT player FROM host_delegations)",
+    );
   }
   all(sql, ...args) {
     return this.db(sql, ...args);
@@ -126,18 +133,52 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,CASE WHEN id='368' THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
     return p;
   }
+  hostIdentity(hash) {
+    return (
+      this.one(
+        "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1 AND (p.id='368' OR p.id IN (SELECT player FROM host_delegations))",
+        hash,
+        this.now(),
+      )?.id || null
+    );
+  }
   adminSession(hash) {
-    return !!this.one(
-      "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1 AND p.id='368'",
-      hash,
+    return !!this.hostIdentity(hash);
+  }
+  setHostAccess(actor, b) {
+    if (actor !== "368") fail("Only arpia97 can manage host permissions.", 403);
+    const id = text(b.player, 100);
+    if (typeof b.enabled !== "boolean") fail("Choose grant or revoke.");
+    if (id === "368") fail("The owner’s host access cannot be changed.", 403);
+    const p = this.one("SELECT password FROM players WHERE id=?", id);
+    if (!p) fail("Unknown AMQ player ID.", 404);
+    if (b.enabled && !p.password)
+      fail("The player must register before receiving host access.");
+    this.run("UPDATE players SET is_admin=? WHERE id=?", b.enabled ? 1 : 0, id);
+    if (b.enabled)
+      this.run(
+        "INSERT OR REPLACE INTO host_delegations(player,granted_by) VALUES(?,'368')",
+        id,
+      );
+    else this.run("DELETE FROM host_delegations WHERE player=?", id);
+    this.run(
+      "INSERT INTO host_access_log(actor,player,enabled,at) VALUES(?,?,?,?)",
+      actor,
+      id,
+      b.enabled ? 1 : 0,
       this.now(),
     );
+    return {
+      message: b.enabled
+        ? "Host access granted."
+        : "Host access revoked immediately.",
+    };
   }
   wallet(id, delta, reason, earned = false) {
     const p = this.player(id);
@@ -408,6 +449,9 @@ export class Engine {
     fail("Unknown action.", 404);
   }
   host(action, b) {
+    if (action === "participation-batch") return this.participation.grant(b);
+    const pickemEvent = this.pickemEvents.action(action, b);
+    if (pickemEvent) return pickemEvent;
     if (action === "refresh-auctions") {
       if (b.confirmation !== "REFRESH COMMUNITY AUCTIONS")
         fail("Type REFRESH COMMUNITY AUCTIONS to confirm.");
@@ -487,8 +531,8 @@ export class Engine {
         this.now() + 90 * 86400000,
       );
       const rewards = [
-        integer(b.winnerReward, 0, 100000),
-        integer(b.scoreReward, 0, 100000),
+        integer(b.winnerReward ?? 500, 0, 100000),
+        integer(b.scoreReward ?? 500, 0, 100000),
       ];
       this.run(
         "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward) VALUES(?,?,?,?,?,?,?)",
@@ -673,6 +717,8 @@ export class Engine {
         "tour_events",
         "sessions",
         "pickems",
+        "pickem_events",
+        "pickem_byes",
         "auctions",
         "weekly_shop",
         "market_listings",
@@ -693,6 +739,7 @@ export class Engine {
           "usernames",
           "receipts",
           "throttle",
+          "host_delegations",
         ])
           this.run(`DELETE FROM ${table}`);
         this.run(
@@ -969,6 +1016,8 @@ CREATE TABLE IF NOT EXISTS usernames(username TEXT PRIMARY KEY,player TEXT NOT N
 CREATE INDEX IF NOT EXISTS usernames_player ON usernames(player);
 CREATE TABLE IF NOT EXISTS tour_events(player TEXT NOT NULL,category TEXT NOT NULL,event TEXT NOT NULL,PRIMARY KEY(player,category,event));
 CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY,player TEXT NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS host_access_log(id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,player TEXT NOT NULL,enabled INTEGER NOT NULL,at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS host_delegations(player TEXT PRIMARY KEY,granted_by TEXT NOT NULL CHECK(granted_by='368'));
 CREATE TABLE IF NOT EXISTS throttle(key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS catalog(id TEXT PRIMARY KEY,kind TEXT NOT NULL,name TEXT NOT NULL,series TEXT NOT NULL DEFAULT '',image TEXT NOT NULL DEFAULT '',source TEXT NOT NULL DEFAULT '',active INTEGER NOT NULL DEFAULT 1);

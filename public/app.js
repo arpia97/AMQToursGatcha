@@ -121,12 +121,14 @@ let state,
   profileData = null,
   profileResults = [],
   searchTimer;
+import { batchSaleQuote } from "./card-management.js";
+let pendingBatchSale = null;
 const ui = {
   filters: { rarity: "", role: "" },
   catalogSort: "name",
   collectionSort: "rarity",
   collectionPage: 1,
-  collectionFilters: { rarity: "", role: "" },
+  collectionFilters: { rarity: "", role: "", upgradable: false },
   playerPage: 1,
   playerData: null,
   tab: () => tab,
@@ -138,7 +140,15 @@ const ui = {
   marketPage: 1,
   marketData: null,
   shopSection: "buy",
-  shopSell: { query: "", rarity: "", sort: "rarity", page: 1 },
+  shopSell: {
+    query: "",
+    rarity: "",
+    role: "",
+    upgradable: false,
+    mode: "extras",
+    sort: "rarity",
+    page: 1,
+  },
   pachinkoGame: "mahjong",
   coinResult: null,
   mahjongHistoryOpen: false,
@@ -310,7 +320,7 @@ function cardHTML(c, a = null, item = null) {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="bid-label"><span>${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button class="text-button" data-action="set-avatar" data-id="${escape(c.id)}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="fusion-card" data-id="${escape(c.id)}">Add to fusion ↗</button><button class="text-button" data-action="instant-sell" data-id="${escape(c.id)}">Sell now · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" data-action="sell-card" data-id="${escape(c.id)}">List / auction ↗</button></div></details></div>`
+      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button class="text-button" data-action="set-avatar" data-id="${escape(c.id)}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}">${(state.showcase || []).includes(c.id) ? "★ Remove from showcase" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}">${item.protected ? "🔒 Unprotect" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}">Add to fusion ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}">Sell now · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}">List / auction ↗</button></div></details></div>`
       : "";
   return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
 }
@@ -780,6 +790,8 @@ async function refresh() {
     }
   }
   if (previousPlayer && previousPlayer !== state.me?.id) {
+    ui.shopBatchReview = null;
+    pendingBatchSale = null;
     workshop.clear();
     ui.coinResult = null;
     ui.mahjongHistoryData = null;
@@ -1371,7 +1383,7 @@ async function handleFeatureClick(a, t) {
       }
     if (a === "clear-collection-filters") {
       ui.collectionPage = 1;
-      ui.collectionFilters = { rarity: "", role: "" };
+      ui.collectionFilters = { rarity: "", role: "", upgradable: false };
       render();
       return true;
     }
@@ -1386,6 +1398,9 @@ async function handleFeatureClick(a, t) {
       ![
         "pack",
         "showcase-toggle",
+        "protect-toggle",
+        "batch-sell",
+        "batch-cancel",
         "sell-card",
         "instant-sell",
         "listing-venue",
@@ -1410,6 +1425,43 @@ async function handleFeatureClick(a, t) {
       modal(
         `<h2>${premium ? "A rarer kind of luck." : "A new favourite could be inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances, taken only from D. No guaranteed minimum." : "Normal pack odds apply."} Duplicates are possible.</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
       );
+      return true;
+    }
+    if (a === "protect-toggle") {
+      const item = state.inventory.find((i) => i.card === t.dataset.id);
+      await execute("protect-card", {
+        card: item.card,
+        protected: !item.protected,
+      });
+      return true;
+    }
+    if (a === "batch-cancel") {
+      ui.shopBatchReview = null;
+      pendingBatchSale = null;
+      render();
+      return true;
+    }
+    if (a === "batch-sell") {
+      const filters = {
+        kind: tab,
+        query: ui.shopSell.query,
+        rarity: ui.shopSell.rarity,
+        role: ui.shopSell.role,
+        upgradable: ui.shopSell.upgradable,
+        mode: ui.shopSell.mode,
+      };
+      const quote = batchSaleQuote(state.inventory, cardBy, filters);
+      if (!quote.items.length) {
+        toast("No unprotected cards match this sale.", true);
+        return true;
+      }
+      pendingBatchSale = { filters, expectedItems: quote.items };
+      ui.shopBatchReview = { filters, quote };
+      render();
+      $("#batch-sale-review")?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
       return true;
     }
     if (a === "showcase-toggle") {
@@ -1545,6 +1597,16 @@ async function handleFeatureSubmit(f, b) {
     await execute(action, body);
     return true;
   }
+  if (formIdentifier(f) === "batch-sell-form") {
+    if (!pendingBatchSale) throw Error("Review the batch first.");
+    const result = await execute("sell-batch", pendingBatchSale);
+    if (result) {
+      pendingBatchSale = null;
+      ui.shopBatchReview = null;
+      render();
+    }
+    return true;
+  }
   if (formIdentifier(f) === "instant-sell-form") {
     await execute("sell-instant", {
       ...b,
@@ -1609,6 +1671,8 @@ async function handleFeatureSubmit(f, b) {
 document.addEventListener("input", (ev) => {
   if (ev.target.id !== "shop-search") return;
   const position = ev.target.selectionStart;
+  ui.shopBatchReview = null;
+  pendingBatchSale = null;
   ui.shopSell.query = ev.target.value;
   ui.shopSell.page = 1;
   render();
@@ -1619,17 +1683,23 @@ document.addEventListener("change", (ev) => {
   const fields = {
     "shop-rarity": "rarity",
     "shop-sort": "sort",
+    "shop-role": "role",
+    "shop-upgradable": "upgradable",
+    "shop-sale-mode": "mode",
     "shop-sell-page": "page",
     "shop-sell-page-bottom": "page",
   };
   const key = fields[ev.target.id];
   if (!key) return;
+  ui.shopBatchReview = null;
+  pendingBatchSale = null;
   if (key === "page") {
     const value = Number(ev.target.value);
     if (!Number.isSafeInteger(value) || value < 1) return;
     ui.shopSell.page = value;
   } else {
-    ui.shopSell[key] = ev.target.value;
+    ui.shopSell[key] =
+      key === "upgradable" ? ev.target.checked : ev.target.value;
     ui.shopSell.page = 1;
   }
   render();
@@ -1670,6 +1740,12 @@ document.addEventListener("change", async (ev) => {
 });
 
 document.addEventListener("change", async (ev) => {
+  if (ev.target.id === "collection-upgradable") {
+    ui.collectionFilters.upgradable = ev.target.checked;
+    ui.collectionPage = 1;
+    render();
+    return;
+  }
   if (["catalog-sort", "collection-sort"].includes(ev.target.id)) {
     if (ev.target.id === "catalog-sort") {
       ui.catalogSort = ev.target.value;

@@ -274,6 +274,38 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      const requireOwner = () => {
+        requireHost();
+        if (!hostTokenValid && e.hostIdentity(sessionHash) !== "368")
+          fail(
+            "Only arpia97 can manage host permissions or privileged accounts.",
+            403,
+          );
+      };
+      if (
+        [
+          "host/permissions",
+          "host/admin-account",
+          "host/mahjong-revert",
+          "host/mahjong-reversal-preview",
+          "host/mahjong-reversal-receipt",
+        ].includes(path) ||
+        (path === "host/reset-all" && b.deleteRegistry) ||
+        (["host/reset", "host/invite"].includes(path) &&
+          e.one("SELECT is_admin FROM players WHERE id=?", b.player || "")
+            ?.is_admin)
+      )
+        requireOwner();
+      if (path === "host/permissions" && post) {
+        return json(
+          e.mutate(
+            "host:permissions",
+            request.headers.get("Idempotency-Key"),
+            b,
+            () => e.setHostAccess("368", b),
+          ),
+        );
+      }
       if (path === "host/mahjong-reversal-preview" && !post)
         return json(
           e.economy.mahjong.reversalPreview(
@@ -290,11 +322,19 @@ export class Game extends DurableObject {
       }
       if (path === "host/state" && !post)
         return json({
+          canManageHosts:
+            hostTokenValid || e.hostIdentity(sessionHash) === "368",
           players: e.all(
             "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,password IS NOT NULL AS registered FROM players ORDER BY name",
           ),
           aliases: e.all("SELECT * FROM aliases ORDER BY alias"),
           pickems: e.all("SELECT * FROM pickems ORDER BY id DESC LIMIT 100"),
+          pickemEvents: e
+            .all("SELECT * FROM pickem_events ORDER BY id DESC LIMIT 30")
+            .map((event) => ({
+              ...event,
+              teams: JSON.parse(event.teams),
+            })),
           settings: Object.fromEntries(
             e.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
           ),
@@ -310,9 +350,13 @@ export class Game extends DurableObject {
         });
       if (path === "host/jikan-status" && !post)
         return json(this.jikan.status());
+      if (path === "host/pickem-event" && !post)
+        return json(e.pickemEvents.read(Number(url.searchParams.get("event"))));
       if (path === "host/acdb-retirement" && !post)
         return json(e.catalogStore.retirementPreview());
       if (!post) fail("POST required.", 405);
+      if (path === "host/participation-preview")
+        return json(e.participation.preview(b.text));
       if (path === "host/aliases-sync") {
         const status = await this.aliases.step(true);
         requireHost();
@@ -366,7 +410,7 @@ export class Game extends DurableObject {
         const id = text(b.player, 100);
         if (id !== "368") fail("Host access belongs only to arpia97.", 403);
         const hash = await passwordHash(b.password, undefined, 8);
-        requireHost();
+        requireOwner();
         e.tx(() => {
           if (e.one("SELECT password FROM players WHERE id=?", id)?.password)
             fail(
@@ -425,6 +469,7 @@ export class Game extends DurableObject {
         const code = token(),
           hash = await digest(code);
         requireHost();
+        if (e.player(id).is_admin) requireOwner();
         e.run(
           "UPDATE players SET invite=?,invite_expires=? WHERE id=?",
           hash,
@@ -443,6 +488,7 @@ export class Game extends DurableObject {
         const code = token(),
           hash = await digest(code);
         requireHost();
+        if (e.player(id).is_admin) requireOwner();
         e.tx(() => {
           e.run(
             "UPDATE players SET password=NULL,invite=?,invite_expires=?,access_reset=1 WHERE id=?",

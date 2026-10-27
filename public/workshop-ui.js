@@ -25,6 +25,8 @@ export function createWorkshop(h) {
       throw Error(
         "A selected card is no longer owned. Remove it from the board.",
       );
+    if (item.protected)
+      throw Error("This card is protected. Unprotect it before fusion.");
     const c = cardBy(entry.card);
     return {
       ...c,

@@ -1953,3 +1953,90 @@ dialog form {
     display: none;
   }
 }
+
+/* Host navigation stays horizontal even when the global sidebar nav is vertical. */
+.host-shell .host-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.host-shell nav.host-tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: auto;
+}
+.host-shell .host-tabs button {
+  width: auto;
+  white-space: nowrap;
+  flex: none;
+}
+.host-shell .host-toolbar #lock {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.host-schedule {
+  display: grid;
+  gap: 18px;
+  margin: 20px 0;
+}
+.host-round {
+  border: 1px solid var(--line, #353641);
+  border-radius: 12px;
+  padding: 16px;
+}
+.host-round ul {
+  margin: 12px 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+.batch-sale-controls {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 18px 0 24px;
+}
+.batch-sale-review {
+  max-height: 320px;
+  overflow: auto;
+  margin: 20px 0;
+}
+.batch-sale-review > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line, #353641);
+}
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.check-label input[type="checkbox"] {
+  width: 16px;
+  min-height: 16px;
+  height: 16px;
+  accent-color: var(--mint);
+}
+
+.batch-review-panel {
+  padding: 24px;
+  margin: 20px 0 32px;
+  border: 1px solid var(--mint);
+  border-radius: 14px;
+  background: var(--panel, #191c23);
+  scroll-margin-top: 90px;
+}
+.batch-review-panel p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--muted);
+}

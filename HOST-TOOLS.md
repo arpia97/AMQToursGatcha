@@ -1,6 +1,8 @@
 # Host console and external integration
 
-The host console at `/host.html` is reserved for arpia97, canonical AMQ Tours ID 368. It checks both that stable ID and the server-owned administrator role on every request. Other accounts cannot authorize host requests even with an administrator flag or the same display name. The host link is hidden for other players, and the console no longer offers token unlock. The owner-held deployment HOST_TOKEN remains available only for trusted external integration/recovery.
+The host console at `/host.html` accepts arpia97 (canonical AMQ Tours ID 368) and hosts explicitly appointed by that owner. In **Players & access → Host permissions**, arpia97 can grant or immediately revoke access for registered players. Delegated hosts cannot appoint more hosts, change the owner's role, recover privileged accounts, reverse Mahjong history, or delete the player registry. Every request checks the current session, administrator flag and explicit delegation record; changing a display name or importing an administrator flag cannot grant access. The owner-held deployment HOST_TOKEN remains available for trusted external integration/recovery.
+
+The host menu is arranged horizontally and wraps on narrower screens. Gameplay resets preserve roles; deleting the entire player registry removes delegations. Permission changes are audit logged.
 
 ## Import AMQ identities
 
@@ -27,6 +29,32 @@ Issue a one-use registration code from Players & access. A registered player can
 When granting reporting, counting, or participation credits, include a stable **tour identifier**. Each player receives at most one profile count for each category and tour identifier, even if additional credit grants are made for the same task. Different categories count separately. The audit note is displayed in wallet activity. API callers without an event field fall back to the note as the identifier.
 
 Profile pick’em accuracy is correct winning-team predictions divided by all **settled matches that player entered**. Unresolved matches and matches they skipped are excluded. Exact-score credit payouts do not affect the winner-accuracy percentage. No settled entries displays `—`.
+
+### Paste participation rewards
+
+In **Credit rewards → Reward a whole tour**, paste team results such as `name (98.893) anothername (83.829) | Total = 182.722 | Guesses = [54]`. Choose credits per player, a unique tour identifier and an audit note, then review the resolved players and total. Ratings, totals and guesses are ignored. Matching uses the AMQ Tours alias registry, case-insensitively; multiple names for the same canonical ID receive one award. Unknown names or malformed rows block the entire operation. A successful batch records earned credits and participation counts atomically; a player cannot receive another batch participation award for that tour identifier, even with a new request key. Individual manual credit grants retain their existing behavior.
+
+POST `participation-preview` with `{text}` returns `{players:[{id,name}]}` without awarding anything. POST `participation-batch` with `{text,amount,event,note,expectedPlayers:[canonical IDs in preview order]}` awards the reviewed batch. Use one stable Idempotency-Key for retries.
+
+### Tour schedules
+
+**Pick’ems → Build a tour’s pick’ems** accepts teams in seed order and prepares:
+
+- Four-team double round robin: six rounds, twelve matches; second-leg home/away names reverse.
+- Six-team single round robin: five rounds, fifteen matches.
+- Swiss for 8–64 teams: publish one round at a time. Initial pairings cross the top/bottom seed halves. Later rounds rank by wins, opponents’ wins, score difference and seed order, prefer similar scores, and avoid rematches. Settle every existing match before preparing another round. Odd fields give the lowest-ranked eligible team a nonrepeating bye worth one standings win, with no prediction or credit reward. Pairings are a provisional site convention; individual matches remain available for host-directed exceptions.
+
+Review pairings and set one editable deadline per round. Correct-winner and **each team's** exact-score rewards default to 500 each (1,500 for all three correct). Existing published rewards are unchanged. Publishing is atomic and idempotent. Swiss previews are checked again against current settled results before publication.
+
+POST `pickem-event`: `{name,format:"double-4"|"single-6"|"swiss",teams:[names],deadlines:[epoch milliseconds],winnerReward:500,scoreReward:500}`. Swiss takes one deadline. POST `pickem-swiss-round`: `{event,expectedRound,expectedPairs:[[teamA,teamB]],expectedBye:null|teamName,deadlines:[epoch milliseconds],winnerReward:500,scoreReward:500}`. GET `state` includes recent `pickemEvents` metadata; GET `pickem-event?event=ID` loads only the selected event's matches and byes when preparing a round, keeping routine console refreshes small. POST `permissions` takes `{player,enabled:boolean}` and is owner-only; it cannot change ID 368.
+
+### Protected cards and batch sales
+
+Player card Actions include **Protect**, directly after Showcase. Protection covers all currently held copies of that card and survives new pulls, enhancement, sign-ins and deployment. It blocks instant sale, marketplace/auction listing and fusion. It does not withdraw previously escrowed listings. Enhancing keeps the base card and remains available.
+
+**Shop → Sell cards** supports combined type, search, rarity, role and upgradable filters. Review a batch of spare copies (keeping enhanced bases) or all matching copies. All matching pages are considered, up to 200 distinct card types per transaction. Protected cards are always excluded. Review shows counts and exact credits, including enhancement investment. Any changed inventory, protection, rarity or price rejects the whole stale sale. Sold final copies clear avatar/showcase references. Sales never increase earned-credit rankings.
+
+POST `/api/protect-card`: `{card,protected:boolean}`. POST `/api/sell-batch`: `{filters:{kind,query,rarity,role,upgradable:boolean,mode:"extras"|"all"},expectedItems:[...]}`. Generate expectedItems using shared `public/card-management.js` batchSaleQuote. Both are session-protected and idempotent. My collection and the shop seller inventory have an **Upgradable only** checkbox using the real next-level duplicate requirement and maximum level 20.
 
 ## Terminal tool
 
