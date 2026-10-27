@@ -92,6 +92,18 @@ export class Popularity {
       histograms = (context.popHistograms ||= new Map());
     return cards.map((c) => {
       if (!c) return c;
+      if (
+        c.id.startsWith("community-") &&
+        RARITY_BANDS.some(([, r]) => r === c.fixed_rarity)
+      )
+        return {
+          ...c,
+          rarity: c.fixed_rarity,
+          raritySource: "community",
+          favorites: null,
+          topPercent: null,
+          rankedPopulation: null,
+        };
       const m = identity(c.id);
       if (!m) return { ...c, rarity: null };
       const kind = m[1] === "person" ? "seiyuu" : "character",

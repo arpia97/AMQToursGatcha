@@ -4,6 +4,7 @@ import { Economy, PREMIUM_RULE } from "./economy.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
 import { PickemEvents } from "./pickem-events.js";
 import { Participation } from "./participation.js";
+import { RARITIES } from "../public/card-values.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -49,6 +50,7 @@ export class Engine {
       ["catalog", "bulk_role", "TEXT"],
       ["catalog", "series_romaji", "TEXT NOT NULL DEFAULT ''"],
       ["catalog", "series_english", "TEXT NOT NULL DEFAULT ''"],
+      ["catalog", "fixed_rarity", "TEXT"],
     ]) {
       if (
         !this.all(`PRAGMA table_info(${table})`).some((c) => c.name === column)
@@ -640,6 +642,17 @@ export class Engine {
         if (!["main", "supporting", "unknown"].includes(role))
           fail("Character role must be main, supporting, or unknown.");
         const old = this.catalogStore.rawCard(text(c.id, 100));
+        const fixedRarity =
+          c.fixedRarity === undefined
+            ? (old?.fixed_rarity ?? null)
+            : c.fixedRarity;
+        if (
+          fixedRarity !== null &&
+          (!c.id.startsWith("community-") || !RARITIES.includes(fixedRarity))
+        )
+          fail(
+            "Fixed rarity requires a community- card ID and a valid rarity from D to AG.",
+          );
         if (
           (c.id.startsWith("mal-person-") && c.kind !== "seiyuu") ||
           (c.id.startsWith("mal-character-") && c.kind !== "character")
@@ -648,7 +661,7 @@ export class Engine {
         if (old && old.kind !== c.kind)
           fail("A catalog ID cannot change card type.");
         this.run(
-          "INSERT INTO catalog(id,kind,name,series,image,source,role,bulk_role,series_romaji,series_english) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role,bulk_role=excluded.bulk_role,series_romaji=excluded.series_romaji,series_english=excluded.series_english",
+          "INSERT INTO catalog(id,kind,name,series,image,source,role,bulk_role,series_romaji,series_english,fixed_rarity) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,series=excluded.series,image=excluded.image,source=excluded.source,role=excluded.role,bulk_role=excluded.bulk_role,series_romaji=excluded.series_romaji,series_english=excluded.series_english,fixed_rarity=excluded.fixed_rarity",
           c.id,
           c.kind,
           text(c.name),
@@ -659,6 +672,7 @@ export class Engine {
           this.catalogStore.bulkCard(c.id)?.role || null,
           String(c.series_romaji || c.series || "").slice(0, 500),
           String(c.series_english || "").slice(0, 500),
+          fixedRarity,
         );
       }
       this.economy.anime.index(

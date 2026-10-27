@@ -18,6 +18,8 @@ export const rarityClass = (grade) =>
     D: "d",
   })[grade] || "pending";
 export function popularityLabel(card) {
+  if (card.raritySource === "community")
+    return `Community card · ${card.rarity} rarity`;
   if (card.demoRarity)
     return "Illustrative demo rarity; not the live MAL ranking.";
   if (!card.rarity || card.favorites == null)

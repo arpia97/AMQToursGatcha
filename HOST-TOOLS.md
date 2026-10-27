@@ -154,6 +154,8 @@ GET `jikan-status` returns source-import progress, including the active provider
 
 Catalogues and import metadata are preserved even with reset-all/deleteRegistry:true. No host reset endpoint clears them. AG is the abbreviated Anything Goes tier; rarity is derived from favorite counts, not submitted in host catalogue JSON.
 
+Community cards are the exception to MAL rarity ranking. Host catalogue imports may include `fixedRarity` (D, C, B, A, S, SS, SSS, Ubers or AG) only on IDs beginning with `community-`. These cards keep their host-assigned rarity independently of MAL favorites and never enter the MAL percentile histogram. Omitting the field on a metadata edit preserves the existing fixed rarity; explicit `null` clears it. MAL IDs cannot receive a fixed rarity. Community cards join ordinary character/seiyuu pools, rarity search, shop/auction selection and collection progress normally. `public/community-cards.json` contains the 21 GGius Tours character definitions and public image URLs; original image bytes are stored in `public/community-cards/`.
+
 ## Refresh weekly selections
 
 `POST /api/host/refresh-weekly` accepts `{ "confirmation": "REFRESH WEEKLY SELECTIONS" }` with normal administrator authorization and an Idempotency-Key. It closes active community auction lots and refunds held bids, expires the current weekly shop, then generates five community auctions of each type and ten mixed-pool shop cards. Timers keep the regular Monday boundary. Past unclaimed wins, already purchased cards, player auctions, marketplace listings, catalogue and importer progress remain intact. Retry with the same key to avoid repeating the refresh. This is separate from player/gameplay reset tools.
