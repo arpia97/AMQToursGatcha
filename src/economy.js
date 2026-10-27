@@ -585,7 +585,7 @@ export class Economy {
       e.wallet(player, -stake, "Coin flip: bet");
       const outcome = e.rand(2) === 0 ? "heads" : "tails",
         won = outcome === b.choice,
-        payout = won ? Math.floor(stake * 1.5) : 0;
+        payout = won ? Math.floor(stake * 1.75) : 0;
       if (payout) e.wallet(player, payout, "Coin flip: win");
       e.run(
         "INSERT INTO gambling_rounds(player,game,stake,payout,net,outcome,at) VALUES(?,'coin',?,?,?,?,?)",

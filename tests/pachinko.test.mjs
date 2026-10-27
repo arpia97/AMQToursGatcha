@@ -151,19 +151,30 @@ test("bad-row successes lower the chance too, roll boundaries are exact, and sav
   );
   assert.equal(e.state("q").gem, null);
 });
-test("coin flip uses fair two-sided outcomes and floors1.5gross payouts, with idempotent balance and earned preservation", (t) => {
+test("coin flip uses fair two-sided outcomes and floors 1.75x gross payouts, with idempotent balance and earned preservation", (t) => {
   const { e, act } = fixture(t);
   const b = { game: "coin", choice: "heads", stake: 3 };
   let r = act("gamble", b, "coin");
-  assert.equal(r.payout, 4);
-  assert.equal(r.net, 1);
+  assert.equal(r.payout, 5);
+  assert.equal(r.net, 2);
   act("gamble", b, "coin");
-  assert.equal(e.player("p").balance, 10001);
+  assert.equal(e.player("p").balance, 10002);
   e.rand = () => 1;
   r = act("gamble", b);
   assert.equal(r.payout, 0);
-  assert.equal(e.player("p").balance, 9998);
+  assert.equal(e.player("p").balance, 9999);
   assert.equal(e.player("p").earned, 10000);
+  e.rand = () => 0;
+  for (const [stake, payout] of [
+    [1, 1],
+    [2, 3],
+    [4, 7],
+    [100, 175],
+  ]) {
+    r = act("gamble", { ...b, stake });
+    assert.equal(r.payout, payout);
+    assert.equal(r.net, payout - stake);
+  }
   assert.throws(() => act("gamble", { ...b, stake: 0 }), /whole number/);
   assert.throws(() => act("gamble", { ...b, choice: "bad" }), /heads/);
   assert.throws(

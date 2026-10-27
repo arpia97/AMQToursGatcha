@@ -873,7 +873,7 @@ export function demoFeatures(d, path, b) {
     d.wallet(-b.stake, "Demo coin bet");
     const outcome = Math.random() < 0.5 ? "heads" : "tails",
       won = outcome === b.choice,
-      payout = won ? Math.floor(b.stake * 1.5) : 0;
+      payout = won ? Math.floor(b.stake * 1.75) : 0;
     if (payout) d.wallet(payout, "Demo coin win");
     const result = {
       game: "coin",
