@@ -31,6 +31,37 @@ test("background budget survives restarts and resumes at the UTC day boundary", 
   budget.observe(0, 30000);
   assert.equal(budget.paused(), true);
 });
+test("continuous paid mode resumes above the former daily limits without resetting usage, and still checkpoints across restarts", () => {
+  let now = Date.UTC(2026, 9, 28, 1),
+    saved = { day: "2026-10-28", rowsRead: 20000001, rowsWritten: 100001 };
+  const make = (mode) =>
+    new SqlBudget(
+      () => structuredClone(saved),
+      (v) => {
+        saved = structuredClone(v);
+      },
+      () => now,
+      { mode },
+    );
+  assert.equal(make().paused(), true);
+  let budget = make("continuous");
+  assert.equal(budget.paused(), false);
+  assert.equal(budget.status().mode, "continuous");
+  assert.equal(budget.status().nextResumeAt, null);
+  assert.equal(budget.status().rowReadLimit, null);
+  assert.equal(budget.status().rowWriteLimit, null);
+  budget.observe(1500, 150, "catalogImport");
+  budget.flush();
+  budget = make("continuous");
+  assert.equal(budget.status().rowsRead, 20001501);
+  assert.equal(budget.status().rowsWritten, 100151);
+  assert.equal(budget.status().sources.catalogImport.rowsWritten, 150);
+  assert.equal(budget.paused(), false);
+  assert.equal(make("unknown").paused(), true);
+  now += 86400000;
+  assert.equal(budget.status().rowsRead, 0);
+  assert.equal(budget.status().mode, "continuous");
+});
 test("real free-plan quota errors return a retryable response without implying data was deleted", async () => {
   const now = Date.UTC(2026, 9, 23, 23, 30);
   const r = storageQuotaResponse(

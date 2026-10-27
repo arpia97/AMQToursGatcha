@@ -1,12 +1,13 @@
 const DAY = 86400000;
 export const nextBudgetDay = (now) => (Math.floor(now / DAY) + 1) * DAY + 1000;
 
-// App-local estimates, not an account-wide billing report. Leave most daily
-// free-plan capacity for interactive use and invisible platform/index overhead.
+// App-local estimates, not an account-wide billing report. Daily pauses remain
+// the safe default for free-plan deployments; paid deployments can run continuously.
 export class SqlBudget {
-  constructor(load, save, now = Date.now) {
+  constructor(load, save, now = Date.now, { mode } = {}) {
     this.save = save;
     this.now = now;
+    this.mode = mode === "continuous" ? "continuous" : "daily-budget";
     this.value = load() || {};
     this.rollDay();
     if (!this.value.sources) {
@@ -45,12 +46,18 @@ export class SqlBudget {
   }
   paused() {
     this.rollDay();
-    return this.value.rowsRead >= 2000000 || this.value.rowsWritten >= 30000;
+    return (
+      this.mode !== "continuous" &&
+      (this.value.rowsRead >= 2000000 || this.value.rowsWritten >= 30000)
+    );
   }
   status() {
     const paused = this.paused();
     return {
       ...structuredClone(this.value),
+      mode: this.mode,
+      rowReadLimit: this.mode === "continuous" ? null : 2000000,
+      rowWriteLimit: this.mode === "continuous" ? null : 30000,
       backgroundPaused: paused,
       nextResumeAt: paused ? nextBudgetDay(this.now()) : null,
     };

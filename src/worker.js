@@ -113,6 +113,8 @@ export class Game extends DurableObject {
           "INSERT OR REPLACE INTO catalog_meta VALUES('sql-budget',?)",
           JSON.stringify(value),
         ),
+      Date.now,
+      { mode: env.BACKGROUND_IMPORT_MODE },
     );
     this.budget.observe(startup.read, startup.written, "startup");
   }

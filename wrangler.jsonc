@@ -3,6 +3,7 @@
   "name": "amqtours-gatcha",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
+  "vars": { "BACKGROUND_IMPORT_MODE": "continuous" },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
