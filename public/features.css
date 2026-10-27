@@ -1761,50 +1761,110 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   width: auto;
   flex: 0 0 auto;
 }
+
 .tour-rounds {
-  margin-top: 22px;
+  margin-top: 14px;
   border-top: 1px solid var(--border);
 }
-.tour-round {
-  padding: 18px 0 0;
+.pickem-table-note {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 0 8px;
+  color: var(--muted);
+  font-size: 11px;
 }
-.tour-round h4 {
-  margin: 0 0 10px;
+.pickem-table-wrap {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
 }
-.pickem-row {
-  display: grid;
-  grid-template-columns:
-    minmax(180px, 1.6fr) minmax(160px, 1.3fr) minmax(115px, 1fr)
-    auto;
-  gap: 16px;
+.pickem-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.pickem-table th,
+.pickem-table td {
+  padding: 6px 7px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+.pickem-table thead th {
+  font-size: 10px;
+  text-align: left;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pickem-table .round-number {
+  width: 28px;
+  color: var(--muted);
+  text-align: center;
+}
+.pickem-table .match-name {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 240px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.pickem-table select {
+  width: 150px;
+  max-width: 150px;
+  height: 28px;
+  padding: 4px 7px;
+  font-size: 11px;
+}
+.pickem-score {
+  display: flex;
   align-items: center;
-  padding: 14px 0;
-  border-top: 1px solid var(--border);
+  gap: 4px;
 }
-.pickem-row .form-hint {
+.pickem-score input {
+  width: 54px;
+  height: 28px;
+  padding: 4px;
+  font-size: 12px;
+  text-align: center;
+}
+.pickem-state {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.pickem-state small {
   display: block;
-  margin: 6px 0 0;
+  margin-top: 3px;
 }
-.pickem-row .button {
-  padding: 9px 14px;
+.pickem-confirm {
+  width: 82px;
 }
-@media (max-width: 850px) {
-  .pickem-row {
-    grid-template-columns: 1fr 1fr;
-  }
+.pickem-confirm .button {
+  width: auto;
+  margin: 0;
+  padding: 5px 10px;
+  min-height: 28px;
+  font-size: 11px;
+}
+.pickem-confirm .form-error:empty {
+  display: none;
+}
+.pickem-confirm .form-error {
+  font-size: 10px;
+  max-width: 145px;
+  margin: 4px 0 0;
 }
 @media (max-width: 550px) {
   .tour-card {
-    padding: 16px;
+    padding: 14px;
   }
   .tour-summary {
-    gap: 12px;
+    gap: 10px;
   }
   .tour-summary > .button {
     width: 100%;
-  }
-  .pickem-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
   }
 }

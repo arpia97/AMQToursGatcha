@@ -1,4 +1,9 @@
-import { pickemBoard, tourSummaries } from "./pickem-board.js";
+import {
+  pickemBoard,
+  tourSummaries,
+  predictionDraft,
+  predictionBody,
+} from "./pickem-board.js";
 import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
@@ -142,6 +147,7 @@ const ui = {
   pickemData: null,
   pickemOpen: null,
   pickemDetail: null,
+  pickemDrafts: {},
   marketPage: 1,
   marketData: null,
   shopSection: "buy",
@@ -576,12 +582,19 @@ function pickems() {
       "Know the match? Make the call.",
       "Back a winner, predict both scores, and turn good reads into credits.",
     ) +
-    `<div class="notice">Entry is free. Winner rewards and exact-score rewards are added together. Each team’s exact score pays separately. You can edit your prediction until the host’s deadline.</div>` +
+    `<div class="notice">Choose a winner and both scores, then confirm each match. Entry is free; predictions stay editable until voting closes.</div>` +
     ((ui.pickemData?.tours || tourSummaries(state.pickems, state.now)).length
       ? pickemBoard(
           ui.pickemData?.tours || tourSummaries(state.pickems, state.now),
           ui.pickemDetail,
-          { escape, number, remaining, now: state.now },
+          {
+            escape,
+            number,
+            remaining,
+            now: state.now,
+            drafts: ui.pickemDrafts,
+            signedIn: !!state.me,
+          },
         )
       : empty(
           "Waiting for the next tour.",
@@ -716,6 +729,10 @@ async function loadDynamic() {
 }
 function render() {
   if (!state) return;
+  const active = document.activeElement;
+  const predictionFocus = active?.form?.dataset.inlinePrediction
+    ? { form: active.form.getAttribute("id"), name: active.name }
+    : null;
   const route = page(),
     title =
       route === "profile"
@@ -751,6 +768,11 @@ function render() {
     players,
     profile,
   }[route]();
+  if (predictionFocus)
+    document
+      .getElementById(predictionFocus.form)
+      ?.elements.namedItem(predictionFocus.name)
+      ?.focus({ preventScroll: true });
   const queryInput = $("#search") || $("#profile-search");
   if (queryInput && search.trim()) {
     const none =
@@ -807,6 +829,7 @@ async function refresh() {
     }
   }
   if (previousPlayer && previousPlayer !== state.me?.id) {
+    ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
     workshop.clear();
@@ -831,13 +854,16 @@ async function refreshCurrent() {
   clockOffset = update.now - Date.now();
   render();
 }
-async function execute(path, b, after) {
+async function execute(path, b, after, form = null) {
   if (busy) return;
   busy = true;
   const signature = path + ":" + JSON.stringify(b),
     key = pendingMutations.get(signature) || crypto.randomUUID();
   pendingMutations.set(signature, key);
-  const buttons = [...$("#modal").querySelectorAll("button[type=submit]")];
+  const buttons = [
+    ...$("#modal").querySelectorAll("button[type=submit]"),
+    ...(form?.querySelectorAll("button[type=submit]") || []),
+  ];
   buttons.forEach((x) => (x.disabled = true));
   try {
     const result = await api(path, b, key);
@@ -882,7 +908,9 @@ async function execute(path, b, after) {
         await refreshCurrent();
       } catch {}
     }
-    if ($("#modal").open && $("#modal .form-error"))
+    if (form?.isConnected && form.querySelector(".form-error"))
+      form.querySelector(".form-error").textContent = err.message;
+    else if ($("#modal").open && $("#modal .form-error"))
       $("#modal .form-error").textContent = err.message;
     else toast(err.message, true);
   } finally {
@@ -1036,6 +1064,29 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
+  if (f.dataset.inlinePrediction) {
+    if (!state.me) {
+      auth();
+      return;
+    }
+    try {
+      const body = predictionBody(b);
+      f.querySelector(".form-error").textContent = "";
+      await execute(
+        "predict",
+        body,
+        (result) => {
+          delete ui.pickemDrafts[body.pickem];
+          render();
+          toast(result.message);
+        },
+        f,
+      );
+    } catch (err) {
+      f.querySelector(".form-error").textContent = err.message;
+    }
+    return;
+  }
   if (await handleFeatureSubmit(f, b)) return;
   if (formIdentifier(f) === "auth-form") {
     const mode = b.mode;
@@ -1076,6 +1127,7 @@ document.addEventListener("submit", async (ev) => {
     );
 });
 document.addEventListener("input", (ev) => {
+  savePredictionDraft(ev.target);
   if (["search", "profile-search"].includes(ev.target.id)) {
     ev.target.classList.remove("no-results");
     ev.target.removeAttribute("aria-invalid");
@@ -1121,6 +1173,23 @@ document.addEventListener("input", (ev) => {
     }
   }
 });
+function savePredictionDraft(input) {
+  const form = input.form;
+  if (!form?.dataset.inlinePrediction) return;
+  const p = ui.pickemDetail?.matches.find(
+    (p) => p.id === Number(form.dataset.inlinePrediction),
+  );
+  if (!p) return;
+  const values = Object.fromEntries(new FormData(form));
+  ui.pickemDrafts[p.id] = {
+    ...predictionDraft(p),
+    winner: values.winner,
+    scoreA: values.scoreA,
+    scoreB: values.scoreB,
+  };
+  form.querySelector(".form-error").textContent = "";
+}
+document.addEventListener("change", (ev) => savePredictionDraft(ev.target));
 document.addEventListener(
   "error",
   (ev) => {

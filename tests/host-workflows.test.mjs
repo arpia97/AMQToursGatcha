@@ -8,7 +8,12 @@ import {
   validateTeams,
 } from "../public/pickem-formats.js";
 import { participationNames } from "../public/participation.js";
-import { tourSummaries, pickemBoard } from "../public/pickem-board.js";
+import {
+  tourSummaries,
+  pickemBoard,
+  predictionDraft,
+  predictionBody,
+} from "../public/pickem-board.js";
 import {
   scheduleReview,
   prepareSchedule,
@@ -576,11 +581,63 @@ test("compact board shows one tour button and expands all chronological rounds w
     };
   const compact = pickemBoard(tours, null, tools);
   assert.equal((compact.match(/data-action="pickem-tour"/g) || []).length, 1);
-  assert.doesNotMatch(compact, /class="pickem-row"/);
+  assert.doesNotMatch(compact, /class="pickem-table-row"/);
   const expanded = pickemBoard(tours, { key: 1, matches, byes: [] }, tools);
-  assert.equal((expanded.match(/class="pickem-row"/g) || []).length, 12);
-  assert.ok(expanded.indexOf("Round 1") < expanded.indexOf("Round 6"));
+  assert.equal((expanded.match(/class="pickem-table-row"/g) || []).length, 12);
+  assert.ok(
+    expanded.indexOf('class="round-number">1') <
+      expanded.indexOf('class="round-number">6'),
+  );
+  assert.equal((expanded.match(/data-inline-prediction=/g) || []).length, 12);
+  assert.match(expanded, /name="winner" form="tour-prediction-1"/);
+  assert.match(expanded, /name="scoreA" form="tour-prediction-1"/);
+  assert.match(expanded, />Confirm<\/button>/);
   assert.match(expanded, /&lt;Tour>/);
   assert.doesNotMatch(expanded, /<A>/);
   assert.match(expanded, /aria-expanded="true"/);
+});
+test("inline prediction drafts survive refreshes, reset after team changes and validate complete winner/score submissions", () => {
+  const p = {
+    id: 7,
+    team_a: "A",
+    team_b: "B",
+    prediction: "a",
+    prediction_a: 3,
+    prediction_b: 1,
+  };
+  const draft = {
+    ...predictionDraft(p),
+    winner: "b",
+    scoreA: "2",
+    scoreB: "4",
+  };
+  assert.deepEqual(predictionDraft({ ...p, prediction_a: 5 }, draft), draft);
+  assert.equal(
+    predictionDraft({ ...p, team_a: "Replacement" }, draft).winner,
+    "a",
+  );
+  assert.deepEqual(predictionBody({ pickem: "7", ...draft }), {
+    pickem: 7,
+    winner: "b",
+    scoreA: 2,
+    scoreB: 4,
+  });
+  assert.throws(
+    () => predictionBody({ pickem: "7", winner: "a", scoreA: "", scoreB: "0" }),
+    /both predicted scores/,
+  );
+  assert.throws(
+    () => predictionBody({ pickem: "7", winner: "", scoreA: "3", scoreB: "1" }),
+    /winning team/,
+  );
+  assert.throws(
+    () =>
+      predictionBody({ pickem: "7", winner: "a", scoreA: "1", scoreB: "3" }),
+    /agree/,
+  );
+  assert.throws(
+    () =>
+      predictionBody({ pickem: "7", winner: "a", scoreA: "3.5", scoreB: "1" }),
+    /whole numbers/,
+  );
 });
