@@ -352,6 +352,10 @@ export class Game extends DurableObject {
         return json(this.jikan.status());
       if (path === "host/pickem-event" && !post)
         return json(e.pickemEvents.read(Number(url.searchParams.get("event"))));
+      if (path === "host/pickem-match" && !post)
+        return json(
+          e.pickemEvents.match(Number(url.searchParams.get("pickem"))),
+        );
       if (path === "host/acdb-retirement" && !post)
         return json(e.catalogStore.retirementPreview());
       if (!post) fail("POST required.", 405);
@@ -663,6 +667,17 @@ export class Game extends DurableObject {
         e.economy.anime.search(url.searchParams.get("q"), session?.player),
       );
     }
+    if (path === "pickem-tours" && !post)
+      return json(
+        e.pickemEvents.page(Number(url.searchParams.get("page") || 1)),
+      );
+    if (path === "pickem-tour" && !post)
+      return json(
+        e.pickemEvents.detail(
+          Number(url.searchParams.get("key")),
+          session?.player,
+        ),
+      );
     if (path === "pickems" && !post)
       return json(
         e.pickemPage(

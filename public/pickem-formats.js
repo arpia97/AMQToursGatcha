@@ -21,10 +21,10 @@ export function validateTeams(format, teams) {
   )
     throw invalid(
       format === "swiss"
-        ? "Swiss supports 8–64 teams."
+        ? `Swiss supports 8–64 teams. You entered ${clean.length}. Put each team on a separate line.`
         : "This format requires exactly " +
             (format === "double-4" ? 4 : 6) +
-            " teams.",
+            ` teams. You entered ${clean.length}. Put each team on a separate line.`,
     );
   return clean;
 }

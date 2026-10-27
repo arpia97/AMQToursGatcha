@@ -94,7 +94,7 @@ test("daily credits are 300 once per KST day, with no regrant to a player who al
     /already claimed/,
   );
 });
-test("host reward defaults use 1000 participation, 2000 counting and 500 per reported game, while explicit amounts stay editable", (t) => {
+test("host reward defaults use 1000 participation, 300 per counted game and 500 per reported game, while explicit amounts stay editable", (t) => {
   const { e, host } = fixture(t);
   host("grant", {
     player: "p",
@@ -102,7 +102,13 @@ test("host reward defaults use 1000 participation, 2000 counting and 500 per rep
     note: "Tour",
     event: "t1",
   });
-  host("grant", { player: "p", reason: "counting", note: "Tour", event: "t1" });
+  host("grant", {
+    player: "p",
+    reason: "counting",
+    games: 3,
+    note: "Tour",
+    event: "t1",
+  });
   host("grant", {
     player: "p",
     reason: "reporting",
@@ -110,7 +116,7 @@ test("host reward defaults use 1000 participation, 2000 counting and 500 per rep
     note: "Tour",
     event: "t1",
   });
-  assert.equal(e.player("p").balance, 4500);
+  assert.equal(e.player("p").balance, 3400);
   host("grant", {
     player: "p",
     reason: "reporting",
@@ -119,7 +125,7 @@ test("host reward defaults use 1000 participation, 2000 counting and 500 per rep
     note: "Custom",
     event: "t2",
   });
-  assert.equal(e.player("p").balance, 4542);
+  assert.equal(e.player("p").balance, 3442);
   assert.throws(
     () =>
       host("grant", {
@@ -137,7 +143,7 @@ test("host reward defaults use 1000 participation, 2000 counting and 500 per rep
     note: "Default batch",
     expectedPlayers: preview.players.map((p) => p.id),
   });
-  assert.equal(e.player("p").balance, 5542);
+  assert.equal(e.player("p").balance, 4442);
 });
 test("default pickem deadlines are exactly ten minutes after actual posting, including generated rounds, and explicit deadlines remain editable", (t) => {
   const { e, host, advance, now } = fixture(t);
@@ -208,9 +214,9 @@ test("host reward form switches defaults and multiplies reporting games without 
   assert.equal(fields.amount.value, 2000);
   fields.reason.value = "counting";
   updateRewardDefaults(form);
-  assert.equal(fields.amount.value, 2000);
-  assert.equal(fields.games.disabled, true);
-  assert.equal(label.hidden, true);
+  assert.equal(fields.amount.value, 1200);
+  assert.equal(fields.games.disabled, false);
+  assert.equal(label.hidden, false);
   fields.reason.value = "participation";
   updateRewardDefaults(form);
   assert.equal(fields.amount.value, 1000);

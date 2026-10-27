@@ -9,9 +9,13 @@ export function deadlineFields(name, label, now = Date.now()) {
 export function updateRewardDefaults(form) {
   const category = form.elements.namedItem("reason").value;
   const games = form.elements.namedItem("games");
-  const reporting = category === "reporting";
-  games.disabled = !reporting;
-  form.querySelector(".reporting-games").hidden = !reporting;
+  const perGame = ["reporting", "counting"].includes(category);
+  games.disabled = !perGame;
+  form.querySelector(".reporting-games").hidden = !perGame;
+  const caption = form.querySelector(".reward-games-label");
+  if (caption)
+    caption.textContent =
+      category === "counting" ? "Games counted" : "Games reported";
   form.elements.namedItem("amount").value =
     defaultReward(category, Number(games.value) || 1) ?? 500;
 }

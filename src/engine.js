@@ -517,7 +517,9 @@ export class Engine {
           b.amount ??
             defaultReward(
               b.reason,
-              b.reason === "reporting" ? integer(b.games ?? 1, 1, 2000) : 1,
+              ["reporting", "counting"].includes(b.reason)
+                ? integer(b.games ?? 1, 1, 2000)
+                : 1,
             ),
           1,
           1000000,

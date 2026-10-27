@@ -1,3 +1,4 @@
+import { pickemBoard, tourSummaries } from "./pickem-board.js";
 import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
@@ -139,6 +140,8 @@ const ui = {
   rankData: null,
   pickemPage: 1,
   pickemData: null,
+  pickemOpen: null,
+  pickemDetail: null,
   marketPage: 1,
   marketData: null,
   shopSection: "buy",
@@ -574,16 +577,15 @@ function pickems() {
       "Back a winner, predict both scores, and turn good reads into credits.",
     ) +
     `<div class="notice">Entry is free. Winner rewards and exact-score rewards are added together. Each team’s exact score pays separately. You can edit your prediction until the host’s deadline.</div>` +
-    ((ui.pickemData?.pickems || state.pickems).length
-      ? `<div class="two-col">${(ui.pickemData?.pickems || state.pickems)
-          .map((p) => {
-            const closed = p.ends <= state.now || p.settled;
-            return `<article class="pickem"><div class="pickem-meta"><span class="eyebrow">${escape(p.tour)}</span><span class="pill ${closed ? "" : "live"}">${p.settled ? "SETTLED" : closed ? "LOCKED · awaiting results" : "OPEN · " + remaining(p.ends)}</span></div><h3>${escape(p.title)}</h3><div class="match-teams"><span class="team">${escape(p.team_a)}${p.settled ? `<br><br>${p.result_a}` : ""}</span><span class="versus">VS</span><span class="team">${escape(p.team_b)}${p.settled ? `<br><br>${p.result_b}` : ""}</span></div><div class="reward-line">✦ ${number(p.winner_reward)} for the winner · ${number(p.score_reward)} per exact team score</div>${p.prediction ? `<p class="form-hint">Your pick: ${escape(p.prediction === "a" ? p.team_a : p.team_b)} · ${p.prediction_a}–${p.prediction_b}</p>` : ""}${!closed ? btn(p.prediction ? "Edit prediction →" : "Make your prediction →", "predict", `data-id="${p.id}"`, "secondary") : ""}<p class="form-hint space-top">Closes ${new Date(p.ends).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" })} KST</p></article>`;
-          })
-          .join("")}</div>`
+    ((ui.pickemData?.tours || tourSummaries(state.pickems, state.now)).length
+      ? pickemBoard(
+          ui.pickemData?.tours || tourSummaries(state.pickems, state.now),
+          ui.pickemDetail,
+          { escape, number, remaining, now: state.now },
+        )
       : empty(
-          "Waiting for the next match.",
-          "The host will post tour details, teams, rewards, and a deadline here.",
+          "Waiting for the next tour.",
+          "The host will publish tour pick’ems here.",
         )) +
     features.pager("pickems", ui.pickemPage, ui.pickemData?.hasMore)
   );
@@ -637,7 +639,7 @@ async function loadDynamic() {
   const version = ++loadVersion,
     current = page(),
     hash = location.hash;
-  let data;
+  let data, pickemDetail;
   if (current === "packs")
     data = await api(
       "catalog?kind=" +
@@ -657,7 +659,19 @@ async function loadDynamic() {
     data = await api("anime-collection?page=" + (ui.animePage || 1));
   if (current === "ranks")
     data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage);
-  if (current === "pickems") data = await api("pickems?page=" + ui.pickemPage);
+  if (current === "pickems") {
+    data = await api("pickem-tours?page=" + ui.pickemPage);
+    if (
+      ui.pickemOpen !== null &&
+      data.tours.some((t) => t.key === ui.pickemOpen)
+    ) {
+      try {
+        pickemDetail = await api("pickem-tour?key=" + ui.pickemOpen);
+      } catch (err) {
+        if (!/not found/i.test(err.message)) throw err;
+      }
+    }
+  }
   if (current === "arcade" && state.me && ui.mahjongHistoryOpen)
     data = await api("mahjong-history?page=" + ui.mahjongHistoryPage);
   if (
@@ -686,7 +700,11 @@ async function loadDynamic() {
     if (current === "collection") ui.animeData = data;
     if (current === "packs") catalogPageData = data;
     if (current === "ranks") ui.rankData = data;
-    if (current === "pickems") ui.pickemData = data;
+    if (current === "pickems") {
+      ui.pickemData = data;
+      ui.pickemDetail = pickemDetail || null;
+      ui.pickemOpen = pickemDetail?.key ?? null;
+    }
     if (current === "arcade") ui.mahjongHistoryData = data;
     if (["shop", "auctions"].includes(current)) ui.marketData = data;
     if (current === "players") {
@@ -916,6 +934,17 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   const a = t.dataset.action;
+  if (a === "pickem-tour") {
+    const key = Number(t.dataset.id);
+    ui.pickemOpen = ui.pickemOpen === key ? null : key;
+    try {
+      await loadDynamic();
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
   if (await handleFeatureClick(a, t)) return;
   if (a === "reveal-pack") {
     packReveal.reveal();
@@ -995,7 +1024,7 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (a === "predict") {
-    const p = (ui.pickemData?.pickems || state.pickems).find(
+    const p = (ui.pickemDetail?.matches || state.pickems).find(
       (x) => x.id === Number(t.dataset.id),
     );
     modal(

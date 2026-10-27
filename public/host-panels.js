@@ -25,13 +25,13 @@ export function participationPanel(e) {
   return `<section class="host-panel"><h2>Reward a whole tour</h2><p>Paste team results in the format <code>name (score) name (score) | Total = … | Guesses = […]</code>. Scores are ignored. Aliases resolve to AMQ Tours IDs; repeated players receive one reward. Review everyone before awarding.</p><form id="participation-preview" class="stack"><label>Team results<textarea name="text" rows="7" maxlength="60000" required placeholder="sabetin (98.893) thjalago (83.829) | Total = 182.722 | Guesses = [54]"></textarea></label><div class="form-grid"><label>Credits per player<input name="amount" type="number" min="1" max="1000000" step="1" value="1000" required></label><label>Unique tour identifier<input name="event" maxlength="240" placeholder="usual-2026-10-27-1" required></label></div><label>Audit note<input name="note" maxlength="240" placeholder="Tour participation" required></label><button class="button secondary" type="submit">Review participants →</button></form><div id="participation-preview-result"></div><p class="form-hint space-top">A tour identifier can reward each player’s participation only once. Unknown aliases block the whole batch.</p></section>`;
 }
 export function tournamentPanel(state, e) {
-  return `<section class="host-panel"><h2>Build a tour’s pick’ems</h2><p>Generate every round-robin match, or publish Swiss one round at a time. Set a voting deadline for each round before publishing. You can still publish individual matches below.</p><form id="prepare-event" class="stack"><label>Tour name<input name="name" maxlength="100" required></label><label>Format<select name="format">${Object.entries(
+  return `<section class="host-panel"><h2>Build a tour’s pick’ems</h2><p>Generate every round-robin match, or publish Swiss one round at a time. Set a voting deadline for each round before publishing. First prepare and review the schedule, then publish it to open voting in the main Pick’ems tab. You can still publish individual matches below.</p><form id="prepare-event" class="stack" novalidate><label>Tour name<input name="name" maxlength="100" required></label><label>Format<select name="format">${Object.entries(
     FORMAT_NAMES,
   )
     .map(([key, name]) => `<option value="${key}">${name}</option>`)
     .join(
       "",
-    )}</select></label><label>Teams · one per line, in seed order<textarea name="teams" rows="8" required maxlength="6500" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D"></textarea></label><p class="form-hint">4-team double round robin: 6 rounds / 12 matches. 6-team single round robin: 5 rounds / 15 matches. Swiss: 8 to 64 teams; odd counts receive a bye; first round uses top-half versus bottom-half seeds. Later rounds use wins, opponents’ wins, score difference and seed order, avoiding rematches.</p><button class="button secondary" type="submit">Prepare schedule →</button></form></section><section class="host-panel"><h2>Next Swiss round</h2><p>Settle every published match first. Pairings prefer teams with similar results and never repeat an opponent.</p><form id="prepare-swiss" class="stack"><label>Swiss event<select name="event" required><option value="">Choose an event</option>${(
+    )}</select></label><label>Teams · one per line, in seed order<textarea name="teams" rows="8" required maxlength="6500" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D"></textarea></label><p class="form-hint">4-team double round robin: 6 rounds / 12 matches. 6-team single round robin: 5 rounds / 15 matches. Swiss: 8 to 64 teams; odd counts receive a bye; first round uses top-half versus bottom-half seeds. Later rounds use wins, opponents’ wins, score difference and seed order, avoiding rematches.</p><button class="button secondary" type="submit">Prepare schedule →</button></form></section><div id="schedule-preview" tabindex="-1"></div><section class="host-panel"><h2>Next Swiss round</h2><p>Settle every published match first. Pairings prefer teams with similar results and never repeat an opponent.</p><form id="prepare-swiss" class="stack" novalidate><label>Swiss event<select name="event" required><option value="">Choose an event</option>${(
     state.pickemEvents || []
   )
     .filter((x) => x.format === "swiss")
@@ -41,10 +41,10 @@ export function tournamentPanel(state, e) {
     )
     .join(
       "",
-    )}</select></label><button class="button secondary" type="submit">Prepare next round →</button></form></section><div id="schedule-preview"></div>`;
+    )}</select></label><button class="button secondary" type="submit">Prepare next round →</button></form></section>`;
 }
 export function prepareSchedule(form, state) {
-  if (form.event) {
+  if (Object.hasOwn(form, "event")) {
     const event = state.pickemEvents.find((x) => x.id === Number(form.event));
     if (!event || event.format !== "swiss")
       throw Error("Choose a Swiss event.");
@@ -71,9 +71,12 @@ export function prepareSchedule(form, state) {
       },
     };
   }
+  const name = String(form.name || "").trim();
+  if (!name || name.length > 100)
+    throw Error("Enter a tour name of 1–100 characters.");
   const teams = validateTeams(
     form.format,
-    form.teams
+    String(form.teams || "")
       .split(/\r?\n/)
       .map((x) => x.trim())
       .filter(Boolean),
@@ -82,11 +85,11 @@ export function prepareSchedule(form, state) {
   const rounds = swiss ? [swiss.pairs] : roundRobin(form.format, teams);
   return {
     path: "pickem-event",
-    name: form.name,
+    name,
     startRound: 1,
     rounds,
     bye: swiss?.bye,
-    body: { name: form.name, format: form.format, teams },
+    body: { name, format: form.format, teams },
   };
 }
 export function scheduleReview(draft, e) {

@@ -1732,3 +1732,79 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   color: var(--pink);
   border-color: #f47c9b66;
 }
+
+/* Compact tour overview, with every round available in one expanded board. */
+.pickem-tours {
+  display: grid;
+  gap: 16px;
+}
+.tour-card {
+  padding: 22px;
+}
+.tour-summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.tour-summary > div {
+  flex: 1;
+  min-width: 180px;
+}
+.tour-summary h3 {
+  margin: 6px 0;
+}
+.tour-summary p {
+  margin: 0;
+}
+.tour-summary .button {
+  width: auto;
+  flex: 0 0 auto;
+}
+.tour-rounds {
+  margin-top: 22px;
+  border-top: 1px solid var(--border);
+}
+.tour-round {
+  padding: 18px 0 0;
+}
+.tour-round h4 {
+  margin: 0 0 10px;
+}
+.pickem-row {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1.6fr) minmax(160px, 1.3fr) minmax(115px, 1fr)
+    auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+.pickem-row .form-hint {
+  display: block;
+  margin: 6px 0 0;
+}
+.pickem-row .button {
+  padding: 9px 14px;
+}
+@media (max-width: 850px) {
+  .pickem-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 550px) {
+  .tour-card {
+    padding: 16px;
+  }
+  .tour-summary {
+    gap: 12px;
+  }
+  .tour-summary > .button {
+    width: 100%;
+  }
+  .pickem-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}

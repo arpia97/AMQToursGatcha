@@ -1,3 +1,4 @@
+import { tourSummaries } from "./pickem-board.js";
 import {
   DAILY_CREDITS,
   MAX_PINNED_ANIME,
@@ -548,6 +549,20 @@ export function demoFeatures(d, path, b) {
       page: 1,
       hasMore: false,
     };
+  }
+  if (path.startsWith("pickem-tours?"))
+    return {
+      tours: tourSummaries(s.pickems, Date.now()),
+      page: 1,
+      hasMore: false,
+    };
+  if (path.startsWith("pickem-tour?")) {
+    const key = Number(new URLSearchParams(path.split("?")[1]).get("key"));
+    const matches = s.pickems
+      .filter((p) => (p.event_id || -p.id) === key)
+      .sort((a, b) => (a.round || 1) - (b.round || 1) || a.id - b.id);
+    if (!matches.length) throw Error("Pick’em tour not found.");
+    return { key, name: matches[0].tour, matches, byes: [] };
   }
   if (path.startsWith("pickems?"))
     return {
