@@ -2,35 +2,35 @@ export function noticeCopy(notice) {
   switch (notice.kind) {
     case "market-sale":
       return {
-        title: "Your marketplace card sold",
+        title: "Your Marketplace Card Sold",
         detail: "Credits have been added to your wallet.",
         credit: "Received",
         sign: "+",
       };
     case "auction-sale":
       return {
-        title: "Your auction card sold",
+        title: "Your Auction Card Sold",
         detail: "The winning bid has been paid to your wallet.",
         credit: "Received",
         sign: "+",
       };
     case "outbid":
       return {
-        title: "You were outbid",
+        title: "You Were Outbid",
         detail: "Your held bid has been returned to your wallet.",
         credit: "Refunded",
         sign: "+",
       };
     case "auction-buyout":
       return {
-        title: "You won the auction",
+        title: "You Won the Auction",
         detail: "The card was added to your collection by buyout.",
         credit: "Paid",
         sign: "−",
       };
     default:
       return {
-        title: "Collection update",
+        title: "Collection Update",
         detail: "",
         credit: "Credits",
         sign: "",
@@ -42,7 +42,7 @@ export function noticePanel(
   { escape: e, number: n, cardBy, image, rarityClass },
 ) {
   if (!notices.length) return "";
-  return `<section class="trade-notices"><span class="eyebrow">SINCE YOUR LAST VISIT</span><h2>Your collection updates</h2><div class="trade-notice-list">${notices
+  return `<section class="trade-notices"><span class="eyebrow">SINCE YOUR LAST VISIT</span><h2>Your Collection Updates</h2><div class="trade-notice-list">${notices
     .map((notice) => {
       const copy = noticeCopy(notice),
         card = cardBy(notice.card);

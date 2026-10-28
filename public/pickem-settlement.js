@@ -58,7 +58,7 @@ export function settlementBody(match, values, now = Date.now()) {
 
 export function settlementTable(matches, e, drafts = {}, now = Date.now()) {
   if (matches.length && matches.every((p) => p.mode === "tour")) {
-    return `<div class="table-wrap settlement-table-wrap"><table class="settlement-table"><thead><tr><th>Tour</th><th>Winning team</th><th>Status</th><th>Post</th></tr></thead><tbody>${matches
+    return `<div class="table-wrap settlement-table-wrap"><table class="settlement-table"><thead><tr><th>Tour</th><th>Winning Team</th><th>Status</th><th>Post</th></tr></thead><tbody>${matches
       .map((p) => {
         const ready = !p.settled && p.ends <= now,
           form = "settle-match-" + p.id,
@@ -80,7 +80,7 @@ export function settlementTable(matches, e, drafts = {}, now = Date.now()) {
       })
       .join("")}</tbody></table></div>`;
   }
-  return `<div class="table-wrap settlement-table-wrap"><table class="settlement-table"><thead><tr><th>Round</th><th>Match (A vs B)</th><th>Final result (A : B)</th><th>Status</th><th>Post</th></tr></thead><tbody>${matches
+  return `<div class="table-wrap settlement-table-wrap"><table class="settlement-table"><thead><tr><th>Round</th><th>Match (A vs B)</th><th>Final Result (A : B)</th><th>Status</th><th>Post</th></tr></thead><tbody>${matches
     .map((p) => {
       const ready = !p.settled && p.ends <= now,
         draft = settlementDraft(p, drafts[p.id]),
@@ -99,5 +99,5 @@ export function settlementTable(matches, e, drafts = {}, now = Date.now()) {
 
 export function settlementPanel(state, e, tour = null, drafts = {}) {
   const individual = state.pickems.filter((p) => !p.event_id);
-  return `<section class="host-panel" id="settlement-panel"><h2>Post tour winners</h2><p>Open a tour, select its winning team and confirm after voting closes. Correct-winner rewards are paid once. Confirmed results are final.</p><div class="settlement-tours">${(state.pickemEvents || []).map((t) => `<section class="settlement-tour"><div class="settlement-tour-heading"><strong>${e(t.name)}</strong><button type="button" class="button secondary" data-settlement-tour="${t.id}" aria-expanded="${tour?.id === t.id}" aria-controls="settlement-tour-${t.id}">${tour?.id === t.id ? "Hide" : t.format === "winner" ? "Select winner" : "Previous match results"}</button></div>${tour?.id === t.id ? `<div id="settlement-tour-${t.id}">${settlementTable(tour.matches, e, drafts)}<button type="button" class="text-button" data-settlement-refresh>Refresh status ↻</button></div>` : `<div id="settlement-tour-${t.id}" hidden></div>`}</section>`).join("")}</div>${individual.length ? `<details class="space-top"><summary>Previous individual matches</summary>${settlementTable(individual, e, drafts)}</details>` : ""}${!state.pickemEvents?.length && !individual.length ? '<p class="form-hint">No published pick’ems yet.</p>' : ""}</section>`;
+  return `<section class="host-panel" id="settlement-panel"><h2>Post Tour Winners</h2><p>Open a tour, select its winning team and confirm after voting closes. Correct-winner rewards are paid once. Confirmed results are final.</p><div class="settlement-tours">${(state.pickemEvents || []).map((t) => `<section class="settlement-tour"><div class="settlement-tour-heading"><strong>${e(t.name)}</strong><button type="button" class="button secondary" data-settlement-tour="${t.id}" aria-expanded="${tour?.id === t.id}" aria-controls="settlement-tour-${t.id}">${tour?.id === t.id ? "Hide" : t.format === "winner" ? "Select winner" : "Previous match results"}</button></div>${tour?.id === t.id ? `<div id="settlement-tour-${t.id}">${settlementTable(tour.matches, e, drafts)}<button type="button" class="text-button" data-settlement-refresh>Refresh status ↻</button></div>` : `<div id="settlement-tour-${t.id}" hidden></div>`}</section>`).join("")}</div>${individual.length ? `<details class="space-top"><summary>Previous Individual Matches</summary>${settlementTable(individual, e, drafts)}</details>` : ""}${!state.pickemEvents?.length && !individual.length ? '<p class="form-hint">No published pick’ems yet.</p>' : ""}</section>`;
 }

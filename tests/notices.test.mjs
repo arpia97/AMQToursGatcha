@@ -242,7 +242,7 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
     [{ kind: "market-sale", card: "x", level: 3, credits: 500 }],
     options,
   );
-  assert.match(html, /Your marketplace card sold/);
+  assert.match(html, /Your Marketplace Card Sold/);
   assert.match(html, /&lt;Name>/);
   assert.match(html, /Lv. 3/);
   assert.equal(noticeCopy({ kind: "outbid" }).credit, "Refunded");

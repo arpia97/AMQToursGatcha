@@ -297,7 +297,7 @@ function showTradeNotices() {
   if ($("#modal").open)
     markTradeNoticesSeen(notices.map((notice) => notice.id));
 }
-function revealAcquired(result, title = "A new favourite is yours.") {
+function revealAcquired(result, title = "A New Favourite Is Yours.") {
   const c = result.cards?.[0];
   if (!c) {
     if ($("#modal").open) $("#modal").close();
@@ -337,7 +337,7 @@ function showAuctionWin() {
   modal(
     '<section class="pack-results acquisition"><div class="pull-label">WINNING BID · ✦ ' +
       number(a.bid) +
-      "</div><h2>You won the auction!</h2><p>" +
+      "</div><h2>You Won the Auction!</h2><p>" +
       escape(c.name) +
       ' is ready to join your collection.</p><div class="acquisition-card pull-slot">' +
       cardHTML(c, null, { level: a.level || 1, copies: 1, preview: true }) +
@@ -493,12 +493,12 @@ function shop() {
 }
 function pickemHero(p) {
   if (p.mode === "tour")
-    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who takes<br><span>the tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="#pickems">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
+    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who Takes<br><span>the Tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="#pickems">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
   const reward =
     p.mode === "pair"
       ? `✦ ${number(p.winner_reward + 2 * p.score_reward)} for the correct two-game result`
       : `✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score`;
-  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make your call.<br><span>Back your team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
+  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make Your Call.<br><span>Back Your Team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
 }
 const packReveal = createPackReveal({
   motionControl: packMotionControl,
@@ -511,21 +511,21 @@ const packReveal = createPackReveal({
 function dailyPack() {
   const day = new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
   if (state.me?.daily_pack === day) return "";
-  return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your daily pack is waiting.</h3><p>5 random cards · characters + seiyuus · free each day</p></div>${btn("Claim & open →", "daily-pack", "", "mint")}</div>`;
+  return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your Daily Pack Is Waiting.</h3><p>5 random cards · characters + seiyuus · free each day</p></div>${btn("Claim & open →", "daily-pack", "", "mint")}</div>`;
 }
 function daily() {
   const claimed =
     state.me?.daily ===
     new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
   if (claimed) return "";
-  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>A little something for showing up.</h3><p>Daily check-in · 300 credits</p></div>${btn("+ Claim 300", "daily", "", "mint")}</div>`;
+  return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>A Little Something for Showing Up.</h3><p>Daily check-in · 300 credits</p></div>${btn("+ Claim 300", "daily", "", "mint")}</div>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
     price =
       state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
       (premium ? 1000 : 500);
-  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} card pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers, AG." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
+  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} Card Pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers, AG." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
 }
 function home() {
   const hero = heroCards || [];
@@ -537,22 +537,22 @@ function home() {
     intro(
       state.me
         ? `Hey, ${escape(state.me.name)} <span class="muted">✧</span>`
-        : "Your next favourite awaits.",
+        : "Your Next Favourite Awaits.",
       "A good tour deserves a great collection.",
       `<span class="pill"><span class="dot"></span> THE AMQ COLLECTION CLUB</span>`,
     ) +
     (state.activePickem
       ? pickemHero(state.activePickem)
-      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the characters<br>you <span>can’t forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
+      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +
-    `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
+    `<div class="section-head"><div class="section-title"><h2>This Week’s Auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
       featured.length
         ? `<div class="overview-auctions">${["character", "seiyuu"]
             .map(
               (kind) =>
-                `<section aria-label="${kind === "character" ? "Character" : "Seiyuu"} auctions"><h3>${kind === "character" ? "Character" : "Seiyuu"} auctions</h3><div class="card-grid weekly-card-grid">${
+                `<section aria-label="${kind === "character" ? "Character" : "Seiyuu"} auctions"><h3>${kind === "character" ? "Character" : "Seiyuu"} Auctions</h3><div class="card-grid weekly-card-grid">${
                   featured
                     .filter((a) => a.kind === kind)
                     .slice(0, 5)
@@ -563,10 +563,10 @@ function home() {
             )
             .join("")}</div>`
         : empty(
-            "The next lineup is on its way.",
+            "The Next Lineup Is on Its Way.",
             "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.",
           )
-    }<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
+    }<div class="section-head"><div><h2>Unwrap a Little Luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
 function collection() {
@@ -580,19 +580,19 @@ function collection() {
   ui.collectionPage = collectionData.page;
   return (
     profileTabs("collection") +
-    intro("Your collection. Your favourites.", "Every card has a story.") +
+    intro("Your Collection. Your Favourites.", "Every card has a story.") +
     (state.me ? features.pinnedAnime() : "") +
     `<section class="collection-toolbar" aria-label="Collection controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}">${features.filters("collection")}</div>${state.me ? features.catalogPager(collectionData, ui.collectionPage, "collection-top") : ""}</section>` +
     (state.me
       ? items.length
         ? `<div class="card-grid collection-card-grid">${collectionData.items.map((i) => cardHTML(i.c, null, i)).join("")}</div>`
         : empty(
-            "No matching cards in your collection.",
+            "No Matching Cards in Your Collection.",
             "Try another search or clear the rarity and role filters.",
             '<a class="button" href="#packs">Explore card packs ↗</a>',
           )
       : empty(
-          "Your collection is waiting.",
+          "Your Collection Is Waiting.",
           "Sign in using your AMQ player ID or alias to see your cards.",
           btn("Sign in", "account"),
         )) +
@@ -606,15 +606,15 @@ function collection() {
 function packs() {
   return (
     intro(
-      "Five cards. One little thrill.",
+      "Five Cards. One Little Thrill.",
       "Characters, husbandos, waifus, and the voices you know by heart.",
       packMotionControl(),
     ) +
     dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
-    <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
-    <div class="rule"><strong>＝</strong><h3>Every card, equal chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
-    <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>`
+    <div class="section-head"><h2>Premium Packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five Independent Draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
+    <div class="rule"><strong>＝</strong><h3>Every Card, Equal Chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
+    <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>`
   );
 }
 function catalogue() {
@@ -625,12 +625,12 @@ function catalogue() {
   const list = catalogPageData?.cards || [];
   return (
     intro(
-      "Card catalogue",
+      "Card Catalogue",
       "Find your favourites among all imported characters and seiyuus.",
     ) +
-    `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
+    `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL Popularity Rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
      <section class="collection-toolbar catalog-toolbar" aria-label="Catalogue controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}">${features.filters()}</div>${features.catalogPager(catalogPageData, catalogPageNumber, "catalog-top")}</section>
-     <div class="card-grid collection-card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
+     <div class="card-grid collection-card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No Matching Cards.", "Try another name or series.")}</div>
      <div class="collection-footer-pager">${features.catalogPager(catalogPageData, catalogPageNumber)}</div>`
   );
 }
@@ -641,17 +641,17 @@ function auctions() {
     won = list.filter((a) => a.ends <= state.now);
   return (
     intro(
-      "A new week. A new lineup.",
+      "A New Week. A New Lineup.",
       "Five characters. Five seiyuus. Higher tiers in the spotlight.",
     ) +
-    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to join your deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly community auctions</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No auctions just yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
+    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to Join Your Deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly Community Auctions</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No Auctions Just Yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
     features.userAuctions()
   );
 }
 function pickems() {
   return (
     intro(
-      "Who takes the tour?",
+      "Who Takes the Tour?",
       "Pick the winning team and earn credits for a correct call.",
     ) +
     `<div class="notice">Choose one team to win the tour and confirm. Entry is free, and you can change your pick until voting closes. Correct picks earn the tour’s winner reward.</div>` +
@@ -669,7 +669,7 @@ function pickems() {
           },
         )
       : empty(
-          "Waiting for the next tour.",
+          "Waiting for the Next Tour.",
           "The host will publish tour pick’ems here.",
         )) +
     features.pager("pickems", ui.pickemPage, ui.pickemData?.hasMore)
@@ -691,10 +691,10 @@ function avatarHTML(p, large = false) {
 function players() {
   return (
     intro(
-      "Meet the collectors.",
+      "Meet the Collectors.",
       "Find a player by their AMQ Tours ID, alias, or any of their usernames.",
     ) +
-    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No player found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
+    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No Player Found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
   );
 }
 function profileTabs(active) {
@@ -705,7 +705,7 @@ function myProfile() {
     return (
       intro("My Profile", "Your collection and favourites, in one place.") +
       empty(
-        "Your profile is waiting.",
+        "Your Profile Is Waiting.",
         "Sign in to view your profile and collection.",
         btn("Sign in", "account"),
       )
@@ -718,7 +718,7 @@ function profile() {
     own = p.id === state.me?.id,
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
-  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)} ${roleBadge(p.role)}</h1><p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} correct / ${pk.total} settled predictions</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)} ${roleBadge(p.role)}</h1><p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} correct / ${pk.total} settled predictions</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
     p.inventory.length
       ? `<div class="card-grid">${p.inventory
           .slice(0, 20)
@@ -730,7 +730,7 @@ function profile() {
             "",
           )}</div><p class="form-hint space-top">Showing up to 20 owned cards.</p>`
       : empty(
-          "A fresh deck, ready for favourites.",
+          "A Fresh Deck, Ready for Favourites.",
           "This collector has not collected a card yet.",
         )
   }`;
@@ -829,7 +829,7 @@ function render() {
   const route = page(),
     title =
       route === "player"
-        ? "Player profile"
+        ? "Player Profile"
         : route === "collection"
           ? "My Collection"
           : routes.find((r) => r[0] === route)[1];
@@ -990,7 +990,7 @@ async function execute(path, b, after, form = null) {
     }
     if (after) after(result);
     else if (path === "bid" && result.cards?.length) {
-      revealAcquired(result, "Your auction prize is here.");
+      revealAcquired(result, "Your Auction Prize Is Here.");
     } else {
       if ($("#modal").open) $("#modal").close();
       toast(result.message);
@@ -1021,7 +1021,7 @@ async function execute(path, b, after, form = null) {
 }
 function auth(register = false) {
   modal(
-    `<h2>${register ? "Welcome to the club." : "Good to see you again."}</h2><p>${register ? (state.betaRegistration ? "We’re in beta. Use the shared beta registration code supplied by the host to link your AMQ Tours ID." : "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID.") : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
+    `<h2>${register ? "Welcome to the Club." : "Good to See You Again."}</h2><p>${register ? (state.betaRegistration ? "We’re in beta. Use the shared beta registration code supplied by the host to link your AMQ Tours ID." : "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID.") : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
   );
 }
 function account() {
@@ -1030,7 +1030,7 @@ function account() {
     return;
   }
   modal(
-    `<section class="account-popup"><header class="account-summary"><h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div></header><div class="section-head"><h3 id="account-activity-heading">Recent activity</h3></div><div class="account-activity" role="region" aria-labelledby="account-activity-heading" tabindex="0">${
+    `<section class="account-popup"><header class="account-summary"><h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div></header><div class="section-head"><h3 id="account-activity-heading">Recent Activity</h3></div><div class="account-activity" role="region" aria-labelledby="account-activity-heading" tabindex="0">${
       state.ledger.length
         ? `<div class="table-wrap"><table><tbody>${state.ledger
             .slice(0, 12)
@@ -1129,7 +1129,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "edit-profile") {
     modal(
-      `<h2>Make yourself at home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · Lv. ${i.level}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
+      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · Lv. ${i.level}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
     );
     return;
   }
@@ -1146,7 +1146,7 @@ document.addEventListener("click", async (ev) => {
           ? { card: t.dataset.id }
           : { auction: Number(t.dataset.id) },
       a === "claim"
-        ? (r) => revealAcquired(r, "Your auction prize is here.")
+        ? (r) => revealAcquired(r, "Your Auction Prize Is Here.")
         : undefined,
     );
     return;
@@ -1166,12 +1166,12 @@ document.addEventListener("click", async (ev) => {
     );
     if (p.mode === "pair") {
       modal(
-        `<h2>Predict the two-game result.</h2><p>${escape(p.team_a)} vs ${escape(p.team_b)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Game wins (A : B)<select name="result" required><option value="">Choose result…</option>${["2:0", "1:1", "0:2"].map((r) => `<option value="${r}" ${p.prediction && r === p.prediction_a + ":" + p.prediction_b ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button class="button full" type="submit">Confirm</button></form>`,
+        `<h2>Predict the Two-Game Result.</h2><p>${escape(p.team_a)} vs ${escape(p.team_b)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Game wins (A : B)<select name="result" required><option value="">Choose result…</option>${["2:0", "1:1", "0:2"].map((r) => `<option value="${r}" ${p.prediction && r === p.prediction_a + ":" + p.prediction_b ? "selected" : ""}>${r}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button class="button full" type="submit">Confirm</button></form>`,
       );
       return;
     }
     modal(
-      `<h2>Make your call.</h2><p>${escape(p.title)} · closes ${remaining(p.ends)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Winning team<select name="winner"><option value="a" ${p.prediction === "a" ? "selected" : ""}>${escape(p.team_a)}</option><option value="b" ${p.prediction === "b" ? "selected" : ""}>${escape(p.team_b)}</option></select></label><div class="form-grid"><label>${escape(p.team_a)} score<input type="number" name="scoreA" min="0" max="1000" required value="${p.prediction_a ?? ""}"></label><label>${escape(p.team_b)} score<input type="number" name="scoreB" min="0" max="1000" required value="${p.prediction_b ?? ""}"></label></div><span class="form-hint">✦ ${p.winner_reward} winner + ${p.score_reward} per correct team score</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Save prediction →</button></form>`,
+      `<h2>Make Your Call.</h2><p>${escape(p.title)} · closes ${remaining(p.ends)}</p><form id="predict-form" class="stack"><input type="hidden" name="pickem" value="${p.id}"><label>Winning team<select name="winner"><option value="a" ${p.prediction === "a" ? "selected" : ""}>${escape(p.team_a)}</option><option value="b" ${p.prediction === "b" ? "selected" : ""}>${escape(p.team_b)}</option></select></label><div class="form-grid"><label>${escape(p.team_a)} score<input type="number" name="scoreA" min="0" max="1000" required value="${p.prediction_a ?? ""}"></label><label>${escape(p.team_b)} score<input type="number" name="scoreB" min="0" max="1000" required value="${p.prediction_b ?? ""}"></label></div><span class="form-hint">✦ ${p.winner_reward} winner + ${p.score_reward} per correct team score</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Save prediction →</button></form>`,
     );
   }
 });
@@ -1361,7 +1361,7 @@ window.addEventListener("hashchange", async () => {
     }
   } catch (err) {
     $("#main").innerHTML = empty(
-      "That collector could not be found.",
+      "That Collector Could Not Be Found.",
       escape(err.message),
       '<a class="button secondary" href="#players">Search players</a>',
     );
@@ -1391,7 +1391,7 @@ try {
 } catch (err) {
   $("#main").innerHTML =
     intro(
-      "The club is temporarily offline.",
+      "The Club Is Temporarily Offline.",
       "The shared backend could not be reached.",
     ) +
     `<div class="notice warm">${escape(err.message)}</div><a class="button" href="?demo=1">Explore the demo ↗</a>`;
@@ -1504,7 +1504,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "mahjong-start") {
         modal(
-          `<h2>Take your seat?</h2><p>Pay <strong>✦ ${number(MAHJONG_START)} credits</strong> for a new Mahjong hand. Your seat will be randomly assigned.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-start"><input type="hidden" name="previousGame" value="${state.mahjong?.id ?? ""}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Start hand · ✦ ${number(MAHJONG_START)}</button></form>`,
+          `<h2>Take Your Seat?</h2><p>Pay <strong>✦ ${number(MAHJONG_START)} credits</strong> for a new Mahjong hand. Your seat will be randomly assigned.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-start"><input type="hidden" name="previousGame" value="${state.mahjong?.id ?? ""}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Start hand · ✦ ${number(MAHJONG_START)}</button></form>`,
         );
         return true;
       }
@@ -1526,7 +1526,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "mahjong-end") {
         modal(
-          `<h2>${state.mahjong.remaining ? "End this hand?" : "Settle as a draw instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the " + number(mahjongEntryFee(state.mahjong)) + "-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
+          `<h2>${state.mahjong.remaining ? "End This Hand?" : "Settle as a Draw Instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the " + number(mahjongEntryFee(state.mahjong)) + "-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
         );
         return true;
       }
@@ -1669,7 +1669,7 @@ async function handleFeatureClick(a, t) {
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
           (premium ? 1000 : 500);
       modal(
-        `<h2>${premium ? "A rarer kind of luck." : "A new favourite could be inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
+        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
       );
       return true;
     }
@@ -1729,7 +1729,7 @@ async function handleFeatureClick(a, t) {
         (x) => x.id === Number(t.dataset.id),
       );
       modal(
-        "<h2>Buy out " +
+        "<h2>Buy Out " +
           escape(cardBy(auct.card).name) +
           "?</h2><p>Pay " +
           number(auct.buyout) +
@@ -1765,7 +1765,7 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "cancel-listing") {
       modal(
-        `<h2>Withdraw this listing?</h2><p>Your card returns with its enhancement level. ${t.dataset.venue === "auction" ? "Only auctions without bids can be withdrawn." : "It will no longer be available to buy."}</p><form id="withdraw-form"><input name="listing" type="hidden" value="${Number(t.dataset.id)}"><input name="venue" type="hidden" value="${escape(t.dataset.venue)}"><div class="form-error" role="alert"></div><button class="button full" type="submit">Withdraw & return card</button></form>`,
+        `<h2>Withdraw This Listing?</h2><p>Your card returns with its enhancement level. ${t.dataset.venue === "auction" ? "Only auctions without bids can be withdrawn." : "It will no longer be available to buy."}</p><form id="withdraw-form"><input name="listing" type="hidden" value="${Number(t.dataset.id)}"><input name="venue" type="hidden" value="${escape(t.dataset.venue)}"><div class="form-error" role="alert"></div><button class="button full" type="submit">Withdraw & return card</button></form>`,
       );
       return true;
     }
@@ -1794,7 +1794,7 @@ function listingForm(id, venue, variant) {
     item = state.inventory.find((i) => i.card === id),
     auction = venue === "auction";
   modal(
-    `<h2>${auction ? "Start an auction" : "List on the marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
+    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
   );
 }
 function openInstantSale(id, variant) {
@@ -1808,7 +1808,7 @@ function openInstantSale(id, variant) {
   const level = variant === "extra" ? 1 : item.level,
     price = instantSalePrice(c, level);
   modal(
-    `<h2>Sell ${escape(c.name)} now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
+    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
   );
 }
 async function handleFeatureSubmit(f, b) {
@@ -1915,8 +1915,8 @@ async function handleFeatureSubmit(f, b) {
         revealAcquired(
           r,
           b.action === "buyout"
-            ? "Your auction prize is here."
-            : "Your new card is here.",
+            ? "Your Auction Prize Is Here."
+            : "Your New Card Is Here.",
         ),
     );
     return true;

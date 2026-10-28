@@ -291,9 +291,9 @@ export function pickemBoard(
             (pairMode ? "Group" : "Rd") +
             "</th><th>Match</th>" +
             (pairMode
-              ? '<th colspan="2">Two-game result (A : B)</th>'
-              : "<th>Your winner</th><th>Score A : B</th>") +
-            "<th>Status / result</th><th>Submit</th></tr></thead><tbody>" +
+              ? '<th colspan="2">Two-Game Result (A : B)</th>'
+              : "<th>Your Winner</th><th>Score A : B</th>") +
+            "<th>Status / Result</th><th>Submit</th></tr></thead><tbody>" +
             rows +
             "</tbody></table></div>" +
             (detail.byes || [])

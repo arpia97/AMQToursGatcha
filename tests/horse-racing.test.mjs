@@ -388,7 +388,7 @@ test("English ticket UI quotes all types, preserves its cart across renders, rem
   });
   let html = ui.render();
   assert.match(html, /ODDS LOCKED/);
-  assert.match(html, /Place return/);
+  assert.match(html, /Place Return/);
   assert(!html.includes("100 credits per unit"));
   assert(!html.includes("No tickets yet."));
   assert(!html.includes("Ticket purchase locks every selection."));
