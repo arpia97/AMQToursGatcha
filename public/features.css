@@ -1840,7 +1840,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 }
 .fusion-outcome-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 14px;
   margin-top: 18px;
 }
@@ -1856,7 +1856,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 }
 .fusion-target-card img {
   width: 100%;
-  height: 130px;
+  height: auto;
+  aspect-ratio: 3/4;
   object-fit: cover;
   display: block;
   margin-bottom: 10px;
@@ -1892,6 +1893,117 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   height: 68px;
   object-fit: cover;
   border-radius: 5px;
+}
+
+/* Page sizes divide evenly into these column counts: 40 or 24/12 cards. */
+.collection-card-grid,
+.market-card-grid,
+.weekly-card-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.paged-twentyfour-grid,
+.fusion-picker-dialog .fusion-material-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.fusion-board > .fusion-slot {
+  min-height: 0;
+  aspect-ratio: 2/3;
+}
+.fusion-slot-pick {
+  flex: 1;
+  min-height: 0;
+}
+.fusion-slot-pick .fusion-portrait {
+  aspect-ratio: auto;
+  flex: 1;
+  min-height: 0;
+}
+.overview-auctions {
+  display: grid;
+  gap: 30px;
+}
+.overview-auctions h3 {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.trade-notice-list {
+  max-height: min(55dvh, 520px);
+  overflow-y: auto;
+  margin: 20px 0;
+  padding: 5px;
+}
+.trade-notice {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding: 16px 0;
+}
+.trade-notice h3 {
+  font-size: 14px;
+  margin: 0 0 7px;
+}
+.trade-notice strong {
+  font-size: 13px;
+}
+.trade-notice small,
+.trade-notice p {
+  font-size: 11px;
+  color: var(--muted);
+}
+.trade-notice p {
+  margin: 6px 0;
+}
+.trade-notice-portrait {
+  width: 62px;
+  height: 82px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 2px solid var(--tier-color, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 0 10px var(--tier-glow, transparent);
+}
+.trade-notice-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 1200px) {
+  .fusion-outcome-grid,
+  .paged-twentyfour-grid,
+  .fusion-picker-dialog .fusion-material-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1100px) {
+  .collection-card-grid,
+  .market-card-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .weekly-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 900px) {
+  .fusion-outcome-grid,
+  .paged-twentyfour-grid,
+  .fusion-picker-dialog .fusion-material-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .collection-card-grid,
+  .market-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .fusion-outcome-grid,
+  .paged-twentyfour-grid,
+  .fusion-picker-dialog .fusion-material-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .fusion-target-selected p {
   margin-top: 6px;

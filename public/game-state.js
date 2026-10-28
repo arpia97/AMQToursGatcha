@@ -20,6 +20,7 @@ export function applyGameState(state, update) {
     mahjong: update.mahjong,
     gem: update.gem,
     horseRace: update.horseRace,
+    notices: update.notices,
     ledger: update.ledger,
     auctionWins: update.auctionWins,
   };

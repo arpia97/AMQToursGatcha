@@ -27,6 +27,7 @@ import {
 } from "./mahjong-rules.js";
 import { createPachinkoUI } from "./pachinko-ui.js";
 import { createHorseUI } from "./horse-ui.js";
+import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
 import {
   seriesTitle,
@@ -262,8 +263,40 @@ function tickCountdowns() {
 }
 setInterval(() => {
   tickCountdowns();
+  showTradeNotices();
   showAuctionWin();
 }, 1000);
+const shownTradeNotices = new Set();
+function markTradeNoticesSeen(ids) {
+  const player = state.me?.id;
+  if (!player || !ids?.length) return;
+  for (const id of ids) shownTradeNotices.add(player + ":" + id);
+  api("notice-seen", { ids })
+    .then(() => {
+      if (state.me?.id === player)
+        state.notices = (state.notices || []).filter(
+          (notice) => !ids.includes(notice.id),
+        );
+    })
+    .catch(() => {});
+}
+function showTradeNotices() {
+  if (
+    !state?.me ||
+    busy ||
+    document.hidden ||
+    $("#modal").open ||
+    workshop.pickerOpen()
+  )
+    return;
+  const notices = (state.notices || []).filter(
+    (notice) => !shownTradeNotices.has(state.me.id + ":" + notice.id),
+  );
+  if (!notices.length) return;
+  modal(noticePanel(notices, { escape, number, cardBy, image, rarityClass }));
+  if ($("#modal").open)
+    markTradeNoticesSeen(notices.map((notice) => notice.id));
+}
 function revealAcquired(result, title = "A new favourite is yours.") {
   const c = result.cards?.[0];
   if (!c) {
@@ -284,6 +317,7 @@ function revealAcquired(result, title = "A new favourite is yours.") {
       }) +
       '</div><a class="button mint" href="#collection" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
   );
+  if ($("#modal").open) markTradeNoticesSeen(result.noticeIds);
 }
 function showAuctionWin() {
   if (
@@ -497,8 +531,8 @@ function home() {
   const hero = heroCards || [];
   const rewards = [daily(), dailyPack()].filter(Boolean);
   const featured = state.auctions
-    .filter((a) => a.kind === "character" && a.ends > state.now)
-    .slice(0, 5);
+    .filter((a) => !a.seller && a.ends > state.now)
+    .slice(0, 10);
   return (
     intro(
       state.me
@@ -513,7 +547,26 @@ function home() {
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +
-    `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${featured.length ? `<div class="card-grid">${featured.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("The next lineup is on its way.", "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.")}<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
+    `<div class="section-head"><div class="section-title"><h2>This week’s auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
+      featured.length
+        ? `<div class="overview-auctions">${["character", "seiyuu"]
+            .map(
+              (kind) =>
+                `<section aria-label="${kind === "character" ? "Character" : "Seiyuu"} auctions"><h3>${kind === "character" ? "Character" : "Seiyuu"} auctions</h3><div class="card-grid weekly-card-grid">${
+                  featured
+                    .filter((a) => a.kind === kind)
+                    .slice(0, 5)
+                    .map((a) => cardHTML(cardBy(a.card), a))
+                    .join("") ||
+                  '<p class="form-hint">No auctions available.</p>'
+                }</div></section>`,
+            )
+            .join("")}</div>`
+        : empty(
+            "The next lineup is on its way.",
+            "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.",
+          )
+    }<div class="section-head"><div><h2>Unwrap a little luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
 function collection() {

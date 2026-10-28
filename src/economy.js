@@ -8,6 +8,7 @@ import { Mahjong } from "./mahjong.js";
 import { GemFaceting } from "./gem.js";
 import { HorseRacing } from "./horse-racing.js";
 import { CardManagement } from "./card-management.js";
+import { PlayerNotices } from "./notices.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -61,6 +62,7 @@ export class Economy {
     this.gem = new GemFaceting(e);
     this.horse = new HorseRacing(e);
     this.cards = new CardManagement(e);
+    this.notices = new PlayerNotices(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -143,9 +145,26 @@ export class Economy {
       -(a.buyout - (a.winner === player ? a.bid : 0)),
       "Auction buyout: " + a.card,
     );
-    if (a.winner && a.winner !== player)
+    if (a.winner && a.winner !== player) {
       e.wallet(a.winner, a.bid, "Buyout: auction bid refund");
+      this.notices.add(
+        a.winner,
+        `buyout-refund:${a.id}`,
+        "outbid",
+        a.card,
+        a.level,
+        a.bid,
+      );
+    }
     e.wallet(a.seller, a.buyout, "Player auction sale: " + a.card);
+    this.notices.add(
+      a.seller,
+      `auction-sale:${a.id}`,
+      "auction-sale",
+      a.card,
+      a.level,
+      a.buyout,
+    );
     this.acquire(player, a.card, a.level);
     e.run(
       "UPDATE auctions SET bid=?,winner=?,ends=?,closed=1,paid=1,claimed=1 WHERE id=?",
@@ -154,8 +173,17 @@ export class Economy {
       e.now(),
       a.id,
     );
+    const notice = this.notices.add(
+      player,
+      `auction-buyout:${a.id}`,
+      "auction-buyout",
+      a.card,
+      a.level,
+      a.buyout,
+    );
     return {
       message: "Auction bought out. Card added to your collection.",
+      noticeIds: [notice],
       cards: [e.catalogStore.card(a.card)],
       level: a.level,
     };
@@ -223,6 +251,14 @@ export class Economy {
     )) {
       if (a.winner) {
         e.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
+        this.notices.add(
+          a.seller,
+          `auction-sale:${a.id}`,
+          "auction-sale",
+          a.card,
+          a.level,
+          a.bid,
+        );
         e.run("UPDATE auctions SET paid=1,closed=1 WHERE id=?", a.id);
       } else {
         this.acquire(a.seller, a.card, a.level);
@@ -381,6 +417,7 @@ export class Economy {
       now = e.now();
     const managed = this.cards.action(player, action, b);
     if (managed) return managed;
+    if (action === "notice-seen") return this.notices.seen(player, b.ids);
     const gem = this.gem.action(player, action, b);
     if (gem) return gem;
     const horse = this.horse.action(player, action, b);
@@ -550,6 +587,14 @@ export class Economy {
       if (l.seller === player) fail("You cannot buy your own listing.");
       e.wallet(player, -l.price, "Marketplace purchase: " + l.card);
       e.wallet(l.seller, l.price, "Marketplace sale: " + l.card);
+      this.notices.add(
+        l.seller,
+        `market-sale:${l.id}`,
+        "market-sale",
+        l.card,
+        l.level,
+        l.price,
+      );
       this.acquire(player, l.card, l.level);
       e.run(
         "UPDATE market_listings SET status='sold',buyer=?,sold_at=? WHERE id=?",
@@ -719,6 +764,7 @@ export class Economy {
     e.run("DELETE FROM mahjong_games WHERE player=?", player);
     e.run("DELETE FROM gem_games WHERE player=?", player);
     e.run("DELETE FROM horse_games WHERE player=?", player);
+    e.run("DELETE FROM player_notices WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }

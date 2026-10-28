@@ -612,6 +612,7 @@ export class Game extends DurableObject {
         (path.startsWith("mahjong-") ||
           path.startsWith("gem-") ||
           path.startsWith("horse-") ||
+          path === "notice-seen" ||
           path === "gamble"))
     ) {
       if (!session) fail("Sign in to play.", 401);

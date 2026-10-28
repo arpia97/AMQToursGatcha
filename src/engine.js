@@ -348,7 +348,17 @@ export class Engine {
         this.wallet(player, -(amount - a.bid), "Auction bid increase");
       else {
         this.wallet(player, -amount, "Auction bid held");
-        if (a.winner) this.wallet(a.winner, a.bid, "Outbid refund");
+        if (a.winner) {
+          this.wallet(a.winner, a.bid, "Outbid refund");
+          this.economy.notices.add(
+            a.winner,
+            `outbid:${a.id}:${a.bid}`,
+            "outbid",
+            a.card,
+            a.level,
+            a.bid,
+          );
+        }
       }
       this.run(
         "UPDATE auctions SET bid=?,winner=? WHERE id=?",
@@ -371,6 +381,14 @@ export class Engine {
       this.economy.acquire(player, a.card, a.level);
       if (a.seller && !a.paid) {
         this.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
+        this.economy.notices.add(
+          a.seller,
+          `auction-sale:${a.id}`,
+          "auction-sale",
+          a.card,
+          a.level,
+          a.bid,
+        );
         this.run("UPDATE auctions SET paid=1 WHERE id=?", a.id);
       }
       this.run("UPDATE auctions SET claimed=1,closed=1 WHERE id=?", a.id);
@@ -751,6 +769,7 @@ export class Engine {
         "mahjong_games",
         "gem_games",
         "horse_games",
+        "player_notices",
         "profile_showcase",
         "profile_anime",
       ])
@@ -799,6 +818,7 @@ export class Engine {
   }
   gameState(id) {
     const now = this.now();
+    const notices = this.economy.notices.pending(id);
     const auctionWins = this.all(
       "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE a.winner=? AND a.ends<=? AND a.claimed=0 AND a.notified=0 ORDER BY a.ends,a.id",
       id,
@@ -810,13 +830,17 @@ export class Engine {
       mahjong: this.economy.mahjong.state(id),
       gem: this.economy.gem.read(id),
       horseRace: this.economy.horse.view(id),
+      notices,
       ledger: this.all(
         "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
         id,
       ),
       auctionWins,
       cards: this.catalogStore.cards([
-        ...new Set(auctionWins.map((a) => a.card)),
+        ...new Set([
+          ...auctionWins.map((a) => a.card),
+          ...notices.map((n) => n.card),
+        ]),
       ]),
     };
   }
@@ -845,6 +869,8 @@ export class Engine {
       ...ranks.map((p) => p.avatar_card),
       me?.avatar_card,
     ]);
+    const notices = this.economy.notices.pending(id);
+    for (const notice of notices) references.add(notice.card);
     const myListings = id
       ? [
           ...this.all(
@@ -887,6 +913,7 @@ export class Engine {
       mahjong: this.economy.mahjong.state(id),
       gem: id ? this.economy.gem.read(id) : null,
       horseRace: id ? this.economy.horse.view(id) : null,
+      notices,
       catalog,
       auctions,
       auctionWins: auctions.filter(

@@ -85,7 +85,9 @@ test("compact game snapshots preserve wallet/history/privacy without loading cat
   assert.deepEqual(snapshot.mahjong, result.mahjong);
   assert.equal("wall" in snapshot.mahjong, false);
   assert.equal(snapshot.ledger[0].delta, -50);
-  assert.ok(queries.length <= 6);
+  // One bounded, indexed inbox lookup accompanies the six existing game reads.
+  assert.ok(queries.length <= 7);
+  assert.deepEqual(snapshot.notices, []);
   assert.equal(
     queries.some((q) =>
       /FROM (?:catalog|inventory|settings)|GROUP BY|RANK\(/i.test(q),

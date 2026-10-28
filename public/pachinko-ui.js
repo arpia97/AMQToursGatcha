@@ -35,7 +35,7 @@ export function createPachinkoUI({
       )
         ? ui.pachinkoGame
         : "mahjong";
-      return `<div class="page-intro"><div><h1>Pachinko</h1><p>Feeling lucky?</p></div><span class="pill">CREDITS ONLY</span></div><nav class="pachinko-games" aria-label="Pachinko games">${[
+      return `<div class="page-intro"><div><h1>Pachinko</h1><p>Feeling lucky?</p></div></div><nav class="pachinko-games" aria-label="Pachinko games">${[
         ["mahjong", "Mahjong"],
         ["horse", "Horse Racing"],
         ["gem", "Gem faceting"],
