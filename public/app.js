@@ -562,9 +562,9 @@ function catalogue() {
       "Find your favourites among all imported characters and seiyuus.",
     ) +
     `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
-    <div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}"></div>
-    ${features.filters()}<div class="card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
-    ${features.catalogPager(catalogPageData, catalogPageNumber)}`
+     <section class="collection-toolbar catalog-toolbar" aria-label="Catalogue controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}">${features.filters()}</div>${features.catalogPager(catalogPageData, catalogPageNumber, "catalog-top")}</section>
+     <div class="card-grid collection-card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
+     <div class="collection-footer-pager">${features.catalogPager(catalogPageData, catalogPageNumber)}</div>`
   );
 }
 
@@ -1022,8 +1022,15 @@ document.addEventListener("click", async (ev) => {
     render();
     return;
   }
-  if (a === "catalog-prev" || a === "catalog-next") {
-    catalogPageNumber += a === "catalog-next" ? 1 : -1;
+  if (
+    [
+      "catalog-prev",
+      "catalog-next",
+      "catalog-top-prev",
+      "catalog-top-next",
+    ].includes(a)
+  ) {
+    catalogPageNumber += a.endsWith("next") ? 1 : -1;
     await loadDynamic();
     render();
     return;
@@ -1862,7 +1869,14 @@ document.addEventListener("click", (ev) => {
 });
 
 document.addEventListener("change", async (ev) => {
-  if (!["catalog-page-input", "catalog-page-select"].includes(ev.target.id))
+  if (
+    ![
+      "catalog-page-input",
+      "catalog-page-select",
+      "catalog-top-page-input",
+      "catalog-top-page-select",
+    ].includes(ev.target.id)
+  )
     return;
   const value = Number(ev.target.value);
   if (!Number.isSafeInteger(value) || value < 1 || value > 10000) return;
