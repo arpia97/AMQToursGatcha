@@ -1775,6 +1775,92 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   color: var(--muted);
   font-size: 11px;
 }
+.profile-tabs {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.fusion-outcomes {
+  margin: 28px 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.fusion-outcomes .section-head {
+  margin-top: 0;
+}
+.fusion-outcome-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 12px;
+}
+.fusion-outcome-controls .search {
+  width: min(100%, 300px);
+}
+.fusion-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.fusion-target-card {
+  padding: 0 0 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel);
+}
+.fusion-target-card:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.fusion-target-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  display: block;
+  margin-bottom: 10px;
+}
+.fusion-target-card strong,
+.fusion-target-card small {
+  display: block;
+  padding: 0 10px;
+}
+.fusion-target-card strong {
+  font-size: 12px;
+}
+.fusion-target-card small {
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.fusion-target-card.target-selected {
+  outline: 3px solid var(--mint);
+  outline-offset: 3px;
+}
+.fusion-target-selected {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 16px 0;
+  padding: 12px;
+  border: 2px solid var(--mint);
+  border-radius: 10px;
+}
+.fusion-target-selected img {
+  width: 52px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.fusion-target-selected p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .pickem-table-wrap {
   margin: 0;
   border: 0;

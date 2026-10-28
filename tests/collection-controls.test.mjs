@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { collectionView, collectionPage } from "../public/card-display.js";
 import { createWorkshop } from "../public/workshop-ui.js";
+import { fusionOutcomesPage } from "../public/fusion-outcomes.js";
 
 test("collection combines rarity, character role, bilingual search and independent inventory sorts", () => {
   const cards = [
@@ -125,4 +126,65 @@ test("fusion popup selection supports sparse slots, replacement, cancel, and val
   assert.equal(w.request().cards[0].card, "d");
   w.clear();
   assert.equal(w.pickerOpen(), false);
+});
+test("fusion target choices load after the first material, follow mixed pools, persist across paging and clear when no longer eligible", async () => {
+  const cards = [
+    { id: "d", kind: "character", rarity: "D", name: "Material" },
+    { id: "actor-d", kind: "seiyuu", rarity: "D", name: "Actor material" },
+    ...Array.from({ length: 15 }, (_, i) => ({
+      id: "c" + i,
+      kind: i === 14 ? "seiyuu" : "character",
+      rarity: "C",
+      name: "Outcome " + String(i).padStart(2, "0"),
+    })),
+  ];
+  const state = {
+    me: { id: "p" },
+    inventory: [
+      { card: "d", copies: 2, level: 1 },
+      { card: "actor-d", copies: 1, level: 1 },
+    ],
+  };
+  const w = createWorkshop({
+    getState: () => state,
+    cardBy: (id) => cards.find((c) => c.id === id),
+    escape: String,
+    number: String,
+    cardHTML: (c) => c.name,
+    image: (c) => c.name,
+    gradeBadge: (c) => c.rarity,
+    btn: (label) => label,
+    empty: () => "",
+  });
+  const api = async (path) => {
+    const p = new URLSearchParams(path.split("?")[1]);
+    return fusionOutcomesPage(cards, {
+      rarity: p.get("rarity"),
+      kind: p.get("kind"),
+      query: p.get("q"),
+      page: Number(p.get("page")),
+    });
+  };
+  assert.equal(await w.loadOutcomes(api), null);
+  w.add({ card: "d", variant: "card" });
+  assert.equal((await w.loadOutcomes(api)).eligibleTotal, 14);
+  w.chooseTarget("c0");
+  assert.equal(w.request().targetCard, undefined);
+  w.add({ card: "d", variant: "extra" });
+  await w.loadOutcomes(api);
+  assert.equal(w.request().targetCard, "c0");
+  w.outcomeFilter("page", 1);
+  await w.loadOutcomes(api);
+  assert.equal(w.request().targetCard, "c0");
+  w.add({ card: "actor-d", variant: "card" });
+  assert.equal((await w.loadOutcomes(api)).eligibleTotal, 15);
+  w.outcomeFilter("query", "14");
+  await w.loadOutcomes(api);
+  w.chooseTarget("c14");
+  assert.equal(w.request().targetCard, "c14");
+  w.remove(2);
+  await w.loadOutcomes(api);
+  assert.equal(w.request().targetCard, undefined);
+  w.clear();
+  assert.equal(await w.loadOutcomes(api), null);
 });

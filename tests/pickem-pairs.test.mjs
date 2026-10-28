@@ -13,6 +13,7 @@ import {
   predictionDraft,
   tourSummaries,
 } from "../public/pickem-board.js";
+import { settlementBody } from "../public/pickem-settlement.js";
 const teams = ["A", "B", "C", "D"];
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
@@ -118,11 +119,7 @@ test("all three two-game outcomes can be predicted and settled once, including s
       "q",
     );
     f.advance(600001);
-    const settlement = {
-      pickem: p.id,
-      scoreA: body.scoreA,
-      scoreB: body.scoreB,
-    };
+    const settlement = settlementBody(p, { result }, f.now());
     const settle = () =>
       f.e.mutate("host:settle", "settle", settlement, () =>
         f.e.host("settle", settlement),

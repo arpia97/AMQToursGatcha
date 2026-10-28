@@ -250,5 +250,29 @@
     "image": "https://play.amqtours-gatcha.workers.dev/community-cards/chommynoodles.png",
     "source": "",
     "fixedRarity": "AG"
+  },
+  {
+    "id": "community-ggius-chrislefko",
+    "kind": "seiyuu",
+    "name": "Chris Lefkó",
+    "series": "GGius Tours",
+    "series_romaji": "GGius Tours",
+    "series_english": "GGius Tours",
+    "role": "supporting",
+    "image": "https://play.amqtours-gatcha.workers.dev/community-cards/chrislefko.png",
+    "source": "",
+    "fixedRarity": "AG"
+  },
+  {
+    "id": "community-ggius-pregnantnoel",
+    "kind": "character",
+    "name": "Pregnant Noel",
+    "series": "GGius Tours",
+    "series_romaji": "GGius Tours",
+    "series_english": "GGius Tours",
+    "role": "supporting",
+    "image": "https://play.amqtours-gatcha.workers.dev/community-cards/pregnantnoel.webp",
+    "source": "",
+    "fixedRarity": "AG"
   }
 ]

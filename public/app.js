@@ -1,4 +1,9 @@
 import {
+  SITE_ROUTES,
+  resolvePage,
+  navigationSection,
+} from "./site-navigation.js";
+import {
   pickemBoard,
   tourSummaries,
   predictionDraft,
@@ -104,18 +109,10 @@ icons.fusion =
 icons.shop = '<path d="M3 9h18l-2-6H5zM5 9v12h14V9M9 21v-7h6v7"/>';
 icons.players =
   '<circle cx="10" cy="8" r="4"/><path d="M3 21v-3a7 7 0 0 1 11-5m3 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6m2 5 3 3"/>';
-const routes = [
-  ["home", "Overview"],
-  ["collection", "My collection"],
-  ["fusion", "Card fusion"],
-  ["packs", "Card packs"],
-  ["shop", "Shop"],
-  ["auctions", "Auctions"],
-  ["pickems", "Pick’ems"],
-  ["players", "Players"],
-  ["arcade", "Pachinko"],
-  ["ranks", "Rankings"],
-];
+icons.profile =
+  '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>';
+icons.catalog = icons.collection;
+const routes = SITE_ROUTES;
 let heroCards = null,
   clockOffset = 0;
 const handledDeadlines = new Set();
@@ -178,12 +175,7 @@ function rememberCards(cards = []) {
 const isDemo =
   new URLSearchParams(location.search).has("demo") ||
   location.hostname.endsWith(".github.io");
-const page = () =>
-  location.hash.startsWith("#player/")
-    ? "profile"
-    : routes.some((r) => r[0] === location.hash.slice(1))
-      ? location.hash.slice(1)
-      : "home";
+const page = () => resolvePage(location.hash);
 const rarity = (level) =>
   level >= 10 ? 5 : level >= 6 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1;
 const profileURL = (id) => "#player/" + encodeURIComponent(id);
@@ -520,6 +512,7 @@ function collection() {
   const collectionData = collectionPage(items, ui.collectionPage);
   ui.collectionPage = collectionData.page;
   return (
+    profileTabs("collection") +
     intro("Your collection. Your favourites.", "Every card has a story.") +
     (state.me ? features.pinnedAnime() : "") +
     `<section class="collection-toolbar" aria-label="Collection controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}">${features.filters("collection")}</div>${state.me ? features.catalogPager(collectionData, ui.collectionPage, "collection-top") : ""}</section>` +
@@ -544,11 +537,6 @@ function collection() {
   );
 }
 function packs() {
-  const pool = state.catalogSummary || {
-    character: state.catalog.filter((c) => c.kind === "character").length,
-    seiyuu: state.catalog.filter((c) => c.kind === "seiyuu").length,
-  };
-  const list = catalogPageData?.cards || [];
   return (
     intro(
       "Five cards. One little thrill.",
@@ -559,13 +547,27 @@ function packs() {
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
     <div class="section-head"><h2>Premium packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five independent draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every card, equal chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
-    <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>
-    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
+    <div class="rule"><strong>↑</strong><h3>Duplicates go further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>`
+  );
+}
+function catalogue() {
+  const pool = state.catalogSummary || {
+    character: state.catalog.filter((c) => c.kind === "character").length,
+    seiyuu: state.catalog.filter((c) => c.kind === "seiyuu").length,
+  };
+  const list = catalogPageData?.cards || [];
+  return (
+    intro(
+      "Card catalogue",
+      "Find your favourites among all imported characters and seiyuus.",
+    ) +
+    `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL popularity rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
     <div class="filters">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}"></div>
     ${features.filters()}<div class="card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No matching cards.", "Try another name or series.")}</div>
     ${features.catalogPager(catalogPageData, catalogPageNumber)}`
   );
 }
+
 function auctions() {
   const list = state.auctions.filter((a) => a.kind === tab),
     active = list.filter((a) => !a.seller && a.ends > state.now),
@@ -628,6 +630,21 @@ function players() {
     `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No player found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
   );
 }
+function profileTabs(active) {
+  return `<nav class="tabs profile-tabs" aria-label="My Profile sections"><a class="tab ${active === "profile" ? "active" : ""}" href="#profile">My Profile</a><a class="tab ${active === "collection" ? "active" : ""}" href="#collection">My Collection</a></nav>`;
+}
+function myProfile() {
+  if (!state.me)
+    return (
+      intro("My Profile", "Your collection and favourites, in one place.") +
+      empty(
+        "Your profile is waiting.",
+        "Sign in to view your profile and collection.",
+        btn("Sign in", "account"),
+      )
+    );
+  return profileTabs("profile") + profile();
+}
 function profile() {
   if (!profileData) return '<div class="loading">Finding this collector…</div>';
   const p = profileData,
@@ -656,7 +673,7 @@ async function loadDynamic() {
     current = page(),
     hash = location.hash;
   let data, pickemDetail;
-  if (current === "packs")
+  if (current === "catalog")
     data = await api(
       "catalog?kind=" +
         tab +
@@ -671,6 +688,7 @@ async function loadDynamic() {
         "&sort=" +
         encodeURIComponent(ui.catalogSort),
     );
+  if (current === "fusion" && state.me) data = await workshop.loadOutcomes(api);
   if (current === "collection" && state.me)
     data = await api("anime-collection?page=" + (ui.animePage || 1));
   if (current === "ranks")
@@ -706,15 +724,20 @@ async function loadDynamic() {
     data = await api(
       "profiles?q=" + encodeURIComponent(search) + "&page=" + ui.playerPage,
     );
-  if (current === "profile")
+  if (current === "player" || (current === "profile" && state.me))
     data = await api(
-      "player?id=" + encodeURIComponent(decodeURIComponent(hash.slice(8))),
+      "player?id=" +
+        encodeURIComponent(
+          current === "profile"
+            ? state.me.id
+            : decodeURIComponent(hash.slice(8)),
+        ),
     );
   if (version !== loadVersion || location.hash !== hash) return;
   if (data) {
     rememberCards(data.cards);
     if (current === "collection") ui.animeData = data;
-    if (current === "packs") catalogPageData = data;
+    if (current === "catalog") catalogPageData = data;
     if (current === "ranks") ui.rankData = data;
     if (current === "pickems") {
       ui.pickemData = data;
@@ -727,7 +750,7 @@ async function loadDynamic() {
       profileResults = data.profiles;
       ui.playerData = data;
     }
-    if (current === "profile") profileData = data;
+    if (current === "profile" || current === "player") profileData = data;
   }
 }
 function render() {
@@ -738,18 +761,20 @@ function render() {
     : null;
   const route = page(),
     title =
-      route === "profile"
+      route === "player"
         ? "Player profile"
-        : routes.find((r) => r[0] === route)[1];
+        : route === "collection"
+          ? "My Collection"
+          : routes.find((r) => r[0] === route)[1];
+  const activeSection = navigationSection(route, state.me?.id, profileData?.id);
   $("#navigation").innerHTML = routes
     .map(
       ([id, name]) =>
-        `<a class="nav-link ${id === route || (id === "players" && route === "profile") ? "active" : ""}" href="#${id}" aria-label="${name}" ${id === route ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
+        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="#${id}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
     )
     .join("");
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
-  $("#beta-phase")?.toggleAttribute("hidden", !state.betaRegistration);
   $(".host-link")?.toggleAttribute("hidden", !state.me?.is_admin);
   $("#account").innerHTML = state.me?.avatar_card
     ? avatarHTML(state.me)
@@ -763,13 +788,15 @@ function render() {
     collection,
     fusion: () => workshop.render(),
     packs,
+    catalog: catalogue,
     auctions,
     shop,
     pickems,
     ranks,
     arcade,
     players,
-    profile,
+    profile: myProfile,
+    player: profile,
   }[route]();
   if (predictionFocus)
     document
@@ -779,7 +806,7 @@ function render() {
   const queryInput = $("#search") || $("#profile-search");
   if (queryInput && search.trim()) {
     const none =
-      route === "packs"
+      route === "catalog"
         ? !catalogPageData?.cards?.length
         : route === "players"
           ? !profileResults.length
@@ -1162,7 +1189,7 @@ document.addEventListener("input", (ev) => {
     if (page() === "collection") ui.collectionPage = 1;
     const position = ev.target.selectionStart;
     search = ev.target.value;
-    if (page() === "packs") {
+    if (page() === "catalog") {
       catalogPageNumber = 1;
       clearTimeout(searchTimer);
       searchTimer = setTimeout(async () => {
@@ -1430,6 +1457,12 @@ async function handleFeatureClick(a, t) {
         if (a === "fusion-card") location.hash = "fusion";
       }
       if (a === "fusion-remove") workshop.remove(Number(t.dataset.index));
+      if (a === "fusion-target") workshop.chooseTarget(t.dataset.id);
+      if (a === "fusion-target-clear") workshop.chooseTarget(null);
+      if (a === "fusion-outcome-view")
+        workshop.outcomeFilter("view", t.dataset.view);
+      if (a === "fusion-outcome-prev" || a === "fusion-outcome-next")
+        workshop.outcomeFilter("page", a.endsWith("next") ? 1 : -1);
       if (a === "fusion-clear") workshop.clear();
       if (a === "fusion-dismiss") workshop.dismiss();
       if (a === "fusion-prev") workshop.prev();
@@ -1453,6 +1486,7 @@ async function handleFeatureClick(a, t) {
         }
         return true;
       }
+      await loadDynamic();
       render();
       return true;
     }
@@ -1862,7 +1896,7 @@ document.addEventListener("change", async (ev) => {
       ui.collectionPage = 1;
     }
     try {
-      if (page() === "packs") await loadDynamic();
+      if (page() === "catalog") await loadDynamic();
       render();
     } catch (err) {
       toast(err.message, true);
@@ -1892,6 +1926,24 @@ document.addEventListener("input", (ev) => {
   const pos = ev.target.selectionStart;
   workshop.filter("query", ev.target.value);
   renderFusionPicker(true, pos);
+});
+let fusionOutcomeTimer;
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "fusion-outcome-search") return;
+  const position = ev.target.selectionStart;
+  workshop.outcomeFilter("query", ev.target.value);
+  clearTimeout(fusionOutcomeTimer);
+  fusionOutcomeTimer = setTimeout(async () => {
+    if (page() !== "fusion") return;
+    try {
+      await loadDynamic();
+      render();
+      $("#fusion-outcome-search")?.focus();
+      $("#fusion-outcome-search")?.setSelectionRange(position, position);
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }, 350);
 });
 document.addEventListener("change", (ev) => {
   if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;

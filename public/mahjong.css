@@ -434,25 +434,7 @@
   gap: 12px;
   font-size: 12px;
 }
-.beta-badge {
-  align-self: flex-start;
-  margin: -10px 0 12px 28px;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: #345c4a;
-  color: #c1e4d1;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-}
-.beta-badge[hidden] {
-  display: none;
-}
 @media (max-width: 850px) {
-  .beta-badge {
-    margin: 0 auto 12px;
-    align-self: center;
-  }
   .mj-history-entry summary {
     gap: 8px;
   }

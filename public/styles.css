@@ -150,13 +150,6 @@ p {
   border-radius: 13px;
   object-fit: contain;
 }
-.side-label {
-  font-size: 9px;
-  letter-spacing: 1.6px;
-  font-weight: 700;
-  color: #717582;
-  margin: 0 14px 16px;
-}
 nav {
   display: flex;
   flex-direction: column;
@@ -1149,6 +1142,65 @@ dialog form {
 .host-shell .table-wrap {
   margin-top: 20px;
 }
+.settlement-tour {
+  border-top: 1px solid var(--border);
+  padding: 12px 0;
+}
+.settlement-tour-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.settlement-tour-heading .button,
+.settlement-table .button {
+  width: auto;
+  min-height: 30px;
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.settlement-table {
+  min-width: 620px;
+}
+.settlement-table th,
+.settlement-table td {
+  padding: 8px;
+  font-size: 12px;
+}
+.settlement-table tbody th {
+  text-align: left;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+.settlement-table select {
+  width: 140px;
+  padding: 5px 8px;
+  height: 32px;
+  font-size: 12px;
+}
+.settlement-score {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.settlement-score input {
+  width: 58px;
+  height: 32px;
+  padding: 5px;
+  text-align: center;
+}
+.settlement-status {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.settlement-table .host-result {
+  max-width: 200px;
+  padding: 8px;
+  margin-top: 6px;
+}
 .toolbar {
   display: flex;
   gap: 10px;
@@ -1264,7 +1316,6 @@ dialog form {
     margin: 0 4px 35px;
   }
   .brand > span:last-child,
-  .side-label,
   .nav-link > span,
   .nav-link em,
   .sidebar-bottom {

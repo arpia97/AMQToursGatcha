@@ -1,4 +1,9 @@
 import {
+  settlementPanel,
+  settlementDraft,
+  settlementBody,
+} from "./pickem-settlement.js";
+import {
   pickemManagement,
   tourManager,
   matchEditor,
@@ -15,7 +20,9 @@ import {
 let scheduleDraft = null,
   participationDraft = null,
   matchDraft = null,
-  managedTour = null;
+  managedTour = null,
+  settlementTour = null;
+const settlementDrafts = {};
 const importActive = (j) =>
   ["running", "waiting"].includes(j.status) ||
   (j.status === "completed" && !!j.favorites);
@@ -120,15 +127,7 @@ function render() {
       html;
   }
   if (tab === "pickems")
-    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Combined double-round-robin results use 2:0, 1:1 or 0:2. Other matches must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><section class="host-panel"><h2>Post a final score</h2><p>For combined matchups, enter game wins: 2:0, 1:1 or 0:2. Available after the deadline. Settlement is final and pays all correct predictions once. Verify the match and scores before submitting.</p><form id="settle" class="stack"><label>Closed pick’em<select name="pickem" required><option value="">Choose a match</option>${state.pickems
-      .filter((p) => !p.settled && p.ends <= Date.now())
-      .map(
-        (p) =>
-          `<option value="${p.id}">${esc(p.title)} · ${esc(p.team_a)} / ${esc(p.team_b)}</option>`,
-      )
-      .join(
-        "",
-      )}</select></label><div class="form-grid">${input("Team A final score", "scoreA", "number", 'min="0" max="1000"')}${input("Team B final score", "scoreB", "number", 'min="0" max="1000"')}</div><button class="button secondary" type="submit">Settle and distribute rewards →</button></form></section><div class="table-wrap"><table><thead><tr><th>MATCH</th><th>TEAMS</th><th>CLOSES</th><th>RESULT</th><th>MANAGE</th></tr></thead><tbody>${state.pickems.map((p) => `<tr><td>${esc(p.title)}</td><td>${esc(p.team_a)} / ${esc(p.team_b)}</td><td>${esc(new Date(p.ends).toLocaleString())}</td><td>${p.settled ? p.result_a + "–" + p.result_b : "Pending"}</td><td>${p.settled ? "Final" : `<button type="button" class="text-button" data-pickem-edit="${p.id}">Edit / delete</button>`}</td></tr>`).join("")}</tbody></table></div>`;
+    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Combined double-round-robin results use 2:0, 1:1 or 0:2. Other matches must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><div class="table-wrap"><table><thead><tr><th>MATCH</th><th>TEAMS</th><th>CLOSES</th><th>RESULT</th><th>MANAGE</th></tr></thead><tbody>${state.pickems.map((p) => `<tr><td>${esc(p.title)}</td><td>${esc(p.team_a)} / ${esc(p.team_b)}</td><td>${esc(new Date(p.ends).toLocaleString())}</td><td>${p.settled ? p.result_a + "–" + p.result_b : "Pending"}</td><td>${p.settled ? "Final" : `<button type="button" class="text-button" data-pickem-edit="${p.id}">Edit / delete</button>`}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
     html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Normal packs select every card equally, with replacement. Premium packs double AG/Ubers/SSS/SS/S chances by reducing D. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. Tenrai imports MAL characters with Main/Supporting roles and MAL portraits. Optional series_romaji and series_english fields preserve both title versions.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Normal packs are uniform within each card type, regardless of role or rarity. Premium doubles the chances S and above, taking the additional probability only from D. Daily login rewards are 300 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div><div class="form-grid">${input("Premium character pack (five cards)", "premium_character", "number", `min="1" max="1000000" value="${state.settings.premium_character_price || 1000}"`)}${input("Premium seiyuu pack (five cards)", "premium_seiyuu", "number", `min="1" max="1000000" value="${state.settings.premium_seiyuu_price || 1000}"`)}</div><button class="button secondary" type="submit">Save pack prices →</button></form></section>`;
   if (tab === "catalog") {
@@ -174,7 +173,11 @@ function render() {
   if (tab === "rewards") html = participationPanel() + html;
   if (tab === "players") html = accessPanel(state, esc) + html;
   if (tab === "pickems")
-    html = tournamentPanel(state, esc) + pickemManagement(state, esc) + html;
+    html =
+      settlementPanel(state, esc, settlementTour, settlementDrafts) +
+      tournamentPanel(state, esc) +
+      pickemManagement(state, esc) +
+      html;
   scheduleDraft = null;
   participationDraft = null;
   matchDraft = null;
@@ -183,7 +186,43 @@ function render() {
 }
 async function load() {
   state = await api("state");
+  if (settlementTour) {
+    if (state.pickemEvents.some((t) => t.id === settlementTour.id))
+      settlementTour = await api("pickem-event?event=" + settlementTour.id);
+    else settlementTour = null;
+  }
   render();
+}
+function settlementMatch(id) {
+  return (
+    settlementTour?.matches.find((p) => p.id === Number(id)) ||
+    state.pickems.find((p) => p.id === Number(id))
+  );
+}
+function renderSettlement() {
+  $("#settlement-panel").outerHTML = settlementPanel(
+    state,
+    esc,
+    settlementTour,
+    settlementDrafts,
+  );
+  document.querySelectorAll("[data-settle-match]").forEach((form) => {
+    const match = settlementMatch(form.dataset.settleMatch),
+      draft = settlementDraft(match, settlementDrafts[match.id]);
+    if (draft.requestKey) form.dataset.requestKey = draft.requestKey;
+  });
+}
+function rememberSettlement(input) {
+  const form = input.form;
+  if (!form?.dataset.settleMatch) return;
+  const match = settlementMatch(form.dataset.settleMatch),
+    values = Object.fromEntries(new FormData(form));
+  settlementDrafts[match.id] = {
+    ...settlementDraft(match, settlementDrafts[match.id]),
+    ...values,
+  };
+  delete settlementDrafts[match.id].requestKey;
+  delete form.dataset.requestKey;
 }
 // RFC 4180-style quoted CSV, including embedded newlines, commas and doubled quotes.
 export function parseCSV(raw) {
@@ -228,8 +267,16 @@ document.addEventListener("submit", async (ev) => {
     submit = form.querySelector("[type=submit]");
   if (submit) submit.disabled = true;
   // Retain a key after an uncertain network failure so submitting again cannot duplicate a grant/settlement.
+  const savedSettlement = form.dataset.settleMatch
+    ? settlementDraft(
+        settlementMatch(form.dataset.settleMatch),
+        settlementDrafts[form.dataset.settleMatch],
+      )
+    : null;
   const key =
-    form.dataset.requestKey || (form.dataset.requestKey = crypto.randomUUID());
+    savedSettlement?.requestKey ||
+    form.dataset.requestKey ||
+    (form.dataset.requestKey = crypto.randomUUID());
   try {
     if (form.id === "admin-login-form") {
       const response = await fetch("api/login", {
@@ -438,19 +485,22 @@ document.addEventListener("submit", async (ev) => {
       b.scoreReward = Number(b.scoreReward);
       result = await api("pickem", b, key);
     }
-    if (form.id === "settle") {
-      b.pickem = Number(b.pickem);
-      b.scoreA = Number(b.scoreA);
-      b.scoreB = Number(b.scoreB);
-      const match = state.pickems.find((p) => p.id === b.pickem);
-      if (!match) throw new Error("Choose a closed match.");
+    if (form.dataset.settleMatch) {
+      const match = settlementMatch(form.dataset.settleMatch),
+        body = settlementBody(match, b);
+      settlementDrafts[match.id] = {
+        ...settlementDraft(match, settlementDrafts[match.id]),
+        ...b,
+        requestKey: key,
+      };
       if (
         !confirm(
-          `Settle ${match.title}: ${match.team_a} ${b.scoreA}–${b.scoreB} ${match.team_b}? This pays rewards and is final.`,
+          `Settle ${match.title}: ${match.team_a} ${body.scoreA} : ${body.scoreB} ${match.team_b}? This pays rewards and is final.`,
         )
       )
         return;
-      result = await api("settle", b, key);
+      result = await api("settle", body, key);
+      delete settlementDrafts[match.id];
     }
     if (form.id === "aliases-sync") result = await api("aliases-sync", {}, key);
     if (form.id === "settings") {
@@ -528,6 +578,7 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  rememberSettlement(ev.target);
   const form = ev.target.closest("form");
   invalidateSchedule(form);
   if (form?.id === "grant" && ev.target.name === "games")
@@ -556,6 +607,7 @@ function invalidateSchedule(form) {
   }
 }
 document.addEventListener("change", (ev) => {
+  rememberSettlement(ev.target);
   if (ev.target.dataset.deadlineTarget) {
     const target = ev.target.form.elements.namedItem(
       ev.target.dataset.deadlineTarget,
@@ -570,9 +622,27 @@ document.addEventListener("change", (ev) => {
 });
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest(
-    "[data-tab],#lock,#sample-catalog,#export-ledger,[data-pickem-edit]",
+    "[data-tab],#lock,#sample-catalog,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh]",
   );
   if (!t || working) return;
+  if (t.dataset.settlementTour || t.hasAttribute("data-settlement-refresh")) {
+    working = true;
+    t.disabled = true;
+    try {
+      const id = Number(t.dataset.settlementTour || settlementTour?.id);
+      settlementTour =
+        t.dataset.settlementTour && settlementTour?.id === id
+          ? null
+          : await api("pickem-event?event=" + id);
+      renderSettlement();
+    } catch (err) {
+      report(err.message, true);
+    } finally {
+      working = false;
+      t.disabled = false;
+    }
+    return;
+  }
   if (t.dataset.pickemEdit) {
     working = true;
     try {
@@ -614,6 +684,8 @@ document.addEventListener("click", async (ev) => {
       adminSession = false;
     }
     state = null;
+    settlementTour = null;
+    for (const id of Object.keys(settlementDrafts)) delete settlementDrafts[id];
     $("#host-content").innerHTML = "";
     $("#console").hidden = true;
     $("#unlock").hidden = false;

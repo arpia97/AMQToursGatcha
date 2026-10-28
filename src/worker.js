@@ -631,6 +631,17 @@ export class Game extends DurableObject {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json({ cards: e.featuredCards() });
     }
+    if (path === "fusion-outcomes" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.economy.fusion.outcomes({
+          rarity: url.searchParams.get("rarity") || "",
+          kind: url.searchParams.get("kind") || "mixed",
+          query: url.searchParams.get("q") || "",
+          page: Number(url.searchParams.get("page") || 1),
+        }),
+      );
+    }
     if (path === "catalog" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

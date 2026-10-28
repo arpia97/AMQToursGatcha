@@ -1,9 +1,24 @@
 import { fail, text } from "./engine.js";
 import { fusionQuote } from "../public/fusion-rules.js";
+import {
+  fusionOutcomesPage,
+  fusionTarget,
+  drawFusionResult,
+} from "../public/fusion-outcomes.js";
 
 export class Fusion {
   constructor(e) {
     this.e = e;
+  }
+  outcomes(options) {
+    const kinds =
+      options.kind === "mixed" ? ["character", "seiyuu"] : [options.kind];
+    if (!kinds.every((kind) => ["character", "seiyuu"].includes(kind)))
+      fail("Choose a card type.");
+    return fusionOutcomesPage(
+      kinds.flatMap((kind) => this.e.catalogStore.pool(kind).cards),
+      options,
+    );
   }
   prepare(player, board) {
     if (!Array.isArray(board) || board.length < 1 || board.length > 5)
@@ -86,6 +101,9 @@ export class Fusion {
             " result cards are available yet. Your materials were kept.",
           409,
         );
+    if (b.targetCard && !odds.upgrade)
+      fail("Add at least two materials before choosing an upgrade target.");
+    const target = fusionTarget(pools[odds.upgraded], b.targetCard);
     const roll = this.e.rand(10000),
       outcome =
         roll < odds.stay
@@ -100,7 +118,11 @@ export class Fusion {
           ? odds.upgraded
           : null;
     const result = grade
-      ? pools[grade][this.e.rand(pools[grade].length)]
+      ? drawFusionResult(
+          pools[grade],
+          outcome === "upgrade" ? target : null,
+          (n) => this.e.rand(n),
+        )
       : null;
     // Consume extras before the base so selecting every physical copy is valid.
     for (const [id, g] of groups) {
@@ -121,6 +143,8 @@ export class Fusion {
       odds,
       materials,
       roll,
+      targetCard: target?.id || null,
+      targetHit: !!target && outcome === "upgrade" && result?.id === target.id,
       cards: result ? [result] : [],
     };
   }

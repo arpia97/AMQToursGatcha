@@ -8,7 +8,14 @@ export function createWorkshop(h) {
     query = "",
     kind = "",
     grade = "",
-    page = 1;
+    page = 1,
+    target = null,
+    outcomeView = "upgrade",
+    outcomeQuery = "",
+    outcomePage = 1,
+    outcomeData = null,
+    outcomeKey = "",
+    outcomeLoaded = 0;
   const {
     escape: e,
     number: n,
@@ -73,14 +80,22 @@ export function createWorkshop(h) {
     const reason = canAdd(entry, slot);
     if (reason) throw Error(reason);
     board = candidateBoard(entry, slot);
+    changedBoard();
   }
   function remove(index) {
     board = board.filter((m) => m.slot !== index);
+    changedBoard();
   }
   function clear() {
     board = [];
     lastResult = null;
     pickerSlot = null;
+    target = null;
+    outcomeData = null;
+    outcomeKey = "";
+    outcomeView = "upgrade";
+    outcomeQuery = "";
+    outcomePage = 1;
   }
   function openPicker(index) {
     if (!Number.isInteger(index) || index < 0 || index > 4)
@@ -98,6 +113,102 @@ export function createWorkshop(h) {
         ? "Characters + seiyuus"
         : "Choose a material";
   }
+  function outcomeSpec() {
+    if (!board.length) return null;
+    const cards = models(),
+      odds = fusionQuote(cards),
+      kinds = [...new Set(cards.map((c) => c.kind))];
+    return {
+      rarity: outcomeView === "stay" ? odds.baseline : odds.upgraded,
+      upgraded: odds.upgraded,
+      kind: kinds.length === 1 ? kinds[0] : "mixed",
+      odds,
+    };
+  }
+  function changedBoard() {
+    outcomePage = 1;
+    outcomeKey = "";
+    outcomeData = null;
+    try {
+      const spec = outcomeSpec();
+      if (
+        !spec ||
+        (target &&
+          (target.rarity !== spec.upgraded ||
+            (spec.kind !== "mixed" && target.kind !== spec.kind)))
+      )
+        target = null;
+    } catch {
+      target = null;
+    }
+  }
+  async function loadOutcomes(api) {
+    let spec;
+    try {
+      spec = outcomeSpec();
+    } catch {
+      return null;
+    }
+    if (!spec) return null;
+    const key = JSON.stringify([
+      spec.rarity,
+      spec.kind,
+      outcomeQuery,
+      outcomePage,
+    ]);
+    if (key === outcomeKey && Date.now() - outcomeLoaded < 30000)
+      return outcomeData;
+    const params = new URLSearchParams({
+      rarity: spec.rarity,
+      kind: spec.kind,
+      q: outcomeQuery,
+      page: outcomePage,
+    });
+    const data = await api("fusion-outcomes?" + params);
+    const current = outcomeSpec();
+    if (
+      !current ||
+      JSON.stringify([
+        current.rarity,
+        current.kind,
+        outcomeQuery,
+        outcomePage,
+      ]) !== key
+    )
+      return null;
+    outcomeData = data;
+    outcomePage = data.page;
+    outcomeKey = JSON.stringify([
+      spec.rarity,
+      spec.kind,
+      outcomeQuery,
+      data.page,
+    ]);
+    outcomeLoaded = Date.now();
+    return data;
+  }
+  function chooseTarget(id) {
+    if (!id) {
+      target = null;
+      return;
+    }
+    const spec = outcomeSpec(),
+      c = outcomeData?.cards.find((c) => c.id === id);
+    if (
+      outcomeView !== "upgrade" ||
+      !c ||
+      c.rarity !== spec.upgraded ||
+      outcomeData.eligibleTotal < 2
+    )
+      throw Error("Choose an available upgrade target.");
+    target = c;
+  }
+  function renderOutcomes(odds) {
+    if (!odds) return "";
+    const data = outcomeData,
+      canTarget = outcomeView === "upgrade" && data?.eligibleTotal > 1;
+    return `<section class="fusion-outcomes"><div class="section-head"><div><h2>Target Card</h2><p class="form-hint">Choose an upgrade outcome. Your target has exactly a 50% chance if fusion upgrades; the other 50% draws a different eligible card.</p></div>${target ? btn("Clear target", "fusion-target-clear", "", "secondary") : ""}</div>${target ? `<div class="fusion-target-selected tier-${rarityClass(target.rarity)}">${image(target)}<div><strong>${e(target.name)}</strong><p>${e(target.rarity)} · 50% on upgrade${odds.upgrade ? " · " + chanceText(odds.upgrade / 2) + " overall" : " · add a second material to enable upgrades"}</p></div></div>` : '<p class="form-hint">No target selected: upgraded cards are chosen uniformly.</p>'}<div class="fusion-outcome-controls"><div class="tabs"><button class="tab ${outcomeView === "upgrade" ? "active" : ""}" data-action="fusion-outcome-view" data-view="upgrade">Upgrade · ${e(odds.upgraded)}</button><button class="tab ${outcomeView === "stay" ? "active" : ""}" data-action="fusion-outcome-view" data-view="stay">Same tier · ${e(odds.baseline)}</button></div><input id="fusion-outcome-search" class="search" aria-label="Search possible fusion outcomes" placeholder="Search possible outcomes…" value="${e(outcomeQuery)}"></div>${data ? `<p class="form-hint">${n(data.total)} matching ${e(outcomeView === "upgrade" ? odds.upgraded : odds.baseline)} cards · ${e(poolLabel())}${outcomeView === "stay" ? " · same-tier results remain uniform" : data.eligibleTotal === 1 ? " · only one possible upgrade; that card is already guaranteed on an upgrade" : ""}</p><div class="fusion-outcome-grid">${data.cards.map((c) => `<button type="button" class="collect-card fusion-target-card tier-${rarityClass(c.rarity)} ${target?.id === c.id ? "target-selected" : ""}" data-action="fusion-target" data-id="${e(c.id)}" aria-pressed="${target?.id === c.id}" ${canTarget ? "" : "disabled"}>${image(c)}<strong>${e(c.name)}</strong><small>${e(c.kind === "character" ? "Character" : "Seiyuu")} · ${e(c.rarity)}</small></button>`).join("") || '<p class="form-hint">No matching outcomes. Try another search.</p>'}</div><div class="toolbar space-top">${btn("← Previous", "fusion-outcome-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page} of ${Math.max(1, Math.ceil(data.total / data.limit))}</span>${btn("Next →", "fusion-outcome-next", !data.hasMore ? "disabled" : "", "secondary")}</div>` : '<p class="form-hint">Loading possible outcomes…</p>'}</section>`;
+  }
   function request() {
     const cards = models(),
       expectedOdds = fusionQuote(cards);
@@ -109,12 +220,16 @@ export function createWorkshop(h) {
         expectedLevel: m.level,
       })),
       expectedOdds,
+      ...(target && expectedOdds.upgrade ? { targetCard: target.id } : {}),
     };
   }
   function complete(result) {
     board = [];
     lastResult = result;
     pickerSlot = null;
+    target = null;
+    outcomeData = null;
+    outcomeKey = "";
   }
   function render() {
     const state = getState();
@@ -146,7 +261,7 @@ export function createWorkshop(h) {
     const result = lastResult
       ? `<section class="fusion-result ${lastResult.outcome === "break" ? "broken" : ""}" role="status"><span class="eyebrow">${lastResult.outcome === "upgrade" ? "A RARER POSSIBILITY" : lastResult.outcome === "stay" ? "A NEW FACE" : "THE FUSION BROKE"}</span><h2>${lastResult.outcome === "upgrade" ? "Upgraded to " + e(lastResult.odds.upgraded) + "!" : lastResult.outcome === "stay" ? "A new " + e(lastResult.odds.baseline) + " card." : "The materials were consumed."}</h2><p>${e(lastResult.message)}</p>${lastResult.cards.length ? `<div class="fusion-reward">${cardHTML(lastResult.cards[0], null, { copies: 1, level: 1, preview: true })}</div>` : '<div class="broken-sigil" aria-hidden="true">✧</div>'}<button class="text-button" data-action="fusion-dismiss">Dismiss result</button></section>`
       : "";
-    return `<div class="page-intro"><div><h1>A new kind of possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your fusion board</h2><button class="text-button" data-action="fusion-clear">Clear board</button></div><p class="form-hint">Click a slot to choose or replace a material. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result pool:</strong> ${poolLabel()}</p><div class="fusion-odds"><div><small>BASELINE</small><strong>${e(odds?.baseline || "—")}</strong></div><div><small>STAY${odds ? " · " + e(odds.baseline) : ""}</small><strong>${chanceText(odds?.stay || 0)}</strong></div><div><small>UPGRADE${odds ? " · " + e(odds.upgraded) : ""}</small><strong>${chanceText(odds?.upgrade || 0)}</strong></div><div><small>BREAK</small><strong>${chanceText(odds?.break ?? 10000)}</strong></div></div><p class="form-hint">${board.length === 1 ? "One card can stay or break. Add a second card to enable upgrades." : "Baseline: Highest rarity card. Upgrade: One tier higher."} Odds from all cards add together.</p><p class="fusion-warning">Every selected copy is consumed regardless of the results. A successful fusion draws one random Lv. 1 card of the result rarity.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Fuse & consume " + board.length + " card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error ? "disabled" : "", "mint")}</section><details class="rarity-guide"><summary>Fusion chances per level-1 card</summary><table class="fusion-rules"><thead><tr><th>Rarity</th><th>Stay</th><th>Upgrade</th></tr></thead><tbody>${[
+    return `<div class="page-intro"><div><h1>A new kind of possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your fusion board</h2><button class="text-button" data-action="fusion-clear">Clear board</button></div><p class="form-hint">Click a slot to choose or replace a material. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result pool:</strong> ${poolLabel()}</p><div class="fusion-odds"><div><small>BASELINE</small><strong>${e(odds?.baseline || "—")}</strong></div><div><small>STAY${odds ? " · " + e(odds.baseline) : ""}</small><strong>${chanceText(odds?.stay || 0)}</strong></div><div><small>UPGRADE${odds ? " · " + e(odds.upgraded) : ""}</small><strong>${chanceText(odds?.upgrade || 0)}</strong></div><div><small>BREAK</small><strong>${chanceText(odds?.break ?? 10000)}</strong></div></div><p class="form-hint">${board.length === 1 ? "One card can stay or break. Add a second card to enable upgrades." : "Baseline: Highest rarity card. Upgrade: One tier higher."} Odds from all cards add together.</p><p class="fusion-warning">Every selected copy is consumed regardless of the results. A successful fusion draws one random Lv. 1 card of the result rarity.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Fuse & consume " + board.length + " card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error ? "disabled" : "", "mint")}</section>${renderOutcomes(odds)}<details class="rarity-guide"><summary>Fusion chances per level-1 card</summary><table class="fusion-rules"><thead><tr><th>Rarity</th><th>Stay</th><th>Upgrade</th></tr></thead><tbody>${[
       "D",
       "C",
       "B",
@@ -198,6 +313,14 @@ export function createWorkshop(h) {
   return {
     render,
     renderPicker,
+    loadOutcomes,
+    chooseTarget,
+    outcomeFilter: (field, value) => {
+      if (field === "view") outcomeView = value;
+      if (field === "query") outcomeQuery = value;
+      outcomePage = field === "page" ? Math.max(1, outcomePage + value) : 1;
+      outcomeKey = "";
+    },
     openPicker,
     closePicker: () => {
       pickerSlot = null;

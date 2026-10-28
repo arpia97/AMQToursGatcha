@@ -239,6 +239,69 @@ test("fusion boundary rolls consume all copies once and return only the rolled r
     assert.equal(e.player("p").balance, 0);
   }
 });
+test("targeted upgrades use a separate50% draw, exclude the target from alternatives and replay without consuming again", () => {
+  for (const coin of [0, 1]) {
+    const f = fixture();
+    f.cards.set("AG-second", {
+      ...f.cards.get("AG-other"),
+      id: "AG-second",
+      name: "Second AG",
+    });
+    f.add("Ubers", 2);
+    const b = {
+      ...f.body([f.material("Ubers"), f.material("Ubers", "extra")]),
+      targetCard: "AG-second",
+    };
+    const rolls = [6400, coin, 0];
+    f.e.rand = () => rolls.shift();
+    const result = f.act("fusion", b, "targeted");
+    assert.equal(result.outcome, "upgrade");
+    assert.equal(result.cards[0].id, coin === 0 ? "AG-second" : "AG-other");
+    assert.equal(result.targetHit, coin === 0);
+    assert.deepEqual(f.act("fusion", b, "targeted"), result);
+    assert.equal(
+      f.e.state("p").inventory.reduce((n, i) => n + i.copies, 0),
+      1,
+    );
+  }
+});
+test("invalid, foreign-type, stale and singleton fusion targets reject before any random roll or material consumption", () => {
+  const f = fixture();
+  f.add("Ubers", 2);
+  const b = f.body([f.material("Ubers"), f.material("Ubers", "extra")]);
+  const before = f.e.state("p").inventory;
+  f.e.rand = () => {
+    throw Error("Must validate target before rolling");
+  };
+  for (const targetCard of ["missing", "AG", "SSS", "AG-other", 42, {}]) {
+    assert.throws(
+      () => f.act("fusion", { ...b, targetCard }),
+      /target|eligible|only one/i,
+    );
+    assert.deepEqual(f.e.state("p").inventory, before);
+  }
+  const single = f.body([f.material("Ubers")]);
+  assert.throws(
+    () => f.act("fusion", { ...single, targetCard: "AG-other" }),
+    /two materials/,
+  );
+});
+test("target selection does not change baseline stays or break probability", () => {
+  for (const roll of [0, 9600]) {
+    const f = fixture();
+    f.cards.set("AG-second", { ...f.cards.get("AG-other"), id: "AG-second" });
+    f.add("Ubers", 2);
+    const values = [roll, 0];
+    f.e.rand = () => values.shift();
+    const result = f.act("fusion", {
+      ...f.body([f.material("Ubers"), f.material("Ubers", "extra")]),
+      targetCard: "AG-second",
+    });
+    assert.equal(result.outcome, roll === 0 ? "stay" : "break");
+    assert.equal(result.targetHit, false);
+    assert.equal(result.cards[0]?.id || null, roll === 0 ? "Ubers" : null);
+  }
+});
 test("fusion permits one-card stays, mixed types, and duplicate extras but preserves unused enhanced bases", () => {
   const f = fixture(),
     { e } = f;

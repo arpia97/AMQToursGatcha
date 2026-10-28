@@ -12,6 +12,11 @@ import {
   nextFacetChance,
 } from "./gem-rules.js";
 import { fusionQuote } from "./fusion-rules.js";
+import {
+  fusionOutcomesPage,
+  fusionTarget,
+  drawFusionResult,
+} from "./fusion-outcomes.js";
 import { instantSalePrice, SHOP_PRICES } from "./card-values.js";
 import { cardComparator, animeProgressComparator } from "./card-display.js";
 import {
@@ -584,6 +589,15 @@ export function demoFeatures(d, path, b) {
       hasMore: false,
     };
   }
+  if (path.startsWith("fusion-outcomes?")) {
+    const p = new URLSearchParams(path.split("?")[1]);
+    return fusionOutcomesPage(d.cards, {
+      rarity: p.get("rarity"),
+      kind: p.get("kind") || "mixed",
+      query: p.get("q") || "",
+      page: Number(p.get("page") || 1),
+    });
+  }
   if (path.startsWith("catalog?")) {
     const p = new URLSearchParams(path.split("?")[1]),
       q = (p.get("q") || "").toLowerCase(),
@@ -685,6 +699,9 @@ export function demoFeatures(d, path, b) {
     );
     if (Object.values(pools).some((p) => !p.length))
       throw Error("A result rarity is unavailable.");
+    if (b.targetCard && !odds.upgrade)
+      throw Error("Add at least two materials to target an upgrade.");
+    const target = fusionTarget(pools[odds.upgraded], b.targetCard);
     const roll = Math.floor(Math.random() * 10000),
       outcome =
         roll < odds.stay
@@ -699,7 +716,11 @@ export function demoFeatures(d, path, b) {
           ? odds.upgraded
           : null;
     const card = grade
-      ? pools[grade][Math.floor(Math.random() * pools[grade].length)]
+      ? drawFusionResult(
+          pools[grade],
+          outcome === "upgrade" ? target : null,
+          (n) => Math.floor(Math.random() * n),
+        )
       : null;
     for (const [id, g] of groups) {
       for (let i = 0; i < g.extra; i++) take(id, "extra");
