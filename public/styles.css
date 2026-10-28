@@ -993,6 +993,60 @@ dialog form {
   gap: 12px;
   margin-top: 20px;
 }
+dialog.account-modal {
+  overflow: hidden;
+}
+.account-popup {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(90vh - 66px);
+  max-height: calc(90dvh - 66px);
+  min-height: 0;
+}
+.account-summary,
+.account-popup > .section-head,
+.account-popup > .dialog-actions {
+  flex-shrink: 0;
+}
+.account-summary h2 {
+  overflow-wrap: anywhere;
+}
+.account-summary > p {
+  margin-bottom: 14px;
+}
+.account-summary .stat {
+  padding: 14px;
+}
+.account-summary .stat strong {
+  font-size: 24px;
+}
+.account-popup > .section-head {
+  margin: 18px 0 10px;
+}
+.account-activity {
+  min-height: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+}
+.account-activity .table-wrap {
+  margin: 0;
+}
+.account-activity > p {
+  margin: 0;
+}
+.account-popup > .dialog-actions {
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.account-popup .dialog-actions .button {
+  flex: 1 1 calc(50% - 4px);
+  padding: 10px 12px;
+  font-size: 11px;
+}
 .form-error {
   color: #ffa4b3;
   font-size: 12px;

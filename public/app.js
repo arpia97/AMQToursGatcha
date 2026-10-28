@@ -198,8 +198,10 @@ function toast(message, error = false) {
   $("#toast").className = `visible${error ? " error" : ""}`;
   toastTimer = setTimeout(() => ($("#toast").className = ""), 5500);
 }
-function modal(html, wide = false) {
-  $("#modal").className = wide ? "wide" : "";
+function modal(html, wide = false, className = "") {
+  $("#modal").className = [wide ? "wide" : "", className]
+    .filter(Boolean)
+    .join(" ");
   $("#modal-body").innerHTML = html;
   $("#modal").showModal();
 }
@@ -960,7 +962,7 @@ function account() {
     return;
   }
   modal(
-    `<h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div><div class="section-head"><h3>Recent activity</h3></div>${
+    `<section class="account-popup"><header class="account-summary"><h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div></header><div class="section-head"><h3 id="account-activity-heading">Recent activity</h3></div><div class="account-activity" role="region" aria-labelledby="account-activity-heading" tabindex="0">${
       state.ledger.length
         ? `<div class="table-wrap"><table><tbody>${state.ledger
             .slice(0, 12)
@@ -970,7 +972,9 @@ function account() {
             )
             .join("")}</tbody></table></div>`
         : "<p>No wallet activity yet.</p>"
-    }<div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Edit profile", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div>`,
+    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Edit profile", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
+    false,
+    "account-modal",
   );
 }
 document.addEventListener("click", async (ev) => {

@@ -29,6 +29,7 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 - Cumulative earned-credit, current balance, net gambling results in both descending and ascending order. Spending, refunds, trading proceeds, and gambling payouts do not inflate Cumulative earnings.
 - Searchable public profiles with current username, all previous usernames, AMQ aliases, available credits, tour participation/counting/reporting counts, and pick’em winner accuracy. Players lists every Tours identity, 50 per page, with page input and selection; Rankings stays last in the navigation.
 - My Profile has its own sidebar tab, with My Collection inside it. Catalogue has a separate tab from Card packs. Existing public profile and collection links still work. The sidebar omits its former section label and beta badge; beta registration rules are unchanged.
+- Menu order: Overview, My Profile, Card Packs, Shop, Auctions, Pick’ems, Card Fusion, Catalogue, Pachinko, Players, Rankings. In the account popup, Recent Activity scrolls independently while the profile and sign-out buttons remain below it.
 - Circular profile pictures cropped from owned cards, with rarity effects around the rim and the enhancement badge outside the crop. Avatar levels follow the inventory automatically.
 - Username changes are free. Another player's registered AMQ aliases and historical usernames are reserved, case-insensitively.
 - Up to 20 profile spotlights, collection completion by card type, and catalogue filters for rarity and character role.

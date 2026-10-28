@@ -1,14 +1,14 @@
 export const SITE_ROUTES = [
   ["home", "Overview"],
   ["profile", "My Profile"],
-  ["fusion", "Card fusion"],
-  ["packs", "Card packs"],
-  ["catalog", "Catalogue"],
+  ["packs", "Card Packs"],
   ["shop", "Shop"],
   ["auctions", "Auctions"],
   ["pickems", "Pick’ems"],
-  ["players", "Players"],
+  ["fusion", "Card Fusion"],
+  ["catalog", "Catalogue"],
   ["arcade", "Pachinko"],
+  ["players", "Players"],
   ["ranks", "Rankings"],
 ];
 export function resolvePage(hash) {
