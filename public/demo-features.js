@@ -1,6 +1,15 @@
 import { tourSummaries } from "./pickem-board.js";
 import { pickemTeams } from "./tour-winner.js";
 import {
+  makeRaceField,
+  quoteHorseCart,
+  drawRaceOrder,
+  horsePayout,
+  RACE_COUNTDOWN,
+  RACE_DURATION,
+  RACE_MODEL,
+} from "./horse-rules.js";
+import {
   DAILY_CREDITS,
   MAX_PINNED_ANIME,
   MAX_SPOTLIGHTS,
@@ -38,6 +47,70 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.betaRegistration = true;
+  const racing = s.horseRace;
+  if (racing?.status === "running" && now >= racing.endsAt) {
+    const result = horsePayout(racing.tickets, racing.order, racing.field);
+    if (result.payout) d.wallet(result.payout, "Horse racing: winning tickets");
+    Object.assign(racing, result, {
+      status: "complete",
+      version: racing.version + 1,
+    });
+    const row = s.gambling.find(
+      (r) => r.game === "horse-racing" && r.id === racing.id,
+    );
+    Object.assign(row, {
+      payout: result.payout,
+      net: result.payout - racing.stake,
+    });
+  }
+  if (path === "horse-prepare") {
+    if (racing && racing.status !== "complete")
+      throw Error("Finish your current race first.");
+    if (b.previousRace !== (racing?.id ?? null))
+      throw Error("Your race changed. Refresh first.");
+    s.horseRace = {
+      id: (s.horseCounter = (s.horseCounter || 0) + 1),
+      version: 0,
+      model: RACE_MODEL,
+      status: "betting",
+      field: makeRaceField((n) => Math.floor(Math.random() * n)),
+      stake: 0,
+      tickets: [],
+      createdAt: now,
+    };
+    return {
+      message: "The runners are ready. Odds are locked for this field.",
+    };
+  }
+  if (path === "horse-start") {
+    if (
+      !racing ||
+      racing.status !== "betting" ||
+      b.race !== racing.id ||
+      b.version !== racing.version
+    )
+      throw Error("Betting has closed or the race changed.");
+    const quote = quoteHorseCart(racing.field, b.tickets);
+    if (me.balance < quote.stake) throw Error("Not enough credits.");
+    d.wallet(-quote.stake, "Horse racing: tickets");
+    Object.assign(racing, quote, {
+      status: "running",
+      version: 1,
+      order: drawRaceOrder(racing.field, (n) => Math.floor(Math.random() * n)),
+      animationSeed: Math.floor(Math.random() * 100000000),
+      startsAt: now + RACE_COUNTDOWN,
+      endsAt: now + RACE_COUNTDOWN + RACE_DURATION,
+    });
+    s.gambling ||= [];
+    s.gambling.push({
+      id: racing.id,
+      game: "horse-racing",
+      stake: quote.stake,
+      payout: 0,
+      net: -quote.stake,
+    });
+    return { message: "Tickets purchased. The gates are opening!" };
+  }
   if (path === "gem-start" || path === "gem-facet") {
     let g = s.gem ? structuredClone(s.gem) : null;
     s.gambling ||= [];

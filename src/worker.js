@@ -611,11 +611,15 @@ export class Game extends DurableObject {
       (post &&
         (path.startsWith("mahjong-") ||
           path.startsWith("gem-") ||
+          path.startsWith("horse-") ||
           path === "gamble"))
     ) {
       if (!session) fail("Sign in to play.", 401);
       this.bursts.take("play:" + session.player);
-      if (!post) return json(e.gameState(session.player));
+      if (!post) {
+        e.tx(() => e.economy.horse.settleDue(session.player));
+        return json(e.gameState(session.player));
+      }
       const result = e.mutate(
         session.player + ":" + path,
         request.headers.get("Idempotency-Key"),
@@ -726,7 +730,10 @@ export class Game extends DurableObject {
     }
     if (path === "state" && !post) {
       const loginReward = session
-        ? e.tx(() => e.economy.daily(session.player, true))
+        ? e.tx(() => {
+            e.economy.horse.settleDue(session.player);
+            return e.economy.daily(session.player, true);
+          })
         : null;
       return json({
         ...e.state(session?.player),

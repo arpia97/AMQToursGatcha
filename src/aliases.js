@@ -204,6 +204,7 @@ export class AliasSync {
       "gambling_rounds",
       "mahjong_games",
       "gem_games",
+      "horse_games",
       "profile_showcase",
       "profile_anime",
       "host_delegations",

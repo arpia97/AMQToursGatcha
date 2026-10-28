@@ -5,6 +5,7 @@ export function createPachinkoUI({
   number: n,
   ui,
   mahjong,
+  horse,
 }) {
   const button = (label, action, attrs = "", disabled = false) =>
     `<button class="button secondary" data-action="${action}" ${attrs} ${disabled ? "disabled" : ""}>${label}</button>`;
@@ -29,13 +30,16 @@ export function createPachinkoUI({
   }
   return {
     render() {
-      const selected = ["mahjong", "gem", "coin"].includes(ui.pachinkoGame)
+      const selected = ["mahjong", "gem", "coin", "horse"].includes(
+        ui.pachinkoGame,
+      )
         ? ui.pachinkoGame
         : "mahjong";
       return `<div class="page-intro"><div><h1>Pachinko</h1><p>Feeling lucky?</p></div><span class="pill">CREDITS ONLY</span></div><nav class="pachinko-games" aria-label="Pachinko games">${[
         ["mahjong", "Mahjong"],
         ["gem", "Gem faceting"],
         ["coin", "Coin flip"],
+        ["horse", "Horse Racing"],
       ]
         .map(
           ([id, label]) =>
@@ -43,7 +47,7 @@ export function createPachinkoUI({
         )
         .join(
           "",
-        )}<span>More games to come</span></nav>${selected === "mahjong" ? mahjong() : selected === "gem" ? gem() : coin()}`;
+        )}<span>More games to come</span></nav>${selected === "mahjong" ? mahjong() : selected === "gem" ? gem() : selected === "horse" ? horse() : coin()}`;
     },
   };
 }

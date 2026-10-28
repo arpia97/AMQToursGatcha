@@ -26,6 +26,7 @@ import {
   mahjongEntryFee,
 } from "./mahjong-rules.js";
 import { createPachinkoUI } from "./pachinko-ui.js";
+import { createHorseUI } from "./horse-ui.js";
 import { applyGameState } from "./game-state.js";
 import {
   seriesTitle,
@@ -353,12 +354,20 @@ const mahjongUI = createMahjongUI({
     data: ui.mahjongHistoryData,
   }),
 });
+const horseUI = createHorseUI({
+  getState: () => state,
+  escape,
+  number,
+  now: () => Date.now() + clockOffset,
+  onFinish: () => refreshCurrent(),
+});
 const pachinkoUI = createPachinkoUI({
   getState: () => state,
   escape,
   number,
   ui,
   mahjong: () => mahjongUI.render({ embedded: true }),
+  horse: () => horseUI.render(),
 });
 const features = createFeatures(
   {
@@ -827,6 +836,7 @@ function render() {
     queryInput.setAttribute("aria-invalid", String(none));
   }
   tickCountdowns();
+  horseUI.mount();
   document.title = title + " · AMQ Tours Gatcha";
 }
 async function api(path, body, key) {
@@ -936,7 +946,9 @@ async function execute(path, b, after, form = null) {
   } catch (err) {
     if (err.status && err.status < 500) pendingMutations.delete(signature);
     if (
-      (path.startsWith("mahjong-") || path.startsWith("gem-")) &&
+      (path.startsWith("mahjong-") ||
+        path.startsWith("gem-") ||
+        path.startsWith("horse-")) &&
       err.status === 409
     ) {
       try {
@@ -1241,6 +1253,13 @@ function savePredictionDraft(input) {
   form.querySelector(".form-error").textContent = "";
 }
 document.addEventListener("change", (ev) => savePredictionDraft(ev.target));
+document.addEventListener("change", (ev) => {
+  const form = ev.target.form;
+  if (form?.id !== "horse-ticket-form") return;
+  horseUI.change(Object.fromEntries(new FormData(form)));
+  if (ev.target.name === "kind") render();
+  else form.querySelector(".race-quote").innerHTML = horseUI.quote();
+});
 document.addEventListener(
   "error",
   (ev) => {
@@ -1358,6 +1377,25 @@ async function handleFeatureClick(a, t) {
     if (a === "pachinko-game") {
       ui.pachinkoGame = t.dataset.game;
       render();
+      return true;
+    }
+    if (a?.startsWith("horse-")) {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      if (a === "horse-remove") {
+        horseUI.remove(Number(t.dataset.index));
+        render();
+        return true;
+      }
+      if (a === "horse-refresh") {
+        await refreshCurrent();
+        return true;
+      }
+      if (a === "horse-prepare")
+        await execute(a, { previousRace: state.horseRace?.id ?? null });
+      if (a === "horse-start") await execute(a, horseUI.purchase());
       return true;
     }
     if (a === "gem-start" || a === "gem-facet") {
@@ -1721,6 +1759,15 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
+  if (formIdentifier(f) === "horse-ticket-form") {
+    try {
+      horseUI.add(b);
+      render();
+    } catch (err) {
+      f.querySelector(".form-error").textContent = err.message;
+    }
+    return true;
+  }
   if (formIdentifier(f) === "coin-form") {
     if (!state.me) {
       auth();

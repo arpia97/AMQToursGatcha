@@ -6,6 +6,7 @@ import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
 import { Mahjong } from "./mahjong.js";
 import { GemFaceting } from "./gem.js";
+import { HorseRacing } from "./horse-racing.js";
 import { CardManagement } from "./card-management.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
@@ -58,6 +59,7 @@ export class Economy {
     this.fusion = new Fusion(e);
     this.mahjong = new Mahjong(e);
     this.gem = new GemFaceting(e);
+    this.horse = new HorseRacing(e);
     this.cards = new CardManagement(e);
   }
   fundStarters() {
@@ -381,6 +383,8 @@ export class Economy {
     if (managed) return managed;
     const gem = this.gem.action(player, action, b);
     if (gem) return gem;
+    const horse = this.horse.action(player, action, b);
+    if (horse) return horse;
     const mahjong = this.mahjong.action(player, action, b);
     if (mahjong) return mahjong;
     if (action === "auction-notice") {
@@ -714,6 +718,7 @@ export class Economy {
     e.run("DELETE FROM gambling_rounds WHERE player=?", player);
     e.run("DELETE FROM mahjong_games WHERE player=?", player);
     e.run("DELETE FROM gem_games WHERE player=?", player);
+    e.run("DELETE FROM horse_games WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }

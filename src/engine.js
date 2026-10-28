@@ -750,6 +750,7 @@ export class Engine {
         "gambling_rounds",
         "mahjong_games",
         "gem_games",
+        "horse_games",
         "profile_showcase",
         "profile_anime",
       ])
@@ -808,6 +809,7 @@ export class Engine {
       me: this.player(id),
       mahjong: this.economy.mahjong.state(id),
       gem: this.economy.gem.read(id),
+      horseRace: this.economy.horse.view(id),
       ledger: this.all(
         "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
         id,
@@ -884,6 +886,7 @@ export class Engine {
       me,
       mahjong: this.economy.mahjong.state(id),
       gem: id ? this.economy.gem.read(id) : null,
+      horseRace: id ? this.economy.horse.view(id) : null,
       catalog,
       auctions,
       auctionWins: auctions.filter(
