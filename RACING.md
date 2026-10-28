@@ -33,7 +33,7 @@ Conditions follow the [English JRA ticket guide](https://japanracing.jp/en/racin
 
 Return factors follow [JRA's published rates](https://www.jra.go.jp/kouza/baken/), but this simulator uses **fixed odds**, not betting-pool payouts. `oddsTenths = max(10, floor(10 × factor / probability))`, allowing a tiny floating-point tolerance at exact decimal boundaries. Gross payout is `floor(stake × oddsTenths / 10)`, including the stake. Thus 100 credits at 4.7× pays 470, net +370. Rounding lowers expected return; the 1.0× minimum can raise the factor for highly likely selections.
 
-The race card shows Win/Place returns per 100 credits and each runner's win chance. The builder quotes all combination probabilities/multipliers/returns. A cart supports 1–20 mixed tickets, stakes in multiples of 100 and a total limit of 100,000 credits. The server rejects impossible/duplicate runners, stale quotes and unaffordable carts before charging.
+The race card shows Win/Place multipliers and each runner's win chance. The builder quotes all combination probabilities/multipliers/returns. Backed runners have mint-highlighted lanes, names and portrait rims; bracket tickets highlight every runner in the selected brackets. The highlights preview added cart tickets and persist from purchased tickets after refresh. A cart supports 1–20 mixed tickets, stakes in multiples of 100 and a total limit of 100,000 credits. The server rejects impossible/duplicate runners, stale quotes and unaffordable carts before charging.
 
 ## API and persistence
 

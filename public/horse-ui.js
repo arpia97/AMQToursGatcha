@@ -7,6 +7,25 @@ import {
   RACE_DURATION,
 } from "./horse-rules.js";
 
+export function coveredHorseNumbers(field, tickets = []) {
+  const covered = new Set();
+  for (const ticket of tickets) {
+    if (
+      !TICKET_TYPES.some((type) => type.id === ticket.kind) ||
+      !Array.isArray(ticket.picks)
+    )
+      continue;
+    for (const horse of field)
+      if (
+        ticket.picks.includes(
+          ticket.kind === "bracket" ? horse.bracket : horse.number,
+        )
+      )
+        covered.add(horse.number);
+  }
+  return covered;
+}
+
 export function createHorseUI({
   getState,
   escape: e,
@@ -79,10 +98,14 @@ export function createHorseUI({
       : "Choose your selection to see its fixed odds and payout.";
   }
   function track(g) {
-    return `<section class="race-broadcast" aria-label="Animated race"><div class="race-broadcast-head"><div><span class="eyebrow">TOURS TURF · RACE ${g.id}</span><h2>${g.status === "betting" ? "The contenders are ready." : g.status === "complete" ? "Photo finish." : "And they’re off!"}</h2></div><span class="race-status" role="status">${g.status === "betting" ? "Tickets open" : g.status === "complete" ? "Official result" : "At the starting gates"}</span></div><div class="race-leaders" aria-label="Live leaders">${g.status === "betting" ? "12 runners · 6 decorated challengers · 6 from the rest of the field" : "Live positions appear as the race unfolds."}</div><div class="race-track-scroll"><div class="race-track">${g.field.map((h) => `<div class="race-lane"><span class="race-lane-name"><b class="race-gate bracket-${h.bracket}">${h.number}</b><span>${e(h.name)}</span></span><div class="race-rail"><div class="race-runner" data-runner="${h.number}" style="--run:${g.status === "complete" ? 1 : 0};--silk:${e(h.color)}">${portrait(h)}<b>${h.number}</b><i aria-hidden="true"></i></div></div></div>`).join("")}</div></div><div class="race-distance"><span>START</span><span class="race-distance-readout">${g.status === "complete" ? "FINISH" : "2,000 m · Turf"}</span><span>FINISH</span></div>${g.status === "running" ? '<button class="text-button race-refresh" type="button" data-action="horse-refresh" hidden>Refresh result →</button>' : ""}</section>`;
+    const covered = coveredHorseNumbers(
+      g.field,
+      g.status === "betting" ? tickets : g.tickets,
+    );
+    return `<section class="race-broadcast" aria-label="Animated race"><div class="race-broadcast-head"><div><span class="eyebrow">TOURS TURF · RACE ${g.id}</span><h2>${g.status === "betting" ? "The contenders are ready." : "And they’re off!"}</h2></div><span class="race-status" role="status">${g.status === "betting" ? "Tickets open" : "At the starting gates"}</span></div><div class="race-leaders" aria-label="Live leaders">${g.status === "betting" ? "12 runners · 6 decorated challengers · 6 from the rest of the field" : "Live positions appear as the race unfolds."}</div><div class="race-track-scroll"><div class="race-track">${g.field.map((h) => `<div class="race-lane${covered.has(h.number) ? " is-backed" : ""}"${covered.has(h.number) ? ' title="Backed by your tickets"' : ""}><span class="race-lane-name"><b class="race-gate bracket-${h.bracket}">${h.number}</b><span>${covered.has(h.number) ? '<span class="race-backed-mark" aria-label="Backed by your tickets">★</span> ' : ""}${e(h.name)}</span></span><div class="race-rail"><div class="race-runner" data-runner="${h.number}" style="--run:0;--silk:${e(h.color)}">${portrait(h)}<b>${h.number}</b><i aria-hidden="true"></i></div></div></div>`).join("")}</div></div><div class="race-distance"><span>START</span><span class="race-distance-readout">2,000 m · Turf</span><span>FINISH</span></div>${g.status === "running" ? '<button class="text-button race-refresh" type="button" data-action="horse-refresh" hidden>Refresh result →</button>' : ""}</section>`;
   }
   function runners(g) {
-    return `<section class="race-runners"><div class="section-head"><div><h3>Race card</h3><p>Returns shown for a 100-credit winning ticket, including the stake.</p></div><span class="pill">ODDS LOCKED</span></div><div class="table-wrap"><table><thead><tr><th>Runner / bracket</th><th>Record & form</th><th>Win chance</th><th>Win return</th><th>Place return</th></tr></thead><tbody>${g.field
+    return `<section class="race-runners"><div class="section-head"><div><h3>Race card</h3></div><span class="pill">ODDS LOCKED</span></div><div class="table-wrap"><table><thead><tr><th>Runner / bracket</th><th>Record & form</th><th>Win chance</th><th>Win return</th><th>Place return</th></tr></thead><tbody>${g.field
       .map((h) => {
         const win = quoteHorseTicket(
             g.field,
@@ -94,7 +117,7 @@ export function createHorseUI({
             { kind: "place", picks: [h.number], stake: 100 },
             market,
           );
-        return `<tr><th scope="row"><div class="race-card-runner"><span class="race-gate bracket-${h.bracket}">${h.number}</span>${portrait(h)}<span>${e(h.name)}${h.decorated ? '<small class="race-champion">★ Decorated</small>' : ""}<small>Bracket ${h.bracket}</small></span></div></th><td><small>${h.fictional ? "Fictional · baseline" : h.recordKnown ? `${h.g1Wins} G1/Jpn1 · ${h.gradedWins} graded wins${h.hallOfFame ? " · Hall of Fame" : ""}` : "Unrated · baseline"}<br>Form ${h.form}%</small></td><td>${(win.probability * 100).toFixed(1)}%</td><td><strong>${odds(win.oddsTenths)}</strong><small>✦ ${n(win.potentialPayout)}</small></td><td><strong>${odds(place.oddsTenths)}</strong><small>✦ ${n(place.potentialPayout)}</small></td></tr>`;
+        return `<tr><th scope="row"><div class="race-card-runner"><span class="race-gate bracket-${h.bracket}">${h.number}</span>${portrait(h)}<span>${e(h.name)}${h.decorated ? '<small class="race-champion">★ Decorated</small>' : ""}<small>Bracket ${h.bracket}</small></span></div></th><td><small>${h.fictional ? "Fictional · baseline" : h.recordKnown ? `${h.g1Wins} G1/Jpn1 · ${h.gradedWins} graded wins${h.hallOfFame ? " · Hall of Fame" : ""}` : "Unrated · baseline"}<br>Form ${h.form}%</small></td><td>${(win.probability * 100).toFixed(1)}%</td><td><strong>${odds(win.oddsTenths)}</strong></td><td><strong>${odds(place.oddsTenths)}</strong></td></tr>`;
       })
       .join("")}</tbody></table></div></section>`;
   }
@@ -117,7 +140,7 @@ export function createHorseUI({
             label: `#${h.number} ${h.name}`,
           }));
     const stake = tickets.reduce((sum, t) => sum + t.stake, 0);
-    return `<section class="race-bets"><div class="section-head"><div><span class="eyebrow">THE TICKET DESK</span><h2>Make your picks.</h2><p>100 credits per unit. Add up to 20 tickets, then buy them together.</p></div></div><form id="horse-ticket-form" class="race-ticket-form"><label>Ticket type<select name="kind">${TICKET_TYPES.map((t) => `<option value="${t.id}" ${draft.kind === t.id ? "selected" : ""}>${t.name}</option>`).join("")}</select></label><p class="race-ticket-description">${type.description}</p><div class="race-pick-fields">${Array.from({ length: type.count }, (_, i) => `<label>${type.id === "bracket" ? "Bracket " + (i + 1) : ["exacta", "trifecta"].includes(type.id) ? ["1st place", "2nd place", "3rd place"][i] : "Runner " + (i + 1)}<select name="pick${i}" required><option value="">Choose…</option>${options.map((o) => `<option value="${o.value}" ${draft.picks[i] === o.value ? "selected" : ""}>${e(o.label)}</option>`).join("")}</select></label>`).join("")}<label>Stake (credits)<input name="stake" type="number" min="100" max="100000" step="100" value="${draft.stake}" required></label></div><div class="race-quote" aria-live="polite">${quoteMarkup(g)}</div><div class="form-error" role="alert"></div><button class="button secondary" type="submit" ${tickets.length >= 20 ? "disabled" : ""}>Add ticket +</button></form><div class="race-cart"><h3>Your tickets <span>${tickets.length}/20</span></h3>${tickets.length ? `<ol>${tickets.map((t, i) => `<li><div><strong>${e(typeName(t.kind))}</strong><span>${e(ticketLabel(t, g))}</span><small>✦ ${n(t.stake)} · ${odds(t.oddsTenths)} · returns ✦ ${n(t.potentialPayout)}</small></div><button type="button" class="text-button" data-action="horse-remove" data-index="${i}" aria-label="Remove ticket ${i + 1}">Remove</button></li>`).join("")}</ol>` : '<p class="form-hint">No tickets yet. Different ticket types can share the same race.</p>'}<div class="race-cart-total"><span>Total stake <strong>✦ ${n(stake)}</strong></span><button type="button" class="button mint" data-action="horse-start" ${!tickets.length || stake > getState().me.balance || stake > 100000 ? "disabled" : ""}>Buy tickets & race →</button></div>${stake > getState().me.balance ? '<p class="form-error">Your wallet cannot cover these tickets.</p>' : ""}<p class="form-hint">Ticket purchase locks every selection. No entry fee. Maximum total stake: 100,000 credits per race.</p></div></section>`;
+    return `<section class="race-bets"><div class="section-head"><div><span class="eyebrow">THE TICKET DESK</span><h2>Make your picks.</h2></div></div><form id="horse-ticket-form" class="race-ticket-form"><label>Ticket type<select name="kind">${TICKET_TYPES.map((t) => `<option value="${t.id}" ${draft.kind === t.id ? "selected" : ""}>${t.name}</option>`).join("")}</select></label><p class="race-ticket-description">${type.description}</p><div class="race-pick-fields">${Array.from({ length: type.count }, (_, i) => `<label>${type.id === "bracket" ? "Bracket " + (i + 1) : ["exacta", "trifecta"].includes(type.id) ? ["1st place", "2nd place", "3rd place"][i] : "Runner " + (i + 1)}<select name="pick${i}" required><option value="">Choose…</option>${options.map((o) => `<option value="${o.value}" ${draft.picks[i] === o.value ? "selected" : ""}>${e(o.label)}</option>`).join("")}</select></label>`).join("")}<label>Stake (credits)<input name="stake" type="number" min="100" max="100000" step="100" value="${draft.stake}" required></label></div><div class="race-quote" aria-live="polite">${quoteMarkup(g)}</div><div class="form-error" role="alert"></div><button class="button secondary" type="submit" ${tickets.length >= 20 ? "disabled" : ""}>Add ticket +</button></form><div class="race-cart"><h3>Your tickets <span>${tickets.length}/20</span></h3>${tickets.length ? `<ol>${tickets.map((t, i) => `<li><div><strong>${e(typeName(t.kind))}</strong><span>${e(ticketLabel(t, g))}</span><small>✦ ${n(t.stake)} · ${odds(t.oddsTenths)} · returns ✦ ${n(t.potentialPayout)}</small></div><button type="button" class="text-button" data-action="horse-remove" data-index="${i}" aria-label="Remove ticket ${i + 1}">Remove</button></li>`).join("")}</ol>` : ""}<div class="race-cart-total"><span>Total stake <strong>✦ ${n(stake)}</strong></span><button type="button" class="button mint" data-action="horse-start" ${!tickets.length || stake > getState().me.balance || stake > 100000 ? "disabled" : ""}>Buy tickets & race →</button></div>${stake > getState().me.balance ? '<p class="form-error">Your wallet cannot cover these tickets.</p>' : ""}</div></section>`;
   }
   function result(g) {
     return `<section class="race-results"><span class="eyebrow">OFFICIAL RESULT</span><div class="race-podium">${g.order

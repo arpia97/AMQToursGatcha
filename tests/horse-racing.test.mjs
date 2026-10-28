@@ -18,7 +18,7 @@ import {
   TICKET_TYPES,
   RACE_DURATION,
 } from "../public/horse-rules.js";
-import { createHorseUI } from "../public/horse-ui.js";
+import { createHorseUI, coveredHorseNumbers } from "../public/horse-ui.js";
 
 function random(seed = 12345) {
   return (n) => {
@@ -389,7 +389,15 @@ test("English ticket UI quotes all types, preserves its cart across renders, rem
   let html = ui.render();
   assert.match(html, /ODDS LOCKED/);
   assert.match(html, /Place return/);
-  assert.match(html, /100 credits per unit/);
+  assert(!html.includes("100 credits per unit"));
+  assert(!html.includes("No tickets yet."));
+  assert(!html.includes("Ticket purchase locks every selection."));
+  assert(!html.includes("Returns shown for a 100-credit winning ticket"));
+  const raceCard = html.slice(
+    html.indexOf('<section class="race-runners"'),
+    html.indexOf('<details class="mj-rules'),
+  );
+  assert(!raceCard.includes("✦"));
   for (const type of TICKET_TYPES) assert(html.includes(type.name));
   assert(!/[가-힣]/.test(html));
   ui.add({ kind: "win", pick0: "1", stake: "100" });
@@ -405,4 +413,75 @@ test("English ticket UI quotes all types, preserves its cart across renders, rem
   state = { ...state, me: { id: "q", balance: 10000 } };
   ui.render();
   assert.throws(() => ui.purchase(), /between/);
+});
+
+test("backed runners combine ordinary and bracket tickets without duplicates, including same-bracket pairs", () => {
+  const field = equalField();
+  assert.deepEqual(
+    [...coveredHorseNumbers(field)].sort((a, b) => a - b),
+    [],
+  );
+  assert.deepEqual(
+    [
+      ...coveredHorseNumbers(field, [
+        { kind: "win", picks: [2] },
+        { kind: "trio", picks: [2, 3, 4] },
+        { kind: "bracket", picks: [5, 8] },
+        { kind: "bracket", picks: [5, 5] },
+      ]),
+    ].sort((a, b) => a - b),
+    [2, 3, 4, 5, 6, 11, 12],
+  );
+  assert.deepEqual(
+    [...coveredHorseNumbers(field, [{ kind: "bracket", picks: [7, 7] }])],
+    [9, 10],
+  );
+});
+
+test("race highlights follow added/removed cart tickets and recover purchased picks after a fresh UI instance", () => {
+  let state = {
+    me: { id: "p", balance: 5000 },
+    horseRace: {
+      id: 1,
+      version: 0,
+      status: "betting",
+      field: makeRaceField(random()),
+    },
+  };
+  const options = {
+    getState: () => state,
+    escape: (s) => String(s ?? ""),
+    number: String,
+    now: () => 0,
+    onFinish: () => {},
+  };
+  const backed = (html) =>
+    [
+      ...html.matchAll(
+        /<div class="race-lane is-backed"[\s\S]*?data-runner="(\d+)"/g,
+      ),
+    ]
+      .map((m) => Number(m[1]))
+      .sort((a, b) => a - b);
+  const ui = createHorseUI(options);
+  assert.deepEqual(backed(ui.render()), []);
+  ui.add({ kind: "win", pick0: "3", stake: "100" });
+  assert.deepEqual(backed(ui.render()), [3]);
+  ui.change({ kind: "bracket", stake: "100" });
+  ui.add({ kind: "bracket", pick0: "7", pick1: "7", stake: "100" });
+  assert.deepEqual(backed(ui.render()), [3, 9, 10]);
+  const purchased = ui.purchase().tickets;
+  ui.remove(0);
+  assert.deepEqual(backed(ui.render()), [9, 10]);
+  state = {
+    ...state,
+    horseRace: {
+      ...state.horseRace,
+      status: "running",
+      version: 1,
+      tickets: purchased,
+    },
+  };
+  const reloaded = createHorseUI(options);
+  assert.deepEqual(backed(reloaded.render()), [3, 9, 10]);
 });

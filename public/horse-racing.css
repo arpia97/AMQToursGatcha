@@ -62,13 +62,6 @@
   justify-content: space-between;
   gap: 16px;
 }
-main:has(.race-broadcast) .page-intro {
-  margin-bottom: 10px;
-}
-main:has(.race-broadcast) .pachinko-games {
-  margin: 12px 0;
-  padding-bottom: 12px;
-}
 .race-broadcast-head h2 {
   margin: 4px 0;
   font-size: 22px;
@@ -104,6 +97,23 @@ main:has(.race-broadcast) .pachinko-games {
 }
 .race-lane:nth-child(even) {
   background: #d2ffdd04;
+}
+.race-lane.is-backed {
+  background: linear-gradient(90deg, #a6e9bf22, #a6e9bf08);
+  box-shadow: inset 3px 0 var(--mint, #b4e5cb);
+}
+.race-lane.is-backed .race-lane-name > span {
+  color: var(--mint, #b4e5cb);
+  font-weight: 700;
+}
+.race-lane.is-backed .race-runner img {
+  border-color: var(--mint, #b4e5cb);
+  box-shadow:
+    0 0 0 2px #a6e9bf44,
+    0 0 12px #a6e9bf88;
+}
+.race-backed-mark {
+  font-size: 9px;
 }
 .race-lane-name {
   display: flex;
