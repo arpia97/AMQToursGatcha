@@ -1,4 +1,6 @@
 import { pickemOutcome } from "./pickem-formats.js";
+import { winnerPredictionBody } from "./tour-winner.js";
+import { winnerCard } from "./tour-winner-ui.js";
 export function tourSummaries(matches, now) {
   const groups = new Map();
   for (const p of matches) {
@@ -17,6 +19,7 @@ export function tourSummaries(matches, now) {
           settled: 0,
           nextEnds: null,
           newest: 0,
+          format: p.mode === "tour" ? "winner" : null,
         }),
       );
     g.matches++;
@@ -36,12 +39,14 @@ export function tourSummaries(matches, now) {
 export function predictionDraft(p, draft) {
   return draft?.teamA === p.team_a &&
     draft?.teamB === p.team_b &&
-    (draft.mode || "match") === (p.mode || "match")
+    (draft.mode || "match") === (p.mode || "match") &&
+    (p.mode !== "tour" || draft.teams === p.teams)
     ? draft
     : {
         teamA: p.team_a,
         teamB: p.team_b,
         mode: p.mode || "match",
+        ...(p.mode === "tour" ? { teams: p.teams } : {}),
         ...(p.mode === "pair"
           ? {
               result: p.prediction ? `${p.prediction_a}:${p.prediction_b}` : "",
@@ -53,6 +58,7 @@ export function predictionDraft(p, draft) {
       };
 }
 export function predictionBody(values) {
+  if (values.mode === "tour") return winnerPredictionBody(values);
   if (Object.hasOwn(values, "result")) {
     if (!["2:0", "1:1", "0:2"].includes(values.result))
       throw Error("Choose 2:0, 1:1 or 0:2.");
@@ -173,6 +179,7 @@ export function pickemBoard(
   const rows =
     detail?.matches
       .map((p) => {
+        if (p.mode === "tour") return "";
         const open = !p.settled && p.ends > now,
           draft = predictionDraft(p, drafts[p.id]),
           form = "tour-prediction-" + p.id;
@@ -230,6 +237,14 @@ export function pickemBoard(
     '<div class="pickem-tours">' +
     tours
       .map((t) => {
+        if (t.format === "winner")
+          return winnerCard(t, detail, {
+            escape: e,
+            number: n,
+            now,
+            drafts,
+            signedIn,
+          });
         const expanded = detail?.key === t.key;
         const pairMode =
           t.pairs === t.matches ||

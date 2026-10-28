@@ -110,7 +110,7 @@ test("host tour table includes all loaded rounds, read-only open/settled rows an
   );
   assert.equal((panel.match(/data-settle-match=/g) || []).length, 151);
   assert.match(panel, /aria-expanded="true"/);
-  assert.match(panel, /Individual matches/);
+  assert.match(panel, /Previous individual matches/);
   assert.match(
     settlementPanel({ pickemEvents: [], pickems: [] }, escape),
     /No published/,

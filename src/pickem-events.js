@@ -1,4 +1,5 @@
 import { PICKEM_WINDOW } from "../public/site-defaults.js";
+import { winnerTeams, pickemTeams } from "../public/tour-winner.js";
 import { fail, integer, text } from "./engine.js";
 import {
   validateTeams,
@@ -16,6 +17,8 @@ export class PickemEvents {
       ["event_id", "INTEGER"],
       ["round", "INTEGER"],
       ["mode", "TEXT NOT NULL DEFAULT 'match'"],
+      ["teams", "TEXT"],
+      ["result_winner", "TEXT"],
     ])
       if (!columns.some((c) => c.name === name))
         e.run(`ALTER TABLE pickems ADD COLUMN ${name} ${type}`);
@@ -64,6 +67,46 @@ export class PickemEvents {
     return {
       message: `Published ${count} pick’ems across ${rounds.length} ${event.format === "double-4" ? "prediction group" : "round"}${rounds.length === 1 ? "" : "s"}.`,
       event: event.id,
+    };
+  }
+  predictWinner(player, p, b) {
+    if (b.expectedTeams !== p.teams)
+      fail("The team list changed. Reload this tour and choose again.", 409);
+    if (!pickemTeams(p).includes(b.winner))
+      fail("Choose one of this tour’s teams.");
+    this.e.run(
+      "INSERT INTO predictions VALUES(?,?,?,?,?) ON CONFLICT(pickem,player) DO UPDATE SET winner=excluded.winner,score_a=0,score_b=0",
+      p.id,
+      player,
+      b.winner,
+      0,
+      0,
+    );
+    return {
+      message:
+        "Tour winner saved. You can change your pick until voting closes.",
+    };
+  }
+  settleWinner(p, b) {
+    if (b.expectedTeams !== p.teams)
+      fail("The team list changed. Reload before posting the winner.", 409);
+    if (!pickemTeams(p).includes(b.winner))
+      fail("Choose the winning team from this tour.");
+    for (const v of this.e.all(
+      "SELECT player FROM predictions WHERE pickem=? AND winner=?",
+      p.id,
+      b.winner,
+    )) {
+      if (p.winner_reward)
+        this.e.wallet(v.player, p.winner_reward, `Pick’em: ${p.title}`, true);
+    }
+    this.e.run(
+      "UPDATE pickems SET settled=1,result_winner=? WHERE id=?",
+      b.winner,
+      p.id,
+    );
+    return {
+      message: "Tour winner posted and correct-winner rewards distributed.",
     };
   }
   read(id) {
@@ -155,6 +198,8 @@ export class PickemEvents {
     ];
     if (!expected || fields.some((k) => p[k] !== expected[k]))
       fail("This pick’em changed. Reload it and review again.", 409);
+    if (p.mode === "tour" && p.teams !== expected.teams)
+      fail("The team list changed. Reload it and review again.", 409);
     if (p.settled)
       fail(
         "Settled pick’ems cannot be edited or deleted because rewards have been paid.",
@@ -163,6 +208,74 @@ export class PickemEvents {
   }
   action(action, b) {
     const e = this.e;
+    if (action === "pickem-winner") {
+      const teams = winnerTeams(b.teams),
+        name = text(b.name, 100),
+        ends = integer(
+          b.ends ?? e.now() + PICKEM_WINDOW,
+          e.now() + 60000,
+          e.now() + 90 * 86400000,
+        ),
+        reward = integer(b.winnerReward ?? 500, 0, 100000);
+      e.run(
+        "INSERT INTO pickem_events(name,format,teams,created) VALUES(?,'winner',?,?)",
+        name,
+        JSON.stringify(teams),
+        e.now(),
+      );
+      const event = e.one("SELECT last_insert_rowid() AS id").id;
+      e.run(
+        "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode,teams) VALUES(?,?,?,?,?,?,0,?,1,'tour',?)",
+        name,
+        name,
+        teams[0],
+        teams[1],
+        ends,
+        reward,
+        event,
+        JSON.stringify(teams),
+      );
+      return { message: "Tour winner pick’em published.", event };
+    }
+    if (action === "pickem-winner-edit") {
+      const p = this.match(b.pickem);
+      this.assertUnchanged(p, b.expected);
+      if (p.mode !== "tour") fail("Choose a tour-winner pick’em.");
+      const teams = winnerTeams(b.teams),
+        name = text(b.name, 100),
+        ends =
+          b.ends === p.ends
+            ? p.ends
+            : integer(b.ends, e.now() + 60000, e.now() + 90 * 86400000),
+        reward = integer(b.winnerReward ?? 500, 0, 100000);
+      const changed =
+        JSON.stringify([...teams].sort()) !==
+        JSON.stringify([...pickemTeams(p)].sort());
+      if (changed && p.votes && b.clearPredictions !== true)
+        fail(
+          "Changing teams clears existing picks. Confirm this before saving.",
+          409,
+        );
+      if (changed) e.run("DELETE FROM predictions WHERE pickem=?", p.id);
+      e.run(
+        "UPDATE pickems SET title=?,tour=?,team_a=?,team_b=?,ends=?,winner_reward=?,score_reward=0,teams=? WHERE id=?",
+        name,
+        name,
+        teams[0],
+        teams[1],
+        ends,
+        reward,
+        JSON.stringify(teams),
+        p.id,
+      );
+      e.run(
+        "UPDATE pickem_events SET name=?,teams=? WHERE id=?",
+        name,
+        JSON.stringify(teams),
+        p.event_id,
+      );
+      return { message: "Tour pick’em updated." };
+    }
     if (action === "pickem-combine") {
       const event = this.read(b.event);
       if (event.format !== "double-4")
@@ -274,11 +387,15 @@ export class PickemEvents {
           fail("Confirm deletion of this pick’em.");
         e.run("DELETE FROM predictions WHERE pickem=?", p.id);
         e.run("DELETE FROM pickems WHERE id=?", p.id);
+        if (p.mode === "tour")
+          e.run("DELETE FROM pickem_events WHERE id=?", p.event_id);
         return {
           message:
             "Pick’em deleted. Its predictions were removed; no credits were changed.",
         };
       }
+      if (p.mode === "tour")
+        fail("Use the tour-winner editor for this pick’em.");
       const title = text(b.title),
         teamA = text(b.teamA, 100),
         teamB = text(b.teamB, 100);

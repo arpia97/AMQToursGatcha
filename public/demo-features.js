@@ -1,4 +1,5 @@
 import { tourSummaries } from "./pickem-board.js";
+import { pickemTeams } from "./tour-winner.js";
 import {
   DAILY_CREDITS,
   MAX_PINNED_ANIME,
@@ -357,6 +358,42 @@ export function demoFeatures(d, path, b) {
     s.starterAmount = 5000;
   }
   s.pinnedAnime ||= [];
+  if (!s.tourWinnerDemo) {
+    const teams = [
+      "Opening Theory",
+      "Ending Credits",
+      "Encore",
+      "Final Chorus",
+    ];
+    const id = Math.max(0, ...s.pickems.map((p) => p.id)) + 1;
+    s.pickems.push({
+      id,
+      event_id: id,
+      round: 1,
+      mode: "tour",
+      tour: "Demo tour winner",
+      title: "Demo tour winner",
+      teams: JSON.stringify(teams),
+      team_a: teams[0],
+      team_b: teams[1],
+      ends: now + 3600000,
+      winner_reward: 500,
+      score_reward: 0,
+      settled: 0,
+    });
+    s.tourWinnerDemo = true;
+  }
+  if (
+    path === "predict" &&
+    s.pickems.find((p) => p.id === b.pickem)?.mode === "tour"
+  ) {
+    const p = s.pickems.find((p) => p.id === b.pickem);
+    if (p.settled || now >= p.ends) throw Error("Predictions closed.");
+    if (p.teams !== b.expectedTeams || !pickemTeams(p).includes(b.winner))
+      throw Error("Choose a team from this tour.");
+    p.prediction = b.winner;
+    return { message: "Demo tour winner saved." };
+  }
   if (path === "auction-notice") {
     const a = s.auctions.find(
       (a) => a.id === b.auction && a.winner === me.id && a.ends <= now,

@@ -3,6 +3,7 @@ import {
   resolvePage,
   navigationSection,
 } from "./site-navigation.js";
+import { pickemTeams } from "./tour-winner.js";
 import {
   pickemBoard,
   tourSummaries,
@@ -448,6 +449,8 @@ function shop() {
   return features.shop();
 }
 function pickemHero(p) {
+  if (p.mode === "tour")
+    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who takes<br><span>the tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="#pickems">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
   const reward =
     p.mode === "pair"
       ? `✦ ${number(p.winner_reward + 2 * p.score_reward)} for the correct two-game result`
@@ -586,10 +589,10 @@ function auctions() {
 function pickems() {
   return (
     intro(
-      "Know the match? Make the call.",
-      "Back a winner, predict both scores, and turn good reads into credits.",
+      "Who takes the tour?",
+      "Pick the winning team and earn credits for a correct call.",
     ) +
-    `<div class="notice">Choose each matchup’s result and confirm. Entry is free; predictions stay editable until voting closes. Double round robin uses 2:0, 1:1 or 0:2 across both games.</div>` +
+    `<div class="notice">Choose one team to win the tour and confirm. Entry is free, and you can change your pick until voting closes. Correct picks earn the tour’s winner reward.</div>` +
     ((ui.pickemData?.tours || tourSummaries(state.pickems, state.now)).length
       ? pickemBoard(
           ui.pickemData?.tours || tourSummaries(state.pickems, state.now),

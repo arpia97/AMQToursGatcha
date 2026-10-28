@@ -1,3 +1,4 @@
+import { winnerCreatePanel } from "./tour-winner-ui.js";
 import {
   settlementPanel,
   settlementDraft,
@@ -9,16 +10,9 @@ import {
   matchEditor,
   localDeadline,
 } from "./pickem-management.js";
-import { deadlineFields, updateRewardDefaults } from "./host-defaults.js";
-import {
-  accessPanel,
-  participationPanel,
-  tournamentPanel,
-  prepareSchedule,
-  scheduleReview,
-} from "./host-panels.js";
-let scheduleDraft = null,
-  participationDraft = null,
+import { updateRewardDefaults } from "./host-defaults.js";
+import { accessPanel, participationPanel } from "./host-panels.js";
+let participationDraft = null,
   matchDraft = null,
   managedTour = null,
   settlementTour = null;
@@ -126,17 +120,21 @@ function render() {
       `<section class="host-panel"><h2>AMQ Tours alias sheet</h2><p>Automatically reads the IDs worksheet every six hours. The first name for each Player ID becomes its original Tours name; all names remain searchable aliases. During beta, unregistered players can use the shared registration code when enabled. Individual codes remain available.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Sync aliases now →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
       html;
   }
-  if (tab === "pickems")
-    html = `<section class="host-panel"><h2>Put the next match on the board.</h2><p>Entry is free. Rewards are additive: correct winner + exact score for team A + exact score for team B. Combined double-round-robin results use 2:0, 1:1 or 0:2. Other matches must identify a winning team.</p><form id="pickem" class="stack">${input("Match title", "title", "text", 'maxlength="160"')}${input("Active tour name", "tour", "text", 'maxlength="160"')}<div class="form-grid">${input("Team A", "teamA", "text", 'maxlength="100"')}${input("Team B", "teamB", "text", 'maxlength="100"')}</div>${deadlineFields("ends", "Predictions close")}<div class="form-grid">${input("Correct winner reward", "winnerReward", "number", 'min="0" max="100000" value="500"')}${input("Each exact team score reward", "scoreReward", "number", 'min="0" max="100000" value="500"')}</div><button class="button" type="submit">Publish pick’em →</button></form></section><div class="table-wrap"><table><thead><tr><th>MATCH</th><th>TEAMS</th><th>CLOSES</th><th>RESULT</th><th>MANAGE</th></tr></thead><tbody>${state.pickems.map((p) => `<tr><td>${esc(p.title)}</td><td>${esc(p.team_a)} / ${esc(p.team_b)}</td><td>${esc(new Date(p.ends).toLocaleString())}</td><td>${p.settled ? p.result_a + "–" + p.result_b : "Pending"}</td><td>${p.settled ? "Final" : `<button type="button" class="text-button" data-pickem-edit="${p.id}">Edit / delete</button>`}</td></tr>`).join("")}</tbody></table></div>`;
+  if (tab === "pickems") {
+    const legacy = state.pickems.filter((p) => p.mode !== "tour");
+    html = legacy.length
+      ? `<details class="host-panel"><summary>Previous match pick’ems</summary><div class="table-wrap"><table><thead><tr><th>Match</th><th>Result</th><th>Manage</th></tr></thead><tbody>${legacy.map((p) => `<tr><td>${esc(p.title)}</td><td>${p.settled ? p.result_a + " : " + p.result_b : "Pending"}</td><td>${p.settled ? "Final" : `<button type="button" class="text-button" data-pickem-edit="${p.id}">Edit / delete</button>`}</td></tr>`).join("")}</tbody></table></div></details>`
+      : "";
+  }
   if (tab === "catalog")
-    html = `<section class="host-panel"><h2>Keep the card pool growing.</h2><p>Current catalog: ${state.catalog.map((c) => `${c.count} ${c.kind} cards`).join(" · ") || "Empty"}. Normal packs select every card equally, with replacement. Premium packs double AG/Ubers/SSS/SS/S chances by reducing D. Auctions select five distinct cards per type each week.</p><form id="catalog" class="stack"><label>Catalog JSON file<input type="file" id="catalog-file" accept=".json,application/json" required></label><button class="button" type="submit">Import catalog →</button></form><p class="form-hint space-top">Each record: <code>{id, kind, name, series, image, source}</code>. Kind is <code>character</code> or <code>seiyuu</code>. HTTPS image/source URLs. Characters can include a role of main or supporting. Seiyuus have no classification. Tenrai imports MAL characters with Main/Supporting roles and MAL portraits. Optional series_romaji and series_english fields preserve both title versions.</p><div class="toolbar space-top"><button class="button secondary" id="sample-catalog">Import 22-card starter catalog</button><a href="sample-catalog.json" class="text-button" download>Download sample format ↗</a></div><p class="host-warning">The starter is a small sample, not a complete anime database. Expand the pool before community launch.</p></section><section class="host-panel"><h2>Pack prices</h2><p>Normal packs are uniform within each card type, regardless of role or rarity. Premium doubles the chances S and above, taking the additional probability only from D. Daily login rewards are 300 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div><div class="form-grid">${input("Premium character pack (five cards)", "premium_character", "number", `min="1" max="1000000" value="${state.settings.premium_character_price || 1000}"`)}${input("Premium seiyuu pack (five cards)", "premium_seiyuu", "number", `min="1" max="1000000" value="${state.settings.premium_seiyuu_price || 1000}"`)}</div><button class="button secondary" type="submit">Save pack prices →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Pack prices</h2><p>Normal packs are uniform within each card type, regardless of role or rarity. Premium doubles the chances S and above, taking the additional probability only from D. Daily login rewards are 300 credits. Enhancing cards consumes duplicates with no additional credit fee.</p><form id="settings" class="stack"><div class="form-grid">${input("Character pack (five cards)", "character", "number", `min="1" max="1000000" value="${state.settings.character_price}"`)}${input("Seiyuu pack (five cards)", "seiyuu", "number", `min="1" max="1000000" value="${state.settings.seiyuu_price}"`)}</div><div class="form-grid">${input("Premium character pack (five cards)", "premium_character", "number", `min="1" max="1000000" value="${state.settings.premium_character_price || 1000}"`)}${input("Premium seiyuu pack (five cards)", "premium_seiyuu", "number", `min="1" max="1000000" value="${state.settings.premium_seiyuu_price || 1000}"`)}</div><button class="button secondary" type="submit">Save pack prices →</button></form></section>`;
   if (tab === "catalog") {
     const j = state.seiyuuImport || {
       status: "idle",
       importedActors: 0,
       scannedTitles: 0,
     };
-    html += `<section class="host-panel"><h2>Characters &amp; seiyuus · Tenrai</h2><p class="host-warning">Jikan’s public API closed on October 1, 2026. This importer now uses Tenrai. <a href="https://github.com/jikan-me/jikan-rest/issues/613" target="_blank" rel="noopener">Official shutdown announcement ↗</a></p><p>Imports MAL characters with documented Main/Supporting roles, bilingual anime titles, and Japanese voice actors. One request every 10 seconds, shared with favorite scans. Duplicate MAL IDs and host edits are preserved. Importing runs on Cloudflare while this page is closed.</p><p><strong>Status: ${esc(j.status)}</strong> · Source: ${esc(j.provider || "Jikan (retired)")} · ${j.importedCharacters || 0} new characters · ${j.importedActors || 0} new actors · ${j.scannedTitles || 0}${j.totalTitles ? " / " + j.totalTitles : ""} anime checked</p>${j.lastError ? `<p class="host-warning">${esc(j.lastError)} ${j.status === "waiting" ? "Automatic retry after " + esc(new Date(j.nextAt).toLocaleString()) + "." : ""}</p>` : ""}<form id="jikan-control" class="stack"><button class="button secondary" type="submit" name="operation" value="${importActive(j) ? "jikan-pause" : "jikan-start"}" >${importActive(j) ? "Pause import" : "Start / resume import"}</button></form><p class="form-hint space-top">Retries temporary outages with increasing delays and honors Retry-After. An upstream access refusal pauses the job. Missing portraits are skipped; actors have no Main/Supporting classification.</p></section>`;
+    html += `<section class="host-panel"><h2>Characters &amp; seiyuus · Tenrai</h2><p>Imports MAL characters with documented Main/Supporting roles, bilingual anime titles, and Japanese voice actors. One request every 10 seconds, shared with favorite scans. Duplicate MAL IDs and host edits are preserved. Importing runs on Cloudflare while this page is closed.</p><p><strong>Status: ${esc(j.status)}</strong> · Source: ${esc(j.provider || "Tenrai")} · ${j.importedCharacters || 0} new characters · ${j.importedActors || 0} new actors · ${j.scannedTitles || 0}${j.totalTitles ? " / " + j.totalTitles : ""} anime checked</p>${j.lastError ? `<p class="host-warning">${esc(j.lastError)} ${j.status === "waiting" ? "Automatic retry after " + esc(new Date(j.nextAt).toLocaleString()) + "." : ""}</p>` : ""}<form id="jikan-control" class="stack"><button class="button secondary" type="submit" name="operation" value="${importActive(j) ? "jikan-pause" : "jikan-start"}" >${importActive(j) ? "Pause import" : "Start / resume import"}</button></form><p class="form-hint space-top">Retries temporary outages with increasing delays and honors Retry-After. An upstream access refusal pauses the job. Missing portraits are skipped; actors have no Main/Supporting classification.</p></section>`;
   }
   if (tab === "catalog") {
     const f = state.seiyuuImport?.favorites;
@@ -174,11 +172,10 @@ function render() {
   if (tab === "players") html = accessPanel(state, esc) + html;
   if (tab === "pickems")
     html =
+      winnerCreatePanel() +
       settlementPanel(state, esc, settlementTour, settlementDrafts) +
-      tournamentPanel(state, esc) +
       pickemManagement(state, esc) +
       html;
-  scheduleDraft = null;
   participationDraft = null;
   matchDraft = null;
   managedTour = null;
@@ -253,12 +250,6 @@ export function parseCSV(raw) {
   if (row.some((x) => x.trim())) rows.push(row);
   return rows;
 }
-async function importCatalog(cards) {
-  if (!Array.isArray(cards)) throw new Error("Catalog must be a JSON array.");
-  for (let i = 0; i < cards.length; i += 500)
-    await api("catalog", { cards: cards.slice(i, i + 500) });
-  return { message: `Imported ${cards.length} cards.` };
-}
 document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   if (working) return;
@@ -296,8 +287,41 @@ document.addEventListener("submit", async (ev) => {
     }
     const b = Object.fromEntries(new FormData(form));
     let result;
+    if (form.id === "tour-winner-create") {
+      result = await api(
+        "pickem-winner",
+        {
+          name: b.name,
+          teams: b.teams,
+          winnerReward: Number(b.winnerReward),
+          ...(b.endsAutomatic ? {} : { ends: new Date(b.ends).getTime() }),
+        },
+        key,
+      );
+    }
+    if (form.id === "edit-tour-winner") {
+      if (!matchDraft) throw Error("Open a tour pick’em first.");
+      result = await api(
+        "pickem-winner-edit",
+        {
+          pickem: matchDraft.id,
+          expected: matchDraft,
+          name: b.name,
+          teams: b.teams,
+          winnerReward: Number(b.winnerReward),
+          ends:
+            b.ends === localDeadline(matchDraft.ends)
+              ? matchDraft.ends
+              : new Date(b.ends).getTime(),
+          clearPredictions: !!b.clearPredictions,
+        },
+        key,
+      );
+    }
     if (form.id === "manage-pickem-tour") {
       managedTour = await api("pickem-event?event=" + Number(b.event));
+      if (managedTour.format === "winner")
+        matchDraft = managedTour.matches[0] || null;
       $("#pickem-tour-manager").innerHTML = tourManager(managedTour, esc);
       return;
     }
@@ -369,45 +393,6 @@ document.addEventListener("submit", async (ev) => {
       if (!participationDraft) throw Error("Review participants first.");
       result = await api("participation-batch", participationDraft, key);
     }
-    if (form.id === "prepare-event" || form.id === "prepare-swiss") {
-      if (form.id === "prepare-swiss") {
-        if (!b.event) throw Error("Choose a Swiss event.");
-        const event = await api("pickem-event?event=" + Number(b.event));
-        state.pickemEvents = state.pickemEvents.map((x) =>
-          x.id === event.id ? event : x,
-        );
-      }
-      scheduleDraft = prepareSchedule(b, state);
-      $("#schedule-preview").innerHTML = scheduleReview(scheduleDraft, esc);
-      $("#schedule-preview").scrollIntoView({
-        block: "start",
-        behavior: "smooth",
-      });
-      $("#schedule-preview").focus({ preventScroll: true });
-      report(
-        "Schedule ready. Review the matches below, then publish to open voting.",
-        false,
-        form,
-      );
-      return;
-    }
-    if (form.id === "publish-schedule") {
-      if (!scheduleDraft) throw Error("Prepare a schedule first.");
-      result = await api(
-        scheduleDraft.path,
-        {
-          ...scheduleDraft.body,
-          deadlines: scheduleDraft.rounds.map((_, i) =>
-            b["deadline-" + i + "Automatic"]
-              ? null
-              : new Date(b["deadline-" + i]).getTime(),
-          ),
-          winnerReward: Number(b.winnerReward),
-          scoreReward: Number(b.scoreReward),
-        },
-        key,
-      );
-    }
     if (form.id === "host-permissions") {
       result = await api(
         "permissions",
@@ -478,13 +463,6 @@ document.addEventListener("submit", async (ev) => {
         return;
       result = await api(b.operation, { player: b.player });
     }
-    if (form.id === "pickem") {
-      b.ends = b.endsAutomatic ? undefined : new Date(b.ends).getTime();
-      delete b.endsAutomatic;
-      b.winnerReward = Number(b.winnerReward);
-      b.scoreReward = Number(b.scoreReward);
-      result = await api("pickem", b, key);
-    }
     if (form.dataset.settleMatch) {
       const match = settlementMatch(form.dataset.settleMatch),
         body = settlementBody(match, b);
@@ -495,7 +473,9 @@ document.addEventListener("submit", async (ev) => {
       };
       if (
         !confirm(
-          `Settle ${match.title}: ${match.team_a} ${body.scoreA} : ${body.scoreB} ${match.team_b}? This pays rewards and is final.`,
+          match.mode === "tour"
+            ? `Post ${body.winner} as the winner of ${match.tour}? This pays correct-winner rewards and is final.`
+            : `Settle ${match.title}: ${match.team_a} ${body.scoreA} : ${body.scoreB} ${match.team_b}? This pays rewards and is final.`,
         )
       )
         return;
@@ -510,10 +490,6 @@ document.addEventListener("submit", async (ev) => {
       b.seiyuu = Number(b.seiyuu);
       result = await api("settings", b, key);
     }
-    if (form.id === "catalog")
-      result = await importCatalog(
-        JSON.parse(await $("#catalog-file").files[0].text()),
-      );
     if (form.id === "role") {
       const c = state.cards.find((c) => c.id === b.card);
       if (!c) throw new Error("Choose a character.");
@@ -562,7 +538,7 @@ document.addEventListener("submit", async (ev) => {
           ? `\n\nPLAYER: ${result.player}\nONE-USE CODE: ${result.code}\n\nShare this code privately with that player. Expires in seven days.`
           : ""),
     );
-    if (["publish-schedule", "pickem"].includes(form.id)) {
+    if (form.id === "tour-winner-create") {
       const link = document.createElement("a");
       link.href = "./#pickems";
       link.className = "button secondary space-top";
@@ -580,7 +556,6 @@ document.addEventListener("submit", async (ev) => {
 document.addEventListener("input", (ev) => {
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
-  invalidateSchedule(form);
   if (form?.id === "grant" && ev.target.name === "games")
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
@@ -589,23 +564,13 @@ document.addEventListener(
   "invalid",
   (ev) => {
     const input = ev.target;
-    if (!["pickem", "publish-schedule"].includes(input.form?.id)) return;
+    if (!["tour-winner-create", "edit-tour-winner"].includes(input.form?.id))
+      return;
     const label = input.labels?.[0]?.textContent.trim() || input.name;
     report(`${label}: ${input.validationMessage}`, true, input.form);
   },
   true,
 );
-function invalidateSchedule(form) {
-  if (scheduleDraft && ["prepare-event", "prepare-swiss"].includes(form?.id)) {
-    scheduleDraft = null;
-    $("#schedule-preview").replaceChildren();
-    report(
-      "Tour settings changed. Prepare the schedule again before publishing.",
-      false,
-      form,
-    );
-  }
-}
 document.addEventListener("change", (ev) => {
   rememberSettlement(ev.target);
   if (ev.target.dataset.deadlineTarget) {
@@ -615,14 +580,13 @@ document.addEventListener("change", (ev) => {
     target.disabled = ev.target.checked;
   }
   const form = ev.target.closest("form");
-  invalidateSchedule(form);
   if (form?.id === "grant" && ["reason", "games"].includes(ev.target.name))
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest(
-    "[data-tab],#lock,#sample-catalog,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh]",
+    "[data-tab],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh]",
   );
   if (!t || working) return;
   if (t.dataset.settlementTour || t.hasAttribute("data-settlement-refresh")) {
@@ -690,23 +654,6 @@ document.addEventListener("click", async (ev) => {
     $("#console").hidden = true;
     $("#unlock").hidden = false;
     report("Console locked.");
-  }
-  if (t.id === "sample-catalog") {
-    working = true;
-    t.disabled = true;
-    try {
-      let cards = await (await fetch("sample-catalog.json")).json();
-      if (state.catalogSummary?.source)
-        cards = cards.filter((c) => c.kind === "seiyuu");
-      const result = await importCatalog(cards);
-      await load();
-      report(result.message);
-    } catch (e) {
-      report(e.message, true);
-    } finally {
-      working = false;
-      t.disabled = false;
-    }
   }
   if (t.id === "export-ledger") {
     const cell = (s) =>

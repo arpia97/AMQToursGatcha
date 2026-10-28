@@ -387,6 +387,8 @@ export class Engine {
       );
       if (!p || now >= p.ends || p.settled)
         fail("Predictions are closed.", 409);
+      if (p.mode === "tour")
+        return this.pickemEvents.predictWinner(player, p, b);
       const a = integer(b.scoreA, 0, 1000),
         c = integer(b.scoreB, 0, 1000);
       if (b.winner !== pickemOutcome(a, c, p.mode))
@@ -565,6 +567,7 @@ export class Engine {
         fail("This pick’em is unavailable or already settled.", 409);
       if (this.now() < p.ends)
         fail("Wait until predictions close before settling.");
+      if (p.mode === "tour") return this.pickemEvents.settleWinner(p, b);
       const a = integer(b.scoreA, 0, 1000),
         c = integer(b.scoreB, 0, 1000);
       const winner = pickemOutcome(a, c, p.mode);
@@ -980,7 +983,7 @@ export class Engine {
       ).map((r) => [r.category, r.n]),
     );
     const picks = this.one(
-      "SELECT count(*) AS total,COALESCE(sum(CASE WHEN (v.winner='a' AND p.result_a>p.result_b) OR (v.winner='b' AND p.result_b>p.result_a) OR (v.winner='draw' AND p.mode='pair' AND p.result_a=p.result_b) THEN 1 ELSE 0 END),0) AS correct FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE v.player=? AND p.settled=1",
+      "SELECT count(*) AS total,COALESCE(sum(CASE WHEN (p.mode='tour' AND v.winner=p.result_winner) OR (p.mode!='tour' AND ((v.winner='a' AND p.result_a>p.result_b) OR (v.winner='b' AND p.result_b>p.result_a) OR (v.winner='draw' AND p.mode='pair' AND p.result_a=p.result_b))) THEN 1 ELSE 0 END),0) AS correct FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE v.player=? AND p.settled=1",
       id,
     );
     const showcase = this.all(
