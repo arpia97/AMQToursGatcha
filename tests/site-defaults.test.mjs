@@ -83,7 +83,7 @@ test("daily credits are 300 once per KST day, with no regrant to a player who al
     "UPDATE players SET daily=? WHERE id='p'",
     new Date(now() + 9 * 3600000).toISOString().slice(0, 10),
   );
-  assert.equal(e.economy.daily("p", true), null);
+  assert.throws(() => e.economy.daily("p"), /already claimed/);
   assert.equal(e.player("p").balance, 100);
   advance(86400000);
   assert.equal(e.tx(() => e.action("p", "daily", {})).credits, 300);

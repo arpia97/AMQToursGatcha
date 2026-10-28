@@ -511,7 +511,9 @@ const packReveal = createPackReveal({
 function dailyPack() {
   const day = new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
   if (state.me?.daily_pack === day) return "";
-  return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your Daily Pack Is Waiting.</h3><p>5 random cards · characters + seiyuus · free each day</p></div>${btn("Claim & open →", "daily-pack", "", "mint")}</div>`;
+  if (Object.hasOwn(state, "loginReward"))
+    return '<div class="notice daily-pack">Daily rewards are updating. Please refresh in a moment.</div>';
+  return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your Daily Pack Is Waiting.</h3><p>Choose 5 random characters or seiyuus · free each day</p></div><form id="daily-pack-form" class="daily-pack-claim"><label>Pack Type<select id="daily-pack-kind" name="kind" aria-label="Daily pack type"><option value="character" ${ui.dailyPackKind !== "seiyuu" ? "selected" : ""}>Character Pack</option><option value="seiyuu" ${ui.dailyPackKind === "seiyuu" ? "selected" : ""}>Seiyuu Pack</option></select></label><button type="submit" class="button mint">Claim & open →</button></form></div>`;
 }
 function daily() {
   const claimed =
@@ -936,7 +938,6 @@ async function refresh() {
     ui.mahjongHistoryOpen = false;
     ui.mahjongHistoryPage = 1;
   }
-  if (state.loginReward) toast(state.loginReward.message);
   rememberCards(state.catalog);
   await loadDynamic();
   render();
@@ -1080,14 +1081,6 @@ document.addEventListener("click", async (ev) => {
     packReveal.reveal();
     return;
   }
-  if (a === "daily-pack") {
-    if (!state.me) {
-      auth();
-      return;
-    }
-    await execute("daily-pack", {}, (r) => packReveal.show(r, { daily: true }));
-    return;
-  }
   if (a === "players-prev" || a === "players-next") {
     ui.playerPage += a.endsWith("next") ? 1 : -1;
     await loadDynamic();
@@ -1175,10 +1168,27 @@ document.addEventListener("click", async (ev) => {
     );
   }
 });
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "daily-pack-kind") ui.dailyPackKind = ev.target.value;
+});
 document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
+  if (formIdentifier(f) === "daily-pack-form") {
+    ui.dailyPackKind = b.kind;
+    if (!state.me) {
+      auth();
+      return;
+    }
+    await execute(
+      "daily-pack",
+      { kind: b.kind },
+      (r) => packReveal.show(r, { daily: true, kind: b.kind }),
+      f,
+    );
+    return;
+  }
   if (f.dataset.inlinePrediction) {
     if (!state.me) {
       auth();

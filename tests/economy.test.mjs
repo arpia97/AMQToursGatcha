@@ -427,33 +427,80 @@ test("catalogue counts remain accurate across metadata edits, deletes, and rolle
   e.run("DELETE FROM catalog WHERE id='mal-person-100'");
   assert.equal(e.catalogStore.summary().seiyuu, original.seiyuu);
 });
-test("daily credits and manually claimed mixed packs are independent and once per KST day", () => {
+test("daily credits and chosen-type packs are separate manual claims, with one pack across both types per KST day", () => {
   const f = fixture(),
     e = f.e;
-  let kindCalls = 0;
   const kinds = [];
   const original = e.catalogStore.draw.bind(e.catalogStore);
   e.catalogStore.draw = (kind, ...args) => {
     kinds.push(kind);
     return original(kind, ...args);
   };
-  e.rand = (n) => (n === 12 ? (kindCalls++ % 2 ? 11 : 0) : 0);
+  e.rand = () => 0;
+  assert.throws(
+    () => f.act("buyer", "daily-pack", {}),
+    /Choose a character or seiyuu/,
+  );
+  assert.throws(
+    () => f.act("buyer", "daily-pack", { kind: "mixed" }),
+    /Choose a character or seiyuu/,
+  );
   const result = f.act("buyer", "daily", {});
   assert.equal(result.cards.length, 0);
   assert.equal(e.all("SELECT * FROM inventory WHERE player='buyer'").length, 0);
   assert.equal(e.player("buyer").balance, 10300);
-  assert.equal(e.economy.daily("buyer", true), null);
   assert.throws(() => f.act("buyer", "daily", {}), /already claimed/);
-  const catchup = f.act("buyer", "daily-pack", {}, "daily-key");
+  const catchup = f.act(
+    "buyer",
+    "daily-pack",
+    { kind: "character" },
+    "daily-key",
+  );
   assert.equal(catchup.credits, 0);
   assert.equal(catchup.cards.length, 5);
-  assert.ok(kinds.includes("character") && kinds.includes("seiyuu"));
-  assert.deepEqual(f.act("buyer", "daily-pack", {}, "daily-key"), catchup);
-  assert.throws(() => f.act("buyer", "daily-pack", {}), /already claimed/);
+  assert.ok(catchup.cards.every((c) => c.kind === "character"));
+  assert.deepEqual(kinds, [
+    "character",
+    "character",
+    "character",
+    "character",
+    "character",
+  ]);
+  assert.deepEqual(
+    f.act("buyer", "daily-pack", { kind: "character" }, "daily-key"),
+    catchup,
+  );
+  assert.throws(
+    () => f.act("buyer", "daily-pack", { kind: "seiyuu" }),
+    /already claimed/,
+  );
+  assert.throws(
+    () => f.act("buyer", "daily-pack", { kind: "seiyuu" }, "daily-key"),
+    /different|another|reused|same/i,
+  );
   assert.equal(e.player("buyer").balance, 10300);
   f.tick(86400000);
-  assert.equal(f.act("buyer", "daily-pack", {}).cards.length, 5);
+  const next = f.act("buyer", "daily-pack", { kind: "seiyuu" });
+  assert.equal(next.cards.length, 5);
+  assert.ok(next.cards.every((c) => c.kind === "seiyuu"));
+  assert.equal(e.player("buyer").balance, 10300);
   assert.equal(f.act("buyer", "daily", {}).credits, 300);
+});
+test("an empty chosen daily pool does not consume the claim or fall back to another type", () => {
+  const f = fixture(),
+    e = f.e;
+  e.run("DELETE FROM catalog WHERE kind='seiyuu'");
+  assert.throws(
+    () => f.act("buyer", "daily-pack", { kind: "seiyuu" }),
+    /catalogue has cards/,
+  );
+  assert.equal(e.player("buyer").daily_pack, null);
+  assert.equal(e.all("SELECT * FROM inventory WHERE player='buyer'").length, 0);
+  const result = f.act("buyer", "daily-pack", { kind: "character" });
+  assert.equal(result.cards.length, 5);
+  assert.ok(result.cards.every((c) => c.kind === "character"));
+  assert.equal(e.player("buyer").daily, null);
+  assert.equal(e.player("buyer").balance, 10000);
 });
 test("buyouts refund a third-party bidder, preserve level, and cannot pay twice", () => {
   const f = fixture(),

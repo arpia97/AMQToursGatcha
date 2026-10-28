@@ -730,15 +730,9 @@ export class Game extends DurableObject {
       return json(e.profile(text(url.searchParams.get("id"), 100)));
     }
     if (path === "state" && !post) {
-      const loginReward = session
-        ? e.tx(() => {
-            e.economy.horse.settleDue(session.player);
-            return e.economy.daily(session.player, true);
-          })
-        : null;
+      if (session) e.tx(() => e.economy.horse.settleDue(session.player));
       return json({
         ...e.state(session?.player),
-        loginReward,
         betaRegistration: betaRegistrationEnabled(e, this.env),
       });
     }

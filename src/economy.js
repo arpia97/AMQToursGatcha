@@ -82,11 +82,10 @@ export class Economy {
       );
     }
   }
-  daily(player, automatic = false) {
+  daily(player) {
     const e = this.e,
       day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
     if (e.player(player).daily === day) {
-      if (automatic) return null;
       fail(
         "You already claimed today’s credits. Come back after midnight KST.",
         409,
@@ -100,37 +99,32 @@ export class Economy {
       cards: [],
     };
   }
-  dailyPack(player) {
+  dailyPack(player, kind) {
+    if (!["character", "seiyuu"].includes(kind))
+      fail("Choose a character or seiyuu daily pack.");
     const e = this.e,
       day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
-    const p = e.one("SELECT daily,daily_pack FROM players WHERE id=?", player);
-    const summary = e.catalogStore.summary(),
-      total = summary.character + summary.seiyuu;
+    const p = e.one("SELECT daily_pack FROM players WHERE id=?", player);
     if (p.daily_pack === day)
       fail(
         "You already claimed today’s card pack. Come back after midnight KST.",
         409,
       );
-    if (!total)
+    if (!e.catalogStore.summary()[kind])
       fail(
-        "The daily pack will be available when the catalogue has cards.",
+        "This daily pack will be available when its catalogue has cards.",
         409,
       );
     const cards = [];
-    if (p.daily_pack !== day && total > 0) {
-      const contexts = { character: {}, seiyuu: {} };
-      for (let i = 0; i < 5; i++) {
-        const kind = e.rand(total) < summary.character ? "character" : "seiyuu";
-        cards.push(
-          e.catalogStore.draw(kind, e.rand, 100, new Set(), contexts[kind]),
-        );
-      }
-      for (const c of cards) e.addCard(player, c.id);
-      e.run("UPDATE players SET daily_pack=? WHERE id=?", day, player);
-    }
+    const context = {};
+    for (let i = 0; i < 5; i++)
+      cards.push(e.catalogStore.draw(kind, e.rand, 100, new Set(), context));
+    for (const c of cards) e.addCard(player, c.id);
+    e.run("UPDATE players SET daily_pack=? WHERE id=?", day, player);
     return {
       message: "Your daily five-card pack is here!",
       credits: 0,
+      kind,
       cards,
     };
   }
@@ -472,7 +466,7 @@ export class Economy {
         level,
       };
     }
-    if (action === "daily-pack") return this.dailyPack(player);
+    if (action === "daily-pack") return this.dailyPack(player, b.kind);
     if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
     if (action === "showcase") {

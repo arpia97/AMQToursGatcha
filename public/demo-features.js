@@ -476,6 +476,7 @@ export function demoFeatures(d, path, b) {
     return { message: "Auction win notification seen." };
   }
   if (path === "state") {
+    delete s.loginReward;
     s.auctionWins = s.auctions.filter(
       (a) => a.winner === me.id && a.ends <= now && !a.claimed && !a.notified,
     );
@@ -488,33 +489,35 @@ export function demoFeatures(d, path, b) {
         .map((a) => ({ ...a, venue: "auction" })),
     ];
   }
-  if (["state", "daily", "daily-pack"].includes(path)) {
+  if (["daily", "daily-pack"].includes(path)) {
     const day = new Date(now + 9 * 3600000).toISOString().slice(0, 10);
     if (path === "daily-pack") {
+      if (!["character", "seiyuu"].includes(b.kind))
+        throw Error("Choose a character or seiyuu daily pack.");
       if (me.daily_pack === day) throw Error("Already claimed today.");
+      const pool = d.cards.filter((c) => c.kind === b.kind);
+      if (!pool.length) throw Error("This daily pack has no cards yet.");
       const cards = Array.from(
         { length: 5 },
-        () => d.cards[Math.floor(Math.random() * d.cards.length)],
+        () => pool[Math.floor(Math.random() * pool.length)],
       );
       cards.forEach((c) => d.add(c.id));
       me.daily_pack = day;
-      return { cards, message: "Daily pack claimed.", credits: 0 };
-    }
-    let reward = null;
-    if (me.daily !== day) {
-      d.wallet(DAILY_CREDITS, "Daily login", true);
-      me.daily = day;
-      reward = {
-        message: `${DAILY_CREDITS} daily credits added.`,
-        credits: DAILY_CREDITS,
-        cards: [],
+      return {
+        cards,
+        message: "Daily pack claimed.",
+        credits: 0,
+        kind: b.kind,
       };
     }
-    if (path === "daily") {
-      if (!reward) throw Error("Already claimed today.");
-      return reward;
-    }
-    s.loginReward = reward;
+    if (me.daily === day) throw Error("Already claimed today.");
+    d.wallet(DAILY_CREDITS, "Daily login", true);
+    me.daily = day;
+    return {
+      message: `${DAILY_CREDITS} daily credits added.`,
+      credits: DAILY_CREDITS,
+      cards: [],
+    };
   }
   function animeGroups(owner = me.id) {
     const inv = owner === me.id ? s.inventory : [{ card: d.cards[2].id }],
