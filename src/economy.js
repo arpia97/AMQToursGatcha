@@ -2,7 +2,11 @@ import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
-import { SHOP_PRICES, instantSalePrice } from "../public/card-values.js";
+import {
+  SHOP_PRICE_REVISION,
+  SHOP_PRICES,
+  instantSalePrice,
+} from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
 import { Mahjong } from "./mahjong.js";
 import { GemFaceting } from "./gem.js";
@@ -17,6 +21,7 @@ export class Economy {
   constructor(e) {
     this.e = e;
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
+    this.applyShopPriceRevision();
     for (const [column, definition] of [
       ["seller", "TEXT"],
       ["level", "INTEGER NOT NULL DEFAULT 1"],
@@ -65,6 +70,31 @@ export class Economy {
     this.cards = new CardManagement(e);
     this.notices = new PlayerNotices(e);
     this.pachinko = new Pachinko(e);
+  }
+  applyShopPriceRevision() {
+    const e = this.e;
+    if (
+      (e.one("SELECT value FROM settings WHERE key='shop_price_revision'")
+        ?.value || 0) >= SHOP_PRICE_REVISION
+    )
+      return;
+    e.tx(() => {
+      if (
+        (e.one("SELECT value FROM settings WHERE key='shop_price_revision'")
+          ?.value || 0) >= SHOP_PRICE_REVISION
+      )
+        return;
+      // Reprice only currently available community stock. Sold/expired rows and
+      // player-set prices retain their original transaction history.
+      e.run(
+        "UPDATE weekly_shop SET price=MAX(1,price/2) WHERE buyer IS NULL AND ends>?",
+        e.now(),
+      );
+      e.run(
+        "INSERT INTO settings VALUES('shop_price_revision',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        SHOP_PRICE_REVISION,
+      );
+    });
   }
   fundStarters() {
     for (const p of this.e.all(

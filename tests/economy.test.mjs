@@ -753,7 +753,7 @@ test("weekly shop has ten unique mixed-pool slots, one shared stock and atomic a
     ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers", "AG"].map(
       (r) => SHOP_PRICES[r],
     ),
-    [100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600],
+    [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800],
   );
   const s = slots[0];
   e.run("UPDATE players SET balance=0 WHERE id='buyer'");

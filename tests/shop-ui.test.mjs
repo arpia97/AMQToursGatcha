@@ -25,7 +25,7 @@ function fixture() {
       { card: "a", level: 3, copies: 1 },
       { card: "b", level: 2, copies: 3 },
     ],
-    shop: [{ id: 1, card: "a", price: 1600, ends: 1000 }],
+    shop: [{ id: 1, card: "a", price: 800, ends: 1000 }],
     myListings: [
       { venue: "shop", id: 2, card: "a", seller: "p", price: 500, level: 3 },
     ],
@@ -108,11 +108,11 @@ test("shop exposes enhanced instant quotes, fixed-price listings, withdrawals, a
   const { shop, state, ui } = fixture();
   let html = shop.render();
   assert.doesNotMatch(html, /provisional/i);
-  assert.match(html, /Need 1500 more/);
+  assert.match(html, /Need 700 more/);
   assert.match(html, /disabled/);
   ui.shopSection = "sell";
   html = shop.render();
-  assert.match(html, /Sell now · ✦ 3200/);
+  assert.match(html, /Sell now · ✦ 1600/);
   assert.match(html, /data-action="sell-card"/);
   assert.match(html, /Card &lt;A>/);
   ui.shopSection = "market";

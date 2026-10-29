@@ -1,7 +1,8 @@
 export const RARITIES = ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers", "AG"];
+export const SHOP_PRICE_REVISION = 1;
 export const SHOP_PRICES = Object.freeze({
-  ...Object.fromEntries(RARITIES.map((r, i) => [r, 100 * 2 ** i])),
-  Pending: 100,
+  ...Object.fromEntries(RARITIES.map((r, i) => [r, 50 * 2 ** i])),
+  Pending: 50,
 });
 
 export function cardInvestment(level = 1) {

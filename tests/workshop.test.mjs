@@ -107,9 +107,9 @@ test("sale values use half the shop tier price times the exact enhancement inves
     for (const level of [1, 2, 4, 20])
       assert.equal(
         instantSalePrice({ rarity: RARITIES[i] }, level),
-        50 * 2 ** i * 2 ** (level - 1),
+        25 * 2 ** i * 2 ** (level - 1),
       );
-  assert.equal(instantSalePrice({ rarity: null }), 50);
+  assert.equal(instantSalePrice({ rarity: null }), 25);
   assert.throws(() => instantSalePrice({ rarity: "__proto__" }), /sale price/);
   assert.throws(() => cardInvestment(21), /level/);
 });
@@ -118,11 +118,11 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
     { e } = f;
   f.add("D", 3, 4);
   const m = f.material("D"),
-    b = { ...m, expectedPrice: 400 };
+    b = { ...m, expectedPrice: 200 };
   const r = f.act("sell-instant", b, "sale");
-  assert.equal(r.price, 400);
+  assert.equal(r.price, 200);
   assert.deepEqual(f.act("sell-instant", b, "sale"), r);
-  assert.equal(e.player("p").balance, 400);
+  assert.equal(e.player("p").balance, 200);
   assert.equal(e.player("p").earned, 0);
   assert.deepEqual(
     {
@@ -132,9 +132,9 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
     },
     { copies: 2, level: 1 },
   );
-  assert.equal(f.sell("D", "extra").price, 50);
+  assert.equal(f.sell("D", "extra").price, 25);
   assert.throws(() => f.sell("D", "extra"), /extra copy/);
-  assert.equal(e.player("p").balance, 450);
+  assert.equal(e.player("p").balance, 225);
 });
 test("selling a last copy cleans profile references and rejects stale quotes, foreign cards and wallet overflow atomically", () => {
   const f = fixture(),
@@ -142,7 +142,7 @@ test("selling a last copy cleans profile references and rejects stale quotes, fo
   f.add("D");
   e.action("p", "profile", { avatar: "D" });
   e.action("p", "showcase", { cards: ["D"] });
-  const b = { ...f.material("D"), expectedPrice: 50 };
+  const b = { ...f.material("D"), expectedPrice: 25 };
   f.cards.get("D").rarity = "C";
   assert.throws(() => f.act("sell-instant", b), /changed/);
   assert.equal(e.state("p").inventory.length, 1);
@@ -159,8 +159,8 @@ test("selling a last copy cleans profile references and rejects stale quotes, fo
 test("high-level AG sale values fit the wallet without truncating the invested-card payout", () => {
   const f = fixture();
   f.add("AG", 1, 20);
-  assert.equal(f.sell("AG").price, 6710886400);
-  assert.equal(f.e.player("p").balance, 6710886400);
+  assert.equal(f.sell("AG").price, 3355443200);
+  assert.equal(f.e.player("p").balance, 3355443200);
 });
 test("fusion uses the approved spread, half-tier enhancement interpolation, and continued doubling beyond Ubers", () => {
   assert.deepEqual(

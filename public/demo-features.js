@@ -28,7 +28,11 @@ import {
   fusionTarget,
   drawFusionResult,
 } from "./fusion-outcomes.js";
-import { instantSalePrice, SHOP_PRICES } from "./card-values.js";
+import {
+  instantSalePrice,
+  SHOP_PRICES,
+  SHOP_PRICE_REVISION,
+} from "./card-values.js";
 import { cardComparator, animeProgressComparator } from "./card-display.js";
 import {
   dealMahjong,
@@ -396,26 +400,22 @@ export function demoFeatures(d, path, b) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    const prices = {
-      AG: 25600,
-      Ubers: 12800,
-      SSS: 6400,
-      SS: 3200,
-      S: 1600,
-      A: 800,
-      B: 400,
-      C: 200,
-      D: 100,
-    };
     s.shop = pool.slice(0, 10).map((c, i) => ({
       id: i + 1,
       card: c.id,
       kind: c.kind,
-      price: prices[c.rarity] || 100,
+      price: SHOP_PRICES[c.rarity || "Pending"],
       ends: now + 4 * 86400000,
       buyer: null,
     }));
     s.shopMixVersion = 2;
+    s.settings.shop_price_revision = SHOP_PRICE_REVISION;
+  }
+  if ((s.settings.shop_price_revision || 0) < SHOP_PRICE_REVISION) {
+    for (const slot of s.shop || [])
+      if (!slot.buyer && slot.ends > now)
+        slot.price = Math.max(1, Math.floor(slot.price / 2));
+    s.settings.shop_price_revision = SHOP_PRICE_REVISION;
   }
   if (!s.premiumPriceRevision) {
     s.settings.premium_character_price = 1000;

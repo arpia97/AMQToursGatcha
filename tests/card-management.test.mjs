@@ -71,7 +71,7 @@ test("protection persists across pulls and restart and blocks sales, listings an
         act("sell-instant", {
           card: "d",
           variant,
-          expectedPrice: variant === "extra" ? 50 : 200,
+          expectedPrice: variant === "extra" ? 25 : 100,
           expectedLevel: variant === "extra" ? 1 : 3,
           expectedRarity: "D",
         }),
@@ -104,11 +104,11 @@ test("protection persists across pulls and restart and blocks sales, listings an
   act("sell-instant", {
     card: "d",
     variant: "extra",
-    expectedPrice: 50,
+    expectedPrice: 25,
     expectedLevel: 1,
     expectedRarity: "D",
   });
-  assert.equal(e.player("p").balance, 50);
+  assert.equal(e.player("p").balance, 25);
   assert.throws(
     () => e.action("q", "protect-card", { card: "d", protected: true }),
     /own/,
@@ -119,7 +119,7 @@ test("batch extras use combined filters across pages, exclude protected cards an
   act("protect-card", { card: "s", protected: true });
   const q = quote();
   assert.equal(q.count, 3);
-  assert.equal(q.total, 150);
+  assert.equal(q.total, 75);
   const b = { filters, expectedItems: q.items };
   const run = () =>
     e.mutate("p:sell-batch", "batch-once", b, () =>
@@ -127,7 +127,7 @@ test("batch extras use combined filters across pages, exclude protected cards an
     );
   run();
   run();
-  assert.equal(e.player("p").balance, 150);
+  assert.equal(e.player("p").balance, 75);
   assert.equal(e.player("p").earned, 0);
   assert.deepEqual(
     {
@@ -147,7 +147,7 @@ test("batch full sales account for invested levels and clean avatar/showcase onl
   const { e, act, filters, quote } = fixture(t),
     f = { ...filters, mode: "all", rarity: "D" },
     q = quote(f);
-  assert.equal(q.total, 350);
+  assert.equal(q.total, 175);
   assert.equal(q.count, 4);
   e.run("UPDATE players SET avatar_card='d' WHERE id='p'");
   act("showcase", { cards: ["d", "s"] });
@@ -165,6 +165,17 @@ test("batch stale protection, rarity or inventory and wallet overflow roll back 
   const { e, act, filters, quote, map } = fixture(t),
     q = quote(),
     b = { filters, expectedItems: q.items };
+  assert.throws(
+    () =>
+      act("sell-batch", {
+        filters,
+        expectedItems: q.items.map((item) => ({
+          ...item,
+          price: item.price * 2,
+        })),
+      }),
+    /changed/,
+  );
   act("protect-card", { card: "s", protected: true });
   assert.throws(() => act("sell-batch", b), /changed/);
   act("protect-card", { card: "s", protected: false });
@@ -230,6 +241,6 @@ test("batch preview bounds unique cards to 200 and quotes all extra copies witho
   );
   assert.equal(q.items.length, 200);
   assert.equal(q.hasMore, true);
-  assert.equal(q.total, 20000);
+  assert.equal(q.total, 10000);
   assert.equal(q.count, 400);
 });

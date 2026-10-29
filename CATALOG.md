@@ -54,7 +54,7 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 
 ## Card fusion
 
-Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 50 × 8 = 400 credits. Extra copies are level 1. Pending uses D pricing. Quotes include rarity, level and price; changes reject the sale for review before any consumption. Credits fit safely up to the wallet limit of one trillion.
+Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 25 × 8 = 200 credits. Extra copies are level 1. Pending uses D pricing. Quotes include rarity, level and price; changes reject the sale for review before any consumption. Credits fit safely up to the wallet limit of one trillion.
 
 Fusion selects one to five physical copies, including extras and enhanced bases. The highest printed rarity sets the result baseline. Upgrade requires at least two materials and gives exactly the next rarity; one material can only stay or break. Every selected copy is consumed, and a successful outcome draws a level-1 card from the selected material type(s) in the result tier. Without a target, draws are uniform. An existing enhanced copy is retained if the result is a duplicate. Missing result pools reject before consuming anything. AG and Pending materials are excluded.
 
