@@ -868,6 +868,25 @@
   flex-wrap: wrap;
   margin-top: 28px;
 }
+.pack-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+.pack-card-actions .text-button {
+  flex: 1 1 76px;
+  padding: 7px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.pack-card-actions [aria-pressed="true"] {
+  color: var(--mint);
+  border-color: var(--mint);
+  background: #b7e4ca12;
+}
 .pull-reveal .pull-slot {
   min-width: 0;
   perspective: 1000px;

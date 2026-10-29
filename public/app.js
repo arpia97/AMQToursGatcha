@@ -16,7 +16,7 @@ import { formIdentifier } from "./form-actions.js";
 import { countdownText, nextWeeklyReset } from "./countdown.js";
 import { createWorkshop } from "./workshop-ui.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
-import { createPackReveal } from "./pack-reveal.js";
+import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
 import { createMahjongUI } from "./mahjong-ui.js";
 import {
@@ -352,7 +352,7 @@ function showAuctionWin() {
     );
   }
 }
-function cardHTML(c, a = null, item = null) {
+function cardHTML(c, a = null, item = null, extraActions = "") {
   const mine = a?.winner === state.me?.id,
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
@@ -363,7 +363,7 @@ function cardHTML(c, a = null, item = null) {
     item && !item.preview
       ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Add to fusion">Fusion ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
       : "";
-  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}</div></article>`;
+  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}${extraActions}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -508,6 +508,19 @@ const packReveal = createPackReveal({
   number,
   getState: () => state,
 });
+async function saveCardAction(path, body, t) {
+  if (!t.closest("[data-pack-card]")) return execute(path, body);
+  if (busy) return;
+  const root = $("#modal");
+  root.querySelectorAll("[data-pack-card] button").forEach((button) => {
+    button.disabled = true;
+  });
+  try {
+    return await execute(path, body, (result) => toast(result.message));
+  } finally {
+    syncPackCardActions(root, state);
+  }
+}
 function dailyPack() {
   const day = new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
   if (state.me?.daily_pack === day) return "";
@@ -1685,10 +1698,18 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "protect-toggle") {
       const item = state.inventory.find((i) => i.card === t.dataset.id);
-      await execute("protect-card", {
-        card: item.card,
-        protected: !item.protected,
-      });
+      if (!item) {
+        toast("Refresh to load this card from your collection.", true);
+        return true;
+      }
+      await saveCardAction(
+        "protect-card",
+        {
+          card: item.card,
+          protected: !item.protected,
+        },
+        t,
+      );
       return true;
     }
     if (a === "batch-cancel") {
@@ -1731,7 +1752,7 @@ async function handleFeatureClick(a, t) {
         }
         cards.push(t.dataset.id);
       }
-      await execute("showcase", { cards });
+      await saveCardAction("showcase", { cards }, t);
       return true;
     }
     if (a === "buyout") {

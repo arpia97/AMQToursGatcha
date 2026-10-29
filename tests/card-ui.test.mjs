@@ -25,13 +25,25 @@ test("card sorting puts known rarity/favourites first with stable names and role
 });
 test("pack reveal uses the highest actual pull, keeps duplicate cards and repeats the same paid pack type", () => {
   const views = [];
+  const state = {
+    settings: { premium_seiyuu_price: 2500 },
+    inventory: [
+      { card: "x", protected: 1 },
+      { card: "a" },
+      { card: "u" },
+      { card: "s" },
+    ],
+    showcase: ["x"],
+  };
   const reveal = createPackReveal({
     modal: (html) => views.push(html),
-    cardHTML: (c) => `<article>${c.id}</article>`,
+    cardHTML: (c, auction, item, actions) =>
+      `<article>${c.id}${actions}</article>`,
     escape: String,
     number: String,
-    getState: () => ({ settings: { premium_seiyuu_price: 2500 } }),
-    motionControl: () => '<label>Pack animations<select><option>Full</option></select></label>',
+    getState: () => state,
+    motionControl: () =>
+      "<label>Pack animations<select><option>Full</option></select></label>",
   });
   const result = {
     cards: [
@@ -50,6 +62,17 @@ test("pack reveal uses the highest actual pull, keeps duplicate cards and repeat
   assert.doesNotMatch(views[0], /<article>/);
   reveal.reveal();
   assert.equal((views[1].match(/<article>/g) || []).length, 5);
+  assert.equal(
+    (views[1].match(/data-action="protect-toggle"/g) || []).length,
+    5,
+  );
+  assert.equal(
+    (views[1].match(/data-action="showcase-toggle"/g) || []).length,
+    5,
+  );
+  assert.equal((views[1].match(/🔒 Protected/g) || []).length, 2);
+  assert.equal((views[1].match(/★ Showcased/g) || []).length, 2);
+  assert.doesNotMatch(views[1], / disabled/);
   assert.match(views[1], /Pack animations/);
   assert.match(views[1], /data-kind="seiyuu" data-premium="true"/);
   assert.match(views[1], /Open another pack · ✦ 2500/);
