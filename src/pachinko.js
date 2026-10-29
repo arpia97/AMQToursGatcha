@@ -9,6 +9,8 @@ import {
   climbOffers,
   climbHeight,
   climbPayout,
+  climbInMetres,
+  climbDistance,
 } from "../public/pachinko-rules.js";
 
 export class Pachinko {
@@ -25,7 +27,9 @@ export class Pachinko {
     const row =
       player &&
       this.e.one("SELECT data FROM pachinko_games WHERE player=?", player);
-    return row ? JSON.parse(row.data) : { roulette: null, climb: null };
+    const data = row ? JSON.parse(row.data) : { roulette: null, climb: null };
+    data.climb = climbInMetres(data.climb);
+    return data;
   }
   view(player) {
     return this.read(player);
@@ -120,6 +124,7 @@ export class Pachinko {
         Object.assign(game, {
           status: "active",
           height: 0,
+          distanceUnit: "m",
           offers: climbOffers(e.rand),
           moves: [],
           last: null,
@@ -156,7 +161,7 @@ export class Pachinko {
         e.wallet(
           player,
           g.payout,
-          "Mountain climbing: final height " + g.height,
+          "Mountain climbing: final height " + climbDistance(g.height),
         );
     } else g.offers = climbOffers(e.rand);
     this.save(player, data, g, "climb");

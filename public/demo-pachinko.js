@@ -8,6 +8,7 @@ import {
   climbOffers,
   climbHeight,
   climbPayout,
+  climbInMetres,
 } from "./pachinko-rules.js";
 // Explicit local demo only; production outcomes are generated and saved by the server.
 export function demoPachinko(d, path, b) {
@@ -16,6 +17,7 @@ export function demoPachinko(d, path, b) {
     rand = (n) => Math.floor(Math.random() * n);
   s.roulette ??= null;
   s.climb ??= null;
+  s.climb = climbInMetres(s.climb);
   s.gambling ||= [];
   const save = (g, kind) => {
     let row = s.gambling.find((r) => r.id === g.id && r.game === kind);
@@ -81,6 +83,7 @@ export function demoPachinko(d, path, b) {
         : {
             status: "active",
             height: 0,
+            distanceUnit: "m",
             offers: climbOffers(rand),
             moves: [],
             last: null,

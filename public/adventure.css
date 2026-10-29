@@ -11,6 +11,14 @@
   margin-top: 0;
 }
 .roulette-board {
+  --wheel-roll: roulette-wheel var(--roulette-duration) linear
+    var(--roulette-elapsed) both;
+  --ball-roll: roulette-ball var(--roulette-duration) linear
+    var(--roulette-elapsed) both;
+  --ball-drop: roulette-drop var(--roulette-duration) linear
+    var(--roulette-elapsed) both;
+  --pointer-tick: roulette-pointer-tick var(--roulette-duration) ease-in-out
+    var(--roulette-elapsed) both;
   position: relative;
   width: min(100%, 400px);
   aspect-ratio: 1;
@@ -37,6 +45,10 @@
   font-size: 32px;
   text-shadow: 0 2px 4px #000;
 }
+.roulette-pointer span {
+  display: block;
+  transform-origin: 50% 15%;
+}
 .roulette-ball-track {
   position: absolute;
   inset: 8%;
@@ -50,34 +62,154 @@
   height: 11px;
   border-radius: 50%;
   left: calc(50% - 5.5px);
-  top: 0;
+  top: 4.5%;
   background: radial-gradient(circle at 30% 25%, white, #ffe3b5 40%, #927d65);
   box-shadow:
     0 0 10px #fff6,
     0 2px 3px #000;
 }
 .roulette-wheel.is-spinning {
-  animation: roulette-wheel var(--roulette-duration)
-    cubic-bezier(0.12, 0.6, 0.06, 1) var(--roulette-elapsed) both;
+  animation: var(--wheel-roll);
 }
 .roulette-ball-track.is-spinning {
-  animation: roulette-ball var(--roulette-duration)
-    cubic-bezier(0.12, 0.6, 0.06, 1) var(--roulette-elapsed) both;
+  animation: var(--ball-roll);
+}
+.roulette-ball-track.is-spinning i {
+  animation: var(--ball-drop);
+}
+.roulette-board.is-spinning .roulette-pointer span {
+  animation: var(--pointer-tick);
+}
+.roulette-board.is-complete .roulette-pocket.is-result {
+  stroke: #fff3c7;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 5px #fff0b4);
 }
 @keyframes roulette-wheel {
-  from {
+  0% {
     transform: rotate(0deg);
   }
-  to {
+  12% {
+    transform: rotate(calc(var(--roulette-end) * 0.08));
+  }
+  40% {
+    transform: rotate(calc(var(--roulette-end) * 0.52));
+  }
+  70% {
+    transform: rotate(calc(var(--roulette-end) * 0.9));
+  }
+  88% {
+    transform: rotate(calc(var(--roulette-end) * 0.985));
+  }
+  97% {
+    transform: rotate(calc(var(--roulette-end) + 1.4deg));
+  }
+  100% {
     transform: rotate(var(--roulette-end));
   }
 }
 @keyframes roulette-ball {
-  from {
+  0% {
     transform: rotate(1440deg);
   }
-  to {
+  12% {
+    transform: rotate(1296deg);
+  }
+  40% {
+    transform: rotate(700deg);
+  }
+  70% {
+    transform: rotate(150deg);
+  }
+  88% {
+    transform: rotate(-4deg);
+  }
+  95% {
+    transform: rotate(1.8deg);
+  }
+  100% {
     transform: rotate(0deg);
+  }
+}
+@keyframes roulette-drop {
+  0%,
+  65% {
+    top: 0;
+    transform: scale(1);
+  }
+  78% {
+    top: 1%;
+    transform: scale(1.05);
+  }
+  86% {
+    top: 7%;
+    transform: scale(0.88);
+  }
+  91% {
+    top: 3%;
+    transform: scale(1.05);
+  }
+  96% {
+    top: 5%;
+    transform: scale(0.96);
+  }
+  100% {
+    top: 4.5%;
+    transform: scale(1);
+  }
+}
+@keyframes roulette-pointer-tick {
+  0%,
+  40%,
+  48%,
+  60%,
+  76%,
+  90%,
+  100% {
+    transform: rotate(0deg);
+  }
+  44% {
+    transform: rotate(-12deg);
+  }
+  54% {
+    transform: rotate(-9deg);
+  }
+  68% {
+    transform: rotate(-7deg);
+  }
+  84% {
+    transform: rotate(-4deg);
+  }
+  96% {
+    transform: rotate(-2deg);
+  }
+}
+.roulette-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.roulette-motion {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.roulette-motion select {
+  width: auto;
+  padding: 7px 9px;
+  font-size: 11px;
+  min-height: 32px;
+}
+@media (max-width: 650px) {
+  .roulette-panel > .section-head {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .roulette-controls {
+    width: 100%;
+    justify-content: space-between;
   }
 }
 .roulette-outcome {
@@ -302,7 +434,8 @@
 .climb-history span {
   display: grid;
   place-items: center;
-  width: 42px;
+  min-width: 54px;
+  padding: 0 6px;
   height: 36px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -382,7 +515,7 @@
     padding: 17px 7px;
   }
   .climb-option strong {
-    font-size: 18px;
+    font-size: 16px;
   }
   .climb-stats {
     gap: 7px;
@@ -397,10 +530,35 @@
 @media (prefers-reduced-motion: reduce) {
   .roulette-wheel.is-spinning,
   .roulette-ball-track.is-spinning,
+  .roulette-ball-track.is-spinning i,
+  .roulette-board.is-spinning .roulette-pointer span,
   .climb-person.is-moving {
     animation: none;
   }
   .climb-option {
     transition: none;
   }
+}
+/* A deliberate Full Animation choice overrides the site's system-motion reset,
+   just like card packs. Other animations retain their existing preferences. */
+html[data-roulette-motion="full"] .roulette-wheel.is-spinning {
+  animation: var(--wheel-roll) !important;
+}
+html[data-roulette-motion="full"] .roulette-ball-track.is-spinning {
+  animation: var(--ball-roll) !important;
+}
+html[data-roulette-motion="full"] .roulette-ball-track.is-spinning i {
+  animation: var(--ball-drop) !important;
+}
+html[data-roulette-motion="full"]
+  .roulette-board.is-spinning
+  .roulette-pointer
+  span {
+  animation: var(--pointer-tick) !important;
+}
+html[data-roulette-motion="reduced"] .roulette-wheel,
+html[data-roulette-motion="reduced"] .roulette-ball-track,
+html[data-roulette-motion="reduced"] .roulette-ball-track i,
+html[data-roulette-motion="reduced"] .roulette-pointer span {
+  animation: none !important;
 }

@@ -11,7 +11,52 @@ import {
   CLIMB_OPTIONS,
   climbOffers,
   climbPayout,
+  climbInMetres,
+  climbOptionLabel,
 } from "../public/pachinko-rules.js";
+import {
+  readRouletteMotion,
+  saveRouletteMotion,
+  rouletteStopAngle,
+} from "../public/roulette-motion.js";
+
+test("roulette defaults to Full Animation, saves only supported preferences and aligns every pocket under the pointer", () => {
+  let saved = null;
+  const storage = {
+    getItem: () => saved,
+    setItem: (_, value) => {
+      saved = value;
+    },
+  };
+  assert.equal(readRouletteMotion(storage), "full");
+  for (const mode of ["reduced", "system", "full"]) {
+    assert.equal(saveRouletteMotion(mode, storage), true);
+    assert.equal(readRouletteMotion(storage), mode);
+  }
+  assert.equal(saveRouletteMotion("invalid", storage), false);
+  assert.equal(saved, "full");
+  assert.equal(
+    readRouletteMotion({
+      getItem: () => {
+        throw Error("Unavailable");
+      },
+    }),
+    "full",
+  );
+  assert.equal(
+    saveRouletteMotion("reduced", {
+      setItem: () => {
+        throw Error("Unavailable");
+      },
+    }),
+    true,
+  );
+  for (let pocket = 0; pocket < 37; pocket++) {
+    const finalCentre =
+      ((pocket + 0.5) * 360) / 37 - 90 + rouletteStopAngle(pocket);
+    assert(Math.abs((((finalCentre % 360) + 360) % 360) - 270) < 1e-9);
+  }
+});
 
 test("a reconnected spinning wheel displays its locked server bet, not a fresh form draft", () => {
   const s = {
@@ -110,7 +155,7 @@ test("roulette has 18 red,18 black,one green; climb pool contains exactly the re
       [-5, 5],
       [-10, 10],
       [-7, 7],
-    ],
+    ].map(([min, max]) => [min * 10, max * 10]),
   );
   assert.deepEqual(
     climbOffers(() => 0),
@@ -120,7 +165,10 @@ test("roulette has 18 red,18 black,one green; climb pool contains exactly the re
     climbOffers((n) => n - 1),
     [17, 16, 15],
   );
-  assert.equal(climbPayout(30), 540);
+  assert.equal(climbPayout(300), 540);
+  assert.equal(climbPayout(68), 122);
+  assert.equal(climbOptionLabel(3), "+50 m");
+  assert.equal(climbOptionLabel(16), "−100 to +100 m");
 });
 test("roulette debits once, locks the selection, waits for server time, persists restart and settles exactly once", (t) => {
   const f = fixture(t),
@@ -230,7 +278,7 @@ test("climbing charges one entry, offers fixed saved choices, validates ownershi
   act("climb-choose", first, "first");
   act("climb-choose", first, "first");
   g = e.gameState("p").climb;
-  assert.equal(g.height, 3);
+  assert.equal(g.height, 30);
   assert.equal(g.moves.length, 1);
   assert.throws(() => act("climb-choose", first), /changed/);
   while (g.status === "active") {
@@ -238,7 +286,7 @@ test("climbing charges one entry, offers fixed saved choices, validates ownershi
     g = e.gameState("p").climb;
   }
   assert.equal(g.moves.length, 10);
-  assert.equal(g.height, 30);
+  assert.equal(g.height, 300);
   assert.equal(g.payout, 540);
   assert.equal(e.player("p").balance, 540);
   assert.deepEqual(g.offers, []);
@@ -249,7 +297,7 @@ test("climbing charges one entry, offers fixed saved choices, validates ownershi
   assert.equal(e.player("p").balance, 540);
   assert.equal(e.player("p").earned, 100000);
 });
-test("random climbing rolls include both endpoints, stop at ground and can reach height100 for1800 credits", (t) => {
+test("random climbing rolls include both endpoints, stop at ground and can reach1000m for1800 credits", (t) => {
   const { e, act } = fixture(t);
   e.rand = (n) => n - 1;
   act("climb-start", { previousGame: null });
@@ -257,7 +305,7 @@ test("random climbing rolls include both endpoints, stop at ground and can reach
   e.rand = () => 0;
   act("climb-choose", { game: g.id, version: 0, option: 16 });
   g = e.gameState("p").climb;
-  assert.equal(g.last.delta, -10);
+  assert.equal(g.last.delta, -100);
   assert.equal(g.height, 0);
   while (g.status === "active") {
     act("climb-choose", { game: g.id, version: g.version, option: 0 });
@@ -271,9 +319,9 @@ test("random climbing rolls include both endpoints, stop at ground and can reach
     act("climb-choose", { game: g.id, version: g.version, option: 16 });
     g = e.gameState("p").climb;
   }
-  assert.equal(g.height, 100);
+  assert.equal(g.height, 1000);
   assert.equal(g.payout, 1800);
-  assert.equal(g.moves[0].delta, 10);
+  assert.equal(g.moves[0].delta, 100);
 });
 test("final climbing moves replay without duplicate payout and affordability failures preserve current metadata", (t) => {
   const { e, act } = fixture(t);
@@ -340,4 +388,102 @@ test("detailed roulette history retains50 games while all financial records rema
     50,
   );
   assert.equal(e.economy.rankings("gambling_won").rows[0].value, 55 * 34);
+});
+
+test("the -100 to100 metre route can roll every integer including68, with whole-credit payouts", (t) => {
+  const { e, act } = fixture(t),
+    seen = new Set();
+  let g;
+  for (let index = 0; index <= 200; index++) {
+    e.rand = (n) => (n === 201 ? index : n - 1);
+    if (!g || g.status === "complete") {
+      act("climb-start", { previousGame: g?.id ?? null });
+      g = e.gameState("p").climb;
+    }
+    act("climb-choose", { game: g.id, version: g.version, option: 16 });
+    g = e.gameState("p").climb;
+    assert.equal(g.last.delta, index - 100);
+    assert.equal(g.distanceUnit, "m");
+    assert(g.height >= 0);
+    seen.add(g.last.delta);
+    if (g.status === "complete")
+      assert.equal(g.payout, Math.floor((g.height * 18) / 10));
+  }
+  assert.equal(seen.size, 201);
+  assert(seen.has(68));
+});
+
+test("existing active climbs convert once to metres without fees, rerolls, lost turns or changed past payouts", (t) => {
+  const f = fixture(t),
+    { e, act } = f;
+  act("climb-start", { previousGame: null });
+  let g = e.gameState("p").climb;
+  act("climb-choose", { game: g.id, version: 0, option: 2 });
+  g = e.gameState("p").climb;
+  const original = structuredClone(g),
+    oldMove = { ...g.last, delta: 3, from: 0, to: 3 };
+  const legacy = { ...g, height: 3, moves: [oldMove], last: oldMove };
+  delete legacy.distanceUnit;
+  e.run(
+    "UPDATE pachinko_games SET data=? WHERE player='p'",
+    JSON.stringify({ roulette: null, climb: legacy }),
+  );
+  const balance = e.player("p").balance,
+    ledger = e.all("SELECT * FROM ledger WHERE player='p'");
+  const restored = f.fresh().gameState("p").climb;
+  assert.deepEqual(restored, original);
+  assert.deepEqual(climbInMetres(restored), original);
+  assert.equal(e.player("p").balance, balance);
+  assert.deepEqual(e.all("SELECT * FROM ledger WHERE player='p'"), ledger);
+  act("climb-choose", {
+    game: restored.id,
+    version: restored.version,
+    option: 2,
+  });
+  g = e.gameState("p").climb;
+  assert.equal(g.height, 60);
+  assert.equal(g.moves.length, 2);
+  assert.equal(g.version, 2);
+  assert.equal(e.player("p").balance, balance);
+  assert.equal(
+    JSON.parse(e.one("SELECT data FROM pachinko_games WHERE player='p'").data)
+      .climb.distanceUnit,
+    "m",
+  );
+  const completed = { ...legacy, status: "complete", height: 30, payout: 540 };
+  assert.equal(climbInMetres(completed).height, 300);
+  assert.equal(climbInMetres(completed).payout, 540);
+});
+
+test("climbing displays metre values, intermediate rolls and the unchanged credit conversion", () => {
+  const last = { option: 16, delta: 68, from: 100, to: 168, at: 1000 };
+  const state = {
+    me: { balance: 5000 },
+    climb: {
+      id: 1,
+      version: 1,
+      distanceUnit: "m",
+      status: "active",
+      height: 168,
+      offers: [3, 16, 14],
+      moves: [last],
+      last,
+      stake: 500,
+      payout: 0,
+    },
+  };
+  const view = createAdventureUI({
+    getState: () => state,
+    escape: String,
+    number: String,
+    ui: {},
+    now: () => 1200,
+  });
+  const html = view.climb();
+  assert.match(html, /Your climber is at 168 m/);
+  assert.match(html, />\+68 m<\/span>/);
+  assert.match(html, />\+50 m<\/strong>/);
+  assert.match(html, /−100 to \+100 m/);
+  assert.match(html, />✦ 302<\/strong>/);
+  assert.match(html, /18 credits per 10 m/);
 });

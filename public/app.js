@@ -29,6 +29,7 @@ import { createPachinkoUI } from "./pachinko-ui.js";
 import { createHorseUI } from "./horse-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
+import { readRouletteMotion, saveRouletteMotion } from "./roulette-motion.js";
 import {
   seriesTitle,
   rarityClass,
@@ -132,6 +133,9 @@ let state,
 import { batchSaleQuote } from "./card-management.js";
 let pendingBatchSale = null;
 const ui = {
+  rouletteMotion: readRouletteMotion({
+    getItem: (key) => localStorage.getItem(key),
+  }),
   filters: { rarity: "", role: "" },
   catalogSort: "name",
   collectionSort: "rarity",
@@ -166,6 +170,20 @@ const ui = {
   mahjongHistoryPage: 1,
   mahjongHistoryData: null,
 };
+document.documentElement.dataset.rouletteMotion = ui.rouletteMotion;
+document.addEventListener("change", (ev) => {
+  if (!ev.target.matches(".roulette-motion-select")) return;
+  const mode = ev.target.value;
+  if (
+    !saveRouletteMotion(mode, {
+      setItem: (key, value) => localStorage.setItem(key, value),
+    })
+  )
+    return;
+  ui.rouletteMotion = mode;
+  document.documentElement.dataset.rouletteMotion = mode;
+  if (state) render();
+});
 let loadVersion = 0;
 const pendingMutations = new Map();
 const cardCache = new Map();
