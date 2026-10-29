@@ -10,6 +10,9 @@
 .climb-panel > .section-head {
   margin-top: 0;
 }
+html:has(.roulette-panel) {
+  scrollbar-gutter: stable;
+}
 .roulette-board {
   --wheel-roll: roulette-wheel var(--roulette-duration) linear
     var(--roulette-elapsed) both;
@@ -467,7 +470,7 @@
   .roulette-board {
     grid-row: 2 / span 4;
     grid-column: 1;
-    align-self: center;
+    align-self: start;
   }
   .roulette-outcome,
   .roulette-panel > form,
