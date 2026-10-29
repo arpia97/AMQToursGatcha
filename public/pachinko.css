@@ -29,20 +29,17 @@
   color: #8e96a6;
   margin-left: 12px;
 }
-.facet-panel,
-.coin-panel {
+.facet-panel {
   border: 1px solid #3a4551;
   border-radius: 16px;
   padding: 28px;
   background: radial-gradient(ellipse at top, #253047, #171c29 70%);
 }
-.facet-panel h2,
-.coin-panel h2 {
+.facet-panel h2 {
   margin: 8px 0;
   font-size: 24px;
 }
-.facet-panel p,
-.coin-panel > p {
+.facet-panel p {
   font-size: 12px;
   color: #aeb9cc;
   line-height: 1.7;
@@ -195,35 +192,6 @@
 .facet-start .button {
   white-space: nowrap;
 }
-.coin-panel {
-  max-width: 650px;
-}
-.coin-emblem {
-  font-size: 80px;
-  color: #e7d9a1;
-  float: right;
-  margin: 0 15px;
-}
-.coin-panel form {
-  max-width: 340px;
-  margin: 24px 0;
-}
-.coin-result {
-  border-top: 1px solid #53607840;
-  padding-top: 20px;
-  margin-top: 20px;
-}
-.coin-result h3 {
-  text-transform: capitalize;
-  margin: 0 0 12px;
-}
-.coin-result strong {
-  font-size: 25px;
-}
-.coin-result p {
-  font-size: 12px;
-  color: #aeb9cc;
-}
 #main > .daily-pack {
   margin-bottom: 24px;
 }
@@ -244,12 +212,10 @@
   }
 }
 @media (max-width: 600px) {
-  .facet-panel,
-  .coin-panel {
+  .facet-panel {
     padding: 18px 14px;
   }
-  .facet-panel h2,
-  .coin-panel h2 {
+  .facet-panel h2 {
     font-size: 21px;
   }
   .facet-chance strong {
@@ -286,9 +252,5 @@
   }
   .facet-nodes {
     gap: 3px;
-  }
-  .coin-emblem {
-    font-size: 50px;
-    margin: 0;
   }
 }

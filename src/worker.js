@@ -612,13 +612,18 @@ export class Game extends DurableObject {
         (path.startsWith("mahjong-") ||
           path.startsWith("gem-") ||
           path.startsWith("horse-") ||
+          path.startsWith("roulette-") ||
+          path.startsWith("climb-") ||
           path === "notice-seen" ||
           path === "gamble"))
     ) {
       if (!session) fail("Sign in to play.", 401);
       this.bursts.take("play:" + session.player);
       if (!post) {
-        e.tx(() => e.economy.horse.settleDue(session.player));
+        e.tx(() => {
+          e.economy.horse.settleDue(session.player);
+          e.economy.pachinko.settleDue(session.player);
+        });
         return json(e.gameState(session.player));
       }
       const result = e.mutate(
@@ -730,7 +735,11 @@ export class Game extends DurableObject {
       return json(e.profile(text(url.searchParams.get("id"), 100)));
     }
     if (path === "state" && !post) {
-      if (session) e.tx(() => e.economy.horse.settleDue(session.player));
+      if (session)
+        e.tx(() => {
+          e.economy.horse.settleDue(session.player);
+          e.economy.pachinko.settleDue(session.player);
+        });
       return json({
         ...e.state(session?.player),
         betaRegistration: betaRegistrationEnabled(e, this.env),

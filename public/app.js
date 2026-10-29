@@ -161,7 +161,7 @@ const ui = {
     page: 1,
   },
   pachinkoGame: "mahjong",
-  coinResult: null,
+  rouletteDraft: { choice: "red", stake: 100 },
   mahjongHistoryOpen: false,
   mahjongHistoryPage: 1,
   mahjongHistoryData: null,
@@ -402,6 +402,8 @@ const pachinkoUI = createPachinkoUI({
   ui,
   mahjong: () => mahjongUI.render({ embedded: true }),
   horse: () => horseUI.render(),
+  now: () => Date.now() + clockOffset,
+  onFinish: () => refreshCurrent(),
 });
 const features = createFeatures(
   {
@@ -905,6 +907,7 @@ function render() {
   }
   tickCountdowns();
   horseUI.mount();
+  pachinkoUI.mount();
   document.title = title + " · AMQ Tours Gatcha";
 }
 async function api(path, body, key) {
@@ -946,7 +949,7 @@ async function refresh() {
     ui.shopBatchReview = null;
     pendingBatchSale = null;
     workshop.clear();
-    ui.coinResult = null;
+    ui.rouletteDraft = { choice: "red", stake: 100 };
     ui.mahjongHistoryData = null;
     ui.mahjongHistoryOpen = false;
     ui.mahjongHistoryPage = 1;
@@ -1015,7 +1018,9 @@ async function execute(path, b, after, form = null) {
     if (
       (path.startsWith("mahjong-") ||
         path.startsWith("gem-") ||
-        path.startsWith("horse-")) &&
+        path.startsWith("horse-") ||
+        path.startsWith("roulette-") ||
+        path.startsWith("climb-")) &&
       err.status === 409
     ) {
       try {
@@ -1420,6 +1425,11 @@ try {
     `<div class="notice warm">${escape(err.message)}</div><a class="button" href="?demo=1">Explore the demo ↗</a>`;
 }
 
+for (const event of ["input", "change"])
+  document.addEventListener(event, (ev) => {
+    const form = ev.target.closest("#roulette-form");
+    if (form) ui.rouletteDraft = Object.fromEntries(new FormData(form));
+  });
 const titleSelect = $("#title-mode");
 titleSelect.value = titleMode;
 titleSelect.addEventListener("change", () => {
@@ -1453,6 +1463,27 @@ async function handleFeatureClick(a, t) {
     if (a === "pachinko-game") {
       ui.pachinkoGame = t.dataset.game;
       render();
+      return true;
+    }
+    if (a === "roulette-refresh") {
+      await refreshCurrent();
+      return true;
+    }
+    if (a === "climb-start" || a === "climb-choose") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      await execute(
+        a,
+        a === "climb-start"
+          ? { previousGame: state.climb?.id ?? null }
+          : {
+              game: Number(t.dataset.game),
+              version: Number(t.dataset.version),
+              option: Number(t.dataset.option),
+            },
+      );
       return true;
     }
     if (a?.startsWith("horse-")) {
@@ -1852,19 +1883,21 @@ async function handleFeatureSubmit(f, b) {
     }
     return true;
   }
-  if (formIdentifier(f) === "coin-form") {
+  if (formIdentifier(f) === "roulette-form") {
     if (!state.me) {
       auth();
       return true;
     }
+    ui.rouletteDraft = { choice: b.choice, stake: b.stake };
     await execute(
-      "gamble",
-      { game: "coin", choice: b.choice, stake: Number(b.stake) },
-      (r) => {
-        ui.coinResult = r;
-        render();
-        toast(r.message);
+      "roulette-start",
+      {
+        previousGame: state.roulette?.id ?? null,
+        choice: b.choice,
+        stake: Number(b.stake),
       },
+      null,
+      f,
     );
     return true;
   }

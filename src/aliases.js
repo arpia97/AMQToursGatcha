@@ -205,6 +205,7 @@ export class AliasSync {
       "mahjong_games",
       "gem_games",
       "horse_games",
+      "pachinko_games",
       "player_notices",
       "profile_showcase",
       "profile_anime",

@@ -769,6 +769,7 @@ export class Engine {
         "mahjong_games",
         "gem_games",
         "horse_games",
+        "pachinko_games",
         "player_notices",
         "profile_showcase",
         "profile_anime",
@@ -830,6 +831,7 @@ export class Engine {
       mahjong: this.economy.mahjong.state(id),
       gem: this.economy.gem.read(id),
       horseRace: this.economy.horse.view(id),
+      ...this.economy.pachinko.view(id),
       notices,
       ledger: this.all(
         "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
@@ -913,6 +915,7 @@ export class Engine {
       mahjong: this.economy.mahjong.state(id),
       gem: id ? this.economy.gem.read(id) : null,
       horseRace: id ? this.economy.horse.view(id) : null,
+      ...this.economy.pachinko.view(id),
       notices,
       catalog,
       auctions,

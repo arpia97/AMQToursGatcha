@@ -9,6 +9,7 @@ import { GemFaceting } from "./gem.js";
 import { HorseRacing } from "./horse-racing.js";
 import { CardManagement } from "./card-management.js";
 import { PlayerNotices } from "./notices.js";
+import { Pachinko } from "./pachinko.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -63,6 +64,7 @@ export class Economy {
     this.horse = new HorseRacing(e);
     this.cards = new CardManagement(e);
     this.notices = new PlayerNotices(e);
+    this.pachinko = new Pachinko(e);
   }
   fundStarters() {
     for (const p of this.e.all(
@@ -412,6 +414,8 @@ export class Economy {
     const managed = this.cards.action(player, action, b);
     if (managed) return managed;
     if (action === "notice-seen") return this.notices.seen(player, b.ids);
+    const pachinko = this.pachinko.action(player, action, b);
+    if (pachinko) return pachinko;
     const gem = this.gem.action(player, action, b);
     if (gem) return gem;
     const horse = this.horse.action(player, action, b);
@@ -619,40 +623,8 @@ export class Economy {
         level: 1,
       };
     }
-    if (action === "gamble") {
-      if (b.game !== "coin")
-        fail("This game has been retired. Visit Pachinko instead.", 410);
-      const stake = integer(b.stake, 1, 1000000);
-      if (!["heads", "tails"].includes(b.choice))
-        fail("Choose heads or tails.");
-      e.wallet(player, -stake, "Coin flip: bet");
-      const outcome = e.rand(2) === 0 ? "heads" : "tails",
-        won = outcome === b.choice,
-        payout = won ? Math.floor(stake * 1.75) : 0;
-      if (payout) e.wallet(player, payout, "Coin flip: win");
-      e.run(
-        "INSERT INTO gambling_rounds(player,game,stake,payout,net,outcome,at) VALUES(?,'coin',?,?,?,?,?)",
-        player,
-        stake,
-        payout,
-        payout - stake,
-        JSON.stringify(outcome),
-        now,
-      );
-      return {
-        message: won
-          ? "You won " +
-            payout.toLocaleString("en-US") +
-            " credits (including your bet)."
-          : "The coin landed " + outcome + ". No payout.",
-        game: "coin",
-        outcome,
-        won,
-        stake,
-        payout,
-        net: payout - stake,
-      };
-    }
+    if (action === "gamble")
+      fail("Coin Flip has been replaced by Roulette.", 410);
     return null;
   }
   market(venue = "shop", kind = "character", page = 1) {
@@ -758,6 +730,7 @@ export class Economy {
     e.run("DELETE FROM mahjong_games WHERE player=?", player);
     e.run("DELETE FROM gem_games WHERE player=?", player);
     e.run("DELETE FROM horse_games WHERE player=?", player);
+    e.run("DELETE FROM pachinko_games WHERE player=?", player);
     e.run("DELETE FROM player_notices WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);

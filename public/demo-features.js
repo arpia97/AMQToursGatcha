@@ -22,6 +22,7 @@ import {
   nextFacetChance,
 } from "./gem-rules.js";
 import { fusionQuote } from "./fusion-rules.js";
+import { demoPachinko } from "./demo-pachinko.js";
 import {
   fusionOutcomesPage,
   fusionTarget,
@@ -47,6 +48,8 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.betaRegistration = true;
+  const newGame = demoPachinko(d, path, b);
+  if (newGame !== undefined) return newGame;
   const racing = s.horseRace;
   if (racing?.status === "running" && now >= racing.endsAt) {
     const result = horsePayout(racing.tickets, racing.order, racing.field);
@@ -1010,31 +1013,7 @@ export function demoFeatures(d, path, b) {
       level: l.level || 1,
     };
   }
-  if (path === "gamble") {
-    if (b.game !== "coin") throw Error("This game is retired.");
-    if (
-      !Number.isSafeInteger(b.stake) ||
-      b.stake < 1 ||
-      b.stake > 1000000 ||
-      !["heads", "tails"].includes(b.choice)
-    )
-      throw Error("Choose a valid coin bet.");
-    d.wallet(-b.stake, "Demo coin bet");
-    const outcome = Math.random() < 0.5 ? "heads" : "tails",
-      won = outcome === b.choice,
-      payout = won ? Math.floor(b.stake * 1.75) : 0;
-    if (payout) d.wallet(payout, "Demo coin win");
-    const result = {
-      game: "coin",
-      outcome,
-      won,
-      stake: b.stake,
-      payout,
-      net: payout - b.stake,
-    };
-    s.gambling ||= [];
-    s.gambling.push(result);
-    return { ...result, message: won ? "Coin flip won." : "Coin flip lost." };
-  }
+  if (path === "gamble")
+    throw Error("Coin Flip has been replaced by Roulette.");
   return undefined;
 }

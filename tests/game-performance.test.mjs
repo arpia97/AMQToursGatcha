@@ -85,8 +85,8 @@ test("compact game snapshots preserve wallet/history/privacy without loading cat
   assert.deepEqual(snapshot.mahjong, result.mahjong);
   assert.equal("wall" in snapshot.mahjong, false);
   assert.equal(snapshot.ledger[0].delta, -50);
-  // One bounded, indexed inbox lookup accompanies the six existing game reads.
-  assert.ok(queries.length <= 7);
+  // Inbox and the two new games each use one bounded, indexed row lookup.
+  assert.ok(queries.length <= 8);
   assert.deepEqual(snapshot.notices, []);
   assert.equal(
     queries.some((q) =>
@@ -121,12 +121,16 @@ test("game patch keeps shared collection data, ignores stale snapshots and rejec
     catalog: [{ id: "a" }],
     mahjong: { id: 2, version: 3 },
     gem: null,
+    roulette: { id: 3, version: 0, status: "spinning" },
+    climb: { id: 4, version: 8, height: 10 },
   };
   const update = {
     now: 20,
     me: { id: "p", balance: 50 },
     mahjong: { id: 2, version: 4 },
     gem: null,
+    roulette: { id: 3, version: 1, status: "complete" },
+    climb: { id: 4, version: 9, height: 15 },
     ledger: [],
     auctionWins: [],
   };
@@ -134,6 +138,13 @@ test("game patch keeps shared collection data, ignores stale snapshots and rejec
   assert.equal(next.me.balance, 50);
   assert.equal(next.inventory, state.inventory);
   assert.equal(next.catalog, state.catalog);
+  assert.equal(next.roulette.status, "complete");
+  assert.equal(next.climb.height, 15);
+  for (const kind of ["roulette", "climb"])
+    assert.equal(
+      applyGameState(next, { ...update, now: 21, [kind]: state[kind] }),
+      next,
+    );
   assert.equal(next.now, 10); // Shared deadline polling still uses the full snapshot's timestamp.
   assert.equal(applyGameState(next, { ...update, now: 19 }), next);
   assert.equal(

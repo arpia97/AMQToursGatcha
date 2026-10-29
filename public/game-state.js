@@ -3,7 +3,7 @@
 export function applyGameState(state, update) {
   if (!state?.me || update?.me?.id !== state.me.id) return null;
   if (update.now < (state.gameUpdatedAt ?? state.now)) return state;
-  for (const kind of ["mahjong", "gem", "horseRace"]) {
+  for (const kind of ["mahjong", "gem", "horseRace", "roulette", "climb"]) {
     const old = state[kind],
       next = update[kind];
     if (
@@ -20,6 +20,8 @@ export function applyGameState(state, update) {
     mahjong: update.mahjong,
     gem: update.gem,
     horseRace: update.horseRace,
+    roulette: update.roulette,
+    climb: update.climb,
     notices: update.notices,
     ledger: update.ledger,
     auctionWins: update.auctionWins,

@@ -106,7 +106,9 @@ The real AMQ Tours player/alias registry is **not committed to this public repos
 
 ## Gameplay request costs
 
-Mahjong, faceting and coin-flip mutations return a compact authenticated `gameState` snapshot with the current wallet, games, recent ledger and pending auction wins. The browser applies it directly; it does not reload the catalogue, collection, rankings or shared shop after each move. Pachinko's periodic/focus refresh uses `GET /api/game-state`; shared data refreshes when leaving the game room. Hidden Mahjong walls never enter either response.
+Mahjong, faceting, horse-racing, roulette and climbing mutations return a compact authenticated `gameState` snapshot with the current wallet, games, recent ledger and pending auction wins. The browser applies it directly; it does not reload the catalogue, collection, rankings or shared shop after each move. Pachinko's periodic/focus refresh uses `GET /api/game-state`; shared data refreshes when leaving the game room. Hidden Mahjong walls never enter either response.
+
+Roulette replaces Coin Flip: 18 red, 18 black and one green pocket, paying gross 2× for red/black or 35× for green. Mountain Climbing costs 500 credits for ten choices and pays 18 credits per final height step. Saved offers and pending spins survive refresh; animations run locally. See [PACHINKO-GAMES.md](PACHINKO-GAMES.md) for exact odds, balance calculations, persistence and API details.
 
 The former 120-actions-per-15-minutes gameplay limit is removed. A per-player in-memory token bucket permits a burst of 30 requests and replenishes 6 per second; it protects against accidental request floods without a long gameplay lockout. Search has a separate 60-request burst, replenishing 5 per second, scoped to the signed-in player or anonymous IP. These guards return a short `Retry-After`; persistent login/registration brute-force protection remains unchanged. Resource-budget counters checkpoint in batches rather than writing on every poll. Economic writes, receipts and game state remain durable and atomic.
 
