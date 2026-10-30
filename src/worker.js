@@ -1,6 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
+import {
+  registrationForwarding,
+  registrationPolicy,
+} from "./registration-forwarding.js";
 import { fetchJikan, voiceCards } from "./jikan.js";
 import { JikanImport } from "./jikan-import.js";
 import { AliasSync } from "./aliases.js";
@@ -782,12 +786,19 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
+      if (
+        url.pathname === "/api/registration-policy" &&
+        request.method === "GET"
+      )
+        return json(registrationPolicy);
       const size = Number(request.headers.get("Content-Length") || 0);
       if (size > 1000000) return json({ error: "Request too large." }, 413);
+      const forwarded = await registrationForwarding(request, env);
+      if (forwarded instanceof Response) return forwarded;
       try {
         return await env.GAME.get(
           env.GAME.idFromName("amqtours-economy-v1"),
-        ).fetch(request);
+        ).fetch(forwarded);
       } catch (err) {
         const limited = storageQuotaResponse(err);
         if (limited) return limited;
