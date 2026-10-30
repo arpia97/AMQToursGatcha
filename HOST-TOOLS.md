@@ -22,7 +22,7 @@ id,name,aliases
 
 IDs are strings: leading zeros are preserved. A player is identified by the stable AMQ Tours ID, never by a mutable username. Imports preserve wallets, cards, account access, username history, and previously imported aliases. Any conflict with another player's alias or username history rejects the entire import. A new authoritative AMQ alias that collides with a username needs explicit identity resolution; the importer does not reassign it silently.
 
-Issue a one-use registration code from Players & access. A registered player can log in with an AMQ ID or imported alias. Host account-access reset issues a new registration code and revokes sessions, while preserving gameplay. This differs from the destructive **Reset tools** tab.
+New players register with an imported AMQ Tours ID or alias and a password; no registration code is required. Players & access retains one-use recovery codes for password resets and reserved privileged identities. Host account-access reset revokes sessions while preserving gameplay; the player uses Recover account access to set a new password. This differs from the destructive **Reset tools** tab.
 
 ## Activity counts and pick’ems
 
@@ -102,7 +102,7 @@ All paths start with `/api/host/`. GET `state` reads console data; all other lis
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `players`       | `{"players":[{"id":"00123","name":"Example","aliases":["old"]}]}`                                                                                                                                |
 | `invite`        | `{"player":"00123"}` → one-use code (valid seven days)                                                                                                                                           |
-| `reset`         | `{"player":"00123"}` → revoke account access, issue new registration code                                                                                                                        |
+| `reset`         | `{"player":"00123"}` → revoke account access, issue new recovery code                                                                                                                            |
 | `grant`         | `{"player":"00123","amount":100,"reason":"counting","event":"tour42","note":"Tour 42"}`                                                                                                          |
 | `pickem-winner` | `{"name":"Usual","teams":["Team A","Team B","Team C","Team D"],"winnerReward":500}`                                                                                                              |
 | `settle`        | `{"pickem":1,"winner":"Team C","expectedTeams":"[\"Team A\",\"Team B\",\"Team C\",\"Team D\"]"}`                                                                                                 |
@@ -143,7 +143,7 @@ Public pages: `/api/market?venue=shop|auction&kind=character|seiyuu&page=1`, `/a
 
 ## Administrator accounts
 
-The protected `POST /api/host/admin-account` accepts `{player, password}` (optional `name`) and creates the administrator only for the unregistered canonical arpia97 ID 368. Other IDs are rejected. It does not overwrite existing passwords or grant privileges through ordinary registration. Administrator passwords support 8–256 characters; one-use-code registration still requires 12. Passwords are salted and hashed. Sessions are HttpOnly and SameSite Strict. Locking an account-based console signs out that session. Gameplay resets retain administrator roles; deleting the entire registry also deletes administrator accounts, so retain the independent deployment token for recovery.
+The protected `POST /api/host/admin-account` accepts `{player, password}` (optional `name`) and creates the administrator only for the unregistered canonical arpia97 ID 368. Other IDs are rejected. It does not overwrite existing passwords or grant privileges through ordinary registration. Administrator passwords support 8–256 characters; one-use recovery still requires 12. Passwords are salted and hashed. Sessions are HttpOnly and SameSite Strict. Locking an account-based console signs out that session. Gameplay resets retain administrator roles; deleting the entire registry also deletes administrator accounts, so retain the independent deployment token for recovery.
 
 ## Seiyuu import controls (Tenrai)
 

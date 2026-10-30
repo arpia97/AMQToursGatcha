@@ -1,9 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
-import {
-  betaRegistrationEnabled,
-  registrationAllowed,
-} from "./registration.js";
+import { registrationAllowed } from "./registration.js";
 import { fetchJikan, voiceCards } from "./jikan.js";
 import { JikanImport } from "./jikan-import.js";
 import { AliasSync } from "./aliases.js";
@@ -538,9 +535,7 @@ export class Game extends DurableObject {
       if (path === "register") {
         const invite = await digest(String(b.code || "").trim()),
           hash = await passwordHash(b.password);
-        const betaMatches =
-          !!this.env.BETA_REGISTRATION_CODE &&
-          equal(invite, await digest(this.env.BETA_REGISTRATION_CODE));
+
         e.tx(() => {
           const current = p
             ? e.one("SELECT * FROM players WHERE id=?", p.id)
@@ -549,11 +544,17 @@ export class Game extends DurableObject {
             !registrationAllowed(
               current,
               equal(current?.invite, invite),
-              betaMatches && betaRegistrationEnabled(e, this.env),
               Date.now(),
             )
           )
-            fail("Invalid or expired registration code.", 401);
+            fail(
+              !current
+                ? "Choose a registered AMQ Tours player ID or alias."
+                : current.password
+                  ? "This player already has an account. Sign in or recover account access."
+                  : "A valid one-use recovery code is required for this account.",
+              401,
+            );
           e.run(
             "UPDATE players SET password=?,invite=NULL,invite_expires=NULL,access_reset=0 WHERE id=?",
             hash,
@@ -742,7 +743,8 @@ export class Game extends DurableObject {
         });
       return json({
         ...e.state(session?.player),
-        betaRegistration: betaRegistrationEnabled(e, this.env),
+        betaRegistration: false,
+        openRegistration: true,
       });
     }
     if (!session) fail("Sign in to use credits and collect cards.", 401);

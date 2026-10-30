@@ -607,19 +607,10 @@ export class Engine {
       );
       return { message: "Results published and rewards distributed." };
     }
-    if (action === "beta-registration") {
-      if (typeof b.enabled !== "boolean")
-        fail("Choose whether shared beta registration is enabled.");
-      this.run(
-        "UPDATE settings SET value=? WHERE key='beta_registration_enabled'",
-        b.enabled ? 1 : 0,
+    if (action === "beta-registration")
+      fail(
+        "Registration codes are no longer required. Refresh the host console.",
       );
-      return {
-        message: b.enabled
-          ? "Shared beta registration enabled."
-          : "Shared beta registration disabled. One-use codes still work.",
-      };
-    }
     if (action === "settings") {
       for (const kind of ["character", "seiyuu"])
         if (b["premium_" + kind] !== undefined)

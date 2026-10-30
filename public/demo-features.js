@@ -51,7 +51,8 @@ export function demoFeatures(d, path, b) {
   const s = d.s,
     me = s.me,
     now = Date.now();
-  s.betaRegistration = true;
+  s.betaRegistration = false;
+  s.openRegistration = true;
   const newGame = demoPachinko(d, path, b);
   if (newGame !== undefined) return newGame;
   const racing = s.horseRace;

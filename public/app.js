@@ -1,3 +1,4 @@
+import { authFormHTML } from "./auth-form.js";
 import {
   SITE_ROUTES,
   resolvePage,
@@ -1056,10 +1057,8 @@ async function execute(path, b, after, form = null) {
     showAuctionWin();
   }
 }
-function auth(register = false) {
-  modal(
-    `<h2>${register ? "Welcome to the Club." : "Good to See You Again."}</h2><p>${register ? (state.betaRegistration ? "We’re in beta. Use the shared beta registration code supplied by the host to link your AMQ Tours ID." : "Use the one-use registration code provided by your host. Your account links to your existing AMQ Tours ID.") : "Sign in with your AMQ Tours ID or an imported alias."}</p><div class="tabs"><button class="tab ${register ? "" : "active"}" data-action="signin-form">Sign in</button><button class="tab ${register ? "active" : ""}" data-action="register-form">Register</button></div><form id="auth-form" class="stack"><input type="hidden" name="mode" value="${register ? "register" : "login"}"><label>AMQ player ID or alias<input name="player" required autocomplete="username" maxlength="100"></label>${register ? '<label>Registration code<input name="code" required autocomplete="off"></label>' : ""}<label>Password<input type="password" name="password" required minlength="${register ? 12 : 8}" maxlength="256" autocomplete="${register ? "new-password" : "current-password"}"></label><div class="form-error" role="alert"></div><button type="submit" class="button full">${register ? "Create account" : "Sign in"} →</button><span class="form-hint">${register ? "Use at least 12 characters." : "Need account access or a password reset? Ask your tour host."}</span></form>`,
-  );
+function auth(register = false, recovery = false) {
+  modal(authFormHTML(recovery ? "recover" : register ? "register" : "login"));
 }
 function account() {
   if (!state.me) {
@@ -1142,6 +1141,10 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "signin-form") {
     auth();
+    return;
+  }
+  if (a === "recovery-form") {
+    auth(true, true);
     return;
   }
   if (a === "register-form") {
