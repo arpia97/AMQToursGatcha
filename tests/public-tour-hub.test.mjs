@@ -10,6 +10,7 @@ test('public hub proxies only allowlisted assets and draft routes; secrets and h
   assert.equal((await publicTourHub(new Request(base+'/api/tour-hub/host/blacklists'),env,fetcher)).status,404);
   assert.equal(await publicTourHub(new Request(base+'/api/account'),env,fetcher),null);
   await publicTourHub(new Request(base+'/tours/portal/styles.css',{headers:{Cookie:`amq_session=${token}`}}),env,fetcher);assert.equal(seen.init.headers.get('cookie'),null);
+  await publicTourHub(new Request(base+'/tours/'),env,fetcher);assert.ok(seen.url.endsWith('/tour-hub/'),'Use the canonical directory URL to avoid an HTML asset redirect');
 });
 test('public hub blocks cross-origin/host writes, oversized bodies and service redirects',async()=>{
   let calls=0;const fetcher=async()=>{calls++;return Response.json({ok:true});};

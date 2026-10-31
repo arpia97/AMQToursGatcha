@@ -29,7 +29,7 @@ export async function publicTourHub(request,env,fetcher=fetch) {
   }else{
     if(!['GET','HEAD'].includes(request.method))return json({error:'Method Not Allowed.'},405);
     const name=url.pathname.slice('/tours/'.length);
-    if(name===''||name==='index.html')target='/tour-hub/index.html';
+    if(name===''||name==='index.html')target='/tour-hub/';
     else if(name==='hub.js')target='/tour-hub/hub.js';
     else if(name.startsWith('portal/')&&modules.has(name.slice(7)))target='/portal/'+name.slice(7);
     else return json({error:'Page Not Found.'},404);
