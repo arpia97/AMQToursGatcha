@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
+import { inspectEconomyRepair, applyEconomyRepair } from "./economy-repair.js";
 import {
   registrationForwarding,
   registrationPolicy,
@@ -292,6 +293,9 @@ export class Game extends DurableObject {
           "host/mahjong-revert",
           "host/mahjong-reversal-preview",
           "host/mahjong-reversal-receipt",
+          "host/economy-repair-preview",
+          "host/economy-repair",
+          "host/economy-repair-receipt",
         ].includes(path) ||
         (path === "host/reset-all" && b.deleteRegistry) ||
         (["host/reset", "host/invite"].includes(path) &&
@@ -308,6 +312,35 @@ export class Game extends DurableObject {
             () => e.setHostAccess("368", b),
           ),
         );
+      }
+      if (
+        ["host/economy-repair-preview", "host/economy-repair"].includes(path) &&
+        post
+      ) {
+        const { digest: expected, ...plan } = b;
+        const actual = await digest(JSON.stringify(plan));
+        if (actual !== expected)
+          fail("Repair digest does not match the reviewed manifest.", 409);
+        requireOwner();
+        if (path.endsWith("-preview"))
+          return json(e.tx(() => inspectEconomyRepair(e, plan)));
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        if (key !== plan.repairId)
+          fail("Use the repair ID as the idempotency key.");
+        const bookmark = await this.ctx.storage.getCurrentBookmark();
+        requireOwner();
+        return json(
+          e.mutate("host:economy-repair", key, b, () =>
+            applyEconomyRepair(e, plan, actual, bookmark),
+          ),
+        );
+      }
+      if (path === "host/economy-repair-receipt" && !post) {
+        const saved = e.one(
+          "SELECT result FROM receipts WHERE scope='host:economy-repair' AND key=?",
+          text(url.searchParams.get("id"), 100),
+        );
+        return json({ result: saved ? JSON.parse(saved.result) : null });
       }
       if (path === "host/mahjong-reversal-preview" && !post)
         return json(

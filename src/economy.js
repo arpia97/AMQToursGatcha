@@ -701,7 +701,7 @@ export class Economy {
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game!='mahjong-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
     return { metric, page, rows: rows.slice(0, 50), hasMore: rows.length > 50 };
