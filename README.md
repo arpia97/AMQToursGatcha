@@ -139,3 +139,7 @@ Mahjong retains detailed state for the latest 50 games per player, including the
 ### Shared Tour Portal Identity
 
 `GET /api/account` verifies the existing session and returns only canonical ID, latest display name, aliases and current host/owner flags. It does not claim daily rewards, settle games, read catalogue pages or change balances. The host portal signs in/registers against the same central account database and joins imported tour history by ID; no password/credit/catalogue migration is performed.
+
+### Public Tour Signups and Drafts
+
+The `play` alias Worker serves `/tours/` and `/api/tour-hub` through an explicit allowlist to the private Host Site public-draft projection. Configure `TOUR_HOST_SERVICE_TOKEN` as a Worker secret; it is never included in browser responses or source. Existing `amq_session` identity is forwarded server-side for signup/current-captain authorization. Archive, blacklists, report uploads and host mutations are not proxy targets. The original `amqtours-gatcha` Worker, economy binding and catalogue remain unchanged.
