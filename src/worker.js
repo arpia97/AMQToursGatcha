@@ -642,6 +642,11 @@ export class Game extends DurableObject {
         "Set-Cookie": cookie("", secure, 0),
       });
     }
+    // Shared identity only: the tour portal must not load games, claim rewards,
+    // settle auctions or scan the catalogue just to verify an account.
+    if (path === "account" && !post) {
+      return json({ account: e.account(session?.player) });
+    }
     // Paid game moves never need catalogue, inventory, auction settlement or
     // global rankings. Keep their authoritative wallet/state response small.
     if (

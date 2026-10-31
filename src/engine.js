@@ -143,6 +143,18 @@ export class Engine {
     if (!p) fail("Unknown AMQ player ID.", 404);
     return { ...p, role: p.is_admin ? "Host" : null };
   }
+  account(id) {
+    if (!id) return null;
+    const player = this.player(id);
+    return {
+      id: player.id,
+      name: player.name,
+      host: !!player.is_admin,
+      owner: player.id === "368",
+      aliases: this.all("SELECT alias FROM aliases WHERE player=? ORDER BY alias", id)
+        .map((row) => row.alias),
+    };
+  }
   hostIdentity(hash) {
     return (
       this.one(
