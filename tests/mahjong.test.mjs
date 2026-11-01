@@ -1023,12 +1023,13 @@ test("host Mahjong reversal restores net costs once, preserves other games/earne
   assert.throws(() => e.tx(() => e.host("mahjong-revert", input)), /changed/);
 });
 
-test("new pricing charges500/50 and refunds the saved entry fee for new and pre-change hands without replaying refunds", (t) => {
+test("pricing charges500/75 and refunds the saved entry fee for new and pre-change hands without replaying refunds", (t) => {
   const f = fixture(t),
     { e, act } = f,
     before = e.player("p").balance;
   const g = f.start();
   assert.equal(g.cost, 500);
+  assert.equal(MAHJONG_DISCARD, 75);
   assert.equal(g.entryFee, 500);
   assert.equal(e.player("p").balance, before - 500);
   f.save({
@@ -1040,10 +1041,10 @@ test("new pricing charges500/50 and refunds the saved entry fee for new and pre-
   });
   const body = { game: g.id, version: 0, index: 13 },
     ended = act("mahjong-discard", body, "new-price").mahjong;
-  assert.equal(ended.cost, 550);
+  assert.equal(ended.cost, 575);
   assert.equal(ended.refund, 500);
   assert.match(act("mahjong-discard", body, "new-price").message, /500-credit/);
-  assert.equal(e.player("p").balance, before - 50);
+  assert.equal(e.player("p").balance, before - 75);
   const old = f.start();
   f.save({ ...pinfu(), id: old.id, wall: [8] });
   const legacyBefore = e.player("p").balance;
@@ -1052,9 +1053,9 @@ test("new pricing charges500/50 and refunds the saved entry fee for new and pre-
     version: 0,
     index: 13,
   }).mahjong;
-  assert.equal(legacy.cost, 1050);
+  assert.equal(legacy.cost, 1075);
   assert.equal(legacy.refund, 1000);
-  assert.equal(e.player("p").balance, legacyBefore - 50 + 1000);
+  assert.equal(e.player("p").balance, legacyBefore - 75 + 1000);
   const explicit = f.start();
   f.save({ ...pinfu(), id: explicit.id, entryFee: 500, cost: 500, wall: [] });
   const settled = act("mahjong-end", { game: explicit.id, version: 0 });

@@ -8,8 +8,8 @@ const HELP = {
     </ul>
     <h3>Gameplay &amp; Actions</h3>
     <ul>
-      <li><strong>Discard &amp; Draw:</strong> Costs 50 credits per tile. Click a tile twice or use the button to discard it and draw a new one. Discarding advances both your turn and the opponents' wall consumption.</li>
-      <li><strong>Riichi:</strong> Costs 1,000 credits plus the 50-credit replacement fee. Requires a closed hand in tenpai with at least 4 live tiles remaining. Locks your hand to automatic discards, unlocks ura-dora on a win, and enables Double Riichi (2 han) on turn 1 or Ippatsu (1 han) on your next draw. The 1,000-credit stake is returned only if you win.</li>
+      <li><strong>Discard &amp; Draw:</strong> Costs 75 credits per tile. Click a tile twice or use the button to discard it and draw a new one. Discarding advances both your turn and the opponents' wall consumption.</li>
+      <li><strong>Riichi:</strong> Costs 1,000 credits plus the 75-credit replacement fee. Requires a closed hand in tenpai with at least 4 live tiles remaining. Locks your hand to automatic discards, unlocks ura-dora on a win, and enables Double Riichi (2 han) on turn 1 or Ippatsu (1 han) on your next draw. The 1,000-credit stake is returned only if you win.</li>
       <li><strong>Kan (Concealed):</strong> Formed with 4 identical held tiles. Grants a free dead-wall draw, reveals a new dora indicator, and enables <em>Rinshan kaihou</em> (after Riichi, it is allowed only if it doesn't alter your hand structure/waits).</li>
     </ul>
     <h3>Scoring &amp; Hand Rules</h3>

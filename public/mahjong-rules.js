@@ -8,7 +8,7 @@ import {
 } from "./vendor/mahjong-scoring.js";
 
 export const MAHJONG_START = 500;
-export const MAHJONG_DISCARD = 50;
+export const MAHJONG_DISCARD = 75;
 export const MAHJONG_RIICHI = 1000;
 // Hands saved before per-hand entry fees existed were charged 1,000.
 export const mahjongEntryFee = (game) => game?.entryFee ?? 1000;
