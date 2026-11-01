@@ -151,8 +151,10 @@ export class Engine {
       name: player.name,
       host: !!player.is_admin,
       owner: player.id === "368",
-      aliases: this.all("SELECT alias FROM aliases WHERE player=? ORDER BY alias", id)
-        .map((row) => row.alias),
+      aliases: this.all(
+        "SELECT alias FROM aliases WHERE player=? ORDER BY alias",
+        id,
+      ).map((row) => row.alias),
     };
   }
   hostIdentity(hash) {
@@ -768,6 +770,7 @@ export class Engine {
         "auctions",
         "weekly_shop",
         "market_listings",
+        "trade_offer_cards",
         "trade_offers",
         "trade_listings",
         "gambling_rounds",

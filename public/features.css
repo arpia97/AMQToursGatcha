@@ -2454,3 +2454,69 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   color: var(--text);
   font: inherit;
 }
+
+.trade-bundle {
+  margin: 20px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #13151c;
+}
+.trade-bundle .section-head {
+  margin: 0 0 12px;
+}
+.trade-bundle .section-head h3 {
+  font-size: 14px;
+}
+.trade-bundle-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.trade-bundle-item .trade-card-mini {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+}
+.trade-bundle-item .trade-card-mini img {
+  width: 36px;
+  height: 50px;
+}
+.trade-bundle-controls {
+  display: flex;
+  gap: 8px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.trade-bundle-controls label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.trade-bundle-controls select {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #171820;
+  color: var(--text);
+  font: inherit;
+}
+.trade-bundle-controls .button {
+  padding: 9px 12px;
+  font-size: 11px;
+}
+.trade-picker-card:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+@media (max-width: 650px) {
+  .trade-bundle-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .trade-bundle-controls {
+    justify-content: flex-end;
+  }
+}

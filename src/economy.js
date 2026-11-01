@@ -734,7 +734,8 @@ export class Economy {
   completion(player) {
     const e = this.e,
       rows = e.all(
-        "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT card FROM trade_offers WHERE proposer=? AND status='open'",
+        "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT o.card FROM trade_offers o WHERE o.proposer=? AND o.status='open' UNION SELECT c.card FROM trade_offer_cards c JOIN trade_offers o ON o.id=c.offer WHERE o.proposer=? AND o.status='open'",
+        player,
         player,
         player,
         player,

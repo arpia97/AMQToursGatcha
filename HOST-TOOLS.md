@@ -199,8 +199,8 @@ GET `/api/trades?view=browse|listings|offers&page=1` returns 12 listings per pag
 POST actions use the existing authenticated, same-origin, idempotent mutation flow:
 
 - `trade-list`: `{card, variant: "extra"|"card", expectedLevel}`.
-- `trade-offer`: same copy fields plus `{listing}`.
+- `trade-offer`: `{listing, cards: [{card, variant: "extra"|"card", expectedLevel}, ...]}` with 1–10 physical copies. Repeated cards may use available spare copies plus at most one base card. Legacy single-copy payloads remain accepted.
 - `trade-accept`, `trade-decline`, `trade-withdraw`: `{offer}`.
 - `trade-cancel`: `{listing}`.
 
-Listing and offer copies are escrowed. Only the lister can accept/decline; only an offer owner can withdraw. Cancellation returns all cards, acceptance returns losing offers, and account resets return unaffected players’ held cards. No credits are charged. Catalogue, accounts, passwords and import cursors are unaffected by this additive schema.
+The listing copy and every offered copy are escrowed atomically. Offer responses include a `cards` array with the level of every held copy; older one-card rows are read without rewriting their escrow. Only the lister can accept/decline; only an offer owner can withdraw. Cancellation returns all cards, acceptance returns losing offers, and account resets return unaffected players’ held cards. No credits are charged. Catalogue, accounts, passwords and import cursors are unaffected by this additive schema.

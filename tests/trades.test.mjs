@@ -62,6 +62,180 @@ function fixture(t) {
     });
   return { e, db, act, card, inv, list, offer };
 }
+test("multi-card offers exchange mixed types and enhanced/spare duplicates atomically and refund every losing copy", (t) => {
+  const f = fixture(t),
+    e = f.e;
+  f.card("a", "one", 3);
+  f.card("b", "two", 4, 3);
+  f.card("b", "three", 2);
+  f.card("c", "one", 2);
+  f.card("c", "two", 5, 2);
+  const balances = ["a", "b", "c"].map((p) => e.player(p)),
+    listing = f.list();
+  const body = {
+    listing,
+    cards: [
+      { card: "two", variant: "card", expectedLevel: 4 },
+      { card: "two", variant: "extra", expectedLevel: 1 },
+      { card: "three", variant: "card", expectedLevel: 2 },
+    ],
+  };
+  f.act("b", "trade-offer", body, "bundle");
+  f.act("b", "trade-offer", body, "bundle");
+  assert.deepEqual(f.inv("b", "two"), { copies: 1, level: 1 });
+  assert.equal(f.inv("b", "three"), undefined);
+  assert.equal(e.economy.completion("b").character.owned, 1);
+  assert.equal(e.economy.anime.progress("b", "other").owned, 1);
+  f.act("c", "trade-offer", {
+    listing,
+    cards: [
+      { card: "one", variant: "card", expectedLevel: 2 },
+      { card: "two", variant: "card", expectedLevel: 5 },
+    ],
+  });
+  const page = e.economy.trades.page("a"),
+    offer = page.items[0].offers.find((o) => o.proposer === "b");
+  assert.deepEqual(
+    offer.cards.map((c) => [c.card, c.level]),
+    [
+      ["two", 4],
+      ["two", 1],
+      ["three", 2],
+    ],
+  );
+  assert.equal(page.cards.length, 3);
+  assert.equal(e.economy.trades.page(null).cards.length, 1);
+  assert.equal(e.economy.trades.page("c").items[0].offers.length, 1);
+  f.act("a", "trade-accept", { offer: offer.id }, "accept-bundle");
+  f.act("a", "trade-accept", { offer: offer.id }, "accept-bundle");
+  assert.deepEqual(f.inv("a", "two"), { copies: 2, level: 4 });
+  assert.deepEqual(f.inv("a", "three"), { copies: 1, level: 2 });
+  assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
+  assert.deepEqual(f.inv("c", "one"), { copies: 1, level: 2 });
+  assert.deepEqual(f.inv("c", "two"), { copies: 2, level: 5 });
+  assert.deepEqual(
+    ["a", "b", "c"].map((p) => e.player(p)),
+    balances,
+  );
+  assert.throws(
+    () => f.act("a", "trade-accept", { offer: offer.id }),
+    (e) => e.status === 409,
+  );
+});
+test("invalid bundles never partially escrow copies: limits, ownership, protection, duplicate bases, stale levels and spare overdraw", (t) => {
+  const f = fixture(t);
+  f.card("a", "one", 3);
+  f.card("b", "two", 4, 3);
+  f.card("b", "three", 2);
+  const listing = f.list(),
+    base = { card: "two", variant: "card", expectedLevel: 4 },
+    extra = { card: "two", variant: "extra", expectedLevel: 1 };
+  const bad = [
+    [],
+    Array(11).fill(extra),
+    null,
+    [null],
+    [base, base],
+    [extra, extra, extra],
+    [base, { card: "one", variant: "card", expectedLevel: 3 }],
+    [base, { card: "three", variant: "card", expectedLevel: 3 }],
+  ];
+  for (const cards of bad) {
+    assert.throws(() => f.act("b", "trade-offer", { listing, cards }));
+    assert.deepEqual(f.inv("b", "two"), { copies: 3, level: 4 });
+    assert.deepEqual(f.inv("b", "three"), { copies: 1, level: 2 });
+    assert.equal(f.e.one("SELECT count(*) n FROM trade_offers").n, 0);
+  }
+  f.act("b", "protect-card", { card: "three", protected: true });
+  assert.throws(
+    () =>
+      f.act("b", "trade-offer", {
+        listing,
+        cards: [base, { card: "three", variant: "card", expectedLevel: 2 }],
+      }),
+    /protected/,
+  );
+  assert.deepEqual(f.inv("b", "two"), { copies: 3, level: 4 });
+});
+for (const action of ["trade-withdraw", "trade-decline", "trade-cancel"])
+  test(action + " returns every bundled copy once", (t) => {
+    const f = fixture(t);
+    f.card("a", "one", 3);
+    f.card("b", "two", 4, 2);
+    f.card("b", "three", 2);
+    const listing = f.list();
+    f.act("b", "trade-offer", {
+      listing,
+      cards: [
+        { card: "two", variant: "card", expectedLevel: 4 },
+        { card: "two", variant: "extra", expectedLevel: 1 },
+        { card: "three", variant: "card", expectedLevel: 2 },
+      ],
+    });
+    const offer = f.e.one("SELECT id FROM trade_offers").id,
+      p = action === "trade-withdraw" ? "b" : "a",
+      body = action === "trade-cancel" ? { listing } : { offer };
+    f.act(p, action, body, "return");
+    f.act(p, action, body, "return");
+    assert.deepEqual(f.inv("b", "two"), { copies: 2, level: 4 });
+    assert.deepEqual(f.inv("b", "three"), { copies: 1, level: 2 });
+  });
+test("old one-card escrow rows remain usable after restart and coexist with new bundles", (t) => {
+  const f = fixture(t);
+  f.card("a", "one", 3);
+  f.card("b", "two", 4);
+  const listing = f.list();
+  f.e.tx(() => {
+    const level = f.e.economy.take("b", "two", "card");
+    f.e.run(
+      "INSERT INTO trade_offers(listing,proposer,card,level,created_at,updated_at) VALUES(?,?,?,?,1,1)",
+      listing,
+      "b",
+      "two",
+      level,
+    );
+  });
+  const restarted = new Engine(
+    (sql, ...args) => f.db.prepare(sql).all(...args),
+    (fn) => fn(),
+  );
+  const offer = restarted.economy.trades.page("a").items[0].offers[0];
+  assert.deepEqual(offer.cards, [{ card: "two", level: 4 }]);
+  f.act("a", "trade-accept", { offer: offer.id });
+  assert.deepEqual(f.inv("a", "two"), { copies: 1, level: 4 });
+  assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
+});
+test("bundle transfer failures roll back all copies; resetting the lister refunds whole bundles to unaffected offerers", (t) => {
+  const f = fixture(t);
+  f.card("a", "one", 3);
+  f.card("b", "two", 4);
+  f.card("b", "three", 2);
+  const listing = f.list();
+  f.act("b", "trade-offer", {
+    listing,
+    cards: [
+      { card: "two", variant: "card", expectedLevel: 4 },
+      { card: "three", variant: "card", expectedLevel: 2 },
+    ],
+  });
+  const offer = f.e.one("SELECT id FROM trade_offers").id;
+  const original = f.e.economy.acquire.bind(f.e.economy);
+  let calls = 0;
+  f.e.economy.acquire = (...args) => {
+    if (++calls === 3) throw Error("third transfer failure");
+    return original(...args);
+  };
+  assert.throws(() => f.act("a", "trade-accept", { offer }), /third transfer/);
+  assert.equal(f.inv("a", "two"), undefined);
+  assert.equal(f.inv("a", "three"), undefined);
+  assert.equal(f.e.one("SELECT status FROM trade_offers").status, "open");
+  f.e.economy.acquire = original;
+  f.e.tx(() =>
+    f.e.host("reset-player", { player: "a", confirmation: "RESET PLAYER a" }),
+  );
+  assert.deepEqual(f.inv("b", "two"), { copies: 1, level: 4 });
+  assert.deepEqual(f.inv("b", "three"), { copies: 1, level: 2 });
+});
 test("accept atomically exchanges enhanced cards, refunds losing offers, preserves credits and replays once", (t) => {
   const f = fixture(t),
     { e } = f;

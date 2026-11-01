@@ -106,3 +106,37 @@ test("offer payload locks listing and player; rendered owner controls and status
   s.me.id = "changed";
   assert.throws(() => c.payload(), /current account/);
 });
+test("offer builder adds/removes multiple copies, includes full bundle, and prevents selecting the same enhanced base twice", () => {
+  const { component: c, s } = fixture();
+  c.openPicker({ id: 7, card: "a", level: 1 });
+  c.choose("a");
+  c.choose("b");
+  assert.deepEqual(c.payload().body.cards, [
+    { card: "a", variant: "extra", expectedLevel: 1 },
+    { card: "b", variant: "card", expectedLevel: 3 },
+  ]);
+  assert.match(c.renderPicker(), /2 \/ 10 Cards/);
+  assert.match(c.renderPicker(), /Send Offer · 2 Cards/);
+  c.variant("card", 0);
+  assert.equal(c.payload().body.cards[0].expectedLevel, 4);
+  c.choose("a");
+  assert.throws(() => c.choose("a"), /already/);
+  assert.throws(() => c.variant("card", 2), /already/);
+  c.remove(1);
+  assert.equal(c.payload().body.cards.length, 2);
+  assert.match(
+    c.offer({
+      cards: [
+        { card: "a", level: 4 },
+        { card: "b", level: 3 },
+      ],
+    }),
+    /&lt;Voice&gt;/,
+  );
+  c.remove(0);
+  c.remove(0);
+  assert.throws(() => c.payload(), /Choose/);
+  s.inventory[0].copies = 15;
+  for (let i = 0; i < 10; i++) c.choose("a");
+  assert.throws(() => c.choose("a"), /10/);
+});

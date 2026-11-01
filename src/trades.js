@@ -1,6 +1,6 @@
 import { fail, integer, text } from "./engine.js";
 
-// Both sides escrow one physical copy. Actions run in Engine.mutate's transaction.
+// Listings escrow one copy; offers escrow a bundle. All changes share one transaction.
 export class Trades {
   constructor(e) {
     this.e = e;
@@ -44,8 +44,61 @@ export class Trades {
       fail("This card changed. Choose it again before trading.", 409);
     return { card, level: this.e.economy.take(player, card, variant) };
   }
+  offerCards(o) {
+    const rows = this.e.all(
+      "SELECT card,level FROM trade_offer_cards WHERE offer=? ORDER BY position",
+      o.id,
+    );
+    return rows.length ? rows : [{ card: o.card, level: o.level }];
+  }
+  takeBundle(player, b) {
+    const rows = b.cards === undefined ? [b] : b.cards;
+    if (!Array.isArray(rows) || rows.length < 1 || rows.length > 10)
+      fail("Offer between 1 and 10 card copies.");
+    const groups = new Map();
+    for (const row of rows) {
+      if (!row || typeof row !== "object" || Array.isArray(row))
+        fail("Choose valid offer cards.");
+      const id = text(row.card, 100);
+      if (!["extra", "card"].includes(row.variant))
+        fail("Choose a spare copy or your base card.");
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id).push(row);
+    }
+    // Validate against the original inventory before consuming any copy. Extras
+    // are consumed before the enhanced base so its level cannot be downgraded.
+    for (const [id, copies] of groups) {
+      const item = this.e.one(
+        "SELECT * FROM inventory WHERE player=? AND card=?",
+        player,
+        id,
+      );
+      if (!item) fail("You do not own that card.");
+      if (item.protected)
+        fail("This card is protected. Unprotect it before trading.", 409);
+      if (
+        copies.length > item.copies ||
+        copies.filter((c) => c.variant === "extra").length > item.copies - 1 ||
+        copies.filter((c) => c.variant === "card").length > 1
+      )
+        fail("There are not enough available copies for this offer.", 409);
+      if (
+        copies.some(
+          (c) => c.expectedLevel !== (c.variant === "extra" ? 1 : item.level),
+        )
+      )
+        fail("This card changed. Choose it again before trading.", 409);
+    }
+    const result = new Array(rows.length);
+    for (const variant of ["extra", "card"])
+      rows.forEach((row, index) => {
+        if (row.variant === variant) result[index] = this.take(player, row);
+      });
+    return result;
+  }
   returnOffer(o, status = "returned") {
-    this.e.economy.acquire(o.proposer, o.card, o.level);
+    for (const c of this.offerCards(o))
+      this.e.economy.acquire(o.proposer, c.card, c.level);
     this.e.run(
       "UPDATE trade_offers SET status=?,updated_at=? WHERE id=?",
       status,
@@ -137,7 +190,8 @@ export class Trades {
         ).n >= 20
       )
         fail("This listing already has 20 offers.", 409);
-      const c = this.take(player, b);
+      const cards = this.takeBundle(player, b),
+        c = cards[0];
       e.run(
         "INSERT INTO trade_offers(listing,proposer,card,level,created_at,updated_at) VALUES(?,?,?,?,?,?)",
         l.id,
@@ -147,9 +201,19 @@ export class Trades {
         e.now(),
         e.now(),
       );
+      const offer = e.one("SELECT last_insert_rowid() id").id;
+      cards.forEach((c, position) =>
+        e.run(
+          "INSERT INTO trade_offer_cards(offer,position,card,level) VALUES(?,?,?,?)",
+          offer,
+          position,
+          c.card,
+          c.level,
+        ),
+      );
       return {
         message:
-          "Trade offer sent. Your card is held until accepted, declined or withdrawn.",
+          "Trade offer sent. Your cards are held until accepted, declined or withdrawn.",
       };
     }
     if (action === "trade-cancel") {
@@ -174,7 +238,8 @@ export class Trades {
         this.returnOffer(o, "declined");
         return { message: "Offer declined. The offered card was returned." };
       }
-      e.economy.acquire(l.seller, o.card, o.level);
+      for (const c of this.offerCards(o))
+        e.economy.acquire(l.seller, c.card, c.level);
       e.economy.acquire(o.proposer, l.card, l.level);
       e.run(
         "UPDATE trade_offers SET status='accepted',updated_at=? WHERE id=?",
@@ -193,8 +258,7 @@ export class Trades {
         l.id,
       );
       return {
-        message:
-          "Trade completed. Both cards are now in their new collections.",
+        message: "Trade completed. All cards are now in their new collections.",
       };
     }
     fail("Unknown trade action.", 404);
@@ -216,25 +280,28 @@ export class Trades {
       ...args,
       (page - 1) * 12,
     );
-    const items = rows
-      .slice(0, 12)
-      .map((l) => ({
-        ...l,
-        offers: player
-          ? this.e.all(
+    const items = rows.slice(0, 12).map((l) => ({
+      ...l,
+      offers: player
+        ? this.e
+            .all(
               `SELECT o.*,COALESCE(p.display_name,p.name,o.proposer) proposer_name FROM trade_offers o LEFT JOIN players p ON p.id=o.proposer WHERE o.listing=? AND ${l.seller === player ? "o.status IN ('open','accepted')" : "o.proposer=?"} ORDER BY o.id DESC LIMIT 20`,
               l.id,
               ...(l.seller === player ? [] : [player]),
             )
-          : [],
-      }));
+            .map((o) => ({ ...o, cards: this.offerCards(o) }))
+        : [],
+    }));
     return {
       items,
       page,
       hasMore: rows.length > 12,
       cards: this.e.catalogStore.cards([
         ...new Set(
-          items.flatMap((l) => [l.card, ...l.offers.map((o) => o.card)]),
+          items.flatMap((l) => [
+            l.card,
+            ...l.offers.flatMap((o) => o.cards.map((c) => c.card)),
+          ]),
         ),
       ]),
     };
@@ -243,6 +310,7 @@ export class Trades {
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS trade_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',accepted_offer INTEGER,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS trade_offers(id INTEGER PRIMARY KEY AUTOINCREMENT,listing INTEGER NOT NULL,proposer TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS trade_offer_cards(offer INTEGER NOT NULL,position INTEGER NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,PRIMARY KEY(offer,position));
 CREATE INDEX IF NOT EXISTS trade_browse ON trade_listings(status,id);
 CREATE INDEX IF NOT EXISTS trade_seller ON trade_listings(seller,id);
 CREATE INDEX IF NOT EXISTS trade_seller_open ON trade_listings(seller) WHERE status='open';

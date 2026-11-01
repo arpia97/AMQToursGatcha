@@ -522,6 +522,13 @@ document.addEventListener("change", (event) => {
     tradesUI.filter("kind", event.target.value);
     $("#modal-body").innerHTML = tradesUI.renderPicker();
   }
+  if (event.target.dataset.tradeCopyIndex !== undefined) {
+    tradesUI.variant(
+      event.target.value,
+      Number(event.target.dataset.tradeCopyIndex),
+    );
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
   if (event.target.id === "trade-copy") {
     tradesUI.variant(event.target.value);
     $("#modal-body").innerHTML = tradesUI.renderPicker();
@@ -1610,6 +1617,7 @@ async function handleFeatureClick(a, t) {
       if (
         [
           "trade-card",
+          "trade-remove",
           "trade-picker-back",
           "trade-picker-prev",
           "trade-picker-next",
@@ -1617,6 +1625,7 @@ async function handleFeatureClick(a, t) {
       ) {
         if (busy) return true;
         if (a === "trade-card") tradesUI.choose(t.dataset.id);
+        else if (a === "trade-remove") tradesUI.remove(Number(t.dataset.index));
         else if (a === "trade-picker-back") tradesUI.back();
         else tradesUI.turn(a === "trade-picker-next" ? 1 : -1);
         $("#modal-body").innerHTML = tradesUI.renderPicker();
@@ -1649,11 +1658,11 @@ async function handleFeatureClick(a, t) {
             ? '<p class="subtext">You give</p>' +
               tradesUI.card(listing.card, listing.level) +
               '<p class="subtext">You receive</p>' +
-              tradesUI.card(offer.card, offer.level) +
-              "<p>Both cards transfer immediately. All other offers are returned. This trade is final.</p>"
+              tradesUI.offer(offer) +
+              "<p>All cards transfer immediately. All other offers are returned. This trade is final.</p>"
             : "<p>The held card" +
               (a === "trade-cancel" ? " and all offered cards are" : " is") +
-              " returned to its owner.</p>";
+              " returned to their owners.</p>";
         modal(
           "<h2>" +
             heading +

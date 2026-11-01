@@ -24,11 +24,23 @@ export function createTradesUI(h, ui) {
     const c = cardBy(id);
     return `<div class="collect-card trade-card-mini tier-${rarityClass(c.rarity)} rarity-${rarity(level)}">${image(c)}<div><strong>${e(c.name)}</strong><span>${e(c.kind === "seiyuu" ? "Seiyuu" : "Character")} · ${e(c.rarity || "Pending")} · Lv. ${level}</span><small>${e(series(c))}</small></div></div>`;
   };
+  const offerCards = (o) =>
+    o.cards?.length ? o.cards : [{ card: o.card, level: o.level }];
+  const offer = (o) =>
+    '<div class="trade-offer-cards"><p class="form-hint">' +
+    offerCards(o).length +
+    " " +
+    (offerCards(o).length === 1 ? "Card" : "Cards") +
+    "</p>" +
+    offerCards(o)
+      .map((c) => card(c.card, c.level))
+      .join("") +
+    "</div>";
   function render() {
     const s = getState(),
       data = ui.tradeData,
       view = ui.tradeView || "browse";
-    const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer one card for another. The lister chooses an offer. Both cards are held until the trade ends; withdrawing returns your card. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
+    const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer up to 10 card copies for one listed card. The lister chooses an offer. All cards are held until the trade ends; withdrawing returns your cards. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
       ["browse", "Browse Trades"],
       ["listings", "Your Trade Listings"],
       ["offers", "Your Offers"],
@@ -60,7 +72,7 @@ export function createTradesUI(h, ui) {
           ownOffer = l.offers.find(
             (o) => o.proposer === s.me?.id && o.status === "open",
           );
-        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Offer a Card", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${card(o.card, o.level)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
+        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Make an Offer", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${offer(o)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
       })
       .join("");
     return (
@@ -87,6 +99,7 @@ export function createTradesUI(h, ui) {
       kind: "",
       page: 1,
       selected: null,
+      bundle: [],
     };
   }
   function choose(id) {
@@ -94,13 +107,49 @@ export function createTradesUI(h, ui) {
       (i) => i.card === id && !i.protected,
     );
     if (!item) throw Error("This card is no longer available to trade.");
+    if (picker.listing) {
+      if (picker.bundle.length >= 10)
+        throw Error("You can offer up to 10 card copies.");
+      const used = picker.bundle.filter((c) => c.card === id),
+        extra = used.filter((c) => c.variant === "extra").length;
+      if (used.length >= item.copies)
+        throw Error("All available copies are already in your offer.");
+      const variant = extra < item.copies - 1 ? "extra" : "card";
+      picker.bundle.push({
+        card: id,
+        variant,
+        expectedLevel: variant === "extra" ? 1 : item.level,
+      });
+      return;
+    }
     picker.selected = {
       card: id,
       variant: item.copies > 1 ? "extra" : "card",
       expectedLevel: item.copies > 1 ? 1 : item.level,
     };
   }
-  function variant(value) {
+  function variant(value, index = null) {
+    if (index !== null) {
+      const selected = picker.bundle[index],
+        item = getState().inventory.find((i) => i.card === selected?.card);
+      if (!item || !["extra", "card"].includes(value))
+        throw Error("Choose an available copy.");
+      const others = picker.bundle.filter(
+        (c, i) => i !== index && c.card === item.card,
+      );
+      if (
+        (value === "card" && others.some((c) => c.variant === "card")) ||
+        (value === "extra" &&
+          others.filter((c) => c.variant === "extra").length >= item.copies - 1)
+      )
+        throw Error("That copy is already included in your offer.");
+      picker.bundle[index] = {
+        card: item.card,
+        variant: value,
+        expectedLevel: value === "extra" ? 1 : item.level,
+      };
+      return;
+    }
     const item = getState().inventory.find(
       (i) => i.card === picker.selected?.card,
     );
@@ -123,31 +172,103 @@ export function createTradesUI(h, ui) {
     }
   }
   function payload() {
-    if (!picker?.selected || picker.owner !== getState().me?.id)
+    if (
+      !picker ||
+      picker.owner !== getState().me?.id ||
+      (picker.listing ? !picker.bundle.length : !picker.selected)
+    )
       throw Error("Choose a card from your current account.");
     return {
       action: picker.listing ? "trade-offer" : "trade-list",
-      body: {
-        ...picker.selected,
-        ...(picker.listing ? { listing: picker.listing.id } : {}),
-      },
+      body: picker.listing
+        ? {
+            listing: picker.listing.id,
+            cards: picker.bundle.map((c) => ({ ...c })),
+          }
+        : { ...picker.selected },
     };
   }
   function renderPicker() {
     const s = getState(),
       selected = picker.selected;
-    const intro = `<h2>${picker.listing ? "Offer a Card" : "List a Card for Trade"}</h2>${picker.listing ? `<p class="subtext">You want</p>${card(picker.listing.card, picker.listing.level)}` : ""}`;
-    if (selected) {
+    const intro = `<h2>${picker.listing ? "Build Your Offer" : "List a Card for Trade"}</h2>${picker.listing ? `<p class="subtext">You want</p>${card(picker.listing.card, picker.listing.level)}` : ""}`;
+    if (selected && !picker.listing) {
       const item = s.inventory.find((i) => i.card === selected.card);
       return (
         intro +
         `<form id="trade-card-form" class="stack"><p class="subtext">${picker.listing ? "You offer" : "Your listing"}</p>${card(selected.card, selected.expectedLevel)}<label>Copy to Trade<select id="trade-copy"><option value="card" ${selected.variant === "card" ? "selected" : ""}>Base Card · Lv. ${item.level}</option>${item.copies > 1 ? `<option value="extra" ${selected.variant === "extra" ? "selected" : ""}>Spare Copy · Lv. 1</option>` : ""}</select></label><p class="form-hint">This copy leaves your inventory while held. Enhancement levels transfer. If a recipient already owns the same card, the higher level is kept and the other copy becomes a Lv. 1 spare.</p><div class="form-error" role="alert"></div><div class="trade-confirm-actions">${btn("Choose Another Card", "trade-picker-back", 'type="button"', "secondary")}<button type="submit" class="button mint">${picker.listing ? "Send Offer" : "List for Trade"}</button></div></form>`
       );
     }
+    const bundle = picker.bundle;
+    const basket = picker.listing
+      ? '<section class="trade-bundle" aria-label="Your Offer"><div class="section-head"><h3>Your Offer</h3><span class="subtext">' +
+        bundle.length +
+        " / 10 Cards</span></div>" +
+        bundle
+          .map((c, index) => {
+            const item = s.inventory.find((i) => i.card === c.card),
+              others = bundle.filter(
+                (other, i) => i !== index && other.card === c.card,
+              );
+            return (
+              '<div class="trade-bundle-item">' +
+              card(c.card, c.expectedLevel) +
+              '<div class="trade-bundle-controls"><label>Copy<select data-trade-copy-index="' +
+              index +
+              '" aria-label="Copy ' +
+              (index + 1) +
+              ' to Trade"><option value="card" ' +
+              (c.variant === "card" ? "selected" : "") +
+              " " +
+              (others.some((c) => c.variant === "card") ? "disabled" : "") +
+              ">Base · Lv. " +
+              item.level +
+              "</option>" +
+              (item.copies > 1
+                ? '<option value="extra" ' +
+                  (c.variant === "extra" ? "selected" : "") +
+                  " " +
+                  (others.filter((c) => c.variant === "extra").length >=
+                  item.copies - 1
+                    ? "disabled"
+                    : "") +
+                  ">Spare · Lv. 1</option>"
+                : "") +
+              "</select></label>" +
+              btn(
+                "Remove",
+                "trade-remove",
+                'type="button" data-index="' +
+                  index +
+                  '" aria-label="Remove ' +
+                  e(cardBy(c.card).name) +
+                  " Copy " +
+                  (index + 1) +
+                  '"',
+                "secondary",
+              ) +
+              "</div></div>"
+            );
+          })
+          .join("") +
+        (bundle.length
+          ? ""
+          : '<p class="subtext">Choose cards below. Click the same card again to add another available copy.</p>') +
+        '<form id="trade-card-form"><p class="form-hint">The full bundle is held until accepted, declined or withdrawn. Enhanced cards retain their levels; duplicate arrivals keep the higher level and add a Lv. 1 spare.</p><div class="form-error" role="alert"></div><button type="submit" class="button mint" ' +
+        (bundle.length ? "" : "disabled") +
+        ">Send Offer · " +
+        bundle.length +
+        " " +
+        (bundle.length === 1 ? "Card" : "Cards") +
+        "</button></form></section>"
+      : "";
+    const available = (i) =>
+      i.copies -
+      (picker.listing ? bundle.filter((c) => c.card === i.card).length : 0);
     const items = (picker.kind ? [picker.kind] : ["character", "seiyuu"])
       .flatMap((kind) =>
         collectionView(
-          s.inventory.filter((i) => !i.protected),
+          s.inventory.filter((i) => !i.protected && available(i) > 0),
           cardBy,
           { query: picker.query, kind, sort: "rarity" },
         ),
@@ -157,6 +278,7 @@ export function createTradesUI(h, ui) {
     picker.page = data.page;
     return (
       intro +
+      basket +
       `<p class="form-hint">Protected cards are excluded.</p><div class="trade-picker-filters"><input id="trade-picker-query" class="search" aria-label="Search Trade Cards" placeholder="Search your cards…" value="${e(picker.query)}"><select id="trade-picker-kind" aria-label="Card Type">${[
         ["", "All Cards"],
         ["character", "Characters"],
@@ -168,7 +290,7 @@ export function createTradesUI(h, ui) {
         )
         .join(
           "",
-        )}</select></div><div class="trade-picker-grid">${data.items.map((i) => `<button type="button" class="trade-picker-card" data-action="trade-card" data-id="${e(i.card)}">${card(i.card, i.level)}<span>${n(i.copies)} ${i.copies === 1 ? "copy" : "copies"}</span></button>`).join("") || "<p>No Available Cards Match.</p>"}</div><div class="toolbar">${btn("← Previous", "trade-picker-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page}</span>${btn("Next →", "trade-picker-next", data.hasMore ? "" : "disabled", "secondary")}</div>`
+        )}</select></div><div class="trade-picker-grid">${data.items.map((i) => `<button type="button" class="trade-picker-card" data-action="trade-card" data-id="${e(i.card)}" ${picker.listing && bundle.length >= 10 ? "disabled" : ""}>${card(i.card, i.level)}<span>${n(available(i))} ${available(i) === 1 ? "copy" : "copies"} available</span></button>`).join("") || "<p>No Available Cards Match.</p>"}</div><div class="toolbar">${btn("← Previous", "trade-picker-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page}</span>${btn("Next →", "trade-picker-next", data.hasMore ? "" : "disabled", "secondary")}</div>`
     );
   }
   const back = () => {
@@ -188,5 +310,10 @@ export function createTradesUI(h, ui) {
     back,
     turn,
     card,
+    offer,
+    remove: (index) => {
+      if (Number.isInteger(index) && index >= 0 && index < picker.bundle.length)
+        picker.bundle.splice(index, 1);
+    },
   };
 }
