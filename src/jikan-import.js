@@ -7,7 +7,7 @@ import {
 } from "./jikan.js";
 
 const KEY = "jikan-import",
-  INTERVAL = 10000,
+  INTERVAL = 30000,
   LEASE = 60000;
 const active = (s) =>
   s &&
@@ -17,9 +17,20 @@ const active = (s) =>
 // One persisted request per alarm. A lease prevents overlapping fetches; a
 // generation/lease check discards results after pause, reset or replacement.
 export class JikanImport {
-  constructor(engine, get = fetchJikan) {
+  constructor(engine, get = fetchJikan, { accessMode = "public" } = {}) {
     this.e = engine;
     this.get = get;
+    this.accessMode=accessMode;
+    // A legitimately configured Server Key uses Tenrai's independent per-key
+    // quota. Preserve all cursors, but fence an old public-access request.
+    const old=this.read();
+    if(old&&(old.accessMode||"public")!==accessMode)this.tx(()=>{
+      const s=this.read();s.accessMode=accessMode;s.generation=crypto.randomUUID();s.leaseId=null;s.leaseUntil=0;
+      if(accessMode==="server-key"&&["running","waiting"].includes(s.status)){
+        s.status="running";s.failures=0;s.retryUntil=0;s.nextAt=this.e.now()+1000;
+      }
+      this.save(s);
+    });
   }
   tx(fn) {
     return this.e.track("catalogImport", () => this.e.tx(fn));
@@ -39,7 +50,7 @@ export class JikanImport {
     const s = this.read();
     if (!s) return { status: "idle", importedActors: 0, scannedTitles: 0 };
     const { queue, generation, leaseId, leaseUntil, ...publicState } = s;
-    return publicState;
+    return {...publicState,accessMode:this.accessMode,requestIntervalMs:INTERVAL};
   }
   nextAlarm() {
     const s = this.read();
@@ -55,6 +66,7 @@ export class JikanImport {
       ...old,
       page: 1,
       queue: [],
+      pendingTask: null,
       hasMore: true,
       scannedTitles: 0,
       importedActors: old?.importedActors || 0,
@@ -199,11 +211,15 @@ export class JikanImport {
           requests: 0,
         };
       }
-      s.task =
+      s.task = s.pendingTask || (
         s.favorites?.status === "running" &&
-        (s.discoveryComplete || s.requests % 5 === 4)
+        (s.discoveryComplete || (s.completedRequests??s.requests) % 5 === 4)
           ? "favorites"
-          : "discovery";
+          : "discovery");
+      s.pendingTask=s.task;
+      s.lastRequestPath=s.task==="favorites"
+        ? `/${s.favorites.kind==="character"?"characters":"people"}?order_by=mal_id&sort=asc&limit=100&page=${s.favorites.page}`
+        : s.queue[0]?`/anime/${s.queue[0].id}/characters`:`/anime?order_by=mal_id&sort=asc&limit=25&page=${s.page}`;
       s.requests++;
       this.save(s);
       return s;
@@ -212,13 +228,7 @@ export class JikanImport {
     const title = claimed.queue[0];
     let data, error;
     try {
-      data = await this.get(
-        claimed.task === "favorites"
-          ? `/${claimed.favorites.kind === "character" ? "characters" : "people"}?order_by=mal_id&sort=asc&limit=100&page=${claimed.favorites.page}`
-          : title
-            ? `/anime/${title.id}/characters`
-            : `/anime?order_by=mal_id&sort=asc&limit=25&page=${claimed.page}`,
-      );
+      data = await this.get(claimed.lastRequestPath);
     } catch (err) {
       error = err;
     }
@@ -334,6 +344,10 @@ export class JikanImport {
           }
         }
         s.failures = 0;
+        s.completedRequests=(s.completedRequests??s.requests-1)+1;
+        s.pendingTask=null;
+        s.lastSuccessAt=now;
+        s.lastUpstreamMessage=null;s.lastRateLimit=null;s.lastRetryAfterMs=0;
         s.lastError = null;
         s.lastErrorType = null;
         s.lastStatus = null;
@@ -359,15 +373,18 @@ export class JikanImport {
               ? "Could not connect to Tenrai."
               : "Voice source returned invalid data.";
         s.lastErrorType = error?.errorCode || "UPSTREAM_RESPONSE";
+        s.lastUpstreamMessage=err.upstreamMessage||null;
+        s.lastRateLimit=err.rateLimit||null;
+        s.lastRetryAfterMs=err.retryMs||0;
         s.nextAt =
           now +
           Math.max(
             err.retryMs || 0,
-            Math.min(21600000, 300000 * 2 ** Math.min(s.failures - 1, 7)),
+            Math.min(s.lastStatus===429?1800000:21600000, 300000 * 2 ** Math.min(s.failures - 1, 7)),
           );
         s.retryUntil = s.nextAt;
         s.status =
-          s.lastStatus === 403 || s.lastStatus === 400 ? "paused" : "waiting";
+          [400,401,403].includes(s.lastStatus) ? "paused" : "waiting";
       }
       this.save(s);
       return this.status();

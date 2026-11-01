@@ -99,7 +99,8 @@ export class Game extends DurableObject {
       },
       (fn) => ctx.storage.transactionSync(fn),
     );
-    this.jikan = new JikanImport(this.engine);
+    this.fetchVoiceSource=path=>fetchJikan(path,fetch,{serverKey:env.TENRAI_SERVER_KEY});
+    this.jikan = new JikanImport(this.engine,this.fetchVoiceSource,{accessMode:env.TENRAI_SERVER_KEY?.trim()?"server-key":"public"});
     this.aliases = new AliasSync(this.engine);
     this.budget = new SqlBudget(
       () => {
@@ -470,7 +471,7 @@ export class Game extends DurableObject {
         return json({ message: "Administrator account created.", player: id });
       }
       if (path === "host/jikan-probe") {
-        const data = await fetchJikan("/anime/1/characters");
+        const data = await this.fetchVoiceSource("/anime/1/characters");
         const cards = voiceCards(data.data, "Cowboy Bebop");
         return json({
           available: true,

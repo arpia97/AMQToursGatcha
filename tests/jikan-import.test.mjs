@@ -65,7 +65,7 @@ test("background import checkpoints pages, adds one identity per actor, and enfo
   assert.equal(calls.length, 1);
   await f.job.step();
   assert.equal(calls.length, 1);
-  f.advance(10000);
+  f.advance(30000);
   await f.job.step();
   assert.equal(f.job.status().importedActors, 1);
   f.e.run(
@@ -73,7 +73,7 @@ test("background import checkpoints pages, adds one identity per actor, and enfo
     "Host corrected name",
     "mal-person-118",
   );
-  f.advance(10000);
+  f.advance(30000);
   await f.job.step();
   assert.equal(f.job.status().status, "completed");
   assert.equal(f.job.status().scannedTitles, 2);
@@ -204,7 +204,7 @@ test("combined import saves bilingual MAL characters and schedules lightweight f
     f.job.enableCharacters();
   });
   for (let i = 0; i < 4; i++) {
-    f.advance(10000);
+    f.advance(30000);
     await f.job.step();
   }
   assert.equal(f.job.status().importedCharacters, 1);
@@ -244,7 +244,7 @@ test("combined import saves bilingual MAL characters and schedules lightweight f
   await f.job.step();
   assert.ok(calls.at(-1).startsWith("/characters?"));
   assert.equal(f.job.status().favorites.kind, "seiyuu");
-  f.advance(10000);
+  f.advance(30000);
   await f.job.step();
   assert.equal(f.job.status().favorites.status, "idle");
 });
@@ -265,4 +265,20 @@ test("enabling character import fences an old in-flight seiyuu scan and resets d
   assert.equal(f.job.status().includeCharacters, true);
   assert.equal(f.job.status().page, 1);
   assert.equal(f.job.status().scannedTitles, 0);
+});
+
+test("rate-limited requests retry the same task, cap local backoff at30minutes, and honor longer provider cooldowns",async()=>{
+  const calls=[],f=fixture(async path=>{calls.push(path);throw Object.assign(Error('Limited'),{upstreamStatus:429,errorCode:'UPSTREAM_RATE_LIMIT',upstreamMessage:'Public IP quota',rateLimit:{'retry-after':'60'},retryMs:60000});});
+  f.job.start();let saved=f.job.read();saved.requests=4;saved.favorites={status:'running',kind:'seiyuu',page:356};f.job.save(saved);f.advance(1000);
+  for(let i=0;i<10;i++){const state=await f.job.step();assert(state.nextAt-state.updatedAt<=1800000);assert.equal(state.lastUpstreamMessage,'Public IP quota');assert.equal(state.lastRetryAfterMs,60000);f.advance(state.nextAt-state.updatedAt);}
+  assert(calls.every(path=>path==='/people?order_by=mal_id&sort=asc&limit=100&page=356'));assert.equal(f.job.status().favorites.page,356);
+  f.job.get=async()=>{throw Object.assign(Error('Long Provider Cooldown'),{upstreamStatus:429,retryMs:7200000});};const state=await f.job.step();assert.equal(state.nextAt-state.updatedAt,7200000);const before=state.requests;await f.job.step();assert.equal(f.job.status().requests,before);
+});
+test("installing a legitimate key switches quota mode without resetting cursors/cards, and fences an old public lease",async()=>{
+  let finish;const f=fixture(()=>new Promise(resolve=>finish=resolve));f.job.start();f.advance(1000);const pending=f.job.step();
+  const before=f.job.read();before.page=411;before.queue=[{id:99,title:'Keep'}];before.importedActors=5499;before.importedCharacters=83798;before.favorites={status:'running',kind:'seiyuu',page:356};f.job.save(before);
+  const keyed=new JikanImport(f.e,async()=>({}),{accessMode:'server-key'});assert.equal(keyed.status().accessMode,'server-key');assert.equal(keyed.status().page,411);assert.equal(keyed.status().favorites.page,356);assert.equal(keyed.status().importedCharacters,83798);assert.deepEqual(keyed.read().queue,[{id:99,title:'Keep'}]);assert.notEqual(keyed.read().generation,before.generation);assert.equal(keyed.status().requestIntervalMs,30000);
+  finish({data:[],pagination:{has_next_page:false}});await pending;assert.equal(keyed.status().page,411);assert.equal(keyed.read().queue[0].id,99);
+  const saved=keyed.read();saved.status='waiting';saved.nextAt=f.e.now()+21600000;saved.retryUntil=saved.nextAt;keyed.save(saved);
+  const publicAgain=new JikanImport(f.e,async()=>({}),{accessMode:'public'});assert.equal(publicAgain.status().nextAt,saved.nextAt,'Removing a key must not bypass public cooldowns');
 });
