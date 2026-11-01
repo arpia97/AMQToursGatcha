@@ -20,17 +20,51 @@ export class JikanImport {
   constructor(engine, get = fetchJikan, { accessMode = "public" } = {}) {
     this.e = engine;
     this.get = get;
-    this.accessMode=accessMode;
+    this.accessMode = accessMode;
     // A legitimately configured Server Key uses Tenrai's independent per-key
     // quota. Preserve all cursors, but fence an old public-access request.
-    const old=this.read();
-    if(old&&(old.accessMode||"public")!==accessMode)this.tx(()=>{
-      const s=this.read();s.accessMode=accessMode;s.generation=crypto.randomUUID();s.leaseId=null;s.leaseUntil=0;
-      if(accessMode==="server-key"&&["running","waiting"].includes(s.status)){
-        s.status="running";s.failures=0;s.retryUntil=0;s.nextAt=this.e.now()+1000;
-      }
-      this.save(s);
-    });
+    const old = this.read();
+    if (old && (old.accessMode || "public") !== accessMode)
+      this.tx(() => {
+        const s = this.read();
+        s.accessMode = accessMode;
+        s.generation = crypto.randomUUID();
+        s.leaseId = null;
+        s.leaseUntil = 0;
+        if (
+          accessMode === "server-key" &&
+          ["running", "waiting"].includes(s.status)
+        ) {
+          s.status = "running";
+          s.failures = 0;
+          s.retryUntil = 0;
+          s.nextAt = this.e.now() + 1000;
+        }
+        this.save(s);
+      });
+    // This backoff came from a rejected local Request option, not an upstream
+    // quota. Recover it once after switching to Workers-compatible manual mode.
+    const stalled = this.read();
+    if (
+      stalled &&
+      !stalled.redirectPolicyRevision &&
+      active(stalled) &&
+      stalled.lastStatus === 0 &&
+      stalled.lastErrorType === "UPSTREAM_NETWORK" &&
+      stalled.lastUpstreamMessage?.startsWith("Invalid redirect value")
+    )
+      this.tx(() => {
+        const s = this.read();
+        s.redirectPolicyRevision = 1;
+        s.generation = crypto.randomUUID();
+        s.leaseId = null;
+        s.leaseUntil = 0;
+        s.failures = 0;
+        s.retryUntil = 0;
+        s.nextAt = this.e.now() + 1000;
+        s.status = "running";
+        this.save(s);
+      });
   }
   tx(fn) {
     return this.e.track("catalogImport", () => this.e.tx(fn));
@@ -50,7 +84,11 @@ export class JikanImport {
     const s = this.read();
     if (!s) return { status: "idle", importedActors: 0, scannedTitles: 0 };
     const { queue, generation, leaseId, leaseUntil, ...publicState } = s;
-    return {...publicState,accessMode:this.accessMode,requestIntervalMs:INTERVAL};
+    return {
+      ...publicState,
+      accessMode: this.accessMode,
+      requestIntervalMs: INTERVAL,
+    };
   }
   nextAlarm() {
     const s = this.read();
@@ -211,15 +249,19 @@ export class JikanImport {
           requests: 0,
         };
       }
-      s.task = s.pendingTask || (
-        s.favorites?.status === "running" &&
-        (s.discoveryComplete || (s.completedRequests??s.requests) % 5 === 4)
+      s.task =
+        s.pendingTask ||
+        (s.favorites?.status === "running" &&
+        (s.discoveryComplete || (s.completedRequests ?? s.requests) % 5 === 4)
           ? "favorites"
           : "discovery");
-      s.pendingTask=s.task;
-      s.lastRequestPath=s.task==="favorites"
-        ? `/${s.favorites.kind==="character"?"characters":"people"}?order_by=mal_id&sort=asc&limit=100&page=${s.favorites.page}`
-        : s.queue[0]?`/anime/${s.queue[0].id}/characters`:`/anime?order_by=mal_id&sort=asc&limit=25&page=${s.page}`;
+      s.pendingTask = s.task;
+      s.lastRequestPath =
+        s.task === "favorites"
+          ? `/${s.favorites.kind === "character" ? "characters" : "people"}?order_by=mal_id&sort=asc&limit=100&page=${s.favorites.page}`
+          : s.queue[0]
+            ? `/anime/${s.queue[0].id}/characters`
+            : `/anime?order_by=mal_id&sort=asc&limit=25&page=${s.page}`;
       s.requests++;
       this.save(s);
       return s;
@@ -344,10 +386,12 @@ export class JikanImport {
           }
         }
         s.failures = 0;
-        s.completedRequests=(s.completedRequests??s.requests-1)+1;
-        s.pendingTask=null;
-        s.lastSuccessAt=now;
-        s.lastUpstreamMessage=null;s.lastRateLimit=null;s.lastRetryAfterMs=0;
+        s.completedRequests = (s.completedRequests ?? s.requests - 1) + 1;
+        s.pendingTask = null;
+        s.lastSuccessAt = now;
+        s.lastUpstreamMessage = null;
+        s.lastRateLimit = null;
+        s.lastRetryAfterMs = 0;
         s.lastError = null;
         s.lastErrorType = null;
         s.lastStatus = null;
@@ -373,18 +417,22 @@ export class JikanImport {
               ? "Could not connect to Tenrai."
               : "Voice source returned invalid data.";
         s.lastErrorType = error?.errorCode || "UPSTREAM_RESPONSE";
-        s.lastUpstreamMessage=err.upstreamMessage||null;
-        s.lastRateLimit=err.rateLimit||null;
-        s.lastRetryAfterMs=err.retryMs||0;
+        s.lastUpstreamMessage = err.upstreamMessage || null;
+        s.lastRateLimit = err.rateLimit || null;
+        s.lastRetryAfterMs = err.retryMs || 0;
         s.nextAt =
           now +
           Math.max(
             err.retryMs || 0,
-            Math.min(s.lastStatus===429?1800000:21600000, 300000 * 2 ** Math.min(s.failures - 1, 7)),
+            Math.min(
+              s.lastStatus === 429 ? 1800000 : 21600000,
+              300000 * 2 ** Math.min(s.failures - 1, 7),
+            ),
           );
         s.retryUntil = s.nextAt;
-        s.status =
-          [400,401,403].includes(s.lastStatus) ? "paused" : "waiting";
+        s.status = [400, 401, 403].includes(s.lastStatus)
+          ? "paused"
+          : "waiting";
       }
       this.save(s);
       return this.status();

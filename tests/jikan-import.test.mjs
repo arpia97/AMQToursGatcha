@@ -267,18 +267,137 @@ test("enabling character import fences an old in-flight seiyuu scan and resets d
   assert.equal(f.job.status().scannedTitles, 0);
 });
 
-test("rate-limited requests retry the same task, cap local backoff at30minutes, and honor longer provider cooldowns",async()=>{
-  const calls=[],f=fixture(async path=>{calls.push(path);throw Object.assign(Error('Limited'),{upstreamStatus:429,errorCode:'UPSTREAM_RATE_LIMIT',upstreamMessage:'Public IP quota',rateLimit:{'retry-after':'60'},retryMs:60000});});
-  f.job.start();let saved=f.job.read();saved.requests=4;saved.favorites={status:'running',kind:'seiyuu',page:356};f.job.save(saved);f.advance(1000);
-  for(let i=0;i<10;i++){const state=await f.job.step();assert(state.nextAt-state.updatedAt<=1800000);assert.equal(state.lastUpstreamMessage,'Public IP quota');assert.equal(state.lastRetryAfterMs,60000);f.advance(state.nextAt-state.updatedAt);}
-  assert(calls.every(path=>path==='/people?order_by=mal_id&sort=asc&limit=100&page=356'));assert.equal(f.job.status().favorites.page,356);
-  f.job.get=async()=>{throw Object.assign(Error('Long Provider Cooldown'),{upstreamStatus:429,retryMs:7200000});};const state=await f.job.step();assert.equal(state.nextAt-state.updatedAt,7200000);const before=state.requests;await f.job.step();assert.equal(f.job.status().requests,before);
+test("rate-limited requests retry the same task, cap local backoff at30minutes, and honor longer provider cooldowns", async () => {
+  const calls = [],
+    f = fixture(async (path) => {
+      calls.push(path);
+      throw Object.assign(Error("Limited"), {
+        upstreamStatus: 429,
+        errorCode: "UPSTREAM_RATE_LIMIT",
+        upstreamMessage: "Public IP quota",
+        rateLimit: { "retry-after": "60" },
+        retryMs: 60000,
+      });
+    });
+  f.job.start();
+  let saved = f.job.read();
+  saved.requests = 4;
+  saved.favorites = { status: "running", kind: "seiyuu", page: 356 };
+  f.job.save(saved);
+  f.advance(1000);
+  for (let i = 0; i < 10; i++) {
+    const state = await f.job.step();
+    assert(state.nextAt - state.updatedAt <= 1800000);
+    assert.equal(state.lastUpstreamMessage, "Public IP quota");
+    assert.equal(state.lastRetryAfterMs, 60000);
+    f.advance(state.nextAt - state.updatedAt);
+  }
+  assert(
+    calls.every(
+      (path) => path === "/people?order_by=mal_id&sort=asc&limit=100&page=356",
+    ),
+  );
+  assert.equal(f.job.status().favorites.page, 356);
+  f.job.get = async () => {
+    throw Object.assign(Error("Long Provider Cooldown"), {
+      upstreamStatus: 429,
+      retryMs: 7200000,
+    });
+  };
+  const state = await f.job.step();
+  assert.equal(state.nextAt - state.updatedAt, 7200000);
+  const before = state.requests;
+  await f.job.step();
+  assert.equal(f.job.status().requests, before);
 });
-test("installing a legitimate key switches quota mode without resetting cursors/cards, and fences an old public lease",async()=>{
-  let finish;const f=fixture(()=>new Promise(resolve=>finish=resolve));f.job.start();f.advance(1000);const pending=f.job.step();
-  const before=f.job.read();before.page=411;before.queue=[{id:99,title:'Keep'}];before.importedActors=5499;before.importedCharacters=83798;before.favorites={status:'running',kind:'seiyuu',page:356};f.job.save(before);
-  const keyed=new JikanImport(f.e,async()=>({}),{accessMode:'server-key'});assert.equal(keyed.status().accessMode,'server-key');assert.equal(keyed.status().page,411);assert.equal(keyed.status().favorites.page,356);assert.equal(keyed.status().importedCharacters,83798);assert.deepEqual(keyed.read().queue,[{id:99,title:'Keep'}]);assert.notEqual(keyed.read().generation,before.generation);assert.equal(keyed.status().requestIntervalMs,30000);
-  finish({data:[],pagination:{has_next_page:false}});await pending;assert.equal(keyed.status().page,411);assert.equal(keyed.read().queue[0].id,99);
-  const saved=keyed.read();saved.status='waiting';saved.nextAt=f.e.now()+21600000;saved.retryUntil=saved.nextAt;keyed.save(saved);
-  const publicAgain=new JikanImport(f.e,async()=>({}),{accessMode:'public'});assert.equal(publicAgain.status().nextAt,saved.nextAt,'Removing a key must not bypass public cooldowns');
+test("installing a legitimate key switches quota mode without resetting cursors/cards, and fences an old public lease", async () => {
+  let finish;
+  const f = fixture(() => new Promise((resolve) => (finish = resolve)));
+  f.job.start();
+  f.advance(1000);
+  const pending = f.job.step();
+  const before = f.job.read();
+  before.page = 411;
+  before.queue = [{ id: 99, title: "Keep" }];
+  before.importedActors = 5499;
+  before.importedCharacters = 83798;
+  before.favorites = { status: "running", kind: "seiyuu", page: 356 };
+  f.job.save(before);
+  const keyed = new JikanImport(f.e, async () => ({}), {
+    accessMode: "server-key",
+  });
+  assert.equal(keyed.status().accessMode, "server-key");
+  assert.equal(keyed.status().page, 411);
+  assert.equal(keyed.status().favorites.page, 356);
+  assert.equal(keyed.status().importedCharacters, 83798);
+  assert.deepEqual(keyed.read().queue, [{ id: 99, title: "Keep" }]);
+  assert.notEqual(keyed.read().generation, before.generation);
+  assert.equal(keyed.status().requestIntervalMs, 30000);
+  finish({ data: [], pagination: { has_next_page: false } });
+  await pending;
+  assert.equal(keyed.status().page, 411);
+  assert.equal(keyed.read().queue[0].id, 99);
+  const saved = keyed.read();
+  saved.status = "waiting";
+  saved.nextAt = f.e.now() + 21600000;
+  saved.retryUntil = saved.nextAt;
+  keyed.save(saved);
+  const publicAgain = new JikanImport(f.e, async () => ({}), {
+    accessMode: "public",
+  });
+  assert.equal(
+    publicAgain.status().nextAt,
+    saved.nextAt,
+    "Removing a key must not bypass public cooldowns",
+  );
+});
+
+test("redirect compatibility repair recovers only the known local failure once without resetting import checkpoints or upstream cooldowns", () => {
+  const f = fixture(async () => ({ data: [] }));
+  f.job.start();
+  let s = f.job.read();
+  Object.assign(s, {
+    page: 411,
+    queue: [{ id: 30056, title: "Saved" }],
+    scannedTitles: 10266,
+    accessMode: "server-key",
+    status: "waiting",
+    failures: 3,
+    nextAt: 9999999,
+    retryUntil: 9999999,
+    lastStatus: 0,
+    lastErrorType: "UPSTREAM_NETWORK",
+    lastUpstreamMessage:
+      "Invalid redirect value, must be one of follow or manual",
+  });
+  f.job.save(s);
+  const repaired = new JikanImport(f.e, async () => ({ data: [] }), {
+    accessMode: "server-key",
+  });
+  s = repaired.read();
+  assert.equal(s.page, 411);
+  assert.equal(s.queue[0].id, 30056);
+  assert.equal(s.scannedTitles, 10266);
+  assert.equal(s.nextAt, 101000);
+  assert.equal(s.retryUntil, 0);
+  assert.equal(s.redirectPolicyRevision, 1);
+  s.nextAt = 1234567;
+  repaired.save(s);
+  assert.equal(
+    new JikanImport(f.e, undefined, { accessMode: "server-key" }).read().nextAt,
+    1234567,
+  );
+  delete s.redirectPolicyRevision;
+  Object.assign(s, {
+    lastStatus: 429,
+    lastErrorType: "UPSTREAM_RATE_LIMIT",
+    nextAt: 9999999,
+    retryUntil: 9999999,
+  });
+  repaired.save(s);
+  assert.equal(
+    new JikanImport(f.e, undefined, { accessMode: "server-key" }).read()
+      .retryUntil,
+    9999999,
+  );
 });

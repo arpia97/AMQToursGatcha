@@ -62,7 +62,7 @@ export async function fetchJikan(path, fetcher = fetch, { serverKey } = {}) {
           "AMQToursGatcha/0.1 (https://github.com/arpia97/AMQToursGatcha)",
         ...(key ? { "X-Server-Key": key } : {}),
       },
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(20000),
     });
   } catch (err) {

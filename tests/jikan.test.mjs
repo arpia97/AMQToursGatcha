@@ -87,7 +87,7 @@ test("server keys use the official header only on fixed Tenrai requests, block r
   );
   assert.equal(request.init.headers["X-Server-Key"], key);
   assert.equal(request.init.headers.Authorization, undefined);
-  assert.equal(request.init.redirect, "error");
+  assert.equal(request.init.redirect, "manual");
   await assert.rejects(
     fetchJikan("//other.test/people", async () => assert.fail("No Request"), {
       serverKey: key,
