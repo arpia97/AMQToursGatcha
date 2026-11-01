@@ -54,6 +54,140 @@
 .showcase-grid .card-series {
   font-size: 10px;
 }
+.showcase-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.showcase-editor .showcase-sort {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  margin: 20px 0 14px;
+}
+.showcase-editor select {
+  padding: 9px 12px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+}
+.showcase-order-list {
+  list-style: none;
+  margin: 0;
+  padding: 3px;
+  max-height: min(52vh, 480px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.showcase-order-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #171820;
+  padding: 9px;
+  margin-bottom: 8px;
+}
+.showcase-order-portrait {
+  position: relative;
+  width: 44px;
+  height: 61px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 5px;
+}
+.showcase-order-portrait img,
+.showcase-order-portrait .fallback-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.showcase-order-portrait .grade-badge {
+  font-size: 7px;
+  padding: 2px 3px;
+  top: 3px;
+  right: 3px;
+}
+.showcase-order-name {
+  flex: 1;
+  min-width: 0;
+}
+.showcase-order-name strong {
+  font-size: 13px;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.showcase-order-name small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 5px;
+}
+.showcase-position {
+  margin: 0;
+}
+.showcase-position .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.showcase-position select {
+  width: 61px;
+}
+.showcase-move {
+  display: flex;
+  gap: 5px;
+}
+.showcase-move .button {
+  padding: 9px 12px;
+  min-width: 36px;
+  font-size: 14px;
+}
+.showcase-order-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+@media (max-width: 520px) {
+  .showcase-order-row {
+    gap: 8px;
+  }
+  .showcase-order-portrait {
+    width: 34px;
+    height: 49px;
+  }
+  .showcase-move {
+    flex-direction: column;
+    gap: 3px;
+  }
+  .showcase-move .button {
+    padding: 3px 8px;
+    min-width: 30px;
+  }
+  .showcase-order-name strong {
+    font-size: 12px;
+  }
+  .showcase-position select {
+    width: 54px;
+    padding: 8px;
+  }
+  .showcase-actions {
+    gap: 12px;
+  }
+}
 .completion-panel {
   padding: 24px;
   margin: 24px 0;
@@ -2159,4 +2293,164 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   .tour-summary > .button {
     width: 100%;
   }
+}
+.trade-views {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 22px;
+}
+.trade-listings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+.trade-listing {
+  border: 1px solid var(--border, #333641);
+  background: var(--panel, #191c24);
+  padding: 18px;
+  border-radius: 12px;
+  min-width: 0;
+}
+.trade-listing > header,
+.trade-listing-actions,
+.trade-offer-heading,
+.trade-offer-actions,
+.trade-confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.trade-listing > header {
+  margin-bottom: 16px;
+}
+.trade-listing-actions {
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+.trade-card-mini {
+  display: flex;
+  gap: 14px;
+  padding: 10px;
+  align-items: center;
+  border: 3px solid var(--tier-color, #424653);
+  border-radius: 10px;
+  margin: 10px 0;
+  min-width: 0;
+  background: #11141b;
+}
+.trade-card-mini img {
+  width: 64px;
+  height: 88px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 5px;
+}
+.trade-card-mini > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.trade-card-mini strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+}
+.trade-card-mini span,
+.trade-card-mini small {
+  color: var(--muted, #a8afc1);
+  font-size: 11px;
+}
+.trade-offers {
+  border-top: 1px solid var(--border, #333641);
+  margin-top: 18px;
+  padding-top: 14px;
+}
+.trade-offers summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.trade-offer {
+  padding-top: 14px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border, #333641);
+}
+.trade-offer-heading {
+  font-size: 11px;
+}
+.trade-offer-heading > span {
+  color: var(--muted, #a8afc1);
+}
+.trade-offer-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.trade-picker-filters {
+  display: flex;
+  gap: 12px;
+  margin: 14px 0;
+}
+.trade-picker-filters input {
+  min-width: 0;
+  flex: 1;
+}
+.trade-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 6px;
+  margin: 0 -6px 18px;
+}
+.trade-picker-card {
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border, #333641);
+  border-radius: 10px;
+  text-align: left;
+  padding: 8px;
+  cursor: pointer;
+  min-width: 0;
+}
+.trade-picker-card:hover,
+.trade-picker-card:focus-visible {
+  border-color: var(--mint, #aee4c8);
+}
+.trade-picker-card .trade-card-mini {
+  margin: 0 0 8px;
+}
+.trade-picker-card > span {
+  font-size: 11px;
+  color: var(--muted, #a8afc1);
+}
+@media (max-width: 1200px) {
+  .trade-listings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  .trade-listings,
+  .trade-picker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .trade-picker-filters {
+    flex-wrap: wrap;
+  }
+  .trade-picker-filters input {
+    flex-basis: 100%;
+  }
+}
+
+.trade-card-mini.collect-card:hover {
+  transform: none;
+}
+.trade-picker-filters select,
+#trade-copy {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #171820;
+  color: var(--text);
+  font: inherit;
 }

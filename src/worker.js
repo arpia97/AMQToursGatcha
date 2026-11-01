@@ -99,8 +99,11 @@ export class Game extends DurableObject {
       },
       (fn) => ctx.storage.transactionSync(fn),
     );
-    this.fetchVoiceSource=path=>fetchJikan(path,fetch,{serverKey:env.TENRAI_SERVER_KEY});
-    this.jikan = new JikanImport(this.engine,this.fetchVoiceSource,{accessMode:env.TENRAI_SERVER_KEY?.trim()?"server-key":"public"});
+    this.fetchVoiceSource = (path) =>
+      fetchJikan(path, fetch, { serverKey: env.TENRAI_SERVER_KEY });
+    this.jikan = new JikanImport(this.engine, this.fetchVoiceSource, {
+      accessMode: env.TENRAI_SERVER_KEY?.trim() ? "server-key" : "public",
+    });
     this.aliases = new AliasSync(this.engine);
     this.budget = new SqlBudget(
       () => {
@@ -752,6 +755,15 @@ export class Game extends DurableObject {
           Number(url.searchParams.get("page") || 1),
         ),
       );
+    if (path === "trades" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.economy.trades.page(session?.player, {
+          view: url.searchParams.get("view") || "browse",
+          page: Number(url.searchParams.get("page") || 1),
+        }),
+      );
+    }
     if (path === "market" && !post)
       return json(
         e.economy.market(

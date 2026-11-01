@@ -17,17 +17,25 @@ async function denialMessage(response, key) {
   let size = 0;
   try {
     for (;;) {
-      const {done, value} = await reader.read();
+      const { done, value } = await reader.read();
       if (done) break;
       size += value.length;
-      if (size > 4096) { await reader.cancel(); return null; }
+      if (size > 4096) {
+        await reader.cancel();
+        return null;
+      }
       parts.push(value);
     }
     const bytes = new Uint8Array(size);
     let offset = 0;
-    for (const part of parts) { bytes.set(part, offset); offset += part.length; }
+    for (const part of parts) {
+      bytes.set(part, offset);
+      offset += part.length;
+    }
     const body = JSON.parse(new TextDecoder().decode(bytes));
-    const message = [body.message, body.error, body.type].find(value => typeof value === "string");
+    const message = [body.message, body.error, body.type].find(
+      (value) => typeof value === "string",
+    );
     return message ? redact(message, key, 240) : null;
   } catch {
     // HTML denial pages and broken streams never replace the original HTTP status.
@@ -35,8 +43,15 @@ async function denialMessage(response, key) {
   }
 }
 export async function fetchJikan(path, fetcher = fetch, { serverKey } = {}) {
-  if (typeof path !== "string" || !/^\/(?:anime|people|characters)(?:[/?]|$)/.test(path) || /[\\\r\n#]/.test(path))
-    throw Object.assign(new Error("Invalid Tenrai endpoint."), {status: 400, errorCode: "UPSTREAM_CONFIGURATION"});
+  if (
+    typeof path !== "string" ||
+    !/^\/(?:anime|people|characters)(?:[/?]|$)/.test(path) ||
+    /[\\\r\n#]/.test(path)
+  )
+    throw Object.assign(new Error("Invalid Tenrai endpoint."), {
+      status: 400,
+      errorCode: "UPSTREAM_CONFIGURATION",
+    });
   const key = typeof serverKey === "string" ? serverKey.trim() : "";
   let response;
   try {
@@ -45,7 +60,7 @@ export async function fetchJikan(path, fetcher = fetch, { serverKey } = {}) {
         Accept: "application/json",
         "User-Agent":
           "AMQToursGatcha/0.1 (https://github.com/arpia97/AMQToursGatcha)",
-        ...(key ? {"X-Server-Key": key} : {}),
+        ...(key ? { "X-Server-Key": key } : {}),
       },
       redirect: "error",
       signal: AbortSignal.timeout(20000),
@@ -62,6 +77,11 @@ export async function fetchJikan(path, fetcher = fetch, { serverKey } = {}) {
         status: 502,
         upstreamStatus: 0,
         errorCode: timeout ? "UPSTREAM_TIMEOUT" : "UPSTREAM_NETWORK",
+        upstreamMessage: redact(
+          String(err.message || err.name || "Connection failed"),
+          key,
+          240,
+        ),
       },
     );
   }
@@ -76,17 +96,28 @@ export async function fetchJikan(path, fetcher = fetch, { serverKey } = {}) {
       : 0;
     // Capture only bounded diagnostic fields, never request headers or a key.
     const upstreamMessage = await denialMessage(response, key);
-    const diagnosticHeaders = ["retry-after", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset", "ratelimit-limit", "ratelimit-remaining", "ratelimit-reset"];
-    const rateLimit = Object.fromEntries(diagnosticHeaders
-      .filter(name => response.headers.has(name))
-      .map(name => [name, redact(response.headers.get(name), key, 100)]));
+    const diagnosticHeaders = [
+      "retry-after",
+      "x-ratelimit-limit",
+      "x-ratelimit-remaining",
+      "x-ratelimit-reset",
+      "ratelimit-limit",
+      "ratelimit-remaining",
+      "ratelimit-reset",
+    ];
+    const rateLimit = Object.fromEntries(
+      diagnosticHeaders
+        .filter((name) => response.headers.has(name))
+        .map((name) => [name, redact(response.headers.get(name), key, 100)]),
+    );
     throw Object.assign(
       new Error(VOICE_SOURCE.name + " returned HTTP " + response.status),
       {
         status: 502,
         upstreamStatus: response.status,
         retryMs: Number.isFinite(retryMs) ? retryMs : 0,
-        errorCode: response.status === 429 ? "UPSTREAM_RATE_LIMIT" : "UPSTREAM_RESPONSE",
+        errorCode:
+          response.status === 429 ? "UPSTREAM_RATE_LIMIT" : "UPSTREAM_RESPONSE",
         upstreamMessage,
         rateLimit,
       },

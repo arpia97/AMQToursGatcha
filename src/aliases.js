@@ -217,6 +217,8 @@ export class AliasSync {
     this.e.run("UPDATE market_listings SET seller=? WHERE seller=?", id, old);
     this.e.run("UPDATE market_listings SET buyer=? WHERE buyer=?", id, old);
     this.e.run("UPDATE weekly_shop SET buyer=? WHERE buyer=?", id, old);
+    this.e.run("UPDATE trade_listings SET seller=? WHERE seller=?", id, old);
+    this.e.run("UPDATE trade_offers SET proposer=? WHERE proposer=?", id, old);
     this.e.run(
       "UPDATE receipts SET scope=?||substr(scope,length(?)+1) WHERE substr(scope,1,length(?)+1)=?||':'",
       id,

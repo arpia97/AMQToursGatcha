@@ -621,6 +621,10 @@ export function demoFeatures(d, path, b) {
       ))
         ids.add(a.card);
     }
+    for (const l of s.trades || [])
+      if (l.seller === owner && l.status === "open") ids.add(l.card);
+    for (const o of s.tradeOffers || [])
+      if (o.proposer === owner && o.status === "open") ids.add(o.card);
     return Object.fromEntries(
       ["character", "seiyuu"].map((kind) => {
         const total = d.cards.filter((c) => c.kind === kind).length,
@@ -630,6 +634,112 @@ export function demoFeatures(d, path, b) {
         return [kind, { owned, total, percent: (owned * 100) / total }];
       }),
     );
+  }
+  s.trades ||= [];
+  s.tradeOffers ||= [];
+  if (path.startsWith("trades?")) {
+    const q = new URLSearchParams(path.split("?")[1]),
+      view = q.get("view") || "browse",
+      page = Math.max(1, Number(q.get("page") || 1));
+    const all = s.trades
+      .filter((l) =>
+        view === "listings"
+          ? l.seller === me.id
+          : view === "offers"
+            ? s.tradeOffers.some(
+                (o) => o.listing === l.id && o.proposer === me.id,
+              )
+            : l.status === "open",
+      )
+      .sort((a, b) => b.id - a.id);
+    return {
+      items: all
+        .slice((page - 1) * 12, page * 12)
+        .map((l) => ({
+          ...l,
+          offer_count: s.tradeOffers.filter(
+            (o) => o.listing === l.id && o.status === "open",
+          ).length,
+          offers: s.tradeOffers.filter(
+            (o) =>
+              o.listing === l.id &&
+              (l.seller === me.id
+                ? ["open", "accepted"].includes(o.status)
+                : o.proposer === me.id),
+          ),
+        })),
+      cards: d.cards,
+      page,
+      hasMore: all.length > page * 12,
+    };
+  }
+  if (path === "trade-list" || path === "trade-offer") {
+    const l =
+      path === "trade-offer"
+        ? s.trades.find((l) => l.id === b.listing && l.status === "open")
+        : null;
+    if (path === "trade-offer" && (!l || l.seller === me.id))
+      throw Error("Trade unavailable.");
+    if (
+      l &&
+      s.tradeOffers.some(
+        (o) =>
+          o.listing === l.id && o.proposer === me.id && o.status === "open",
+      )
+    )
+      throw Error("Withdraw your current offer first.");
+    const i = s.inventory.find((i) => i.card === b.card),
+      level = b.variant === "extra" ? 1 : i?.level;
+    if (level !== b.expectedLevel) throw Error("The selected card changed.");
+    const row = {
+      id: Date.now(),
+      card: b.card,
+      level: take(b.card, b.variant),
+      status: "open",
+    };
+    if (l)
+      s.tradeOffers.push({
+        ...row,
+        listing: l.id,
+        proposer: me.id,
+        proposer_name: me.name,
+      });
+    else s.trades.push({ ...row, seller: me.id, seller_name: me.name });
+    return { message: l ? "Demo offer sent." : "Demo card listed for trade." };
+  }
+  if (path.startsWith("trade-")) {
+    const o = s.tradeOffers.find(
+        (o) => o.id === b.offer && o.status === "open",
+      ),
+      l = s.trades.find(
+        (l) => l.id === (o?.listing || b.listing) && l.status === "open",
+      );
+    if (!l) throw Error("Trade unavailable.");
+    if (path === "trade-withdraw" && o?.proposer === me.id) {
+      add(o.card, o.level);
+      o.status = "withdrawn";
+    } else if (l.seller === me.id && path === "trade-cancel") {
+      add(l.card, l.level);
+      l.status = "cancelled";
+      for (const other of s.tradeOffers.filter(
+        (o) => o.listing === l.id && o.status === "open",
+      )) {
+        if (other.proposer === me.id) add(other.card, other.level);
+        other.status = "returned";
+      }
+    } else if (l.seller === me.id && o && path === "trade-accept") {
+      add(o.card, o.level);
+      o.status = "accepted";
+      l.status = "completed";
+      l.accepted_offer = o.id;
+      for (const other of s.tradeOffers.filter(
+        (o) => o.listing === l.id && o.status === "open",
+      ))
+        other.status = "returned";
+    } else if (l.seller === me.id && o && path === "trade-decline")
+      o.status = "declined";
+    else throw Error("Trade unavailable.");
+    return { message: "Demo trade updated." };
   }
   if (path.startsWith("rankings?")) {
     const p = new URLSearchParams(path.split("?")[1]),
@@ -910,6 +1020,13 @@ export function demoFeatures(d, path, b) {
     return { message: "Card sold for " + price + " credits.", price };
   }
   if (path === "showcase") {
+    if (
+      b.expectedCards !== undefined &&
+      JSON.stringify(s.showcase || []) !== JSON.stringify(b.expectedCards)
+    )
+      throw Error(
+        "Your showcase changed. Close this window and refresh your profile before arranging it again.",
+      );
     if (
       b.cards.length > MAX_SPOTLIGHTS ||
       b.cards.some((id) => !s.inventory.some((i) => i.card === id))

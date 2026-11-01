@@ -191,3 +191,16 @@ Authenticated, idempotent POST `gem-start` takes `{previousGame:null|id}`; POST 
 The explicitly authorized October 25 clean-beta reset is complete. `beta-reset` requires `{confirmation:"START CLEAN BETA"}` and a stable idempotency key; it clears gameplay, revokes sessions, restores 5,000 balance/earned/starter markers, and regenerates shop/auctions without touching identities, passwords or catalogue/imports. Do not repeat it on continuation or deployment. Ordinary user activity after that reset must be preserved.
 
 The shop-price reduction halves available unsold weekly stock once, recorded by `settings.shop_price_revision = 1`. Existing cards, slot IDs and deadlines remain. Sold/expired shop history, past payouts, balances and player-set marketplace/auction prices are unchanged. New weekly stock and refills use the reduced ladder. Instant and batch selling use half of the new shop price; enhanced cards still multiply by invested copies. Stale higher sale quotes reject before consuming cards.
+
+## Card Trades
+
+GET `/api/trades?view=browse|listings|offers&page=1` returns 12 listings per page. Own listings/offers require authentication; anonymous browsing includes no offer details. Signed-in callers only see their own offers except on their own listings.
+
+POST actions use the existing authenticated, same-origin, idempotent mutation flow:
+
+- `trade-list`: `{card, variant: "extra"|"card", expectedLevel}`.
+- `trade-offer`: same copy fields plus `{listing}`.
+- `trade-accept`, `trade-decline`, `trade-withdraw`: `{offer}`.
+- `trade-cancel`: `{listing}`.
+
+Listing and offer copies are escrowed. Only the lister can accept/decline; only an offer owner can withdraw. Cancellation returns all cards, acceptance returns losing offers, and account resets return unaffected players’ held cards. No credits are charged. Catalogue, accounts, passwords and import cursors are unaffected by this additive schema.

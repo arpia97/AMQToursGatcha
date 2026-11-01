@@ -1,3 +1,5 @@
+import { createTradesUI } from "./trades-ui.js";
+import { createShowcaseEditor } from "./showcase-order.js";
 import { authFormHTML } from "./auth-form.js";
 import {
   SITE_ROUTES,
@@ -156,6 +158,9 @@ const ui = {
   marketPage: 1,
   marketData: null,
   shopSection: "buy",
+  tradeView: "browse",
+  tradePage: 1,
+  tradeData: null,
   shopSell: {
     query: "",
     rarity: "",
@@ -424,6 +429,23 @@ const pachinkoUI = createPachinkoUI({
   now: () => Date.now() + clockOffset,
   onFinish: () => refreshCurrent(),
 });
+const tradesUI = createTradesUI(
+  {
+    escape,
+    number,
+    btn,
+    cardBy,
+    image,
+    gradeBadge,
+    rarityClass,
+    rarity,
+    series,
+    empty,
+    profileURL,
+    getState: () => state,
+  },
+  ui,
+);
 const features = createFeatures(
   {
     escape,
@@ -443,9 +465,69 @@ const features = createFeatures(
     profileURL,
     tabs,
     getState: () => state,
+    renderTrades: () => tradesUI.render(),
   },
   ui,
 );
+const showcaseEditor = createShowcaseEditor({
+  escape,
+  cardBy,
+  image,
+  gradeBadge,
+  series,
+});
+function paintShowcaseEditor(card = null, position = null) {
+  const scroll = $("#showcase-order-list")?.scrollTop || 0;
+  $("#modal-body").innerHTML = showcaseEditor.render();
+  $("#showcase-order-list").scrollTop = scroll;
+  if (card) {
+    const controls = [
+      ...$("#showcase-order-list").querySelectorAll("button,select"),
+    ];
+    const target =
+      controls.find(
+        (el) =>
+          !el.disabled &&
+          el.dataset.id === card &&
+          Number(el.dataset.position) === position,
+      ) || controls.find((el) => el.dataset.showcasePosition === card);
+    target?.focus({ preventScroll: true });
+  }
+}
+document.addEventListener("change", (event) => {
+  if (!event.target.closest("#showcase-order-form") || busy) return;
+  if (event.target.id === "showcase-sort") {
+    showcaseEditor.sortBy(event.target.value);
+    paintShowcaseEditor();
+    $("#showcase-sort").focus({ preventScroll: true });
+  } else if (event.target.dataset.showcasePosition) {
+    const card = event.target.dataset.showcasePosition;
+    showcaseEditor.move(card, Number(event.target.value));
+    paintShowcaseEditor(card);
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.id !== "trade-picker-query" || busy) return;
+  const position = event.target.selectionStart;
+  tradesUI.filter("query", event.target.value);
+  $("#modal-body").innerHTML = tradesUI.renderPicker();
+  const input = $("#trade-picker-query");
+  input.focus();
+  input.setSelectionRange(position, position);
+});
+document.addEventListener("change", (event) => {
+  if (busy) return;
+  if (event.target.id === "trade-picker-kind") {
+    tradesUI.filter("kind", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-copy") {
+    tradesUI.variant(event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+});
+
 let fusionPickerFocus = null;
 function renderFusionPicker(focusSearch = false, position = null) {
   const overlay = $("#fusion-picker");
@@ -823,6 +905,12 @@ async function loadDynamic() {
         "&page=" +
         ui.marketPage,
     );
+  if (
+    current === "shop" &&
+    ui.shopSection === "trades" &&
+    (state.me || ui.tradeView === "browse")
+  )
+    data = await api("trades?view=" + ui.tradeView + "&page=" + ui.tradePage);
   if (current === "players")
     data = await api(
       "profiles?q=" + encodeURIComponent(search) + "&page=" + ui.playerPage,
@@ -848,7 +936,8 @@ async function loadDynamic() {
       ui.pickemOpen = pickemDetail?.key ?? null;
     }
     if (current === "arcade") ui.mahjongHistoryData = data;
-    if (["shop", "auctions"].includes(current)) ui.marketData = data;
+    if (current === "shop" && ui.shopSection === "trades") ui.tradeData = data;
+    else if (["shop", "auctions"].includes(current)) ui.marketData = data;
     if (current === "players") {
       profileResults = data.profiles;
       ui.playerData = data;
@@ -1214,6 +1303,14 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
+  if (formIdentifier(f) === "showcase-order-form") {
+    try {
+      await execute("showcase", showcaseEditor.payload(state.me?.id), null, f);
+    } catch (error) {
+      f.querySelector(".form-error").textContent = error.message;
+    }
+    return;
+  }
   if (formIdentifier(f) === "daily-pack-form") {
     ui.dailyPackKind = b.kind;
     if (!state.me) {
@@ -1464,12 +1561,112 @@ titleSelect.addEventListener("change", () => {
 async function handleFeatureClick(a, t) {
   try {
     if (a === "shop-section") {
-      if (!["buy", "sell", "market", "listings"].includes(t.dataset.section))
+      if (
+        !["buy", "sell", "market", "listings", "trades"].includes(
+          t.dataset.section,
+        )
+      )
         return true;
       ui.shopSection = t.dataset.section;
       ui.marketPage = 1;
       await loadDynamic();
       render();
+      return true;
+    }
+    if (a?.startsWith("trade-")) {
+      if (
+        ["trade-view", "trade-prev", "trade-next", "trade-refresh"].includes(a)
+      ) {
+        if (a === "trade-view") {
+          if (!["browse", "listings", "offers"].includes(t.dataset.view))
+            return true;
+          ui.tradeView = t.dataset.view;
+          ui.tradePage = 1;
+        } else if (a !== "trade-refresh")
+          ui.tradePage = Math.max(
+            1,
+            ui.tradePage + (a === "trade-next" ? 1 : -1),
+          );
+        ui.tradeData = null;
+        await loadDynamic();
+        render();
+        return true;
+      }
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      if (a === "trade-new" || a === "trade-make") {
+        const listing =
+          a === "trade-make"
+            ? ui.tradeData?.items.find((l) => l.id === Number(t.dataset.id))
+            : null;
+        if (a === "trade-make" && !listing)
+          throw Error("Refresh the trade board and try again.");
+        tradesUI.openPicker(listing);
+        modal(tradesUI.renderPicker(), true, "trade-picker");
+        return true;
+      }
+      if (
+        [
+          "trade-card",
+          "trade-picker-back",
+          "trade-picker-prev",
+          "trade-picker-next",
+        ].includes(a)
+      ) {
+        if (busy) return true;
+        if (a === "trade-card") tradesUI.choose(t.dataset.id);
+        else if (a === "trade-picker-back") tradesUI.back();
+        else tradesUI.turn(a === "trade-picker-next" ? 1 : -1);
+        $("#modal-body").innerHTML = tradesUI.renderPicker();
+        return true;
+      }
+      if (
+        [
+          "trade-cancel",
+          "trade-withdraw",
+          "trade-decline",
+          "trade-accept",
+        ].includes(a)
+      ) {
+        const id = Number(t.dataset.id),
+          listing = ui.tradeData?.items.find((l) =>
+            a === "trade-cancel"
+              ? l.id === id
+              : l.offers.some((o) => o.id === id),
+          );
+        if (!listing) throw Error("Refresh the trade board and try again.");
+        const offer = listing.offers.find((o) => o.id === id);
+        const heading = {
+          "trade-cancel": "Cancel This Listing?",
+          "trade-withdraw": "Withdraw This Offer?",
+          "trade-decline": "Decline This Offer?",
+          "trade-accept": "Accept This Trade?",
+        }[a];
+        const detail =
+          a === "trade-accept"
+            ? '<p class="subtext">You give</p>' +
+              tradesUI.card(listing.card, listing.level) +
+              '<p class="subtext">You receive</p>' +
+              tradesUI.card(offer.card, offer.level) +
+              "<p>Both cards transfer immediately. All other offers are returned. This trade is final.</p>"
+            : "<p>The held card" +
+              (a === "trade-cancel" ? " and all offered cards are" : " is") +
+              " returned to its owner.</p>";
+        modal(
+          "<h2>" +
+            heading +
+            "</h2>" +
+            detail +
+            '<form id="trade-decision-form" class="stack"><input type="hidden" name="action" value="' +
+            a +
+            '"><input type="hidden" name="id" value="' +
+            id +
+            '"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Confirm</button></form>',
+        );
+        return true;
+      }
       return true;
     }
     if (a === "shop-sign-in") {
@@ -1719,6 +1916,8 @@ async function handleFeatureClick(a, t) {
       ![
         "pack",
         "showcase-toggle",
+        "showcase-arrange",
+        "showcase-move",
         "protect-toggle",
         "batch-sell",
         "batch-cancel",
@@ -1791,6 +1990,20 @@ async function handleFeatureClick(a, t) {
         block: "start",
         behavior: "smooth",
       });
+      return true;
+    }
+    if (a === "showcase-arrange") {
+      if (!state.me || profileData?.id !== state.me.id) return true;
+      showcaseEditor.open(profileData, state.me.id);
+      modal(showcaseEditor.render(), true, "showcase-editor");
+      return true;
+    }
+    if (a === "showcase-move") {
+      if (!busy && t.closest("#showcase-order-form")) {
+        const position = Number(t.dataset.position);
+        showcaseEditor.move(t.dataset.id, position);
+        paintShowcaseEditor(t.dataset.id, position + Number(t.dataset.step));
+      }
       return true;
     }
     if (a === "showcase-toggle") {
@@ -1895,6 +2108,26 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
+  if (formIdentifier(f) === "trade-card-form") {
+    try {
+      const p = tradesUI.payload();
+      await execute(p.action, p.body, null, f);
+    } catch (err) {
+      f.querySelector(".form-error").textContent = err.message;
+    }
+    return true;
+  }
+  if (formIdentifier(f) === "trade-decision-form") {
+    await execute(
+      b.action,
+      b.action === "trade-cancel"
+        ? { listing: Number(b.id) }
+        : { offer: Number(b.id) },
+      null,
+      f,
+    );
+    return true;
+  }
   if (formIdentifier(f) === "horse-ticket-form") {
     try {
       horseUI.add(b);

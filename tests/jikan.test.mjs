@@ -74,16 +74,86 @@ test("voice requests use the live Tenrai replacement and report network timeouts
   );
 });
 
-test("server keys use the official header only on fixed Tenrai requests, block redirects and are redacted from errors",async()=>{
-  let request;const key="private-test-server-key";
-  await fetchJikan('/anime/1/characters',async(url,init)=>{request={url,init};return Response.json({data:[]});},{serverKey:key});
-  assert.equal(request.init.headers['X-Server-Key'],key);assert.equal(request.init.headers.Authorization,undefined);assert.equal(request.init.redirect,'error');
-  await assert.rejects(fetchJikan('//other.test/people',async()=>assert.fail('No Request'),{serverKey:key}),/Invalid Tenrai/);
-  await assert.rejects(fetchJikan('/people?page=356',async()=>Response.json({message:'Limited '+key},{status:429,headers:{'Retry-After':'120','X-RateLimit-Remaining':'0'}}),{serverKey:key}),error=>{
-    assert.equal(error.errorCode,'UPSTREAM_RATE_LIMIT');assert.equal(error.retryMs,120000);assert.equal(error.upstreamMessage,'Limited [redacted]');assert.equal(error.rateLimit['x-ratelimit-remaining'],'0');assert.ok(!JSON.stringify(error).includes(key));return true;
-  });
+test("server keys use the official header only on fixed Tenrai requests, block redirects and are redacted from errors", async () => {
+  let request;
+  const key = "private-test-server-key";
+  await fetchJikan(
+    "/anime/1/characters",
+    async (url, init) => {
+      request = { url, init };
+      return Response.json({ data: [] });
+    },
+    { serverKey: key },
+  );
+  assert.equal(request.init.headers["X-Server-Key"], key);
+  assert.equal(request.init.headers.Authorization, undefined);
+  assert.equal(request.init.redirect, "error");
+  await assert.rejects(
+    fetchJikan("//other.test/people", async () => assert.fail("No Request"), {
+      serverKey: key,
+    }),
+    /Invalid Tenrai/,
+  );
+  await assert.rejects(
+    fetchJikan(
+      "/people?page=356",
+      async () =>
+        Response.json(
+          { message: "Limited " + key },
+          {
+            status: 429,
+            headers: { "Retry-After": "120", "X-RateLimit-Remaining": "0" },
+          },
+        ),
+      { serverKey: key },
+    ),
+    (error) => {
+      assert.equal(error.errorCode, "UPSTREAM_RATE_LIMIT");
+      assert.equal(error.retryMs, 120000);
+      assert.equal(error.upstreamMessage, "Limited [redacted]");
+      assert.equal(error.rateLimit["x-ratelimit-remaining"], "0");
+      assert.ok(!JSON.stringify(error).includes(key));
+      return true;
+    },
+  );
 });
-test("large denial bodies are bounded and failed denial streams retain the original HTTP status",async()=>{
-  await assert.rejects(fetchJikan('/anime',async()=>new Response('x'.repeat(10000),{status:429})),e=>e.upstreamStatus===429&&e.upstreamMessage===null);
-  await assert.rejects(fetchJikan('/anime',async()=>new Response(new ReadableStream({start(controller){controller.error(Error('Stream Broken'));}}),{status:503})),e=>e.upstreamStatus===503);
+test("large denial bodies are bounded and failed denial streams retain the original HTTP status", async () => {
+  await assert.rejects(
+    fetchJikan(
+      "/anime",
+      async () => new Response("x".repeat(10000), { status: 429 }),
+    ),
+    (e) => e.upstreamStatus === 429 && e.upstreamMessage === null,
+  );
+  await assert.rejects(
+    fetchJikan(
+      "/anime",
+      async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.error(Error("Stream Broken"));
+            },
+          }),
+          { status: 503 },
+        ),
+    ),
+    (e) => e.upstreamStatus === 503,
+  );
+});
+
+test("connection diagnostics redact server keys before host status persistence", async () => {
+  const key = "private-network-test-key";
+  await assert.rejects(
+    fetchJikan(
+      "/anime/1/characters",
+      async () => {
+        throw Error("Connection refused " + key);
+      },
+      { serverKey: key },
+    ),
+    (err) =>
+      err.upstreamMessage === "Connection refused [redacted]" &&
+      !JSON.stringify(err).includes(key),
+  );
 });

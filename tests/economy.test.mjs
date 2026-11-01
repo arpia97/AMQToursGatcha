@@ -922,6 +922,55 @@ test("showcase requires owned unique cards, maintains order and completion ignor
   assert.equal(p.completion.character.total, 6);
   assert.equal(p.completion.seiyuu.owned, 1);
 });
+test("showcase reordering persists publicly across restart, replays once and rejects stale or foreign updates without affecting cards or credits", (t) => {
+  const f = fixture(),
+    e = f.e;
+  t.after(() => f.db.close());
+  e.addCard("buyer", "mal-character-1", 3);
+  e.addCard("buyer", "mal-person-7");
+  e.run(
+    "UPDATE inventory SET level=3 WHERE player='buyer' AND card='mal-character-1'",
+  );
+  const original = ["mal-character-1", "mal-person-7"],
+    reversed = [...original].reverse();
+  f.act("buyer", "showcase", { cards: original });
+  const before = e.player("buyer");
+  const body = { cards: reversed, expectedCards: original };
+  const first = f.act("buyer", "showcase", body, "ordered");
+  assert.deepEqual(
+    e.profile("buyer").showcase.map((c) => c.card),
+    reversed,
+  );
+  assert.deepEqual(f.act("buyer", "showcase", body, "ordered"), first);
+  assert.throws(
+    () =>
+      f.act("buyer", "showcase", { cards: original, expectedCards: original }),
+    (error) => error.status === 409,
+  );
+  assert.deepEqual(
+    e.profile("buyer").showcase.map((c) => c.card),
+    reversed,
+  );
+  assert.throws(
+    () => f.act("seller", "showcase", { cards: reversed, expectedCards: [] }),
+    /collection/,
+  );
+  assert.deepEqual(e.profile("seller").showcase, []);
+  assert.equal(e.player("buyer").balance, before.balance);
+  assert.equal(e.player("buyer").earned, before.earned);
+  assert.equal(
+    e.profile("buyer").showcase.find((c) => c.card === "mal-character-1").level,
+    3,
+  );
+  const restarted = new Engine(
+    (sql, ...args) => f.db.prepare(sql).all(...args),
+    (fn) => fn(),
+  );
+  assert.deepEqual(
+    restarted.profile("buyer").showcase.map((c) => c.card),
+    reversed,
+  );
+});
 test("seller reset refunds bidders, removes open sale inventory, and leaves catalogues intact", () => {
   const f = fixture(),
     e = f.e;

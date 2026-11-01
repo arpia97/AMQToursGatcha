@@ -120,7 +120,7 @@ export function createShopUI(h, ui) {
       weekly = s.shop || [],
       market = ui.marketData || { items: [] },
       own = (s.myListings || []).filter((l) => l.venue === "shop");
-    const section = ["buy", "sell", "market", "listings"].includes(
+    const section = ["buy", "sell", "market", "listings", "trades"].includes(
       ui.shopSection,
     )
       ? ui.shopSection
@@ -129,6 +129,7 @@ export function createShopUI(h, ui) {
       ["buy", "Buy Cards"],
       ["sell", "Sell Cards"],
       ["market", "Player Marketplace"],
+      ["trades", "Trades"],
       ["listings", "Your Listings" + (own.length ? " · " + own.length : "")],
     ]
       .map(
@@ -136,6 +137,7 @@ export function createShopUI(h, ui) {
           `<button class="tab ${section === id ? "active" : ""}" data-action="shop-section" data-section="${id}" aria-pressed="${section === id}">${label}</button>`,
       )
       .join("")}</div>`;
+    if (section === "trades") return header + h.renderTrades();
     if (section === "sell") return header + sell();
     if (section === "listings")
       return (

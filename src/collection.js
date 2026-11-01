@@ -135,8 +135,10 @@ export class AnimeCollection {
   }
   progress(player, key) {
     return this.e.one(
-      `SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,(SELECT count(*) FROM character_series s WHERE s.series_key=? AND s.card IN (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0)) AS owned FROM character_series WHERE series_key=? GROUP BY series_key`,
+      `SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,(SELECT count(*) FROM character_series s WHERE s.series_key=? AND s.card IN (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT card FROM trade_offers WHERE proposer=? AND status='open')) AS owned FROM character_series WHERE series_key=? GROUP BY series_key`,
       key,
+      player,
+      player,
       player,
       player,
       player,
@@ -173,7 +175,9 @@ export class AnimeCollection {
     integer(page, 1, 10000);
     const e = this.e;
     const rows = e.all(
-      `WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0), progress AS (SELECT s.series_key,min(s.romaji) AS series_romaji,max(s.english) AS series_english,count(*) AS owned FROM owned o JOIN character_series s ON s.card=o.card GROUP BY s.series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_series c WHERE c.series_key=p.series_key) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
+      `WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT card FROM trade_offers WHERE proposer=? AND status='open'), progress AS (SELECT s.series_key,min(s.romaji) AS series_romaji,max(s.english) AS series_english,count(*) AS owned FROM owned o JOIN character_series s ON s.card=o.card GROUP BY s.series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_series c WHERE c.series_key=p.series_key) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
+      player,
+      player,
       player,
       player,
       player,

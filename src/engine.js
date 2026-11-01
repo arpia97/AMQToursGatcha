@@ -768,6 +768,8 @@ export class Engine {
         "auctions",
         "weekly_shop",
         "market_listings",
+        "trade_offers",
+        "trade_listings",
         "gambling_rounds",
         "mahjong_games",
         "gem_games",

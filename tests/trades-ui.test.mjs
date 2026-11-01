@@ -1,0 +1,108 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createTradesUI } from "../public/trades-ui.js";
+const escape = (v) =>
+  String(v)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+const cards = [
+  { id: "a", kind: "character", name: "Alpha", rarity: "SS", series: "Show" },
+  {
+    id: "b",
+    kind: "seiyuu",
+    name: "<Voice>",
+    rarity: "AG",
+    series: "Voice actor",
+  },
+  { id: "p", kind: "character", name: "Protected", rarity: "AG" },
+];
+const state = {
+  me: { id: "owner" },
+  inventory: [
+    { card: "a", copies: 2, level: 4 },
+    { card: "b", copies: 1, level: 3 },
+    { card: "p", copies: 1, level: 1, protected: 1 },
+  ],
+};
+function fixture() {
+  const s = structuredClone(state),
+    ui = {};
+  const component = createTradesUI(
+    {
+      escape,
+      number: String,
+      btn: (l, a, x = "", c = "") =>
+        `<button class="${c}" data-action="${a}" ${x}>${l}</button>`,
+      cardBy: (id) => cards.find((c) => c.id === id),
+      image: () => '<img alt="">',
+      gradeBadge: () => "",
+      rarityClass: (r) => r.toLowerCase(),
+      rarity: () => 1,
+      series: (c) => c.series || "",
+      empty: (a, b) => a + b,
+      profileURL: (id) => "#player/" + id,
+      getState: () => s,
+    },
+    ui,
+  );
+  return { s, ui, component };
+}
+test("trade picker includes both types, excludes protection, searches and selects spare or enhanced base explicitly", () => {
+  const { component: c } = fixture();
+  c.openPicker();
+  assert.match(c.renderPicker(), /Alpha/);
+  assert.match(c.renderPicker(), /&lt;Voice&gt;/);
+  assert.doesNotMatch(c.renderPicker(), />Protected</);
+  c.filter("kind", "seiyuu");
+  assert.doesNotMatch(c.renderPicker(), /Alpha/);
+  c.filter("query", "missing");
+  assert.match(c.renderPicker(), /No Available Cards/);
+  c.choose("a");
+  assert.deepEqual(c.payload(), {
+    action: "trade-list",
+    body: { card: "a", variant: "extra", expectedLevel: 1 },
+  });
+  assert.match(c.renderPicker(), /type="button"[^>]*>Choose Another Card/);
+  c.variant("card");
+  assert.equal(c.payload().body.expectedLevel, 4);
+  assert.throws(() => c.choose("p"), /no longer/);
+  c.back();
+  assert.throws(() => c.payload(), /Choose/);
+});
+test("offer payload locks listing and player; rendered owner controls and statuses are contextual", () => {
+  const { component: c, ui, s } = fixture(),
+    listing = {
+      id: 1,
+      seller: "owner",
+      seller_name: "<Owner>",
+      card: "a",
+      level: 4,
+      status: "open",
+      offer_count: 1,
+      offers: [
+        {
+          id: 2,
+          proposer: "other",
+          proposer_name: "Other",
+          card: "b",
+          level: 3,
+          status: "open",
+        },
+      ],
+    };
+  ui.tradeData = { items: [listing], page: 1, hasMore: false };
+  assert.match(c.render(), /Accept Trade/);
+  assert.match(c.render(), /&lt;Owner&gt;/);
+  assert.doesNotMatch(c.render(), /Offer a Card/);
+  s.me.id = "other";
+  assert.match(c.render(), /Withdraw Offer/);
+  assert.doesNotMatch(c.render(), /Accept Trade/);
+  c.openPicker(listing);
+  c.choose("b");
+  assert.equal(c.payload().action, "trade-offer");
+  assert.equal(c.payload().body.listing, 1);
+  s.me.id = "changed";
+  assert.throws(() => c.payload(), /current account/);
+});

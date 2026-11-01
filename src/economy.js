@@ -13,6 +13,7 @@ import { GemFaceting } from "./gem.js";
 import { HorseRacing } from "./horse-racing.js";
 import { CardManagement } from "./card-management.js";
 import { PlayerNotices } from "./notices.js";
+import { Trades } from "./trades.js";
 import { Pachinko } from "./pachinko.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
@@ -69,6 +70,7 @@ export class Economy {
     this.horse = new HorseRacing(e);
     this.cards = new CardManagement(e);
     this.notices = new PlayerNotices(e);
+    this.trades = new Trades(e);
     this.pachinko = new Pachinko(e);
   }
   applyShopPriceRevision() {
@@ -441,6 +443,8 @@ export class Economy {
   action(player, action, b) {
     const e = this.e,
       now = e.now();
+    const trade = this.trades.action(player, action, b);
+    if (trade) return trade;
     const managed = this.cards.action(player, action, b);
     if (managed) return managed;
     if (action === "notice-seen") return this.notices.seen(player, b.ids);
@@ -504,6 +508,27 @@ export class Economy {
     if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
     if (action === "showcase") {
+      if (b.expectedCards !== undefined) {
+        if (
+          !Array.isArray(b.expectedCards) ||
+          b.expectedCards.length > MAX_SPOTLIGHTS ||
+          b.expectedCards.some(
+            (id) => typeof id !== "string" || id.length > 100,
+          )
+        )
+          fail("Invalid saved showcase order.");
+        const current = e
+          .all(
+            "SELECT card FROM profile_showcase WHERE player=? ORDER BY position",
+            player,
+          )
+          .map((row) => row.card);
+        if (JSON.stringify(current) !== JSON.stringify(b.expectedCards))
+          fail(
+            "Your showcase changed. Close this window and refresh your profile before arranging it again.",
+            409,
+          );
+      }
       if (
         !Array.isArray(b.cards) ||
         b.cards.length > MAX_SPOTLIGHTS ||
@@ -709,7 +734,9 @@ export class Economy {
   completion(player) {
     const e = this.e,
       rows = e.all(
-        "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0",
+        "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT card FROM trade_offers WHERE proposer=? AND status='open'",
+        player,
+        player,
         player,
         player,
         player,
@@ -744,6 +771,7 @@ export class Economy {
   }
   resetPlayer(player) {
     const e = this.e;
+    this.trades.resetPlayer(player);
     for (const a of e.all(
       "SELECT * FROM auctions WHERE seller=? AND paid=0",
       player,
