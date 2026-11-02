@@ -1,3 +1,4 @@
+import { AliasSync } from "../src/aliases.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -217,4 +218,19 @@ test("reset clears quiz progress and restores5000 once while quiz definitions re
   assert.equal(f.e.quiz.list("p")[0].best, 0);
   assert.equal(f.e.quiz.view("p", "test").run, null);
   assert.equal(f.e.profile("p").titles.length, 0);
+});
+
+test("canonical ID migration retains quiz progress and active questions", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  f.action("p", "quiz-start", { quiz: "test" });
+  const run = f.e.quiz.view("p", "test").run;
+  f.e.tx(() => new AliasSync(f.e).renamePlayer("p", "90001"));
+  assert.equal(f.e.quiz.list("90001")[0].best, 20);
+  assert.equal(f.e.quiz.view("90001", "test").run.id, run.id);
+  assert.equal(f.e.profile("90001").titles[0].title, "Perfect Listener");
+  assert.equal(
+    f.e.one("SELECT count(*) n FROM quiz_progress WHERE player='p'").n,
+    0,
+  );
 });
