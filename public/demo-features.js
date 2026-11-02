@@ -1,3 +1,4 @@
+import { pickemVoteSummary } from "./pickem-votes.js";
 import { tourSummaries } from "./pickem-board.js";
 import { pickemTeams } from "./tour-winner.js";
 import {
@@ -805,7 +806,13 @@ export function demoFeatures(d, path, b) {
   }
   if (path.startsWith("pickem-tours?"))
     return {
-      tours: tourSummaries(s.pickems, Date.now()),
+      tours: tourSummaries(s.pickems, Date.now()).map((t) => {
+        const p = s.pickems.find((p) => (p.event_id || -p.id) === t.key);
+        return {
+          ...t,
+          ...(t.format === "winner" ? { voters: p?.prediction ? 1 : 0 } : {}),
+        };
+      }),
       page: 1,
       hasMore: false,
     };
@@ -815,7 +822,18 @@ export function demoFeatures(d, path, b) {
       .filter((p) => (p.event_id || -p.id) === key)
       .sort((a, b) => (a.round || 1) - (b.round || 1) || a.id - b.id);
     if (!matches.length) throw Error("Pick’em tour not found.");
-    return { key, name: matches[0].tour, matches, byes: [] };
+    return {
+      key,
+      name: matches[0].tour,
+      matches: matches.map((p) => ({
+        ...p,
+        voteSummary: pickemVoteSummary(
+          p,
+          p.prediction ? [{ winner: p.prediction, votes: 1 }] : [],
+        ),
+      })),
+      byes: [],
+    };
   }
   if (path.startsWith("pickems?"))
     return {

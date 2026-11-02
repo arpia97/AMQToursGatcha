@@ -1,3 +1,4 @@
+import { pickemVoteChart } from "./pickem-votes.js";
 import { pickemTeams } from "./tour-winner.js";
 import { deadlineFields } from "./host-defaults.js";
 
@@ -18,7 +19,7 @@ export function winnerCard(
       ? drafts[p.id].winner
       : p?.prediction || "";
   const open = p && !p.settled && p.ends > now;
-  return `<article class="pickem tour-card"><div class="tour-summary"><div><span class="eyebrow">TOUR WINNER</span><h3>${e(t.name)}</h3><p class="form-hint">Pick one team to win the tour.</p></div><span class="pill ${t.open ? "live" : ""}">${status}</span><button class="button secondary" data-action="pickem-tour" data-id="${t.key}" aria-expanded="${expanded}" aria-controls="tour-rounds-${t.key}">${expanded ? "Hide ↑" : "View teams →"}</button></div>${
+  return `<article class="pickem tour-card"><div class="tour-summary"><div><span class="eyebrow">TOUR WINNER</span><h3>${e(t.name)}</h3><p class="form-hint">Pick one team to win the tour.${Number.isSafeInteger(t.voters) ? " · " + n(t.voters) + (t.voters === 1 ? " voter" : " voters") : ""}</p></div><span class="pill ${t.open ? "live" : ""}">${status}</span><button class="button secondary" data-action="pickem-tour" data-id="${t.key}" aria-expanded="${expanded}" aria-controls="tour-rounds-${t.key}">${expanded ? "Hide ↑" : "View teams →"}</button></div>${
     p
       ? `<div class="tour-winner-choice" id="tour-rounds-${t.key}"><p class="form-hint">✦ ${n(p.winner_reward)} for the correct winner · Voting closes ${e(new Date(p.ends).toLocaleString("en-GB", { timeZone: "Asia/Seoul" }))} KST</p>${
           open
@@ -33,7 +34,7 @@ export function winnerCard(
                   "",
                 )}</select></label><button class="button secondary" ${signedIn ? 'type="submit"' : 'type="button" data-action="account"'}>${signedIn ? "Confirm pick" : "Sign in"}</button><div class="form-error" role="alert"></div></form>`
             : `<p>${p.prediction ? "Your pick: <strong>" + e(p.prediction) + "</strong>" : "No pick submitted."}</p>${p.settled ? `<p>Winner: <strong>${e(p.result_winner)}</strong></p>` : ""}`
-        }<p class="form-hint">Teams: ${pickemTeams(p).map(e).join(" · ")}</p></div>`
+        }${pickemVoteChart(p, { escape: e, number: n })}</div>`
       : ""
   }</article>`;
 }

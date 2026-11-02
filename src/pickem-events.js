@@ -1,3 +1,4 @@
+import { pickemVoteSummary } from "../public/pickem-votes.js";
 import { PICKEM_WINDOW } from "../public/site-defaults.js";
 import { winnerTeams, pickemTeams } from "../public/tour-winner.js";
 import { fail, integer, text } from "./engine.js";
@@ -135,7 +136,7 @@ export class PickemEvents {
       COUNT(DISTINCT COALESCE(p.round,1)) AS rounds,SUM(p.settled) AS settled,
       SUM(CASE WHEN p.settled=0 AND p.ends>? THEN 1 ELSE 0 END) AS open,
       MIN(CASE WHEN p.settled=0 AND p.ends>? THEN p.ends END) AS nextEnds,
-      MAX(p.id) AS newest FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
+      MAX(p.id) AS newest,CASE WHEN ev.format='winner' THEN (SELECT count(*) FROM predictions v WHERE v.pickem=p.id) ELSE NULL END AS voters FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
       GROUP BY CASE WHEN p.event_id IS NULL THEN -p.id ELSE p.event_id END
       ORDER BY newest DESC LIMIT 21 OFFSET ?`,
       e.now(),
@@ -156,6 +157,17 @@ export class PickemEvents {
       Math.abs(key),
     );
     if (!matches.length) fail("Pick’em tour not found.", 404);
+    const tallies = e.all(
+      "SELECT v.pickem,v.winner,count(*) AS votes FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE " +
+        (key > 0 ? "p.event_id=?" : "p.id=? AND p.event_id IS NULL") +
+        " GROUP BY v.pickem,v.winner",
+      Math.abs(key),
+    );
+    const grouped = new Map();
+    for (const row of tallies) {
+      if (!grouped.has(row.pickem)) grouped.set(row.pickem, []);
+      grouped.get(row.pickem).push(row);
+    }
     const event =
       key > 0
         ? e.one("SELECT name,format FROM pickem_events WHERE id=?", key)
@@ -164,7 +176,10 @@ export class PickemEvents {
       key,
       name: event?.name || matches[0].tour,
       format: event?.format || null,
-      matches,
+      matches: matches.map((p) => ({
+        ...p,
+        voteSummary: pickemVoteSummary(p, grouped.get(p.id) || []),
+      })),
       byes:
         key > 0
           ? e.all(

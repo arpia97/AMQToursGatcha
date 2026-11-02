@@ -2672,3 +2672,101 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-suggestions button:hover {
   background: #3b5361;
 }
+.pickem-vote-chart {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  max-width: 760px;
+}
+.pickem-vote-heading,
+.pickem-vote-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+.pickem-vote-heading {
+  margin-bottom: 15px;
+}
+.pickem-vote-heading h4 {
+  font-size: 13px;
+  margin: 0;
+}
+.pickem-vote-heading > span {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pickem-vote-bars {
+  display: grid;
+  gap: 13px;
+}
+.pickem-vote-label {
+  margin-bottom: 5px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.pickem-vote-label > span {
+  overflow-wrap: anywhere;
+}
+.pickem-vote-label strong {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pickem-vote-row progress {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border: 0;
+  border-radius: 99px;
+  overflow: hidden;
+  background: #ffffff0b;
+  appearance: none;
+  color: #ab9dd5;
+}
+.pickem-vote-row progress::-webkit-progress-bar {
+  background: #ffffff0b;
+  border-radius: 99px;
+}
+.pickem-vote-row progress::-webkit-progress-value {
+  background: #ab9dd5;
+  border-radius: 99px;
+}
+.pickem-vote-row progress::-moz-progress-bar {
+  background: #ab9dd5;
+  border-radius: 99px;
+}
+.pickem-vote-row.is-leading progress {
+  color: var(--mint);
+}
+.pickem-vote-row.is-leading progress::-webkit-progress-value {
+  background: var(--mint);
+}
+.pickem-vote-row.is-leading progress::-moz-progress-bar {
+  background: var(--mint);
+}
+.pickem-vote-details {
+  margin-top: 7px;
+  white-space: normal;
+  font-weight: 400;
+}
+.pickem-vote-details > summary {
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.pickem-vote-details .pickem-vote-chart {
+  min-width: 200px;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+@media (max-width: 550px) {
+  .pickem-vote-label {
+    gap: 8px;
+  }
+  .pickem-vote-label strong {
+    font-size: 10px;
+  }
+}

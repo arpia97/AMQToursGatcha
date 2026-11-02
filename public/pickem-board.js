@@ -1,3 +1,4 @@
+import { pickemVoteChart } from "./pickem-votes.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
 import { winnerCard } from "./tour-winner-ui.js";
@@ -199,7 +200,12 @@ export function pickemBoard(
           (p.round || 1) +
           '</td><th scope="row" class="match-name">' +
           label +
-          "</th>" +
+          '<details class="pickem-vote-details"><summary>' +
+          n(p.voteSummary?.total || 0) +
+          (p.voteSummary?.total === 1 ? " voter" : " voters") +
+          " · View Votes</summary>" +
+          pickemVoteChart(p, { escape: e, number: n }) +
+          "</details></th>" +
           predictionCells(p, draft, form, e, open, label) +
           '<td class="pickem-state" title="' +
           e(deadline(p)) +
