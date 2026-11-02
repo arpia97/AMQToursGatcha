@@ -198,6 +198,22 @@ export class Engine {
         : "Host access revoked immediately.",
     };
   }
+  deductionQuote(b) {
+    const player = text(b.player, 100),
+      p = this.player(player),
+      amount = integer(b.amount, 1, 1000000),
+      note = text(b.note, 240);
+    if (amount > p.balance)
+      fail("This player does not have enough available credits.");
+    return {
+      player,
+      name: p.name,
+      amount,
+      note,
+      expectedBalance: p.balance,
+      remaining: p.balance - amount,
+    };
+  }
   wallet(id, delta, reason, earned = false) {
     const p = this.player(id);
     const balance = p.balance + delta;
@@ -538,6 +554,21 @@ export class Engine {
         }
       }
       return { message: `Imported ${b.players.length} players.` };
+    }
+    if (action === "deduct") {
+      const quote = this.deductionQuote(b);
+      if (b.expectedBalance !== quote.expectedBalance)
+        fail(
+          "The player balance changed. Review this deduction again before confirming.",
+          409,
+        );
+      this.wallet(quote.player, -quote.amount, "Host deduction: " + quote.note);
+      return {
+        message:
+          "Deducted " + quote.amount + " credits from " + quote.name + ".",
+        player: quote.player,
+        balance: quote.remaining,
+      };
     }
     if (action === "grant") {
       if (

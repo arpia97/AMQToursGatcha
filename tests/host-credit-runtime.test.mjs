@@ -1,0 +1,129 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
+const require = createRequire(import.meta.url),
+  { Miniflare, Response: RuntimeResponse } = createRequire(
+    require.resolve("wrangler/package.json"),
+  )("miniflare");
+test("live Worker routes protect credit previews/deductions, preserve earned credits and replay deductions once", async (t) => {
+  const bundle = await build({
+    entryPoints: [fileURLToPath(new URL("../src/worker.js", import.meta.url))],
+    bundle: true,
+    write: false,
+    format: "esm",
+    platform: "browser",
+    external: ["cloudflare:workers"],
+  });
+  const mf = new Miniflare({
+    workers: [
+      {
+        config: {
+          name: "host-credit-test",
+          compatibilityDate: "2026-10-01",
+          manifest: {
+            mainModule: "worker.js",
+            modules: {
+              "worker.js": {
+                type: "esm",
+                contents: bundle.outputFiles[0].text,
+              },
+            },
+          },
+          exports: {
+            Game: {
+              type: "durable-object",
+              storage: "sqlite",
+              state: "created",
+            },
+          },
+          env: {
+            GAME: {
+              type: "durable-object",
+              worker: "host-credit-test",
+              exportName: "Game",
+            },
+            HOST_TOKEN: {
+              type: "json",
+              value: "isolated-host-token-only-for-tests-12345678",
+            },
+          },
+        },
+        dev: {
+          outboundService: {
+            type: "fetcher",
+            handler: () =>
+              new RuntimeResponse("Isolated test: outbound disabled", {
+                status: 503,
+              }),
+          },
+        },
+      },
+    ],
+  });
+  t.after(() => mf.dispose());
+  const post = (path, body, headers = {}) =>
+      mf.dispatchFetch("http://game/api/" + path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": crypto.randomUUID(),
+          ...headers,
+        },
+        body: JSON.stringify(body),
+      }),
+    host = {
+      Authorization: "Bearer isolated-host-token-only-for-tests-12345678",
+    };
+  let response = await post(
+    "host/players",
+    { players: [{ id: "1", name: "Local User" }] },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  response = await post("register", {
+    player: "1",
+    password: "local-only-password",
+  });
+  assert.equal(response.status, 200, await response.clone().text());
+  const cookie = response.headers.get("set-cookie").split(";")[0];
+  for (const path of ["host/deduction-preview", "host/deduct"]) {
+    response = await post(path, { player: "1", amount: 100, note: "Reason" });
+    assert.equal(response.status, 401);
+    response = await post(
+      path,
+      { player: "1", amount: 100, note: "Reason" },
+      { Cookie: cookie },
+    );
+    assert.equal(response.status, 401);
+  }
+  response = await post(
+    "host/deduction-preview",
+    { player: "1", amount: 100, note: "Correction" },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  const quote = await response.json();
+  const read = async () => {
+    const r = await mf.dispatchFetch("http://game/api/player?id=1");
+    assert.equal(r.status, 200, await r.clone().text());
+    return r.json();
+  };
+  const before = await read();
+  assert.equal(before.balance, quote.expectedBalance);
+  const headers = { ...host, "Idempotency-Key": "deduct-once" };
+  response = await post("host/deduct", quote, headers);
+  assert.equal(response.status, 200, await response.clone().text());
+  response = await post("host/deduct", quote, headers);
+  assert.equal(response.status, 200);
+  const after = await read();
+  assert.equal(after.balance, before.balance - 100);
+  assert.equal(after.earned, before.earned);
+  response = await post("host/deduct", quote, {
+    ...host,
+    "Idempotency-Key": "stale-review",
+  });
+  assert.equal(response.status, 409);
+  assert.equal((await read()).balance, after.balance);
+});

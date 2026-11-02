@@ -2520,3 +2520,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
     justify-content: flex-end;
   }
 }
+
+.catalog-toolbar .tabs {
+  max-width: 100%;
+  flex-wrap: wrap;
+}

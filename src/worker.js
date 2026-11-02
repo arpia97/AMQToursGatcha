@@ -368,6 +368,9 @@ export class Game extends DurableObject {
             "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,password IS NOT NULL AS registered FROM players ORDER BY name",
           ),
           aliases: e.all("SELECT * FROM aliases ORDER BY alias"),
+          usernames: e.all(
+            "SELECT player,label FROM usernames ORDER BY player,at",
+          ),
           pickems: e.all("SELECT * FROM pickems ORDER BY id DESC LIMIT 100"),
           pickemEvents: e
             .all("SELECT * FROM pickem_events ORDER BY id DESC LIMIT 30")
@@ -399,6 +402,7 @@ export class Game extends DurableObject {
       if (path === "host/acdb-retirement" && !post)
         return json(e.catalogStore.retirementPreview());
       if (!post) fail("POST required.", 405);
+      if (path === "host/deduction-preview") return json(e.deductionQuote(b));
       if (path === "host/participation-preview")
         return json(e.participation.preview(b.text));
       if (path === "host/aliases-sync") {
@@ -697,6 +701,12 @@ export class Game extends DurableObject {
           query: url.searchParams.get("q") || "",
           page: Number(url.searchParams.get("page") || 1),
         }),
+      );
+    }
+    if (path === "catalog-recent" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.catalogStore.recentPage(Number(url.searchParams.get("page") || 1)),
       );
     }
     if (path === "catalog" && !post) {

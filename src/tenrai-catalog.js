@@ -69,6 +69,8 @@ export class TenraiCatalog {
         dirty.add(b);
         changed.set(c.id, c);
         added++;
+        if (!this.e.one("SELECT id FROM catalog WHERE id=?", c.id))
+          this.e.catalogStore.recordArrivals([c]);
       }
       // Prefer a Main appearance as the primary series; later Supporting credits
       // cannot demote a character or replace the chosen series unpredictably.

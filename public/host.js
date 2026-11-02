@@ -1,3 +1,10 @@
+import {
+  matchingCreditPlayers,
+  creditPlayerOptions,
+  creditPlayerPicker,
+  deductionPanel,
+  deductionReview,
+} from "./host-credit-ui.js";
 import { winnerCreatePanel } from "./tour-winner-ui.js";
 import {
   settlementPanel,
@@ -12,6 +19,7 @@ import {
 } from "./pickem-management.js";
 import { updateRewardDefaults } from "./host-defaults.js";
 import { accessPanel, participationPanel } from "./host-panels.js";
+let deductionDraft = null;
 let participationDraft = null,
   matchDraft = null,
   managedTour = null,
@@ -91,12 +99,13 @@ const players = () =>
 const input = (label, name, type = "text", attrs = "") =>
   `<label>${label}<input name="${name}" type="${type}" required ${attrs}></label>`;
 function render() {
+  deductionDraft = null;
   document
     .querySelectorAll(".host-tabs button")
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
   if (tab === "rewards")
-    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack"><label>AMQ player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 300 per game · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Friday Usual #42 · reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 300 per game · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Friday Usual #42 · reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
     html = `<section class="host-panel"><h2>One Player. One AMQ Identity.</h2><p>Import stable AMQ Tours IDs and aliases. Upload a CSV with headers <code>id,name,aliases</code>. Separate aliases with a pipe: <code>alias1|alias2</code>. Existing aliases are retained; conflicts roll back the entire import.</p><form id="players" class="stack"><label>CSV player / alias sheet<input type="file" id="players-file" accept=".csv,text/csv" required></label><button class="button" type="submit">Import players &amp; aliases →</button></form><p class="form-hint space-top">The alias sheet remains the identity source. Manual imports supplement the automatic sheet sync. Neither operation edits AMQ Tours ratings or writes to the source sheet.</p></section><section class="host-panel"><h2>Recover Account Access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue access recovery code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
@@ -161,7 +170,8 @@ function render() {
       `<section class="host-panel"><h2>Background Import Usage</h2><p>${b.mode === "continuous" ? "Continuous import enabled. The daily free-plan pause is disabled; saved progress and upstream backoff are retained." : b.backgroundPaused ? "Automatic scans are resting until " + esc(new Date(b.nextResumeAt).toLocaleString()) + " to leave capacity for players." : "Automatic scans are within today’s reserved budget."}</p><p class="form-hint">App-local SQL estimate since tracking began: ${b.rowsRead.toLocaleString()} rows read · ${b.rowsWritten.toLocaleString()} rows written (${esc(b.day)}, UTC). ${b.mode === "continuous" ? "The importer makes one source request at a time, at least 10 seconds apart. No daily app-level row limit is applied." : "Background work rests at 2 million reads or 30,000 writes and resumes the next UTC day."} Account-wide usage and platform overhead can differ.</p>${sources ? `<table><thead><tr><th>Source</th><th>Rows Read</th><th>Rows Written</th></tr></thead><tbody>${sources}</tbody></table><p class="form-hint">Source breakdown started ${esc(new Date(b.breakdownSince).toLocaleString())}. Earlier totals remain unattributed. Counts exclude platform storage operations and checkpoint overhead.</p>` : ""}</section>` +
       html;
   }
-  if (tab === "rewards") html = participationPanel() + html;
+  if (tab === "rewards")
+    html = participationPanel() + html + deductionPanel(state, esc);
   if (tab === "players") html = accessPanel(state, esc) + html;
   if (tab === "pickems")
     html =
@@ -416,6 +426,24 @@ document.addEventListener("submit", async (ev) => {
     if (form.id === "replace-acdb") result = await api("replace-acdb", b, key);
     if (form.id === "jikan-control")
       result = await api(ev.submitter.value, {}, key);
+    if (form.id === "deduct") {
+      deductionDraft = await api("deduction-preview", {
+        player: b.player,
+        amount: Number(b.amount),
+        note: b.note,
+      });
+      $("#deduction-review").innerHTML = deductionReview(deductionDraft, esc);
+      $("#deduction-review").scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+      return;
+    }
+    if (form.id === "deduct-confirm") {
+      if (!deductionDraft) throw Error("Review this deduction first.");
+      result = await api("deduct", deductionDraft, key);
+      deductionDraft = null;
+    }
     if (form.id === "grant") {
       b.amount = Number(b.amount);
       if (b.games) b.games = Number(b.games);
@@ -541,6 +569,28 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.dataset.creditSearch) {
+    const id = ev.target.dataset.creditSearch,
+      select = document.getElementById(id + "-player"),
+      matches = matchingCreditPlayers(state, ev.target.value);
+    select.innerHTML = creditPlayerOptions(matches, esc, select.value);
+    document.querySelector('[data-credit-count="' + id + '"]').textContent =
+      matches.length +
+      " matching " +
+      (matches.length === 1 ? "player" : "players");
+    ev.target.classList.toggle(
+      "no-results",
+      !!ev.target.value.trim() && !matches.length,
+    );
+    ev.target.setAttribute(
+      "aria-invalid",
+      String(!!ev.target.value.trim() && !matches.length),
+    );
+  }
+  if (ev.target.closest("#deduct")) {
+    deductionDraft = null;
+    $("#deduction-review").innerHTML = "";
+  }
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
   if (form?.id === "grant" && ev.target.name === "games")
@@ -567,15 +617,24 @@ document.addEventListener("change", (ev) => {
     target.disabled = ev.target.checked;
   }
   const form = ev.target.closest("form");
+  if (form?.id === "deduct") {
+    deductionDraft = null;
+    $("#deduction-review").innerHTML = "";
+  }
   if (form?.id === "grant" && ["reason", "games"].includes(ev.target.name))
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest(
-    "[data-tab],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh]",
+    "[data-tab],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh],[data-cancel-deduction]",
   );
   if (!t || working) return;
+  if (t.hasAttribute("data-cancel-deduction")) {
+    deductionDraft = null;
+    $("#deduction-review").innerHTML = "";
+    return;
+  }
   if (t.dataset.settlementTour || t.hasAttribute("data-settlement-refresh")) {
     working = true;
     t.disabled = true;

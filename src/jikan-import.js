@@ -332,6 +332,7 @@ export class JikanImport {
             );
             for (let i = 0; i < fresh.length; i += 500)
               this.e.host("catalog", { cards: fresh.slice(i, i + 500) });
+            this.e.catalogStore.recordArrivals(fresh);
             s.importedActors += fresh.length;
             if (s.includeCharacters) {
               const characters = characterCards(data.data, title);

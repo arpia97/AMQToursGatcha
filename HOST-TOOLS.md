@@ -204,3 +204,9 @@ POST actions use the existing authenticated, same-origin, idempotent mutation fl
 - `trade-cancel`: `{listing}`.
 
 The listing copy and every offered copy are escrowed atomically. Offer responses include a `cards` array with the level of every held copy; older one-card rows are read without rewriting their escrow. Only the lister can accept/decline; only an offer owner can withdraw. Cancellation returns all cards, acceptance returns losing offers, and account resets return unaffected players’ held cards. No credits are charged. Catalogue, accounts, passwords and import cursors are unaffected by this additive schema.
+
+## Manual Credit Deductions
+
+The Credit Rewards tab has searchable recipient selectors for manual rewards and deductions (current name, canonical ID, aliases and username history).
+
+POST `/api/host/deduction-preview` with `{player, amount, note}` validates 1–1,000,000 whole credits and returns `{player, name, amount, note, expectedBalance, remaining}` without mutating credits. POST `/api/host/deduct` with that reviewed quote and an Idempotency-Key applies the deduction exactly once. A changed balance returns409 and requires another review. Both endpoints require the same host permissions as rewards. Negative balances are rejected; lifetime earnings, contributions, cards and catalogue are unchanged. The ledger records the debit and reason.

@@ -43,8 +43,65 @@ export class Catalog {
       UPDATE catalog_totals SET n=n-1 WHERE key='overrides' AND OLD.bulk_role IS NOT NULL;
       UPDATE catalog_totals SET n=n+1 WHERE key='overrides' AND NEW.bulk_role IS NOT NULL;
     END`);
+    engine.run(
+      "CREATE TABLE IF NOT EXISTS catalog_arrivals(card TEXT PRIMARY KEY,kind TEXT NOT NULL,first_imported INTEGER NOT NULL)",
+    );
+    engine.run(
+      "CREATE INDEX IF NOT EXISTS catalog_arrivals_time ON catalog_arrivals(first_imported,card)",
+    );
+    engine.run(
+      "INSERT OR IGNORE INTO catalog_meta VALUES('recent-cards-tracking-since',?)",
+      String(engine.now()),
+    );
     this.tenrai = new TenraiCatalog(engine);
     this.popularity = new Popularity(engine);
+  }
+  recordArrivals(cards) {
+    for (const c of cards)
+      this.e.run(
+        "INSERT OR IGNORE INTO catalog_arrivals(card,kind,first_imported) VALUES(?,?,?)",
+        c.id,
+        c.kind,
+        this.e.now(),
+      );
+  }
+  recentPage(page = 1, limit = 40) {
+    integer(page, 1, 10000);
+    integer(limit, 1, 100);
+    const now = this.e.now(),
+      since = now - 86400000;
+    const total = this.e.one(
+      "SELECT count(*) n FROM catalog_arrivals WHERE first_imported>? AND first_imported<=?",
+      since,
+      now,
+    ).n;
+    const pages = Math.max(1, Math.ceil(total / limit));
+    page = Math.min(page, pages);
+    const rows = this.e.all(
+      "SELECT card,first_imported FROM catalog_arrivals WHERE first_imported>? AND first_imported<=? ORDER BY first_imported DESC,card DESC LIMIT ? OFFSET ?",
+      since,
+      now,
+      limit,
+      (page - 1) * limit,
+    );
+    const times = new Map(rows.map((r) => [r.card, r.first_imported]));
+    return {
+      cards: this.cards(rows.map((r) => r.card)).map((c) => ({
+        ...c,
+        firstImportedAt: times.get(c.id),
+      })),
+      page,
+      limit,
+      total,
+      hasMore: page < pages,
+      now,
+      since,
+      trackingSince: Number(
+        this.e.one(
+          "SELECT value FROM catalog_meta WHERE key='recent-cards-tracking-since'",
+        ).value,
+      ),
+    };
   }
   manifest() {
     const row = this.e.one("SELECT value FROM catalog_meta WHERE key='acdb'");
