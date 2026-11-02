@@ -101,9 +101,9 @@ export function prepareQuizSongs(input, master) {
       ...(direct ? [direct] : []),
       ...(bySong.get(
         String(
-          row.amqSongId ??
+          byAnnSong.get(String(row.annSongId ?? "")) ??
+            row.amqSongId ??
             row.songId ??
-            byAnnSong.get(String(row.annSongId ?? "")) ??
             "",
         ),
       ) || []),

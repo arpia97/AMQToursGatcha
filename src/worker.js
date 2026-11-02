@@ -1,3 +1,4 @@
+import { loadQuizMaster } from "./quiz-source.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
@@ -377,25 +378,8 @@ export class Game extends DurableObject {
         }
         if (b.input !== undefined) {
           if (!this.quizMaster || Date.now() - this.quizMaster.at > 86400000) {
-            const response = await fetch(
-              "https://animemusicquiz.com/libraryMasterList",
-              { signal: AbortSignal.timeout(20000) },
-            );
-            if (!response.ok)
-              fail(
-                "AMQ answer database is unavailable. No pool was changed.",
-                502,
-              );
-            const data = await response.json();
-            if (!data.animeMap)
-              fail("AMQ returned an invalid answer database.", 502);
-            this.quizMaster = {
-              at: Date.now(),
-              data: {
-                masterListId: data.masterListId,
-                animeMap: data.animeMap,
-              },
-            };
+            const master = await loadQuizMaster(fetch, this.env.ASSETS);
+            this.quizMaster = { at: Date.now(), ...master };
           }
           let prepared;
           try {
@@ -421,7 +405,11 @@ export class Game extends DurableObject {
         } else delete b.songs;
         requireHost();
         return json(
-          e.mutate("host:quiz-save", key, fingerprint, () => e.quiz.save(b)),
+          e.mutate("host:quiz-save", key, fingerprint, () => ({
+            ...e.quiz.save(b),
+            answerSource: this.quizMaster?.mode || "saved",
+            answerVersion: b.source,
+          })),
         );
       }
       if (path === "host/state" && !post)

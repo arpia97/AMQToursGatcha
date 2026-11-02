@@ -274,3 +274,28 @@ test("AnisongDB filenames resolve only to the AMQ HTTPS mirror while malformed a
   );
   assert.equal(imported.rejected.length, 2);
 });
+
+test("AMQ occurrence links override legacy exports that mislabel an occurrence ID as the shared song", () => {
+  const master = {
+    masterListId: "legacy",
+    animeMap: {
+      1: {
+        mainNames: { EN: "Original" },
+        songLinks: { OP: [{ songId: 9, annSongId: 99 }] },
+      },
+      2: {
+        mainNames: { EN: "Shared Appearance" },
+        songLinks: { ED: [{ songId: 9, annSongId: 100 }] },
+      },
+      3: {
+        mainNames: { EN: "Unrelated Cover" },
+        songLinks: { OP: [{ songId: 99, annSongId: 101 }] },
+      },
+    },
+  };
+  const q = prepareQuizSongs(
+    [{ annId: 1, annSongId: 99, amqSongId: 99, audio: "legacy.mp3" }],
+    master,
+  );
+  assert.deepEqual(q.songs[0].answers, ["Original", "Shared Appearance"]);
+});
