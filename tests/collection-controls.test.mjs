@@ -212,15 +212,15 @@ test("multi-select fusion picker stays open through five selections with live ca
   assert.equal(w.pickerOpen(), true);
   assert.equal(w.request().expectedOdds.upgrade, 0);
   w.add({ card: "d", variant: "extra" });
-  assert.match(w.renderPicker(), /50% Success/);
+  assert.match(w.renderPicker(), /35% Success/);
   w.add({ card: "d", variant: "extra" });
-  assert.equal(w.request().expectedOdds.upgrade, 10000);
+  assert.equal(w.request().expectedOdds.upgrade, 5500);
   w.add({ card: "d", variant: "extra" });
   w.add({ card: "d", variant: "extra" });
   assert.equal(w.request().cards.length, 5);
   assert.equal(w.pickerOpen(), true);
   assert.ok(w.renderPicker().includes("5 / 5 Cards Selected"));
-  assert.match(w.renderPicker(), /100% Success/);
+  assert.match(w.renderPicker(), /55% Success/);
   assert.throws(() => w.add({ card: "d", variant: "extra" }), /five slots/);
   w.remove(0);
   assert.equal(w.request().cards.length, 4);
@@ -234,6 +234,6 @@ test("multi-select fusion picker stays open through five selections with live ca
   state.inventory[0].level = 2;
   w.openPicker(0);
   w.add({ card: "d", variant: "card" });
-  assert.equal(w.request().expectedOdds.upgrade, 5000);
-  assert.match(w.renderPicker(), /50% Success/);
+  assert.equal(w.request().expectedOdds.upgrade, 3500);
+  assert.match(w.renderPicker(), /35% Success/);
 });

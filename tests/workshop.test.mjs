@@ -168,64 +168,96 @@ test("high-level AG sale values fit the wallet without truncating the invested-c
   assert.equal(f.e.player("p").balance, 3355443200);
 });
 const m = (rarity, level = 1) => ({ rarity, level });
-test("fusion reserves one baseline copy, halves each lower tier and counts exact enhancement investment", () => {
+test("fusion tiers, halved fodder, invested copies, caps and overload risk", () => {
   assert.equal(fusionQuote([m("S")]).upgrade, 0);
-  assert.equal(fusionQuote([m("S"), m("S")]).upgrade, 5000);
-  assert.equal(fusionQuote([m("S"), m("A")]).upgrade, 2500);
-  assert.equal(fusionQuote([m("S"), m("B")]).upgrade, 1250);
-  assert.equal(fusionQuote([m("Ubers"), m("D")]).upgrade, 39.0625);
+  assert.equal(fusionQuote([m("S"), m("S")]).upgrade, 4300);
+  assert.equal(fusionQuote([m("S"), m("A")]).upgrade, 2150);
+  assert.equal(fusionQuote([m("S"), m("B")]).upgrade, 1075);
+  assert.equal(fusionQuote([m("Ubers"), m("D")]).upgrade, 37.5);
   assert.deepEqual(fusionContribution(m("D"), 3, "B"), {
-    upgrade: 5000,
+    upgrade: 3900,
     copies: 4,
   });
-  assert.equal(fusionQuote([m("S", 2)]).upgrade, 5000);
-  assert.equal(fusionQuote([m("S", 3)]).upgrade, 10000);
-  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 5312.5);
+  assert.equal(fusionQuote([m("S", 2)]).upgrade, 4300);
+  assert.equal(fusionQuote([m("S", 3)]).upgrade, 6300);
+  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 4568.75);
   for (const rows of [
     [m("S", 2), m("S")],
     [m("S"), m("S", 2)],
   ])
-    assert.equal(fusionQuote(rows).upgrade, 10000);
+    assert.equal(fusionQuote(rows).upgrade, 6300);
   const full = fusionQuote(Array(5).fill(m("Ubers", 20)));
-  assert.equal(full.upgrade, 10000);
-  assert.equal(full.stay, 0);
-  assert.ok(full.rawUpgrade > 10000);
+  assert.equal(full.upgrade, 7000);
+  assert.equal(full.stay, 1000);
+  assert.equal(full.downgrade, 2000);
   assert.equal(full.investment, 5 * 524288);
+  const tiers = ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers"];
+  let previous = null;
+  for (const tier of tiers) {
+    const pair = fusionQuote([m(tier), m(tier)]);
+    assert.equal(pair.stay, 3000);
+    if (previous) {
+      assert.ok(pair.upgrade > previous.upgrade);
+      assert.ok(pair.downgrade < previous.downgrade);
+    }
+    previous = pair;
+    for (let level = 1; level <= 20; level++) {
+      const q = fusionQuote([m(tier, level), m("D")]);
+      assert.equal(q.upgrade + q.stay + q.downgrade, 10000);
+      assert.ok(q.stay >= 1000 && q.downgrade >= 0 && q.upgrade <= q.cap);
+    }
+    const over = fusionQuote(Array(5).fill(m(tier)));
+    const less = fusionQuote(Array(3).fill(m(tier)));
+    assert.equal(over.upgrade, less.upgrade);
+    assert.ok(over.downgrade > less.downgrade);
+  }
   for (const rarity of ["AG", null, "Pending"])
     assert.throws(() => fusionQuote([m(rarity)]), /AG|Pending/);
   assert.throws(() => fusionQuote(Array(6).fill(m("D"))), /five/);
 });
-test("conditional success split is exactly90/9/1, failures reroll baseline and top tiers cap at AG", () => {
+test("upgrade and downgrade conditional splits are exactly90/9/1 with correct boundaries and tier clamps", () => {
   const q = fusionQuote([m("S"), m("S")]);
   assert.deepEqual(
     q.outcomes.map((o) => [o.rarity, o.chance]),
     [
-      ["SS", 4500],
-      ["SSS", 450],
-      ["Ubers", 50],
+      ["SS", 3870],
+      ["SSS", 387],
+      ["Ubers", 43],
     ],
   );
-  const counts = {};
-  for (let i = 0; i < 10000; i++) {
-    const rolls = [0, i];
-    const result = rollFusion(q, () => rolls.shift());
-    counts[result.outcome] = (counts[result.outcome] || 0) + 1;
+  for (const branch of ["upgrade", "downgrade"]) {
+    const counts = {};
+    for (let i = 0; i < 10000; i++) {
+      const values = [branch === "upgrade" ? 0 : FUSION_ROLL_SCALE - 1, i];
+      const result = rollFusion(q, () => values.shift());
+      counts[result.outcome] = (counts[result.outcome] || 0) + 1;
+    }
+    assert.deepEqual(
+      counts,
+      branch === "upgrade"
+        ? { upgrade: 9000, great: 900, erig: 100 }
+        : { downgrade: 9000, downgrade2: 900, downgrade3: 100 },
+    );
   }
-  assert.deepEqual(counts, { upgrade: 9000, great: 900, erig: 100 });
-  for (const [quality, outcome, grade] of [
-    [8999, "upgrade", "SS"],
-    [9000, "great", "SSS"],
-    [9899, "great", "SSS"],
-    [9900, "erig", "Ubers"],
-    [9999, "erig", "Ubers"],
-  ]) {
-    const values = [0, quality];
-    const result = rollFusion(q, () => values.shift());
-    assert.equal(result.outcome, outcome);
-    assert.equal(result.grade, grade);
-  }
-  assert.equal(rollFusion(q, () => 640000).outcome, "stay");
-  assert.equal(rollFusion(q, () => FUSION_ROLL_SCALE - 1).grade, "S");
+  const unit = FUSION_ROLL_SCALE / 10000;
+  const draw = (roll, quality = 0) => {
+    const values = [roll, quality];
+    return rollFusion(q, () => values.shift());
+  };
+  assert.equal(draw(q.upgrade * unit - 1).outcome, "upgrade");
+  assert.equal(draw(q.upgrade * unit).outcome, "stay");
+  assert.equal(draw((q.upgrade + q.stay) * unit - 1).outcome, "stay");
+  assert.equal(draw((q.upgrade + q.stay) * unit).grade, "A");
+  assert.equal(draw(FUSION_ROLL_SCALE - 1, 9000).grade, "B");
+  assert.equal(draw(FUSION_ROLL_SCALE - 1, 9900).grade, "C");
+  assert.deepEqual(
+    fusionQuote([m("C", 2)]).downgrades.map((o) => o.rarity),
+    ["D", "D", "D"],
+  );
+  assert.deepEqual(
+    fusionQuote([m("D", 2)]).downgrades.map((o) => o.rarity),
+    ["D", "D", "D"],
+  );
   assert.deepEqual(
     fusionQuote([m("SSS", 2)]).outcomes.map((o) => o.rarity),
     ["Ubers", "AG", "AG"],
@@ -236,15 +268,19 @@ test("conditional success split is exactly90/9/1, failures reroll baseline and t
   );
   const fractional = fusionQuote([m("Ubers"), m("D")]);
   assert.equal(
-    rollFusion(fractional, (n) => (n === FUSION_ROLL_SCALE ? 4999 : 0)).outcome,
+    rollFusion(fractional, (n) => (n === FUSION_ROLL_SCALE ? 19199 : 0))
+      .outcome,
     "upgrade",
   );
-  assert.equal(rollFusion(fractional, () => 5000).outcome, "stay");
+  assert.equal(rollFusion(fractional, () => 19200).outcome, "stay");
 });
-test("all four fusion outcomes consume materials once, grant exactly one Lv1 result and preserve credits", () => {
+test("all seven fusion outcomes consume materials once, grant exactly one Lv1 result and preserve credits", () => {
   for (const [roll, quality, outcome, grade] of [
-    [640000, 0, "stay", "S"],
-    [639999, 8999, "upgrade", "SS"],
+    [4300 * 512, 0, "stay", "S"],
+    [4300 * 512 - 1, 8999, "upgrade", "SS"],
+    [FUSION_ROLL_SCALE - 1, 0, "downgrade", "A"],
+    [FUSION_ROLL_SCALE - 1, 9000, "downgrade2", "B"],
+    [FUSION_ROLL_SCALE - 1, 9900, "downgrade3", "C"],
     [0, 9000, "great", "SSS"],
     [0, 9900, "erig", "Ubers"],
   ]) {
@@ -268,7 +304,7 @@ test("all four fusion outcomes consume materials once, grant exactly one Lv1 res
 test("enhanced bases contribute invested copies, spare copies stay Lv1 and consumption orders extras first", () => {
   const f = fixture();
   f.add("D", 4, 6);
-  let rolls = [FUSION_ROLL_SCALE - 1, 0];
+  let rolls = [3500 * 512, 0];
   f.e.rand = () => rolls.shift();
   f.act("fusion", f.body([f.material("D", "extra"), f.material("D", "extra")]));
   assert.deepEqual(
@@ -284,7 +320,7 @@ test("enhanced bases contribute invested copies, spare copies stay Lv1 and consu
     f.material("D", "extra"),
     f.material("D", "extra"),
   ]);
-  assert.equal(b.expectedOdds.upgrade, 10000);
+  assert.equal(b.expectedOdds.upgrade, 5500);
   rolls = [0, 9000, 0];
   const result = f.act("fusion", b);
   assert.equal(result.cards[0].rarity, "B");
@@ -385,7 +421,7 @@ test("invalid or singleton targets reject before rolling, same-tier reroll never
     assert.deepEqual(f.e.state("p").inventory, before);
   }
   f.cards.set("AG-second", { ...f.cards.get("AG-other"), id: "AG-second" });
-  const rolls = [640000, 0];
+  const rolls = [4800 * 512, 0];
   f.e.rand = () => rolls.shift();
   const result = f.act("fusion", { ...b, targetCard: "AG-second" });
   assert.equal(result.outcome, "stay");
@@ -424,4 +460,28 @@ test("fusion follows material types for every result tier and mixed boards may d
     );
     assert.equal(result.cards[0].kind, kind);
   }
+});
+
+test("unavailable downgrade pools reject before consumption and old revision2 boards cannot fuse", () => {
+  const f = fixture();
+  f.add("S", 2);
+  const b = f.body([f.material("S"), f.material("S", "extra")]);
+  const before = f.e.state("p").inventory;
+  f.e.rand = () => {
+    throw Error("No roll before validation");
+  };
+  assert.throws(
+    () =>
+      f.act("fusion", {
+        ...b,
+        expectedOdds: { ...b.expectedOdds, revision: 2 },
+      }),
+    /rules or odds changed/,
+  );
+  const pool = f.e.catalogStore.pool;
+  f.e.catalogStore.pool = (kind) => ({
+    cards: pool(kind).cards.filter((c) => c.rarity !== "B"),
+  });
+  assert.throws(() => f.act("fusion", b), /No B result/);
+  assert.deepEqual(f.e.state("p").inventory, before);
 });

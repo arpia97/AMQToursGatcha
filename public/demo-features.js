@@ -947,7 +947,9 @@ export function demoFeatures(d, path, b) {
       [
         ...new Set([
           ...(odds.stay ? [odds.baseline] : []),
-          ...odds.outcomes.filter((o) => o.chance > 0).map((o) => o.rarity),
+          ...[...odds.outcomes, ...odds.downgrades]
+            .filter((o) => o.chance > 0)
+            .map((o) => o.rarity),
         ]),
       ].map((r) => [
         r,
@@ -965,7 +967,10 @@ export function demoFeatures(d, path, b) {
     const { outcome, grade } = rolled;
     const card = drawFusionResult(
       pools[grade],
-      outcome !== "stay" && grade === odds.upgraded ? target : null,
+      odds.outcomes.some((o) => o.outcome === outcome) &&
+        grade === odds.upgraded
+        ? target
+        : null,
       (n) => Math.floor(Math.random() * n),
     );
     for (const [id, g] of groups) {

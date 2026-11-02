@@ -86,7 +86,9 @@ export class Fusion {
     const needed = [
       ...new Set([
         ...(odds.stay ? [odds.baseline] : []),
-        ...odds.outcomes.filter((o) => o.chance > 0).map((o) => o.rarity),
+        ...[...odds.outcomes, ...odds.downgrades]
+          .filter((o) => o.chance > 0)
+          .map((o) => o.rarity),
       ]),
     ];
     const kinds = [...new Set(materials.map((m) => m.kind))];
@@ -109,7 +111,10 @@ export class Fusion {
     const { outcome, grade } = rolled;
     const result = drawFusionResult(
       pools[grade],
-      outcome !== "stay" && grade === odds.upgraded ? target : null,
+      odds.outcomes.some((o) => o.outcome === outcome) &&
+        grade === odds.upgraded
+        ? target
+        : null,
       (n) => this.e.rand(n),
     );
     // Consume extras before the base so selecting every physical copy is valid.
@@ -133,7 +138,10 @@ export class Fusion {
       roll: rolled.roll,
       qualityRoll: rolled.qualityRoll,
       targetCard: target?.id || null,
-      targetHit: !!target && outcome !== "stay" && result?.id === target.id,
+      targetHit:
+        !!target &&
+        odds.outcomes.some((o) => o.outcome === outcome) &&
+        result?.id === target.id,
       cards: result ? [result] : [],
     };
   }
