@@ -2169,3 +2169,6 @@ dialog.account-modal {
   display: grid;
   gap: 10px;
 }
+
+.host-credit-picker input[type="search"]:focus {border-color:var(--mint);box-shadow:0 0 0 3px #9ad6b422;}
+.host-credit-picker input[type="search"].no-results {border-color:var(--pink);box-shadow:0 0 0 3px #f4779126;}
