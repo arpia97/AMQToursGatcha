@@ -403,6 +403,14 @@ export class Game extends DurableObject {
           } catch (err) {
             fail(err.message);
           }
+          if (!prepared.songs.length)
+            fail(
+              "No playable MP3 songs matched AMQ. " +
+                (prepared.rejected
+                  .slice(0, 3)
+                  .map((r) => "Row " + r.row + ": " + r.reason)
+                  .join("; ") || "The uploaded song list is empty."),
+            );
           b = {
             ...b,
             songs: prepared.songs,

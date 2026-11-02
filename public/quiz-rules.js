@@ -57,6 +57,16 @@ export function validQuizAudio(value) {
     return null;
   }
 }
+// AnisongDB exports AMQ mirror filenames, while saved pools keep full HTTPS URLs.
+export function resolveQuizAudio(value) {
+  if (typeof value !== "string") return null;
+  const link = value.trim();
+  return validQuizAudio(
+    /^[a-z0-9_-]+\.mp3$/i.test(link)
+      ? "https://naedist.animemusicquiz.com/" + link
+      : link,
+  );
+}
 export function prepareQuizSongs(input, master) {
   const rows = Array.isArray(input) ? input : input?.songs;
   if (!Array.isArray(rows) || rows.length > 2000)
@@ -78,7 +88,11 @@ export function prepareQuizSongs(input, master) {
     rejected = [],
     seen = new Set();
   for (const [index, row] of rows.entries()) {
-    const audio = validQuizAudio(
+    if (!row || typeof row !== "object" || Array.isArray(row)) {
+      rejected.push({ row: index + 1, reason: "Invalid song record" });
+      continue;
+    }
+    const audio = resolveQuizAudio(
       row.audio || row.audioUrl || row.audio_url || row.mp3 || row.songLink,
     );
     const ann = String(row.annId ?? row.annID ?? row.animeAnnId ?? "");

@@ -8,6 +8,7 @@ import {
   quizReward,
   quizRarity,
   validQuizAudio,
+  resolveQuizAudio,
 } from "../public/quiz-rules.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
@@ -233,4 +234,43 @@ test("canonical ID migration retains quiz progress and active questions", (t) =>
     f.e.one("SELECT count(*) n FROM quiz_progress WHERE player='p'").n,
     0,
   );
+});
+
+test("AnisongDB filenames resolve only to the AMQ HTTPS mirror while malformed and video links stay rejected", () => {
+  assert.equal(
+    resolveQuizAudio("dntpj0.mp3"),
+    "https://naedist.animemusicquiz.com/dntpj0.mp3",
+  );
+  assert.equal(
+    resolveQuizAudio(" song_123-A.MP3 "),
+    "https://naedist.animemusicquiz.com/song_123-A.MP3",
+  );
+  assert.equal(
+    resolveQuizAudio("https://example.com/song.mp3?key=1"),
+    "https://example.com/song.mp3?key=1",
+  );
+  for (const value of [
+    "//evil.test/song.mp3",
+    "../song.mp3",
+    "/song.mp3",
+    "http://example.com/song.mp3",
+    "javascript:alert(1)",
+    "video.webm",
+    null,
+    {},
+  ])
+    assert.equal(resolveQuizAudio(value), null);
+  const imported = prepareQuizSongs(
+    [{ annId: 1, audio: "dntpj0.mp3" }, null, { annId: 1, HQ: "video.webm" }],
+    {
+      masterListId: "test",
+      animeMap: { 1: { mainNames: { EN: "Anime" }, songLinks: {} } },
+    },
+  );
+  assert.equal(imported.songs.length, 1);
+  assert.equal(
+    imported.songs[0].audio,
+    "https://naedist.animemusicquiz.com/dntpj0.mp3",
+  );
+  assert.equal(imported.rejected.length, 2);
 });

@@ -1,3 +1,4 @@
+import { formIdentifier } from "./form-actions.js";
 import { quizHostPanel, quizHostBody } from "./quiz-host-ui.js";
 import { chooseTourStaff } from "./tour-staff-ui.js";
 import {
@@ -278,7 +279,7 @@ document.addEventListener("submit", async (ev) => {
     form.dataset.requestKey ||
     (form.dataset.requestKey = crypto.randomUUID());
   try {
-    if (form.id === "admin-login-form") {
+    if (formIdentifier(form) === "admin-login-form") {
       const response = await fetch("api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -296,7 +297,7 @@ document.addEventListener("submit", async (ev) => {
     }
     const b = Object.fromEntries(new FormData(form));
     let result;
-    if (form.id === "quiz-save") {
+    if (formIdentifier(form) === "quiz-save") {
       result = await api("quiz-save", await quizHostBody(form), key);
       quizSelection = result.id;
       if (result.rejected?.length)
@@ -309,7 +310,7 @@ document.addEventListener("submit", async (ev) => {
             .map((r) => "row " + r.row + " (" + r.reason + ")")
             .join("; ");
     }
-    if (form.id === "tour-winner-create") {
+    if (formIdentifier(form) === "tour-winner-create") {
       result = await api(
         "pickem-winner",
         {
@@ -321,7 +322,7 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (form.id === "edit-tour-winner") {
+    if (formIdentifier(form) === "edit-tour-winner") {
       if (!matchDraft) throw Error("Open a tour pick’em first.");
       result = await api(
         "pickem-winner-edit",
@@ -340,14 +341,14 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (form.id === "manage-pickem-tour") {
+    if (formIdentifier(form) === "manage-pickem-tour") {
       managedTour = await api("pickem-event?event=" + Number(b.event));
       if (managedTour.format === "winner")
         matchDraft = managedTour.matches[0] || null;
       $("#pickem-tour-manager").innerHTML = tourManager(managedTour, esc);
       return;
     }
-    if (form.id === "combine-pickem-tour") {
+    if (formIdentifier(form) === "combine-pickem-tour") {
       if (!managedTour) throw Error("Open a tour first.");
       result = await api(
         "pickem-combine",
@@ -360,7 +361,7 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (form.id === "rename-pickem-tour") {
+    if (formIdentifier(form) === "rename-pickem-tour") {
       if (!managedTour) throw Error("Open a tour first.");
       result = await api(
         "pickem-event-edit",
@@ -368,7 +369,7 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (form.id === "delete-pickem-tour") {
+    if (formIdentifier(form) === "delete-pickem-tour") {
       if (!managedTour) throw Error("Open a tour first.");
       result = await api(
         "pickem-event-delete",
@@ -381,10 +382,13 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (form.id === "edit-pickem" || form.id === "delete-pickem") {
+    if (
+      formIdentifier(form) === "edit-pickem" ||
+      formIdentifier(form) === "delete-pickem"
+    ) {
       if (!matchDraft) throw Error("Open a pick’em first.");
       const body = { ...b, pickem: matchDraft.id, expected: matchDraft };
-      if (form.id === "edit-pickem") {
+      if (formIdentifier(form) === "edit-pickem") {
         body.ends =
           b.ends === localDeadline(matchDraft.ends)
             ? matchDraft.ends
@@ -394,12 +398,14 @@ document.addEventListener("submit", async (ev) => {
         body.clearPredictions = !!b.clearPredictions;
       }
       result = await api(
-        form.id === "edit-pickem" ? "pickem-edit" : "pickem-delete",
+        formIdentifier(form) === "edit-pickem"
+          ? "pickem-edit"
+          : "pickem-delete",
         body,
         key,
       );
     }
-    if (form.id === "participation-preview") {
+    if (formIdentifier(form) === "participation-preview") {
       const preview = await api("participation-preview", { text: b.text });
       const staff = await chooseTourStaff(state, esc);
       if (staff === null) return;
@@ -415,18 +421,18 @@ document.addEventListener("submit", async (ev) => {
       report("Review the resolved players and total before awarding.");
       return;
     }
-    if (form.id === "participation-batch") {
+    if (formIdentifier(form) === "participation-batch") {
       if (!participationDraft) throw Error("Review participants first.");
       result = await api("participation-batch", participationDraft, key);
     }
-    if (form.id === "host-permissions") {
+    if (formIdentifier(form) === "host-permissions") {
       result = await api(
         "permissions",
         { player: b.player, enabled: b.enabled === "true" },
         key,
       );
     }
-    if (form.id === "role-search") {
+    if (formIdentifier(form) === "role-search") {
       const response = await fetch(
         "api/catalog?kind=character&q=" + encodeURIComponent(b.query),
       );
@@ -440,16 +446,17 @@ document.addEventListener("submit", async (ev) => {
       );
       return;
     }
-    if (form.id === "favorites-refresh")
+    if (formIdentifier(form) === "favorites-refresh")
       result = await api(
         "favorites-refresh",
         { intervalDays: Number(b.intervalDays) },
         key,
       );
-    if (form.id === "replace-acdb") result = await api("replace-acdb", b, key);
-    if (form.id === "jikan-control")
+    if (formIdentifier(form) === "replace-acdb")
+      result = await api("replace-acdb", b, key);
+    if (formIdentifier(form) === "jikan-control")
       result = await api(ev.submitter.value, {}, key);
-    if (form.id === "deduct") {
+    if (formIdentifier(form) === "deduct") {
       deductionDraft = await api("deduction-preview", {
         player: b.player,
         amount: Number(b.amount),
@@ -462,17 +469,17 @@ document.addEventListener("submit", async (ev) => {
       });
       return;
     }
-    if (form.id === "deduct-confirm") {
+    if (formIdentifier(form) === "deduct-confirm") {
       if (!deductionDraft) throw Error("Review this deduction first.");
       result = await api("deduct", deductionDraft, key);
       deductionDraft = null;
     }
-    if (form.id === "grant") {
+    if (formIdentifier(form) === "grant") {
       b.amount = Number(b.amount);
       if (b.games) b.games = Number(b.games);
       result = await api("grant", b, key);
     }
-    if (form.id === "players") {
+    if (formIdentifier(form) === "players") {
       const rows = parseCSV(
         (await $("#players-file").files[0].text()).replace(/^\uFEFF/, ""),
       );
@@ -489,7 +496,7 @@ document.addEventListener("submit", async (ev) => {
       }));
       result = await api("players", { players }, key);
     }
-    if (form.id === "access") {
+    if (formIdentifier(form) === "access") {
       if (
         b.operation === "reset" &&
         !confirm(
@@ -520,20 +527,21 @@ document.addEventListener("submit", async (ev) => {
       result = await api("settle", body, key);
       delete settlementDrafts[match.id];
     }
-    if (form.id === "aliases-sync") result = await api("aliases-sync", {}, key);
-    if (form.id === "settings") {
+    if (formIdentifier(form) === "aliases-sync")
+      result = await api("aliases-sync", {}, key);
+    if (formIdentifier(form) === "settings") {
       b.premium_character = Number(b.premium_character);
       b.premium_seiyuu = Number(b.premium_seiyuu);
       b.character = Number(b.character);
       b.seiyuu = Number(b.seiyuu);
       result = await api("settings", b, key);
     }
-    if (form.id === "role") {
+    if (formIdentifier(form) === "role") {
       const c = state.cards.find((c) => c.id === b.card);
       if (!c) throw new Error("Choose a character.");
       result = await api("catalog", { cards: [{ ...c, role: b.role }] }, key);
     }
-    if (form.id === "reset-player") {
+    if (formIdentifier(form) === "reset-player") {
       if (b.confirmation !== `RESET PLAYER ${b.player}`)
         throw new Error(
           "The confirmation phrase must match the selected player ID.",
@@ -546,7 +554,7 @@ document.addEventListener("submit", async (ev) => {
         return;
       result = await api("reset-player", b, key);
     }
-    if (form.id === "reset-all") {
+    if (formIdentifier(form) === "reset-all") {
       const full = b.scope === "everything";
       if (
         b.confirmation !== (full ? "DELETE EVERYTHING" : "RESET ALL GAME DATA")
@@ -568,6 +576,10 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
+    if (!result || typeof result.message !== "string")
+      throw Error(
+        "This host form could not be submitted. Reload the console and try again.",
+      );
     await load();
     delete form.dataset.requestKey;
     report(
@@ -576,7 +588,7 @@ document.addEventListener("submit", async (ev) => {
           ? `\n\nPLAYER: ${result.player}\nONE-USE CODE: ${result.code}\n\nShare this code privately with that player. Expires in seven days.`
           : ""),
     );
-    if (form.id === "tour-winner-create") {
+    if (formIdentifier(form) === "tour-winner-create") {
       const link = document.createElement("a");
       link.href = "./#pickems";
       link.className = "button secondary space-top";
@@ -616,7 +628,7 @@ document.addEventListener("input", (ev) => {
   }
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
-  if (form?.id === "grant" && ev.target.name === "games")
+  if (form?.getAttribute("id") === "grant" && ev.target.name === "games")
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });
@@ -624,7 +636,11 @@ document.addEventListener(
   "invalid",
   (ev) => {
     const input = ev.target;
-    if (!["tour-winner-create", "edit-tour-winner"].includes(input.form?.id))
+    if (
+      !["tour-winner-create", "edit-tour-winner"].includes(
+        input.form?.getAttribute("id"),
+      )
+    )
       return;
     const label = input.labels?.[0]?.textContent.trim() || input.name;
     report(`${label}: ${input.validationMessage}`, true, input.form);
@@ -640,11 +656,14 @@ document.addEventListener("change", (ev) => {
     target.disabled = ev.target.checked;
   }
   const form = ev.target.closest("form");
-  if (form?.id === "deduct") {
+  if (form?.getAttribute("id") === "deduct") {
     deductionDraft = null;
     $("#deduction-review").innerHTML = "";
   }
-  if (form?.id === "grant" && ["reason", "games"].includes(ev.target.name))
+  if (
+    form?.getAttribute("id") === "grant" &&
+    ["reason", "games"].includes(ev.target.name)
+  )
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
 });

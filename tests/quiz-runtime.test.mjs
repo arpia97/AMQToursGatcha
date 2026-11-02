@@ -101,7 +101,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const auth = { Cookie: cookie };
   const input = Array.from({ length: 20 }, (_, i) => ({
     annId: 1,
-    audio: "https://example.com/" + i + ".mp3",
+    audio: "fixture-song-" + i + ".mp3",
     songName: "Song " + i,
   }));
   response = await post("host/quiz-save", {
@@ -117,11 +117,38 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   );
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).songs, 20);
+  response = await post(
+    "host/quiz-save",
+    { id: "draft", name: "Draft", input: input.slice(0, 1), published: false },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).songs, 1);
+  response = await post(
+    "host/quiz-save",
+    {
+      id: "invalid",
+      name: "Invalid",
+      input: [{ annId: 1, HQ: "video.webm" }],
+      published: false,
+    },
+    host,
+  );
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /No playable MP3 songs/);
+  const visible = await mf.dispatchFetch("http://game/api/quizzes");
+  assert.deepEqual(
+    (await visible.json()).quizzes.map((q) => q.id),
+    ["test"],
+  );
   response = await mf.dispatchFetch("http://game/api/quiz-run?quiz=test");
   assert.equal(response.status, 401);
   response = await post("quiz-start", { quiz: "test" }, auth);
   assert.equal(response.status, 200);
   let run = (await response.json()).run;
+  assert.ok(
+    run.audio.startsWith("https://naedist.animemusicquiz.com/fixture-song-"),
+  );
   assert.equal(run.answer, undefined);
   response = await mf.dispatchFetch(
     "http://game/api/quiz-answers?quiz=test&q=Alt",
