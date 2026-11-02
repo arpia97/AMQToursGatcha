@@ -1,3 +1,4 @@
+import { validFavorites } from "./popularity.js";
 import { Quiz } from "./quiz.js";
 import { PICKEM_WINDOW, defaultReward } from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
@@ -743,6 +744,22 @@ export class Engine {
           String(c.series_english || "").slice(0, 500),
           fixedRarity,
         );
+      }
+      for (const kind of ["character", "seiyuu"]) {
+        const entries = b.cards.filter(
+          (c) =>
+            c.kind === kind &&
+            /^mal-(character|person)-[0-9]+$/.test(c.id) &&
+            c.favorites != null,
+        );
+        for (const card of entries)
+          if (!validFavorites(card.favorites))
+            fail("MAL favorites must be a non-negative whole number.");
+        if (entries.length)
+          this.catalogStore.popularity.sync(
+            kind,
+            entries.map((c) => [c.id, c.favorites]),
+          );
       }
       this.economy.anime.index(
         b.cards.map((c) => this.one("SELECT * FROM catalog WHERE id=?", c.id)),

@@ -25,3 +25,7 @@ On November 2 KST a Server Key was installed as a Worker secret. The subsequent 
 ## New Cards (24h)
 
 `GET /api/catalog-recent?page=1` returns 40 mixed character/seiyuu cards first imported in the rolling past24hours, newest first, plus `total`, `hasMore`, `since`, `now` and `trackingSince`. Each card includes `firstImportedAt`. The Catalogue subtab uses this feed without changing the main menu. The indexed `catalog_arrivals` journal records only new Tenrai discoveries, once per identity; role promotion, favorite scans, rediscovery and host metadata edits do not count. Existing cards have no recoverable per-card import timestamps, so tracking begins with this deployment. Gameplay resets preserve the journal and catalogue.
+
+## One-off MAL cards
+
+Host catalogue imports accept optional non-negative integer favorite counts on MAL cards and synchronize their normal popularity rarity in the same transaction. Null or absent counts preserve existing popularity data. One-off imports do not change the background importer checkpoint or pacing state. They still follow the upstream service’s own limits. Reuse the same idempotency key for retries.
