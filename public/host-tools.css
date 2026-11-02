@@ -1,0 +1,39 @@
+.tour-staff-dialog {
+  width: min(900px, 94vw);
+  max-height: 85dvh;
+  overflow: auto;
+  background: var(--surface, #191a23);
+  color: var(--text, #fff);
+  border: 1px solid #4d4259;
+  border-radius: 16px;
+  padding: 24px;
+}
+.tour-staff-dialog::backdrop {
+  background: #000b;
+}
+.tour-staff-dialog .form-grid {
+  grid-template-columns: 1fr 2fr 1fr auto;
+  align-items: end;
+  margin-bottom: 14px;
+}
+@media (max-width: 650px) {
+  .tour-staff-dialog .form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.quiz-cover-preview {
+  width: 160px;
+  max-height: 180px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.tour-staff-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2000;
+  box-shadow: 0 0 0 100vmax #000b;
+}

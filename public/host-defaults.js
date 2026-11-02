@@ -8,6 +8,14 @@ export function deadlineFields(name, label, now = Date.now()) {
 }
 export function updateRewardDefaults(form) {
   const category = form.elements.namedItem("reason").value;
+  const note = form.elements.namedItem("note");
+  if (note)
+    note.placeholder = {
+      reporting: "Tour reporting",
+      counting: "Tour counting",
+      participation: "Tour participation",
+      other: "Host credit reward",
+    }[category];
   const games = form.elements.namedItem("games");
   const perGame = ["reporting", "counting"].includes(category);
   games.disabled = !perGame;

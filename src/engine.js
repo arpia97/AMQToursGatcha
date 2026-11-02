@@ -1,3 +1,4 @@
+import { Quiz } from "./quiz.js";
 import { PICKEM_WINDOW, defaultReward } from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
@@ -82,6 +83,7 @@ export class Engine {
     this.economy = new Economy(this);
     this.pickemEvents = new PickemEvents(this);
     this.participation = new Participation(this);
+    this.quiz = new Quiz(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
@@ -202,7 +204,7 @@ export class Engine {
     const player = text(b.player, 100),
       p = this.player(player),
       amount = integer(b.amount, 1, 1000000),
-      note = text(b.note, 240);
+      note = text(b.note?.trim() || "Host credit deduction", 240);
     if (amount > p.balance)
       fail("This player does not have enough available credits.");
     return {
@@ -309,6 +311,8 @@ export class Engine {
   action(player, action, b) {
     const now = this.now();
     this.player(player);
+    if (["quiz-start", "quiz-answer", "quiz-next"].includes(action))
+      return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
     if (additional) return additional;
     if (action === "daily") {
@@ -587,7 +591,16 @@ export class Engine {
           1,
           1000000,
         ),
-        note = text(b.note, 240);
+        note = text(
+          b.note?.trim() ||
+            {
+              reporting: "Tour reporting",
+              counting: "Tour counting",
+              participation: "Tour participation",
+              other: "Host credit reward",
+            }[b.reason],
+          240,
+        );
       this.wallet(id, amount, `${b.reason}: ${note}`, true);
       if (["participation", "reporting", "counting"].includes(b.reason))
         this.run(
@@ -766,6 +779,8 @@ export class Engine {
       if (b.confirmation !== `RESET PLAYER ${id}`)
         fail(`Type RESET PLAYER ${id} to confirm.`);
       this.economy.resetPlayer(id);
+      this.run("DELETE FROM quiz_runs WHERE player=?", id);
+      this.run("DELETE FROM quiz_progress WHERE player=?", id);
       for (const table of [
         "inventory",
         "ledger",
@@ -775,12 +790,17 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
-        "UPDATE players SET balance=0,earned=0,daily=NULL,daily_pack=NULL,avatar_card=NULL WHERE id=?",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL WHERE id=?",
         id,
+      );
+      this.run(
+        "INSERT INTO ledger(player,delta,reason,at) VALUES(?,5000,'Starting credits after player reset',?)",
+        id,
+        this.now(),
       );
       this.run("UPDATE auctions SET winner=NULL,bid=0 WHERE winner=?", id);
       return {
-        message: `Reset gameplay for ${id}. Identity and username history retained; sessions revoked.`,
+        message: `Reset gameplay for ${id} to 5,000 starting credits. Identity and username history retained; sessions revoked.`,
       };
     }
     if (action === "reset-all") {
@@ -812,11 +832,18 @@ export class Engine {
         "player_notices",
         "profile_showcase",
         "profile_anime",
+        "quiz_runs",
+        "quiz_progress",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
-        "UPDATE players SET balance=0,earned=0,daily=NULL,daily_pack=NULL,avatar_card=NULL",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL",
       );
+      if (!full)
+        this.run(
+          "INSERT INTO ledger(player,delta,reason,at) SELECT id,5000,'Starting credits after gameplay reset',? FROM players",
+          this.now(),
+        );
       if (full) {
         for (const table of [
           "players",
@@ -1064,6 +1091,7 @@ export class Engine {
     );
     return {
       ...p,
+      titles: this.quiz.titles(id),
       aliases: this.all(
         "SELECT alias FROM aliases WHERE player=? ORDER BY alias",
         id,

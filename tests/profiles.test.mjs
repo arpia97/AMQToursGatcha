@@ -149,7 +149,7 @@ test("reset-player requires exact confirmation and clears only that player’s g
   );
   assert.equal(f.e.player("001").balance, 100);
   f.host("reset-player", { player: "001", confirmation: "RESET PLAYER 001" });
-  assert.equal(f.e.player("001").balance, 0);
+  assert.equal(f.e.player("001").balance, 5000);
   assert.equal(f.e.player("001").name, "Identity");
   assert.equal(f.e.profile("001").inventory.length, 0);
   assert.equal(f.e.profile("001").stats.participation, 0);
@@ -176,7 +176,7 @@ test("reset-all gameplay retains identity; full reset deletes registry while pro
     confirmation: "RESET ALL GAME DATA",
     deleteRegistry: false,
   });
-  assert.equal(f.e.player("001").balance, 0);
+  assert.equal(f.e.player("001").balance, 5000);
   assert.equal(f.e.all("SELECT * FROM catalog").length, 1);
   f.host("reset-all", {
     confirmation: "DELETE EVERYTHING",

@@ -291,7 +291,7 @@ export function createWorkshop(h) {
           (selected[odds?.anchor]?.slot === i ? odds.contribution : 0);
         contribution =
           chanceText(value) +
-          " success" +
+          " contribution" +
           (selected[odds?.anchor]?.slot === i ? " · baseline" : "");
       } catch {}
       return `<article class="fusion-slot tier-${rarityClass(c.rarity)}"><button class="fusion-slot-pick" data-action="fusion-pick" data-index="${i}" aria-label="Change material in slot ${i + 1}: ${e(c.name)}"><div class="fusion-portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">Lv. ${m?.level || "?"}</span></div><strong>${e(c.name)}</strong><small>${e(contribution)}</small></button><button class="text-button" data-action="fusion-remove" data-index="${i}">Remove ×</button></article>`;

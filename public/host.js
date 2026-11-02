@@ -1,3 +1,5 @@
+import { quizHostPanel, quizHostBody } from "./quiz-host-ui.js";
+import { chooseTourStaff } from "./tour-staff-ui.js";
 import {
   matchingCreditPlayers,
   creditPlayerOptions,
@@ -19,7 +21,8 @@ import {
 } from "./pickem-management.js";
 import { updateRewardDefaults } from "./host-defaults.js";
 import { accessPanel, participationPanel } from "./host-panels.js";
-let deductionDraft = null;
+let deductionDraft = null,
+  quizSelection = null;
 let participationDraft = null,
   matchDraft = null,
   managedTour = null,
@@ -97,15 +100,17 @@ const players = () =>
     )
     .join("");
 const input = (label, name, type = "text", attrs = "") =>
-  `<label>${label}<input name="${name}" type="${type}" required ${attrs}></label>`;
+  `<label>${label}<input name="${name}" type="${type}" ${name === "note" ? "" : "required"} ${attrs}></label>`;
 function render() {
   deductionDraft = null;
   document
     .querySelectorAll(".host-tabs button")
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
+  if (tab === "quiz")
+    html = quizHostPanel(state.quizzes || [], esc, quizSelection);
   if (tab === "rewards")
-    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Friday Usual #42 · reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
     html = `<section class="host-panel"><h2>One Player. One AMQ Identity.</h2><p>Import stable AMQ Tours IDs and aliases. Upload a CSV with headers <code>id,name,aliases</code>. Separate aliases with a pipe: <code>alias1|alias2</code>. Existing aliases are retained; conflicts roll back the entire import.</p><form id="players" class="stack"><label>CSV player / alias sheet<input type="file" id="players-file" accept=".csv,text/csv" required></label><button class="button" type="submit">Import players &amp; aliases →</button></form><p class="form-hint space-top">The alias sheet remains the identity source. Manual imports supplement the automatic sheet sync. Neither operation edits AMQ Tours ratings or writes to the source sheet.</p></section><section class="host-panel"><h2>Recover Account Access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue access recovery code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
@@ -157,7 +162,7 @@ function render() {
         "",
       )}</select></label><label>Role<select name="role"><option value="supporting">Supporting</option><option value="main">Main</option><option value="unknown">Unsorted</option></select></label><button class="button secondary" type="submit">Save character role →</button></form></section>`;
   if (tab === "resets")
-    html = `<section class="host-panel danger-panel"><h2>Reset an Individual Player</h2><p class="warning-copy">WARNING: Removes this player’s credits, lifetime earnings, cards, daily claims, tour activity, and predictions. Their showcases, gambling records, and open sale listings are cleared. Bidders on their cancelled listings are refunded. Their bids and unclaimed wins are removed; open lots restart at zero. Sessions are revoked. AMQ identity, username history, and password remain. This cannot be undone through this console.</p><form id="reset-player" class="stack"><label>Player<select name="player" required><option value="">Choose carefully</option>${players()}</select></label>${input("Type RESET PLAYER followed by their exact ID", "confirmation", "text", 'autocomplete="off" placeholder="RESET PLAYER 00123"')}<button class="button danger" type="submit">Reset this player’s gameplay</button></form></section><section class="host-panel danger-panel"><h2>Reset the Entire Community</h2><p class="warning-copy">WARNING: This impacts every player. All credits, collections, showcases, tour counts, wallet activity, pick’ems, predictions, auctions, shop listings, gambling records, and sessions will be cleared. Character and seiyuu catalogues, import progress, and rarity data are protected and always kept. Create an export or backup first. This cannot be undone through this console.</p><form id="reset-all" class="stack"><label>Reset scope<select name="scope" id="reset-scope"><option value="game">Reset gameplay · keep player registry, passwords, usernames, catalog, and prices</option><option value="everything">Delete all player data · include players, aliases, passwords, username history, and prices; keep catalogues</option></select></label><p class="form-hint">Gameplay: type <code>RESET ALL GAME DATA</code><br>Delete all player data: type <code>DELETE EVERYTHING</code>. Automatic sync recreates source player IDs as unregistered identities afterward; deleted credentials and gameplay do not return. The host token is a deployment secret and remains available.</p>${input("Exact confirmation phrase", "confirmation", "text", 'autocomplete="off"')}<button class="button danger" type="submit">Reset all selected data</button></form></section>`;
+    html = `<section class="host-panel danger-panel"><h2>Reset an Individual Player</h2><p class="warning-copy">WARNING: Restores 5,000 starting credits and resets lifetime earnings to 5,000. Removes cards, daily claims, tour activity, and predictions. Their showcases, gambling records, and open sale listings are cleared. Bidders on their cancelled listings are refunded. Their bids and unclaimed wins are removed; open lots restart at zero. Sessions are revoked. AMQ identity, username history, and password remain. This cannot be undone through this console.</p><form id="reset-player" class="stack"><label>Player<select name="player" required><option value="">Choose carefully</option>${players()}</select></label>${input("Type RESET PLAYER followed by their exact ID", "confirmation", "text", 'autocomplete="off" placeholder="RESET PLAYER 00123"')}<button class="button danger" type="submit">Reset this player’s gameplay</button></form></section><section class="host-panel danger-panel"><h2>Reset the Entire Community</h2><p class="warning-copy">WARNING: This impacts every player. Gameplay resets restore 5,000 starting credits. Collections, showcases, tour counts, wallet activity, pick’ems, predictions, auctions, shop listings, gambling records, and sessions will be cleared. Character and seiyuu catalogues, import progress, and rarity data are protected and always kept. Create an export or backup first. This cannot be undone through this console.</p><form id="reset-all" class="stack"><label>Reset scope<select name="scope" id="reset-scope"><option value="game">Reset gameplay · keep player registry, passwords, usernames, catalog, and prices</option><option value="everything">Delete all player data · include players, aliases, passwords, username history, and prices; keep catalogues</option></select></label><p class="form-hint">Gameplay: type <code>RESET ALL GAME DATA</code><br>Delete all player data: type <code>DELETE EVERYTHING</code>. Automatic sync recreates source player IDs as unregistered identities afterward; deleted credentials and gameplay do not return. The host token is a deployment secret and remains available.</p>${input("Exact confirmation phrase", "confirmation", "text", 'autocomplete="off"')}<button class="button danger" type="submit">Reset all selected data</button></form></section>`;
   if (tab === "catalog" && state.resourceBudget) {
     const b = state.resourceBudget;
     const sources = Object.entries(b.sources || {})
@@ -186,6 +191,7 @@ function render() {
 }
 async function load() {
   state = await api("state");
+  state.quizzes = (await api("quizzes")).quizzes;
   if (settlementTour) {
     if (state.pickemEvents.some((t) => t.id === settlementTour.id))
       settlementTour = await api("pickem-event?event=" + settlementTour.id);
@@ -290,6 +296,19 @@ document.addEventListener("submit", async (ev) => {
     }
     const b = Object.fromEntries(new FormData(form));
     let result;
+    if (form.id === "quiz-save") {
+      result = await api("quiz-save", await quizHostBody(form), key);
+      quizSelection = result.id;
+      if (result.rejected?.length)
+        result.message +=
+          " " +
+          result.rejected.length +
+          " rows skipped: " +
+          result.rejected
+            .slice(0, 5)
+            .map((r) => "row " + r.row + " (" + r.reason + ")")
+            .join("; ");
+    }
     if (form.id === "tour-winner-create") {
       result = await api(
         "pickem-winner",
@@ -382,13 +401,17 @@ document.addEventListener("submit", async (ev) => {
     }
     if (form.id === "participation-preview") {
       const preview = await api("participation-preview", { text: b.text });
+      const staff = await chooseTourStaff(state, esc);
+      if (staff === null) return;
+      b.staff = staff;
+      b.note = b.note.trim() || "Tour participation";
       participationDraft = {
         ...b,
         amount: Number(b.amount),
         expectedPlayers: preview.players.map((p) => p.id),
       };
       $("#participation-preview-result").innerHTML =
-        `<h3 class="space-top">Review Participation Rewards</h3><p>${preview.players.length} players · ${Number(b.amount).toLocaleString()} each · <strong>${(preview.players.length * Number(b.amount)).toLocaleString()} credits total</strong><br>Tour: ${esc(b.event)} · ${esc(b.note)}</p><div class="host-round">${preview.players.map((p) => esc(p.name) + " (" + esc(p.id) + ")").join(" · ")}</div><form id="participation-batch" class="space-top"><button class="button" type="submit">Award reviewed participation credits →</button></form>`;
+        `<h3 class="space-top">Review Participation Rewards</h3><p>${preview.players.length} players · ${Number(b.amount).toLocaleString()} each · <strong>${(preview.players.length * Number(b.amount)).toLocaleString()} participation credits</strong><br>Tour: ${esc(b.event)} · ${esc(b.note)}</p><p>${staff.map((s) => esc(state.players.find((p) => p.id === s.player)?.name || s.player) + " · " + esc(s.reason) + " · " + s.games + " rounds · " + s.amount.toLocaleString() + " credits").join("<br>") || "No counter or reporter rewards added."}</p><p><strong>Combined Award: ${(preview.players.length * Number(b.amount) + staff.reduce((sum, s) => sum + s.amount, 0)).toLocaleString()} Credits</strong></p><div class="host-round">${preview.players.map((p) => esc(p.name) + " (" + esc(p.id) + ")").join(" · ")}</div><form id="participation-batch" class="space-top"><button class="button" type="submit">Award reviewed participation credits →</button></form>`;
       report("Review the resolved players and total before awarding.");
       return;
     }
@@ -750,3 +773,10 @@ setInterval(() => {
   )
     load().catch((err) => report(err.message, true));
 }, 30000);
+
+document.addEventListener("click", (ev) => {
+  const edit = ev.target.closest("[data-edit-quiz], [data-new-quiz]");
+  if (!edit) return;
+  quizSelection = edit.dataset.editQuiz || null;
+  render();
+});

@@ -1,3 +1,4 @@
+import { prepareQuizSongs } from "../public/quiz-rules.js";
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
@@ -230,7 +231,7 @@ export class Game extends DurableObject {
           const { done, value } = await reader.read();
           if (done) break;
           bytes += value.byteLength;
-          if (bytes > 1000000) {
+          if (bytes > (path === "host/quiz-save" ? 5000000 : 1000000)) {
             await reader.cancel();
             fail("Request too large.", 413);
           }
@@ -359,6 +360,61 @@ export class Game extends DurableObject {
           text(url.searchParams.get("key"), 100),
         );
         return json({ result: r ? JSON.parse(r.result) : null });
+      }
+      if (path === "host/quizzes" && !post)
+        return json({ quizzes: e.quiz.list(null, true) });
+      if (path === "host/quiz-save" && post) {
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        const fingerprint = { digest: await digest(JSON.stringify(b)) };
+        const saved = e.one(
+          "SELECT input,result FROM receipts WHERE scope='host:quiz-save' AND key=?",
+          key,
+        );
+        if (saved) {
+          if (saved.input !== JSON.stringify(fingerprint))
+            fail("This request ID was used for a different action.", 409);
+          return json(JSON.parse(saved.result));
+        }
+        if (b.input !== undefined) {
+          if (!this.quizMaster || Date.now() - this.quizMaster.at > 86400000) {
+            const response = await fetch(
+              "https://animemusicquiz.com/libraryMasterList",
+              { signal: AbortSignal.timeout(20000) },
+            );
+            if (!response.ok)
+              fail(
+                "AMQ answer database is unavailable. No pool was changed.",
+                502,
+              );
+            const data = await response.json();
+            if (!data.animeMap)
+              fail("AMQ returned an invalid answer database.", 502);
+            this.quizMaster = {
+              at: Date.now(),
+              data: {
+                masterListId: data.masterListId,
+                animeMap: data.animeMap,
+              },
+            };
+          }
+          let prepared;
+          try {
+            prepared = prepareQuizSongs(b.input, this.quizMaster.data);
+          } catch (err) {
+            fail(err.message);
+          }
+          b = {
+            ...b,
+            songs: prepared.songs,
+            rejected: prepared.rejected,
+            source: prepared.masterListId,
+          };
+          delete b.input;
+        } else delete b.songs;
+        requireHost();
+        return json(
+          e.mutate("host:quiz-save", key, fingerprint, () => e.quiz.save(b)),
+        );
       }
       if (path === "host/state" && !post)
         return json({
@@ -782,6 +838,17 @@ export class Game extends DurableObject {
           Number(url.searchParams.get("page") || 1),
         ),
       );
+    if (path === "quizzes" && !post)
+      return json({ quizzes: e.quiz.list(session?.player) });
+    if (path === "quiz-answers" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.quiz.suggestions(
+          url.searchParams.get("quiz"),
+          url.searchParams.get("q"),
+        ),
+      );
+    }
     if (path === "profiles" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const result = e.profilesPage(
@@ -821,6 +888,8 @@ export class Game extends DurableObject {
       )
     )
       fail("Your session ended. Please sign in again.", 401);
+    if (path === "quiz-run" && !post)
+      return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
     if (path === "mahjong-history" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -853,7 +922,8 @@ export default {
       )
         return json(registrationPolicy);
       const size = Number(request.headers.get("Content-Length") || 0);
-      if (size > 1000000) return json({ error: "Request too large." }, 413);
+      if (size > (url.pathname === "/api/host/quiz-save" ? 5000000 : 1000000))
+        return json({ error: "Request too large." }, 413);
       const forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
       try {
@@ -872,7 +942,7 @@ export default {
     headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     headers.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; media-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     return new Response(response.body, { status: response.status, headers });
   },

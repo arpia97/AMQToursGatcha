@@ -1,3 +1,4 @@
+import { createQuizUI } from "./quiz-ui.js";
 import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
 import { createTradesUI } from "./trades-ui.js";
@@ -121,6 +122,8 @@ icons.players =
 icons.profile =
   '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>';
 icons.catalog = icons.collection;
+icons.quiz =
+  '<path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>';
 const routes = SITE_ROUTES;
 let heroCards = null,
   clockOffset = 0;
@@ -395,6 +398,15 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
 }
+const quizUI = createQuizUI({
+  api,
+  escape,
+  getState: () => state,
+  onRender: () => render(),
+  onWallet: (me) => {
+    state.me = me;
+  },
+});
 const workshop = createWorkshop({
   escape,
   number,
@@ -869,7 +881,7 @@ function profile() {
     own = p.id === state.me?.id,
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
-  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)} ${roleBadge(p.role)}</h1><p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} correct / ${pk.total} settled predictions</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)} ${roleBadge(p.role)}</h1>${(p.titles || []).map((t) => `<span class="role-badge">${escape(t.title)}</span>`).join(" ")}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} correct / ${pk.total} settled predictions</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
     p.inventory.length
       ? `<div class="card-grid">${p.inventory
           .slice(0, 20)
@@ -891,6 +903,7 @@ async function loadDynamic() {
     current = page(),
     hash = location.hash;
   let data, pickemDetail;
+  if (current === "quiz") await quizUI.load();
   if (current === "catalog")
     data = await api(
       ui.catalogRecent
@@ -986,6 +999,16 @@ async function loadDynamic() {
 function render() {
   if (!state) return;
   const active = document.activeElement;
+  const searchFocus =
+    active?.matches("input.search, input[type=search]") && active.id
+      ? {
+          id: active.id,
+          start: active.selectionStart,
+          end: active.selectionEnd,
+          direction: active.selectionDirection,
+          value: active.value,
+        }
+      : null;
   const predictionFocus = active?.form?.dataset.inlinePrediction
     ? { form: active.form.getAttribute("id"), name: active.name }
     : null;
@@ -1017,6 +1040,7 @@ function render() {
     home,
     collection,
     fusion: () => workshop.render(),
+    quiz: () => quizUI.render(),
     packs,
     catalog: catalogue,
     auctions,
@@ -1028,6 +1052,19 @@ function render() {
     profile: myProfile,
     player: profile,
   }[route]();
+  if (route === "quiz") quizUI.mount();
+  else quizUI.stop();
+  if (searchFocus) {
+    const input = document.getElementById(searchFocus.id);
+    if (input && input.value === searchFocus.value) {
+      input.focus({ preventScroll: true });
+      input.setSelectionRange(
+        searchFocus.start,
+        searchFocus.end,
+        searchFocus.direction,
+      );
+    }
+  }
   if (predictionFocus)
     document
       .getElementById(predictionFocus.form)
@@ -1057,6 +1094,7 @@ function render() {
   document.title = title + " · AMQ Tours Gatcha";
 }
 async function api(path, body, key) {
+  if (demo && path === "quizzes") return { quizzes: [] };
   if (demo) return demo.request(path, body);
   const res = await fetch("api/" + path, {
     method: body ? "POST" : "GET",
@@ -1432,17 +1470,15 @@ document.addEventListener("input", (ev) => {
     ev.target.classList.remove("no-results");
     ev.target.removeAttribute("aria-invalid");
   }
+  if (["profile-search", "search"].includes(ev.target.id)) ++loadVersion;
   if (ev.target.id === "profile-search") {
     search = ev.target.value;
     ui.playerPage = 1;
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
       try {
-        const pos = $("#profile-search")?.selectionStart;
         await loadDynamic();
         render();
-        $("#profile-search")?.focus();
-        $("#profile-search")?.setSelectionRange(pos, pos);
       } catch (err) {
         toast(err.message, true);
       }
@@ -1460,8 +1496,6 @@ document.addEventListener("input", (ev) => {
         try {
           await loadDynamic();
           render();
-          $("#search")?.focus();
-          $("#search")?.setSelectionRange(position, position);
         } catch (err) {
           toast(err.message, true);
         }
@@ -2439,8 +2473,6 @@ document.addEventListener("input", (ev) => {
     try {
       await loadDynamic();
       render();
-      $("#fusion-outcome-search")?.focus();
-      $("#fusion-outcome-search")?.setSelectionRange(position, position);
     } catch (err) {
       toast(err.message, true);
     }
@@ -2485,4 +2517,32 @@ document.addEventListener("change", (ev) => {
   ui.collectionPage = value;
   render();
   $("#main .filters")?.scrollIntoView({ block: "start" });
+});
+
+document.addEventListener("click", async (ev) => {
+  const button = ev.target.closest("button");
+  if (!button || page() !== "quiz") return;
+  try {
+    await quizUI.click(button);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+let quizSearchTimer;
+document.addEventListener("input", (ev) => {
+  if (ev.target.id !== "quiz-answer") return;
+  clearTimeout(quizSearchTimer);
+  const input = ev.target;
+  quizSearchTimer = setTimeout(
+    () => quizUI.input(input).catch((err) => toast(err.message, true)),
+    200,
+  );
+});
+document.addEventListener("keydown", (ev) => {
+  if (ev.target.id === "quiz-answer") quizUI.key(ev);
+});
+document.addEventListener("submit", (ev) => {
+  if (ev.target.id !== "quiz-answer-form") return;
+  ev.preventDefault();
+  quizUI.submit(ev.target).catch((err) => toast(err.message, true));
 });

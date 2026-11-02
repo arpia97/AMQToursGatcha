@@ -2604,3 +2604,71 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .fusion-picker-selection .form-hint {
   margin: 8px 0;
 }
+
+.quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 28px;
+}
+.quiz-tile > img,
+.quiz-cover-placeholder {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+.quiz-cover-placeholder,
+.quiz-coming-soon > span,
+.quiz-sound {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, #312343, #172b35);
+  color: #dfb8fa;
+  font-size: 70px;
+}
+.quiz-coming-soon {
+  text-align: center;
+  margin: 30px auto;
+  padding: 40px 24px;
+  border: 1px solid #3a3545;
+  border-radius: 18px;
+  max-width: 600px;
+}
+.quiz-coming-soon > span {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  margin: auto;
+}
+.quiz-question,
+.quiz-complete {
+  max-width: 850px;
+  padding: 28px;
+  border: 1px solid #494052;
+  border-radius: 16px;
+}
+.quiz-sound {
+  height: 130px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+}
+.quiz-suggestions {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 240px;
+  overflow: auto;
+}
+.quiz-suggestions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: #20232f;
+  color: var(--text);
+  border: 0;
+  padding: 12px;
+  cursor: pointer;
+}
+.quiz-suggestions [aria-selected="true"] button,
+.quiz-suggestions button:hover {
+  background: #3b5361;
+}

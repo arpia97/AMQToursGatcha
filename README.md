@@ -153,3 +153,11 @@ The `play` alias Worker serves `/tours/` and `/api/tour-hub` through an explicit
 ### Tenrai Import Access and Retry Recovery
 
 The background importer now shares a 30-second minimum interval across discovery and favorites, retries the same failed task, and records bounded upstream diagnostics. HTTP429 local backoff is capped at30minutes while respecting longer provider Retry-After values. Existing saved cooldowns and import cursors are preserved. An optional server-only `TENRAI_SERVER_KEY` secret uses the official independent per-key quota. See [IMPORTER.md](IMPORTER.md) for diagnosis, secure setup and verification limits.
+
+## Quiz
+
+Quiz stays at Coming Soon until a host publishes a pool. Host Console → Quiz imports AnisongDB JSON, optionally uploads a PNG/JPEG/WebP cover, and sets a perfect-score title. Imports accept only HTTPS MP3s and match ANN/AMQ song IDs against https://animemusicquiz.com/libraryMasterList, including alternative titles and shared-song anime. The master list is fetched only during imports and cached in memory for 24 hours; each quiz stores its matched answers. Updates retain personal bests and reward history. Up to 30 quizzes / 2,000 songs each; at least 20 songs to publish.
+
+Each persistent run draws 20 distinct songs and random 25-second samples. The hidden audio player supports replay, while mouse/keyboard autocomplete locks one answer per question. Refreshing and reopening the quiz resumes the run. The server grades answers and pays personal-best improvements at 50 credits per point, capped at 1,000; separate one-time milestones at 5/10/15/20 pay 100/300/500/1,000. Total lifetime maximum is 2,900 per quiz. A perfect score shows the configured title on the profile. Tile rarity follows D0/C3/B5/A8/S10/SS13/SSS15/Ubers18/AG20.
+
+Player resets restore 5,000 starting credits and lifetime earned, clear quiz progress/runs, and preserve quiz definitions and the card catalogue. No existing player was reset as part of this release. Blank credit audit notes use the displayed default. Whole-tour reward review opens a counter/reporter popup with multiple helpers and round counts; the entire combined award is atomic and protected against duplicate tour awards.

@@ -347,7 +347,7 @@ test("starting grants are once per identity, including existing users", () => {
     }),
   );
   e.tx(() => e.economy.fundStarters());
-  assert.equal(e.player("buyer").balance, 0);
+  assert.equal(e.player("buyer").balance, 5000);
 });
 test("starter upgrade tops up the old grant once and survives restart, alias sync and reset", () => {
   const { e } = fixture();
@@ -374,7 +374,7 @@ test("starter upgrade tops up the old grant once and survives restart, alias syn
     confirmation: "RESET PLAYER buyer",
   });
   restarted.tx(() => restarted.economy.fundStarters());
-  assert.equal(restarted.player("buyer").balance, 0);
+  assert.equal(restarted.player("buyer").balance, 5000);
 });
 test("premium prices migrate to 1000 once while later host edits survive restarts", () => {
   const { e } = fixture();

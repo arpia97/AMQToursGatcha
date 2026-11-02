@@ -638,3 +638,43 @@ test("inline prediction drafts survive refreshes, reset after team changes and v
     /whole numbers/,
   );
 });
+
+test("whole-tour staff rewards validate before any grants, merge duplicate helpers and cannot repeat a tour", (t) => {
+  const f = fixture(t);
+  const text =
+    "Player (1) Other (2) Player (3) Other (4) | Total = 10 | Guesses = [1234]";
+  const body = {
+    text,
+    event: "staff-tour",
+    note: "",
+    expectedPlayers: ["p", "q"],
+    staff: [
+      { player: "p", reason: "counting", games: 2 },
+      { player: "p", reason: "counting", games: 1 },
+      { player: "q", reason: "reporting", games: 4 },
+    ],
+  };
+  const result = f.host("participation-batch", body);
+  assert.equal(result.total, 5500);
+  assert.equal(f.e.player("p").balance, 2500);
+  assert.equal(f.e.player("q").balance, 3000);
+  assert.equal(f.e.profile("p").stats.counting, 1);
+  assert.throws(() => f.host("participation-batch", body), /already/);
+  assert.equal(f.e.player("p").balance, 2500);
+  const bad = {
+    ...body,
+    event: "invalid-staff",
+    staff: [{ player: "missing", reason: "reporting", games: 2 }],
+  };
+  assert.throws(() => f.host("participation-batch", bad));
+  assert.equal(f.e.player("p").balance, 2500);
+  assert.equal(
+    f.e.one("SELECT count(*) n FROM tour_events WHERE event='invalid-staff'").n,
+    0,
+  );
+  f.host("grant", { player: "p", reason: "reporting", amount: 1, note: "" });
+  assert.equal(
+    f.e.one("SELECT reason FROM ledger ORDER BY id DESC LIMIT 1").reason,
+    "reporting: Tour reporting",
+  );
+});

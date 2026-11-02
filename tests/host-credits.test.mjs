@@ -73,7 +73,7 @@ test("host deductions preview without writes, debit only available balance, reco
   assert.equal(entry.reason, "Host deduction: Correct an award");
   assert.equal(e.one("SELECT count(*) n FROM ledger").n, ledger + 1);
 });
-test("deductions reject changed balances, insufficient credits, missing players, invalid amounts and blank notes atomically", (t) => {
+test("deductions reject changed balances, insufficient credits, missing players, invalid amounts atomically and fill blank notes with the displayed default", (t) => {
   const { e, act } = fixture(t);
   for (const amount of [0, -1, 1.1, 1000001, "100"])
     assert.throws(() =>
@@ -82,7 +82,10 @@ test("deductions reject changed balances, insufficient credits, missing players,
   assert.throws(() =>
     e.deductionQuote({ player: "missing", amount: 1, note: "Reason" }),
   );
-  assert.throws(() => e.deductionQuote({ player: "1", amount: 1, note: "  " }));
+  assert.equal(
+    e.deductionQuote({ player: "1", amount: 1, note: "  " }).note,
+    "Host credit deduction",
+  );
   const quote = e.deductionQuote({ player: "1", amount: 1500, note: "Reason" });
   e.wallet("1", -100, "Other action");
   assert.throws(
