@@ -15,7 +15,7 @@ export function updateRewardDefaults(form) {
   const caption = form.querySelector(".reward-games-label");
   if (caption)
     caption.textContent =
-      category === "counting" ? "Games counted" : "Games reported";
+      category === "counting" ? "Rounds counted" : "Games reported";
   form.elements.namedItem("amount").value =
     defaultReward(category, Number(games.value) || 1) ?? 500;
 }

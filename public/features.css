@@ -2525,3 +2525,82 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   max-width: 100%;
   flex-wrap: wrap;
 }
+
+.fusion-picker-selection {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  margin: 16px 0;
+  background: #11141b;
+}
+.fusion-picker-selection .section-head {
+  margin: 0 0 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.fusion-picker-selection h3 {
+  font-size: 14px;
+}
+.fusion-picker-chance {
+  color: var(--mint);
+  font-size: 16px;
+}
+.fusion-picker-selected {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.fusion-picker-selected-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid var(--tier-color, var(--border));
+  border-radius: 7px;
+  background: #1b1d26;
+  color: var(--text);
+  padding: 6px;
+  text-align: left;
+  max-width: 200px;
+  cursor: pointer;
+}
+.fusion-picker-selected-card img {
+  width: 32px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+.fusion-picker-selected-card span {
+  font-size: 11px;
+}
+.fusion-picker-selected-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+.fusion-picker-selected-card b {
+  margin-left: 6px;
+  color: var(--pink);
+}
+
+.fusion-picker-selection {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg, #101217);
+  box-shadow: 0 8px 18px #0004;
+}
+.fusion-picker-selection .fusion-odds {
+  margin: 10px 0;
+  padding: 12px 16px;
+  gap: 12px;
+}
+.fusion-picker-selection .fusion-odds strong {
+  font-size: 20px;
+}
+.fusion-picker-selection .section-head {
+  margin-bottom: 8px;
+}
+.fusion-picker-selection .form-hint {
+  margin: 8px 0;
+}

@@ -94,7 +94,7 @@ test("daily credits are 300 once per KST day, with no regrant to a player who al
     /already claimed/,
   );
 });
-test("host reward defaults use 1000 participation, 300 per counted game and 500 per reported game, while explicit amounts stay editable", (t) => {
+test("host reward defaults use 1000 participation, 500 per counted game and 500 per reported game, while explicit amounts stay editable", (t) => {
   const { e, host } = fixture(t);
   host("grant", {
     player: "p",
@@ -116,7 +116,7 @@ test("host reward defaults use 1000 participation, 300 per counted game and 500 
     note: "Tour",
     event: "t1",
   });
-  assert.equal(e.player("p").balance, 3400);
+  assert.equal(e.player("p").balance, 4000);
   host("grant", {
     player: "p",
     reason: "reporting",
@@ -125,7 +125,7 @@ test("host reward defaults use 1000 participation, 300 per counted game and 500 
     note: "Custom",
     event: "t2",
   });
-  assert.equal(e.player("p").balance, 3442);
+  assert.equal(e.player("p").balance, 4042);
   assert.throws(
     () =>
       host("grant", {
@@ -143,7 +143,7 @@ test("host reward defaults use 1000 participation, 300 per counted game and 500 
     note: "Default batch",
     expectedPlayers: preview.players.map((p) => p.id),
   });
-  assert.equal(e.player("p").balance, 4442);
+  assert.equal(e.player("p").balance, 5042);
 });
 test("default pickem deadlines are exactly ten minutes after actual posting, including generated rounds, and explicit deadlines remain editable", (t) => {
   const { e, host, advance, now } = fixture(t);
@@ -214,7 +214,7 @@ test("host reward form switches defaults and multiplies reporting games without 
   assert.equal(fields.amount.value, 2000);
   fields.reason.value = "counting";
   updateRewardDefaults(form);
-  assert.equal(fields.amount.value, 1200);
+  assert.equal(fields.amount.value, 2000);
   assert.equal(fields.games.disabled, false);
   assert.equal(label.hidden, false);
   fields.reason.value = "participation";

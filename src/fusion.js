@@ -1,5 +1,9 @@
 import { fail, text } from "./engine.js";
-import { fusionQuote } from "../public/fusion-rules.js";
+import {
+  fusionQuote,
+  fusionOddsMatch,
+  rollFusion,
+} from "../public/fusion-rules.js";
 import {
   fusionOutcomesPage,
   fusionTarget,
@@ -74,20 +78,17 @@ export class Fusion {
   fuse(player, b) {
     const { groups, materials, odds } = this.prepare(player, b.cards),
       pools = {};
-    for (const key of [
-      "baseline",
-      "upgraded",
-      "stay",
-      "upgrade",
-      "break",
-      "count",
-    ])
-      if (b.expectedOdds?.[key] !== odds[key])
-        fail(
-          "The fusion odds changed. Review the board before trying again.",
-          409,
-        );
-    const needed = [odds.baseline, ...(odds.upgrade ? [odds.upgraded] : [])];
+    if (!fusionOddsMatch(b.expectedOdds, odds))
+      fail(
+        "The fusion rules or odds changed. Refresh and review the board before trying again.",
+        409,
+      );
+    const needed = [
+      ...new Set([
+        ...(odds.stay ? [odds.baseline] : []),
+        ...odds.outcomes.filter((o) => o.chance > 0).map((o) => o.rarity),
+      ]),
+    ];
     const kinds = [...new Set(materials.map((m) => m.kind))];
     for (const kind of kinds)
       for (const card of this.e.catalogStore.pool(kind).cards)
@@ -102,28 +103,15 @@ export class Fusion {
           409,
         );
     if (b.targetCard && !odds.upgrade)
-      fail("Add at least two materials before choosing an upgrade target.");
+      fail("Add another invested copy before choosing an upgrade target.");
     const target = fusionTarget(pools[odds.upgraded], b.targetCard);
-    const roll = this.e.rand(10000),
-      outcome =
-        roll < odds.stay
-          ? "stay"
-          : roll < odds.stay + odds.upgrade
-            ? "upgrade"
-            : "break";
-    const grade =
-      outcome === "stay"
-        ? odds.baseline
-        : outcome === "upgrade"
-          ? odds.upgraded
-          : null;
-    const result = grade
-      ? drawFusionResult(
-          pools[grade],
-          outcome === "upgrade" ? target : null,
-          (n) => this.e.rand(n),
-        )
-      : null;
+    const rolled = rollFusion(odds, (n) => this.e.rand(n));
+    const { outcome, grade } = rolled;
+    const result = drawFusionResult(
+      pools[grade],
+      outcome !== "stay" && grade === odds.upgraded ? target : null,
+      (n) => this.e.rand(n),
+    );
     // Consume extras before the base so selecting every physical copy is valid.
     for (const [id, g] of groups) {
       for (let i = 0; i < g.extra; i++)
@@ -132,19 +120,20 @@ export class Fusion {
     }
     if (result) this.e.addCard(player, result.id);
     return {
-      message: result
-        ? (outcome === "upgrade"
-            ? "Fusion upgraded to "
-            : "Fusion stayed at ") +
-          grade +
-          ". Your replacement card is Lv. 1."
-        : "Fusion broke. The selected materials were consumed.",
+      message:
+        outcome === "stay"
+          ? "Fusion rerolled a same-tier " +
+            grade +
+            " card. Your replacement is Lv. 1."
+          : rolled.label + "! Fusion produced a Lv. 1 " + grade + " card.",
+      grade,
       outcome,
       odds,
       materials,
-      roll,
+      roll: rolled.roll,
+      qualityRoll: rolled.qualityRoll,
       targetCard: target?.id || null,
-      targetHit: !!target && outcome === "upgrade" && result?.id === target.id,
+      targetHit: !!target && outcome !== "stay" && result?.id === target.id,
       cards: result ? [result] : [],
     };
   }

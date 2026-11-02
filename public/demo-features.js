@@ -21,7 +21,7 @@ import {
   gemValue,
   nextFacetChance,
 } from "./gem-rules.js";
-import { fusionQuote } from "./fusion-rules.js";
+import { fusionQuote, fusionOddsMatch, rollFusion } from "./fusion-rules.js";
 import { demoPachinko } from "./demo-pachinko.js";
 import {
   fusionOutcomesPage,
@@ -939,17 +939,17 @@ export function demoFeatures(d, path, b) {
       materials.push({ ...c, card: c.id, level, variant: row.variant });
     }
     const odds = fusionQuote(materials);
-    for (const k of [
-      "baseline",
-      "upgraded",
-      "stay",
-      "upgrade",
-      "break",
-      "count",
-    ])
-      if (b.expectedOdds?.[k] !== odds[k]) throw Error("Fusion odds changed.");
+    if (!fusionOddsMatch(b.expectedOdds, odds))
+      throw Error(
+        "Fusion rules or odds changed. Refresh and review the board.",
+      );
     const pools = Object.fromEntries(
-      [odds.baseline, ...(odds.upgrade ? [odds.upgraded] : [])].map((r) => [
+      [
+        ...new Set([
+          ...(odds.stay ? [odds.baseline] : []),
+          ...odds.outcomes.filter((o) => o.chance > 0).map((o) => o.rarity),
+        ]),
+      ].map((r) => [
         r,
         d.cards.filter(
           (c) => c.rarity === r && materials.some((m) => m.kind === c.kind),
@@ -959,37 +959,27 @@ export function demoFeatures(d, path, b) {
     if (Object.values(pools).some((p) => !p.length))
       throw Error("A result rarity is unavailable.");
     if (b.targetCard && !odds.upgrade)
-      throw Error("Add at least two materials to target an upgrade.");
+      throw Error("Add another invested copy to target an upgrade.");
     const target = fusionTarget(pools[odds.upgraded], b.targetCard);
-    const roll = Math.floor(Math.random() * 10000),
-      outcome =
-        roll < odds.stay
-          ? "stay"
-          : roll < odds.stay + odds.upgrade
-            ? "upgrade"
-            : "break";
-    const grade =
-      outcome === "stay"
-        ? odds.baseline
-        : outcome === "upgrade"
-          ? odds.upgraded
-          : null;
-    const card = grade
-      ? drawFusionResult(
-          pools[grade],
-          outcome === "upgrade" ? target : null,
-          (n) => Math.floor(Math.random() * n),
-        )
-      : null;
+    const rolled = rollFusion(odds, (n) => Math.floor(Math.random() * n));
+    const { outcome, grade } = rolled;
+    const card = drawFusionResult(
+      pools[grade],
+      outcome !== "stay" && grade === odds.upgraded ? target : null,
+      (n) => Math.floor(Math.random() * n),
+    );
     for (const [id, g] of groups) {
       for (let i = 0; i < g.extra; i++) take(id, "extra");
       if (g.base) take(id, "card");
     }
     if (card) add(card.id);
     return {
-      message: card
-        ? "Demo fusion produced a Lv. 1 " + grade + " card."
-        : "Demo fusion broke; materials consumed.",
+      message:
+        (outcome === "stay" ? "Same Tier" : rolled.label) +
+        ": a Lv. 1 " +
+        grade +
+        " card.",
+      grade,
       outcome,
       odds,
       materials,

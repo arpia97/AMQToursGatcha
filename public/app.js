@@ -541,7 +541,11 @@ document.addEventListener("change", (event) => {
 let fusionPickerFocus = null;
 function renderFusionPicker(focusSearch = false, position = null) {
   const overlay = $("#fusion-picker");
+  const scrollTop =
+    overlay.querySelector(".fusion-picker-dialog")?.scrollTop || 0;
   overlay.innerHTML = workshop.renderPicker();
+  const dialog = overlay.querySelector(".fusion-picker-dialog");
+  if (dialog) dialog.scrollTop = scrollTop;
   overlay.hidden = false;
   const input = overlay.querySelector("#fusion-search");
   if (focusSearch) {
@@ -560,6 +564,7 @@ function openFusionPicker(index) {
   renderFusionPicker(true);
 }
 function closeFusionPicker() {
+  const wasOpen = workshop.pickerOpen();
   workshop.closePicker();
   const overlay = $("#fusion-picker");
   overlay.hidden = true;
@@ -570,6 +575,14 @@ function closeFusionPicker() {
   document.body.classList.remove("fusion-picker-open");
   if (fusionPickerFocus?.isConnected) fusionPickerFocus.focus();
   fusionPickerFocus = null;
+  if (wasOpen && page() === "fusion") {
+    workshop
+      .loadOutcomes(api)
+      .then(() => {
+        if (page() === "fusion" && !workshop.pickerOpen()) render();
+      })
+      .catch((err) => toast(err.message, true));
+  }
 }
 document.addEventListener("keydown", (ev) => {
   if (!workshop.pickerOpen()) return;
@@ -1866,8 +1879,21 @@ async function handleFeatureClick(a, t) {
                 : "card"
               : t.dataset.variant,
         });
-        if (a === "fusion-add") closeFusionPicker();
+        if (a === "fusion-add") {
+          render();
+          renderFusionPicker();
+          $("#fusion-picker .fusion-picker-dialog")?.focus({
+            preventScroll: true,
+          });
+          return true;
+        }
         if (a === "fusion-card") location.hash = "fusion";
+      }
+      if (a === "fusion-picker-remove") {
+        workshop.remove(Number(t.dataset.index));
+        render();
+        renderFusionPicker();
+        return true;
       }
       if (a === "fusion-remove") workshop.remove(Number(t.dataset.index));
       if (a === "fusion-target") workshop.chooseTarget(t.dataset.id);
@@ -1892,7 +1918,7 @@ async function handleFeatureClick(a, t) {
           await execute("fusion", body, (r) => {
             workshop.complete(r);
             render();
-            toast(r.message, r.outcome === "break");
+            toast(r.message);
           });
         } finally {
           if (t.isConnected) t.disabled = false;

@@ -7,7 +7,12 @@ import {
   cardInvestment,
   instantSalePrice,
 } from "../public/card-values.js";
-import { fusionContribution, fusionQuote } from "../public/fusion-rules.js";
+import {
+  fusionContribution,
+  fusionQuote,
+  rollFusion,
+  FUSION_ROLL_SCALE,
+} from "../public/fusion-rules.js";
 
 function fixture() {
   const db = new DatabaseSync(":memory:");
@@ -162,116 +167,215 @@ test("high-level AG sale values fit the wallet without truncating the invested-c
   assert.equal(f.sell("AG").price, 3355443200);
   assert.equal(f.e.player("p").balance, 3355443200);
 });
-test("fusion uses the approved spread, half-tier enhancement interpolation, and continued doubling beyond Ubers", () => {
-  assert.deepEqual(
-    RARITIES.slice(0, -1).map((r) => fusionContribution({ rarity: r }).stay),
-    [100, 200, 400, 800, 1200, 1600, 2400, 3200],
-  );
-  assert.deepEqual(fusionContribution({ rarity: "D" }, 2), {
-    stay: 150,
-    upgrade: 75,
+const m = (rarity, level = 1) => ({ rarity, level });
+test("fusion reserves one baseline copy, halves each lower tier and counts exact enhancement investment", () => {
+  assert.equal(fusionQuote([m("S")]).upgrade, 0);
+  assert.equal(fusionQuote([m("S"), m("S")]).upgrade, 5000);
+  assert.equal(fusionQuote([m("S"), m("A")]).upgrade, 2500);
+  assert.equal(fusionQuote([m("S"), m("B")]).upgrade, 1250);
+  assert.equal(fusionQuote([m("Ubers"), m("D")]).upgrade, 39.0625);
+  assert.deepEqual(fusionContribution(m("D"), 3, "B"), {
+    upgrade: 5000,
+    copies: 4,
   });
-  assert.deepEqual(fusionContribution({ rarity: "D" }, 3), {
-    stay: 200,
-    upgrade: 100,
-  });
-  assert.deepEqual(fusionContribution({ rarity: "Ubers" }, 2), {
-    stay: 4800,
-    upgrade: 2400,
-  });
-  assert.deepEqual(fusionContribution({ rarity: "Ubers" }, 3), {
-    stay: 6400,
-    upgrade: 3200,
-  });
-  assert.deepEqual(fusionContribution({ rarity: "Ubers" }, 4), {
-    stay: 9600,
-    upgrade: 4800,
-  });
-  const q = fusionQuote([
-    { rarity: "D", level: 5 },
-    { rarity: "C", level: 1 },
-  ]);
-  assert.equal(q.baseline, "C");
-  assert.equal(q.upgraded, "B");
-  assert.equal(q.stay, 600);
-  assert.equal(q.upgrade, 300);
-  assert.equal(fusionQuote([{ rarity: "Ubers", level: 3 }]).upgrade, 0);
-  assert.equal(fusionQuote([{ rarity: "Ubers", level: 3 }]).break, 3600);
-  assert.throws(
-    () =>
-      fusionQuote([
-        { rarity: "Ubers", level: 4 },
-        { rarity: "D", level: 1 },
-      ]),
-    /100%/,
-  );
-  assert.throws(() => fusionQuote([{ rarity: "AG", level: 1 }]), /AG/);
-  assert.throws(() => fusionQuote([{ rarity: null, level: 1 }]), /Pending/);
-  assert.throws(
-    () => fusionQuote(Array(6).fill({ rarity: "D", level: 1 })),
-    /five/,
-  );
+  assert.equal(fusionQuote([m("S", 2)]).upgrade, 5000);
+  assert.equal(fusionQuote([m("S", 3)]).upgrade, 10000);
+  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 5312.5);
+  for (const rows of [
+    [m("S", 2), m("S")],
+    [m("S"), m("S", 2)],
+  ])
+    assert.equal(fusionQuote(rows).upgrade, 10000);
+  const full = fusionQuote(Array(5).fill(m("Ubers", 20)));
+  assert.equal(full.upgrade, 10000);
+  assert.equal(full.stay, 0);
+  assert.ok(full.rawUpgrade > 10000);
+  assert.equal(full.investment, 5 * 524288);
+  for (const rarity of ["AG", null, "Pending"])
+    assert.throws(() => fusionQuote([m(rarity)]), /AG|Pending/);
+  assert.throws(() => fusionQuote(Array(6).fill(m("D"))), /five/);
 });
-test("fusion boundary rolls consume all copies once and return only the rolled rarity at Lv. 1", () => {
-  for (const [roll, outcome, grade] of [
-    [0, "stay", "Ubers"],
-    [6399, "stay", "Ubers"],
-    [6400, "upgrade", "AG"],
-    [9599, "upgrade", "AG"],
-    [9600, "break", null],
-    [9999, "break", null],
+test("conditional success split is exactly90/9/1, failures reroll baseline and top tiers cap at AG", () => {
+  const q = fusionQuote([m("S"), m("S")]);
+  assert.deepEqual(
+    q.outcomes.map((o) => [o.rarity, o.chance]),
+    [
+      ["SS", 4500],
+      ["SSS", 450],
+      ["Ubers", 50],
+    ],
+  );
+  const counts = {};
+  for (let i = 0; i < 10000; i++) {
+    const rolls = [0, i];
+    const result = rollFusion(q, () => rolls.shift());
+    counts[result.outcome] = (counts[result.outcome] || 0) + 1;
+  }
+  assert.deepEqual(counts, { upgrade: 9000, great: 900, erig: 100 });
+  for (const [quality, outcome, grade] of [
+    [8999, "upgrade", "SS"],
+    [9000, "great", "SSS"],
+    [9899, "great", "SSS"],
+    [9900, "erig", "Ubers"],
+    [9999, "erig", "Ubers"],
   ]) {
-    const f = fixture(),
-      { e } = f;
-    f.add("Ubers", 2);
-    let rolls = [roll, 0];
-    e.rand = () => rolls.shift();
-    const b = f.body([f.material("Ubers"), f.material("Ubers", "extra")]);
-    const r = f.act("fusion", b, "fuse");
-    assert.equal(r.outcome, outcome);
-    assert.equal(r.cards[0]?.rarity || null, grade);
-    assert.deepEqual(f.act("fusion", b, "fuse"), r);
+    const values = [0, quality];
+    const result = rollFusion(q, () => values.shift());
+    assert.equal(result.outcome, outcome);
+    assert.equal(result.grade, grade);
+  }
+  assert.equal(rollFusion(q, () => 640000).outcome, "stay");
+  assert.equal(rollFusion(q, () => FUSION_ROLL_SCALE - 1).grade, "S");
+  assert.deepEqual(
+    fusionQuote([m("SSS", 2)]).outcomes.map((o) => o.rarity),
+    ["Ubers", "AG", "AG"],
+  );
+  assert.deepEqual(
+    fusionQuote([m("Ubers", 2)]).outcomes.map((o) => o.rarity),
+    ["AG", "AG", "AG"],
+  );
+  const fractional = fusionQuote([m("Ubers"), m("D")]);
+  assert.equal(
+    rollFusion(fractional, (n) => (n === FUSION_ROLL_SCALE ? 4999 : 0)).outcome,
+    "upgrade",
+  );
+  assert.equal(rollFusion(fractional, () => 5000).outcome, "stay");
+});
+test("all four fusion outcomes consume materials once, grant exactly one Lv1 result and preserve credits", () => {
+  for (const [roll, quality, outcome, grade] of [
+    [640000, 0, "stay", "S"],
+    [639999, 8999, "upgrade", "SS"],
+    [0, 9000, "great", "SSS"],
+    [0, 9900, "erig", "Ubers"],
+  ]) {
+    const f = fixture();
+    f.add("S", 2);
+    const values = [roll, ...(outcome === "stay" ? [] : [quality]), 0];
+    f.e.rand = () => values.shift();
+    const b = f.body([f.material("S"), f.material("S", "extra")]);
+    const result = f.act("fusion", b, "once");
+    assert.equal(result.outcome, outcome);
+    assert.equal(result.cards[0].rarity, grade);
+    assert.deepEqual(f.act("fusion", b, "once"), result);
     assert.equal(
-      e.state("p").inventory.reduce((n, c) => n + c.copies, 0),
-      grade ? 1 : 0,
+      f.e.state("p").inventory.reduce((sum, i) => sum + i.copies, 0),
+      1,
     );
-    if (grade) assert.equal(e.state("p").inventory[0].level, 1);
-    assert.equal(e.player("p").balance, 0);
+    assert.equal(f.e.state("p").inventory[0].level, 1);
+    assert.equal(f.e.player("p").balance, 0);
   }
 });
-test("targeted upgrades use a separate50% draw, exclude the target from alternatives and replay without consuming again", () => {
+test("enhanced bases contribute invested copies, spare copies stay Lv1 and consumption orders extras first", () => {
+  const f = fixture();
+  f.add("D", 4, 6);
+  let rolls = [FUSION_ROLL_SCALE - 1, 0];
+  f.e.rand = () => rolls.shift();
+  f.act("fusion", f.body([f.material("D", "extra"), f.material("D", "extra")]));
+  assert.deepEqual(
+    {
+      ...f.e.one(
+        "SELECT copies,level FROM inventory WHERE player='p' AND card='D'",
+      ),
+    },
+    { copies: 3, level: 6 },
+  );
+  const b = f.body([
+    f.material("D"),
+    f.material("D", "extra"),
+    f.material("D", "extra"),
+  ]);
+  assert.equal(b.expectedOdds.upgrade, 10000);
+  rolls = [0, 9000, 0];
+  const result = f.act("fusion", b);
+  assert.equal(result.cards[0].rarity, "B");
+  assert.equal(
+    f.e.state("p").inventory.reduce((sum, i) => sum + i.copies, 0),
+    1,
+  );
+});
+test("target draw preserves tier odds, shares exactly half within its tier and replays without consumption", () => {
   for (const coin of [0, 1]) {
     const f = fixture();
-    f.cards.set("AG-second", {
-      ...f.cards.get("AG-other"),
-      id: "AG-second",
-      name: "Second AG",
-    });
+    f.cards.set("AG-second", { ...f.cards.get("AG-other"), id: "AG-second" });
     f.add("Ubers", 2);
     const b = {
       ...f.body([f.material("Ubers"), f.material("Ubers", "extra")]),
       targetCard: "AG-second",
     };
-    const rolls = [6400, coin, 0];
+    const rolls = [0, 9900, coin, 0];
     f.e.rand = () => rolls.shift();
-    const result = f.act("fusion", b, "targeted");
-    assert.equal(result.outcome, "upgrade");
+    const result = f.act("fusion", b, "target");
+    assert.equal(result.outcome, "erig");
     assert.equal(result.cards[0].id, coin === 0 ? "AG-second" : "AG-other");
     assert.equal(result.targetHit, coin === 0);
-    assert.deepEqual(f.act("fusion", b, "targeted"), result);
-    assert.equal(
-      f.e.state("p").inventory.reduce((n, i) => n + i.copies, 0),
-      1,
-    );
+    assert.deepEqual(f.act("fusion", b, "target"), result);
   }
+  const f = fixture();
+  f.cards.set("SS-second", { ...f.cards.get("SS-other"), id: "SS-second" });
+  f.add("S", 2);
+  const values = [0, 9900, 0];
+  f.e.rand = () => values.shift();
+  const result = f.act("fusion", {
+    ...f.body([f.material("S"), f.material("S", "extra")]),
+    targetCard: "SS-second",
+  });
+  assert.equal(result.outcome, "erig");
+  assert.equal(result.cards[0].rarity, "Ubers");
+  assert.equal(result.targetHit, false);
 });
-test("invalid, foreign-type, stale and singleton fusion targets reject before any random roll or material consumption", () => {
+test("invalid ownership, duplicate copies, protected, stale rules/rarity/level, escrow and unavailable outcomes reject atomically", () => {
+  const f = fixture();
+  f.add("D", 3);
+  f.add("AG");
+  f.add("Pending");
+  const valid = f.body([f.material("D"), f.material("D", "extra")]);
+  const before = f.e.state("p").inventory;
+  const attempts = [
+    { cards: [f.material("D"), f.material("D")], expectedOdds: {} },
+    { cards: Array(3).fill(f.material("D", "extra")), expectedOdds: {} },
+    { cards: [f.material("AG")], expectedOdds: {} },
+    { cards: [f.material("Pending")], expectedOdds: {} },
+    { ...valid, expectedOdds: { ...valid.expectedOdds, revision: 1 } },
+    { ...valid, expectedOdds: { ...valid.expectedOdds, upgrade: 9999 } },
+    { ...valid, cards: valid.cards.map((x) => ({ ...x, expectedLevel: 20 })) },
+    { cards: [{ card: "foreign", variant: "card" }], expectedOdds: {} },
+  ];
+  f.e.rand = () => {
+    throw Error("Must validate before rolling");
+  };
+  for (const b of attempts) {
+    assert.throws(() => f.act("fusion", b));
+    assert.deepEqual(f.e.state("p").inventory, before);
+  }
+  for (const rarity of ["D", "C", "B", "A"]) {
+    const pool = f.e.catalogStore.pool;
+    f.e.catalogStore.pool = (kind) => ({
+      cards: pool(kind).cards.filter((c) => c.rarity !== rarity),
+    });
+    assert.throws(
+      () => f.act("fusion", valid),
+      new RegExp("No " + rarity + " result"),
+    );
+    assert.deepEqual(f.e.state("p").inventory, before);
+    f.e.catalogStore.pool = pool;
+  }
+  f.e.action("p", "protect-card", { card: "D", protected: true });
+  assert.throws(() => f.act("fusion", valid), /protected/);
+  f.e.action("p", "protect-card", { card: "D", protected: false });
+  f.add("SS");
+  f.act("list-card", { card: "SS", variant: "card", venue: "shop", price: 1 });
+  assert.throws(
+    () => f.act("fusion", { cards: [f.material("SS")], expectedOdds: {} }),
+    /no longer/,
+  );
+});
+test("invalid or singleton targets reject before rolling, same-tier reroll never uses target", () => {
   const f = fixture();
   f.add("Ubers", 2);
   const b = f.body([f.material("Ubers"), f.material("Ubers", "extra")]);
   const before = f.e.state("p").inventory;
   f.e.rand = () => {
-    throw Error("Must validate target before rolling");
+    throw Error("Must validate before rolling");
   };
   for (const targetCard of ["missing", "AG", "SSS", "AG-other", 42, {}]) {
     assert.throws(
@@ -280,149 +384,44 @@ test("invalid, foreign-type, stale and singleton fusion targets reject before an
     );
     assert.deepEqual(f.e.state("p").inventory, before);
   }
-  const single = f.body([f.material("Ubers")]);
-  assert.throws(
-    () => f.act("fusion", { ...single, targetCard: "AG-other" }),
-    /two materials/,
-  );
+  f.cards.set("AG-second", { ...f.cards.get("AG-other"), id: "AG-second" });
+  const rolls = [640000, 0];
+  f.e.rand = () => rolls.shift();
+  const result = f.act("fusion", { ...b, targetCard: "AG-second" });
+  assert.equal(result.outcome, "stay");
+  assert.equal(result.cards[0].rarity, "Ubers");
+  assert.equal(result.targetHit, false);
 });
-test("target selection does not change baseline stays or break probability", () => {
-  for (const roll of [0, 9600]) {
-    const f = fixture();
-    f.cards.set("AG-second", { ...f.cards.get("AG-other"), id: "AG-second" });
-    f.add("Ubers", 2);
-    const values = [roll, 0];
-    f.e.rand = () => values.shift();
-    const result = f.act("fusion", {
-      ...f.body([f.material("Ubers"), f.material("Ubers", "extra")]),
-      targetCard: "AG-second",
-    });
-    assert.equal(result.outcome, roll === 0 ? "stay" : "break");
-    assert.equal(result.targetHit, false);
-    assert.equal(result.cards[0]?.id || null, roll === 0 ? "Ubers" : null);
-  }
-});
-test("fusion permits one-card stays, mixed types, and duplicate extras but preserves unused enhanced bases", () => {
-  const f = fixture(),
-    { e } = f;
-  f.add("D", 4, 6);
-  e.rand = () => 0;
-  const b = f.body([f.material("D", "extra"), f.material("D", "extra")]);
-  f.act("fusion", b);
-  assert.deepEqual(
-    {
-      ...e.one(
-        "SELECT copies,level FROM inventory WHERE player='p' AND card='D'",
-      ),
-    },
-    { copies: 3, level: 6 },
-  );
-  // Two extras consumed, one Lv. 1 D replacement joins the still-enhanced base.
-  const single = f.body([f.material("D", "extra")]);
-  const r = f.act("fusion", single);
-  assert.equal(r.odds.upgrade, 0);
-  f.add("C");
-  const mixed = f.act(
-    "fusion",
-    f.body([f.material("D", "extra"), f.material("C")]),
-  );
-  assert.equal(mixed.odds.baseline, "C");
-  assert.equal(mixed.cards[0].kind, "character");
-});
-test("invalid fusion ownership, stale terms, excessive odds, missing result pools and escrow fail before consuming", () => {
-  const f = fixture(),
-    { e } = f;
-  f.add("SSS", 2, 4);
-  f.add("D", 3);
-  f.add("Pending");
-  f.add("AG");
-  const valid = f.body([f.material("D"), f.material("D", "extra")]),
-    before = e.state("p").inventory;
-  const attempts = [
-    {
-      cards: [f.material("SSS"), f.material("SSS", "extra")],
-      expectedOdds: {},
-    },
-    { cards: [f.material("SSS"), f.material("SSS")], expectedOdds: {} },
-    {
-      cards: [
-        f.material("D", "extra"),
-        f.material("D", "extra"),
-        f.material("D", "extra"),
-      ],
-      expectedOdds: {},
-    },
-    { cards: [f.material("AG")], expectedOdds: {} },
-    { cards: [f.material("Pending")], expectedOdds: {} },
-    { ...valid, expectedOdds: { ...valid.expectedOdds, upgrade: 9999 } },
-    { ...valid, cards: valid.cards.map((x) => ({ ...x, expectedLevel: 20 })) },
-    { cards: [{ card: "foreign", variant: "card" }], expectedOdds: {} },
-  ];
-  for (const b of attempts) {
-    assert.throws(() => f.act("fusion", b));
-    assert.deepEqual(e.state("p").inventory, before);
-  }
-  const saved = e.catalogStore.pool;
-  e.catalogStore.pool = (kind) => ({
-    cards: [...f.cards.values()].filter(
-      (c) => c.kind === kind && c.rarity !== "C",
-    ),
-  });
-  assert.throws(() => f.act("fusion", valid), /No C result/);
-  assert.deepEqual(e.state("p").inventory, before);
-  e.catalogStore.pool = saved;
-  f.add("SS");
-  f.act("list-card", { card: "SS", variant: "card", venue: "shop", price: 1 });
-  assert.throws(
-    () =>
-      f.act("fusion", {
-        cards: [{ card: "SS", variant: "card" }],
-        expectedOdds: {},
-      }),
-    /no longer/,
-  );
-  assert.equal(e.economy.market("shop", "seiyuu").items.length, 1);
-});
-
-test("fusion result type follows single-type materials and mixed materials can draw either type", () => {
-  for (const type of ["character", "seiyuu"])
-    for (const upgrade of [false, true]) {
+test("fusion follows material types for every result tier and mixed boards may draw either", () => {
+  for (const kind of ["character", "seiyuu"]) {
+    for (const [quality, grade] of [
+      [0, "C"],
+      [9000, "B"],
+      [9900, "A"],
+    ]) {
       const f = fixture(),
-        id = type === "character" ? "D" : "D-other";
+        id = kind === "character" ? "D" : "D-other";
       f.add(id, 2);
-      let rolls = [upgrade ? 200 : 0, 0];
-      f.e.rand = () => rolls.shift();
-      const r = f.act(
+      const values = [0, quality, 0];
+      f.e.rand = () => values.shift();
+      const result = f.act(
         "fusion",
         f.body([f.material(id), f.material(id, "extra")]),
       );
-      assert.equal(r.cards[0].kind, type);
-      assert.equal(r.cards[0].rarity, upgrade ? "C" : "D");
+      assert.equal(result.cards[0].kind, kind);
+      assert.equal(result.cards[0].rarity, grade);
     }
-  for (const type of ["character", "seiyuu"]) {
+  }
+  for (const kind of ["character", "seiyuu"]) {
     const f = fixture();
     f.add("D");
     f.add("D-other");
     let n = 0;
-    f.e.rand = (max) => (n++ === 0 ? 200 : type === "character" ? 0 : max - 1);
-    const r = f.act("fusion", f.body([f.material("D"), f.material("D-other")]));
-    assert.equal(r.cards[0].kind, type);
-    assert.equal(r.cards[0].rarity, "C");
+    f.e.rand = (max) => (n++ < 2 ? 0 : kind === "character" ? 0 : max - 1);
+    const result = f.act(
+      "fusion",
+      f.body([f.material("D"), f.material("D-other")]),
+    );
+    assert.equal(result.cards[0].kind, kind);
   }
-});
-test("fusion never substitutes a different type if a required result tier is missing", () => {
-  const f = fixture();
-  f.add("D", 2);
-  const before = f.e.state("p").inventory;
-  const pool = f.e.catalogStore.pool;
-  f.e.catalogStore.pool = (kind) => ({
-    cards: pool(kind).cards.filter(
-      (c) => kind !== "character" || c.rarity !== "C",
-    ),
-  });
-  assert.throws(
-    () => f.act("fusion", f.body([f.material("D"), f.material("D", "extra")])),
-    /No C result/,
-  );
-  assert.deepEqual(f.e.state("p").inventory, before);
 });

@@ -56,19 +56,18 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 
 Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 25 × 8 = 200 credits. Extra copies are level 1. Pending uses D pricing. Quotes include rarity, level and price; changes reject the sale for review before any consumption. Credits fit safely up to the wallet limit of one trillion.
 
-Fusion selects one to five physical copies, including extras and enhanced bases. The highest printed rarity sets the result baseline. Upgrade requires at least two materials and gives exactly the next rarity; one material can only stay or break. Every selected copy is consumed, and a successful outcome draws a level-1 card from the selected material type(s) in the result tier. Without a target, draws are uniform. An existing enhanced copy is retained if the result is a duplicate. Missing result pools reject before consuming anything. AG and Pending materials are excluded.
+Fusion selects up to five physical copies in a single multi-select picker, with live success and result-tier percentages. The highest printed rarity sets the baseline. One invested copy of that tier is reserved for the baseline and contributes no chance. Each additional same-tier copy adds 50%; each tier below halves its contribution (25%, 12.5%, 6.25%, etc.). Enhancement counts every invested copy, `2^(level−1)`: a lone Lv. 1 card has 0%, Lv. 2 has 50%, and Lv. 3 reaches the 100% cap. More materials may still be selected up to five slots, even after reaching 100%.
 
-The Target Card panel shows eligible same-tier and upgrade outcomes, with bilingual search and 12 cards per page. A target can be selected as soon as the first material establishes the upgrade tier; it takes effect only with at least two materials. On an upgrade, the target receives **exactly 50%**, and the remaining 50% is uniform among the other eligible cards, excluding the target. The stay/upgrade/break probabilities are unchanged. Targets must match the next rarity and material type(s); invalid or stale choices reject before rolling or consuming cards. A one-card upgrade pool needs no target: that card is already guaranteed when an upgrade occurs, so targeting is unavailable. Changing the board clears an ineligible target; changing the search/page keeps a valid one. API `fusion` accepts optional `targetCard`; `GET fusion-outcomes` browses cached catalogue metadata using `rarity`, `kind` (character/seiyuu/mixed), `q` and `page`, without making upstream requests.
+All selected materials are consumed. Failure always grants a random baseline-tier Lv. 1 replacement; there is no empty/break outcome. Successful rolls use an independent quality draw:
 
-| Material rarity | Stay | Upgrade |
-| --------------- | ---: | ------: |
-| D               |   1% |    0.5% |
-| C               |   2% |      1% |
-| B               |   4% |      2% |
-| A               |   8% |      4% |
-| S               |  12% |      6% |
-| SS              |  16% |      8% |
-| SSS             |  24% |     12% |
-| Ubers           |  32% |     16% |
+| Result        | Conditional chance | Rarity increase |
+| ------------- | -----------------: | --------------: |
+| Success       |                90% |         +1 tier |
+| Great Success |                 9% |        +2 tiers |
+| Erig          |                 1% |        +3 tiers |
 
-Each enhancement level above 1 adds half a probability tier, interpolated linearly between rows. D level 2 contributes 1.5% stay and 0.75% upgrade; D level 3 contributes 2% and 1%. Beyond Ubers, each full virtual tier doubles its contribution. The printed rarity and one-tier result target do not change. Add contributions, and break is the remainder. Boards above 100% stay + upgrade are rejected, never clamped. Server quotes, ownership validation, synchronous transactions and idempotency prevent stale terms or repeated consumption.
+Results above AG cap at AG, without redistributing the 90/9/1 outcome labels. For example, SSS success yields Ubers 90% and AG 10%; Ubers success always yields AG. Overall tier probabilities equal success chance times the conditional weights. AG and Pending cannot be materials. Character-only materials return characters, seiyuu-only materials return seiyuus, and mixed materials use both pools. An already-owned enhanced base is retained when the Lv. 1 result is a duplicate. All possible nonzero result pools must exist before consumption, otherwise the board is retained.
+
+The Target Card panel browses Success, Great Success, Erig and same-tier outcomes with bilingual search and 12 cards per page. A target must belong to the normal +1-tier pool. When that tier rolls, the target gets exactly 50% and the remaining 50% is shared uniformly among other eligible cards. This does not change success or 90/9/1 quality probabilities. When multiple capped outcomes share the target tier (e.g. AG), the target applies to each of them. Same-tier failure remains uniform. A singleton pool already guarantees its only card and cannot accept a target. Board changes clear ineligible targets; searching or paging preserves a valid target. `GET fusion-outcomes` reads local catalogue metadata only and makes no upstream requests.
+
+Revision-2 expected odds reject outdated clients, changed rarity/level, or stale terms before rolling or consuming. Success rolls use 128 units per basis point to represent fractional cross-tier probabilities exactly. Ownership, protection, escrow validation, synchronous transactions and idempotency prevent duplicate consumption or partial results.

@@ -96,7 +96,7 @@ test("fusion popup selection supports sparse slots, replacement, cancel, and val
   };
   const w = createWorkshop(h);
   w.openPicker(4);
-  assert.match(w.renderPicker(), /Slot 5/);
+  assert.match(w.renderPicker(), /Choose Fusion Materials/);
   w.add({ card: "d", variant: "card" });
   w.closePicker();
   assert.match(w.render(), /Change material in slot 5: D Card/);
@@ -187,4 +187,53 @@ test("fusion target choices load after the first material, follow mixed pools, p
   assert.equal(w.request().targetCard, undefined);
   w.clear();
   assert.equal(await w.loadOutcomes(api), null);
+});
+
+test("multi-select fusion picker stays open through five selections with live capped odds, remove and refill", () => {
+  const cards = [{ id: "d", kind: "character", rarity: "D", name: "Material" }];
+  const state = {
+    me: { id: "p" },
+    inventory: [{ card: "d", copies: 6, level: 1 }],
+  };
+  const w = createWorkshop({
+    getState: () => state,
+    cardBy: (id) => cards.find((c) => c.id === id),
+    escape: String,
+    number: String,
+    cardHTML: (c) => c.name,
+    image: (c) => c.name,
+    gradeBadge: (c) => c.rarity,
+    btn: (label, action) =>
+      '<button data-action="' + action + '">' + label + "</button>",
+    empty: () => "",
+  });
+  w.openPicker(3);
+  w.add({ card: "d", variant: "card" });
+  assert.equal(w.pickerOpen(), true);
+  assert.equal(w.request().expectedOdds.upgrade, 0);
+  w.add({ card: "d", variant: "extra" });
+  assert.match(w.renderPicker(), /50% Success/);
+  w.add({ card: "d", variant: "extra" });
+  assert.equal(w.request().expectedOdds.upgrade, 10000);
+  w.add({ card: "d", variant: "extra" });
+  w.add({ card: "d", variant: "extra" });
+  assert.equal(w.request().cards.length, 5);
+  assert.equal(w.pickerOpen(), true);
+  assert.ok(w.renderPicker().includes("5 / 5 Cards Selected"));
+  assert.match(w.renderPicker(), /100% Success/);
+  assert.throws(() => w.add({ card: "d", variant: "extra" }), /five slots/);
+  w.remove(0);
+  assert.equal(w.request().cards.length, 4);
+  w.add({ card: "d", variant: "extra" });
+  assert.equal(w.request().cards.length, 5);
+  w.closePicker();
+  assert.equal(w.pickerOpen(), false);
+  assert.equal(w.request().cards.length, 5);
+  assert.equal(state.inventory[0].copies, 6);
+  w.clear();
+  state.inventory[0].level = 2;
+  w.openPicker(0);
+  w.add({ card: "d", variant: "card" });
+  assert.equal(w.request().expectedOdds.upgrade, 5000);
+  assert.match(w.renderPicker(), /50% Success/);
 });

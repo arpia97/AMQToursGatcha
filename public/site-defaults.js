@@ -4,7 +4,7 @@ export const MAX_SPOTLIGHTS = 20;
 export const PICKEM_WINDOW = 10 * 60 * 1000;
 export const TOUR_REWARDS = Object.freeze({
   participation: 1000,
-  counting: 300,
+  counting: 500,
   reporting: 500,
 });
 export const defaultReward = (category, games = 1) =>

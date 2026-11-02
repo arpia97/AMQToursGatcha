@@ -1,4 +1,9 @@
-import { fusionQuote, fusionContribution, chanceText } from "./fusion-rules.js";
+import {
+  fusionQuote,
+  fusionContribution,
+  chanceText,
+  FUSION_RESULTS,
+} from "./fusion-rules.js";
 import { cardComparator, rarityClass } from "./card-display.js";
 
 export function createWorkshop(h) {
@@ -69,6 +74,8 @@ export function createWorkshop(h) {
     return [0, 1, 2, 3, 4].find((i) => !board.some((m) => m.slot === i));
   }
   function canAdd(entry, slot = pickerSlot ?? freeSlot()) {
+    if (slot === -1 || slot === undefined)
+      return "All five slots are filled. Remove a material to select another card.";
     try {
       fusionQuote(models(candidateBoard(entry, slot)));
       return "";
@@ -80,10 +87,12 @@ export function createWorkshop(h) {
     const reason = canAdd(entry, slot);
     if (reason) throw Error(reason);
     board = candidateBoard(entry, slot);
+    if (pickerSlot !== null) pickerSlot = freeSlot() ?? -1;
     changedBoard();
   }
   function remove(index) {
     board = board.filter((m) => m.slot !== index);
+    if (pickerSlot !== null) pickerSlot = freeSlot() ?? -1;
     changedBoard();
   }
   function clear() {
@@ -119,7 +128,13 @@ export function createWorkshop(h) {
       odds = fusionQuote(cards),
       kinds = [...new Set(cards.map((c) => c.kind))];
     return {
-      rarity: outcomeView === "stay" ? odds.baseline : odds.upgraded,
+      rarity:
+        outcomeView === "stay"
+          ? odds.baseline
+          : (
+              odds.outcomes.find((o) => o.outcome === outcomeView) ||
+              odds.outcomes[0]
+            ).rarity,
       upgraded: odds.upgraded,
       kind: kinds.length === 1 ? kinds[0] : "mixed",
       odds,
@@ -195,7 +210,7 @@ export function createWorkshop(h) {
     const spec = outcomeSpec(),
       c = outcomeData?.cards.find((c) => c.id === id);
     if (
-      outcomeView !== "upgrade" ||
+      outcomeView === "stay" ||
       !c ||
       c.rarity !== spec.upgraded ||
       outcomeData.eligibleTotal < 2
@@ -205,9 +220,20 @@ export function createWorkshop(h) {
   }
   function renderOutcomes(odds) {
     if (!odds) return "";
-    const data = outcomeData,
-      canTarget = outcomeView === "upgrade" && data?.eligibleTotal > 1;
-    return `<section class="fusion-outcomes"><div class="section-head"><div><h2>Target Card</h2><p class="form-hint">Choose an upgrade outcome. Your target has exactly a 50% chance if fusion upgrades; the other 50% draws a different eligible card.</p></div>${target ? btn("Clear target", "fusion-target-clear", "", "secondary") : ""}</div>${target ? `<div class="fusion-target-selected tier-${rarityClass(target.rarity)}">${image(target)}<div><strong>${e(target.name)}</strong><p>${e(target.rarity)} · 50% on upgrade${odds.upgrade ? " · " + chanceText(odds.upgrade / 2) + " overall" : " · add a second material to enable upgrades"}</p></div></div>` : '<p class="form-hint">No target selected: upgraded cards are chosen uniformly.</p>'}<div class="fusion-outcome-controls"><div class="tabs"><button class="tab ${outcomeView === "upgrade" ? "active" : ""}" data-action="fusion-outcome-view" data-view="upgrade">Upgrade · ${e(odds.upgraded)}</button><button class="tab ${outcomeView === "stay" ? "active" : ""}" data-action="fusion-outcome-view" data-view="stay">Same tier · ${e(odds.baseline)}</button></div><input id="fusion-outcome-search" class="search" aria-label="Search possible fusion outcomes" placeholder="Search possible outcomes…" value="${e(outcomeQuery)}"></div>${data ? `<p class="form-hint">${n(data.total)} matching ${e(outcomeView === "upgrade" ? odds.upgraded : odds.baseline)} cards · ${e(poolLabel())}${outcomeView === "stay" ? " · same-tier results remain uniform" : data.eligibleTotal === 1 ? " · only one possible upgrade; that card is already guaranteed on an upgrade" : ""}</p><div class="fusion-outcome-grid">${data.cards.map((c) => `<button type="button" class="collect-card fusion-target-card tier-${rarityClass(c.rarity)} ${target?.id === c.id ? "target-selected" : ""}" data-action="fusion-target" data-id="${e(c.id)}" aria-pressed="${target?.id === c.id}" ${canTarget ? "" : "disabled"}>${image(c)}<strong>${e(c.name)}</strong><small>${e(c.kind === "character" ? "Character" : "Seiyuu")} · ${e(c.rarity)}</small></button>`).join("") || '<p class="form-hint">No matching outcomes. Try another search.</p>'}</div><div class="toolbar space-top">${btn("← Previous", "fusion-outcome-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page} of ${Math.max(1, Math.ceil(data.total / data.limit))}</span>${btn("Next →", "fusion-outcome-next", !data.hasMore ? "disabled" : "", "secondary")}</div>` : '<p class="form-hint">Loading possible outcomes…</p>'}</section>`;
+    const spec = outcomeSpec(),
+      data = outcomeData,
+      canTarget =
+        outcomeView !== "stay" &&
+        spec.rarity === odds.upgraded &&
+        data?.eligibleTotal > 1;
+    const targetChance =
+      odds.outcomes
+        .filter((o) => o.rarity === odds.upgraded)
+        .reduce((sum, o) => sum + o.chance, 0) / 2;
+    return `<section class="fusion-outcomes"><div class="section-head"><div><h2>Target Card</h2><p class="form-hint">Choose a target from the +1-tier pool. It has a 50% chance when that result tier rolls. Tier probabilities stay unchanged.</p></div>${target ? btn("Clear Target", "fusion-target-clear", "", "secondary") : ""}</div>${target ? `<div class="fusion-target-selected tier-${rarityClass(target.rarity)}">${image(target)}<div><strong>${e(target.name)}</strong><p>${e(target.rarity)} · 50% in its result tier · ${chanceText(targetChance)} overall</p></div></div>` : '<p class="form-hint">No target selected: result cards are chosen uniformly within their tier.</p>'}<div class="fusion-outcome-controls"><div class="tabs">${odds.outcomes.map((o) => `<button class="tab ${outcomeView === o.outcome ? "active" : ""}" data-action="fusion-outcome-view" data-view="${o.outcome}">${o.label} · ${e(o.rarity)}</button>`).join("")}<button class="tab ${outcomeView === "stay" ? "active" : ""}" data-action="fusion-outcome-view" data-view="stay">Same Tier · ${e(odds.baseline)}</button></div><input id="fusion-outcome-search" class="search" aria-label="Search possible fusion outcomes" placeholder="Search possible outcomes…" value="${e(outcomeQuery)}"></div>${data ? `<p class="form-hint">${n(data.total)} matching ${e(spec.rarity)} cards · ${e(poolLabel())}${outcomeView === "stay" ? " · same-tier results remain uniform" : data.eligibleTotal === 1 ? " · only one eligible card in this tier" : ""}</p><div class="fusion-outcome-grid">${data.cards.map((c) => `<button type="button" class="collect-card fusion-target-card tier-${rarityClass(c.rarity)} ${target?.id === c.id ? "target-selected" : ""}" data-action="fusion-target" data-id="${e(c.id)}" aria-pressed="${target?.id === c.id}" ${canTarget ? "" : "disabled"}>${image(c)}<strong>${e(c.name)}</strong><small>${e(c.kind === "character" ? "Character" : "Seiyuu")} · ${e(c.rarity)}</small></button>`).join("") || '<p class="form-hint">No matching outcomes. Try another search.</p>'}</div><div class="toolbar space-top">${btn("← Previous", "fusion-outcome-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page} of ${Math.max(1, Math.ceil(data.total / data.limit))}</span>${btn("Next →", "fusion-outcome-next", !data.hasMore ? "disabled" : "", "secondary")}</div>` : '<p class="form-hint">Loading possible outcomes…</p>'}</section>`;
+  }
+  function oddsHTML(odds) {
+    return `<div class="fusion-odds"><div><small>BASELINE</small><strong>${e(odds?.baseline || "—")}</strong></div><div><small>SUCCESS CHANCE</small><strong>${chanceText(odds?.upgrade || 0)}</strong></div><div><small>SAME-TIER REROLL</small><strong>${chanceText(odds?.stay ?? 10000)}</strong></div></div>${odds ? `<p class="form-hint">Overall: ${odds.outcomes.map((o) => e(o.label) + " · " + e(o.rarity) + " " + chanceText(o.chance)).join(" · ")}</p>` : ""}`;
   }
   function request() {
     const cards = models(),
@@ -252,32 +278,28 @@ export function createWorkshop(h) {
       const c = m || cardBy(entry.card);
       let contribution = "Unavailable";
       try {
-        const p = fusionContribution(c, m?.level || 1);
+        const p = fusionContribution(
+          c,
+          m?.level || 1,
+          odds?.baseline || c.rarity,
+        );
+        const value =
+          p.upgrade - (selected[odds?.anchor]?.slot === i ? 5000 : 0);
         contribution =
-          chanceText(p.stay) + " stay · " + chanceText(p.upgrade) + " upgrade";
+          chanceText(value) +
+          " success" +
+          (selected[odds?.anchor]?.slot === i ? " · baseline" : "");
       } catch {}
       return `<article class="fusion-slot tier-${rarityClass(c.rarity)}"><button class="fusion-slot-pick" data-action="fusion-pick" data-index="${i}" aria-label="Change material in slot ${i + 1}: ${e(c.name)}"><div class="fusion-portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">Lv. ${m?.level || "?"}</span></div><strong>${e(c.name)}</strong><small>${e(contribution)}</small></button><button class="text-button" data-action="fusion-remove" data-index="${i}">Remove ×</button></article>`;
     }).join("");
+    const label =
+      lastResult?.outcome === "stay"
+        ? "Same-Tier Reroll"
+        : FUSION_RESULTS.find((o) => o.outcome === lastResult?.outcome)?.label;
     const result = lastResult
-      ? `<section class="fusion-result ${lastResult.outcome === "break" ? "broken" : ""}" role="status"><span class="eyebrow">${lastResult.outcome === "upgrade" ? "A RARER POSSIBILITY" : lastResult.outcome === "stay" ? "A NEW FACE" : "THE FUSION BROKE"}</span><h2>${lastResult.outcome === "upgrade" ? "Upgraded to " + e(lastResult.odds.upgraded) + "!" : lastResult.outcome === "stay" ? "A New " + e(lastResult.odds.baseline) + " Card." : "The Materials Were Consumed."}</h2><p>${e(lastResult.message)}</p>${lastResult.cards.length ? `<div class="fusion-reward">${cardHTML(lastResult.cards[0], null, { copies: 1, level: 1, preview: true })}</div>` : '<div class="broken-sigil" aria-hidden="true">✧</div>'}<button class="text-button" data-action="fusion-dismiss">Dismiss result</button></section>`
+      ? `<section class="fusion-result" role="status"><span class="eyebrow">FUSION RESULT</span><h2>${e(label || "Fusion Complete")} · ${e(lastResult.grade || lastResult.cards[0]?.rarity || "")}</h2><p>${e(lastResult.message)}</p><div class="fusion-reward">${lastResult.cards[0] ? cardHTML(lastResult.cards[0], null, { copies: 1, level: 1, preview: true }) : ""}</div><button class="text-button" data-action="fusion-dismiss">Dismiss Result</button></section>`
       : "";
-    return `<div class="page-intro"><div><h1>A New Kind of Possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your Fusion Board</h2><button class="text-button" data-action="fusion-clear">Clear board</button></div><p class="form-hint">Click a slot to choose or replace a material. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result pool:</strong> ${poolLabel()}</p><div class="fusion-odds"><div><small>BASELINE</small><strong>${e(odds?.baseline || "—")}</strong></div><div><small>STAY${odds ? " · " + e(odds.baseline) : ""}</small><strong>${chanceText(odds?.stay || 0)}</strong></div><div><small>UPGRADE${odds ? " · " + e(odds.upgraded) : ""}</small><strong>${chanceText(odds?.upgrade || 0)}</strong></div><div><small>BREAK</small><strong>${chanceText(odds?.break ?? 10000)}</strong></div></div><p class="form-hint">${board.length === 1 ? "One card can stay or break. Add a second card to enable upgrades." : "Baseline: Highest rarity card. Upgrade: One tier higher."} Odds from all cards add together.</p><p class="fusion-warning">Every selected copy is consumed regardless of the results. A successful fusion draws one random Lv. 1 card of the result rarity.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Fuse & consume " + board.length + " card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error ? "disabled" : "", "mint")}</section>${renderOutcomes(odds)}<details class="rarity-guide"><summary>Fusion Chances per Level-1 Card</summary><table class="fusion-rules"><thead><tr><th>Rarity</th><th>Stay</th><th>Upgrade</th></tr></thead><tbody>${[
-      "D",
-      "C",
-      "B",
-      "A",
-      "S",
-      "SS",
-      "SSS",
-      "Ubers",
-    ]
-      .map((r) => {
-        const p = fusionContribution({ rarity: r }, 1);
-        return `<tr><td><span class="grade-inline grade-${rarityClass(r)}">${r}</span></td><td>${chanceText(p.stay)}</td><td>${chanceText(p.upgrade)}</td></tr>`;
-      })
-      .join(
-        "",
-      )}</tbody></table><p>Upgrade needs at least two materials. AG and Pending cannot be used. Boards over 100% stay + upgrade are blocked. For example, Lv. 2 D contributes 1.5% stay and 0.75% upgrade; Lv. 3 D contributes 2% and 1%. Enhancement affects odds, not the baseline.</p></details>`;
+    return `<div class="page-intro"><div><h1>A New Kind of Possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My Collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your Fusion Board</h2><button class="text-button" data-action="fusion-clear">Clear Board</button></div><p class="form-hint">Click a slot to select multiple materials. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result Pool:</strong> ${poolLabel()}</p>${oddsHTML(odds)}<p class="form-hint">One invested copy of the highest tier sets the baseline. Each additional same-tier copy adds 50%; each tier below halves that contribution. Enhanced cards count as all copies invested. Success is capped at 100%.</p><p class="fusion-warning">All selected materials are consumed. Failure returns a random baseline-tier Lv. 1 card. On success: Success +1 tier (90%), Great Success +2 tiers (9%), Erig +3 tiers (1%). Results stop at AG.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Fuse & Consume " + board.length + " Card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error || !odds.upgrade ? "disabled" : "", "mint")}</section>${renderOutcomes(odds)}<details class="rarity-guide"><summary>Fusion Chances</summary><p>Additional level-1 copies contribute 50% at the baseline tier, 25% one tier below, 12.5% two below, and so on. Lv. 2 counts as 2 invested copies; Lv. 3 as 4; Lv. 4 as 8. Only one invested copy is reserved for the baseline.</p><p>AG and Pending cards cannot be materials. Character-only materials return characters; seiyuu-only materials return seiyuus; mixed materials use both pools.</p></details>`;
   }
   function renderPicker() {
     if (pickerSlot === null) return "";
@@ -296,6 +318,16 @@ export function createWorkshop(h) {
       .sort((a, b) => cardComparator("rarity")(a.c, b.c));
     const max = Math.max(1, Math.ceil(inventory.length / 24));
     page = Math.min(page, max);
+    let selected = [],
+      currentOdds = null,
+      pickerError = "";
+    try {
+      selected = models();
+      if (selected.length) currentOdds = fusionQuote(selected);
+    } catch (error) {
+      pickerError = error.message;
+    }
+    const summary = `<section class="fusion-picker-selection" aria-label="Selected Fusion Materials"><div class="section-head"><h3>${board.length} / 5 Cards Selected</h3><strong class="fusion-picker-chance" role="status">${chanceText(currentOdds?.upgrade || 0)} Success</strong></div>${currentOdds ? oddsHTML(currentOdds) : ""}<div class="fusion-picker-selected">${selected.map((m) => `<button type="button" class="fusion-picker-selected-card tier-${rarityClass(m.rarity)}" data-action="fusion-picker-remove" data-index="${m.slot}" aria-label="Remove ${e(m.name)} from Slot ${m.slot + 1}">${image(m)}<span>${e(m.name)}<small>Lv. ${m.level} · ${e(m.rarity)}</small></span><b aria-hidden="true">×</b></button>`).join("") || '<p class="form-hint">No materials selected.</p>'}</div>${pickerError ? `<p class="form-error" role="alert">${e(pickerError)}</p>` : ""}</section>`;
     const choices = inventory
       .slice((page - 1) * 24, page * 24)
       .map((item) => {
@@ -308,7 +340,7 @@ export function createWorkshop(h) {
       })
       .join("");
 
-    return `<section class="fusion-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-picker-title" tabindex="-1"><div class="section-head"><div><span class="eyebrow">FUSION MATERIALS</span><h2 id="fusion-picker-title">Choose a Material · Slot ${pickerSlot + 1}</h2></div><button class="text-button" data-action="fusion-picker-close" aria-label="Close material picker">Close ×</button></div><p class="form-hint">Choose an extra level-1 copy or your enhanced base card. ${board.some((m) => m.slot === pickerSlot) ? "Your current slot is replaced only when you select a card." : "Cards are consumed only when you press Fuse."}</p><div class="section-head"><h2>Choose Your Materials</h2><span class="subtext">${n(inventory.length)} matching cards</span></div><div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search fusion materials" placeholder="Search names or anime…" value="${e(query)}"><label>Type<select id="fusion-kind"><option value="">All card types</option><option value="character" ${kind === "character" ? "selected" : ""}>Characters</option><option value="seiyuu" ${kind === "seiyuu" ? "selected" : ""}>Seiyuus</option></select></label><label>Rarity<select id="fusion-rarity"><option value="">All rarities</option>${["AG", "Ubers", "SSS", "SS", "S", "A", "B", "C", "D", "Pending"].map((r) => `<option value="${r}" ${grade === r ? "selected" : ""}>${r}</option>`).join("")}</select></label></div><div class="card-grid fusion-material-grid">${choices || h.empty("No Matching Cards.", "Collect cards or change your filters.")}</div><div class="toolbar space-top">${btn("← Previous", "fusion-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page} of ${max}</span>${btn("Next →", "fusion-next", page >= max ? "disabled" : "", "secondary")}</div><p class="form-hint">Result pool follows your materials: characters only, seiyuus only, or both when mixed. Boards over 100% are blocked.</p></section>`;
+    return `<section class="fusion-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-picker-title" tabindex="-1"><div class="section-head"><div><span class="eyebrow">FUSION MATERIALS</span><h2 id="fusion-picker-title">Choose Fusion Materials</h2></div><button class="text-button" data-action="fusion-picker-close" aria-label="Close material picker">Close ×</button></div><p class="form-hint">Choose an extra level-1 copy or your enhanced base card. ${board.some((m) => m.slot === pickerSlot) ? "Your first selection replaces this slot, then fills the remaining empty slots." : "Keep selecting cards to fill empty slots. Cards are consumed only when you press Fuse."}</p>${summary}<div class="section-head"><h2>Choose Your Materials</h2><span class="subtext">${n(inventory.length)} matching cards</span></div><div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search fusion materials" placeholder="Search names or anime…" value="${e(query)}"><label>Type<select id="fusion-kind"><option value="">All card types</option><option value="character" ${kind === "character" ? "selected" : ""}>Characters</option><option value="seiyuu" ${kind === "seiyuu" ? "selected" : ""}>Seiyuus</option></select></label><label>Rarity<select id="fusion-rarity"><option value="">All rarities</option>${["AG", "Ubers", "SSS", "SS", "S", "A", "B", "C", "D", "Pending"].map((r) => `<option value="${r}" ${grade === r ? "selected" : ""}>${r}</option>`).join("")}</select></label></div><div class="card-grid fusion-material-grid">${choices || h.empty("No Matching Cards.", "Collect cards or change your filters.")}</div><div class="toolbar space-top">${btn("Done · " + board.length + " Selected", "fusion-picker-close", "", "mint")}${btn("← Previous", "fusion-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page} of ${max}</span>${btn("Next →", "fusion-next", page >= max ? "disabled" : "", "secondary")}</div><p class="form-hint">Result pool follows your materials: characters only, seiyuus only, or both when mixed. Success chance is capped at 100%; you can still fill all five slots.</p></section>`;
   }
   return {
     render,
