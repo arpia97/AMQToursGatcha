@@ -274,5 +274,29 @@
     "image": "https://play.amqtours-gatcha.workers.dev/community-cards/pregnantnoel.webp",
     "source": "",
     "fixedRarity": "AG"
+  },
+  {
+    "id": "community-ggius-comochungus",
+    "kind": "character",
+    "name": "comochungus",
+    "series": "GGius Tours",
+    "series_romaji": "GGius Tours",
+    "series_english": "GGius Tours",
+    "role": "supporting",
+    "image": "https://play.amqtours-gatcha.workers.dev/community-cards/comochungus.webp",
+    "source": "",
+    "fixedRarity": "A"
+  },
+  {
+    "id": "community-ggius-msfearful",
+    "kind": "character",
+    "name": "msfearful",
+    "series": "GGius Tours",
+    "series_romaji": "GGius Tours",
+    "series_english": "GGius Tours",
+    "role": "supporting",
+    "image": "https://play.amqtours-gatcha.workers.dev/community-cards/msfearful.png",
+    "source": "",
+    "fixedRarity": "SSS"
   }
 ]

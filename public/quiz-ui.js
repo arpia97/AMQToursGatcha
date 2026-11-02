@@ -41,7 +41,7 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
               .join("") +
             "</div>"
           : '<section class="quiz-coming-soon"><span aria-hidden="true">♫</span><h2>Coming Soon</h2><p>Anime music quizzes are on the way.</p></section>') +
-        '<details class="rarity-guide"><summary>Quiz Rewards</summary><p>Earn 50 credits for each new personal-best point, up to 1,000 per quiz. Additional one-time milestones: 5/20 → 100; 10/20 → 300; 15/20 → 500; 20/20 → 1,000. Repeat scores do not award again. Each run plays 20 random songs from the pool.</p></details>'
+        '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool.</li></ul></details>'
       );
     }
     const q = quizzes.find((q) => q.id === selected);

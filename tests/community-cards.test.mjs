@@ -30,7 +30,7 @@ function fixture(t) {
   e.host("players", { players: [{ id: "p", name: "Player" }] });
   return { e, sql, tx, host: (b) => e.tx(() => e.host("catalog", b)) };
 }
-test("GGius Tours manifest has all23 exact names/rarities, correct types and original local image assets", () => {
+test("GGius Tours manifest has all25 exact names/rarities, correct types and original local image assets", () => {
   const expected = {
     ArronChu: "AG",
     "Austin the Kangaroo": "Ubers",
@@ -55,9 +55,11 @@ test("GGius Tours manifest has all23 exact names/rarities, correct types and ori
     CHOMMYNOODLES: "AG",
     "Chris Lefkó": "AG",
     "Pregnant Noel": "AG",
+    comochungus: "A",
+    msfearful: "SSS",
   };
-  assert.equal(cards.length, 23);
-  assert.equal(new Set(cards.map((c) => c.id)).size, 23);
+  assert.equal(cards.length, 25);
+  assert.equal(new Set(cards.map((c) => c.id)).size, 25);
   assert.deepEqual(
     Object.fromEntries(cards.map((c) => [c.name, c.fixedRarity])),
     expected,
@@ -122,8 +124,8 @@ test("community cards participate in search, rarity sorting, uniform draw pools,
   const page = e.catalogStore.page("character", "GGius Tours", 1, 40, {
     sort: "rarity",
   });
-  assert.equal(page.total, 22);
-  assert.equal(page.cards.length, 22);
+  assert.equal(page.total, 24);
+  assert.equal(page.cards.length, 24);
   const actors = e.catalogStore.page("seiyuu", "Chris Lefkó", 1, 40, {
     sort: "rarity",
     rarity: "AG",
@@ -136,31 +138,31 @@ test("community cards participate in search, rarity sorting, uniform draw pools,
       sort: "rarity",
       rarity: "SSS",
     }).cards.length,
-    3,
+    4,
   );
   const pool = e.catalogStore.pool("character").cards;
-  assert.equal(pool.length, 22);
+  assert.equal(pool.length, 24);
   assert.equal(
     pool.filter((c) => ["S", "SS", "SSS", "Ubers", "AG"].includes(c.rarity))
       .length,
-    14,
+    15,
   );
   const withDs = [
     ...pool,
     ...Array.from({ length: 100 }, (_, i) => ({ id: "d" + i, rarity: "D" })),
   ];
-  assert.equal(premiumPool(withDs).high.length, 14);
+  assert.equal(premiumPool(withDs).high.length, 15);
   const found = new Set();
-  for (let i = 0; i < 22; i++)
+  for (let i = 0; i < 24; i++)
     found.add(
       e.catalogStore.draw("character", (n) => Math.min(n - 1, i * 100)).id,
     );
-  assert.equal(found.size, 22);
+  assert.equal(found.size, 24);
   e.addCard("p", cards[0].id);
   const progress = e.economy.anime.page("p");
   assert.equal(progress.series[0].series_romaji, "GGius Tours");
   assert.equal(progress.series[0].owned, 1);
-  assert.equal(progress.series[0].total, 22);
+  assert.equal(progress.series[0].total, 24);
 });
 test("fixed rarity accepts only valid community IDs; malformed imports roll back and repeated import keys do not duplicate cards", (t) => {
   const { e, host } = fixture(t);
@@ -169,7 +171,7 @@ test("fixed rarity accepts only valid community IDs; malformed imports roll back
     e.mutate("host:host/catalog", "ggius-once", b, () => e.host("catalog", b));
   run();
   run();
-  assert.equal(e.catalogStore.summary().character, 22);
+  assert.equal(e.catalogStore.summary().character, 24);
   assert.equal(e.catalogStore.summary().seiyuu, 1);
   for (const c of [
     { ...cards[0], id: "mal-character-1" },
