@@ -184,27 +184,32 @@ export function createQuizUI({
   function render() {
     if (!selected) {
       stop();
+      const sortControl = quizzes.length
+        ? '<label class="quiz-sort-control">Sort By<select id="quiz-sort">' +
+          [
+            ["recent", "Recently Updated"],
+            ["best-desc", "Performance · Highest First"],
+            ["best-asc", "Performance · Lowest First"],
+          ]
+            .map(
+              ([value, label]) =>
+                '<option value="' +
+                value +
+                '"' +
+                (quizSort === value ? " selected" : "") +
+                ">" +
+                label +
+                "</option>",
+            )
+            .join("") +
+          "</select></label>"
+        : "";
       return (
-        '<div class="page-intro"><div><h1>Quiz</h1></div></div>' +
+        '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
+        sortControl +
+        "</div>" +
         (quizzes.length
-          ? '<div class="toolbar"><label>Sort By<select id="quiz-sort">' +
-            [
-              ["recent", "Recently Updated"],
-              ["best-desc", "Performance · Highest First"],
-              ["best-asc", "Performance · Lowest First"],
-            ]
-              .map(
-                ([value, label]) =>
-                  '<option value="' +
-                  value +
-                  '"' +
-                  (quizSort === value ? " selected" : "") +
-                  ">" +
-                  label +
-                  "</option>",
-              )
-              .join("") +
-            '</select></label></div><div class="quiz-grid">' +
+          ? '<div class="quiz-grid">' +
             [...quizzes]
               .sort((a, b) =>
                 quizSort === "best-desc"

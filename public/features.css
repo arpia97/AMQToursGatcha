@@ -3696,3 +3696,23 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   margin-top: 24px;
   padding-bottom: 12px;
 }
+
+.page-intro.quiz-list-header {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.quiz-list-header h1 {
+  margin: 0;
+}
+.quiz-sort-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.quiz-sort-control select {
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+}
