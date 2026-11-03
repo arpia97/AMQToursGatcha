@@ -20,7 +20,7 @@ New players register with an imported AMQ Tours ID or alias and a password; no r
 
 Default rewards are 1,000 credits per tour participant, **300 per game counted**, and 500 per game reported. The single-player grant form switches defaults with the category; counting and reporting have a game-count field that multiplies the default amount, and hosts can still edit the final amount. API `grant` callers can omit `amount` to use the category default and supply `games` for counting or reporting (default 1). Participation paste batches also default to 1,000 per player. Existing grants are unchanged.
 
-New tour pick’ems default to **ten minutes after publication**, calculated by the backend when posting. Keep “10 minutes after publishing” checked or uncheck it to set an absolute deadline. API callers can omit `ends` for the default deadline.
+New tour pick’ems default to **fifteen minutes after publication**, calculated by the backend when posting. Keep “15 minutes after publishing” checked or uncheck it to set an absolute deadline. API callers can omit `ends` for the default deadline.
 
 Daily login pays **300 credits**, still once per KST day. An already-claimed day is not paid again after deployment. Public profile/name displays show a **Host** title only for the effective owner or an explicitly delegated host; role revocation removes the title on refresh. Players can pin up to 20 anime and 20 owned spotlight cards.
 
@@ -36,7 +36,7 @@ POST `participation-preview` with `{text}` returns `{players:[{id,name}]}` witho
 
 ### Tour winner pick’ems
 
-**Pick’ems → Create a tour pick’em** takes a tour name and **one team per line** (2–64 unique names). Keep or change the default 500-credit correct-winner reward and ten-minute deadline, then click **Publish tour pick’em**. It creates one pick’em for the whole tour. There are no schedule, match-score or exact-score reward fields.
+**Pick’ems → Create a tour pick’em** takes a tour name and **one team per line** (2–64 unique names). Keep or change the default 1,000-credit correct-winner reward and fifteen-minute deadline, then click **Publish tour pick’em**. It creates one pick’em for the whole tour. There are no schedule, match-score or exact-score reward fields.
 
 In the public Pick’ems tab, **View teams** opens a compact team selector. Players choose the overall winning team and click **Confirm pick**. They can change their choice until voting closes. Draft selections survive collapsing the tour or refreshing the view. Only the signed-in player's choice is returned; other players' choices remain private.
 

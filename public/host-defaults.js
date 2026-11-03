@@ -4,7 +4,7 @@ export function deadlineFields(name, label, now = Date.now()) {
   const value = new Date(time - new Date(time).getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
-  return `<div class="deadline-fields"><label class="check-label"><input type="checkbox" name="${name}Automatic" data-deadline-target="${name}" checked> 10 minutes after publishing</label><label>${label}<input name="${name}" type="datetime-local" value="${value}" disabled required></label><p class="form-hint">Uncheck to choose a specific deadline in your browser’s local time.</p></div>`;
+  return `<div class="deadline-fields"><label class="check-label"><input type="checkbox" name="${name}Automatic" data-deadline-target="${name}" checked> ${PICKEM_WINDOW / 60000} minutes after publishing</label><label>${label}<input name="${name}" type="datetime-local" value="${value}" disabled required></label><p class="form-hint">Uncheck to choose a specific deadline in your browser’s local time.</p></div>`;
 }
 export function updateRewardDefaults(form) {
   const category = form.elements.namedItem("reason").value;

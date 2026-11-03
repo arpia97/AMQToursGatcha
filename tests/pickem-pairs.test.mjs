@@ -118,7 +118,7 @@ test("all three two-game outcomes can be predicted and settled once, including s
       "wrong",
       "q",
     );
-    f.advance(600001);
+    f.advance(900001);
     const settlement = settlementBody(p, { result }, f.now());
     const settle = () =>
       f.e.mutate("host:settle", "settle", settlement, () =>
@@ -157,7 +157,7 @@ test("pair predictions/results reject other score totals and generic or Swiss ma
     assert.throws(() =>
       f.act("predict", { pickem: p.id, scoreA, scoreB, winner }),
     );
-  f.advance(600001);
+  f.advance(900001);
   assert.throws(
     () => f.host("settle", { pickem: p.id, scoreA: 3, scoreB: 0 }),
     /2:0/,

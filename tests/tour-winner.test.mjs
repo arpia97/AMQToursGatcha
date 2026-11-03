@@ -57,14 +57,14 @@ function fixture(t) {
     advance: (n) => (now += n),
   };
 }
-test("winner-only creation publishes one choice per tour with1000 winner reward and ten-minute default, for2 through64 teams", (t) => {
+test("winner-only creation publishes one choice per tour with1000 winner reward and fifteen-minute default, for2 through64 teams", (t) => {
   const f = fixture(t);
   for (const n of [2, 4, 6, 8, 64]) {
     const p = f.create({
       teams: Array.from({ length: n }, (_, i) => "Team " + i),
     });
     assert.equal(p.mode, "tour");
-    assert.equal(p.ends, f.now() + 600000);
+    assert.equal(p.ends, f.now() + 900000);
     assert.equal(p.winner_reward, 1000);
     assert.equal(p.score_reward, 0);
     assert.equal(JSON.parse(p.teams).length, n);
@@ -104,7 +104,7 @@ test("winner prediction accepts any listed team without scores, remains editable
   assert.equal(f.e.one("SELECT winner FROM predictions").winner, "Beta");
   assert.throws(() => f.act("q", { ...b, winner: "Foreign" }), /teams/);
   assert.throws(() => f.act("q", { ...b, expectedTeams: "[]" }), /changed/);
-  f.advance(600000);
+  f.advance(900000);
   assert.throws(() => f.act("q", b), /closed/);
 });
 test("tour settlement pays only the correct winner once and updates winner accuracy without score rewards", (t) => {
@@ -120,7 +120,7 @@ test("tour settlement pays only the correct winner once and updates winner accur
   f.act("q", { pickem: p.id, winner: "Alpha", expectedTeams: p.teams });
   const b = { pickem: p.id, winner: "Delta", expectedTeams: p.teams };
   assert.throws(() => f.host("settle", b), /close/);
-  f.advance(600000);
+  f.advance(900000);
   assert.throws(
     () => f.host("settle", { ...b, winner: "No such team" }),
     /winning team/,
@@ -173,7 +173,7 @@ test("winner roster edits require reviewed snapshots and clearing consent, prese
     /changed/,
   );
   assert.throws(() => f.host("pickem-winner-edit", reviewed), /changed/);
-  f.advance(600000);
+  f.advance(900000);
   const c = current();
   f.host("settle", { pickem: p.id, winner: "A", expectedTeams: c.teams });
   assert.throws(
@@ -241,7 +241,7 @@ test("public and host winner forms contain no score controls, retain team-keyed 
     winnerEditor(f.e.pickemEvents.match(p.id), esc),
     /scoreReward/,
   );
-  f.advance(600000);
+  f.advance(900000);
   const settlement = settlementBody(p, { winner: "Delta" }, f.now());
   assert.equal(settlement.winner, "Delta");
   const table = settlementTable([p], esc, {}, f.now());

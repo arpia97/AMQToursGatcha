@@ -145,7 +145,7 @@ test("host reward defaults use 1000 participation, 500 per counted game and 500 
   });
   assert.equal(e.player("p").balance, 5042);
 });
-test("default pickem deadlines are exactly ten minutes after actual posting, including generated rounds, and explicit deadlines remain editable", (t) => {
+test("default pickem deadlines are exactly fifteen minutes after actual posting, including generated rounds, and explicit deadlines remain editable", (t) => {
   const { e, host, advance, now } = fixture(t);
   advance(240000);
   host("pickem", { title: "Match", tour: "Tour", teamA: "A", teamB: "B" });
@@ -170,7 +170,7 @@ test("default pickem deadlines are exactly ten minutes after actual posting, inc
   assert.ok(
     e.pickemEvents
       .read(ev.event)
-      .matches.every((m) => m.ends === now() + 600000),
+      .matches.every((m) => m.ends === now() + 900000),
   );
   const automatic = host("pickem-event", {
     name: "Six",

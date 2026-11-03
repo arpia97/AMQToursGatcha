@@ -360,7 +360,7 @@ test("reviewed host schedules publish active public pickems once for every suppo
         (p) =>
           p.event_id === result.event &&
           p.tour === draft.name &&
-          p.ends === now() + 600000 &&
+          p.ends === now() + 900000 &&
           !p.settled &&
           p.winner_reward === 500 &&
           p.score_reward === 500,
@@ -505,7 +505,7 @@ test("whole-tour deletion removes predictions/byes atomically and rejects concur
     format: "double-4",
     teams: teams(4),
   }).event;
-  time(now() + 600001);
+  time(now() + 900001);
   const match = e.pickemEvents.read(paid).matches[0];
   host("settle", { pickem: match.id, scoreA: 2, scoreB: 0 });
   const p = e.pickemEvents.match(match.id);

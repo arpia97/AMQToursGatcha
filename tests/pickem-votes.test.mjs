@@ -94,7 +94,7 @@ test("team totals include zero-vote teams, update instead of duplicating voters,
     [1, 1, 1, 0],
   );
   assert.equal(detail.matches[0].voteSummary.total, 3);
-  f.advance(600000);
+  f.advance(900000);
   assert.throws(() => f.vote(4, p, "Alpha"), /closed/);
   f.host("settle", { pickem: p.id, winner: "Gamma", expectedTeams: p.teams });
   assert.equal(
@@ -217,7 +217,7 @@ test("tour cards show total voters when collapsed and the chart for open, locked
     render(f.e.pickemEvents.detail(p.event_id)),
     /Vote Distribution/,
   );
-  f.advance(600000);
+  f.advance(900000);
   assert.match(
     render(f.e.pickemEvents.detail(p.event_id)),
     /Vote Distribution/,
