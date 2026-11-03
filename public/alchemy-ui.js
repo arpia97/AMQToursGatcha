@@ -176,45 +176,50 @@ export function createAlchemyUI(h) {
       '</button><button type="button" class="button secondary" data-action="alchemy-close">Cancel</button></div></form>'
     );
   }
-  function resultHTML() {
-    if (!lastResult) return "";
-    const drawn = lastResult.cards?.[0];
+  function refinementResult() {
+    if (!lastResult?.material) return "";
+    const r = lastResult;
     return (
-      '<section class="alchemy-result ' +
-      (lastResult.outcome === "erig"
-        ? "alchemy-erig"
-        : lastResult.outcome === "great"
-          ? "alchemy-great"
-          : "") +
-      '" role="status"><div class="section-head"><div><span class="eyebrow">' +
-      (drawn ? "ALCHEMY DRAW" : "REFINEMENT COMPLETE") +
-      "</span><h2>" +
-      e(
-        drawn
-          ? drawn.name
-          : lastResult.label + " · +" + n(lastResult.xpGained) + " XP",
-      ) +
+      '<section class="fusion-review-form alchemy-refinement-result alchemy-' +
+      e(r.outcome) +
+      '"><h2 id="fusion-review-title">' +
+      e(r.label) +
+      '</h2><div class="fusion-review-details" role="status"><div class="alchemy-review-material">' +
+      image({ ...card(r.material.id), ...r.material }) +
+      "<div><strong>" +
+      e(r.material.name) +
+      "</strong><p>" +
+      e(r.material.rarity) +
+      " · Lv. " +
+      r.material.level +
+      " · " +
+      r.multiplier +
+      "× XP" +
+      (r.lucky ? " · Lucky Refinement" : "") +
+      '</p></div></div><p class="alchemy-xp">+' +
+      n(r.xpGained) +
+      " XP</p><p>Your Pool: <strong>" +
+      n(data.xp) +
+      ' XP</strong></p></div><div class="fusion-review-actions"><button type="button" class="button mint" data-action="alchemy-close">Done</button></div></section>'
+    );
+  }
+  function resultHTML() {
+    const drawn = lastResult?.cards?.[0];
+    if (!drawn) return "";
+    return (
+      '<section class="alchemy-result" role="status"><div class="section-head"><div><span class="eyebrow">ALCHEMY DRAW</span><h2>' +
+      e(drawn.name) +
       "</h2></div>" +
       btn("Dismiss", "alchemy-dismiss", "", "secondary") +
-      "</div>" +
-      (drawn
-        ? "<p>" +
-          e(lastResult.rarity) +
-          " · " +
-          n(lastResult.xpSpent) +
-          " XP" +
-          (lastResult.targetHit ? " · Target Card!" : "") +
-          '</p><div class="alchemy-drawn-card">' +
-          cardHTML(drawn, null, { copies: 1, level: 1, preview: true }) +
-          "</div>"
-        : "<p>" +
-          e(lastResult.material.name) +
-          " · " +
-          lastResult.multiplier +
-          "× XP" +
-          (lastResult.lucky ? " · Lucky Refinement" : "") +
-          "</p>") +
-      "</section>"
+      "</div><p>" +
+      e(lastResult.rarity) +
+      " · " +
+      n(lastResult.xpSpent) +
+      " XP" +
+      (lastResult.targetHit ? " · Target Card!" : "") +
+      '</p><div class="alchemy-drawn-card">' +
+      cardHTML(drawn, null, { copies: 1, level: 1, preview: true }) +
+      "</div></section>"
     );
   }
   function render() {
@@ -517,6 +522,7 @@ export function createAlchemyUI(h) {
     drawRequest,
     targetRequest,
     confirmation,
+    refinementResult,
     complete: (r) => {
       update(r.alchemyState);
       remember(r.cards);

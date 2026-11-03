@@ -572,6 +572,13 @@ function openFusionReview(body) {
   document.body.classList.add("fusion-picker-open");
   overlay.querySelector('[data-action="alchemy-close"]')?.focus();
 }
+function showRefinementResult() {
+  const dialog = $("#fusion-picker .fusion-review-dialog");
+  dialog.innerHTML =
+    '<button type="button" class="fusion-review-close" data-action="alchemy-close" aria-label="Close Alchemy Result">×</button>' +
+    alchemyUI.refinementResult();
+  dialog.querySelector(".fusion-review-actions button").focus();
+}
 function renderFusionPicker(focusSearch = false, position = null) {
   const overlay = $("#fusion-picker");
   const scrollTop =
@@ -1436,9 +1443,14 @@ document.addEventListener("submit", async (ev) => {
         { ...body, confirmed: true },
         (result) => {
           alchemyUI.complete(result);
-          closeFusionPicker(true);
-          render();
-          toast(result.message);
+          if (action === "alchemy-feed") {
+            render();
+            showRefinementResult();
+          } else {
+            closeFusionPicker(true);
+            render();
+            toast(result.message);
+          }
         },
         f,
       );

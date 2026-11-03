@@ -110,3 +110,35 @@ test("older target search responses cannot overwrite the newer query", async () 
   assert.match(f.ui.renderPicker(), /new card/);
   assert.doesNotMatch(f.ui.renderPicker(), /old card/);
 });
+
+test("refinement results stay in the confirmation dialog without creating a page banner or another consumption form", () => {
+  const f = fixture();
+  f.ui.complete({
+    outcome: "great",
+    label: "Great Success",
+    xpGained: 5120,
+    multiplier: 2,
+    lucky: true,
+    material: { id: "a", name: "<Alchemy>", rarity: "AG", level: 1 },
+    alchemyState: {
+      xp: 5120,
+      refinements: 6,
+      version: 1,
+      targets: {},
+      cards: [],
+      nextLucky: false,
+      nextRefinement: 7,
+    },
+  });
+  const popup = f.ui.refinementResult();
+  assert.match(popup, /Great Success/);
+  assert.match(popup, /5120 XP/);
+  assert.match(popup, /&lt;Alchemy>/);
+  assert.match(popup, /Lucky Refinement/);
+  assert.ok(popup.includes(">Done</button>"));
+  assert.doesNotMatch(popup, /<form|type="submit"/);
+  assert.doesNotMatch(
+    f.ui.render(),
+    /REFINEMENT COMPLETE|alchemy-result|Great Success ·/,
+  );
+});

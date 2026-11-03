@@ -3577,3 +3577,25 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .alchemy-tier.tier-a {
   --tier-color: #78b9ed;
 }
+
+.alchemy-refinement-result .alchemy-review-material {
+  justify-content: center;
+}
+.alchemy-refinement-result .fusion-review-details {
+  text-align: center;
+}
+.alchemy-refinement-result .alchemy-xp {
+  font-size: 38px;
+  margin: 28px 0 12px;
+}
+.alchemy-refinement-result.alchemy-great .alchemy-xp {
+  color: #ffd57a;
+  text-shadow: 0 0 22px #ffd57a55;
+}
+.alchemy-refinement-result.alchemy-erig .alchemy-xp {
+  color: #d19fff;
+  text-shadow: 0 0 28px #d19fff88;
+}
+.alchemy-refinement-result .fusion-review-actions {
+  grid-template-columns: 1fr;
+}
