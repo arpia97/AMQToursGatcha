@@ -249,8 +249,10 @@ export function createAlchemyUI(h) {
       (data.nextLucky
         ? '<p class="alchemy-lucky-message">✦ A lucky energy engulfs the room.</p>'
         : '<p class="form-hint">' +
-          (6 - (data.refinements % 6)) +
-          " refinements until the next lucky surge.</p>") +
+          (5 - (data.refinements % 6)) +
+          " normal refinement" +
+          (data.refinements % 6 === 4 ? "" : "s") +
+          " before the next lucky surge.</p>") +
       '<div class="alchemy-feed-row"><button type="button" class="alchemy-material-slot ' +
       (m ? "tier-" + rarityClass(m.rarity) : "empty-slot") +
       '" data-action="alchemy-material-open">' +
@@ -365,7 +367,7 @@ export function createAlchemyUI(h) {
       feed +
       '<div class="section-head"><h2>Your Alchemy Targets</h2><span class="subtext">One Shared XP Pool · Unused XP Is Kept</span></div><div class="alchemy-tier-grid">' +
       tiers +
-      '</div><details class="rarity-guide"><summary>Alchemy Rules</summary><p>Each refinement consumes one selected card and adds XP. Normal chances: Success 90% (1×), Great Success 9% (2×), Erig 1% (5×). Every sixth refinement: 50% / 45% / 5%. Protected or listed cards cannot be refined.</p><p>Draws use characters and seiyuus at the selected rarity. A chosen target has exactly 50% chance; other cards share the remaining 50%. If a tier contains only one card, that card is guaranteed. Without a target, draws are uniform. Every result is a Lv. 1 copy.</p><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Lv. 1 XP</th><th>Draw Cost</th></tr></thead><tbody>' +
+      '</div><details class="rarity-guide"><summary>Alchemy Rules</summary><h3>Refinement System</h3><ul><li><strong>Cost &amp; Material:</strong> Consumes one selected card per attempt to add XP (protected or locked cards cannot be used).</li><li><strong>Standard Rates:</strong> 90% Success (1× XP), 9% Great Success (2× XP), 1% Erig (5× XP).</li><li><strong>Bonus Rates (Every 6th Attempt):</strong> 50% Success (1× XP), 45% Great Success (2× XP), 5% Erig (5× XP).</li></ul><h3>Draw Mechanics</h3><ul><li><strong>Target Selected:</strong> The chosen character/seiyuu has a 50% chance to drop; all other cards of that rarity split the remaining 50%.</li><li><strong>No Target Selected:</strong> Draws are split equally among all cards of the selected rarity.</li><li><strong>Single-Card Tiers:</strong> If a tier has only 1 card, it is 100% guaranteed.</li><li><strong>Output:</strong> All drawn cards start at Level 1.</li></ul><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Lv. 1 XP</th><th>Draw Cost</th></tr></thead><tbody>' +
       ALCHEMY_TIERS.map(
         (t) =>
           "<tr><td>" +
