@@ -724,19 +724,12 @@ export function createQuizUI({
         drawSuggestions(event.target);
       }
       if (event.key === "Escape") closeSuggestions();
-      if (event.key === "Enter" && suggestionsOpen && options.length === 1) {
+      if (event.key === "Enter" && suggestionsOpen && options.length) {
         event.preventDefault();
-        draft = options[0];
+        draft = options[highlight >= 0 ? highlight : 0];
         event.target.value = draft;
         closeSuggestions();
         mutate("quiz-answer", draft).catch(showError);
-        return;
-      }
-      if (event.key === "Enter" && suggestionsOpen && highlight >= 0) {
-        event.preventDefault();
-        draft = options[highlight];
-        event.target.value = draft;
-        closeSuggestions();
       }
     },
     submit: (form) => mutate("quiz-answer", form.elements.answer.value),

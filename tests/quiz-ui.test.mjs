@@ -241,7 +241,7 @@ test("quiz starts at 30% volume, waits two seconds, autoplays, and submits the t
   assert.equal(answers[0].b.answer, "Bocchi the Rock!");
   assert.match(f.ui.render(), /Score<\/span><strong>1 \/ 20/);
 });
-test("dropdown filters without per-keystroke requests, keyboard chooses without submitting, and volume persists including mute", async (t) => {
+test("dropdown filters without per-keystroke requests, Enter locks the selected title, and volume persists including mute", async (t) => {
   const f = fixture(t, { saved: "0" });
   await f.start();
   assert.equal(f.audios[0].volume, 0);
@@ -254,6 +254,9 @@ test("dropdown filters without per-keystroke requests, keyboard chooses without 
   assert.equal(f.node("quiz-suggestions").hidden, false);
   assert.match(f.node("quiz-suggestions").innerHTML, /role="option"/);
   assert.match(f.node("quiz-suggestions").innerHTML, /Bocchi/);
+  f.ui.setVolume(65);
+  assert.equal(f.audios[0].volume, 0.65);
+  assert.deepEqual(f.writes.at(-1), ["amqtours-quiz-volume", "65"]);
   let prevented = 0;
   f.ui.key({
     target: input,
@@ -269,12 +272,10 @@ test("dropdown filters without per-keystroke requests, keyboard chooses without 
       prevented++;
     },
   });
+  await flush();
   assert.equal(input.value, "Bocchi the Rock!");
   assert.equal(prevented, 2);
-  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, 0);
-  f.ui.setVolume(65);
-  assert.equal(f.audios[0].volume, 0.65);
-  assert.deepEqual(f.writes.at(-1), ["amqtours-quiz-volume", "65"]);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, 1);
 });
 test("blocked autoplay exposes an explicit audio control and readiness does not repeatedly hit the server", async (t) => {
   const f = fixture(t, { blocked: true });
@@ -438,4 +439,35 @@ test("arrow navigation previews each option in the input while retaining the ori
   assert.equal(input.value, "Bocchi the Rock!");
   assert.equal(f.calls.length, before);
   assert.match(f.node("quiz-suggestions").innerHTML, /Boku no Hero Academia/);
+});
+
+test("Enter locks the first match by default and the arrow-highlighted match when explicitly selected", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(2000);
+  const input = f.node("quiz-answer");
+  input.value = "bo";
+  await f.ui.input(input);
+  const press = (key) => f.ui.key({ key, target: input, preventDefault() {} });
+  press("Enter");
+  await flush();
+  assert.equal(
+    f.calls.filter((c) => c.path === "quiz-answer").at(-1).b.answer,
+    "Bocchi the Rock!",
+  );
+  await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
+  await f.audios.at(-1).emit("loadedmetadata");
+  await f.audios.at(-1).emit("canplay");
+  await flush();
+  await f.advance(2000);
+  input.value = "bo";
+  await f.ui.input(input);
+  press("ArrowDown");
+  press("ArrowDown");
+  assert.equal(input.value, "Boku no Hero Academia");
+  press("Enter");
+  await flush();
+  const answers = f.calls.filter((c) => c.path === "quiz-answer");
+  assert.equal(answers.length, 2);
+  assert.equal(answers.at(-1).b.answer, "Boku no Hero Academia");
 });
