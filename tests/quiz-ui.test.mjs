@@ -122,7 +122,8 @@ function fixture(
       run = {
         ...run,
         answered: true,
-        answer: b.answer,
+        answer: "Bocchi the Rock!",
+        submittedAnswer: b.skip ? "" : b.answer || "",
         correct: b.answer === "Bocchi the Rock!",
         score: b.answer === "Bocchi the Rock!" ? 1 : 0,
       };
@@ -470,4 +471,34 @@ test("Enter locks the first match by default and the arrow-highlighted match whe
   const answers = f.calls.filter((c) => c.path === "quiz-answer");
   assert.equal(answers.length, 2);
   assert.equal(answers.at(-1).b.answer, "Boku no Hero Academia");
+});
+
+test("answer reveals distinguish correct and incorrect glow states and escape the submitted text", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(2000);
+  await f.ui.submit({ elements: { answer: { value: "Bocchi the Rock!" } } });
+  let html = f.ui.render();
+  assert.match(html, /quiz-question is-correct/);
+  assert.match(html, /Your Answer/);
+  assert.match(html, /Correct Answer/);
+  assert.match(html, /Bocchi the Rock!/);
+  await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
+  await f.audios.at(-1).emit("loadedmetadata");
+  await f.audios.at(-1).emit("canplay");
+  await flush();
+  await f.advance(2000);
+  await f.ui.submit({ elements: { answer: { value: "<My & Guess>" } } });
+  html = f.ui.render();
+  assert.match(html, /quiz-question is-incorrect/);
+  assert.ok(html.includes("&lt;My &amp; Guess>"));
+  assert.ok(!html.includes("<My & Guess>"));
+});
+test("skipped questions show No Answer with incorrect feedback", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.ui.click(f.button("data-quiz-skip"));
+  const html = f.ui.render();
+  assert.match(html, /quiz-question is-incorrect/);
+  assert.match(html, /No Answer/);
 });

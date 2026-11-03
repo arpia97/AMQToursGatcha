@@ -261,6 +261,7 @@ export class Quiz {
               correct: answer.correct,
               timedOut: !!answer.timedOut,
               answer: song.answers[0],
+              submittedAnswer: answer.submittedAnswer ?? answer.answer,
               songTitle: song.title,
               artist: song.artist,
             }
@@ -362,10 +363,13 @@ export class Quiz {
       // One second covers a submission sent at zero arriving over the network.
       const timedOut =
         !b.skip && e.now() > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
-      const answer =
-        timedOut || b.skip ? "" : String(b.answer || "").slice(0, 300);
+      const submittedAnswer = b.skip
+        ? ""
+        : String(b.answer || "").slice(0, 300);
+      const answer = timedOut ? "" : submittedAnswer;
       run.answers.push({
         answer,
+        submittedAnswer,
         timedOut,
         correct:
           !!answer &&

@@ -415,6 +415,8 @@ test("expired questions cannot gain points from late or forged answers; normal t
   });
   assert.equal(late.run.correct, false);
   assert.equal(late.run.timedOut, true);
+  assert.equal(late.run.submittedAnswer, correct);
+  assert.equal(f.e.quiz.view("p", "test").run.submittedAnswer, correct);
   assert.equal(late.run.score, 0);
   f.action("p", "quiz-next", b);
   ready = f.action("p", "quiz-ready", { ...b, index: 1 }).run;
@@ -639,4 +641,28 @@ test("leaderboards paginate completed attempts without omissions and respect hid
   assert.equal(pages[2].hasMore, false);
   f.save({ published: false });
   assert.throws(() => f.e.quiz.leaderboard("test"), /not available/);
+});
+
+test("submitted answers are hidden before locking and persist separately from the revealed correct title", (t) => {
+  const f = fixture(t),
+    run = f.action("p", "quiz-start", { quiz: "test" }).run,
+    b = { quiz: "test", run: run.id, index: 0 };
+  assert.equal(run.submittedAnswer, undefined);
+  assert.equal(run.answer, undefined);
+  const ready = f.action("p", "quiz-ready", b).run;
+  f.advance(ready.startsAt - f.e.now());
+  const canonical = f.e.quiz.run("p", "test").songs[0].answers[0],
+    alternative = f.e.quiz.run("p", "test").songs[0].answers[1];
+  const result = f.action("p", "quiz-answer", {
+    ...b,
+    answer: alternative,
+  }).run;
+  assert.equal(result.correct, true);
+  assert.equal(result.answer, canonical);
+  assert.equal(result.submittedAnswer, alternative);
+  assert.equal(f.e.quiz.view("p", "test").run.submittedAnswer, alternative);
+  const stored = f.e.quiz.run("p", "test");
+  delete stored.answers[0].submittedAnswer;
+  f.e.quiz.persist("p", "test", stored);
+  assert.equal(f.e.quiz.view("p", "test").run.submittedAnswer, alternative);
 });

@@ -291,13 +291,13 @@ export function createQuizUI({
               run.reward.improvement +
               " · Milestones: ✦ " +
               run.reward.milestones +
-              "</p><strong>+" +
+              '</p><strong class="quiz-credit-gain">+' +
               run.reward.total +
               " Credits</strong>") +
           (run.reward.title
             ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
             : "") +
-          '<p><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></p></section>',
+          '<div class="quiz-complete-actions"><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></div></section>',
       );
     }
     const answerForm =
@@ -305,11 +305,13 @@ export function createQuizUI({
       e(draft) +
       '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip>Skip Song</button></form>';
     const result =
-      '<div class="notice"><strong>' +
+      '<div class="notice quiz-answer-result" role="status"><strong>' +
       (run.correct ? "Correct!" : run.timedOut ? "Time’s Up" : "Incorrect") +
-      "</strong><p>" +
+      '</strong><div class="quiz-answer-comparison"><div><span>Your Answer</span><p>' +
+      e(run.submittedAnswer?.trim() ? run.submittedAnswer : "No Answer") +
+      "</p></div><div><span>Correct Answer</span><p>" +
       e(run.answer || "") +
-      "</p><small>" +
+      "</p></div></div><small>" +
       e(run.songTitle || "") +
       " · " +
       e(run.artist || "") +
@@ -317,7 +319,9 @@ export function createQuizUI({
       (run.index === 19 ? "Finish Quiz (Enter)" : "Next Song (Enter)") +
       "</button>";
     return withLeaderboard(
-      '<section class="quiz-question"><div class="quiz-question-heading"><h2>Song ' +
+      '<section class="quiz-question' +
+        (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
+        '"><div class="quiz-question-heading"><h2>Song ' +
         (run.index + 1) +
         ' of 20</h2><div class="quiz-score tier-' +
         rarityClass(quizRarity(run.score)) +

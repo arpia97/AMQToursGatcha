@@ -259,6 +259,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     run.audio.startsWith("https://naedist.animemusicquiz.com/fixture-song-"),
   );
   assert.equal(run.answer, undefined);
+  assert.equal(run.submittedAnswer, undefined);
   response = await mf.dispatchFetch(
     "http://game/api/quiz-answers?quiz=test&q=Alt",
   );
@@ -288,6 +289,10 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       auth,
     );
     assert.equal(response.status, 200, await response.clone().text());
+    const answered = (await response.json()).run;
+    assert.equal(answered.submittedAnswer, "Alternative Test");
+    assert.equal(answered.answer, "Anime Test");
+    assert.equal(answered.correct, true);
     const b = { quiz: "test", run: run.id, index: i },
       key = crypto.randomUUID(),
       headers = { ...auth, "Idempotency-Key": key };
