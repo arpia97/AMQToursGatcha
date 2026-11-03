@@ -3696,9 +3696,3 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   margin-top: 24px;
   padding-bottom: 12px;
 }
-
-.pickem-reopen {
-  padding-bottom: 24px;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--border);
-}
