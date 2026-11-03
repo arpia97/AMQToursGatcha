@@ -27,9 +27,7 @@ export function createQuizUI({
     audioKey = "",
     generation = 0,
     leaderboardOnly = false,
-    leaderboardPage = 1,
-    leaderboardData = null,
-    leaderboardOpen = false;
+    leaderboardData = null;
   let sampleStart = 0,
     audioState = "loading",
     playAttempted = false,
@@ -136,10 +134,7 @@ export function createQuizUI({
         stop();
       }
       leaderboardData = await call(
-        "quiz-leaderboard?quiz=" +
-          encodeURIComponent(selected) +
-          "&page=" +
-          leaderboardPage,
+        "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1",
       );
     }
   }
@@ -152,66 +147,38 @@ export function createQuizUI({
     "%</output></label>";
   const guide =
     '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
-  function leaderboardHTML(standalone = false) {
-    const data = leaderboardData || {
-      rows: [],
-      page: 1,
-      total: 0,
-      hasMore: false,
-    };
-    const rows = data.rows
-      .map(
-        (p, i) =>
+  function leaderboardHTML() {
+    const rows = (leaderboardData?.rows || [])
+      .slice(0, 20)
+      .map((p, i) => {
+        const achieved =
+          new Date(p.bestAt).toLocaleString("en-GB", {
+            timeZone: "Asia/Seoul",
+          }) + " KST";
+        return (
           "<tr><td>" +
-          ((data.page - 1) * 20 + i + 1) +
+          (i + 1) +
           '</td><td><a href="#player/' +
           encodeURIComponent(p.id) +
           '">' +
           e(p.name) +
-          "</a></td><td><strong>" +
+          '</a></td><td title="First Achieved: ' +
+          e(achieved) +
+          '"><strong>' +
           p.best +
-          " / 20</strong></td><td>" +
-          e(
-            new Date(p.bestAt).toLocaleString("en-GB", {
-              timeZone: "Asia/Seoul",
-            }),
-          ) +
-          " KST</td></tr>",
-      )
+          " / 20</strong></td></tr>"
+        );
+      })
       .join("");
-    const content =
-      '<p class="form-hint">Highest score first. Ties go to the player who achieved that score first.</p>' +
+    return (
+      '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
       (rows
-        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>First Achieved</th></tr></thead><tbody>' +
+        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th></tr></thead><tbody>' +
           rows +
           "</tbody></table></div>"
         : '<p class="notice">No completed scores yet.</p>') +
-      (data.page > 1 || data.hasMore
-        ? '<div class="toolbar"><button class="button secondary" data-quiz-rank-page="' +
-          (data.page - 1) +
-          '" ' +
-          (data.page <= 1 ? "disabled" : "") +
-          ">← Previous</button><span>Page " +
-          data.page +
-          '</span><button class="button secondary" data-quiz-rank-page="' +
-          (data.page + 1) +
-          '" ' +
-          (!data.hasMore ? "disabled" : "") +
-          ">Next →</button></div>"
-        : "");
-    return standalone
-      ? '<section class="quiz-leaderboard"><h2>Leaderboard · ' +
-          data.total +
-          " Players</h2>" +
-          content +
-          "</section>"
-      : '<details class="quiz-leaderboard" ' +
-          (leaderboardOpen ? "open" : "") +
-          "><summary>Leaderboard · " +
-          data.total +
-          " Players</summary>" +
-          content +
-          "</details>";
+      "</aside>"
+    );
   }
   function render() {
     if (!selected) {
@@ -275,59 +242,62 @@ export function createQuizUI({
       '</div><div class="quiz-top-controls">' +
       (!leaderboardOnly ? volumeControl() : "") +
       (!leaderboardOnly && run && !run.finished
-        ? '<button type="button" class="text-button" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
+        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
         : "") +
-      '<button class="text-button" data-quiz-back>All Quizzes ←</button></div></div>';
+      '<button class="button secondary" data-quiz-back>All Quizzes ←</button></div></div>';
     if (leaderboardOnly)
       return (
         top +
-        leaderboardHTML(true) +
+        leaderboardHTML() +
         '<button class="button mint space-top" data-quiz-enter>Play Quiz →</button>'
       );
-    top += leaderboardHTML();
+    const withLeaderboard = (content) =>
+      top +
+      '<div class="quiz-play-layout"><div class="quiz-play-main">' +
+      content +
+      "</div>" +
+      leaderboardHTML() +
+      "</div>";
     if (!getState().me)
-      return (
-        top +
-        '<p>Sign in to play quizzes and keep your progress.</p><button class="button" data-action="account">Sign In →</button>'
+      return withLeaderboard(
+        '<p>Sign in to play quizzes and keep your progress.</p><button class="button" data-action="account">Sign In →</button>',
       );
     if (!run) {
       stop();
-      return (
-        top +
+      return withLeaderboard(
         "<p>20 Seconds Per Song · Two-Second Starting Countdown</p>" +
-        (q.songs < 20
-          ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
-          : '<button class="button mint space-top" data-quiz-action="quiz-start">' +
-            (preview ? "Start Preview →" : "Start Quiz →") +
-            "</button>")
+          (q.songs < 20
+            ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
+            : '<button class="button mint space-top" data-quiz-action="quiz-start">' +
+              (preview ? "Start Preview →" : "Start Quiz →") +
+              "</button>"),
       );
     }
     if (run.finished) {
       stop();
-      return (
-        top +
+      return withLeaderboard(
         '<section class="quiz-complete tier-' +
-        rarityClass(quizRarity(run.score)) +
-        '"><h2>' +
-        (preview ? "Preview Complete" : "Quiz Complete") +
-        " · " +
-        run.score +
-        "/20</h2>" +
-        (preview
-          ? "<p>Test Score Only · No Credits Awarded</p>"
-          : "<p>Personal Best: " +
-            run.reward.best +
-            "/20</p><p>New Best Bonus: ✦ " +
-            run.reward.improvement +
-            " · Milestones: ✦ " +
-            run.reward.milestones +
-            "</p><strong>+" +
-            run.reward.total +
-            " Credits</strong>") +
-        (run.reward.title
-          ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
-          : "") +
-        '<p><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></p></section>'
+          rarityClass(quizRarity(run.score)) +
+          '"><h2>' +
+          (preview ? "Preview Complete" : "Quiz Complete") +
+          " · " +
+          run.score +
+          "/20</h2>" +
+          (preview
+            ? "<p>Test Score Only · No Credits Awarded</p>"
+            : "<p>Personal Best: " +
+              run.reward.best +
+              "/20</p><p>New Best Bonus: ✦ " +
+              run.reward.improvement +
+              " · Milestones: ✦ " +
+              run.reward.milestones +
+              "</p><strong>+" +
+              run.reward.total +
+              " Credits</strong>") +
+          (run.reward.title
+            ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
+            : "") +
+          '<p><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></p></section>',
       );
     }
     const answerForm =
@@ -346,30 +316,29 @@ export function createQuizUI({
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
       (run.index === 19 ? "Finish Quiz (Enter)" : "Next Song (Enter)") +
       "</button>";
-    return (
-      top +
+    return withLeaderboard(
       '<section class="quiz-question"><div class="quiz-question-heading"><h2>Song ' +
-      (run.index + 1) +
-      ' of 20</h2><div class="quiz-score tier-' +
-      rarityClass(quizRarity(run.score)) +
-      '"><span>Score</span><strong>' +
-      run.score +
-      " / 20</strong></div></div>" +
-      (!preview
-        ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
-        : "") +
-      (!run.answered
-        ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
-        : "") +
-      '<div class="quiz-audio-line">' +
-      (!run.answered
-        ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
-        : "") +
-      "</div>" +
-      (run.answered ? result : answerForm) +
-      '<p id="quiz-inline-error" class="form-error" role="alert">' +
-      e(errorMessage) +
-      "</p></section>"
+        (run.index + 1) +
+        ' of 20</h2><div class="quiz-score tier-' +
+        rarityClass(quizRarity(run.score)) +
+        '"><span>Score</span><strong>' +
+        run.score +
+        " / 20</strong></div></div>" +
+        (!preview
+          ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
+          : "") +
+        (!run.answered
+          ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
+          : "") +
+        '<div class="quiz-audio-line">' +
+        (!run.answered
+          ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
+          : "") +
+        "</div>" +
+        (run.answered ? result : answerForm) +
+        '<p id="quiz-inline-error" class="form-error" role="alert">' +
+        e(errorMessage) +
+        "</p></section>",
     );
   }
   function closeSuggestions() {
@@ -638,7 +607,6 @@ export function createQuizUI({
         if (working) return true;
         selected = button.dataset.quizLeaderboard;
         leaderboardOnly = true;
-        leaderboardPage = 1;
         useRun(null);
         stop();
         await load();
@@ -651,18 +619,6 @@ export function createQuizUI({
         onRender();
         return true;
       }
-      if (button.hasAttribute("data-quiz-rank-page")) {
-        leaderboardPage = Number(button.dataset.quizRankPage);
-        leaderboardOpen = true;
-        leaderboardData = await call(
-          "quiz-leaderboard?quiz=" +
-            encodeURIComponent(selected) +
-            "&page=" +
-            leaderboardPage,
-        );
-        onRender();
-        return true;
-      }
       if (
         working &&
         (button.hasAttribute("data-quiz-open") ||
@@ -672,8 +628,6 @@ export function createQuizUI({
       if (button.hasAttribute("data-quiz-open")) {
         selected = button.dataset.quizOpen;
         leaderboardOnly = false;
-        leaderboardPage = 1;
-        leaderboardOpen = false;
         useRun(null);
         await load();
         onRender();

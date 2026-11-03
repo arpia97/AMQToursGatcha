@@ -10,7 +10,10 @@ const escape = (s) =>
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve();
 };
-function fixture(t, { blocked = false, saved = null } = {}) {
+function fixture(
+  t,
+  { blocked = false, saved = null, leaderboardRows = [] } = {},
+) {
   const old = globalThis.document,
     nodes = new Map();
   const node = (id) => {
@@ -67,7 +70,12 @@ function fixture(t, { blocked = false, saved = null } = {}) {
     calls.push({ path, b });
     if (path === "quizzes") return { quizzes: [quiz] };
     if (path.startsWith("quiz-leaderboard"))
-      return { rows: [], page: 1, total: 0, hasMore: false };
+      return {
+        rows: leaderboardRows,
+        page: 1,
+        total: leaderboardRows.length,
+        hasMore: leaderboardRows.length > 20,
+      };
     if (path.startsWith("quiz-answers"))
       return {
         answers: [
@@ -354,4 +362,34 @@ test("the live score badge follows every established quiz rarity threshold", asy
     f.setScore(score);
     assert.match(f.ui.render(), new RegExp("quiz-score tier-" + tier + '"'));
   }
+});
+
+test("quiz keeps a visible top-20 sidebar and button controls without dropdowns, paging or ranking prose", async (t) => {
+  const rows = Array.from({ length: 25 }, (_, i) => ({
+    id: "p" + i,
+    name: "Collector " + (i + 1),
+    best: 20 - Math.floor(i / 2),
+    bestAt: 1000 + i,
+  }));
+  const f = fixture(t, { leaderboardRows: rows });
+  await f.start();
+  const html = f.ui.render();
+  assert.match(html, /quiz-play-layout/);
+  assert.match(html, /<aside class="quiz-leaderboard"/);
+  assert.match(html, /Top 20/);
+  assert.ok(html.includes("Collector 20</a>"));
+  assert.ok(!html.includes("Collector 21</a>"));
+  assert.doesNotMatch(
+    html,
+    /Highest score first|Ties go to|data-quiz-rank-page|<details class="quiz-leaderboard"/,
+  );
+  assert.match(
+    html,
+    /class="button secondary" data-quiz-action="quiz-restart"/,
+  );
+  assert.match(html, /class="button secondary" data-quiz-back/);
+  assert.equal(
+    f.calls.filter((c) => c.path.startsWith("quiz-leaderboard")).length,
+    1,
+  );
 });
