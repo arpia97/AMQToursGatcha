@@ -18,6 +18,7 @@ export class Quiz {
       "CREATE INDEX IF NOT EXISTS quiz_answer_prefix ON quiz_answers(key)",
       "CREATE TABLE IF NOT EXISTS quiz_progress(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL DEFAULT 0,at INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
+      "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
     ])
       e.run(sql);
   }
@@ -334,10 +335,47 @@ export class Quiz {
       me: e.player(player),
     };
   }
+  titleOptions(player) {
+    return this.e
+      .all(
+        "SELECT q.id AS quiz,q.title,q.name AS quizName,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
+        player,
+      )
+      .map(({ hidden, ...title }) => ({ ...title, equipped: !hidden }));
+  }
+  titleSettings(player) {
+    return {
+      role: this.e.player(player).role,
+      titles: this.titleOptions(player),
+    };
+  }
+  equipTitles(player, b) {
+    const earned = this.titleOptions(player);
+    if (
+      !Array.isArray(b.quizzes) ||
+      b.quizzes.length > 30 ||
+      b.quizzes.some(
+        (id) => typeof id !== "string" || !earned.some((t) => t.quiz === id),
+      ) ||
+      new Set(b.quizzes).size !== b.quizzes.length
+    )
+      fail("Choose only titles you have earned.");
+    this.e.run("DELETE FROM profile_title_preferences WHERE player=?", player);
+    for (const title of earned)
+      if (!b.quizzes.includes(title.quiz))
+        this.e.run(
+          "INSERT INTO profile_title_preferences VALUES(?,?,1)",
+          player,
+          title.quiz,
+        );
+    return {
+      ...this.titleSettings(player),
+      message: "Displayed titles updated.",
+    };
+  }
   titles(player) {
-    return this.e.all(
-      "SELECT q.id AS quiz,q.title FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at",
-      player,
-    );
+    return this.titleOptions(player)
+      .filter((t) => t.equipped)
+      .map(({ quiz, title }) => ({ quiz, title }));
   }
 }

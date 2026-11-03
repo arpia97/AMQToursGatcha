@@ -146,6 +146,7 @@ export class Demo {
   async request(path, b) {
     const s = this.s;
     s.now = Date.now();
+    if (path === "my-titles") return { role: s.me?.role || null, titles: [] };
     if (path === "featured")
       return {
         cards: drawFeatured(this.cards, (n) => Math.floor(Math.random() * n)),

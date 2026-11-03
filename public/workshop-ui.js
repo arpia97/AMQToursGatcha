@@ -369,7 +369,7 @@ export function createWorkshop(h) {
     clear,
     request,
     confirmation: (body) =>
-      '<h2>Confirm Card Fusion</h2><p>Consume these materials permanently and receive one Lv. 1 result. Dismissing the result cannot undo a confirmed fusion.</p><ul class="fusion-confirm-materials">' +
+      '<form id="fusion-confirm-form" class="fusion-review-form"><h2 id="fusion-review-title">Confirm Card Fusion</h2><p>Consume these materials permanently and receive one Lv. 1 result. Dismissing the result cannot undo a confirmed fusion.</p><div class="fusion-review-details"><ul class="fusion-confirm-materials">' +
       body.cards
         .map(
           (m) =>
@@ -387,13 +387,13 @@ export function createWorkshop(h) {
       (body.targetCard
         ? "<p>Target: " + e(cardBy(body.targetCard).name) + "</p>"
         : "") +
-      '<form id="fusion-confirm-form" class="stack"><input type="hidden" name="reviewed" value="' +
+      '</div><input type="hidden" name="reviewed" value="' +
       e(JSON.stringify(body)) +
-      '"><div class="form-error" role="alert"></div><button type="submit" class="button mint">Confirm & Consume ' +
+      '"><div class="form-error" role="alert"></div><div class="fusion-review-actions"><button type="submit" class="button mint">Confirm & Consume ' +
       body.cards.length +
       " Card" +
       (body.cards.length === 1 ? "" : "s") +
-      '</button><button type="button" class="button secondary" data-close-dialog>Cancel</button></form>',
+      '</button><button type="button" class="button secondary" data-action="fusion-review-close">Cancel</button></div></form>',
     complete,
     dismiss: () => (lastResult = null),
     filter: (field, value) => {

@@ -460,3 +460,73 @@ test("skipping unloaded audio never scores a supplied answer", (t) => {
   assert.equal(f.e.quiz.run("p", "test").answers[0].answer, "");
   assert.equal(result.run.score, 0);
 });
+
+test("title selection is limited to earned titles, changes public display only, and cannot hide Host", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  const before = {
+    balance: f.e.player("p").balance,
+    best: f.e.quiz.list("p")[0].best,
+  };
+  assert.equal(f.e.quiz.titleSettings("p").titles[0].equipped, true);
+  const hidden = f.action("p", "equip-titles", { quizzes: [] }, "hide-title");
+  assert.equal(hidden.titles[0].equipped, false);
+  assert.equal(f.e.profile("p").titles.length, 0);
+  assert.deepEqual(
+    f.action("p", "equip-titles", { quizzes: [] }, "hide-title"),
+    hidden,
+  );
+  assert.throws(
+    () => f.action("q", "equip-titles", { quizzes: ["test"] }),
+    /earned/,
+  );
+  assert.throws(
+    () => f.action("p", "equip-titles", { quizzes: ["Host"] }),
+    /earned/,
+  );
+  assert.throws(
+    () => f.action("p", "equip-titles", { quizzes: ["test", "test"] }),
+    /earned/,
+  );
+  f.action("p", "equip-titles", { quizzes: ["test"] });
+  assert.equal(f.e.profile("p").titles[0].title, "Perfect Listener");
+  assert.equal(f.e.player("p").balance, before.balance);
+  assert.equal(f.e.quiz.list("p")[0].best, before.best);
+  f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.action("368", "equip-titles", { quizzes: [], host: false });
+  assert.equal(f.e.quiz.titleSettings("368").role, "Host");
+  assert.equal(f.e.profile("368").role, "Host");
+});
+test("title visibility survives restarts and canonical migration, newly earned titles equip by default and player reset clears preferences", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  f.action("p", "equip-titles", { quizzes: [] });
+  let restarted = new Engine(f.e.db, f.e.transaction, f.e.now, () => 0);
+  assert.equal(restarted.quiz.titleSettings("p").titles[0].equipped, false);
+  f.save({ id: "second", title: "Second Title" });
+  f.e.run("INSERT INTO quiz_progress VALUES('p','second',20,?)", f.e.now());
+  assert.deepEqual(
+    f.e.quiz.titles("p").map((t) => t.title),
+    ["Second Title"],
+  );
+  f.e.tx(() => new AliasSync(f.e).renamePlayer("p", "90001"));
+  assert.equal(
+    f.e.quiz.titleSettings("90001").titles.find((t) => t.quiz === "test")
+      .equipped,
+    false,
+  );
+  f.e.tx(() =>
+    f.e.host("reset-player", {
+      player: "90001",
+      confirmation: "RESET PLAYER 90001",
+    }),
+  );
+  assert.equal(
+    f.e.one(
+      "SELECT count(*) AS n FROM profile_title_preferences WHERE player='90001'",
+    ).n,
+    0,
+  );
+  assert.equal(f.e.quiz.titleSettings("90001").titles.length, 0);
+});

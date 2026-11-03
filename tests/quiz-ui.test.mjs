@@ -23,6 +23,12 @@ function fixture(t, { blocked = false, saved = null } = {}) {
         innerHTML: "",
         textContent: "",
         attrs: {},
+        style: {
+          setProperty(key, value) {
+            this[key] = value;
+          },
+        },
+        classList: { toggle() {} },
         setAttribute(k, v) {
           this.attrs[k] = v;
         },
@@ -244,4 +250,18 @@ test("blocked autoplay exposes an explicit audio control and readiness does not 
   assert.equal(f.audios[0].plays, 1);
   await f.advance(200);
   assert.equal(f.audios[0].plays, 1);
+});
+
+test("the countdown panel drains with the clock, contains its numeric time, and hides routine playback text", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(12000);
+  assert.equal(f.node("quiz-time-left").textContent, "10s");
+  assert.equal(f.node("quiz-time-progress").style["--quiz-time"], "50%");
+  assert.equal(f.node("quiz-time-progress").attrs["aria-valuenow"], "10.0");
+  assert.equal(f.node("quiz-audio-status").hidden, true);
+  const html = f.ui.render();
+  assert.match(html, /quiz-countdown-meter/);
+  assert.doesNotMatch(html, /quiz-sound-symbol|100% Title:|20 Songs ·/);
+  assert.equal((html.match(/id="quiz-volume"/g) || []).length, 1);
 });

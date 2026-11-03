@@ -1,3 +1,4 @@
+import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
@@ -287,7 +288,7 @@ function tickCountdowns() {
     !busy &&
     !document.hidden &&
     !$("#modal").open &&
-    !workshop.pickerOpen()
+    !fusionOverlayOpen()
   )
     refresh().catch(() => {});
 }
@@ -316,7 +317,7 @@ function showTradeNotices() {
     busy ||
     document.hidden ||
     $("#modal").open ||
-    workshop.pickerOpen()
+    fusionOverlayOpen()
   )
     return;
   const notices = (state.notices || []).filter(
@@ -355,7 +356,7 @@ function showAuctionWin() {
     busy ||
     document.hidden ||
     $("#modal").open ||
-    workshop.pickerOpen()
+    fusionOverlayOpen()
   )
     return;
   const a = (state.auctionWins || []).find(
@@ -550,7 +551,26 @@ document.addEventListener("change", (event) => {
   }
 });
 
-let fusionPickerFocus = null;
+let fusionPickerFocus = null,
+  fusionReviewOpen = false;
+function fusionOverlayOpen() {
+  return workshop.pickerOpen() || fusionReviewOpen;
+}
+function openFusionReview(body) {
+  fusionPickerFocus = document.activeElement;
+  fusionReviewOpen = true;
+  const overlay = $("#fusion-picker");
+  overlay.innerHTML =
+    '<section class="fusion-picker-dialog fusion-review-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-review-title" tabindex="-1"><button type="button" class="fusion-review-close" data-action="fusion-review-close" aria-label="Close Fusion Review">×</button>' +
+    workshop.confirmation(body) +
+    "</section>";
+  overlay.hidden = false;
+  document
+    .querySelectorAll(".sidebar,.workspace")
+    .forEach((el) => (el.inert = true));
+  document.body.classList.add("fusion-picker-open");
+  overlay.querySelector('[data-action="fusion-review-close"]')?.focus();
+}
 function renderFusionPicker(focusSearch = false, position = null) {
   const overlay = $("#fusion-picker");
   const scrollTop =
@@ -575,7 +595,9 @@ function openFusionPicker(index) {
   document.body.classList.add("fusion-picker-open");
   renderFusionPicker(true);
 }
-function closeFusionPicker() {
+function closeFusionPicker(force = false) {
+  if (busy && !force) return;
+  fusionReviewOpen = false;
   const wasOpen = workshop.pickerOpen();
   workshop.closePicker();
   const overlay = $("#fusion-picker");
@@ -591,13 +613,13 @@ function closeFusionPicker() {
     workshop
       .loadOutcomes(api)
       .then(() => {
-        if (page() === "fusion" && !workshop.pickerOpen()) render();
+        if (page() === "fusion" && !fusionOverlayOpen()) render();
       })
       .catch((err) => toast(err.message, true));
   }
 }
 document.addEventListener("keydown", (ev) => {
-  if (!workshop.pickerOpen()) return;
+  if (!fusionOverlayOpen()) return;
   if (ev.key === "Escape") {
     ev.preventDefault();
     closeFusionPicker();
@@ -861,7 +883,11 @@ function players() {
   );
 }
 function profileTabs(active) {
-  return `<nav class="tabs profile-tabs" aria-label="My Profile sections"><a class="tab ${active === "profile" ? "active" : ""}" href="#profile">My Profile</a><a class="tab ${active === "collection" ? "active" : ""}" href="#collection">My Collection</a></nav>`;
+  return `<nav class="tabs profile-tabs" aria-label="My Profile sections"><a class="tab ${active === "profile" ? "active" : ""}" href="#profile">My Profile</a><a class="tab ${active === "collection" ? "active" : ""}" href="#collection">My Collection</a><a class="tab ${active === "titles" ? "active" : ""}" href="#titles">My Titles</a></nav>`;
+}
+function myTitles() {
+  if (!state.me) return myProfile();
+  return profileTabs("titles") + titleSettingsPanel(ui.titleData, escape);
 }
 function myProfile() {
   if (!state.me)
@@ -881,7 +907,7 @@ function profile() {
     own = p.id === state.me?.id,
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
-  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)} ${roleBadge(p.role)}</h1>${(p.titles || []).map((t) => `<span class="role-badge">${escape(t.title)}</span>`).join(" ")}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
     p.inventory.length
       ? `<div class="card-grid">${p.inventory
           .slice(0, 20)
@@ -924,6 +950,7 @@ async function loadDynamic() {
   if (current === "fusion" && state.me) data = await workshop.loadOutcomes(api);
   if (current === "collection" && state.me)
     data = await api("anime-collection?page=" + (ui.animePage || 1));
+  if (current === "titles" && state.me) data = await api("my-titles");
   if (current === "ranks")
     data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage);
   if (current === "pickems") {
@@ -976,6 +1003,7 @@ async function loadDynamic() {
   if (data) {
     rememberCards(data.cards);
     if (current === "collection") ui.animeData = data;
+    if (current === "titles") ui.titleData = data;
     if (current === "catalog") {
       catalogPageData = data;
       catalogPageNumber = data.page;
@@ -1018,7 +1046,9 @@ function render() {
         ? "Player Profile"
         : route === "collection"
           ? "My Collection"
-          : routes.find((r) => r[0] === route)[1];
+          : route === "titles"
+            ? "My Titles"
+            : routes.find((r) => r[0] === route)[1];
   const activeSection = navigationSection(route, state.me?.id, profileData?.id);
   $("#navigation").innerHTML = routes
     .map(
@@ -1050,7 +1080,11 @@ function render() {
     arcade,
     players,
     profile: myProfile,
-    player: profile,
+    titles: myTitles,
+    player: () =>
+      profileData?.id === state.me?.id
+        ? profileTabs("profile") + profile()
+        : profile(),
   }[route]();
   if (route === "quiz") quizUI.mount();
   else quizUI.stop();
@@ -1392,7 +1426,7 @@ document.addEventListener("submit", async (ev) => {
         { ...reviewed, confirmed: true },
         (result) => {
           workshop.complete(result);
-          $("#modal").close();
+          closeFusionPicker(true);
           render();
           toast(result.message);
         },
@@ -1401,6 +1435,15 @@ document.addEventListener("submit", async (ev) => {
     } catch (error) {
       f.querySelector(".form-error").textContent = error.message;
     }
+    return;
+  }
+  if (formIdentifier(f) === "titles-form") {
+    await execute(
+      "equip-titles",
+      { quizzes: new FormData(f).getAll("quiz") },
+      null,
+      f,
+    );
     return;
   }
   if (formIdentifier(f) === "showcase-order-form") {
@@ -1587,7 +1630,7 @@ document.addEventListener("click", (e) => {
     $("#modal").close();
 });
 window.addEventListener("hashchange", async () => {
-  if (workshop.pickerOpen()) closeFusionPicker();
+  if (fusionOverlayOpen()) closeFusionPicker();
   search = "";
   catalogPageNumber = 1;
   ui.marketPage = 1;
@@ -1607,11 +1650,11 @@ window.addEventListener("hashchange", async () => {
   window.scrollTo(0, 0);
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
+  if (!document.hidden && !busy && !$("#modal").open && !fusionOverlayOpen())
     refreshCurrent().catch(() => {});
 });
 setInterval(() => {
-  if (!document.hidden && !busy && !$("#modal").open && !workshop.pickerOpen())
+  if (!document.hidden && !busy && !$("#modal").open && !fusionOverlayOpen())
     refreshCurrent().catch(() => {});
 }, 60000);
 $("#reset-demo").addEventListener("click", () => {
@@ -1921,6 +1964,10 @@ async function handleFeatureClick(a, t) {
         openFusionPicker(Number(t.dataset.index));
         return true;
       }
+      if (a === "fusion-review-close") {
+        closeFusionPicker();
+        return true;
+      }
       if (a === "fusion-picker-close") {
         closeFusionPicker();
         return true;
@@ -1970,7 +2017,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "fusion-run") {
         const body = workshop.request();
-        modal(workshop.confirmation(body));
+        openFusionReview(body);
         return true;
       }
       await loadDynamic();

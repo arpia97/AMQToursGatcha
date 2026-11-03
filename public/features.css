@@ -2938,3 +2938,272 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-sound [hidden] {
   display: none !important;
 }
+
+/* Fusion review uses the same independent overlay as the material picker. */
+.fusion-review-dialog {
+  position: relative;
+  max-width: 640px;
+  width: min(640px, 100%);
+  display: flex;
+  overflow: hidden;
+  padding: 26px;
+  max-height: 90dvh;
+  box-sizing: border-box;
+}
+.fusion-review-close {
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 25px;
+  cursor: pointer;
+  z-index: 1;
+}
+.fusion-review-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  gap: 12px;
+}
+.fusion-review-form h2 {
+  margin: 0 30px 0 0;
+}
+.fusion-review-form > p {
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  color: var(--muted);
+}
+.fusion-review-details {
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  padding: 0 4px;
+}
+.fusion-review-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  flex-shrink: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.fusion-review-actions .button {
+  min-height: 44px;
+}
+.quiz-top-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.quiz-top-controls .quiz-volume-control {
+  margin: 0;
+  font-size: 11px;
+  gap: 8px;
+}
+.quiz-top-controls .quiz-volume-control input {
+  width: 90px;
+}
+.quiz-top-controls .quiz-volume-control output {
+  min-width: 30px;
+}
+.quiz-countdown-meter {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  height: 108px;
+  border-radius: 14px;
+  background: #131a25;
+  border: 1px solid #52506c;
+  margin: 22px 0 30px;
+}
+.quiz-countdown-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--quiz-time, 100%);
+  background: linear-gradient(110deg, #603780, #285b6b);
+  transition: width 0.2s linear;
+}
+.quiz-countdown-meter.is-urgent .quiz-countdown-fill {
+  background: linear-gradient(110deg, #a34e71, #8c3743);
+}
+.quiz-countdown-meter [role="timer"] {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(22px, 3vw, 36px);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 12px #0006;
+  color: #fff;
+}
+.quiz-audio-line:empty,
+.quiz-audio-line:has(#quiz-audio-status[hidden]):has([data-quiz-play][hidden]) {
+  display: none;
+}
+.quiz-answer-field {
+  width: min(620px, 100%);
+  margin-inline: auto;
+}
+.quiz-answer-field label {
+  text-align: center;
+  font-size: 16px;
+  margin-bottom: 12px;
+}
+.quiz-answer-field .search {
+  max-width: none;
+  min-height: 54px;
+  text-align: center;
+  font-size: 17px;
+}
+.quiz-answer-field .quiz-suggestions {
+  box-sizing: border-box;
+  width: 100%;
+  right: auto;
+}
+#quiz-answer-form > button {
+  justify-self: center;
+  width: min(300px, 100%);
+}
+#quiz-answer-form > [data-quiz-skip] {
+  width: auto;
+}
+.profile-title-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0;
+}
+.profile-earned-titles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.profile-earned-titles:empty {
+  display: none;
+}
+.equipped-title {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 6px;
+  border: 1px solid #69718566;
+  background: #202530;
+  font-size: 12px;
+  color: #e2e8f0;
+}
+.role-title.title-ag {
+  border-color: transparent;
+  background:
+    linear-gradient(#171820, #171820) padding-box,
+    linear-gradient(
+        110deg,
+        #ff9bbd,
+        #ffd783,
+        #a7f6c8,
+        #94ccff,
+        #d2a3ff,
+        #ff9bbd
+      )
+      border-box;
+  color: #f4e5ff;
+  box-shadow: 0 0 8px #d2a3ff40;
+  background-size:
+    auto,
+    250% 250%;
+  animation: rainbow-flow 6s ease infinite;
+}
+.title-options {
+  display: grid;
+  gap: 12px;
+  max-width: 760px;
+}
+.title-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 20px;
+  background: #191d26;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.title-option strong {
+  font-size: 15px;
+}
+.title-option small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+.title-option input[type="checkbox"] {
+  width: 19px;
+  height: 19px;
+  accent-color: #b4e2c9;
+  flex-shrink: 0;
+}
+.host-title-option {
+  justify-content: flex-start;
+  max-width: 760px;
+  box-sizing: border-box;
+  margin-bottom: 16px;
+}
+.host-title-option > span:not(.role-title) {
+  font-size: 12px;
+  color: var(--muted);
+}
+.host-title-option input {
+  margin-left: auto;
+}
+@media (max-width: 560px) {
+  .fusion-review-dialog {
+    padding: 18px;
+    max-height: 94dvh;
+  }
+  .fusion-review-form h2 {
+    font-size: 21px;
+  }
+  .fusion-review-actions {
+    grid-template-columns: 1fr;
+  }
+  .quiz-top-controls {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+  .quiz-countdown-meter {
+    height: 94px;
+  }
+  .quiz-answer-field .search {
+    font-size: 16px;
+  }
+  .host-title-option {
+    flex-wrap: wrap;
+  }
+}
+
+#titles-form {
+  max-width: 760px;
+}
+.role-title.title-ag > span {
+  background: linear-gradient(
+    110deg,
+    #ff9bbd,
+    #ffd783,
+    #a7f6c8,
+    #94ccff,
+    #d2a3ff,
+    #ff9bbd
+  );
+  background-size: 250% 250%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: rainbow-flow 6s ease infinite;
+}

@@ -160,14 +160,11 @@ export function createQuizUI({
                     : "") +
                   "<h2>" +
                   e(q.name) +
-                  "</h2><p>20 Songs · Personal Best " +
+                  "</h2><p>Personal Best " +
                   q.best +
                   "/20</p><p>" +
                   q.songs +
                   " Songs in Pool</p>" +
-                  (q.title
-                    ? '<p class="form-hint">100% Title: ' + e(q.title) + "</p>"
-                    : "") +
                   '<button class="button mint" data-quiz-open="' +
                   e(q.id) +
                   '">' +
@@ -194,7 +191,9 @@ export function createQuizUI({
       (preview
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
-      '</div><button class="text-button" data-quiz-back>All Quizzes ←</button></div>';
+      '</div><div class="quiz-top-controls">' +
+      volumeControl() +
+      '<button class="text-button" data-quiz-back>All Quizzes ←</button></div></div>';
     if (!getState().me)
       return (
         top +
@@ -204,8 +203,7 @@ export function createQuizUI({
       stop();
       return (
         top +
-        "<p>20 Songs · 20 Seconds Each · Two-Second Starting Countdown</p>" +
-        volumeControl() +
+        "<p>20 Seconds Per Song · Two-Second Starting Countdown</p>" +
         (q.songs < 20
           ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
           : '<button class="button mint space-top" data-quiz-action="quiz-start">' +
@@ -268,12 +266,11 @@ export function createQuizUI({
         ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
         : "") +
       (!run.answered
-        ? '<div class="quiz-timer"><span id="quiz-time-left" role="timer">Loading Audio…</span><progress id="quiz-time-progress" max="20" value="20" aria-label="Seconds Remaining"></progress></div><div class="quiz-sound" aria-hidden="true"><span id="quiz-sound-symbol">♫</span><span id="quiz-countdown" hidden></span></div>'
+        ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
         : "") +
       '<div class="quiz-audio-line">' +
-      volumeControl() +
       (!run.answered
-        ? '<span class="form-hint" id="quiz-audio-status">Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
+        ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
         : "") +
       "</div>" +
       (run.answered ? result : answerForm) +
@@ -411,15 +408,12 @@ export function createQuizUI({
       left.textContent = lead
         ? "Starts in " + lead + "s"
         : run.endsAt
-          ? Math.ceil(remaining) + "s Left"
+          ? Math.ceil(remaining) + "s"
           : "Loading Audio…";
-    if (bar) bar.value = remaining;
-    const symbol = document.getElementById("quiz-sound-symbol"),
-      countdown = document.getElementById("quiz-countdown");
-    if (symbol) symbol.hidden = lead > 0;
-    if (countdown) {
-      countdown.hidden = !lead;
-      countdown.textContent = lead ? String(lead) : "";
+    if (bar) {
+      bar.style.setProperty("--quiz-time", (remaining / 20) * 100 + "%");
+      bar.setAttribute("aria-valuenow", remaining.toFixed(1));
+      bar.classList.toggle("is-urgent", !!run.endsAt && remaining <= 5);
     }
     const status = document.getElementById("quiz-audio-status"),
       play = document.querySelector("[data-quiz-play]");
@@ -432,8 +426,9 @@ export function createQuizUI({
             : lead
               ? "Get Ready…"
               : started
-                ? "Listening…"
+                ? ""
                 : "Preparing Audio…";
+    if (status) status.hidden = !["error", "blocked"].includes(audioState);
     if (play) {
       play.hidden = !["blocked", "error"].includes(audioState);
       play.textContent =

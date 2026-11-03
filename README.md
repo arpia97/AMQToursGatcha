@@ -165,3 +165,5 @@ Player resets restore 5,000 starting credits and lifetime earned, clear quiz pro
 Pick’em cards show the total number of voters. Expanding a tour shows a horizontal vote chart with counts and percentages for every team, including teams with zero votes. Changing a pick moves the existing vote instead of increasing the voter total. Charts remain available after voting locks or settles; older match/pair pick’ems expose their chart through View Votes. Only aggregate counts are public.
 
 Card Fusion requires a separate material-and-odds review and explicit confirmation before consumption. Cancelling preserves the board and inventory. Dismissing a completed result only closes the display.
+
+My Profile includes My Titles for selecting displayed earned titles. Host remains equipped above other titles with an AG rainbow badge. Fusion confirmation uses the material-picker overlay with a fixed action footer. The quiz uses a draining countdown panel with centered time, a compact top volume control and a larger centered answer field.

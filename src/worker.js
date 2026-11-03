@@ -925,6 +925,8 @@ export class Game extends DurableObject {
       fail("Your session ended. Please sign in again.", 401);
     if (path === "quiz-run" && !post)
       return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
+    if (path === "my-titles" && !post)
+      return json(e.quiz.titleSettings(session.player));
     if (path === "mahjong-history" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

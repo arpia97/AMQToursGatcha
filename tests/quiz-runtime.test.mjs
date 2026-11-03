@@ -195,4 +195,19 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const profile = await response.json();
   assert.equal(profile.titles[0].title, "Perfect");
   assert.equal(profile.balance, 7900);
+  response = await mf.dispatchFetch("http://game/api/my-titles");
+  assert.equal(response.status, 401);
+  response = await mf.dispatchFetch("http://game/api/my-titles", {
+    headers: auth,
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).titles[0].equipped, true);
+  response = await post("equip-titles", { quizzes: ["not-earned"] }, auth);
+  assert.equal(response.status, 400);
+  response = await post("equip-titles", { quizzes: [] }, auth);
+  assert.equal(response.status, 200);
+  response = await mf.dispatchFetch("http://game/api/player?id=1");
+  const hidden = await response.json();
+  assert.equal(hidden.titles.length, 0);
+  assert.equal(hidden.balance, 7900);
 });
