@@ -2616,6 +2616,9 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   height: 220px;
   object-fit: cover;
 }
+.quiz-tile > img {
+  object-position: center top;
+}
 .quiz-cover-placeholder,
 .quiz-coming-soon > span,
 .quiz-sound {
