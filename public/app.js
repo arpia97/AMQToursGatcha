@@ -579,8 +579,22 @@ function showRefinementResult() {
     alchemyUI.refinementResult();
   dialog.querySelector(".fusion-review-actions button").focus();
 }
-function renderFusionPicker(focusSearch = false, position = null) {
+function renderFusionPicker(focusSearch = false, resultsOnly = false) {
   const overlay = $("#fusion-picker");
+  const results = overlay.querySelector("#alchemy-picker-results");
+  if (resultsOnly && results) {
+    results.innerHTML = alchemyUI.renderPicker(true);
+    return;
+  }
+  const previous = overlay.querySelector("#fusion-search");
+  const selection =
+    previous && document.activeElement === previous
+      ? [
+          previous.selectionStart,
+          previous.selectionEnd,
+          previous.selectionDirection,
+        ]
+      : null;
   const scrollTop =
     overlay.querySelector(".fusion-picker-dialog")?.scrollTop || 0;
   overlay.innerHTML = alchemyUI.renderPicker();
@@ -588,9 +602,9 @@ function renderFusionPicker(focusSearch = false, position = null) {
   if (dialog) dialog.scrollTop = scrollTop;
   overlay.hidden = false;
   const input = overlay.querySelector("#fusion-search");
-  if (focusSearch) {
-    input?.focus();
-    if (position !== null) input?.setSelectionRange(position, position);
+  if (focusSearch || selection) {
+    input?.focus({ preventScroll: true });
+    if (selection) input?.setSelectionRange(...selection);
   }
 }
 async function openFusionPicker(mode = "material", rarity = null) {
@@ -603,8 +617,8 @@ async function openFusionPicker(mode = "material", rarity = null) {
   document.body.classList.add("fusion-picker-open");
   renderFusionPicker(true);
   if (mode === "target") {
-    await alchemyUI.loadTargets(api);
-    renderFusionPicker(true);
+    const results = await alchemyUI.loadTargets(api);
+    if (results && alchemyUI.pickerOpen()) renderFusionPicker(false, true);
   }
 }
 function closeFusionPicker(force = false) {
@@ -2540,21 +2554,26 @@ document.addEventListener("change", (ev) => {
 
 document.addEventListener("input", async (ev) => {
   if (ev.target.id !== "fusion-search") return;
-  const pos = ev.target.selectionStart;
-  alchemyUI.filter("query", ev.target.value);
+  const query = ev.target.value;
+  alchemyUI.filter("query", query);
   try {
-    if (alchemyUI.pickerMode() === "target") await alchemyUI.loadTargets(api);
+    if (
+      alchemyUI.pickerMode() === "target" &&
+      !(await alchemyUI.loadTargets(api))
+    )
+      return;
   } catch (err) {
     toast(err.message, true);
     return;
   }
   if (
     !ev.target.isConnected ||
-    $("#fusion-search")?.value !== ev.target.value ||
+    $("#fusion-search") !== ev.target ||
+    ev.target.value !== query ||
     !alchemyUI.pickerOpen()
   )
     return;
-  renderFusionPicker(true, pos);
+  renderFusionPicker(false, true);
 });
 document.addEventListener("change", async (ev) => {
   if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;

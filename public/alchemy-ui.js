@@ -386,7 +386,7 @@ export function createAlchemyUI(h) {
       "</tbody></table></div></details>"
     );
   }
-  function renderPicker() {
+  function renderPicker(resultsOnly = false) {
     if (!picker) return "";
     const targetMode = picker === "target";
     let items = targetMode
@@ -454,33 +454,8 @@ export function createAlchemyUI(h) {
         );
       })
       .join("");
-    return (
-      '<section class="fusion-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-picker-title" tabindex="-1"><div class="section-head"><h2 id="fusion-picker-title">' +
-      (targetMode
-        ? "Choose Your " + e(targetTier) + " Target"
-        : "Choose One Refinement Card") +
-      "</h2>" +
-      btn("Close ×", "alchemy-close", "", "text-button") +
-      '</div><div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
-      e(query) +
-      '"><label>Type<select id="fusion-kind"><option value="">Characters + Seiyuus</option><option value="character" ' +
-      (kind === "character" ? "selected" : "") +
-      '>Characters</option><option value="seiyuu" ' +
-      (kind === "seiyuu" ? "selected" : "") +
-      ">Seiyuus</option></select></label>" +
-      (!targetMode
-        ? '<label>Rarity<select id="fusion-rarity"><option value="">All Rarities</option>' +
-          ALCHEMY_TIERS.map(
-            (t) =>
-              "<option " +
-              (grade === t.rarity ? "selected" : "") +
-              ">" +
-              t.rarity +
-              "</option>",
-          ).join("") +
-          "</select></label>"
-        : "") +
-      '</div><p class="form-hint">' +
+    const results =
+      '<p class="form-hint">' +
       n(total) +
       " Matching Cards" +
       (targetMode
@@ -508,6 +483,36 @@ export function createAlchemyUI(h) {
         page >= max ? "disabled" : "",
         "secondary",
       ) +
+      "</div>";
+    if (resultsOnly) return results;
+    return (
+      '<section class="fusion-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-picker-title" tabindex="-1"><div class="section-head"><h2 id="fusion-picker-title">' +
+      (targetMode
+        ? "Choose Your " + e(targetTier) + " Target"
+        : "Choose One Refinement Card") +
+      "</h2>" +
+      btn("Close ×", "alchemy-close", "", "text-button") +
+      '</div><div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
+      e(query) +
+      '"><label>Type<select id="fusion-kind"><option value="">Characters + Seiyuus</option><option value="character" ' +
+      (kind === "character" ? "selected" : "") +
+      '>Characters</option><option value="seiyuu" ' +
+      (kind === "seiyuu" ? "selected" : "") +
+      ">Seiyuus</option></select></label>" +
+      (!targetMode
+        ? '<label>Rarity<select id="fusion-rarity"><option value="">All Rarities</option>' +
+          ALCHEMY_TIERS.map(
+            (t) =>
+              "<option " +
+              (grade === t.rarity ? "selected" : "") +
+              ">" +
+              t.rarity +
+              "</option>",
+          ).join("") +
+          "</select></label>"
+        : "") +
+      '</div><div id="alchemy-picker-results">' +
+      results +
       "</div></section>"
     );
   }
