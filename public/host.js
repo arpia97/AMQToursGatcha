@@ -1,5 +1,9 @@
 import { formIdentifier } from "./form-actions.js";
-import { quizHostPanel, quizHostBody } from "./quiz-host-ui.js";
+import {
+  quizHostPanel,
+  quizHostBody,
+  previewQuizFile,
+} from "./quiz-host-ui.js";
 import { chooseTourStaff } from "./tour-staff-ui.js";
 import {
   matchingCreditPlayers,
@@ -790,8 +794,25 @@ setInterval(() => {
 }, 30000);
 
 document.addEventListener("click", (ev) => {
-  const edit = ev.target.closest("[data-edit-quiz], [data-new-quiz]");
-  if (!edit) return;
-  quizSelection = edit.dataset.editQuiz || null;
+  const edit = ev.target.closest("[data-new-quiz], [data-quiz-review-retry]");
+  if (!edit || working) return;
+  if (edit.hasAttribute("data-quiz-review-retry")) {
+    previewQuizFile($("#quiz-save").elements.songsFile, api, esc);
+    return;
+  }
+  quizSelection = null;
   render();
+});
+
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "host-quiz-select" && !working) {
+    quizSelection = ev.target.value || null;
+    render();
+    $("#host-quiz-select")?.focus();
+  }
+  if (
+    ev.target.name === "songsFile" &&
+    formIdentifier(ev.target.form) === "quiz-save"
+  )
+    previewQuizFile(ev.target, api, esc);
 });

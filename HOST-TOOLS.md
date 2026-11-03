@@ -216,3 +216,9 @@ New pick’ems default to 1,000 credits for the correct winner. Existing pick’
 ### Reopen Voting
 
 Pick’ems → Manage Published Pick’ems → Manage Tour exposes **Reopen Voting** for closed, unsettled pick’ems. Duration defaults to five minutes and can be edited. Existing picks, teams and rewards remain; players may submit or revise picks until the new deadline. Settled results cannot be reopened. Host POST `pickem-reopen` takes `{pickem,expected:snapshot,minutes?:5}` with an Idempotency-Key. The deadline is calculated from server time; stale snapshots and already-open polls reject without changes. Replaying a successful request does not extend voting again.
+
+### Quiz Selection and Song Review
+
+Select an existing quiz from the Quiz dropdown or use New Quiz beside it. Selecting a song JSON automatically runs a read-only review through the same AMQ matching and MP3 resolution used by Save Quiz. Review song names, artists, anime and skipped-row reasons in the scrollable list before saving. No quiz pool is changed by the review. AMQ audio metadata is cached between review and save.
+
+POST `/api/host/quiz-preview` accepts `{input: <AnisongDB or AMQ JSON>}` with host authorization and the same upload limit as quiz saving. It returns matched song metadata and rejected rows without creating a quiz, changing songs, awarding credits or resetting scores.

@@ -131,6 +131,34 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     published: true,
   });
   assert.equal(response.status, 401);
+  response = await post("host/quiz-preview", { input });
+  assert.equal(response.status, 401);
+  response = await post("host/quiz-preview", { input }, auth);
+  assert.equal(response.status, 401);
+  response = await post(
+    "host/quiz-preview",
+    { input: [...input, input[0], { annId: 1, HQ: "video.webm" }] },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  const review = await response.json();
+  assert.equal(review.songs.length, 20);
+  assert.equal(review.songs[0].title, "Song 0");
+  assert.equal(review.songs[0].answers[0], "Anime Test");
+  assert.equal(review.songs[0].audio, undefined);
+  assert.equal(review.rejected.length, 1);
+  response = await mf.dispatchFetch("http://game/api/host/quizzes", {
+    headers: host,
+  });
+  assert.equal((await response.json()).quizzes.length, 0);
+  response = await post(
+    "host/quiz-preview",
+    { input: [{ annId: 1, HQ: "video.webm" }] },
+    host,
+  );
+  assert.equal((await response.json()).songs.length, 0);
+  response = await post("host/quiz-preview", {}, host);
+  assert.equal(response.status, 400);
   response = await post(
     "host/quiz-save",
     { id: "test", name: "Test", input, published: true, title: "Perfect" },
@@ -174,6 +202,10 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       })),
     },
   };
+  response = await post("host/quiz-preview", { input: amqBody.input }, host);
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).songs.length, 2);
+  assert.equal(audioLookups, 1);
   const importKey = "amq-test-import";
   response = await post("host/quiz-save", amqBody, {
     ...host,

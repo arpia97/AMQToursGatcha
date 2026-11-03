@@ -43,3 +43,42 @@
   margin-bottom: 24px;
   border-bottom: 1px solid var(--border);
 }
+
+.quiz-pool-picker {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.quiz-pool-picker label {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 600px;
+}
+.quiz-pool-picker select {
+  width: 100%;
+}
+.quiz-import-review {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.quiz-song-list {
+  max-height: 360px;
+  overflow: auto;
+  margin-top: 12px;
+}
+.quiz-song-list th {
+  position: sticky;
+  top: 0;
+  background: var(--surface, #191a23);
+}
+.quiz-song-list td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 100px;
+}
+.quiz-song-list td:first-child {
+  min-width: 0;
+}

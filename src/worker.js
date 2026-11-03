@@ -233,7 +233,12 @@ export class Game extends DurableObject {
           const { done, value } = await reader.read();
           if (done) break;
           bytes += value.byteLength;
-          if (bytes > (path === "host/quiz-save" ? 5000000 : 1000000)) {
+          if (
+            bytes >
+            (["host/quiz-save", "host/quiz-preview"].includes(path)
+              ? 5000000
+              : 1000000)
+          ) {
             await reader.cancel();
             fail("Request too large.", 413);
           }
@@ -406,13 +411,16 @@ export class Game extends DurableObject {
       }
       if (path === "host/quizzes" && !post)
         return json({ quizzes: e.quiz.list(null, true) });
-      if (path === "host/quiz-save" && post) {
+      if (["host/quiz-save", "host/quiz-preview"].includes(path) && post) {
+        const preview = path === "host/quiz-preview";
         const key = text(request.headers.get("Idempotency-Key"), 100);
         const fingerprint = { digest: await digest(JSON.stringify(b)) };
-        const saved = e.one(
-          "SELECT input,result FROM receipts WHERE scope='host:quiz-save' AND key=?",
-          key,
-        );
+        const saved =
+          !preview &&
+          e.one(
+            "SELECT input,result FROM receipts WHERE scope='host:quiz-save' AND key=?",
+            key,
+          );
         if (saved) {
           if (saved.input !== JSON.stringify(fingerprint))
             fail("This request ID was used for a different action.", 409);
@@ -435,6 +443,17 @@ export class Game extends DurableObject {
           } catch (err) {
             fail(err.message, err.status || 400);
           }
+          if (preview) {
+            requireHost();
+            return json({
+              songs: prepared.songs.map(({ title, artist, answers }) => ({
+                title,
+                artist,
+                answers,
+              })),
+              rejected: prepared.rejected,
+            });
+          }
           if (!prepared.songs.length)
             fail(
               "No playable MP3 songs matched AMQ. " +
@@ -450,7 +469,10 @@ export class Game extends DurableObject {
             source: prepared.masterListId,
           };
           delete b.input;
-        } else delete b.songs;
+        } else {
+          if (preview) fail("Select a song JSON to review.");
+          delete b.songs;
+        }
         requireHost();
         return json(
           e.mutate("host:quiz-save", key, fingerprint, () => ({
@@ -1003,7 +1025,14 @@ export default {
       )
         return json(registrationPolicy);
       const size = Number(request.headers.get("Content-Length") || 0);
-      if (size > (url.pathname === "/api/host/quiz-save" ? 5000000 : 1000000))
+      if (
+        size >
+        (["/api/host/quiz-save", "/api/host/quiz-preview"].includes(
+          url.pathname,
+        )
+          ? 5000000
+          : 1000000)
+      )
         return json({ error: "Request too large." }, 413);
       const forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
