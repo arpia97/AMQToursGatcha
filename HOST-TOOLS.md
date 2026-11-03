@@ -6,19 +6,11 @@ The host menu is arranged horizontally and wraps on narrower screens. Gameplay r
 
 ## Import AMQ identities
 
-The backend automatically reads the public [IDs worksheet](https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832) on startup and every six hours. Columns A/B must be `Player Name` / `Player ID`. Rows sharing an ID become aliases for one player; the first name is the original Tours name. No Google credentials or writes are used. Players & access shows sync status and a manual **Sync aliases now** button. Temporary failures retry after 15 minutes and retain the last good registry; identity conflicts roll back the entire update.
+The backend automatically reads the public [IDs worksheet](https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832) on startup and every six hours. Columns A/B must be `Player Name` / `Player ID`. Rows sharing an ID become aliases for one player; the first name is the original Tours name. No Google credentials or writes are used. Players & access shows sync status and a manual **Scan Aliases** button. Temporary failures retry after 15 minutes and retain the last good registry; identity conflicts roll back the entire update.
 
 Legacy nonnumeric account IDs migrate to a matching source alias's canonical ID only when unambiguous and the target is unused. Passwords, administrator role, sessions, credits, cards, listings, and history are preserved. Exact IDs take precedence over aliases during sign-in because the sheet contains numeric aliases that overlap other players' IDs. Enter `alias:NAME` to explicitly select an alias, or `id:ID` for an exact ID. Previously imported aliases remain reserved.
 
-Manual CSV imports remain available for additional identities:
-
-Export the intended AMQ Tours ID/alias source to this format:
-
-```csv
-id,name,aliases
-00123,ExamplePlayer,oldalias|anotheralias
-00456,SecondPlayer,secondalias
-```
+Add new players and aliases to the linked IDs worksheet, then use **Players & access → Scan Aliases**. The console reads the sheet directly; no CSV upload is needed.
 
 IDs are strings: leading zeros are preserved. A player is identified by the stable AMQ Tours ID, never by a mutable username. Imports preserve wallets, cards, account access, username history, and previously imported aliases. Any conflict with another player's alias or username history rejects the entire import. A new authoritative AMQ alias that collides with a username needs explicit identity resolution; the importer does not reassign it silently.
 

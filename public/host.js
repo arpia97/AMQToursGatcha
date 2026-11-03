@@ -113,7 +113,7 @@ function render() {
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
-    html = `<section class="host-panel"><h2>One Player. One AMQ Identity.</h2><p>Import stable AMQ Tours IDs and aliases. Upload a CSV with headers <code>id,name,aliases</code>. Separate aliases with a pipe: <code>alias1|alias2</code>. Existing aliases are retained; conflicts roll back the entire import.</p><form id="players" class="stack"><label>CSV player / alias sheet<input type="file" id="players-file" accept=".csv,text/csv" required></label><button class="button" type="submit">Import players &amp; aliases →</button></form><p class="form-hint space-top">The alias sheet remains the identity source. Manual imports supplement the automatic sheet sync. Neither operation edits AMQ Tours ratings or writes to the source sheet.</p></section><section class="host-panel"><h2>Recover Account Access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue access recovery code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
+    html = `<section class="host-panel"><h2>Recover Account Access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue access recovery code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
         (p) =>
           `<tr><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${p.registered ? "Registered" : "Awaiting registration"}</td><td>${state.aliases
@@ -125,7 +125,7 @@ function render() {
   if (tab === "players") {
     const a = state.aliasSync || {};
     html =
-      `<section class="host-panel"><h2>AMQ Tours Alias Sheet</h2><p>Automatically reads the IDs worksheet every six hours. The first name for each Player ID becomes its original Tours name; all names remain searchable aliases. Unregistered AMQ Tours players can create an account without a registration code. Individual codes are used for account recovery.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Sync aliases now →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
+      `<section class="host-panel"><h2>AMQ Tours Alias Sheet</h2><p>Add new players or aliases to the linked AMQ Tours IDs sheet, then scan to make them available for registration. Automatic scans also run every six hours. New accounts do not need a registration code.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Scan Aliases →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1ihfqssregh74curDyvRE0GAFihQfovUAHpYDrtOIrOA/edit?gid=1903970832" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
       html;
   }
   if (tab === "pickems") {
@@ -230,35 +230,6 @@ function rememberSettlement(input) {
   };
   delete settlementDrafts[match.id].requestKey;
   delete form.dataset.requestKey;
-}
-// RFC 4180-style quoted CSV, including embedded newlines, commas and doubled quotes.
-export function parseCSV(raw) {
-  const rows = [];
-  let row = [],
-    cell = "",
-    quoted = false;
-  for (let i = 0; i < raw.length; i++) {
-    const ch = raw[i];
-    if (ch === '"') {
-      if (quoted && raw[i + 1] === '"') {
-        cell += '"';
-        i++;
-      } else quoted = !quoted;
-    } else if (ch === "," && !quoted) {
-      row.push(cell);
-      cell = "";
-    } else if ((ch === "\n" || ch === "\r") && !quoted) {
-      if (ch === "\r" && raw[i + 1] === "\n") i++;
-      row.push(cell);
-      if (row.some((x) => x.trim())) rows.push(row);
-      row = [];
-      cell = "";
-    } else cell += ch;
-  }
-  if (quoted) throw new Error("CSV has an unclosed quote.");
-  row.push(cell);
-  if (row.some((x) => x.trim())) rows.push(row);
-  return rows;
 }
 document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -479,23 +450,6 @@ document.addEventListener("submit", async (ev) => {
       if (b.games) b.games = Number(b.games);
       result = await api("grant", b, key);
     }
-    if (formIdentifier(form) === "players") {
-      const rows = parseCSV(
-        (await $("#players-file").files[0].text()).replace(/^\uFEFF/, ""),
-      );
-      const headers = rows.shift()?.map((s) => s.trim().toLowerCase());
-      if (!headers?.includes("id") || !headers.includes("name"))
-        throw new Error("CSV headers must include id and name.");
-      const players = rows.map((r) => ({
-        id: r[headers.indexOf("id")]?.trim(),
-        name: r[headers.indexOf("name")]?.trim(),
-        aliases: (r[headers.indexOf("aliases")] || "")
-          .split("|")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      }));
-      result = await api("players", { players }, key);
-    }
     if (formIdentifier(form) === "access") {
       if (
         b.operation === "reset" &&
@@ -527,8 +481,23 @@ document.addEventListener("submit", async (ev) => {
       result = await api("settle", body, key);
       delete settlementDrafts[match.id];
     }
-    if (formIdentifier(form) === "aliases-sync")
+    if (formIdentifier(form) === "aliases-sync") {
+      if (submit) submit.textContent = "Scanning…";
       result = await api("aliases-sync", {}, key);
+      if (result.aliasSync?.status !== "synced") {
+        await load();
+        throw Error(
+          result.aliasSync?.error ||
+            "An alias scan is already in progress. Try again shortly.",
+        );
+      }
+      result.message =
+        "Alias Scan Complete · " +
+        result.aliasSync.players +
+        " players · " +
+        result.aliasSync.aliases +
+        " aliases. New players can register now.";
+    }
     if (formIdentifier(form) === "settings") {
       b.premium_character = Number(b.premium_character);
       b.premium_seiyuu = Number(b.premium_seiyuu);
