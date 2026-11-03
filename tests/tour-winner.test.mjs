@@ -57,7 +57,7 @@ function fixture(t) {
     advance: (n) => (now += n),
   };
 }
-test("winner-only creation publishes one choice per tour with500 winner reward and ten-minute default, for2 through64 teams", (t) => {
+test("winner-only creation publishes one choice per tour with1000 winner reward and ten-minute default, for2 through64 teams", (t) => {
   const f = fixture(t);
   for (const n of [2, 4, 6, 8, 64]) {
     const p = f.create({
@@ -65,7 +65,7 @@ test("winner-only creation publishes one choice per tour with500 winner reward a
     });
     assert.equal(p.mode, "tour");
     assert.equal(p.ends, f.now() + 600000);
-    assert.equal(p.winner_reward, 500);
+    assert.equal(p.winner_reward, 1000);
     assert.equal(p.score_reward, 0);
     assert.equal(JSON.parse(p.teams).length, n);
     const event = f.e.pickemEvents.read(p.event_id);
@@ -235,6 +235,7 @@ test("public and host winner forms contain no score controls, retain team-keyed 
   assert.match(html, /Who will win/);
   assert.match(html, /value="Delta" selected/);
   assert.doesNotMatch(html, /name="score[AB]"|Two-game result/);
+  assert.match(winnerCreatePanel(), /name="winnerReward"[^>]*value="1000"/);
   assert.doesNotMatch(winnerCreatePanel(), /name="format"|name="scoreReward"/);
   assert.doesNotMatch(
     winnerEditor(f.e.pickemEvents.match(p.id), esc),

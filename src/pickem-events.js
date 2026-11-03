@@ -1,5 +1,8 @@
 import { pickemVoteSummary } from "../public/pickem-votes.js";
-import { PICKEM_WINDOW } from "../public/site-defaults.js";
+import {
+  PICKEM_WINNER_REWARD,
+  PICKEM_WINDOW,
+} from "../public/site-defaults.js";
 import { winnerTeams, pickemTeams } from "../public/tour-winner.js";
 import { fail, integer, text } from "./engine.js";
 import {
@@ -35,7 +38,7 @@ export class PickemEvents {
     deadlines ??= rounds.map(() => null);
     if (!Array.isArray(deadlines) || deadlines.length !== rounds.length)
       fail("Set a deadline for each round.");
-    const winner = integer(b.winnerReward ?? 500, 0, 100000),
+    const winner = integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000),
       score = integer(b.scoreReward ?? 500, 0, 100000);
     const ends = deadlines.map((d) =>
       integer(
@@ -231,7 +234,7 @@ export class PickemEvents {
           e.now() + 60000,
           e.now() + 90 * 86400000,
         ),
-        reward = integer(b.winnerReward ?? 500, 0, 100000);
+        reward = integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000);
       e.run(
         "INSERT INTO pickem_events(name,format,teams,created) VALUES(?,'winner',?,?)",
         name,
@@ -262,7 +265,7 @@ export class PickemEvents {
           b.ends === p.ends
             ? p.ends
             : integer(b.ends, e.now() + 60000, e.now() + 90 * 86400000),
-        reward = integer(b.winnerReward ?? 500, 0, 100000);
+        reward = integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000);
       const changed =
         JSON.stringify([...teams].sort()) !==
         JSON.stringify([...pickemTeams(p)].sort());

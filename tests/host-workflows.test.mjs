@@ -137,7 +137,7 @@ test("odd Swiss fields rotate a single bye without repeats and count it as a sta
     );
   }
 });
-test("event publishing is atomic, defaults to 500 per award, preserves standalone matches and fences Swiss rounds", (t) => {
+test("event publishing is atomic, defaults to1000 winner/500 per exact score, preserves standalone matches and fences Swiss rounds", (t) => {
   const { e, host, now, time } = fixture(t);
   const b = {
     name: "Tour",
@@ -156,7 +156,7 @@ test("event publishing is atomic, defaults to 500 per award, preserves standalon
   assert.ok(
     e
       .all("SELECT * FROM pickems")
-      .every((p) => p.winner_reward === 500 && p.score_reward === 500),
+      .every((p) => p.winner_reward === 1000 && p.score_reward === 500),
   );
   assert.throws(
     () => host("pickem-event", { ...b, deadlines: [0] }),
@@ -173,7 +173,7 @@ test("event publishing is atomic, defaults to 500 per award, preserves standalon
   assert.equal(
     e.one("SELECT winner_reward FROM pickems WHERE event_id IS NULL")
       .winner_reward,
-    500,
+    1000,
   );
   const ev = host("pickem-event", {
     name: "Swiss",
@@ -292,7 +292,7 @@ test("delegated hosts require explicit owner grant, persist on restart, revoke i
     /register/,
   );
 });
-test("host schedule review escapes names and exposes per-round editable deadlines with 500 defaults", () => {
+test("host schedule review escapes names and exposes per-round editable deadlines and reward defaults", () => {
   const escape = (s) => String(s).replaceAll("<", "&lt;");
   const d = prepareSchedule(
     { name: "<Tour>", format: "double-4", teams: teams(4).join("\n") },

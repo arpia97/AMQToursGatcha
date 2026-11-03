@@ -1,3 +1,4 @@
+import { PICKEM_WINNER_REWARD } from "./site-defaults.js";
 import { pickemVoteChart } from "./pickem-votes.js";
 import { pickemTeams } from "./tour-winner.js";
 import { deadlineFields } from "./host-defaults.js";
@@ -40,7 +41,7 @@ export function winnerCard(
 }
 
 export function winnerCreatePanel() {
-  return `<section class="host-panel"><h2>Create a Tour Pick’em</h2><p>Enter the tour name and teams. Players choose one team to win; only correct-winner rewards are paid.</p><form id="tour-winner-create" class="stack"><label>Tour name<input name="name" maxlength="100" required></label><label>Teams · one per line<textarea name="teams" rows="4" maxlength="6500" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D" required></textarea></label><label>Correct winner reward<input name="winnerReward" type="number" min="0" max="100000" value="500" required></label>${deadlineFields("ends", "Voting closes")}<button class="button" type="submit">Publish tour pick’em →</button></form></section>`;
+  return `<section class="host-panel"><h2>Create a Tour Pick’em</h2><p>Enter the tour name and teams. Players choose one team to win; only correct-winner rewards are paid.</p><form id="tour-winner-create" class="stack"><label>Tour name<input name="name" maxlength="100" required></label><label>Teams · one per line<textarea name="teams" rows="4" maxlength="6500" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D" required></textarea></label><label>Correct winner reward<input name="winnerReward" type="number" min="0" max="100000" value="${PICKEM_WINNER_REWARD}" required></label>${deadlineFields("ends", "Voting closes")}<button class="button" type="submit">Publish tour pick’em →</button></form></section>`;
 }
 
 export function winnerEditor(p, e) {

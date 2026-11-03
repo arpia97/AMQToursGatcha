@@ -13,6 +13,7 @@ import {
 } from "./horse-rules.js";
 import {
   DAILY_CREDITS,
+  PICKEM_WINNER_REWARD,
   MAX_PINNED_ANIME,
   MAX_SPOTLIGHTS,
 } from "./site-defaults.js";
@@ -451,7 +452,7 @@ export function demoFeatures(d, path, b) {
       team_a: teams[0],
       team_b: teams[1],
       ends: now + 3600000,
-      winner_reward: 500,
+      winner_reward: PICKEM_WINNER_REWARD,
       score_reward: 0,
       settled: 0,
     });

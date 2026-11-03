@@ -1,6 +1,10 @@
 import { validFavorites } from "./popularity.js";
 import { Quiz } from "./quiz.js";
-import { PICKEM_WINDOW, defaultReward } from "../public/site-defaults.js";
+import {
+  PICKEM_WINNER_REWARD,
+  PICKEM_WINDOW,
+  defaultReward,
+} from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
@@ -630,7 +634,7 @@ export class Engine {
         this.now() + 90 * 86400000,
       );
       const rewards = [
-        integer(b.winnerReward ?? 500, 0, 100000),
+        integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000),
         integer(b.scoreReward ?? 500, 0, 100000),
       ];
       this.run(

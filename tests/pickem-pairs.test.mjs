@@ -126,8 +126,8 @@ test("all three two-game outcomes can be predicted and settled once, including s
       );
     settle();
     settle();
-    assert.equal(f.e.player("p").balance, 1500);
-    assert.equal(f.e.player("p").earned, 1500);
+    assert.equal(f.e.player("p").balance, 2000);
+    assert.equal(f.e.player("p").earned, 2000);
     assert.equal(f.e.player("q").balance, 0);
     assert.deepEqual(
       { ...f.e.profile("p").stats.pickems },
