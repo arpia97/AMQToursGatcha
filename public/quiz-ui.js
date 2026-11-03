@@ -697,10 +697,18 @@ export function createQuizUI({
         return;
       }
       if (event.target.id !== "quiz-answer") return;
+      if (
+        !run ||
+        run.finished ||
+        run.answered ||
+        working ||
+        event.target.disabled
+      )
+        return;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         suggestionsOpen = true;
-        if (options.length)
+        if (options.length) {
           highlight =
             highlight < 0
               ? event.key === "ArrowDown"
@@ -710,9 +718,20 @@ export function createQuizUI({
                   (event.key === "ArrowDown" ? 1 : -1) +
                   options.length) %
                 options.length;
+          draft = options[highlight];
+          event.target.value = draft;
+        }
         drawSuggestions(event.target);
       }
       if (event.key === "Escape") closeSuggestions();
+      if (event.key === "Enter" && suggestionsOpen && options.length === 1) {
+        event.preventDefault();
+        draft = options[0];
+        event.target.value = draft;
+        closeSuggestions();
+        mutate("quiz-answer", draft).catch(showError);
+        return;
+      }
       if (event.key === "Enter" && suggestionsOpen && highlight >= 0) {
         event.preventDefault();
         draft = options[highlight];

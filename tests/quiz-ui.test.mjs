@@ -247,7 +247,7 @@ test("dropdown filters without per-keystroke requests, keyboard chooses without 
   assert.equal(f.audios[0].volume, 0);
   await f.advance(2000);
   const input = f.node("quiz-answer");
-  input.value = "boc";
+  input.value = "bo";
   const before = f.calls.length;
   await f.ui.input(input);
   assert.equal(f.calls.length, before);
@@ -392,4 +392,50 @@ test("quiz keeps a visible top-20 sidebar and button controls without dropdowns,
     f.calls.filter((c) => c.path.startsWith("quiz-leaderboard")).length,
     1,
   );
+});
+
+test("Enter locks the only dropdown answer once without arrow selection or submitting the typed prefix", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(2000);
+  const input = f.node("quiz-answer");
+  input.value = "boc";
+  await f.ui.input(input);
+  let prevented = 0;
+  const key = {
+    key: "Enter",
+    target: input,
+    preventDefault() {
+      prevented++;
+    },
+  };
+  f.ui.key(key);
+  f.ui.key({ ...key, repeat: true });
+  await flush();
+  assert.equal(input.value, "Bocchi the Rock!");
+  assert.equal(prevented, 2);
+  const answers = f.calls.filter((c) => c.path === "quiz-answer");
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].b.answer, "Bocchi the Rock!");
+  assert.equal(f.node("quiz-suggestions").hidden, true);
+  assert.match(f.ui.render(), /Correct!/);
+});
+test("arrow navigation previews each option in the input while retaining the original matches", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(2000);
+  const input = f.node("quiz-answer");
+  input.value = "bo";
+  await f.ui.input(input);
+  const before = f.calls.length;
+  const arrow = (key) => f.ui.key({ key, target: input, preventDefault() {} });
+  arrow("ArrowDown");
+  assert.equal(input.value, "Bocchi the Rock!");
+  arrow("ArrowDown");
+  assert.equal(input.value, "Boku no Hero Academia");
+  assert.equal(input.attrs["aria-activedescendant"], "quiz-option-1");
+  arrow("ArrowUp");
+  assert.equal(input.value, "Bocchi the Rock!");
+  assert.equal(f.calls.length, before);
+  assert.match(f.node("quiz-suggestions").innerHTML, /Boku no Hero Academia/);
 });
