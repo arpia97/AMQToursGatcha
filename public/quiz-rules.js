@@ -70,10 +70,34 @@ export function resolveQuizAudio(value) {
       : link,
   );
 }
-export function prepareQuizSongs(input, master) {
+export function quizImportRows(input) {
   const rows = Array.isArray(input) ? input : input?.songs;
   if (!Array.isArray(rows) || rows.length > 2000)
-    throw Error("Upload an AnisongDB array with at most 2,000 songs.");
+    throw Error("Upload AnisongDB or AMQ JSON with at most 2,000 songs.");
+  return rows.map((row) => {
+    const info = row?.songInfo;
+    if (!info || typeof info !== "object" || Array.isArray(info)) return row;
+    return {
+      ...row,
+      annId: row.annId ?? info.annId ?? info.siteIds?.annId,
+      annSongId: row.annSongId ?? info.annSongId ?? info.siteIds?.annSongId,
+      amqSongId: row.amqSongId ?? info.amqSongId,
+      songName: row.songName ?? info.songName,
+      artist: row.songArtist ?? row.artist ?? info.artist,
+      audio:
+        row.audio ||
+        row.audioUrl ||
+        row.audio_url ||
+        row.mp3 ||
+        row.songLink ||
+        info.audio ||
+        info.audioUrl ||
+        info.mp3,
+    };
+  });
+}
+export function prepareQuizSongs(input, master) {
+  const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
   const bySong = new Map(),

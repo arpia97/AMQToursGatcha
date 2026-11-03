@@ -1,4 +1,5 @@
 import { loadQuizMaster } from "./quiz-source.js";
+import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text } from "./engine.js";
@@ -424,9 +425,15 @@ export class Game extends DurableObject {
           }
           let prepared;
           try {
-            prepared = prepareQuizSongs(b.input, this.quizMaster.data);
+            this.quizAudioCache ||= new Map();
+            const rows = await resolveQuizImport(
+              b.input,
+              fetch,
+              this.quizAudioCache,
+            );
+            prepared = prepareQuizSongs(rows, this.quizMaster.data);
           } catch (err) {
-            fail(err.message);
+            fail(err.message, err.status || 400);
           }
           if (!prepared.songs.length)
             fail(

@@ -16,6 +16,8 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     platform: "browser",
     external: ["cloudflare:workers"],
   });
+  let audioLookups = 0,
+    failAudioLookup = false;
   const mf = new Miniflare({
     workers: [
       {
@@ -53,8 +55,26 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
         dev: {
           outboundService: {
             type: "fetcher",
-            handler: (request) =>
-              new RuntimeResponse(
+            handler: async (request) => {
+              if (
+                new URL(request.url).pathname === "/api/ann_song_ids_request"
+              ) {
+                audioLookups++;
+                if (failAudioLookup)
+                  return new RuntimeResponse("Unavailable", { status: 503 });
+                const body = await request.json();
+                return new RuntimeResponse(
+                  JSON.stringify(
+                    body.ann_song_ids.map((id) => ({
+                      annId: 1,
+                      annSongId: id,
+                      audio: "amq-" + id + ".mp3",
+                    })),
+                  ),
+                  { headers: { "Content-Type": "application/json" } },
+                );
+              }
+              return new RuntimeResponse(
                 JSON.stringify({
                   masterListId: "test",
                   animeMap: {
@@ -65,7 +85,8 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
                   },
                 }),
                 { headers: { "Content-Type": "application/json" } },
-              ),
+              );
+            },
           },
         },
       },
@@ -136,6 +157,84 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   );
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /No playable MP3 songs/);
+  const amqBody = {
+    id: "amq",
+    name: "AMQ Export",
+    published: false,
+    input: {
+      roomName: "Local",
+      songs: [501, 502].map((id) => ({
+        songInfo: {
+          annId: 1,
+          annSongId: id,
+          songName: "AMQ " + id,
+          artist: "Artist",
+        },
+        answer: "Ignore player guess",
+      })),
+    },
+  };
+  const importKey = "amq-test-import";
+  response = await post("host/quiz-save", amqBody, {
+    ...host,
+    "Idempotency-Key": importKey,
+  });
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).songs, 2);
+  assert.equal(audioLookups, 1);
+  response = await post("host/quiz-save", amqBody, {
+    ...host,
+    "Idempotency-Key": importKey,
+  });
+  assert.equal(response.status, 200);
+  assert.equal(audioLookups, 1);
+  response = await post("host/quiz-save", amqBody, host);
+  assert.equal(response.status, 200);
+  assert.equal(audioLookups, 1);
+  response = await post(
+    "host/quiz-save",
+    {
+      ...amqBody,
+      input: {
+        songs: [
+          {
+            songInfo: {
+              annId: 1,
+              annSongId: 501,
+              songName: "Replacement",
+              audio: "replacement.mp3",
+            },
+          },
+        ],
+      },
+    },
+    host,
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).songs, 1);
+  failAudioLookup = true;
+  response = await post(
+    "host/quiz-save",
+    {
+      ...amqBody,
+      input: {
+        songs: [
+          { songInfo: { annId: 1, annSongId: 503, songName: "Unavailable" } },
+        ],
+      },
+    },
+    host,
+  );
+  assert.equal(response.status, 502, await response.clone().text());
+  assert.match((await response.json()).error, /No pool was changed/);
+  response = await mf.dispatchFetch("http://game/api/host/quizzes", {
+    headers: host,
+  });
+  assert.equal(
+    (await response.json()).quizzes.find((q) => q.id === "amq").songs,
+    1,
+  );
+  failAudioLookup = false;
   const visible = await mf.dispatchFetch("http://game/api/quizzes");
   assert.deepEqual(
     (await visible.json()).quizzes.map((q) => q.id),
