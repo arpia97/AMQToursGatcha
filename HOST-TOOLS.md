@@ -212,3 +212,7 @@ Owner-only endpoints support a reviewed reversal of the latest simple fusion: GE
 Host Console → Quiz → Reset Scores & Completion Titles clears the selected quiz’s leaderboard, active runs, best scores and completion titles after confirmation. Credits stay unchanged. Previously paid best scores remain in quiz_reward_history, so a reset cannot pay the same point or milestone reward twice. Other quizzes and the Host title remain unchanged. Editing a quiz’s perfect-score title updates every current holder because profiles resolve title text from the quiz definition. Leaderboards use best score descending, first-achieved time ascending, and stable player ID only for exact timestamp ties.
 
 New pick’ems default to 1,000 credits for the correct winner. Existing pick’ems retain their configured rewards; hosts can still choose another amount. Legacy exact-score rewards remain 500 credits each.
+
+### Reopen Voting
+
+Pick’ems → Manage Published Pick’ems → Manage Tour exposes **Reopen Voting** for closed, unsettled pick’ems. Duration defaults to five minutes and can be edited. Existing picks, teams and rewards remain; players may submit or revise picks until the new deadline. Settled results cannot be reopened. Host POST `pickem-reopen` takes `{pickem,expected:snapshot,minutes?:5}` with an Idempotency-Key. The deadline is calculated from server time; stale snapshots and already-open polls reject without changes. Replaying a successful request does not extend voting again.

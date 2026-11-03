@@ -1,4 +1,8 @@
-import { PICKEM_WINDOW, defaultReward } from "./site-defaults.js";
+import {
+  PICKEM_WINDOW,
+  PICKEM_REOPEN_WINDOW,
+  defaultReward,
+} from "./site-defaults.js";
 export function deadlineFields(name, label, now = Date.now()) {
   const time = now + PICKEM_WINDOW;
   const value = new Date(time - new Date(time).getTimezoneOffset() * 60000)
@@ -26,4 +30,13 @@ export function updateRewardDefaults(form) {
       category === "counting" ? "Rounds counted" : "Games reported";
   form.elements.namedItem("amount").value =
     defaultReward(category, Number(games.value) || 1) ?? 500;
+}
+
+export function reopenPickemForm(p, now = Date.now()) {
+  if (p.settled || p.ends > now) return "";
+  return (
+    '<section class="pickem-reopen space-top"><h3>Reopen Voting</h3><p class="form-hint">Keep existing picks and let players submit or change their picks.</p><form id="reopen-pickem" class="stack"><label>Reopen for (minutes)<input name="minutes" type="number" min="1" max="129600" step="1" value="' +
+    PICKEM_REOPEN_WINDOW / 60000 +
+    '" required></label><button type="submit" class="button mint">Reopen Voting →</button></form></section>'
+  );
 }

@@ -2618,6 +2618,12 @@ document.addEventListener("input", (ev) => {
   if (ev.target.id === "quiz-answer")
     quizUI.input(ev.target).catch((err) => toast(err.message, true));
 });
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "quiz-sort") {
+    quizUI.setSort(ev.target.value);
+    $("#quiz-sort")?.focus();
+  }
+});
 document.addEventListener("focusin", (ev) => {
   if (ev.target.id === "quiz-answer") quizUI.focus(ev.target);
 });

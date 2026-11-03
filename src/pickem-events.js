@@ -2,6 +2,7 @@ import { pickemVoteSummary } from "../public/pickem-votes.js";
 import {
   PICKEM_WINNER_REWARD,
   PICKEM_WINDOW,
+  PICKEM_REOPEN_WINDOW,
 } from "../public/site-defaults.js";
 import { winnerTeams, pickemTeams } from "../public/tour-winner.js";
 import { fail, integer, text } from "./engine.js";
@@ -226,6 +227,29 @@ export class PickemEvents {
   }
   action(action, b) {
     const e = this.e;
+    if (action === "pickem-reopen") {
+      const p = this.match(b.pickem);
+      this.assertUnchanged(p, b.expected);
+      if (p.ends > e.now())
+        fail("Voting is already open. Edit its deadline to extend it.", 409);
+      const minutes = integer(
+          b.minutes ?? PICKEM_REOPEN_WINDOW / 60000,
+          1,
+          90 * 24 * 60,
+        ),
+        ends = e.now() + minutes * 60000;
+      e.run("UPDATE pickems SET ends=? WHERE id=?", ends, p.id);
+      return {
+        message:
+          "Voting reopened for " +
+          minutes +
+          " minute" +
+          (minutes === 1 ? "" : "s") +
+          ". Existing picks kept.",
+        pickem: p.id,
+        ends,
+      };
+    }
     if (action === "pickem-winner") {
       const teams = winnerTeams(b.teams),
         name = text(b.name, 100),

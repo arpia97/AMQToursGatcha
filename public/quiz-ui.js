@@ -27,7 +27,8 @@ export function createQuizUI({
     audioKey = "",
     generation = 0,
     leaderboardOnly = false,
-    leaderboardData = null;
+    leaderboardData = null,
+    quizSort = "recent";
   let sampleStart = 0,
     audioState = "loading",
     playAttempted = false,
@@ -186,8 +187,32 @@ export function createQuizUI({
       return (
         '<div class="page-intro"><div><h1>Quiz</h1></div></div>' +
         (quizzes.length
-          ? '<div class="quiz-grid">' +
-            quizzes
+          ? '<div class="toolbar"><label>Sort By<select id="quiz-sort">' +
+            [
+              ["recent", "Recently Updated"],
+              ["best-desc", "Performance · Highest First"],
+              ["best-asc", "Performance · Lowest First"],
+            ]
+              .map(
+                ([value, label]) =>
+                  '<option value="' +
+                  value +
+                  '"' +
+                  (quizSort === value ? " selected" : "") +
+                  ">" +
+                  label +
+                  "</option>",
+              )
+              .join("") +
+            '</select></label></div><div class="quiz-grid">' +
+            [...quizzes]
+              .sort((a, b) =>
+                quizSort === "best-desc"
+                  ? b.best - a.best
+                  : quizSort === "best-asc"
+                    ? a.best - b.best
+                    : 0,
+              )
               .map(
                 (q) =>
                   '<article class="collect-card quiz-tile tier-' +
@@ -605,6 +630,11 @@ export function createQuizUI({
     mount,
     stop,
     setVolume,
+    setSort(value) {
+      if (!["recent", "best-desc", "best-asc"].includes(value)) return;
+      quizSort = value;
+      onRender();
+    },
     closeSuggestions,
     async click(button) {
       if (button.hasAttribute("data-quiz-leaderboard")) {

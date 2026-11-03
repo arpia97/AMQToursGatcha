@@ -250,3 +250,65 @@ test("public and host winner forms contain no score controls, retain team-keyed 
   f.host("settle", settlement);
   assert.match(settlementTable([f.e.pickemEvents.match(p.id)], esc), /Delta/);
 });
+
+test("host reopening keeps votes/rewards, defaults to five minutes and retries do not extend voting twice", (t) => {
+  const f = fixture(t),
+    p = f.create();
+  f.act("p", { pickem: p.id, winner: "Delta", expectedTeams: p.teams });
+  f.advance(900000);
+  const before = f.e.pickemEvents.match(p.id),
+    balance = f.e.player("p").balance;
+  const body = { pickem: p.id, expected: before };
+  const reopened = f.host("pickem-reopen", body, "reopen-once");
+  assert.equal(reopened.ends, f.now() + 300000);
+  assert.equal(f.e.pickemEvents.match(p.id).votes, 1);
+  assert.equal(f.e.pickemEvents.match(p.id).winner_reward, 1000);
+  assert.equal(f.e.player("p").balance, balance);
+  assert.ok(f.e.pickemEvents.page().tours[0].open);
+  f.advance(1000);
+  assert.deepEqual(f.host("pickem-reopen", body, "reopen-once"), reopened);
+  assert.equal(f.e.pickemEvents.match(p.id).ends, reopened.ends);
+  f.act("p", { pickem: p.id, winner: "Beta", expectedTeams: p.teams });
+  f.act("q", { pickem: p.id, winner: "Beta", expectedTeams: p.teams });
+  assert.equal(f.e.pickemEvents.match(p.id).votes, 2);
+  f.advance(300000);
+  assert.throws(
+    () => f.act("q", { pickem: p.id, winner: "Delta", expectedTeams: p.teams }),
+    /closed/,
+  );
+});
+test("reopening validates duration, refuses open/stale/settled pickems, and keeps paid credits unchanged", (t) => {
+  const f = fixture(t),
+    p = f.create(),
+    body = () => ({ pickem: p.id, expected: f.e.pickemEvents.match(p.id) });
+  assert.throws(() => f.host("pickem-reopen", body()), /already open/);
+  f.advance(900000);
+  for (const minutes of [0, -1, 1.5, 129601, "5"])
+    assert.throws(() => f.host("pickem-reopen", { ...body(), minutes }));
+  const stale = body();
+  f.e.run("UPDATE pickems SET title='Changed' WHERE id=?", p.id);
+  assert.throws(() => f.host("pickem-reopen", stale), /changed/);
+  const reopened = f.host("pickem-reopen", { ...body(), minutes: 2 });
+  assert.equal(reopened.ends, f.now() + 120000);
+  f.advance(120000);
+  f.host("settle", { pickem: p.id, winner: "Beta", expectedTeams: p.teams });
+  const before = f.e.player("p").balance;
+  assert.throws(() => f.host("pickem-reopen", body()), /Settled/);
+  assert.equal(f.e.player("p").balance, before);
+});
+test("closed pickem editors expose an editable five-minute reopening action, while open and settled pickems do not", (t) => {
+  const f = fixture(t),
+    p = f.create(),
+    esc = String;
+  assert.doesNotMatch(winnerEditor(p, esc, f.now()), /id="reopen-pickem"/);
+  f.advance(900000);
+  const closed = f.e.pickemEvents.match(p.id),
+    html = winnerEditor(closed, esc, f.now());
+  assert.match(html, /id="reopen-pickem"/);
+  assert.match(html, /name="minutes"[^>]*value="5"/);
+  assert.match(html, /Existing|existing picks/);
+  assert.doesNotMatch(
+    winnerEditor({ ...closed, settled: 1 }, esc, f.now()),
+    /id="reopen-pickem"/,
+  );
+});

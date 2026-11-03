@@ -502,3 +502,44 @@ test("skipped questions show No Answer with incorrect feedback", async (t) => {
   assert.match(html, /quiz-question is-incorrect/);
   assert.match(html, /No Answer/);
 });
+
+test("quiz performance sorting uses personal best, keeps ties stable and preserves source order", async () => {
+  const quizzes = [
+    { id: "mid", name: "Middle Quiz", best: 10, songs: 20, published: true },
+    { id: "low", name: "Low Quiz", best: 0, songs: 20, published: true },
+    { id: "high", name: "High Quiz", best: 20, songs: 20, published: true },
+    { id: "tie", name: "Tied Quiz", best: 10, songs: 20, published: false },
+  ];
+  let requests = 0,
+    renders = 0;
+  const ui = createQuizUI({
+    api: async () => {
+      requests++;
+      return { quizzes };
+    },
+    escape,
+    getState: () => ({ me: { id: "player" } }),
+    onRender: () => renders++,
+    storage: { getItem: () => null },
+  });
+  await ui.load();
+  const order = () =>
+    [...ui.render().matchAll(/data-quiz-open="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(order(), ["mid", "low", "high", "tie"]);
+  assert.match(ui.render(), /Sort By<select id="quiz-sort">/);
+  ui.setSort("best-desc");
+  assert.deepEqual(order(), ["high", "mid", "tie", "low"]);
+  assert.match(ui.render(), /value="best-desc" selected/);
+  ui.setSort("best-asc");
+  assert.deepEqual(order(), ["low", "mid", "tie", "high"]);
+  ui.setSort("invalid");
+  assert.deepEqual(order(), ["low", "mid", "tie", "high"]);
+  ui.setSort("recent");
+  assert.deepEqual(order(), ["mid", "low", "high", "tie"]);
+  assert.equal(requests, 1);
+  assert.equal(renders, 3);
+  assert.deepEqual(
+    quizzes.map((q) => q.id),
+    ["mid", "low", "high", "tie"],
+  );
+});

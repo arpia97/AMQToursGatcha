@@ -293,6 +293,18 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
+    if (formIdentifier(form) === "reopen-pickem") {
+      if (!matchDraft) throw Error("Open a pick’em first.");
+      result = await api(
+        "pickem-reopen",
+        {
+          pickem: matchDraft.id,
+          expected: matchDraft,
+          minutes: Number(b.minutes),
+        },
+        key,
+      );
+    }
     if (formIdentifier(form) === "edit-tour-winner") {
       if (!matchDraft) throw Error("Open a tour pick’em first.");
       result = await api(
