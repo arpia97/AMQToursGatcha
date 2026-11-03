@@ -155,7 +155,18 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   );
   assert.deepEqual((await response.json()).answers, ["Alternative Test"]);
   for (let i = 0; i < 20; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    response = await post(
+      "quiz-ready",
+      { quiz: "test", run: run.id, index: i },
+      auth,
+    );
+    assert.equal(response.status, 200, await response.clone().text());
+    const ready = (await response.json()).run;
+    if (ready.startsAt > Date.now())
+      await new Promise((resolve) =>
+        setTimeout(resolve, ready.startsAt - Date.now() + 10),
+      );
     response = await post(
       "quiz-answer",
       {

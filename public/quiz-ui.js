@@ -1,31 +1,139 @@
-import { quizRarity } from "./quiz-rules.js";
+import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
+import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
-export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
+
+export function createQuizUI({
+  api,
+  escape: e,
+  getState,
+  onRender,
+  onWallet,
+  storage,
+  audioFactory,
+  clock,
+}) {
+  const time = clock || {
+    now: () => Date.now(),
+    every: (fn, ms) => setInterval(fn, ms),
+    cancel: (id) => clearInterval(id),
+  };
+  const makeAudio = audioFactory || ((src) => new Audio(src));
+  const banks = new Map();
   let quizzes = [],
     selected = null,
     run = null,
     working = false,
     audio = null,
     audioKey = "",
-    sampleStart = 0,
-    queryVersion = 0,
+    generation = 0;
+  let sampleStart = 0,
+    audioState = "loading",
+    playAttempted = false,
+    arming = false,
+    timer = null,
+    serverOffset = 0;
+  let draft = "",
+    draftKey = "",
     options = [],
-    highlight = -1;
+    highlight = -1,
+    suggestionsOpen = false,
+    bank = null,
+    timeoutAttempted = false,
+    errorMessage = "";
+  let volume = 30;
+  try {
+    storage = storage || globalThis.localStorage;
+    const saved = storage?.getItem("amqtours-quiz-volume");
+    if (saved !== null && saved !== undefined && Number.isFinite(Number(saved)))
+      volume = Math.min(100, Math.max(0, Math.round(Number(saved))));
+  } catch {}
+  const serverNow = () => time.now() + serverOffset;
+  async function call(path, body) {
+    const sent = time.now(),
+      result = await api(path, body),
+      received = time.now();
+    if (Number.isFinite(result.now))
+      serverOffset = result.now - (sent + received) / 2;
+    return result;
+  }
+  function useRun(value) {
+    run = value;
+    const key = run ? run.id + ":" + run.index : "";
+    if (key !== draftKey) {
+      draftKey = key;
+      draft = "";
+      options = [];
+      highlight = -1;
+      suggestionsOpen = false;
+      errorMessage = "";
+    }
+  }
   function stop() {
+    generation++;
     audio?.pause();
     audio = null;
     audioKey = "";
+    arming = false;
+    if (timer !== null) time.cancel(timer);
+    timer = null;
+  }
+  async function loadBank(q) {
+    const key = q.id + ":" + q.updated;
+    if (banks.has(key)) {
+      bank = banks.get(key);
+      return;
+    }
+    const entry = { answers: [], complete: false, error: "" };
+    banks.set(key, entry);
+    bank = entry;
+    try {
+      let page = 1,
+        version = null;
+      for (;;) {
+        const data = await call(
+          "quiz-answers?bank=1&quiz=" +
+            encodeURIComponent(q.id) +
+            "&page=" +
+            page,
+        );
+        if (version !== null && data.version !== version)
+          throw Error("The quiz pool changed. Reopen it to refresh titles.");
+        version = data.version;
+        entry.answers.push(...data.answers);
+        if (!data.hasMore) break;
+        page++;
+      }
+      entry.answers = [...new Set(entry.answers)];
+      entry.complete = true;
+    } catch (err) {
+      entry.error = err.message;
+      banks.delete(key);
+    }
   }
   async function load() {
-    quizzes = (await api("quizzes")).quizzes;
+    quizzes = (await call("quizzes")).quizzes;
     if (selected && !quizzes.some((q) => q.id === selected)) {
       selected = null;
-      run = null;
+      useRun(null);
       stop();
     }
-    if (selected && getState().me)
-      run = (await api("quiz-run?quiz=" + encodeURIComponent(selected))).run;
+    if (selected) {
+      if (getState().me)
+        useRun(
+          (await call("quiz-run?quiz=" + encodeURIComponent(selected))).run,
+        );
+      else useRun(null);
+      await loadBank(quizzes.find((q) => q.id === selected));
+    }
   }
+  const volumeControl = () =>
+    '<label class="quiz-volume-control">Volume<input id="quiz-volume" type="range" min="0" max="100" step="1" value="' +
+    volume +
+    '" aria-label="Quiz Volume"><output id="quiz-volume-value">' +
+    volume +
+    "%</output></label>";
+  const guide =
+    '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
   function render() {
     if (!selected) {
       stop();
@@ -36,38 +144,311 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
             quizzes
               .map(
                 (q) =>
-                  `<article class="collect-card quiz-tile tier-${rarityClass(quizRarity(q.best))}">${q.cover ? `<img src="${e(q.cover)}" alt="${e(q.name)} Cover">` : '<div class="quiz-cover-placeholder" aria-hidden="true">♫</div>'}<div class="card-body"><h2>${e(q.name)}</h2><p>20 Songs · Personal Best ${q.best}/20</p><p>${q.songs} Songs in Pool</p>${q.title ? `<p class="form-hint">100% Title: ${e(q.title)}</p>` : ""}<button class="button mint" data-quiz-open="${e(q.id)}">${getState().me ? "Play Quiz →" : "Sign In to Play"}</button></div></article>`,
+                  '<article class="collect-card quiz-tile tier-' +
+                  rarityClass(quizRarity(q.best)) +
+                  '">' +
+                  (q.cover
+                    ? '<img src="' +
+                      e(q.cover) +
+                      '" alt="' +
+                      e(q.name) +
+                      ' Cover">'
+                    : '<div class="quiz-cover-placeholder" aria-hidden="true">♫</div>') +
+                  '<div class="card-body">' +
+                  (!q.published
+                    ? '<span class="quiz-draft-badge">Draft · Hosts Only</span>'
+                    : "") +
+                  "<h2>" +
+                  e(q.name) +
+                  "</h2><p>20 Songs · Personal Best " +
+                  q.best +
+                  "/20</p><p>" +
+                  q.songs +
+                  " Songs in Pool</p>" +
+                  (q.title
+                    ? '<p class="form-hint">100% Title: ' + e(q.title) + "</p>"
+                    : "") +
+                  '<button class="button mint" data-quiz-open="' +
+                  e(q.id) +
+                  '">' +
+                  (!getState().me
+                    ? "Sign In to Play"
+                    : q.published
+                      ? "Play Quiz →"
+                      : "Preview Quiz →") +
+                  "</button></div></article>",
               )
               .join("") +
             "</div>"
           : '<section class="quiz-coming-soon"><span aria-hidden="true">♫</span><h2>Coming Soon</h2><p>Anime music quizzes are on the way.</p></section>') +
-        '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool.</li></ul></details>'
+        guide
       );
     }
     const q = quizzes.find((q) => q.id === selected);
     if (!q) return "";
-    const top = `<div class="section-head"><h1>${e(q.name)}</h1><button class="text-button" data-quiz-back>All Quizzes ←</button></div>`;
+    const preview = !q.published || run?.preview;
+    const top =
+      '<div class="section-head"><div><h1>' +
+      e(q.name) +
+      "</h1>" +
+      (preview
+        ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
+        : "") +
+      '</div><button class="text-button" data-quiz-back>All Quizzes ←</button></div>';
     if (!getState().me)
       return (
         top +
         '<p>Sign in to play quizzes and keep your progress.</p><button class="button" data-action="account">Sign In →</button>'
       );
-    if (!run)
+    if (!run) {
+      stop();
       return (
         top +
-        '<p>20 random songs. Choose the anime title for each sample.</p><button class="button mint" data-quiz-action="quiz-start">Start Quiz →</button>'
+        "<p>20 Songs · 20 Seconds Each · Two-Second Starting Countdown</p>" +
+        volumeControl() +
+        (q.songs < 20
+          ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
+          : '<button class="button mint space-top" data-quiz-action="quiz-start">' +
+            (preview ? "Start Preview →" : "Start Quiz →") +
+            "</button>")
       );
+    }
     if (run.finished) {
       stop();
       return (
         top +
-        `<section class="quiz-complete tier-${rarityClass(quizRarity(run.score))}"><h2>Quiz Complete · ${run.score}/20</h2><p>Personal Best: ${run.reward.best}/20</p><p>New Best Bonus: ✦ ${run.reward.improvement} · Milestones: ✦ ${run.reward.milestones}</p><strong>+${run.reward.total} Credits</strong>${run.reward.title ? `<p>Title Unlocked: ${e(run.reward.title)}</p>` : ""}<p><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></p></section>`
+        '<section class="quiz-complete tier-' +
+        rarityClass(quizRarity(run.score)) +
+        '"><h2>' +
+        (preview ? "Preview Complete" : "Quiz Complete") +
+        " · " +
+        run.score +
+        "/20</h2>" +
+        (preview
+          ? "<p>Test Score Only · No Credits Awarded</p>"
+          : "<p>Personal Best: " +
+            run.reward.best +
+            "/20</p><p>New Best Bonus: ✦ " +
+            run.reward.improvement +
+            " · Milestones: ✦ " +
+            run.reward.milestones +
+            "</p><strong>+" +
+            run.reward.total +
+            " Credits</strong>") +
+        (run.reward.title
+          ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
+          : "") +
+        '<p><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></p></section>'
       );
     }
+    const answerForm =
+      '<form id="quiz-answer-form" class="stack"><div class="quiz-answer-field"><label for="quiz-answer">Anime Title</label><input id="quiz-answer" class="search" name="answer" value="' +
+      e(draft) +
+      '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip>Skip Song</button></form>';
+    const result =
+      '<div class="notice"><strong>' +
+      (run.correct ? "Correct!" : run.timedOut ? "Time’s Up" : "Incorrect") +
+      "</strong><p>" +
+      e(run.answer || "") +
+      "</p><small>" +
+      e(run.songTitle || "") +
+      " · " +
+      e(run.artist || "") +
+      '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
+      (run.index === 19 ? "Finish Quiz →" : "Next Song →") +
+      "</button>";
     return (
       top +
-      `<section class="quiz-question"><div class="section-head"><h2>Song ${run.index + 1} of 20</h2><span>${run.score} Correct</span></div><div class="quiz-sound" aria-hidden="true">♫</div>${!run.answered ? '<button class="button secondary" data-quiz-play>Play Sample ▶</button><p class="form-hint" id="quiz-audio-status">25-Second Audio Sample</p>' : ""}${run.answered ? `<div class="notice"><strong>${run.correct ? "Correct!" : "Incorrect"}</strong><p>${e(run.answer)}</p><small>${e(run.songTitle)} · ${e(run.artist)}</small></div><button class="button mint space-top" data-quiz-action="quiz-next">${run.index === 19 ? "Finish Quiz →" : "Next Song →"}</button>` : `<form id="quiz-answer-form" class="stack"><label>Anime Title<input id="quiz-answer" class="search" name="answer" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…"></label><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox"></ul><button class="button mint" type="submit">Lock Answer →</button><button type="button" class="text-button" data-quiz-skip>Skip Song</button></form>`}</section>`
+      '<section class="quiz-question"><div class="quiz-question-heading"><h2>Song ' +
+      (run.index + 1) +
+      ' of 20</h2><div class="quiz-score"><span>Score</span><strong>' +
+      run.score +
+      " / 20</strong></div></div>" +
+      (!preview
+        ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
+        : "") +
+      (!run.answered
+        ? '<div class="quiz-timer"><span id="quiz-time-left" role="timer">Loading Audio…</span><progress id="quiz-time-progress" max="20" value="20" aria-label="Seconds Remaining"></progress></div><div class="quiz-sound" aria-hidden="true"><span id="quiz-sound-symbol">♫</span><span id="quiz-countdown" hidden></span></div>'
+        : "") +
+      '<div class="quiz-audio-line">' +
+      volumeControl() +
+      (!run.answered
+        ? '<span class="form-hint" id="quiz-audio-status">Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
+        : "") +
+      "</div>" +
+      (run.answered ? result : answerForm) +
+      '<p id="quiz-inline-error" class="form-error" role="alert">' +
+      e(errorMessage) +
+      "</p></section>"
     );
+  }
+  function closeSuggestions() {
+    suggestionsOpen = false;
+    highlight = -1;
+    const list = document.getElementById("quiz-suggestions"),
+      input = document.getElementById("quiz-answer");
+    if (list) list.hidden = true;
+    input?.setAttribute("aria-expanded", "false");
+    input?.removeAttribute("aria-activedescendant");
+  }
+  function drawSuggestions(input) {
+    const list = document.getElementById("quiz-suggestions");
+    if (!list) return;
+    const show = suggestionsOpen && !!input.value.trim();
+    list.hidden = !show;
+    input.setAttribute("aria-expanded", String(show));
+    list.innerHTML = options.length
+      ? options
+          .map(
+            (o, i) =>
+              '<li role="option" id="quiz-option-' +
+              i +
+              '" aria-selected="' +
+              (highlight === i) +
+              '" data-quiz-answer-option="' +
+              i +
+              '" title="' +
+              e(o) +
+              '">' +
+              e(o) +
+              "</li>",
+          )
+          .join("")
+      : '<li role="option" aria-disabled="true">' +
+        (bank?.error
+          ? "Titles Unavailable · Type Your Answer"
+          : bank?.complete
+            ? "No Matching Titles"
+            : "Loading Titles…") +
+        "</li>";
+    if (highlight >= 0) {
+      input.setAttribute("aria-activedescendant", "quiz-option-" + highlight);
+      document
+        .getElementById("quiz-option-" + highlight)
+        ?.scrollIntoView({ block: "nearest" });
+    } else input.removeAttribute("aria-activedescendant");
+  }
+  function updateInput(input) {
+    draft = input.value;
+    suggestionsOpen = true;
+    options = quizAnswerOptions(bank?.answers || [], draft);
+    highlight = -1;
+    drawSuggestions(input);
+  }
+  function setVolume(value) {
+    volume = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+    if (audio) audio.volume = volume / 100;
+    const label = document.getElementById("quiz-volume-value");
+    if (label) label.textContent = volume + "%";
+    try {
+      storage?.setItem("amqtours-quiz-volume", String(volume));
+    } catch {}
+  }
+  function showError(error) {
+    errorMessage = error.message || String(error);
+    const el = document.getElementById("quiz-inline-error");
+    if (el) el.textContent = errorMessage;
+  }
+  async function mutate(action, answer, skip = false) {
+    if (working) return;
+    working = true;
+    closeSuggestions();
+    tick();
+    try {
+      const result = await call(action, {
+        quiz: selected,
+        ...(run ? { run: run.id, index: run.index } : {}),
+        ...(answer !== undefined ? { answer } : {}),
+        ...(skip ? { skip: true } : {}),
+      });
+      useRun(result.run);
+      if (result.me) onWallet(result.me);
+      if (run?.finished) quizzes = (await call("quizzes")).quizzes;
+      onRender();
+    } finally {
+      working = false;
+      tick();
+    }
+  }
+  function attemptPlay() {
+    if (!audio || playAttempted) return;
+    const current = audio,
+      token = generation;
+    playAttempted = true;
+    current
+      .play()
+      .then(() => {
+        if (token === generation) {
+          audioState = "playing";
+          tick();
+        }
+      })
+      .catch(() => {
+        if (token === generation) {
+          audioState = "blocked";
+          tick();
+        }
+      });
+  }
+  function tick() {
+    if (!run || run.finished || run.answered) return;
+    const now = serverNow(),
+      started =
+        run.startsAt !== null &&
+        run.startsAt !== undefined &&
+        now >= run.startsAt;
+    const remaining = run.endsAt ? Math.max(0, (run.endsAt - now) / 1000) : 20;
+    const lead = run.startsAt
+      ? Math.max(0, Math.ceil((run.startsAt - now) / 1000))
+      : 0;
+    const input = document.getElementById("quiz-answer"),
+      lock = document.getElementById("quiz-lock-answer");
+    if (input) input.disabled = !started || working;
+    if (lock) lock.disabled = !started || working;
+    const left = document.getElementById("quiz-time-left"),
+      bar = document.getElementById("quiz-time-progress");
+    if (left)
+      left.textContent = lead
+        ? "Starts in " + lead + "s"
+        : run.endsAt
+          ? Math.ceil(remaining) + "s Left"
+          : "Loading Audio…";
+    if (bar) bar.value = remaining;
+    const symbol = document.getElementById("quiz-sound-symbol"),
+      countdown = document.getElementById("quiz-countdown");
+    if (symbol) symbol.hidden = lead > 0;
+    if (countdown) {
+      countdown.hidden = !lead;
+      countdown.textContent = lead ? String(lead) : "";
+    }
+    const status = document.getElementById("quiz-audio-status"),
+      play = document.querySelector("[data-quiz-play]");
+    if (status)
+      status.textContent =
+        audioState === "error"
+          ? "Audio Could Not Load"
+          : audioState === "blocked"
+            ? "Click Enable Audio to Start Sound"
+            : lead
+              ? "Get Ready…"
+              : started
+                ? "Listening…"
+                : "Preparing Audio…";
+    if (play) {
+      play.hidden = !["blocked", "error"].includes(audioState);
+      play.textContent =
+        audioState === "error" ? "Retry Audio" : "Enable Audio";
+    }
+    if (run.endsAt && remaining <= 0) {
+      audio?.pause();
+      if (!working && !timeoutAttempted) {
+        timeoutAttempted = true;
+        mutate("quiz-answer", input?.value ?? draft).catch(showError);
+      }
+      return;
+    }
+    if (started && audio && audioState !== "loading" && audioState !== "error")
+      attemptPlay();
   }
   function mount() {
     if (!selected || !run || run.finished || run.answered) {
@@ -75,72 +456,86 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
       return;
     }
     const key = run.id + ":" + run.index;
-    if (key === audioKey) return;
+    if (key === audioKey) {
+      tick();
+      return;
+    }
     stop();
     audioKey = key;
-    audio = new Audio(run.audio);
-    audio.preload = "metadata";
-    audio.addEventListener("loadedmetadata", () => {
-      if (!audio || audioKey !== key) return;
-      sampleStart = Number.isFinite(audio.duration)
-        ? Math.max(0, (audio.duration - 25) * run.sample)
-        : 0;
-      audio.currentTime = sampleStart;
-    });
-    audio.addEventListener("timeupdate", () => {
-      if (audio && audio.currentTime >= sampleStart + 25) audio.pause();
-    });
-    audio.addEventListener("error", () => {
-      const el = document.getElementById("quiz-audio-status");
-      if (el)
-        el.textContent = "Audio could not load. Try playing the sample again.";
-    });
-    audio.play().catch(() => {});
-  }
-  async function mutate(action, answer) {
-    if (working) return;
-    working = true;
-    const button = document.querySelector(
-      "#quiz-answer-form button[type=submit]",
-    );
-    if (button) button.disabled = true;
-    try {
-      const result = await api(action, {
-        quiz: selected,
-        ...(run ? { run: run.id, index: run.index } : {}),
-        ...(answer !== undefined ? { answer } : {}),
-      });
-      run = result.run;
-      if (result.me) onWallet(result.me);
-      if (run.finished) quizzes = (await api("quizzes")).quizzes;
-      options = [];
-      highlight = -1;
-      onRender();
-      mount();
-    } finally {
-      working = false;
-      if (button?.isConnected) button.disabled = false;
+    audioState = "loading";
+    playAttempted = false;
+    timeoutAttempted = false;
+    const token = generation;
+    timer = time.every(tick, 200);
+    if (run.endsAt && serverNow() >= run.endsAt) {
+      tick();
+      return;
     }
-  }
-  function drawSuggestions(input) {
-    const list = document.getElementById("quiz-suggestions");
-    if (!list) return;
-    list.innerHTML = options
-      .map(
-        (o, i) =>
-          `<li role="option" id="quiz-option-${i}" aria-selected="${highlight === i}"><button type="button" data-quiz-answer-option="${i}">${e(o)}</button></li>`,
-      )
-      .join("");
-    input.setAttribute("aria-expanded", String(!!options.length));
-    if (highlight >= 0)
-      input.setAttribute("aria-activedescendant", "quiz-option-" + highlight);
-    else input.removeAttribute("aria-activedescendant");
+    audio = makeAudio(run.audio);
+    audio.preload = "auto";
+    audio.volume = volume / 100;
+    const current = audio;
+    const ready = async () => {
+      if (token !== generation || arming || current.seeking) return;
+      if (current.readyState !== undefined && current.readyState < 2) return;
+      if (run.startsAt) {
+        audioState = "ready";
+        tick();
+        return;
+      }
+      arming = true;
+      try {
+        const result = await call("quiz-ready", {
+          quiz: selected,
+          run: run.id,
+          index: run.index,
+        });
+        if (token !== generation) return;
+        useRun(result.run);
+        audioState = "ready";
+        onRender();
+        tick();
+      } catch (err) {
+        if (token === generation) {
+          audioState = "error";
+          showError(err);
+          tick();
+        }
+      } finally {
+        if (token === generation) arming = false;
+      }
+    };
+    current.addEventListener("loadedmetadata", () => {
+      if (token !== generation) return;
+      sampleStart = Number.isFinite(current.duration)
+        ? Math.max(0, (current.duration - QUIZ_SONG_MS / 1000) * run.sample)
+        : 0;
+      const elapsed = run.startsAt
+        ? Math.max(0, Math.min(20, (serverNow() - run.startsAt) / 1000))
+        : 0;
+      current.currentTime = sampleStart + elapsed;
+    });
+    current.addEventListener("canplay", ready);
+    current.addEventListener("seeked", ready);
+    current.addEventListener("timeupdate", () => {
+      if (token === generation && current.currentTime >= sampleStart + 20)
+        current.pause();
+    });
+    current.addEventListener("error", () => {
+      if (token === generation) {
+        audioState = "error";
+        tick();
+      }
+    });
+    tick();
   }
   return {
     load,
     render,
     mount,
     stop,
+    setVolume,
+    closeSuggestions,
     async click(button) {
       if (
         working &&
@@ -150,15 +545,14 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
         throw Error("Wait for the current answer to finish saving.");
       if (button.hasAttribute("data-quiz-open")) {
         selected = button.dataset.quizOpen;
-        run = null;
+        useRun(null);
         await load();
         onRender();
-        mount();
         return true;
       }
       if (button.hasAttribute("data-quiz-back")) {
         selected = null;
-        run = null;
+        useRun(null);
         stop();
         onRender();
         return true;
@@ -168,55 +562,43 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
         return true;
       }
       if (button.hasAttribute("data-quiz-skip")) {
-        await mutate("quiz-answer", "");
+        await mutate("quiz-answer", "", true);
         return true;
       }
       if (button.hasAttribute("data-quiz-play")) {
-        if (audio) {
-          audio.currentTime = sampleStart;
-          await audio.play();
+        if (audioState === "error" && audio) {
+          audioState = "loading";
+          playAttempted = false;
+          arming = false;
+          audio.load();
+          tick();
+        } else {
+          playAttempted = false;
+          attemptPlay();
         }
         return true;
       }
       if (button.hasAttribute("data-quiz-answer-option")) {
         const input = document.getElementById("quiz-answer");
-        input.value = options[Number(button.dataset.quizAnswerOption)];
-        options = [];
-        highlight = -1;
-        drawSuggestions(input);
+        if (!input || input.disabled) return true;
+        draft = options[Number(button.dataset.quizAnswerOption)] || input.value;
+        input.value = draft;
+        closeSuggestions();
         input.focus();
         return true;
       }
       return false;
     },
     async input(input) {
-      const version = ++queryVersion,
-        value = input.value;
-      if (value.trim().length < 2) {
-        options = [];
-        highlight = -1;
-        drawSuggestions(input);
-        return;
-      }
-      const data = await api(
-        "quiz-answers?quiz=" +
-          encodeURIComponent(selected) +
-          "&q=" +
-          encodeURIComponent(value),
-      );
-      if (
-        version !== queryVersion ||
-        !input.isConnected ||
-        input.value !== value
-      )
-        return;
-      options = data.answers;
-      highlight = -1;
-      drawSuggestions(input);
+      updateInput(input);
+    },
+    focus(input) {
+      if (!input.disabled) updateInput(input);
     },
     key(event) {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
+        suggestionsOpen = true;
         if (options.length)
           highlight =
             highlight < 0
@@ -229,17 +611,12 @@ export function createQuizUI({ api, escape: e, getState, onRender, onWallet }) {
                 options.length;
         drawSuggestions(event.target);
       }
-      if (event.key === "Escape") {
-        options = [];
-        highlight = -1;
-        drawSuggestions(event.target);
-      }
-      if (event.key === "Enter" && highlight >= 0) {
+      if (event.key === "Escape") closeSuggestions();
+      if (event.key === "Enter" && suggestionsOpen && highlight >= 0) {
         event.preventDefault();
-        event.target.value = options[highlight];
-        options = [];
-        highlight = -1;
-        drawSuggestions(event.target);
+        draft = options[highlight];
+        event.target.value = draft;
+        closeSuggestions();
       }
     },
     submit: (form) => mutate("quiz-answer", form.elements.answer.value),

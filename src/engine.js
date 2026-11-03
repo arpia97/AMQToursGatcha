@@ -312,7 +312,9 @@ export class Engine {
   action(player, action, b) {
     const now = this.now();
     this.player(player);
-    if (["quiz-start", "quiz-answer", "quiz-next"].includes(action))
+    if (
+      ["quiz-start", "quiz-ready", "quiz-answer", "quiz-next"].includes(action)
+    )
       return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
     if (additional) return additional;

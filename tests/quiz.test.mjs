@@ -24,10 +24,11 @@ function fixture(t) {
       throw err;
     }
   };
+  let now = 123456;
   const e = new Engine(
     (s, ...a) => db.prepare(s).all(...a),
     tx,
-    () => 123456,
+    () => now,
     () => 0,
   );
   e.host("players", {
@@ -55,7 +56,15 @@ function fixture(t) {
   save();
   const action = (p, a, b, key = crypto.randomUUID()) =>
     e.mutate(p + ":" + a, key, b, () => e.action(p, a, b));
-  return { e, songs, save, action };
+  return {
+    e,
+    songs,
+    save,
+    action,
+    advance: (n) => {
+      now += n;
+    },
+  };
 }
 test("AMQ IDs supply alternative and shared-song answers; video, unmatched and duplicate audio are rejected", () => {
   const master = {
@@ -135,6 +144,12 @@ function play(f, score, keyPrefix = crypto.randomUUID()) {
     run = result.run;
   const seen = new Set();
   for (let i = 0; i < 20; i++) {
+    const ready = f.action("p", "quiz-ready", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+    });
+    f.advance(Math.max(0, ready.run.startsAt - f.e.now()));
     const stored = f.e.quiz.run("p", "test");
     const song = stored.songs[i];
     seen.add(song.audio);
@@ -298,4 +313,150 @@ test("AMQ occurrence links override legacy exports that mislabel an occurrence I
     master,
   );
   assert.deepEqual(q.songs[0].answers, ["Original", "Shared Appearance"]);
+});
+
+test("draft quizzes, answer choices and playback are available only to hosts, and preview runs never award credits or progress", (t) => {
+  const f = fixture(t);
+  f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.save({ published: false });
+  assert.equal(f.e.quiz.list().length, 0);
+  assert.equal(f.e.quiz.list("p").length, 0);
+  assert.equal(f.e.quiz.list("368").length, 1);
+  for (const player of [null, "p", "q"]) {
+    assert.throws(
+      () => f.e.quiz.definition("test", player),
+      (e) => e.status === 404,
+    );
+    assert.throws(
+      () => f.e.quiz.answerBank("test", player),
+      (e) => e.status === 404,
+    );
+  }
+  const before = f.e.player("368");
+  let run = f.action("368", "quiz-start", { quiz: "test" }).run;
+  assert.equal(run.preview, true);
+  for (let i = 0; i < 20; i++) {
+    const ready = f.action("368", "quiz-ready", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+    });
+    f.advance(Math.max(0, ready.run.startsAt - f.e.now()));
+    const answer = f.e.quiz.run("368", "test").songs[i].answers[0];
+    f.action("368", "quiz-answer", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+      answer,
+    });
+    run = f.action("368", "quiz-next", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+    }).run;
+  }
+  assert.equal(run.score, 20);
+  assert.equal(run.reward.total, 0);
+  assert.equal(run.reward.preview, true);
+  assert.equal(f.e.player("368").balance, before.balance);
+  assert.equal(f.e.player("368").earned, before.earned);
+  assert.equal(f.e.quiz.list("368")[0].best, 0);
+  assert.equal(f.e.quiz.titles("368").length, 0);
+  f.e.run("UPDATE players SET is_admin=0 WHERE id='368'");
+  assert.throws(
+    () => f.e.quiz.view("368", "test"),
+    (e) => e.status === 404,
+  );
+});
+test("song timers arm once after readiness, have a two-second initial lead-in, and survive refresh without adding time", (t) => {
+  const f = fixture(t),
+    start = f.action("p", "quiz-start", { quiz: "test" }).run,
+    b = { quiz: "test", run: start.id, index: 0 };
+  assert.equal(start.endsAt, null);
+  assert.throws(
+    () => f.action("p", "quiz-answer", { ...b, answer: "Anime 1" }),
+    /audio to load/,
+  );
+  const ready = f.action("p", "quiz-ready", b).run;
+  assert.equal(ready.startsAt, f.e.now() + 2000);
+  assert.equal(ready.endsAt, ready.startsAt + 20000);
+  assert.throws(
+    () => f.action("p", "quiz-answer", { ...b, answer: "Anime 1" }),
+    /countdown/,
+  );
+  f.advance(1000);
+  assert.equal(f.action("p", "quiz-ready", b).run.endsAt, ready.endsAt);
+  const restart = new Engine(f.e.db, f.e.transaction, f.e.now, () => 0);
+  assert.equal(restart.quiz.view("p", "test").run.endsAt, ready.endsAt);
+  f.advance(1000);
+  const answer = f.e.quiz.run("p", "test").songs[0].answers[0];
+  assert.equal(
+    f.action("p", "quiz-answer", { ...b, answer }).run.correct,
+    true,
+  );
+  const next = f.action("p", "quiz-next", b).run;
+  assert.equal(next.endsAt, null);
+  const second = f.action("p", "quiz-ready", { ...b, index: 1 }).run;
+  assert.equal(second.startsAt, f.e.now());
+  assert.equal(second.endsAt, f.e.now() + 20000);
+});
+test("expired questions cannot gain points from late or forged answers; normal timeout submissions have network-transit allowance", (t) => {
+  const f = fixture(t),
+    run = f.action("p", "quiz-start", { quiz: "test" }).run,
+    b = { quiz: "test", run: run.id, index: 0 };
+  let ready = f.action("p", "quiz-ready", b).run;
+  f.advance(ready.endsAt - f.e.now() + 1001);
+  const correct = f.e.quiz.run("p", "test").songs[0].answers[0];
+  const late = f.action("p", "quiz-answer", {
+    ...b,
+    answer: correct,
+    now: ready.endsAt - 1,
+  });
+  assert.equal(late.run.correct, false);
+  assert.equal(late.run.timedOut, true);
+  assert.equal(late.run.score, 0);
+  f.action("p", "quiz-next", b);
+  ready = f.action("p", "quiz-ready", { ...b, index: 1 }).run;
+  f.advance(ready.endsAt - f.e.now() + 500);
+  const second = f.e.quiz.run("p", "test").songs[1].answers[0];
+  assert.equal(
+    f.action("p", "quiz-answer", { ...b, index: 1, answer: second }).run
+      .correct,
+    true,
+  );
+});
+test("answer banks paginate completely and retain quiz scope", (t) => {
+  const f = fixture(t);
+  f.save({
+    songs: Array.from({ length: 1201 }, (_, i) => ({
+      audio: "https://example.com/" + i + ".mp3",
+      title: "Song",
+      answers: ["Title " + String(i).padStart(4, "0")],
+    })),
+  });
+  const first = f.e.quiz.answerBank("test", "p", 1),
+    second = f.e.quiz.answerBank("test", "p", 2);
+  assert.equal(first.answers.length, 1000);
+  assert.equal(first.hasMore, true);
+  assert.equal(second.answers.length, 201);
+  assert.equal(second.hasMore, false);
+  assert.equal(new Set([...first.answers, ...second.answers]).size, 1201);
+  assert.equal(first.version, second.version);
+});
+
+test("skipping unloaded audio never scores a supplied answer", (t) => {
+  const f = fixture(t),
+    run = f.action("p", "quiz-start", { quiz: "test" }).run;
+  const answer = f.e.quiz.run("p", "test").songs[0].answers[0];
+  const result = f.action("p", "quiz-answer", {
+    quiz: "test",
+    run: run.id,
+    index: 0,
+    skip: true,
+    answer,
+  });
+  assert.equal(result.run.correct, false);
+  assert.equal(f.e.quiz.run("p", "test").answers[0].answer, "");
+  assert.equal(result.run.score, 0);
 });

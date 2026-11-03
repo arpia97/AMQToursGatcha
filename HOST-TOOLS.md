@@ -210,3 +210,7 @@ The listing copy and every offered copy are escrowed atomically. Offer responses
 The Credit Rewards tab has searchable recipient selectors for manual rewards and deductions (current name, canonical ID, aliases and username history).
 
 POST `/api/host/deduction-preview` with `{player, amount, note}` validates 1–1,000,000 whole credits and returns `{player, name, amount, note, expectedBalance, remaining}` without mutating credits. POST `/api/host/deduct` with that reviewed quote and an Idempotency-Key applies the deduction exactly once. A changed balance returns409 and requires another review. Both endpoints require the same host permissions as rewards. Negative balances are rejected; lifetime earnings, contributions, cards and catalogue are unchanged. The ledger records the debit and reason.
+
+### Focused Fusion Restoration
+
+Owner-only endpoints support a reviewed reversal of the latest simple fusion: GET `/api/host/fusion-revert-preview?player=ID&key=SOURCE_KEY`, POST `/api/host/fusion-revert` with `{player,sourceKey,confirmation:"REVERT FUSION"}`, and GET `/api/host/fusion-revert-receipt?key=SOURCE_KEY`. Use the original fusion key as the idempotency key. The result must still be one unchanged Lv. 1 copy, all distinct Lv. 1 materials must remain absent, and later gameplay requiring review blocks reversal. The operation restores materials and removes the result atomically, preserves credits and the original receipt, and stores its own receipt to prevent repeat restoration. Enhanced/merged outputs require a separate plan.

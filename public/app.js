@@ -1380,6 +1380,29 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
+  if (formIdentifier(f) === "fusion-confirm-form") {
+    try {
+      const reviewed = JSON.parse(f.elements.reviewed.value);
+      if (JSON.stringify(workshop.request()) !== JSON.stringify(reviewed))
+        throw Error(
+          "The board changed. Close this dialog and review it again.",
+        );
+      await execute(
+        "fusion",
+        { ...reviewed, confirmed: true },
+        (result) => {
+          workshop.complete(result);
+          $("#modal").close();
+          render();
+          toast(result.message);
+        },
+        f,
+      );
+    } catch (error) {
+      f.querySelector(".form-error").textContent = error.message;
+    }
+    return;
+  }
   if (formIdentifier(f) === "showcase-order-form") {
     try {
       await execute("showcase", showcaseEditor.payload(state.me?.id), null, f);
@@ -1947,16 +1970,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "fusion-run") {
         const body = workshop.request();
-        t.disabled = true;
-        try {
-          await execute("fusion", body, (r) => {
-            workshop.complete(r);
-            render();
-            toast(r.message);
-          });
-        } finally {
-          if (t.isConnected) t.disabled = false;
-        }
+        modal(workshop.confirmation(body));
         return true;
       }
       await loadDynamic();
@@ -2520,7 +2534,7 @@ document.addEventListener("change", (ev) => {
 });
 
 document.addEventListener("click", async (ev) => {
-  const button = ev.target.closest("button");
+  const button = ev.target.closest("button, [data-quiz-answer-option]");
   if (!button || page() !== "quiz") return;
   try {
     await quizUI.click(button);
@@ -2528,15 +2542,24 @@ document.addEventListener("click", async (ev) => {
     toast(err.message, true);
   }
 });
-let quizSearchTimer;
 document.addEventListener("input", (ev) => {
-  if (ev.target.id !== "quiz-answer") return;
-  clearTimeout(quizSearchTimer);
-  const input = ev.target;
-  quizSearchTimer = setTimeout(
-    () => quizUI.input(input).catch((err) => toast(err.message, true)),
-    200,
-  );
+  if (ev.target.id === "quiz-volume") quizUI.setVolume(ev.target.value);
+  if (ev.target.id === "quiz-answer")
+    quizUI.input(ev.target).catch((err) => toast(err.message, true));
+});
+document.addEventListener("focusin", (ev) => {
+  if (ev.target.id === "quiz-answer") quizUI.focus(ev.target);
+});
+document.addEventListener("focusout", (ev) => {
+  if (
+    ev.target.id === "quiz-answer" &&
+    !ev.relatedTarget?.closest?.(".quiz-answer-field")
+  )
+    quizUI.closeSuggestions();
+});
+document.addEventListener("pointerdown", (ev) => {
+  if (ev.target.closest("[data-quiz-answer-option]")) ev.preventDefault();
+  else if (!ev.target.closest(".quiz-answer-field")) quizUI.closeSuggestions();
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.target.id === "quiz-answer") quizUI.key(ev);

@@ -295,6 +295,9 @@ export class Game extends DurableObject {
       if (
         [
           "host/permissions",
+          "host/fusion-revert-preview",
+          "host/fusion-revert",
+          "host/fusion-revert-receipt",
           "host/admin-account",
           "host/mahjong-revert",
           "host/mahjong-reversal-preview",
@@ -309,6 +312,35 @@ export class Game extends DurableObject {
             ?.is_admin)
       )
         requireOwner();
+      if (path === "host/fusion-revert-preview" && !post)
+        return json(
+          e.economy.fusion.reversalPreview(
+            url.searchParams.get("player"),
+            url.searchParams.get("key"),
+          ),
+        );
+      if (path === "host/fusion-revert-receipt" && !post) {
+        const receipt = e.one(
+          "SELECT result FROM receipts WHERE scope='host:fusion-revert' AND key=?",
+          text(url.searchParams.get("key"), 100),
+        );
+        return json({ result: receipt ? JSON.parse(receipt.result) : null });
+      }
+      if (path === "host/fusion-revert" && post) {
+        if (b.confirmation !== "REVERT FUSION")
+          fail("Confirm the reviewed fusion restoration.");
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        if (key !== b.sourceKey)
+          fail("Use the original fusion key for this restoration.");
+        return json(
+          e.mutate("host:fusion-revert", key, b, () =>
+            e.economy.fusion.reverse(
+              text(b.player, 100),
+              text(b.sourceKey, 100),
+            ),
+          ),
+        );
+      }
       if (path === "host/permissions" && post) {
         return json(
           e.mutate(
@@ -839,10 +871,17 @@ export class Game extends DurableObject {
     if (path === "quiz-answers" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
-        e.quiz.suggestions(
-          url.searchParams.get("quiz"),
-          url.searchParams.get("q"),
-        ),
+        url.searchParams.get("bank") === "1"
+          ? e.quiz.answerBank(
+              url.searchParams.get("quiz"),
+              session?.player,
+              Number(url.searchParams.get("page") || 1),
+            )
+          : e.quiz.suggestions(
+              url.searchParams.get("quiz"),
+              url.searchParams.get("q"),
+              session?.player,
+            ),
       );
     }
     if (path === "profiles" && !post) {

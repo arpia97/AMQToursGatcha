@@ -305,7 +305,7 @@ export function createWorkshop(h) {
     const result = lastResult
       ? `<section class="fusion-result" role="status"><span class="eyebrow">FUSION RESULT</span><h2>${e(label || "Fusion Complete")} · ${e(lastResult.grade || lastResult.cards[0]?.rarity || "")}</h2><p>${e(lastResult.message)}</p><div class="fusion-reward">${lastResult.cards[0] ? cardHTML(lastResult.cards[0], null, { copies: 1, level: 1, preview: true }) : ""}</div><button class="text-button" data-action="fusion-dismiss">Dismiss Result</button></section>`
       : "";
-    return `<div class="page-intro"><div><h1>A New Kind of Possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My Collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your Fusion Board</h2><button class="text-button" data-action="fusion-clear">Clear Board</button></div><p class="form-hint">Click a slot to select multiple materials. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result Pool:</strong> ${poolLabel()}</p>${oddsHTML(odds)}<p class="form-hint">One invested copy sets the baseline. Extra copies add 35%–48% by baseline rarity; each tier below halves the contribution. Upgrade caps range from 55%–70%. Excess contribution shifts stay chance into downgrade risk.</p><p class="fusion-warning">All selected materials are consumed. Results are Lv. 1. On upgrade: +1 tier (90%), +2 (9%), +3 (1%). On downgrade: −1 tier (90%), −2 (9%), −3 (1%). Results stop at D and AG. At D, a downgrade returns D.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Fuse & Consume " + board.length + " Card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error || !odds.upgrade ? "disabled" : "", "mint")}</section>${renderOutcomes(odds)}<details class="rarity-guide"><summary>Fusion Chances</summary><p><table><thead><tr><th>Baseline</th><th>Per Extra Same-Tier Copy</th><th>Upgrade Cap</th></tr></thead><tbody>${FUSION_TIER_RULES.map((r) => `<tr><td>${r.rarity}</td><td>${chanceText(r.contribution)}</td><td>${chanceText(r.cap)}</td></tr>`).join("")}</tbody></table><p>Stay starts at 30%. Every 4 percentage points of contribution beyond the cap transfers 1 point from stay to downgrade, up to 20 points. Remaining probability is downgrade. Enhanced cards count as their invested copies; one copy is reserved for the baseline.</p></p><p>AG and Pending cards cannot be materials. Character-only materials return characters; seiyuu-only materials return seiyuus; mixed materials use both pools.</p></details>`;
+    return `<div class="page-intro"><div><h1>A New Kind of Possibility.</h1><p>Fuse up to five cards for a chance to upgrade.</p></div><a class="text-button" href="#collection">Back to My Collection ↗</a></div>${result}<section class="fusion-panel"><div class="section-head"><h2>Your Fusion Board</h2><button class="text-button" data-action="fusion-clear">Clear Board</button></div><p class="form-hint">Click a slot to select multiple materials. Nothing is consumed until you fuse.</p><div class="fusion-board">${slots}</div><p class="fusion-pool"><strong>Result Pool:</strong> ${poolLabel()}</p>${oddsHTML(odds)}<p class="form-hint">One invested copy sets the baseline. Extra copies add 35%–48% by baseline rarity; each tier below halves the contribution. Upgrade caps range from 55%–70%. Excess contribution shifts stay chance into downgrade risk.</p><p class="fusion-warning">All selected materials are consumed. Results are Lv. 1. On upgrade: +1 tier (90%), +2 (9%), +3 (1%). On downgrade: −1 tier (90%), −2 (9%), −3 (1%). Results stop at D and AG. At D, a downgrade returns D.</p>${error ? `<p class="form-error" role="alert">${e(error)}</p>` : ""}${btn("Review Fusion · " + board.length + " Card" + (board.length === 1 ? "" : "s"), "fusion-run", !odds || error || !odds.upgrade ? "disabled" : "", "mint")}</section>${renderOutcomes(odds)}<details class="rarity-guide"><summary>Fusion Chances</summary><p><table><thead><tr><th>Baseline</th><th>Per Extra Same-Tier Copy</th><th>Upgrade Cap</th></tr></thead><tbody>${FUSION_TIER_RULES.map((r) => `<tr><td>${r.rarity}</td><td>${chanceText(r.contribution)}</td><td>${chanceText(r.cap)}</td></tr>`).join("")}</tbody></table><p>Stay starts at 30%. Every 4 percentage points of contribution beyond the cap transfers 1 point from stay to downgrade, up to 20 points. Remaining probability is downgrade. Enhanced cards count as their invested copies; one copy is reserved for the baseline.</p></p><p>AG and Pending cards cannot be materials. Character-only materials return characters; seiyuu-only materials return seiyuus; mixed materials use both pools.</p></details>`;
   }
   function renderPicker() {
     if (pickerSlot === null) return "";
@@ -368,6 +368,32 @@ export function createWorkshop(h) {
     remove,
     clear,
     request,
+    confirmation: (body) =>
+      '<h2>Confirm Card Fusion</h2><p>Consume these materials permanently and receive one Lv. 1 result. Dismissing the result cannot undo a confirmed fusion.</p><ul class="fusion-confirm-materials">' +
+      body.cards
+        .map(
+          (m) =>
+            "<li><strong>" +
+            e(cardBy(m.card).name) +
+            "</strong><span>" +
+            e(m.expectedRarity) +
+            " · Lv. " +
+            m.expectedLevel +
+            "</span></li>",
+        )
+        .join("") +
+      "</ul>" +
+      oddsHTML(body.expectedOdds) +
+      (body.targetCard
+        ? "<p>Target: " + e(cardBy(body.targetCard).name) + "</p>"
+        : "") +
+      '<form id="fusion-confirm-form" class="stack"><input type="hidden" name="reviewed" value="' +
+      e(JSON.stringify(body)) +
+      '"><div class="form-error" role="alert"></div><button type="submit" class="button mint">Confirm & Consume ' +
+      body.cards.length +
+      " Card" +
+      (body.cards.length === 1 ? "" : "s") +
+      '</button><button type="button" class="button secondary" data-close-dialog>Cancel</button></form>',
     complete,
     dismiss: () => (lastResult = null),
     filter: (field, value) => {

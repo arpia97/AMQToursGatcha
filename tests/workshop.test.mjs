@@ -67,7 +67,13 @@ function fixture() {
     cards: [...cards.values()].filter((c) => c.kind === kind),
   });
   const act = (action, b, key = crypto.randomUUID()) =>
-    e.mutate("p:" + action, key, b, () => e.action("p", action, b));
+    e.mutate("p:" + action, key, b, () =>
+      e.action(
+        "p",
+        action,
+        action === "fusion" ? { ...b, confirmed: true } : b,
+      ),
+    );
   const add = (id, copies = 1, level = 1) => {
     e.addCard("p", id, copies);
     e.run(
@@ -484,4 +490,74 @@ test("unavailable downgrade pools reject before consumption and old revision2 bo
   });
   assert.throws(() => f.act("fusion", b), /No B result/);
   assert.deepEqual(f.e.state("p").inventory, before);
+});
+
+test("unconfirmed fusion never consumes materials or rolls a result", () => {
+  const f = fixture();
+  f.add("D", 2);
+  const b = f.body([f.material("D", "extra"), f.material("D")]);
+  const before = f.e.all("SELECT * FROM inventory");
+  assert.throws(() => f.e.action("p", "fusion", b), /confirm/);
+  assert.deepEqual(f.e.all("SELECT * FROM inventory"), before);
+});
+
+test("focused fusion restoration is atomic, preserves wallet and unrelated cards, and replays only once", () => {
+  const f = fixture();
+  f.add("D");
+  f.add("B");
+  f.add("AG");
+  const body = f.body([f.material("D"), f.material("B")]);
+  const result = f.act("fusion", body, "source-fusion");
+  const wallet = f.e.player("p").balance,
+    preview = f.e.economy.fusion.reversalPreview("p", "source-fusion");
+  assert.equal(preview.restored.length, 2);
+  assert.equal(preview.removed.id, result.cards[0].id);
+  const restore = () =>
+    f.e.mutate(
+      "host:fusion-revert",
+      "source-fusion",
+      { player: "p", sourceKey: "source-fusion" },
+      () => f.e.economy.fusion.reverse("p", "source-fusion"),
+    );
+  const first = restore();
+  assert.deepEqual(restore(), first);
+  assert.equal(f.e.player("p").balance, wallet);
+  assert(f.e.one("SELECT card FROM inventory WHERE player='p' AND card='AG'"));
+  for (const id of ["D", "B"])
+    assert.equal(
+      f.e.one("SELECT copies FROM inventory WHERE player='p' AND card=?", id)
+        .copies,
+      1,
+    );
+  assert.equal(
+    f.e.one(
+      "SELECT card FROM inventory WHERE player='p' AND card=?",
+      result.cards[0].id,
+    ),
+    undefined,
+  );
+  assert.throws(
+    () => f.e.economy.fusion.reverse("p", "source-fusion"),
+    /changed/,
+  );
+});
+test("fusion restoration refuses moved or enhanced output without partial card restoration", () => {
+  const f = fixture();
+  f.add("D");
+  f.add("B");
+  const result = f.act(
+    "fusion",
+    f.body([f.material("D"), f.material("B")]),
+    "source",
+  );
+  f.e.run(
+    "UPDATE inventory SET level=2 WHERE player='p' AND card=?",
+    result.cards[0].id,
+  );
+  const before = f.e.all("SELECT * FROM inventory");
+  assert.throws(
+    () => f.e.tx(() => f.e.economy.fusion.reverse("p", "source")),
+    /changed/,
+  );
+  assert.deepEqual(f.e.all("SELECT * FROM inventory"), before);
 });

@@ -1,6 +1,6 @@
 # Quiz Operations
 
-Quizzes are hidden drafts until explicitly published by a host. With no published quizzes the player tab says Coming Soon.
+Draft quizzes are visible and playable only to hosts, with a Draft · Hosts Only badge. Host previews never change personal bests, credits, milestone rewards or titles. Other players see only published quizzes; with none published, they see Coming Soon.
 
 ## Import
 
@@ -14,11 +14,13 @@ Personal best and milestone payments are committed in the same transaction as th
 
 ## Routes
 
-- GET /api/quizzes — published tiles and the current player's personal best.
+- GET /api/quizzes — published tiles and personal bests; signed-in hosts also see draft previews.
+- GET /api/quiz-answers?quiz=ID&bank=1&page=N — scoped title bank in pages of 1,000 for immediate local autocomplete.
 - GET /api/quiz-answers?quiz=ID&q=PREFIX — up to 20 autocomplete titles.
 - GET /api/quiz-run?quiz=ID — authenticated current question, never the answer key before locking.
 - POST /api/quiz-start — start/resume a run.
-- POST /api/quiz-answer — lock an answer for the expected run ID/index.
+- POST /api/quiz-ready — arm the current question once audio is ready.
+- POST /api/quiz-answer — lock an answer for the expected run ID/index, or skip with an empty answer.
 - POST /api/quiz-next — advance or finish and award.
 - GET /api/host/quizzes — host-only drafts and published configurations.
 - POST /api/host/quiz-save — host-only import, cover, title, and publication.
@@ -28,3 +30,9 @@ Answers are validated against the server's saved alternatives; client-reported s
 Host form submissions read their actual HTML ID attribute, so the hidden quiz ID cannot shadow the submit route. A frontend regression test executes the bundled host console and submits this exact form shape; Worker tests cover filename-based imports, private drafts and empty-pool rejection.
 
 If AMQ blocks requests from Cloudflare, imports use the bundled compact title/song index (same AMQ master-list version). Both live and fallback data are cached for 24 hours. Refresh the fallback from a machine with access using `node tools/refresh-quiz-answers.mjs`, then deploy the updated asset. Only names and song IDs are retained; songs and videos are not copied. If both sources fail, no pool is changed. Host save responses include the answer-source mode and version for diagnostics.
+
+## Playback
+
+Each song uses a 20-second MP3 sample and a server-persisted 20-second answer deadline. The first question has a two-second countdown after audio loads; subsequent songs start immediately when ready. Refreshing retains the same sample and deadline. The browser submits the current answer at zero. The server allows one second for network transit, then rejects late correct answers as timed out. Failed media can be retried or skipped.
+
+Audio autoplays, with an Enable Audio fallback if the browser requires a gesture. Volume starts at 30% and remembers changes, including mute. The current score remains visible. The title bank is cached per quiz/version and searched locally without per-keystroke requests. Mouse selection or arrow keys and Enter fill the answer; Lock Answer submits it.

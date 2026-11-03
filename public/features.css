@@ -2658,20 +2658,6 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   max-height: 240px;
   overflow: auto;
 }
-.quiz-suggestions button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: #20232f;
-  color: var(--text);
-  border: 0;
-  padding: 12px;
-  cursor: pointer;
-}
-.quiz-suggestions [aria-selected="true"] button,
-.quiz-suggestions button:hover {
-  background: #3b5361;
-}
 .pickem-vote-chart {
   margin-top: 20px;
   padding-top: 18px;
@@ -2769,4 +2755,186 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   .pickem-vote-label strong {
     font-size: 10px;
   }
+}
+
+/* Quiz playback and anchored title suggestions. */
+.quiz-draft-badge,
+.quiz-preview-note {
+  color: #e9cb8d;
+  font-size: 12px;
+}
+.quiz-draft-badge {
+  display: inline-block;
+  padding: 5px 8px;
+  border: 1px solid #675637;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+.quiz-question-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+.quiz-question-heading h2 {
+  margin: 0;
+}
+.quiz-score {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  background: #222c32;
+  border: 1px solid #466454;
+  border-radius: 9px;
+  white-space: nowrap;
+}
+.quiz-score span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.quiz-score strong {
+  font-size: 19px;
+  color: var(--mint, #b4e2c9);
+}
+.quiz-timer {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 18px 0 12px;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-timer span {
+  min-width: 115px;
+  font-size: 13px;
+}
+.quiz-timer progress {
+  flex: 1;
+  min-width: 30px;
+  height: 8px;
+  accent-color: #b4e2c9;
+}
+.quiz-sound {
+  position: relative;
+  height: 110px;
+}
+#quiz-countdown {
+  font-size: 58px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-audio-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 24px;
+}
+.quiz-volume-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 320px;
+  margin: 16px 0;
+}
+.quiz-volume-control input {
+  width: 130px;
+  padding: 0;
+  accent-color: #b4e2c9;
+}
+.quiz-volume-control output {
+  min-width: 35px;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-answer-field {
+  position: relative;
+}
+.quiz-answer-field label {
+  display: block;
+  margin-bottom: 9px;
+}
+.quiz-answer-field input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.quiz-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin-top: 5px;
+  border: 1px solid #50675b;
+  border-radius: 9px;
+  background: #1d222c;
+  box-shadow: 0 12px 35px #0009;
+  max-height: 250px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.quiz-suggestions[hidden] {
+  display: none;
+}
+.quiz-suggestions li {
+  padding: 12px 14px;
+  color: var(--text);
+  cursor: pointer;
+  line-height: 1.4;
+  border-bottom: 1px solid #ffffff08;
+}
+.quiz-suggestions li[aria-selected="true"],
+.quiz-suggestions li:hover {
+  background: #344e43;
+  color: #e5ffef;
+}
+.quiz-suggestions li[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
+.fusion-confirm-materials {
+  padding: 0;
+  list-style: none;
+  margin: 20px 0;
+}
+.fusion-confirm-materials li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.fusion-confirm-materials span {
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 560px) {
+  .quiz-question,
+  .quiz-complete {
+    padding: 18px;
+  }
+  .quiz-question-heading {
+    gap: 10px;
+  }
+  .quiz-question-heading h2 {
+    font-size: 19px;
+  }
+  .quiz-score {
+    gap: 8px;
+    padding: 8px;
+  }
+  .quiz-audio-line {
+    gap: 4px;
+  }
+  .quiz-timer {
+    gap: 10px;
+  }
+}
+
+.quiz-audio-line [hidden],
+.quiz-sound [hidden] {
+  display: none !important;
 }

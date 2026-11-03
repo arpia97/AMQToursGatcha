@@ -1,3 +1,6 @@
+export const QUIZ_SONG_MS = 20000;
+export const QUIZ_LEAD_IN_MS = 2000;
+export const QUIZ_ANSWER_GRACE_MS = 1000;
 export const QUIZ_LENGTH = 20;
 export const QUIZ_MILESTONES = Object.freeze([
   { score: 5, credits: 100 },

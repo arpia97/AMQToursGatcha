@@ -1,6 +1,9 @@
 import { fail, integer, text } from "./engine.js";
 import {
   QUIZ_LENGTH,
+  QUIZ_SONG_MS,
+  QUIZ_LEAD_IN_MS,
+  QUIZ_ANSWER_GRACE_MS,
   quizAnswerKey,
   quizReward,
   validQuizAudio,
@@ -18,7 +21,11 @@ export class Quiz {
     ])
       e.run(sql);
   }
+  isHost(player) {
+    return !!player && !!this.e.player(player).is_admin;
+  }
   list(player = null, host = false) {
+    host = host || this.isHost(player);
     return this.e.all(
       "SELECT q.*,(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
@@ -109,12 +116,10 @@ export class Quiz {
       rejected: b.rejected || [],
     };
   }
-  definition(id) {
-    const q = this.e.one(
-      "SELECT * FROM quizzes WHERE id=? AND published=1",
-      text(id, 100),
-    );
-    if (!q) fail("That quiz is not available.", 404);
+  definition(id, player = null) {
+    const q = this.e.one("SELECT * FROM quizzes WHERE id=?", text(id, 100));
+    if (!q || (!q.published && !this.isHost(player)))
+      fail("That quiz is not available.", 404);
     return q;
   }
   run(player, id) {
@@ -134,23 +139,27 @@ export class Quiz {
     );
   }
   view(player, id) {
-    this.definition(id);
+    const q = this.definition(id, player);
     const run = this.run(player, id);
-    if (!run) return { run: null };
+    const now = this.e.now();
+    if (!run) return { now, run: null };
     const score = run.answers.filter((a) => a.correct).length;
     if (run.finished)
       return {
+        now,
         run: {
           id: run.id,
           index: 20,
           score,
           finished: true,
           reward: run.reward,
+          preview: !!run.preview || !q.published,
         },
       };
     const song = run.songs[run.index],
       answer = run.answers[run.index];
     return {
+      now,
       run: {
         id: run.id,
         index: run.index,
@@ -158,10 +167,14 @@ export class Quiz {
         finished: false,
         audio: song.audio,
         sample: song.sample,
+        preview: !!run.preview || !q.published,
+        startsAt: run.timing?.index === run.index ? run.timing.startsAt : null,
+        endsAt: run.timing?.index === run.index ? run.timing.endsAt : null,
         answered: !!answer,
         ...(answer
           ? {
               correct: answer.correct,
+              timedOut: !!answer.timedOut,
               answer: song.answers[0],
               songTitle: song.title,
               artist: song.artist,
@@ -170,8 +183,23 @@ export class Quiz {
       },
     };
   }
-  suggestions(id, q) {
-    this.definition(id);
+  answerBank(id, player = null, page = 1) {
+    const q = this.definition(id, player);
+    integer(page, 1, 10000);
+    const rows = this.e.all(
+      "SELECT answer FROM quiz_answers WHERE quiz=? ORDER BY key LIMIT 1001 OFFSET ?",
+      id,
+      (page - 1) * 1000,
+    );
+    return {
+      page,
+      version: q.updated,
+      answers: rows.slice(0, 1000).map((r) => r.answer),
+      hasMore: rows.length > 1000,
+    };
+  }
+  suggestions(id, q, player = null) {
+    this.definition(id, player);
     const key = quizAnswerKey(q);
     if (key.length < 2) return { answers: [] };
     return {
@@ -185,11 +213,11 @@ export class Quiz {
     };
   }
   action(player, action, b) {
-    const q = this.definition(b.quiz),
+    const q = this.definition(b.quiz, player),
       e = this.e;
     let run = this.run(player, q.id);
     if (action === "quiz-start") {
-      if (run && !run.finished)
+      if (run && !run.finished && !!run.preview === !q.published)
         return { ...this.view(player, q.id), message: "Quiz Resumed" };
       const pool = e
         .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", q.id)
@@ -207,17 +235,43 @@ export class Quiz {
           .map((s) => ({ ...s, sample: (10 + e.rand(61)) / 100 })),
         answers: [],
         finished: false,
+        preview: !q.published,
+        timing: null,
       };
       this.persist(player, q.id, run);
       return { ...this.view(player, q.id), message: "Quiz Started" };
     }
     if (!run || run.finished || run.id !== b.run || run.index !== b.index)
       fail("The question changed. Refresh the quiz.", 409);
+    if (action === "quiz-ready") {
+      if (
+        !run.answers[run.index] &&
+        (!run.timing || run.timing.index !== run.index)
+      ) {
+        const startsAt = e.now() + (run.index === 0 ? QUIZ_LEAD_IN_MS : 0);
+        run.timing = {
+          index: run.index,
+          startsAt,
+          endsAt: startsAt + QUIZ_SONG_MS,
+        };
+        this.persist(player, q.id, run);
+      }
+      return { ...this.view(player, q.id), message: "Song Ready" };
+    }
     if (action === "quiz-answer") {
       if (run.answers[run.index]) fail("This answer is already locked.", 409);
-      const answer = String(b.answer || "").slice(0, 300);
+      if (!b.skip && (!run.timing || run.timing.index !== run.index))
+        fail("Wait for the audio to load.", 409);
+      if (!b.skip && e.now() < run.timing.startsAt)
+        fail("Wait for the starting countdown.", 409);
+      // One second covers a submission sent at zero arriving over the network.
+      const timedOut =
+        !b.skip && e.now() > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
+      const answer =
+        timedOut || b.skip ? "" : String(b.answer || "").slice(0, 300);
       run.answers.push({
         answer,
+        timedOut,
         correct:
           !!answer &&
           run.songs[run.index].answers.some(
@@ -235,27 +289,43 @@ export class Quiz {
             q.id,
           )?.best || 0;
         const reward = quizReward(previous, score);
-        if (reward.improvement + reward.milestones)
-          e.wallet(
+        const preview = !!run.preview || !q.published;
+        if (!preview) {
+          if (reward.improvement + reward.milestones)
+            e.wallet(
+              player,
+              reward.improvement + reward.milestones,
+              "Quiz: " + q.name + " · " + score + "/20",
+              true,
+            );
+          e.run(
+            "INSERT INTO quiz_progress VALUES(?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at",
             player,
-            reward.improvement + reward.milestones,
-            "Quiz: " + q.name + " · " + score + "/20",
-            true,
+            q.id,
+            reward.best,
+            e.now(),
           );
-        e.run(
-          "INSERT INTO quiz_progress VALUES(?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at",
-          player,
-          q.id,
-          reward.best,
-          e.now(),
-        );
+        }
         run.finished = true;
-        run.reward = {
-          ...reward,
-          total: reward.improvement + reward.milestones,
-          title: score === 20 ? q.title : "",
-        };
-      } else run.index++;
+        run.preview = preview;
+        run.reward = preview
+          ? {
+              best: score,
+              improvement: 0,
+              milestones: 0,
+              total: 0,
+              title: "",
+              preview: true,
+            }
+          : {
+              ...reward,
+              total: reward.improvement + reward.milestones,
+              title: score === 20 ? q.title : "",
+            };
+      } else {
+        run.index++;
+        run.timing = null;
+      }
     } else fail("Unknown quiz action.", 404);
     this.persist(player, q.id, run);
     return {
