@@ -481,6 +481,21 @@ document.addEventListener("submit", async (ev) => {
       result = await api("settle", body, key);
       delete settlementDrafts[match.id];
     }
+    if (formIdentifier(form) === "quiz-scores-reset") {
+      if (
+        !confirm(
+          "Reset scores, active runs and completion titles for " +
+            b.quizName +
+            "? Credits remain, and previously claimed rewards cannot be earned again.",
+        )
+      )
+        return;
+      result = await api(
+        "quiz-scores-reset",
+        { quiz: b.quiz, confirmation: "RESET QUIZ SCORES AND TITLES" },
+        key,
+      );
+    }
     if (formIdentifier(form) === "aliases-sync") {
       if (submit) submit.textContent = "Scanning…";
       result = await api("aliases-sync", {}, key);

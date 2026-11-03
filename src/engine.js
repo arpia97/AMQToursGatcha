@@ -314,7 +314,13 @@ export class Engine {
     this.player(player);
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
     if (
-      ["quiz-start", "quiz-ready", "quiz-answer", "quiz-next"].includes(action)
+      [
+        "quiz-start",
+        "quiz-restart",
+        "quiz-ready",
+        "quiz-answer",
+        "quiz-next",
+      ].includes(action)
     )
       return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
@@ -801,6 +807,7 @@ export class Engine {
       this.economy.resetPlayer(id);
       this.run("DELETE FROM quiz_runs WHERE player=?", id);
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
+      this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
       for (const table of [
         "inventory",
@@ -855,7 +862,10 @@ export class Engine {
         "profile_anime",
         "quiz_runs",
         "quiz_progress",
+        "quiz_reward_history",
         "profile_title_preferences",
+        "card_alchemy",
+        "alchemy_targets",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(

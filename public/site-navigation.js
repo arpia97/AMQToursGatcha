@@ -5,7 +5,7 @@ export const SITE_ROUTES = [
   ["shop", "Shop"],
   ["auctions", "Auctions"],
   ["pickems", "Pick’ems"],
-  ["fusion", "Card Fusion"],
+  ["fusion", "Card Alchemy"],
   ["catalog", "Catalogue"],
   ["arcade", "Pachinko"],
   ["quiz", "Quiz"],

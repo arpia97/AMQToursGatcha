@@ -341,6 +341,15 @@ export class Game extends DurableObject {
           ),
         );
       }
+      if (path === "host/quiz-scores-reset" && post)
+        return json(
+          e.mutate(
+            "host:quiz-scores-reset",
+            request.headers.get("Idempotency-Key"),
+            b,
+            () => e.quiz.resetScores(b),
+          ),
+        );
       if (path === "host/permissions" && post) {
         return json(
           e.mutate(
@@ -787,6 +796,17 @@ export class Game extends DurableObject {
         }),
       );
     }
+    if (path === "alchemy-targets" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.economy.alchemy.targetsPage({
+          rarity: url.searchParams.get("rarity") || "",
+          kind: url.searchParams.get("kind") || "mixed",
+          query: url.searchParams.get("q") || "",
+          page: Number(url.searchParams.get("page") || 1),
+        }),
+      );
+    }
     if (path === "catalog-recent" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -868,6 +888,16 @@ export class Game extends DurableObject {
       );
     if (path === "quizzes" && !post)
       return json({ quizzes: e.quiz.list(session?.player) });
+    if (path === "quiz-leaderboard" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.quiz.leaderboard(
+          url.searchParams.get("quiz"),
+          session?.player,
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
     if (path === "quiz-answers" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -927,6 +957,8 @@ export class Game extends DurableObject {
       return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
     if (path === "my-titles" && !post)
       return json(e.quiz.titleSettings(session.player));
+    if (path === "alchemy" && !post)
+      return json({ alchemyState: e.economy.alchemy.state(session.player) });
     if (path === "mahjong-history" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -937,6 +969,11 @@ export class Game extends DurableObject {
       );
     }
     if (!post) fail("Unknown endpoint.", 404);
+    if (path === "fusion")
+      fail(
+        "Card Fusion has been replaced by Card Alchemy. Refresh the page to use refinements and XP.",
+        410,
+      );
     this.bursts.take("play:" + session.player);
     const result = e.mutate(
       session.player + ":" + path,

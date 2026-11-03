@@ -1,3 +1,4 @@
+import { demoAlchemy } from "./demo-alchemy.js";
 import { pickemVoteSummary } from "./pickem-votes.js";
 import { tourSummaries } from "./pickem-board.js";
 import { pickemTeams } from "./tour-winner.js";
@@ -22,13 +23,8 @@ import {
   gemValue,
   nextFacetChance,
 } from "./gem-rules.js";
-import { fusionQuote, fusionOddsMatch, rollFusion } from "./fusion-rules.js";
 import { demoPachinko } from "./demo-pachinko.js";
-import {
-  fusionOutcomesPage,
-  fusionTarget,
-  drawFusionResult,
-} from "./fusion-outcomes.js";
+import { fusionOutcomesPage } from "./fusion-outcomes.js";
 import {
   instantSalePrice,
   SHOP_PRICES,
@@ -610,6 +606,8 @@ export function demoFeatures(d, path, b) {
     }
     return level;
   }
+  const alchemy = demoAlchemy(d, path, b, { take, add });
+  if (alchemy !== undefined) return alchemy;
   function completion(inv, owner) {
     const ids = new Set(inv.map((i) => i.card));
     if (owner === me.id) {
@@ -936,79 +934,8 @@ export function demoFeatures(d, path, b) {
       ),
     };
   }
-  if (path === "fusion") {
-    if (!Array.isArray(b.cards) || b.cards.length < 1 || b.cards.length > 5)
-      throw Error("Choose one to five materials.");
-    const groups = new Map(),
-      materials = [];
-    for (const row of b.cards) {
-      const c = d.cards.find((c) => c.id === row.card),
-        item = s.inventory.find((i) => i.card === row.card);
-      if (!c || !item || !["extra", "card"].includes(row.variant))
-        throw Error("Invalid material.");
-      const level = row.variant === "extra" ? 1 : item.level;
-      if (level !== row.expectedLevel || c.rarity !== row.expectedRarity)
-        throw Error("Material changed. Review the board.");
-      const g = groups.get(c.id) || { base: 0, extra: 0, item };
-      g[row.variant === "extra" ? "extra" : "base"]++;
-      groups.set(c.id, g);
-      if (g.base > 1 || g.extra > item.copies - 1)
-        throw Error("The same copy cannot be used twice.");
-      materials.push({ ...c, card: c.id, level, variant: row.variant });
-    }
-    const odds = fusionQuote(materials);
-    if (!fusionOddsMatch(b.expectedOdds, odds))
-      throw Error(
-        "Fusion rules or odds changed. Refresh and review the board.",
-      );
-    const pools = Object.fromEntries(
-      [
-        ...new Set([
-          ...(odds.stay ? [odds.baseline] : []),
-          ...[...odds.outcomes, ...odds.downgrades]
-            .filter((o) => o.chance > 0)
-            .map((o) => o.rarity),
-        ]),
-      ].map((r) => [
-        r,
-        d.cards.filter(
-          (c) => c.rarity === r && materials.some((m) => m.kind === c.kind),
-        ),
-      ]),
-    );
-    if (Object.values(pools).some((p) => !p.length))
-      throw Error("A result rarity is unavailable.");
-    if (b.targetCard && !odds.upgrade)
-      throw Error("Add another invested copy to target an upgrade.");
-    const target = fusionTarget(pools[odds.upgraded], b.targetCard);
-    const rolled = rollFusion(odds, (n) => Math.floor(Math.random() * n));
-    const { outcome, grade } = rolled;
-    const card = drawFusionResult(
-      pools[grade],
-      odds.outcomes.some((o) => o.outcome === outcome) &&
-        grade === odds.upgraded
-        ? target
-        : null,
-      (n) => Math.floor(Math.random() * n),
-    );
-    for (const [id, g] of groups) {
-      for (let i = 0; i < g.extra; i++) take(id, "extra");
-      if (g.base) take(id, "card");
-    }
-    if (card) add(card.id);
-    return {
-      message:
-        (outcome === "stay" ? "Same Tier" : rolled.label) +
-        ": a Lv. 1 " +
-        grade +
-        " card.",
-      grade,
-      outcome,
-      odds,
-      materials,
-      cards: card ? [card] : [],
-    };
-  }
+  if (path === "fusion")
+    throw Error("Card Fusion has been replaced by Card Alchemy.");
   if (path === "protect-card") {
     const item = s.inventory.find((i) => i.card === b.card);
     if (!item || typeof b.protected !== "boolean")

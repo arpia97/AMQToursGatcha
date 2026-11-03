@@ -21,7 +21,8 @@ import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
 import { countdownText, nextWeeklyReset } from "./countdown.js";
-import { createWorkshop } from "./workshop-ui.js";
+import { createAlchemyUI } from "./alchemy-ui.js";
+import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
@@ -392,7 +393,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Add to fusion">Fusion ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
+      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
       : "";
   return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}${extraActions}</div></article>`;
 }
@@ -408,7 +409,7 @@ const quizUI = createQuizUI({
     state.me = me;
   },
 });
-const workshop = createWorkshop({
+const alchemyUI = createAlchemyUI({
   escape,
   number,
   cardBy,
@@ -554,28 +555,28 @@ document.addEventListener("change", (event) => {
 let fusionPickerFocus = null,
   fusionReviewOpen = false;
 function fusionOverlayOpen() {
-  return workshop.pickerOpen() || fusionReviewOpen;
+  return alchemyUI.pickerOpen() || fusionReviewOpen;
 }
 function openFusionReview(body) {
   fusionPickerFocus = document.activeElement;
   fusionReviewOpen = true;
   const overlay = $("#fusion-picker");
   overlay.innerHTML =
-    '<section class="fusion-picker-dialog fusion-review-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-review-title" tabindex="-1"><button type="button" class="fusion-review-close" data-action="fusion-review-close" aria-label="Close Fusion Review">×</button>' +
-    workshop.confirmation(body) +
+    '<section class="fusion-picker-dialog fusion-review-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-review-title" tabindex="-1"><button type="button" class="fusion-review-close" data-action="alchemy-close" aria-label="Close Alchemy Review">×</button>' +
+    alchemyUI.confirmation(body) +
     "</section>";
   overlay.hidden = false;
   document
     .querySelectorAll(".sidebar,.workspace")
     .forEach((el) => (el.inert = true));
   document.body.classList.add("fusion-picker-open");
-  overlay.querySelector('[data-action="fusion-review-close"]')?.focus();
+  overlay.querySelector('[data-action="alchemy-close"]')?.focus();
 }
 function renderFusionPicker(focusSearch = false, position = null) {
   const overlay = $("#fusion-picker");
   const scrollTop =
     overlay.querySelector(".fusion-picker-dialog")?.scrollTop || 0;
-  overlay.innerHTML = workshop.renderPicker();
+  overlay.innerHTML = alchemyUI.renderPicker();
   const dialog = overlay.querySelector(".fusion-picker-dialog");
   if (dialog) dialog.scrollTop = scrollTop;
   overlay.hidden = false;
@@ -585,21 +586,24 @@ function renderFusionPicker(focusSearch = false, position = null) {
     if (position !== null) input?.setSelectionRange(position, position);
   }
 }
-function openFusionPicker(index) {
+async function openFusionPicker(mode = "material", rarity = null) {
   fusionPickerFocus = document.activeElement;
-  workshop.openPicker(index);
+  alchemyUI.openPicker(mode, rarity);
   if ($("#modal").open) $("#modal").close();
   document.querySelectorAll(".sidebar,.workspace").forEach((el) => {
     el.inert = true;
   });
   document.body.classList.add("fusion-picker-open");
   renderFusionPicker(true);
+  if (mode === "target") {
+    await alchemyUI.loadTargets(api);
+    renderFusionPicker(true);
+  }
 }
 function closeFusionPicker(force = false) {
   if (busy && !force) return;
   fusionReviewOpen = false;
-  const wasOpen = workshop.pickerOpen();
-  workshop.closePicker();
+  alchemyUI.closePicker();
   const overlay = $("#fusion-picker");
   overlay.hidden = true;
   overlay.innerHTML = "";
@@ -609,14 +613,7 @@ function closeFusionPicker(force = false) {
   document.body.classList.remove("fusion-picker-open");
   if (fusionPickerFocus?.isConnected) fusionPickerFocus.focus();
   fusionPickerFocus = null;
-  if (wasOpen && page() === "fusion") {
-    workshop
-      .loadOutcomes(api)
-      .then(() => {
-        if (page() === "fusion" && !fusionOverlayOpen()) render();
-      })
-      .catch((err) => toast(err.message, true));
-  }
+  if (page() === "fusion") render();
 }
 document.addEventListener("keydown", (ev) => {
   if (!fusionOverlayOpen()) return;
@@ -947,7 +944,7 @@ async function loadDynamic() {
             "&sort=" +
             encodeURIComponent(ui.catalogSort),
     );
-  if (current === "fusion" && state.me) data = await workshop.loadOutcomes(api);
+  if (current === "fusion" && state.me) data = await alchemyUI.load(api);
   if (current === "collection" && state.me)
     data = await api("anime-collection?page=" + (ui.animePage || 1));
   if (current === "titles" && state.me) data = await api("my-titles");
@@ -1069,7 +1066,7 @@ function render() {
   $("#main").innerHTML = {
     home,
     collection,
-    fusion: () => workshop.render(),
+    fusion: () => alchemyUI.render(),
     quiz: () => quizUI.render(),
     packs,
     catalog: catalogue,
@@ -1166,7 +1163,7 @@ async function refresh() {
     ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
-    workshop.clear();
+    alchemyUI.clear();
     ui.rouletteDraft = { choice: "red", stake: 100 };
     ui.mahjongHistoryData = null;
     ui.mahjongHistoryOpen = false;
@@ -1203,20 +1200,30 @@ async function execute(path, b, after, form = null) {
     rememberCards(result.cards);
     pendingMutations.delete(signature);
     try {
-      const next = result.gameState && applyGameState(state, result.gameState);
-      if (next) {
-        state = next;
+      const alchemyNext = applyAlchemyPatch(state, result);
+      if (alchemyNext) {
+        state = alchemyNext;
+        alchemyUI.update(result.alchemyState);
+        rememberCards(result.alchemyState.cards);
         sharedRefreshNeeded = true;
-        rememberCards(result.gameState.cards);
-        clockOffset = result.gameState.now - Date.now();
-        if (
-          path.startsWith("mahjong-") &&
-          ui.mahjongHistoryOpen &&
-          result.mahjong?.status !== "active"
-        )
-          await loadDynamic();
         render();
-      } else await refresh();
+      } else {
+        const next =
+          result.gameState && applyGameState(state, result.gameState);
+        if (next) {
+          state = next;
+          sharedRefreshNeeded = true;
+          rememberCards(result.gameState.cards);
+          clockOffset = result.gameState.now - Date.now();
+          if (
+            path.startsWith("mahjong-") &&
+            ui.mahjongHistoryOpen &&
+            result.mahjong?.status !== "active"
+          )
+            await loadDynamic();
+          render();
+        } else await refresh();
+      }
     } catch {
       toast(
         "Action saved. The latest view could not be loaded; refresh to check your account.",
@@ -1414,18 +1421,21 @@ document.addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const f = ev.target,
     b = Object.fromEntries(new FormData(f));
-  if (formIdentifier(f) === "fusion-confirm-form") {
+  if (formIdentifier(f) === "alchemy-confirm-form") {
     try {
-      const reviewed = JSON.parse(f.elements.reviewed.value);
-      if (JSON.stringify(workshop.request()) !== JSON.stringify(reviewed))
-        throw Error(
-          "The board changed. Close this dialog and review it again.",
-        );
+      const reviewed = JSON.parse(f.elements.reviewed.value),
+        { action, ...body } = reviewed;
+      const current =
+        action === "alchemy-feed"
+          ? alchemyUI.request()
+          : alchemyUI.drawRequest(body.rarity);
+      if (JSON.stringify(current) !== JSON.stringify(reviewed))
+        throw Error("The alchemy quote changed. Close and review again.");
       await execute(
-        "fusion",
-        { ...reviewed, confirmed: true },
+        action,
+        { ...body, confirmed: true },
         (result) => {
-          workshop.complete(result);
+          alchemyUI.complete(result);
           closeFusionPicker(true);
           render();
           toast(result.message);
@@ -1955,26 +1965,26 @@ async function handleFeatureClick(a, t) {
       await execute(a, body);
       return true;
     }
-    if (a?.startsWith("fusion-")) {
+    if (a?.startsWith("alchemy-") || a === "fusion-card") {
       if (!state.me) {
         auth();
         return true;
       }
-      if (a === "fusion-pick") {
-        openFusionPicker(Number(t.dataset.index));
-        return true;
-      }
-      if (a === "fusion-review-close") {
+      if (a === "alchemy-close") {
         closeFusionPicker();
         return true;
       }
-      if (a === "fusion-picker-close") {
-        closeFusionPicker();
+      if (a === "alchemy-material-open") {
+        await openFusionPicker("material");
         return true;
       }
-      if (a === "fusion-add" || a === "fusion-card") {
+      if (a === "alchemy-target-open") {
+        await openFusionPicker("target", t.dataset.rarity);
+        return true;
+      }
+      if (a === "alchemy-material-select" || a === "fusion-card") {
         const item = state.inventory.find((i) => i.card === t.dataset.id);
-        workshop.add({
+        alchemyUI.add({
           card: t.dataset.id,
           variant:
             a === "fusion-card"
@@ -1983,44 +1993,43 @@ async function handleFeatureClick(a, t) {
                 : "card"
               : t.dataset.variant,
         });
-        if (a === "fusion-add") {
-          render();
-          renderFusionPicker();
-          $("#fusion-picker .fusion-picker-dialog")?.focus({
-            preventScroll: true,
-          });
-          return true;
-        }
         if (a === "fusion-card") location.hash = "fusion";
-      }
-      if (a === "fusion-picker-remove") {
-        workshop.remove(Number(t.dataset.index));
+        else closeFusionPicker();
         render();
+        return true;
+      }
+      if (a === "alchemy-target-select" || a === "alchemy-target-clear") {
+        await execute(
+          "alchemy-target",
+          alchemyUI.targetRequest(
+            a === "alchemy-target-select" ? t.dataset.id : null,
+            t.dataset.rarity,
+          ),
+          (result) => {
+            closeFusionPicker(true);
+            render();
+            toast(result.message);
+          },
+        );
+        return true;
+      }
+      if (a === "alchemy-refine") {
+        openFusionReview(alchemyUI.request());
+        return true;
+      }
+      if (a === "alchemy-draw-review") {
+        openFusionReview(alchemyUI.drawRequest(t.dataset.rarity));
+        return true;
+      }
+      if (a === "alchemy-material-clear") alchemyUI.clear();
+      if (a === "alchemy-dismiss") alchemyUI.dismiss();
+      if (a === "alchemy-prev" || a === "alchemy-next") {
+        a.endsWith("next") ? alchemyUI.next() : alchemyUI.prev();
+        if (alchemyUI.pickerMode() === "target")
+          await alchemyUI.loadTargets(api);
         renderFusionPicker();
         return true;
       }
-      if (a === "fusion-remove") workshop.remove(Number(t.dataset.index));
-      if (a === "fusion-target") workshop.chooseTarget(t.dataset.id);
-      if (a === "fusion-target-clear") workshop.chooseTarget(null);
-      if (a === "fusion-outcome-view")
-        workshop.outcomeFilter("view", t.dataset.view);
-      if (a === "fusion-outcome-prev" || a === "fusion-outcome-next")
-        workshop.outcomeFilter("page", a.endsWith("next") ? 1 : -1);
-      if (a === "fusion-clear") workshop.clear();
-      if (a === "fusion-dismiss") workshop.dismiss();
-      if (a === "fusion-prev") workshop.prev();
-      if (a === "fusion-next") workshop.next();
-      if (a === "fusion-prev" || a === "fusion-next") {
-        renderFusionPicker();
-        $("#fusion-picker .fusion-picker-dialog")?.focus();
-        return true;
-      }
-      if (a === "fusion-run") {
-        const body = workshop.request();
-        openFusionReview(body);
-        return true;
-      }
-      await loadDynamic();
       render();
       return true;
     }
@@ -2517,35 +2526,38 @@ document.addEventListener("change", (ev) => {
     openInstantSale(ev.target.form.elements.card.value, ev.target.value);
 });
 
-document.addEventListener("input", (ev) => {
+document.addEventListener("input", async (ev) => {
   if (ev.target.id !== "fusion-search") return;
   const pos = ev.target.selectionStart;
-  workshop.filter("query", ev.target.value);
+  alchemyUI.filter("query", ev.target.value);
+  try {
+    if (alchemyUI.pickerMode() === "target") await alchemyUI.loadTargets(api);
+  } catch (err) {
+    toast(err.message, true);
+    return;
+  }
+  if (
+    !ev.target.isConnected ||
+    $("#fusion-search")?.value !== ev.target.value ||
+    !alchemyUI.pickerOpen()
+  )
+    return;
   renderFusionPicker(true, pos);
 });
-let fusionOutcomeTimer;
-document.addEventListener("input", (ev) => {
-  if (ev.target.id !== "fusion-outcome-search") return;
-  const position = ev.target.selectionStart;
-  workshop.outcomeFilter("query", ev.target.value);
-  clearTimeout(fusionOutcomeTimer);
-  fusionOutcomeTimer = setTimeout(async () => {
-    if (page() !== "fusion") return;
-    try {
-      await loadDynamic();
-      render();
-    } catch (err) {
-      toast(err.message, true);
-    }
-  }, 350);
-});
-document.addEventListener("change", (ev) => {
+document.addEventListener("change", async (ev) => {
   if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;
-  workshop.filter(
+  alchemyUI.filter(
     ev.target.id === "fusion-kind" ? "kind" : "grade",
     ev.target.value,
   );
   const id = ev.target.id;
+  try {
+    if (alchemyUI.pickerMode() === "target") await alchemyUI.loadTargets(api);
+  } catch (err) {
+    toast(err.message, true);
+    return;
+  }
+  if (!alchemyUI.pickerOpen()) return;
   renderFusionPicker();
   $("#" + id)?.focus();
 });
@@ -2609,7 +2621,7 @@ document.addEventListener("pointerdown", (ev) => {
   else if (!ev.target.closest(".quiz-answer-field")) quizUI.closeSuggestions();
 });
 document.addEventListener("keydown", (ev) => {
-  if (ev.target.id === "quiz-answer") quizUI.key(ev);
+  if (page() === "quiz") quizUI.key(ev);
 });
 document.addEventListener("submit", (ev) => {
   if (ev.target.id !== "quiz-answer-form") return;

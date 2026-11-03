@@ -66,6 +66,13 @@ test("the actual host submit handler saves a draft with a hidden id field instea
             : [],
         }),
       };
+    if (path === "api/host/quiz-scores-reset") {
+      requests.push({ path, body: JSON.parse(options.body) });
+      return {
+        ok: true,
+        json: async () => ({ message: "Quiz scores and titles reset." }),
+      };
+    }
     if (path === "api/host/quiz-save") {
       const body = JSON.parse(options.body);
       requests.push({ path, body });
@@ -101,10 +108,15 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     clearTimeout,
     Blob,
     URL,
-    confirm: () => false,
+    confirm: () => true,
   });
   vm.runInContext(bundle.outputFiles[0].text, context);
   await new Promise((resolve) => setImmediate(resolve));
+  await handlers.get("click")[0]({
+    target: {
+      closest: () => ({ dataset: { tab: "quiz" }, hasAttribute: () => false }),
+    },
+  });
   const input = [{ annId: 1, audio: "dntpj0.mp3", songName: "Example" }];
   const file = { size: 100, text: async () => JSON.stringify(input) },
     submit = { disabled: false };
@@ -124,4 +136,19 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   assert.equal(requests[0].body.input[0].audio, "dntpj0.mp3");
   assert.match(node("#result").textContent, /Quiz Draft Saved/);
   assert.equal(submit.disabled, false);
+  assert.match(
+    node("#host-content").innerHTML,
+    /Reset Scores & Completion Titles/,
+  );
+  const resetForm = {
+    getAttribute: (key) => (key === "id" ? "quiz-scores-reset" : null),
+    values: { quiz: "saved-quiz", quizName: "Sample Draft" },
+    dataset: {},
+    isConnected: false,
+    querySelector: () => submit,
+  };
+  await handlers.get("submit")[0]({ preventDefault() {}, target: resetForm });
+  assert.equal(requests[1].path, "api/host/quiz-scores-reset");
+  assert.equal(requests[1].body.quiz, "saved-quiz");
+  assert.equal(requests[1].body.confirmation, "RESET QUIZ SCORES AND TITLES");
 });

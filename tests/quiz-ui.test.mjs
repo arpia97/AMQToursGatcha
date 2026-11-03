@@ -36,7 +36,10 @@ function fixture(t, { blocked = false, saved = null } = {}) {
           delete this.attrs[k];
         },
         scrollIntoView() {},
-        focus() {},
+        focused: 0,
+        focus() {
+          this.focused++;
+        },
       });
     return nodes.get(id);
   };
@@ -63,6 +66,8 @@ function fixture(t, { blocked = false, saved = null } = {}) {
   const api = async (path, b) => {
     calls.push({ path, b });
     if (path === "quizzes") return { quizzes: [quiz] };
+    if (path.startsWith("quiz-leaderboard"))
+      return { rows: [], page: 1, total: 0, hasMore: false };
     if (path.startsWith("quiz-answers"))
       return {
         answers: [
@@ -84,6 +89,24 @@ function fixture(t, { blocked = false, saved = null } = {}) {
         endsAt: null,
         audio: "https://example.com/a.mp3",
         sample: 0.5,
+      };
+    if (path === "quiz-next")
+      run = {
+        ...run,
+        index: run.index + 1,
+        answered: false,
+        startsAt: null,
+        endsAt: null,
+      };
+    if (path === "quiz-restart")
+      run = {
+        ...run,
+        id: "restarted",
+        index: 0,
+        score: 0,
+        answered: false,
+        startsAt: null,
+        endsAt: null,
       };
     if (path === "quiz-ready")
       run = { ...run, startsAt: now + 2000, endsAt: now + 22000 };
@@ -144,7 +167,13 @@ function fixture(t, { blocked = false, saved = null } = {}) {
   t.after(() => ui.stop());
   const button = (name, value = "") => ({
     hasAttribute: (k) => k === name,
-    dataset: { quizOpen: value, quizAction: value, quizAnswerOption: value },
+    dataset: {
+      quizOpen: value,
+      quizAction: value,
+      quizAnswerOption: value,
+      quizLeaderboard: value,
+      quizRankPage: value,
+    },
   });
   return {
     ui,
@@ -153,6 +182,7 @@ function fixture(t, { blocked = false, saved = null } = {}) {
     writes,
     node,
     button,
+    setScore: (score) => (run.score = score),
     advance: async (ms) => {
       now += ms;
       interval?.();
@@ -264,4 +294,64 @@ test("the countdown panel drains with the clock, contains its numeric time, and 
   assert.match(html, /quiz-countdown-meter/);
   assert.doesNotMatch(html, /quiz-sound-symbol|100% Title:|20 Songs ·/);
   assert.equal((html.match(/id="quiz-volume"/g) || []).length, 1);
+});
+
+test("new songs autofocus once, Enter advances the revealed answer once, and Restart is available before and after answering", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  assert.equal(f.node("quiz-answer").focused, 0);
+  await f.advance(2000);
+  assert.equal(f.node("quiz-answer").focused, 1);
+  await f.advance(400);
+  assert.equal(f.node("quiz-answer").focused, 1);
+  assert.match(f.ui.render(), /Restart Quiz/);
+  await f.ui.submit({ elements: { answer: { value: "Bocchi the Rock!" } } });
+  assert.match(f.ui.render(), /Next Song \(Enter\)/);
+  assert.match(f.ui.render(), /Restart Quiz/);
+  let prevented = 0;
+  f.ui.key({
+    key: "Enter",
+    target: { closest: () => null },
+    preventDefault() {
+      prevented++;
+    },
+  });
+  await flush();
+  assert.equal(prevented, 1);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-next").length, 1);
+  assert.match(f.ui.render(), /Song 2 of 20/);
+  await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
+  assert.match(f.ui.render(), /Song 1 of 20/);
+});
+test("leaderboard-only navigation never starts or resumes audio or a quiz run", async (t) => {
+  const f = fixture(t);
+  await f.ui.load();
+  await f.ui.click(f.button("data-quiz-leaderboard", "q"));
+  assert.match(f.ui.render(), /Leaderboard/);
+  assert.equal(f.audios.length, 0);
+  assert.equal(
+    f.calls.filter(
+      (c) => c.path.startsWith("quiz-run") || c.path === "quiz-start",
+    ).length,
+    0,
+  );
+});
+
+test("the live score badge follows every established quiz rarity threshold", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  for (const [score, tier] of [
+    [0, "d"],
+    [3, "c"],
+    [5, "b"],
+    [8, "a"],
+    [10, "s"],
+    [13, "ss"],
+    [15, "sss"],
+    [18, "ubers"],
+    [20, "ag"],
+  ]) {
+    f.setScore(score);
+    assert.match(f.ui.render(), new RegExp("quiz-score tier-" + tier + '"'));
+  }
 });

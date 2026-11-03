@@ -139,18 +139,18 @@ test("personal bests pay only improvements and separately crossed milestones, ma
     "AG",
   ]);
 });
-function play(f, score, keyPrefix = crypto.randomUUID()) {
-  let result = f.action("p", "quiz-start", { quiz: "test" }),
+function play(f, score, keyPrefix = crypto.randomUUID(), player = "p") {
+  let result = f.action(player, "quiz-start", { quiz: "test" }),
     run = result.run;
   const seen = new Set();
   for (let i = 0; i < 20; i++) {
-    const ready = f.action("p", "quiz-ready", {
+    const ready = f.action(player, "quiz-ready", {
       quiz: "test",
       run: run.id,
       index: i,
     });
     f.advance(Math.max(0, ready.run.startsAt - f.e.now()));
-    const stored = f.e.quiz.run("p", "test");
+    const stored = f.e.quiz.run(player, "test");
     const song = stored.songs[i];
     seen.add(song.audio);
     const b = {
@@ -160,15 +160,15 @@ function play(f, score, keyPrefix = crypto.randomUUID()) {
       answer: i < score ? song.answers[1] : "Wrong",
     };
     const key = keyPrefix + "-a-" + i;
-    const answer = f.action("p", "quiz-answer", b, key);
+    const answer = f.action(player, "quiz-answer", b, key);
     assert.equal(answer.run.correct, i < score);
-    assert.deepEqual(f.action("p", "quiz-answer", b, key), answer);
-    assert.throws(() => f.action("p", "quiz-answer", b), /already locked/);
+    assert.deepEqual(f.action(player, "quiz-answer", b, key), answer);
+    assert.throws(() => f.action(player, "quiz-answer", b), /already locked/);
     const next = { quiz: "test", run: run.id, index: i },
       nk = keyPrefix + "-n-" + i;
-    result = f.action("p", "quiz-next", next, nk);
+    result = f.action(player, "quiz-next", next, nk);
     run = result.run;
-    assert.deepEqual(f.action("p", "quiz-next", next, nk), result);
+    assert.deepEqual(f.action(player, "quiz-next", next, nk), result);
   }
   assert.equal(seen.size, 20);
   return result;
@@ -505,7 +505,10 @@ test("title visibility survives restarts and canonical migration, newly earned t
   let restarted = new Engine(f.e.db, f.e.transaction, f.e.now, () => 0);
   assert.equal(restarted.quiz.titleSettings("p").titles[0].equipped, false);
   f.save({ id: "second", title: "Second Title" });
-  f.e.run("INSERT INTO quiz_progress VALUES('p','second',20,?)", f.e.now());
+  f.e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','second',20,?)",
+    f.e.now(),
+  );
   assert.deepEqual(
     f.e.quiz.titles("p").map((t) => t.title),
     ["Second Title"],
@@ -529,4 +532,111 @@ test("title visibility survives restarts and canonical migration, newly earned t
     0,
   );
   assert.equal(f.e.quiz.titleSettings("90001").titles.length, 0);
+});
+
+test("quiz restart returns to song1 with a fresh hand while preserving best scores, rewards and idempotency", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  const balance = f.e.player("p").balance;
+  let run = f.action("p", "quiz-start", { quiz: "test" }).run;
+  let b = { quiz: "test", run: run.id, index: 0 };
+  const ready = f.action("p", "quiz-ready", b);
+  f.advance(2000);
+  f.action("p", "quiz-answer", {
+    ...b,
+    answer: f.e.quiz.run("p", "test").songs[0].answers[0],
+  });
+  const restart = f.action("p", "quiz-restart", b, "restart-once");
+  assert.notEqual(restart.run.id, run.id);
+  assert.equal(restart.run.index, 0);
+  assert.equal(restart.run.score, 0);
+  assert.equal(restart.run.answered, false);
+  assert.deepEqual(f.action("p", "quiz-restart", b, "restart-once"), restart);
+  assert.throws(() => f.action("p", "quiz-restart", b), /changed/);
+  assert.equal(f.e.quiz.list("p")[0].best, 20);
+  assert.equal(f.e.player("p").balance, balance);
+});
+test("leaderboards order by best score and the first time that score was achieved, even after repeat runs and legacy timestamp backfill", (t) => {
+  const f = fixture(t);
+  play(f, 10);
+  const first = f.e.now();
+  f.advance(1000);
+  play(f, 10, undefined, "q");
+  f.advance(1000);
+  play(f, 10);
+  assert.deepEqual(
+    f.e.quiz.leaderboard("test").rows.map((r) => r.id),
+    ["p", "q"],
+  );
+  f.e.run(
+    "UPDATE quiz_progress SET best_at=NULL,at=? WHERE player='p'",
+    f.e.now() + 5000,
+  );
+  assert.equal(f.e.quiz.leaderboard("test").rows[0].bestAt, first);
+  play(f, 11, undefined, "q");
+  f.advance(1000);
+  play(f, 11);
+  assert.deepEqual(
+    f.e.quiz.leaderboard("test").rows.map((r) => r.id),
+    ["q", "p"],
+  );
+});
+test("host quiz score reset removes scores, active runs and completion titles without credit loss or repeat reward farming; renaming updates existing holders", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  const balance = f.e.player("p").balance;
+  f.action("p", "quiz-start", { quiz: "test" });
+  f.e.run("DELETE FROM quiz_reward_history WHERE player='p'");
+  const b = { quiz: "test", confirmation: "RESET QUIZ SCORES AND TITLES" },
+    reset = () =>
+      f.e.mutate("host:quiz-scores-reset", "reset-once", b, () =>
+        f.e.quiz.resetScores(b),
+      );
+  const result = reset();
+  assert.equal(result.players, 1);
+  assert.equal(f.e.quiz.leaderboard("test").rows.length, 0);
+  assert.equal(f.e.quiz.run("p", "test"), null);
+  assert.equal(f.e.profile("p").titles.length, 0);
+  assert.equal(f.e.player("p").balance, balance);
+  assert.equal(
+    f.e.one(
+      "SELECT best FROM quiz_reward_history WHERE player='p' AND quiz='test'",
+    ).best,
+    20,
+  );
+  const replay = play(f, 20);
+  assert.equal(replay.run.reward.total, 0);
+  assert.equal(f.e.player("p").balance, balance);
+  assert.deepEqual(reset(), result);
+  assert.equal(f.e.quiz.list("p")[0].best, 20);
+  f.save({ title: "Renamed Completion" });
+  assert.equal(f.e.profile("p").titles[0].title, "Renamed Completion");
+  assert.equal(
+    f.e.quiz.titleSettings("p").titles[0].title,
+    "Renamed Completion",
+  );
+});
+test("leaderboards paginate completed attempts without omissions and respect hidden draft access", (t) => {
+  const f = fixture(t);
+  for (let i = 0; i < 45; i++) {
+    const id = "rank" + i;
+    f.e.host("players", { players: [{ id, name: id }] });
+    f.e.run(
+      "INSERT INTO quiz_progress(player,quiz,best,at,best_at) VALUES(?,?,?,?,?)",
+      id,
+      "test",
+      10,
+      i + 1,
+      i + 1,
+    );
+  }
+  const pages = [1, 2, 3].map((p) => f.e.quiz.leaderboard("test", null, p));
+  assert.deepEqual(
+    pages.map((p) => p.rows.length),
+    [20, 20, 5],
+  );
+  assert.equal(new Set(pages.flatMap((p) => p.rows.map((r) => r.id))).size, 45);
+  assert.equal(pages[2].hasMore, false);
+  f.save({ published: false });
+  assert.throws(() => f.e.quiz.leaderboard("test"), /not available/);
 });

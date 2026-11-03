@@ -25,13 +25,18 @@ export function createQuizUI({
     working = false,
     audio = null,
     audioKey = "",
-    generation = 0;
+    generation = 0,
+    leaderboardOnly = false,
+    leaderboardPage = 1,
+    leaderboardData = null,
+    leaderboardOpen = false;
   let sampleStart = 0,
     audioState = "loading",
     playAttempted = false,
     arming = false,
     timer = null,
-    serverOffset = 0;
+    serverOffset = 0,
+    answerFocused = false;
   let draft = "",
     draftKey = "",
     options = [],
@@ -66,6 +71,7 @@ export function createQuizUI({
       highlight = -1;
       suggestionsOpen = false;
       errorMessage = "";
+      answerFocused = false;
     }
   }
   function stop() {
@@ -118,14 +124,26 @@ export function createQuizUI({
       stop();
     }
     if (selected) {
-      if (getState().me)
-        useRun(
-          (await call("quiz-run?quiz=" + encodeURIComponent(selected))).run,
-        );
-      else useRun(null);
-      await loadBank(quizzes.find((q) => q.id === selected));
+      if (!leaderboardOnly) {
+        if (getState().me)
+          useRun(
+            (await call("quiz-run?quiz=" + encodeURIComponent(selected))).run,
+          );
+        else useRun(null);
+        await loadBank(quizzes.find((q) => q.id === selected));
+      } else {
+        useRun(null);
+        stop();
+      }
+      leaderboardData = await call(
+        "quiz-leaderboard?quiz=" +
+          encodeURIComponent(selected) +
+          "&page=" +
+          leaderboardPage,
+      );
     }
   }
+
   const volumeControl = () =>
     '<label class="quiz-volume-control">Volume<input id="quiz-volume" type="range" min="0" max="100" step="1" value="' +
     volume +
@@ -134,6 +152,67 @@ export function createQuizUI({
     "%</output></label>";
   const guide =
     '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
+  function leaderboardHTML(standalone = false) {
+    const data = leaderboardData || {
+      rows: [],
+      page: 1,
+      total: 0,
+      hasMore: false,
+    };
+    const rows = data.rows
+      .map(
+        (p, i) =>
+          "<tr><td>" +
+          ((data.page - 1) * 20 + i + 1) +
+          '</td><td><a href="#player/' +
+          encodeURIComponent(p.id) +
+          '">' +
+          e(p.name) +
+          "</a></td><td><strong>" +
+          p.best +
+          " / 20</strong></td><td>" +
+          e(
+            new Date(p.bestAt).toLocaleString("en-GB", {
+              timeZone: "Asia/Seoul",
+            }),
+          ) +
+          " KST</td></tr>",
+      )
+      .join("");
+    const content =
+      '<p class="form-hint">Highest score first. Ties go to the player who achieved that score first.</p>' +
+      (rows
+        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>First Achieved</th></tr></thead><tbody>' +
+          rows +
+          "</tbody></table></div>"
+        : '<p class="notice">No completed scores yet.</p>') +
+      (data.page > 1 || data.hasMore
+        ? '<div class="toolbar"><button class="button secondary" data-quiz-rank-page="' +
+          (data.page - 1) +
+          '" ' +
+          (data.page <= 1 ? "disabled" : "") +
+          ">← Previous</button><span>Page " +
+          data.page +
+          '</span><button class="button secondary" data-quiz-rank-page="' +
+          (data.page + 1) +
+          '" ' +
+          (!data.hasMore ? "disabled" : "") +
+          ">Next →</button></div>"
+        : "");
+    return standalone
+      ? '<section class="quiz-leaderboard"><h2>Leaderboard · ' +
+          data.total +
+          " Players</h2>" +
+          content +
+          "</section>"
+      : '<details class="quiz-leaderboard" ' +
+          (leaderboardOpen ? "open" : "") +
+          "><summary>Leaderboard · " +
+          data.total +
+          " Players</summary>" +
+          content +
+          "</details>";
+  }
   function render() {
     if (!selected) {
       stop();
@@ -173,7 +252,9 @@ export function createQuizUI({
                     : q.published
                       ? "Play Quiz →"
                       : "Preview Quiz →") +
-                  "</button></div></article>",
+                  '</button><button class="text-button quiz-leaderboard-link" data-quiz-leaderboard="' +
+                  e(q.id) +
+                  '">Leaderboard ↗</button></div></article>',
               )
               .join("") +
             "</div>"
@@ -184,7 +265,7 @@ export function createQuizUI({
     const q = quizzes.find((q) => q.id === selected);
     if (!q) return "";
     const preview = !q.published || run?.preview;
-    const top =
+    let top =
       '<div class="section-head"><div><h1>' +
       e(q.name) +
       "</h1>" +
@@ -192,8 +273,18 @@ export function createQuizUI({
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
       '</div><div class="quiz-top-controls">' +
-      volumeControl() +
+      (!leaderboardOnly ? volumeControl() : "") +
+      (!leaderboardOnly && run && !run.finished
+        ? '<button type="button" class="text-button" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
+        : "") +
       '<button class="text-button" data-quiz-back>All Quizzes ←</button></div></div>';
+    if (leaderboardOnly)
+      return (
+        top +
+        leaderboardHTML(true) +
+        '<button class="button mint space-top" data-quiz-enter>Play Quiz →</button>'
+      );
+    top += leaderboardHTML();
     if (!getState().me)
       return (
         top +
@@ -253,13 +344,15 @@ export function createQuizUI({
       " · " +
       e(run.artist || "") +
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
-      (run.index === 19 ? "Finish Quiz →" : "Next Song →") +
+      (run.index === 19 ? "Finish Quiz (Enter)" : "Next Song (Enter)") +
       "</button>";
     return (
       top +
       '<section class="quiz-question"><div class="quiz-question-heading"><h2>Song ' +
       (run.index + 1) +
-      ' of 20</h2><div class="quiz-score"><span>Score</span><strong>' +
+      ' of 20</h2><div class="quiz-score tier-' +
+      rarityClass(quizRarity(run.score)) +
+      '"><span>Score</span><strong>' +
       run.score +
       " / 20</strong></div></div>" +
       (!preview
@@ -360,7 +453,12 @@ export function createQuizUI({
       });
       useRun(result.run);
       if (result.me) onWallet(result.me);
-      if (run?.finished) quizzes = (await call("quizzes")).quizzes;
+      if (run?.finished) {
+        quizzes = (await call("quizzes")).quizzes;
+        leaderboardData = await call(
+          "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1",
+        );
+      }
       onRender();
     } finally {
       working = false;
@@ -402,6 +500,10 @@ export function createQuizUI({
       lock = document.getElementById("quiz-lock-answer");
     if (input) input.disabled = !started || working;
     if (lock) lock.disabled = !started || working;
+    if (started && remaining > 0 && !working && input && !answerFocused) {
+      answerFocused = true;
+      input.focus({ preventScroll: true });
+    }
     const left = document.getElementById("quiz-time-left"),
       bar = document.getElementById("quiz-time-progress");
     if (left)
@@ -532,6 +634,35 @@ export function createQuizUI({
     setVolume,
     closeSuggestions,
     async click(button) {
+      if (button.hasAttribute("data-quiz-leaderboard")) {
+        if (working) return true;
+        selected = button.dataset.quizLeaderboard;
+        leaderboardOnly = true;
+        leaderboardPage = 1;
+        useRun(null);
+        stop();
+        await load();
+        onRender();
+        return true;
+      }
+      if (button.hasAttribute("data-quiz-enter")) {
+        leaderboardOnly = false;
+        await load();
+        onRender();
+        return true;
+      }
+      if (button.hasAttribute("data-quiz-rank-page")) {
+        leaderboardPage = Number(button.dataset.quizRankPage);
+        leaderboardOpen = true;
+        leaderboardData = await call(
+          "quiz-leaderboard?quiz=" +
+            encodeURIComponent(selected) +
+            "&page=" +
+            leaderboardPage,
+        );
+        onRender();
+        return true;
+      }
       if (
         working &&
         (button.hasAttribute("data-quiz-open") ||
@@ -540,6 +671,9 @@ export function createQuizUI({
         throw Error("Wait for the current answer to finish saving.");
       if (button.hasAttribute("data-quiz-open")) {
         selected = button.dataset.quizOpen;
+        leaderboardOnly = false;
+        leaderboardPage = 1;
+        leaderboardOpen = false;
         useRun(null);
         await load();
         onRender();
@@ -591,6 +725,24 @@ export function createQuizUI({
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if (event.key === "Enter" && (event.repeat || event.isComposing)) {
+        event.preventDefault();
+        return;
+      }
+      if (
+        run?.answered &&
+        !run.finished &&
+        event.key === "Enter" &&
+        !working &&
+        !event.target.closest?.(
+          "button,a,input,select,textarea,[contenteditable=true]",
+        )
+      ) {
+        event.preventDefault();
+        mutate("quiz-next").catch(showError);
+        return;
+      }
+      if (event.target.id !== "quiz-answer") return;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         suggestionsOpen = true;

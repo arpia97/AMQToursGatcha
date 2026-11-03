@@ -8,6 +8,7 @@ import {
   instantSalePrice,
 } from "../public/card-values.js";
 import { Fusion } from "./fusion.js";
+import { Alchemy } from "./alchemy.js";
 import { Mahjong } from "./mahjong.js";
 import { GemFaceting } from "./gem.js";
 import { HorseRacing } from "./horse-racing.js";
@@ -65,6 +66,7 @@ export class Economy {
     );
     this.anime = new AnimeCollection(e);
     this.fusion = new Fusion(e);
+    this.alchemy = new Alchemy(e);
     this.mahjong = new Mahjong(e);
     this.gem = new GemFaceting(e);
     this.horse = new HorseRacing(e);
@@ -467,6 +469,9 @@ export class Economy {
       return { message: "Auction win notification seen." };
     }
     if (action === "fusion") return this.fusion.fuse(player, b);
+    if (action === "alchemy-target") return this.alchemy.target(player, b);
+    if (action === "alchemy-feed") return this.alchemy.refine(player, b);
+    if (action === "alchemy-draw") return this.alchemy.draw(player, b);
     if (action === "sell-instant") {
       const id = text(b.card, 100),
         c = e.catalogStore.card(id);
@@ -771,6 +776,8 @@ export class Economy {
   }
   resetPlayer(player) {
     const e = this.e;
+    e.run("DELETE FROM card_alchemy WHERE player=?", player);
+    e.run("DELETE FROM alchemy_targets WHERE player=?", player);
     this.trades.resetPlayer(player);
     for (const a of e.all(
       "SELECT * FROM auctions WHERE seller=? AND paid=0",

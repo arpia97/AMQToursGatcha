@@ -52,27 +52,28 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 
 [Tenrai's terms](https://tenrai.org/terms) permit collecting, caching, transforming and displaying API responses within applications while preserving third-party rights and access limits. This app does not expose a raw Tenrai database dump or competing API. Portraits remain on MAL CDN URLs; API access does not transfer artwork or portrait rights. No biographies are retained. The older adapted ACDB download is removed from the deployed site; historical attribution remains in Git history. AniList bulk collection is not used.
 
-## Card fusion
+## Card Alchemy
 
-Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 25 × 8 = 200 credits. Extra copies are level 1. Pending uses D pricing. Quotes include rarity, level and price; changes reject the sale for review before any consumption. Credits fit safely up to the wallet limit of one trillion.
+Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 25 × 8 = 200 credits. Extra copies are level 1. Pending uses D pricing. Quotes reject changed terms before consumption.
 
-Fusion selects up to five physical copies. One invested copy of the highest printed tier sets the baseline and adds no chance. Enhanced cards count as `2^(level−1)` invested copies. Lower-tier contributions halve per tier below the baseline.
+Card Alchemy replaces the former multi-material fusion. One confirmed refinement consumes one owned, unprotected physical card and adds XP to a persistent shared pool. Enhanced cards multiply XP by their invested-copy count, `2^(level−1)`; spare copies are level 1. One physical refinement advances the lucky counter once regardless of enhancement. Pending cards cannot be refined.
 
-| Baseline | Extra same-tier copy | Upgrade cap |
-| -------- | -------------------: | ----------: |
-| D        |                  35% |         55% |
-| C        |                  37% |         57% |
-| B        |                  39% |         59% |
-| A        |                  41% |         61% |
-| S        |                  43% |         63% |
-| SS       |                  45% |         65% |
-| SSS      |                  47% |         68% |
-| Ubers    |                  48% |         70% |
+| Rarity | Base Material XP | Draw Cost |
+| ------ | ---------------: | --------: |
+| D      |               10 |        50 |
+| C      |               20 |       100 |
+| B      |               40 |       200 |
+| A      |               80 |       400 |
+| S      |              160 |       800 |
+| SS     |              320 |     1,600 |
+| SSS    |              640 |     3,200 |
+| Ubers  |            1,280 |     6,400 |
+| AG     |            2,560 |    12,800 |
 
-Stay starts at 30%. Raw contribution beyond the upgrade cap transfers one percentage point from stay to downgrade for every four excess points, up to 20 points. Downgrade is the remaining probability. For example, two D copies give 35% upgrade / 30% stay / 35% downgrade; two Ubers give 48% / 30% / 22%. Five D copies give 55% / 10% / 35%. Extra fodder is consumed even beyond the useful cap.
+Normal refinements roll Success 90% (1× XP), Great Success 9% (2×) or Erig 1% (5×). Every sixth refinement is lucky: 50% / 45% / 5%. Drawing cards and changing targets do not advance this counter.
 
-All selected materials are consumed and exactly one random Lv. 1 card is returned. Upgrades independently roll +1/+2/+3 tiers at 90%/9%/1%; downgrades independently roll −1/−2/−3 tiers at 90%/9%/1%. Stay returns the baseline tier. Results clamp to D and AG; a D downgrade therefore still returns D. AG and Pending cannot be materials. Same-type materials retain their type; mixed materials draw from both pools. Every possible nonzero result pool is validated before consumption. Revision-2 quotes are rejected for review.
+Save one optional target per tier, choosing from both characters and seiyuus. Spending the tier's XP cost draws one Lv. 1 card: the target receives exactly 50%, and the other eligible cards share the other 50% uniformly. No target means a uniform tier draw. A singleton tier guarantees its only card. Leftover XP remains in the shared pool. Catalogue rarity changes invalidate stale targets until reselected.
 
-The Target Card panel browses Success, Great Success, Erig, downgrade and same-tier outcomes with bilingual search and 12 cards per page. A target must belong to the normal +1-tier pool. When that tier rolls, the target gets exactly 50% and the remaining 50% is shared uniformly among other eligible cards. This does not change success or 90/9/1 quality probabilities. When multiple capped outcomes share the target tier (e.g. AG), the target applies to each of them. Same-tier and downgrade results remain uniform. A singleton pool already guarantees its only card and cannot accept a target. Board changes clear ineligible targets; searching or paging preserves a valid target. `GET fusion-outcomes` reads local catalogue metadata only and makes no upstream requests.
+GET /api/alchemy reads progress; GET /api/alchemy-targets pages local catalogue metadata without upstream requests. POST /api/alchemy-target saves or clears a tier target. POST /api/alchemy-feed and /api/alchemy-draw require explicit confirmation, current version, reviewed terms and an Idempotency-Key. Ownership, protection, escrow, synchronous transactions and version checks prevent duplicate or partial consumption. Compact responses patch only changed inventory and alchemy state. Wallet balances and gambling ranks are unaffected.
 
-Revision-2 expected odds reject outdated clients, changed rarity/level, or stale terms before rolling or consuming. Success rolls use 128 units per basis point to represent fractional cross-tier probabilities exactly. Ownership, protection, escrow validation, synchronous transactions and idempotency prevent duplicate consumption or partial results.
+Player resets clear XP, targets and lucky counters. Alias migrations preserve them. The original Durable Object is retained. Legacy fusion receipts and internal reversal tooling remain for historical audits; the public old POST /api/fusion returns 410 so cached clients cannot consume materials under obsolete rules.

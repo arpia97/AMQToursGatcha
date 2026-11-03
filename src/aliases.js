@@ -211,8 +211,11 @@ export class AliasSync {
       "profile_anime",
       "host_delegations",
       "quiz_progress",
+      "quiz_reward_history",
       "quiz_runs",
       "profile_title_preferences",
+      "card_alchemy",
+      "alchemy_targets",
     ])
       this.e.run(`UPDATE ${table} SET player=? WHERE player=?`, id, old);
     this.e.run("UPDATE auctions SET winner=? WHERE winner=?", id, old);

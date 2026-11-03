@@ -18,9 +18,93 @@ export class Quiz {
       "CREATE INDEX IF NOT EXISTS quiz_answer_prefix ON quiz_answers(key)",
       "CREATE TABLE IF NOT EXISTS quiz_progress(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL DEFAULT 0,at INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
+      "CREATE TABLE IF NOT EXISTS quiz_reward_history(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
     ])
       e.run(sql);
+    if (
+      !e
+        .all("PRAGMA table_info(quiz_progress)")
+        .some((c) => c.name === "best_at")
+    )
+      e.run("ALTER TABLE quiz_progress ADD COLUMN best_at INTEGER");
+    e.run(
+      "CREATE INDEX IF NOT EXISTS quiz_leaderboard ON quiz_progress(quiz,best DESC,best_at,player)",
+    );
+  }
+  bestTime(player, quiz, best, fallback) {
+    return (
+      this.e.one(
+        "SELECT MIN(at) AS first FROM receipts WHERE scope=? AND json_extract(input,'$.quiz')=? AND json_extract(result,'$.run.finished')=1 AND json_extract(result,'$.run.score')>=?",
+        player + ":quiz-next",
+        quiz,
+        best,
+      )?.first || fallback
+    );
+  }
+  leaderboard(id, player = null, page = 1) {
+    this.definition(id, player);
+    integer(page, 1, 10000);
+    const missing = this.e.all(
+      "SELECT player,best,at FROM quiz_progress WHERE quiz=? AND best_at IS NULL",
+      id,
+    );
+    if (missing.length)
+      this.e.tx(() => {
+        for (const row of missing)
+          this.e.run(
+            "UPDATE quiz_progress SET best_at=? WHERE player=? AND quiz=? AND best_at IS NULL",
+            this.bestTime(row.player, id, row.best, row.at),
+            row.player,
+            id,
+          );
+      });
+    const rows = this.e.all(
+      "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,p.best_at,p.player LIMIT 21 OFFSET ?",
+      id,
+      (page - 1) * 20,
+    );
+    return {
+      rows: rows.slice(0, 20),
+      page,
+      hasMore: rows.length > 20,
+      total: this.e.one(
+        "SELECT count(*) AS n FROM quiz_progress WHERE quiz=?",
+        id,
+      ).n,
+    };
+  }
+  resetScores(b) {
+    const id = text(b.quiz, 100);
+    if (!this.e.one("SELECT id FROM quizzes WHERE id=?", id))
+      fail("Quiz was not found.", 404);
+    if (b.confirmation !== "RESET QUIZ SCORES AND TITLES")
+      fail("Confirm resetting this quiz’s scores and titles.");
+    const count = this.e.one(
+      "SELECT count(*) AS n FROM quiz_progress WHERE quiz=?",
+      id,
+    ).n;
+    for (const row of this.e.all(
+      "SELECT player,best FROM quiz_progress WHERE quiz=?",
+      id,
+    ))
+      this.e.run(
+        "INSERT INTO quiz_reward_history VALUES(?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=MAX(best,excluded.best)",
+        row.player,
+        id,
+        row.best,
+      );
+    for (const table of [
+      "quiz_progress",
+      "quiz_runs",
+      "profile_title_preferences",
+    ])
+      this.e.run("DELETE FROM " + table + " WHERE quiz=?", id);
+    return {
+      message:
+        "Quiz scores, active runs and completion titles reset. Existing credits and claimed rewards retained.",
+      players: count,
+    };
   }
   isHost(player) {
     return !!player && !!this.e.player(player).is_admin;
@@ -217,8 +301,18 @@ export class Quiz {
     const q = this.definition(b.quiz, player),
       e = this.e;
     let run = this.run(player, q.id);
-    if (action === "quiz-start") {
-      if (run && !run.finished && !!run.preview === !q.published)
+    if (action === "quiz-start" || action === "quiz-restart") {
+      if (
+        action === "quiz-restart" &&
+        (!run || run.finished || run.id !== b.run || run.index !== b.index)
+      )
+        fail("The quiz run changed. Refresh before restarting.", 409);
+      if (
+        action === "quiz-start" &&
+        run &&
+        !run.finished &&
+        !!run.preview === !q.published
+      )
         return { ...this.view(player, q.id), message: "Quiz Resumed" };
       const pool = e
         .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", q.id)
@@ -283,13 +377,21 @@ export class Quiz {
       if (!run.answers[run.index]) fail("Lock an answer first.");
       if (run.index === 19) {
         const score = run.answers.filter((a) => a.correct).length;
-        const previous =
+        const previous = e.one(
+          "SELECT best,at,best_at FROM quiz_progress WHERE player=? AND quiz=?",
+          player,
+          q.id,
+        );
+        const paid =
           e.one(
-            "SELECT best FROM quiz_progress WHERE player=? AND quiz=?",
+            "SELECT best FROM quiz_reward_history WHERE player=? AND quiz=?",
             player,
             q.id,
-          )?.best || 0;
-        const reward = quizReward(previous, score);
+          )?.best ??
+          previous?.best ??
+          0;
+        const reward = quizReward(paid, score),
+          displayBest = Math.max(previous?.best || 0, score);
         const preview = !!run.preview || !q.published;
         if (!preview) {
           if (reward.improvement + reward.milestones)
@@ -299,12 +401,24 @@ export class Quiz {
               "Quiz: " + q.name + " · " + score + "/20",
               true,
             );
+          const bestAt =
+            !previous || score > previous.best
+              ? e.now()
+              : (previous.best_at ??
+                this.bestTime(player, q.id, previous.best, previous.at));
           e.run(
-            "INSERT INTO quiz_progress VALUES(?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at",
+            "INSERT INTO quiz_progress(player,quiz,best,at,best_at) VALUES(?,?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at,best_at=excluded.best_at",
+            player,
+            q.id,
+            displayBest,
+            e.now(),
+            bestAt,
+          );
+          e.run(
+            "INSERT INTO quiz_reward_history VALUES(?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=MAX(best,excluded.best)",
             player,
             q.id,
             reward.best,
-            e.now(),
           );
         }
         run.finished = true;
@@ -320,6 +434,7 @@ export class Quiz {
             }
           : {
               ...reward,
+              best: displayBest,
               total: reward.improvement + reward.milestones,
               title: score === 20 ? q.title : "",
             };

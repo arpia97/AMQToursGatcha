@@ -164,7 +164,7 @@ Community cards are the exception to MAL rarity ranking. Host catalogue imports 
 
 Normal packs are uniform; the legacy `mainWeight` settings parameter is ignored. Premium doubles AG/Ubers/SSS/SS/S probabilities, funded only by D. Weekly shop prices double from D 50 to AG 12,800; Pending is 50. Players choose their own marketplace prices.
 
-Authenticated `POST /api/sell-instant` accepts `{card, variant:"extra"|"card", expectedRarity, expectedLevel, expectedPrice}`. Fusion uses `POST /api/fusion` with `cards:[{card,variant,expectedRarity,expectedLevel}]` and `expectedOdds:{baseline,upgraded,stay,upgrade,break,count}` (odds in basis points). Both require an Idempotency-Key and reject stale terms before changing inventory. See the shared rules in CATALOG.md.
+Authenticated `POST /api/sell-instant` accepts `{card, variant:"extra"|"card", expectedRarity, expectedLevel, expectedPrice}`. Card Alchemy uses confirmed, versioned POST /api/alchemy-feed and /api/alchemy-draw, with separate POST /api/alchemy-target. All mutations require an Idempotency-Key and reject stale terms before changing inventory. See CATALOG.md.
 
 Public `GET /api/featured` returns up to three distinct SSS/Ubers/AG cards. Authenticated state includes `auctionWins` for ended, unclaimed, unseen wins; `POST /api/auction-notice` with `{auction}` acknowledges only the current winner's ended lot. Acknowledging does not claim the card. Shop purchases and claims return card metadata plus the transferred level for reveal effects; repeated mutations replay their original receipt.
 
@@ -206,3 +206,7 @@ POST `/api/host/deduction-preview` with `{player, amount, note}` validates 1–1
 ### Focused Fusion Restoration
 
 Owner-only endpoints support a reviewed reversal of the latest simple fusion: GET `/api/host/fusion-revert-preview?player=ID&key=SOURCE_KEY`, POST `/api/host/fusion-revert` with `{player,sourceKey,confirmation:"REVERT FUSION"}`, and GET `/api/host/fusion-revert-receipt?key=SOURCE_KEY`. Use the original fusion key as the idempotency key. The result must still be one unchanged Lv. 1 copy, all distinct Lv. 1 materials must remain absent, and later gameplay requiring review blocks reversal. The operation restores materials and removes the result atomically, preserves credits and the original receipt, and stores its own receipt to prevent repeat restoration. Enhanced/merged outputs require a separate plan.
+
+### Quiz Scores and Titles
+
+Host Console → Quiz → Reset Scores & Completion Titles clears the selected quiz’s leaderboard, active runs, best scores and completion titles after confirmation. Credits stay unchanged. Previously paid best scores remain in quiz_reward_history, so a reset cannot pay the same point or milestone reward twice. Other quizzes and the Host title remain unchanged. Editing a quiz’s perfect-score title updates every current holder because profiles resolve title text from the quiz definition. Leaderboards use best score descending, first-achieved time ascending, and stable player ID only for exact timestamp ties.

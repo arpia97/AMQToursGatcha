@@ -146,6 +146,16 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response = await post("quiz-start", { quiz: "test" }, auth);
   assert.equal(response.status, 200);
   let run = (await response.json()).run;
+  const oldRunId = run.id;
+  response = await post(
+    "quiz-restart",
+    { quiz: "test", run: run.id, index: 0 },
+    auth,
+  );
+  assert.equal(response.status, 200);
+  run = (await response.json()).run;
+  assert.notEqual(run.id, oldRunId);
+  assert.equal(run.index, 0);
   assert.ok(
     run.audio.startsWith("https://naedist.animemusicquiz.com/fixture-song-"),
   );
@@ -210,4 +220,40 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const hidden = await response.json();
   assert.equal(hidden.titles.length, 0);
   assert.equal(hidden.balance, 7900);
+  response = await post("equip-titles", { quizzes: ["test"] }, auth);
+  assert.equal(response.status, 200);
+  response = await post(
+    "host/quiz-save",
+    { id: "test", name: "Test", title: "Renamed Title", published: true },
+    host,
+  );
+  assert.equal(response.status, 200);
+  response = await mf.dispatchFetch("http://game/api/player?id=1");
+  assert.equal((await response.json()).titles[0].title, "Renamed Title");
+  response = await mf.dispatchFetch(
+    "http://game/api/quiz-leaderboard?quiz=test",
+  );
+  const board = await response.json();
+  assert.equal(board.rows[0].id, "1");
+  assert.equal(board.rows[0].best, 20);
+  assert(board.rows[0].bestAt > 0);
+  response = await post("host/quiz-scores-reset", {
+    quiz: "test",
+    confirmation: "RESET QUIZ SCORES AND TITLES",
+  });
+  assert.equal(response.status, 401);
+  response = await post(
+    "host/quiz-scores-reset",
+    { quiz: "test", confirmation: "RESET QUIZ SCORES AND TITLES" },
+    host,
+  );
+  assert.equal(response.status, 200);
+  response = await mf.dispatchFetch(
+    "http://game/api/quiz-leaderboard?quiz=test",
+  );
+  assert.equal((await response.json()).total, 0);
+  response = await mf.dispatchFetch("http://game/api/player?id=1");
+  const resetProfile = await response.json();
+  assert.equal(resetProfile.titles.length, 0);
+  assert.equal(resetProfile.balance, 7900);
 });
