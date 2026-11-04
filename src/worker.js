@@ -1044,6 +1044,7 @@ export class Game extends DurableObject {
         e.economy.trades.page(session?.player, {
           view: url.searchParams.get("view") || "browse",
           page: Number(url.searchParams.get("page") || 1),
+          query: url.searchParams.get("q") || "",
         }),
       );
     }

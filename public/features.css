@@ -3850,3 +3850,16 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
     width: 165px;
   }
 }
+
+.trade-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 24px;
+}
+.trade-search .search {
+  flex: 1 1 260px;
+  min-width: 0;
+  max-width: 540px;
+}

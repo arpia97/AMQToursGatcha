@@ -421,3 +421,108 @@ test("listing pagination has no omissions, limits bound escrow, and resetting an
     20,
   );
 });
+
+test("trade search matches card names in either order, anime and sellers before pagination across batches", (t) => {
+  const { e } = fixture(t);
+  e.run(
+    "UPDATE catalog SET name='Iwami, Manaka',series='Anime, Example' WHERE id='two'",
+  );
+  e.catalogStore.invalidate();
+  for (let i = 0; i < 25; i++)
+    e.run(
+      "INSERT INTO trade_listings(seller,card,level,created_at,updated_at) VALUES('a','two',1,1,1)",
+    );
+  for (let i = 0; i < 105; i++)
+    e.run(
+      "INSERT INTO trade_listings(seller,card,level,created_at,updated_at) VALUES('b','one',1,1,1)",
+    );
+  for (const query of [
+    "Iwami, Manaka",
+    "Iwami Manaka",
+    "Manaka Iwami",
+    "Example Anime",
+  ]) {
+    const a = e.economy.trades.page(null, { query });
+    assert.equal(a.items.length, 12);
+    assert.equal(a.hasMore, true);
+    assert.ok(a.items.every((l) => l.card === "two"));
+    assert.equal(a.items[0].id, 25);
+    const b = e.economy.trades.page(null, { query, page: 2 });
+    assert.equal(b.items.length, 12);
+    assert.equal(b.hasMore, true);
+    assert.equal(b.items[0].id, 13);
+    const c = e.economy.trades.page(null, { query, page: 3 });
+    assert.equal(c.items.length, 1);
+    assert.equal(c.hasMore, false);
+    assert.equal(c.items[0].id, 1);
+  }
+  e.run("UPDATE players SET display_name='Seller, Collector' WHERE id='a'");
+  assert.equal(
+    e.economy.trades.page(null, { query: "Collector Seller" }).items[0]
+      .seller_name,
+    "Seller, Collector",
+  );
+  assert.equal(
+    e.economy.trades.page(null, { query: "missing" }).items.length,
+    0,
+  );
+  assert.equal(
+    e.economy.trades.page(null, { query: "' OR 1=1 --" }).items.length,
+    0,
+  );
+  const unfiltered = e.economy.trades.page(null);
+  assert.equal(unfiltered.items[0].id, 130);
+  assert.equal(unfiltered.query, "");
+});
+test("trade search keeps account scopes and private offers intact and never changes cards or credits", (t) => {
+  const { e, card, list, offer } = fixture(t);
+  card("a", "one", 3);
+  card("b", "two");
+  const id = list();
+  offer("b", id, "two");
+  const before = JSON.stringify({
+    inventory: e.all("SELECT * FROM inventory"),
+    wallet: e.all("SELECT balance,earned FROM players"),
+    offers: e.all("SELECT * FROM trade_offers"),
+  });
+  assert.equal(
+    e.economy.trades.page("b", { view: "offers", query: "One" }).items.length,
+    1,
+  );
+  assert.equal(
+    e.economy.trades.page("c", { view: "offers", query: "One" }).items.length,
+    0,
+  );
+  assert.equal(
+    e.economy.trades.page("b", { view: "listings", query: "One" }).items.length,
+    0,
+  );
+  assert.equal(
+    e.economy.trades.page("a", { view: "listings", query: "One" }).items.length,
+    1,
+  );
+  assert.equal(e.economy.trades.page(null, { query: "Two" }).items.length, 0);
+  assert.equal(
+    e.economy.trades.page(null, { query: "One" }).items[0].offers.length,
+    0,
+  );
+  assert.throws(
+    () => e.economy.trades.page(null, { view: "offers", query: "One" }),
+    { status: 401 },
+  );
+  assert.equal(
+    JSON.stringify({
+      inventory: e.all("SELECT * FROM inventory"),
+      wallet: e.all("SELECT balance,earned FROM players"),
+      offers: e.all("SELECT * FROM trade_offers"),
+    }),
+    before,
+  );
+  e.run("UPDATE trade_listings SET status='cancelled' WHERE id=?", id);
+  assert.equal(e.economy.trades.page(null, { query: "One" }).items.length, 0);
+  assert.equal(
+    e.economy.trades.page("a", { view: "listings", query: "One" }).items[0]
+      .status,
+    "cancelled",
+  );
+});

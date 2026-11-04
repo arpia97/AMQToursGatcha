@@ -642,6 +642,8 @@ export function demoFeatures(d, path, b) {
   if (path.startsWith("trades?")) {
     const q = new URLSearchParams(path.split("?")[1]),
       view = q.get("view") || "browse",
+      query = (q.get("q") || "").trim().slice(0, 100),
+      matches = searchMatcher(query),
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
       .filter((l) =>
@@ -652,6 +654,12 @@ export function demoFeatures(d, path, b) {
                 (o) => o.listing === l.id && o.proposer === me.id,
               )
             : l.status === "open",
+      )
+      .filter((l) =>
+        matches([
+          cardSearchText(d.cards.find((c) => c.id === l.card) || {}),
+          l.seller_name || l.seller,
+        ]),
       )
       .sort((a, b) => b.id - a.id);
     return {
@@ -669,6 +677,7 @@ export function demoFeatures(d, path, b) {
         ),
       })),
       cards: d.cards,
+      query,
       page,
       hasMore: all.length > page * 12,
     };

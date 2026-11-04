@@ -140,3 +140,27 @@ test("offer builder adds/removes multiple copies, includes full bundle, and prev
   for (let i = 0; i < 10; i++) c.choose("a");
   assert.throws(() => c.choose("a"), /10/);
 });
+
+test("trade search stays visible across views, escapes queries, and distinguishes empty results from no listings", () => {
+  const { component: c, ui, s } = fixture();
+  ui.tradeQuery = "Manaka Iwami";
+  ui.tradeData = { query: "Manaka Iwami", items: [], page: 1, hasMore: false };
+  assert.match(c.render(), /aria-label="Search Trades"/);
+  assert.match(c.render(), /value="Manaka Iwami"/);
+  assert.match(c.render(), /no-results/);
+  assert.match(c.render(), /No Matching Trades/);
+  assert.match(c.render(), /trade-search-clear/);
+  for (const view of ["browse", "listings", "offers"]) {
+    ui.tradeView = view;
+    assert.match(c.render(), /id="trade-search"/);
+  }
+  ui.tradeQuery = '"><script>';
+  assert.doesNotMatch(c.render(), /value=""><script>/);
+  assert.match(c.render(), /value="&quot;&gt;&lt;script&gt;"/);
+  ui.tradeQuery = "";
+  assert.match(c.render(), /No Offers Yet/);
+  assert.doesNotMatch(c.render(), /trade-search-clear/);
+  s.me = null;
+  assert.match(c.render(), /Sign In to See Your Trades/);
+  assert.match(c.render(), /id="trade-search"/);
+});

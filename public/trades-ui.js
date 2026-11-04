@@ -41,6 +41,8 @@ export function createTradesUI(h, ui) {
     const s = getState(),
       data = ui.tradeData,
       view = ui.tradeView || "browse";
+    const query = ui.tradeQuery || "",
+      noResults = !!query && data?.query === query.trim() && !data.items.length;
     const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer up to 10 card copies for one listed card. The lister chooses an offer. All cards are held until the trade ends; withdrawing returns your cards. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
       ["browse", "Browse Trades"],
       ["listings", "Your Trade Listings"],
@@ -54,7 +56,9 @@ export function createTradesUI(h, ui) {
           view === id ? "mint" : "secondary",
         ),
       )
-      .join("")}${btn("Refresh", "trade-refresh", "", "secondary")}</div>`;
+      .join(
+        "",
+      )}${btn("Refresh", "trade-refresh", "", "secondary")}</div><div class="trade-search"><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}</div>`;
     if (!s.me && view !== "browse")
       return (
         head +
@@ -81,12 +85,16 @@ export function createTradesUI(h, ui) {
       (content
         ? `<div class="trade-listings">${content}</div>`
         : empty(
-            view === "browse"
-              ? "No Open Trades Yet."
-              : view === "listings"
-                ? "No Trade Listings Yet."
-                : "No Offers Yet.",
-            "List a card or make an offer to another collector.",
+            query
+              ? "No Matching Trades."
+              : view === "browse"
+                ? "No Open Trades Yet."
+                : view === "listings"
+                  ? "No Trade Listings Yet."
+                  : "No Offers Yet.",
+            query
+              ? "Try another card name, anime or collector, or clear your search."
+              : "List a card or make an offer to another collector.",
           )) +
       `<div class="toolbar space-top">${btn("← Previous", "trade-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page}</span>${btn("Next →", "trade-next", data.hasMore ? "" : "disabled", "secondary")}</div>`
     );

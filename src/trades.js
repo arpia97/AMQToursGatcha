@@ -1,4 +1,5 @@
 import { fail, integer, text } from "./engine.js";
+import { searchMatcher, cardSearchText } from "../public/search.js";
 
 // Listings escrow one copy; offers escrow a bundle. All changes share one transaction.
 export class Trades {
@@ -275,7 +276,7 @@ export class Trades {
     }
     fail("Unknown trade action.", 404);
   }
-  page(player, { view = "browse", page = 1 } = {}) {
+  page(player, { view = "browse", page = 1, query = "" } = {}) {
     integer(page, 1, 10000);
     if (!["browse", "listings", "offers"].includes(view))
       fail("Unknown trade view.");
@@ -287,11 +288,48 @@ export class Trades {
           ? "EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=?)"
           : "l.status='open'";
     const args = view === "browse" ? [] : [player];
-    const rows = this.e.all(
-      `SELECT l.*,COALESCE(p.display_name,p.name,l.seller) seller_name,(SELECT count(*) FROM trade_offers o WHERE o.listing=l.id AND o.status='open') offer_count FROM trade_listings l LEFT JOIN players p ON p.id=l.seller WHERE ${where} ORDER BY l.id DESC LIMIT 13 OFFSET ?`,
-      ...args,
-      (page - 1) * 12,
-    );
+    query = String(query || "")
+      .trim()
+      .slice(0, 100);
+    const select = `SELECT l.*,COALESCE(p.display_name,p.name,l.seller) seller_name,(SELECT count(*) FROM trade_offers o WHERE o.listing=l.id AND o.status='open') offer_count FROM trade_listings l LEFT JOIN players p ON p.id=l.seller WHERE ${where}`;
+    let rows;
+    if (!query)
+      rows = this.e.all(
+        `${select} ORDER BY l.id DESC LIMIT 13 OFFSET ?`,
+        ...args,
+        (page - 1) * 12,
+      );
+    else {
+      // Search visible listings before pagination, resolving only their card IDs.
+      // Never scan the full catalogue or expose another collector's private offers.
+      const matches = searchMatcher(query),
+        offset = (page - 1) * 12;
+      rows = [];
+      let cursor = Number.MAX_SAFE_INTEGER,
+        skipped = 0;
+      while (rows.length < 13) {
+        const batch = this.e.all(
+          `${select} AND l.id<? ORDER BY l.id DESC LIMIT 100`,
+          ...args,
+          cursor,
+        );
+        if (!batch.length) break;
+        const cards = new Map(
+          this.e.catalogStore
+            .cards([...new Set(batch.map((l) => l.card))])
+            .map((c) => [c.id, c]),
+        );
+        for (const l of batch) {
+          const c = cards.get(l.card);
+          if (!matches([c ? cardSearchText(c) : "", l.seller_name])) continue;
+          if (skipped++ < offset) continue;
+          rows.push(l);
+          if (rows.length === 13) break;
+        }
+        if (batch.length < 100) break;
+        cursor = batch.at(-1).id;
+      }
+    }
     const items = rows.slice(0, 12).map((l) => ({
       ...l,
       offers: player
@@ -307,6 +345,7 @@ export class Trades {
     return {
       items,
       page,
+      query,
       hasMore: rows.length > 12,
       cards: this.e.catalogStore.cards([
         ...new Set(

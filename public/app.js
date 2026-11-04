@@ -182,6 +182,7 @@ const ui = {
   marketData: null,
   shopSection: "buy",
   tradeView: "browse",
+  tradeQuery: "",
   tradePage: 1,
   tradeData: null,
   shopSell: {
@@ -1033,7 +1034,14 @@ async function loadDynamic() {
     ui.shopSection === "trades" &&
     (state.me || ui.tradeView === "browse")
   )
-    data = await api("trades?view=" + ui.tradeView + "&page=" + ui.tradePage);
+    data = await api(
+      "trades?view=" +
+        ui.tradeView +
+        "&page=" +
+        ui.tradePage +
+        "&q=" +
+        encodeURIComponent(ui.tradeQuery),
+    );
   if (current === "players")
     data = await api(
       "profiles?q=" + encodeURIComponent(search) + "&page=" + ui.playerPage,
@@ -1621,6 +1629,35 @@ document.addEventListener("submit", async (ev) => {
 });
 document.addEventListener("input", (ev) => {
   savePredictionDraft(ev.target);
+  if (ev.target.id === "trade-search") {
+    ev.target.classList.remove("no-results");
+    ev.target.setAttribute("aria-invalid", "false");
+    ui.tradeQuery = ev.target.value;
+    ui.tradePage = 1;
+    ++loadVersion;
+    clearTimeout(searchTimer);
+    const query = ui.tradeQuery;
+    searchTimer = setTimeout(async () => {
+      if (
+        page() !== "shop" ||
+        ui.shopSection !== "trades" ||
+        query !== ui.tradeQuery
+      )
+        return;
+      try {
+        await loadDynamic();
+        if (
+          page() === "shop" &&
+          ui.shopSection === "trades" &&
+          query === ui.tradeQuery
+        )
+          render();
+      } catch (err) {
+        if (query === ui.tradeQuery) toast(err.message, true);
+      }
+    }, 350);
+    return;
+  }
   if (["search", "profile-search"].includes(ev.target.id)) {
     ev.target.classList.remove("no-results");
     ev.target.removeAttribute("aria-invalid");
@@ -1813,6 +1850,16 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a?.startsWith("trade-")) {
+      if (a === "trade-search-clear") {
+        clearTimeout(searchTimer);
+        ui.tradeQuery = "";
+        ui.tradePage = 1;
+        ui.tradeData = null;
+        await loadDynamic();
+        render();
+        $("#trade-search")?.focus({ preventScroll: true });
+        return true;
+      }
       if (
         ["trade-view", "trade-prev", "trade-next", "trade-refresh"].includes(a)
       ) {
