@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "./search.js";
 import { demoAlchemy } from "./demo-alchemy.js";
 import { pickemVoteSummary } from "./pickem-votes.js";
 import { tourSummaries } from "./pickem-board.js";
@@ -552,12 +553,12 @@ export function demoFeatures(d, path, b) {
     return { message: b.pinned ? "Anime pinned." : "Anime unpinned." };
   }
   if (path.startsWith("anime-search?")) {
-    const q = (
-      new URLSearchParams(path.split("?")[1]).get("q") || ""
-    ).toLowerCase();
+    const matches = searchMatcher(
+      new URLSearchParams(path.split("?")[1]).get("q"),
+    );
     return {
       series: animeGroups().filter((g) =>
-        (g.series_romaji + " " + g.series_english).toLowerCase().includes(q),
+        matches([g.series_romaji, g.series_english]),
       ),
     };
   }
@@ -876,7 +877,7 @@ export function demoFeatures(d, path, b) {
     };
   if (path.startsWith("catalog?")) {
     const p = new URLSearchParams(path.split("?")[1]),
-      q = (p.get("q") || "").toLowerCase(),
+      matches = searchMatcher(p.get("q")),
       kind = p.get("kind"),
       role = p.get("role"),
       grade = p.get("rarity");
@@ -885,11 +886,7 @@ export function demoFeatures(d, path, b) {
           c.kind === kind &&
           (!role || c.role === role) &&
           (!grade || (c.rarity || "Pending") === grade) &&
-          [c.name, c.series, c.series_romaji, c.series_english]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q),
+          matches(cardSearchText(c)),
       ),
       page = Number(p.get("page") || 1);
     all.sort(cardComparator(p.get("sort") || "name"));

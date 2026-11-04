@@ -2,6 +2,8 @@ import { fail, integer, text } from "./engine.js";
 import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
 import { Popularity } from "./popularity.js";
 import { cardComparator } from "../public/card-display.js";
+import { searchMatcher } from "../public/search.js";
+import { searchSql } from "./search.js";
 
 // ACDB metadata is stored in bounded JSON chunks. A bulk seed writes hundreds
 // of SQLite rows instead of hundreds of thousands of individual row/index writes.
@@ -289,13 +291,17 @@ export class Catalog {
     if (filters.rarity || filters.role)
       return this.filteredPage(kind, query, page, limit, filters);
     const q = String(query).trim().toLowerCase().slice(0, 100),
+      matches = searchMatcher(q),
       m = this.manifest(),
       offset = (page - 1) * limit;
     if (kind === "seiyuu") {
+      const search = searchSql(
+        "name||' '||series||' '||series_romaji||' '||series_english",
+        q,
+      );
       const rows = this.e.all(
-        "SELECT * FROM catalog WHERE kind='seiyuu' AND active=1 AND (?='' OR instr(lower(name||' '||series||' '||series_romaji||' '||series_english),?)>0) ORDER BY name COLLATE NOCASE,id LIMIT ? OFFSET ?",
-        q,
-        q,
+        `SELECT * FROM catalog WHERE kind='seiyuu' AND active=1 AND (${search.where}) ORDER BY name COLLATE NOCASE,id LIMIT ? OFFSET ?`,
+        ...search.args,
         limit + 1,
         offset,
       );
@@ -314,7 +320,7 @@ export class Catalog {
         "SELECT * FROM catalog WHERE kind=? AND active=1 ORDER BY name COLLATE NOCASE,id",
         kind,
       )
-      .filter((c) => characterSearch(c).includes(q));
+      .filter((c) => matches(characterSearch(c)));
     const overrides = new Set(
       this.e
         .all("SELECT id FROM catalog WHERE bulk_role IS NOT NULL")
@@ -344,12 +350,12 @@ export class Catalog {
     };
     for (const c of local) if (add(c)) break;
     if (kind === "character" && m) {
+      const search = searchSql("search", q);
       const buckets = this.e.all(
-        "SELECT bucket FROM catalog_bulk WHERE version=? AND section=? AND (?='' OR instr(search,?)>0) ORDER BY bucket",
+        `SELECT bucket FROM catalog_bulk WHERE version=? AND section=? AND (${search.where}) ORDER BY bucket`,
         m.version,
         "browse",
-        q,
-        q,
+        ...search.args,
       );
       outer: for (const row of buckets) {
         if (more) break;
@@ -360,11 +366,7 @@ export class Catalog {
           continue;
         }
         for (const c of this.chunk("browse", row.bucket, m.version)) {
-          if (
-            overrides.has(c.id) ||
-            !(c.name + " " + c.series).toLowerCase().includes(q)
-          )
-            continue;
+          if (overrides.has(c.id) || !matches(characterSearch(c))) continue;
           if (add(c)) break outer;
         }
       }
@@ -443,6 +445,7 @@ export class Catalog {
       fail("Choose a valid catalogue sort.");
     const view = this.pool(kind);
     const q = String(query).trim().toLowerCase().slice(0, 100);
+    const matches = searchMatcher(q);
     if (!view.orders.has(filters.sort))
       view.orders.set(
         filters.sort,
@@ -455,7 +458,7 @@ export class Catalog {
             (c) =>
               (!filters.role || c.role === filters.role) &&
               (!filters.rarity || (c.rarity || "Pending") === filters.rarity) &&
-              (!q || characterSearch(c).includes(q)),
+              (!q || matches(characterSearch(c))),
           )
         : ordered;
     const offset = (page - 1) * limit;
@@ -470,6 +473,7 @@ export class Catalog {
   filteredPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
     const q = String(query).trim().toLowerCase().slice(0, 100),
+      matches = searchMatcher(q),
       offset = (page - 1) * limit,
       overrides = new Set(
         this.e
@@ -484,7 +488,7 @@ export class Catalog {
       const narrowed = raw.filter(
         (c) =>
           (!filters.role || c.role === filters.role) &&
-          characterSearch(c).includes(q),
+          matches(characterSearch(c)),
       );
       for (const c of this.popularity.decorate(narrowed, decorationContext)) {
         if (filters.rarity && (c.rarity || "Pending") !== filters.rarity)
@@ -510,10 +514,10 @@ export class Catalog {
       cursor = rows.at(-1).id;
     }
     if (kind === "character" && !more && this.tenrai.manifest()) {
+      const search = searchSql("search", q);
       const buckets = this.e.all(
-        "SELECT bucket FROM tenrai_characters WHERE ?='' OR instr(search,?)>0 ORDER BY bucket",
-        q,
-        q,
+        `SELECT bucket FROM tenrai_characters WHERE ${search.where} ORDER BY bucket`,
+        ...search.args,
       );
       for (const { bucket } of buckets)
         if (

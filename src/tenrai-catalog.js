@@ -1,4 +1,6 @@
 import { fail } from "./engine.js";
+import { searchMatcher } from "../public/search.js";
+import { searchSql } from "./search.js";
 
 export const characterSearch = (c) =>
   [c.name, c.series, c.series_romaji, c.series_english]
@@ -194,6 +196,8 @@ export class TenraiCatalog {
     fail("Could not select a card. Please retry.", 503);
   }
   browse(q, offset, limit, local, overrides) {
+    const search = searchSql("search", q),
+      matches = searchMatcher(q);
     const result = [];
     let seen = 0,
       more = false;
@@ -208,9 +212,8 @@ export class TenraiCatalog {
     };
     for (const c of local) if (add(c)) break;
     const rows = this.e.all(
-      "SELECT bucket,main_count+other_count AS n FROM tenrai_characters WHERE ?='' OR instr(search,?)>0 ORDER BY bucket",
-      q,
-      q,
+      `SELECT bucket,main_count+other_count AS n FROM tenrai_characters WHERE ${search.where} ORDER BY bucket`,
+      ...search.args,
     );
     outer: for (const row of rows) {
       if (more) break;
@@ -219,7 +222,7 @@ export class TenraiCatalog {
         continue;
       }
       for (const c of Object.values(this.read(row.bucket))) {
-        if (overrides.has(c.id) || !characterSearch(c).includes(q)) continue;
+        if (overrides.has(c.id) || !matches(characterSearch(c))) continue;
         if (add(c)) break outer;
       }
     }

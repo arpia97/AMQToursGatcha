@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "./search.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import { levelLabel, ENHANCEMENT_REVISION } from "./card-values.js";
 import {
@@ -544,7 +545,8 @@ export function createAlchemyUI(h) {
   }
   function renderPicker(resultsOnly = false) {
     if (!picker) return "";
-    const targetMode = picker === "target";
+    const targetMode = picker === "target",
+      matches = searchMatcher(query);
     let items = targetMode
       ? targetData?.cards || []
       : getState()
@@ -554,11 +556,7 @@ export function createAlchemyUI(h) {
               i.c &&
               (!kind || i.c.kind === kind) &&
               (!grade || i.c.rarity === grade) &&
-              [i.c.name, i.c.series, i.c.series_romaji, i.c.series_english]
-                .filter(Boolean)
-                .join(" ")
-                .toLowerCase()
-                .includes(query.toLowerCase()),
+              matches(cardSearchText(i.c)),
           )
           .sort((a, b) => cardComparator("rarity")(a.c, b.c));
     const total = targetMode ? targetData?.total || 0 : items.length,

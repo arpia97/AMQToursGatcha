@@ -1,3 +1,4 @@
+import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
   QUIZ_LENGTH,
@@ -348,12 +349,13 @@ export class Quiz {
     this.definition(id, player);
     const key = quizAnswerKey(q);
     if (key.length < 2) return { answers: [] };
+    const search = searchSql("answer", key);
     return {
       answers: this.e
         .all(
-          "SELECT answer FROM quiz_answers WHERE quiz=? AND key LIKE ? ESCAPE '\\' ORDER BY key LIMIT 20",
+          `SELECT answer FROM quiz_answers WHERE quiz=? AND (${search.where}) ORDER BY key LIMIT 20`,
           id,
-          key.replace(/[\\%_]/g, "\\$&") + "%",
+          ...search.args,
         )
         .map((r) => r.answer),
     };

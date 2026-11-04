@@ -1,3 +1,4 @@
+import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
   MAX_CARD_LEVEL,
@@ -1093,34 +1094,20 @@ export class Engine {
   searchProfiles(query, page = 1, limit = 50) {
     integer(page, 1, 10000);
     integer(limit, 1, 100);
-    const q =
-      typeof query === "string" ? query.trim().toLowerCase().slice(0, 100) : "";
+    const search = profileSearchSql(typeof query === "string" ? query : "");
     return this.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ?='' OR instr(lower(p.id),?)>0 OR instr(lower(p.name),?)>0 OR instr(lower(COALESCE(p.display_name,'')),?)>0 OR EXISTS(SELECT 1 FROM aliases a WHERE a.player=p.id AND instr(a.alias,?)>0) OR EXISTS(SELECT 1 FROM usernames u WHERE u.player=p.id AND instr(u.username,?)>0) ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
-      q,
-      q,
-      q,
-      q,
-      q,
-      q,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ${search.where} ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
+      ...search.args,
       limit,
       (page - 1) * 50,
     );
   }
   profilesPage(query, page = 1) {
     const rows = this.searchProfiles(query, page, 51);
-    const q = String(query || "")
-      .trim()
-      .toLowerCase()
-      .slice(0, 100);
+    const search = profileSearchSql(query);
     const total = this.one(
-      `SELECT count(*) AS n FROM players p WHERE ?='' OR instr(lower(p.id),?)>0 OR instr(lower(p.name),?)>0 OR instr(lower(COALESCE(p.display_name,'')),?)>0 OR EXISTS(SELECT 1 FROM aliases a WHERE a.player=p.id AND instr(a.alias,?)>0) OR EXISTS(SELECT 1 FROM usernames u WHERE u.player=p.id AND instr(u.username,?)>0)`,
-      q,
-      q,
-      q,
-      q,
-      q,
-      q,
+      `SELECT count(*) AS n FROM players p WHERE ${search.where}`,
+      ...search.args,
     ).n;
     return {
       profiles: rows.slice(0, 50),

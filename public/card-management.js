@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "./search.js";
 const invalid = (message) => Object.assign(new Error(message), { status: 400 });
 import {
   instantSalePrice,
@@ -20,6 +21,7 @@ export function batchSaleQuote(inventory, cardBy, filters) {
     !["extras", "all"].includes(mode)
   )
     throw invalid("Choose a card type and sale mode.");
+  const matches = searchMatcher(query);
   const items = inventory
     .filter((i) => !i.protected && (!upgradable || canUpgrade(i)))
     .map((i) => ({ ...i, c: cardBy(i.card) }))
@@ -29,11 +31,7 @@ export function batchSaleQuote(inventory, cardBy, filters) {
         c.kind === kind &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&
-        [c.name, c.series, c.series_romaji, c.series_english]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(query.toLowerCase()),
+        matches(cardSearchText(c)),
     )
     .sort((a, b) => a.card.localeCompare(b.card))
     .flatMap((i) => {

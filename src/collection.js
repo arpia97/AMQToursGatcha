@@ -1,3 +1,4 @@
+import { searchSql } from "./search.js";
 import { MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { integer, text, fail } from "./engine.js";
 import { animeProgressComparator } from "../public/card-display.js";
@@ -161,9 +162,10 @@ export class AnimeCollection {
       .toLowerCase()
       .slice(0, 100);
     if (q.length < 2) return { series: [] };
+    const search = searchSql("romaji||' '||english", q);
     const rows = this.e.all(
-      "SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total FROM character_series WHERE instr(lower(romaji||' '||english),?)>0 GROUP BY series_key ORDER BY series_romaji LIMIT 20",
-      q,
+      `SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total FROM character_series WHERE ${search.where} GROUP BY series_key ORDER BY series_romaji LIMIT 20`,
+      ...search.args,
     );
     return {
       series: player

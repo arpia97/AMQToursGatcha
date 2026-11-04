@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "./search.js";
 import { RARITIES } from "./card-values.js";
 import { cardComparator } from "./card-display.js";
 
@@ -16,15 +17,9 @@ export function fusionOutcomesPage(
   const eligible = cards.filter(
     (c) => c.rarity === rarity && (kind === "mixed" || c.kind === kind),
   );
-  const q = String(query).trim().toLowerCase().slice(0, 100);
+  const matches = searchMatcher(query);
   const matching = eligible
-    .filter((c) =>
-      [c.name, c.series, c.series_romaji, c.series_english]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    )
+    .filter((c) => matches(cardSearchText(c)))
     .sort(cardComparator("name"));
   const limit = 12;
   page = Math.min(page, Math.max(1, Math.ceil(matching.length / limit)));

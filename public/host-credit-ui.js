@@ -1,14 +1,13 @@
+import { searchMatcher } from "./search.js";
 export function matchingCreditPlayers(state, query = "") {
-  const q = query.trim().toLowerCase(),
+  const matches = searchMatcher(query),
     names = new Map();
   for (const row of [...(state.aliases || []), ...(state.usernames || [])]) {
     if (!names.has(row.player)) names.set(row.player, []);
     names.get(row.player).push(row.alias || row.label || "");
   }
   return state.players.filter((p) =>
-    [p.id, p.name, ...(names.get(p.id) || [])].some((value) =>
-      String(value).toLowerCase().includes(q),
-    ),
+    [p.id, p.name, ...(names.get(p.id) || [])].some((value) => matches(value)),
   );
 }
 export const creditPlayerOptions = (players, escape, selected = "") =>

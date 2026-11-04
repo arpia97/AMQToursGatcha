@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "./search.js";
 import { enhancementCost, MAX_CARD_LEVEL } from "./card-values.js";
 import { DAILY_CREDITS } from "./site-defaults.js";
 import { pickemOutcome } from "./pickem-formats.js";
@@ -160,16 +161,10 @@ export class Demo {
     if (path.startsWith("catalog?")) {
       const p = new URLSearchParams(path.split("?")[1]),
         kind = p.get("kind") || "character",
-        q = (p.get("q") || "").toLowerCase(),
+        matches = searchMatcher(p.get("q")),
         page = Number(p.get("page") || 1);
       const cards = s.catalog.filter(
-        (c) =>
-          c.kind === kind &&
-          [c.name, c.series, c.series_romaji, c.series_english]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase()
-            .includes(q),
+        (c) => c.kind === kind && matches(cardSearchText(c)),
       );
       return {
         cards: cards.slice((page - 1) * 40, page * 40),
@@ -181,7 +176,7 @@ export class Demo {
     if (path === "state") return structuredClone(s);
     if (path.startsWith("profiles?")) {
       const params = new URLSearchParams(path.split("?")[1]),
-        q = (params.get("q") || "").toLowerCase(),
+        matches = searchMatcher(params.get("q")),
         page = Number(params.get("page") || 1);
       const rows = s.ranks
         .filter((p) =>
@@ -190,7 +185,7 @@ export class Demo {
             p.name,
             ...s.history[p.id].aliases,
             ...s.history[p.id].usernames,
-          ].some((n) => n.toLowerCase().includes(q)),
+          ].some(matches),
         )
         .map((p) => ({
           ...p,

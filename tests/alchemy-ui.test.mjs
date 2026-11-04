@@ -257,3 +257,15 @@ test("target Wishlist filter is beneath Type, stays in requests with search/type
   f.ui.openPicker("material");
   assert.doesNotMatch(f.ui.renderPicker(), /id="alchemy-wishlist"/);
 });
+
+test("material picker finds comma-separated names in either order and retains protected-card controls", () => {
+  const f = fixture();
+  f.cards[1].name = "Iwami, Manaka";
+  f.ui.openPicker("material");
+  for (const q of ["Iwami Manaka", "Manaka Iwami", "Manaka, Iwami"]) {
+    f.ui.filter("query", q);
+    assert.match(f.ui.renderPicker(), /Iwami, Manaka/);
+  }
+  f.ui.filter("query", "Iwami Someone");
+  assert.doesNotMatch(f.ui.renderPicker(), /alt="Iwami, Manaka"/);
+});
