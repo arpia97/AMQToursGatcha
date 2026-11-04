@@ -57,6 +57,46 @@ export function rollRefinement(quote, rand) {
   }
   throw Error("Invalid refinement roll.");
 }
+export function refinementQueue(entries, inventory, cardBy, refinements = 0) {
+  if (!Array.isArray(entries) || entries.length > 100)
+    throw Error("Select up to 100 cards per batch.");
+  const remaining = new Map(inventory.map((i) => [i.card, { ...i }])),
+    counts = new Map();
+  for (const entry of entries) {
+    if (!entry || !["extra", "card"].includes(entry.variant))
+      throw Error("Choose an owned copy.");
+    const count = counts.get(entry.card) || { extra: 0, card: 0 };
+    count[entry.variant]++;
+    counts.set(entry.card, count);
+  }
+  for (const [id, count] of counts) {
+    const item = remaining.get(id);
+    if (
+      !item ||
+      count.card > 1 ||
+      count.extra > item.copies - 1 ||
+      count.extra + count.card > item.copies
+    )
+      throw Error("A selected copy is no longer available.");
+  }
+  return entries.map((entry, index) => {
+    const item = remaining.get(entry.card),
+      c = cardBy(entry.card);
+    if (!c || !item?.copies)
+      throw Error("A selected card is no longer available.");
+    if (item.protected) throw Error("A selected card is protected.");
+    const variant =
+        entry.variant === "extra" && item.copies === 1 ? "card" : entry.variant,
+      level = variant === "extra" ? 1 : item.level;
+    item.copies--;
+    if (variant === "card") item.level = 1;
+    return {
+      ...c,
+      variant,
+      ...refinementQuote(c.rarity, level, refinements + index),
+    };
+  });
+}
 export function drawAlchemyCard(pool, target, rand) {
   if (!pool.length) throw Error("No cards are available at this rarity.");
   if (!target || pool.length === 1) return pool[rand(pool.length)];

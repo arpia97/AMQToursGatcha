@@ -50,6 +50,11 @@ test("the actual host submit handler saves a draft with a hidden id field instea
       return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
     if (path === "api/host/state")
       return { ok: true, json: async () => hostState };
+    if (path === "api/host/quiz-songs?id=saved-quiz")
+      return {
+        ok: true,
+        json: async () => ({ id: "saved-quiz", updated: 1, songs: [] }),
+      };
     if (path === "api/host/quizzes")
       return {
         ok: true,
@@ -92,6 +97,9 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   class FormData {
     constructor(form) {
       this.form = form;
+    }
+    getAll(key) {
+      return this.form.values[key] || [];
     }
     *[Symbol.iterator]() {
       yield* Object.entries(this.form.values);

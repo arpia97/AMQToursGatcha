@@ -118,12 +118,49 @@ export class Quiz {
       player || "",
     );
   }
+  hostSongs(id) {
+    const quiz = this.e.one(
+      "SELECT id,updated FROM quizzes WHERE id=?",
+      text(id, 100),
+    );
+    if (!quiz) fail("Quiz was not found.", 404);
+    return {
+      ...quiz,
+      songs: this.e
+        .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", id)
+        .map((row) => JSON.parse(row.data)),
+    };
+  }
   save(b) {
     const e = this.e,
       id = text(b.id || crypto.randomUUID(), 100),
       name = text(b.name, 100),
       title = typeof b.title === "string" ? b.title.trim().slice(0, 80) : "";
     const existing = e.one("SELECT * FROM quizzes WHERE id=?", id);
+    if (
+      existing &&
+      b.expectedUpdated !== undefined &&
+      b.expectedUpdated !== existing.updated
+    )
+      fail(
+        "This quiz changed. Select it again and review the current songs.",
+        409,
+      );
+    if (b.songMode !== undefined && !["append", "replace"].includes(b.songMode))
+      fail("Choose add songs or replace pool.");
+    const removed = b.removeSongIds || [];
+    if (
+      !Array.isArray(removed) ||
+      removed.length > 2000 ||
+      removed.some((id) => !Number.isInteger(id) || id < 0)
+    )
+      fail("Invalid song removal selection.");
+    if (
+      existing &&
+      (removed.length || b.songMode === "append") &&
+      b.expectedUpdated === undefined
+    )
+      fail("Load the current pool before editing it.", 409);
     if (!existing && e.one("SELECT count(*) AS n FROM quizzes").n >= 30)
       fail("At most 30 quizzes can be configured.");
     const cover = b.cover ?? existing?.cover ?? "";
@@ -134,7 +171,30 @@ export class Quiz {
         !/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/=]+$/.test(cover))
     )
       fail("Use a PNG, JPEG or WebP cover under 300 KB.");
-    if (b.songs !== undefined) {
+    if (b.songs !== undefined || removed.length) {
+      if (
+        b.songs !== undefined &&
+        (!Array.isArray(b.songs) ||
+          b.songs.some((song) => !song || typeof song !== "object"))
+      )
+        fail("Invalid quiz pool.");
+      const saved = existing ? this.hostSongs(id).songs : [];
+      if (removed.some((id) => !saved.some((song) => song.id === id)))
+        fail("A selected song no longer exists. Reload the quiz.", 409);
+      const kept = saved.filter((song) => !removed.includes(song.id));
+      const incoming =
+        b.songs === undefined
+          ? kept
+          : b.songMode === "append"
+            ? [...kept, ...b.songs]
+            : b.songs;
+      if (!Array.isArray(incoming)) fail("Invalid quiz pool.");
+      b = {
+        ...b,
+        songs: [
+          ...new Map(incoming.map((song) => [song.audio, song])).values(),
+        ],
+      };
       if (!Array.isArray(b.songs) || b.songs.length > 2000)
         fail("Invalid quiz pool.");
       const normalized = [];
@@ -188,7 +248,7 @@ export class Quiz {
       title,
       b.published ? 1 : 0,
       String(b.source || existing?.source || ""),
-      e.now(),
+      Math.max(e.now(), (existing?.updated || 0) + 1),
     );
     return {
       id,

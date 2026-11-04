@@ -3716,3 +3716,83 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   max-width: 100%;
   margin: 0;
 }
+
+.alchemy-queue {
+  margin: 16px 0;
+}
+.alchemy-queue-list {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 12px;
+  margin: 10px 0;
+  list-style: none;
+}
+.alchemy-queue-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 260px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #15161d;
+}
+.alchemy-queue-list li.is-lucky {
+  border-color: #ead078;
+  box-shadow: inset 0 0 16px #ead07820;
+}
+.alchemy-queue-list img,
+.alchemy-queue-list .fallback-img {
+  width: 44px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex: 0 0 44px;
+}
+.alchemy-queue-list li > div:first-of-type {
+  min-width: 0;
+  flex: 1;
+}
+.alchemy-queue-list strong,
+.alchemy-queue-list small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.alchemy-queue-list small {
+  margin-top: 6px;
+  font-size: 10px;
+}
+.alchemy-order-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.alchemy-order-actions .button {
+  padding: 2px 8px;
+  min-height: 22px;
+}
+#alchemy-picker-queue {
+  position: sticky;
+  top: -24px;
+  z-index: 2;
+  background: #191a23;
+  padding-top: 4px;
+}
+.profile-card-tabs {
+  flex-direction: row;
+  margin: 22px 0;
+  flex-wrap: wrap;
+}
+.profile-card-panel {
+  margin-top: 24px;
+}
+.wishlist-button {
+  margin-top: 8px;
+}
+.wishlist-button.is-selected {
+  color: var(--pink, #ef7792);
+}
+.profile-listing-label {
+  margin: 10px 0;
+}

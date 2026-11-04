@@ -216,6 +216,7 @@ export class AliasSync {
       "profile_title_preferences",
       "card_alchemy",
       "alchemy_targets",
+      "card_wishlist",
     ])
       this.e.run(`UPDATE ${table} SET player=? WHERE player=?`, id, old);
     this.e.run("UPDATE auctions SET winner=? WHERE winner=?", id, old);

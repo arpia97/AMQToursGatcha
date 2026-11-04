@@ -82,3 +82,15 @@
 .quiz-song-list td:first-child {
   min-width: 0;
 }
+
+.quiz-pool-editor {
+  margin: 8px 0;
+}
+.quiz-pool-editor tr:has(input:checked) td {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+.quiz-pool-editor input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}

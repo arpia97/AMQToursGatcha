@@ -120,6 +120,22 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
     ).json()
   ).alchemyState;
   assert.equal(progress.xp, 0);
+  response = await post("wishlist", { card: cards[0].id, wanted: true });
+  assert.equal(response.status, 401);
+  response = await post("wishlist", { card: cards[0].id, wanted: true }, auth);
+  assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).wishlist, [cards[0].id]);
+  response = await mf.dispatchFetch(
+    "http://game/api/player-cards?id=1&view=wishlist",
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).rows[0].card, cards[0].id);
+  response = await mf.dispatchFetch(
+    "http://game/api/player-cards?id=1&view=listings",
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).rows.length, 0);
+
   for (let i = 0; i < 6; i++) {
     const state = await (
         await mf.dispatchFetch("http://game/api/state", { headers: auth })

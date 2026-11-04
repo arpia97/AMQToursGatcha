@@ -1,4 +1,8 @@
-import { ALCHEMY_TIERS, refinementQuote } from "./alchemy-rules.js";
+import {
+  ALCHEMY_TIERS,
+  refinementQuote,
+  refinementQueue,
+} from "./alchemy-rules.js";
 import { rarityClass, cardComparator } from "./card-display.js";
 export function createAlchemyUI(h) {
   const {
@@ -12,7 +16,7 @@ export function createAlchemyUI(h) {
     btn,
   } = h;
   let data = null,
-    selected = null,
+    selected = [],
     picker = null,
     query = "",
     kind = "",
@@ -56,36 +60,130 @@ export function createAlchemyUI(h) {
     remember(value.cards);
     return value;
   }
+  function materials(entries = selected) {
+    return refinementQueue(
+      entries,
+      getState().inventory,
+      card,
+      data?.refinements || 0,
+    );
+  }
   function material() {
-    if (!selected) throw Error("Choose one card to refine.");
-    const item = getState().inventory.find((i) => i.card === selected.card),
-      c = card(selected.card);
-    if (!item || !c)
-      throw Error("This material is no longer owned. Choose another card.");
-    if (item.protected) throw Error("This card is protected.");
-    if (selected.variant === "extra" && item.copies < 2)
-      throw Error("There is no extra copy available.");
-    const level = selected.variant === "extra" ? 1 : item.level;
-    return {
-      ...c,
-      level,
-      variant: selected.variant,
-      ...refinementQuote(c.rarity, level, data?.refinements || 0),
-    };
+    if (!selected.length) throw Error("Choose cards to refine.");
+    return materials()[0];
   }
   function add(entry) {
-    const previous = selected;
-    selected = { card: entry.card, variant: entry.variant };
+    const next = [...selected, { card: entry.card, variant: entry.variant }];
+    materials(next);
+    selected = next;
+  }
+  function move(index, direction) {
+    const other = index + direction;
+    if (
+      !Number.isInteger(index) ||
+      ![-1, 1].includes(direction) ||
+      !selected[index] ||
+      !selected[other]
+    )
+      return;
+    const next = [...selected];
+    [next[index], next[other]] = [next[other], next[index]];
+    materials(next);
+    selected = next;
+  }
+  function queueHTML(editable = true) {
+    if (!selected.length)
+      return '<p class="form-hint">Select cards to build your order. Every sixth refinement is lucky.</p>';
+    let queue;
     try {
-      material();
+      queue = materials();
     } catch (error) {
-      selected = previous;
-      throw error;
+      return (
+        '<p class="form-error">' +
+        e(error.message) +
+        "</p>" +
+        btn("Clear Selection", "alchemy-material-clear", "", "secondary")
+      );
     }
+    return (
+      '<section class="alchemy-queue"><div class="section-head"><h3>Selected Cards · ' +
+      selected.length +
+      '/100</h3></div><ol class="alchemy-queue-list">' +
+      queue
+        .map(
+          (m, index) =>
+            '<li class="' +
+            (m.lucky ? "is-lucky" : "") +
+            '">' +
+            image(m) +
+            "<div><strong>" +
+            (index + 1) +
+            ". " +
+            e(m.name) +
+            "</strong><small>Refinement #" +
+            m.next +
+            " · " +
+            e(m.rarity) +
+            " · Lv. " +
+            m.level +
+            (m.lucky ? " · ✦ LUCKY" : "") +
+            "</small></div>" +
+            (editable
+              ? '<div class="alchemy-order-actions">' +
+                btn(
+                  "↑",
+                  "alchemy-move",
+                  'data-index="' +
+                    index +
+                    '" data-direction="-1" aria-label="Move ' +
+                    e(m.name) +
+                    ' earlier" ' +
+                    (!index ? "disabled" : ""),
+                  "secondary",
+                ) +
+                btn(
+                  "↓",
+                  "alchemy-move",
+                  'data-index="' +
+                    index +
+                    '" data-direction="1" aria-label="Move ' +
+                    e(m.name) +
+                    ' later" ' +
+                    (index === queue.length - 1 ? "disabled" : ""),
+                  "secondary",
+                ) +
+                btn(
+                  "×",
+                  "alchemy-remove",
+                  'data-index="' +
+                    index +
+                    '" aria-label="Remove ' +
+                    e(m.name) +
+                    ' from selection"',
+                  "secondary",
+                ) +
+                "</div>"
+              : "") +
+            "</li>",
+        )
+        .join("") +
+      "</ol></section>"
+    );
   }
   function request() {
     const m = material();
     if (!data) throw Error("Wait for alchemy progress to load.");
+    if (selected.length > 1)
+      return {
+        action: "alchemy-feed",
+        materials: materials().map((m) => ({
+          card: m.id,
+          variant: m.variant,
+          expectedRarity: m.rarity,
+          expectedLevel: m.level,
+        })),
+        expectedVersion: data.version,
+      };
     return {
       action: "alchemy-feed",
       card: m.id,
@@ -113,7 +211,12 @@ export function createAlchemyUI(h) {
   function confirmation(body) {
     let details = "",
       label = "";
-    if (body.action === "alchemy-feed") {
+    if (body.action === "alchemy-feed" && body.materials) {
+      details =
+        queueHTML(false) +
+        "<p>Consume all selected cards in the displayed order. Each card gets a separate roll. Normal: 90% Success, 9% Great Success, 1% Erig. Lucky: 50%, 45%, 5%.</p>";
+      label = "Refine & Consume " + selected.length + " Cards";
+    } else if (body.action === "alchemy-feed") {
       const m = material();
       details =
         '<div class="alchemy-review-material">' +
@@ -177,6 +280,34 @@ export function createAlchemyUI(h) {
     );
   }
   function refinementResult() {
+    if (lastResult?.refinements)
+      return (
+        '<section class="fusion-review-form alchemy-refinement-result"><h2 id="fusion-review-title">Refinement Results</h2><ol class="alchemy-queue-list">' +
+        lastResult.refinements
+          .map(
+            (r, i) =>
+              "<li>" +
+              image({ ...card(r.material.id), ...r.material }) +
+              "<div><strong>" +
+              (i + 1) +
+              ". " +
+              e(r.material.name) +
+              "</strong><small>" +
+              e(r.label) +
+              (r.lucky ? " · ✦ Lucky Refinement" : "") +
+              " · +" +
+              n(r.xpGained) +
+              " XP</small></div></li>",
+          )
+          .join("") +
+        '</ol><p class="alchemy-xp">+' +
+        n(lastResult.xpGained) +
+        " XP · Pool: " +
+        n(data.xp) +
+        ' XP</p><div class="fusion-review-actions">' +
+        btn("Done", "alchemy-close", "", "mint") +
+        "</div></section>"
+      );
     if (!lastResult?.material) return "";
     const r = lastResult;
     return (
@@ -236,7 +367,7 @@ export function createAlchemyUI(h) {
     let m = null,
       error = "";
     try {
-      if (selected) m = material();
+      if (selected.length) m = material();
     } catch (err) {
       error = err.message;
     }
@@ -247,7 +378,7 @@ export function createAlchemyUI(h) {
       '"><div class="section-head"><div><span class="eyebrow">REFINEMENT ' +
       n(data.nextRefinement) +
       "</span><h2>" +
-      (data.nextLucky ? "Lucky Refinement" : "Refine One Card") +
+      (data.nextLucky ? "Lucky Refinement" : "Refine Selected Cards") +
       '</h2></div><strong class="alchemy-xp">' +
       n(data.xp) +
       " XP</strong></div>" +
@@ -258,6 +389,7 @@ export function createAlchemyUI(h) {
           " normal refinement" +
           (data.refinements % 6 === 4 ? "" : "s") +
           " before the next lucky surge.</p>") +
+      queueHTML() +
       '<div class="alchemy-feed-row"><button type="button" class="alchemy-material-slot ' +
       (m ? "tier-" + rarityClass(m.rarity) : "empty-slot") +
       '" data-action="alchemy-material-open">' +
@@ -270,7 +402,7 @@ export function createAlchemyUI(h) {
           " · Lv. " +
           m.level +
           "</span>"
-        : "<span>＋</span><strong>Choose One Card</strong>") +
+        : "<span>＋</span><strong>Choose Cards</strong>") +
       '</button><div class="alchemy-feed-details"><div class="alchemy-chances">' +
       quote.outcomes
         .map(
@@ -417,12 +549,18 @@ export function createAlchemyUI(h) {
             '<button type="button" class="alchemy-target-choice" data-action="alchemy-target-select" data-id="' +
             e(c.id) +
             '">' +
-            cardHTML(c) +
+            cardHTML(c, null, { preview: true }) +
             "<span>Select Target</span></button>"
           );
         const choice = (variant, level) => {
+          const queued = selected.filter((entry) => entry.card === c.id);
           let disabled =
             !!item.protected ||
+            selected.length >= 100 ||
+            (variant === "card"
+              ? queued.some((entry) => entry.variant === "card")
+              : queued.filter((entry) => entry.variant === "extra").length >=
+                item.copies - 1) ||
             !ALCHEMY_TIERS.some((t) => t.rarity === c.rarity);
           return (
             '<button type="button" class="button secondary" data-action="alchemy-material-select" data-id="' +
@@ -433,14 +571,14 @@ export function createAlchemyUI(h) {
             (disabled ? "disabled" : "") +
             ">" +
             (variant === "extra"
-              ? "Use Extra · Lv. 1"
-              : "Use Card · Lv. " + level) +
+              ? "Add Extra · Lv. 1"
+              : "Add Card · Lv. " + level) +
             "</button>"
           );
         };
         return (
           '<article class="alchemy-material-choice">' +
-          cardHTML(c) +
+          cardHTML(c, null, { preview: true }) +
           "<small>Lv. " +
           item.level +
           " · " +
@@ -489,10 +627,17 @@ export function createAlchemyUI(h) {
       '<section class="fusion-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-picker-title" tabindex="-1"><div class="section-head"><h2 id="fusion-picker-title">' +
       (targetMode
         ? "Choose Your " + e(targetTier) + " Target"
-        : "Choose One Refinement Card") +
+        : "Choose Refinement Cards") +
       "</h2>" +
       btn("Close ×", "alchemy-close", "", "text-button") +
-      '</div><div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
+      "</div>" +
+      (!targetMode
+        ? '<div id="alchemy-picker-queue">' +
+          queueHTML() +
+          "</div>" +
+          btn("Done Selecting", "alchemy-close", "", "mint")
+        : "") +
+      '<div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
       e(query) +
       '"><label>Type<select id="fusion-kind"><option value="">Characters + Seiyuus</option><option value="character" ' +
       (kind === "character" ? "selected" : "") +
@@ -523,6 +668,11 @@ export function createAlchemyUI(h) {
     render,
     renderPicker,
     add,
+    move,
+    queueHTML,
+    remove: (index) => {
+      if (Number.isInteger(index) && index >= 0) selected.splice(index, 1);
+    },
     request,
     drawRequest,
     targetRequest,
@@ -532,9 +682,9 @@ export function createAlchemyUI(h) {
       update(r.alchemyState);
       remember(r.cards);
       lastResult = r;
-      if (r.material) selected = null;
+      if (r.material || r.refinements) selected = [];
     },
-    clear: () => (selected = null),
+    clear: () => (selected = []),
     dismiss: () => (lastResult = null),
     pickerOpen: () => !!picker,
     pickerMode: () => picker,

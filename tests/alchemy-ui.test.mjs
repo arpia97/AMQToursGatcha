@@ -38,7 +38,7 @@ function fixture() {
   });
   return { ui, cards, state };
 }
-test("alchemy selects only one material and confirmation preserves the exact version, enhancement and lucky quote", () => {
+test("alchemy keeps an ordered selection and confirmation preserves the exact version, enhancement and lucky quote", () => {
   const f = fixture();
   f.ui.update({
     xp: 0,
@@ -58,7 +58,19 @@ test("alchemy selects only one material and confirmation preserves the exact ver
   assert.match(f.ui.confirmation(request), /&lt;Alchemy>/);
   assert.match(f.ui.render(), /A lucky energy engulfs the room/);
   f.ui.add({ card: "d", variant: "card" });
-  assert.equal(f.ui.request().card, "d");
+  assert.deepEqual(
+    f.ui.request().materials.map((m) => m.card),
+    ["a", "d"],
+  );
+  f.ui.move(1, -1);
+  assert.deepEqual(
+    f.ui.request().materials.map((m) => m.card),
+    ["d", "a"],
+  );
+  assert.match(f.ui.queueHTML(), /Refinement #6/);
+  assert.match(f.ui.queueHTML(), /LUCKY/);
+  f.ui.remove(0);
+  assert.equal(f.ui.request().card, "a");
   assert.equal(f.state.inventory.length, 2);
 });
 test("target clearing addresses its own tier and cash-out quotes keep leftover XP for other tiers", () => {
@@ -141,4 +153,64 @@ test("refinement results stay in the confirmation dialog without creating a page
     f.ui.render(),
     /REFINEMENT COMPLETE|alchemy-result|Great Success ·/,
   );
+});
+
+test("reordering enhanced base and extra copies preserves their investment and last extra becomes a valid level-one card", () => {
+  const f = fixture();
+  f.ui.update({
+    xp: 0,
+    refinements: 4,
+    version: 0,
+    targets: {},
+    cards: [],
+    nextRefinement: 5,
+  });
+  f.ui.add({ card: "a", variant: "card" });
+  f.ui.add({ card: "a", variant: "extra" });
+  assert.deepEqual(
+    f.ui.request().materials.map((m) => [m.variant, m.expectedLevel]),
+    [
+      ["card", 4],
+      ["card", 1],
+    ],
+  );
+  f.ui.move(1, -1);
+  assert.deepEqual(
+    f.ui.request().materials.map((m) => [m.variant, m.expectedLevel]),
+    [
+      ["extra", 1],
+      ["card", 4],
+    ],
+  );
+  assert.throws(() => f.ui.add({ card: "a", variant: "extra" }), /available/);
+  f.ui.openPicker("material");
+  assert.match(f.ui.renderPicker(), /Selected Cards/);
+  assert.match(f.ui.renderPicker(), /Done Selecting/);
+  assert.match(f.ui.confirmation(f.ui.request()), /displayed order/);
+});
+
+test("batch result popups keep the shared Done focus target and escape card names", () => {
+  const f = fixture();
+  f.ui.complete({
+    refinements: [
+      {
+        material: { id: "a", name: "<Alchemy>", rarity: "AG", level: 1 },
+        label: "Success",
+        xpGained: 2560,
+        lucky: true,
+      },
+    ],
+    xpGained: 2560,
+    alchemyState: {
+      xp: 2560,
+      refinements: 6,
+      version: 1,
+      targets: {},
+      cards: [],
+    },
+  });
+  assert.match(f.ui.refinementResult(), /fusion-review-actions/);
+  assert.match(f.ui.refinementResult(), />Done<\/button>/);
+  assert.match(f.ui.refinementResult(), /&lt;Alchemy>/);
+  assert.doesNotMatch(f.ui.refinementResult(), /<form|type="submit"/);
 });

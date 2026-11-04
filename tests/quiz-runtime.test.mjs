@@ -166,6 +166,52 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   );
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).songs, 20);
+  response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test");
+  assert.equal(response.status, 401);
+  response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test", {
+    headers: auth,
+  });
+  assert.equal(response.status, 401);
+  response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test", {
+    headers: host,
+  });
+  let editing = await response.json();
+  assert.equal(editing.songs.length, 20);
+  response = await post(
+    "host/quiz-save",
+    {
+      id: "test",
+      name: "Test",
+      published: true,
+      title: "Perfect",
+      expectedUpdated: editing.updated,
+      songMode: "append",
+      input: [
+        { annId: 1, audio: "fixture-song-20.mp3", songName: "Added Song" },
+      ],
+    },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).songs, 21);
+  response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test", {
+    headers: host,
+  });
+  editing = await response.json();
+  response = await post(
+    "host/quiz-save",
+    {
+      id: "test",
+      name: "Test",
+      published: true,
+      title: "Perfect",
+      expectedUpdated: editing.updated,
+      removeSongIds: [0],
+    },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  assert.equal((await response.json()).songs, 20);
   response = await post(
     "host/quiz-save",
     { id: "draft", name: "Draft", input: input.slice(0, 1), published: false },

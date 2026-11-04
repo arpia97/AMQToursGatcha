@@ -1,3 +1,8 @@
+import {
+  wishlistButton,
+  profileCardTabs,
+  profileCardPanel,
+} from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
@@ -143,6 +148,9 @@ let state,
 import { batchSaleQuote } from "./card-management.js";
 let pendingBatchSale = null;
 const ui = {
+  profileView: "overview",
+  profileCardsPage: 1,
+  profileCardsData: null,
   rouletteMotion: readRouletteMotion({
     getItem: (key) => localStorage.getItem(key),
   }),
@@ -395,7 +403,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     item && !item.preview
       ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
       : "";
-  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}${extraActions}</div></article>`;
+  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -925,28 +933,46 @@ function profile() {
     own = p.id === state.me?.id,
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
-  return `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
-    p.inventory.length
-      ? `<div class="card-grid">${p.inventory
-          .slice(0, 20)
-          .map((item) => {
-            const c = cardBy(item.card);
-            return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
-          })
-          .join(
-            "",
-          )}</div><p class="form-hint space-top">Showing up to 20 owned cards.</p>`
-      : empty(
-          "A Fresh Deck, Ready for Favourites.",
-          "This collector has not collected a card yet.",
-        )
-  }`;
+  const heading =
+    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>` +
+    profileCardTabs(ui.profileView);
+  if (ui.profileView !== "overview")
+    return (
+      heading +
+      profileCardPanel(ui.profileCardsData, {
+        cardBy,
+        cardHTML,
+        escape,
+        number,
+        own,
+        wishlist: state.wishlist || [],
+      })
+    );
+  return (
+    heading +
+    `${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+      p.inventory.length
+        ? `<div class="card-grid">${p.inventory
+            .slice(0, 20)
+            .map((item) => {
+              const c = cardBy(item.card);
+              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
+            })
+            .join(
+              "",
+            )}</div><p class="form-hint space-top">Showing up to 20 owned cards.</p>`
+        : empty(
+            "A Fresh Deck, Ready for Favourites.",
+            "This collector has not collected a card yet.",
+          )
+    }`
+  );
 }
 async function loadDynamic() {
   const version = ++loadVersion,
     current = page(),
     hash = location.hash;
-  let data, pickemDetail;
+  let data, pickemDetail, profileCardsResult;
   if (current === "quiz") await quizUI.load();
   if (current === "catalog")
     data = await api(
@@ -1017,7 +1043,24 @@ async function loadDynamic() {
             : decodeURIComponent(hash.slice(8)),
         ),
     );
+  if (
+    (current === "player" || current === "profile") &&
+    data &&
+    ui.profileView !== "overview"
+  )
+    profileCardsResult = await api(
+      "player-cards?id=" +
+        encodeURIComponent(data.id) +
+        "&view=" +
+        ui.profileView +
+        "&page=" +
+        ui.profileCardsPage,
+    );
   if (version !== loadVersion || location.hash !== hash) return;
+  if (profileCardsResult) {
+    rememberCards(profileCardsResult.cards);
+    ui.profileCardsData = profileCardsResult;
+  }
   if (data) {
     rememberCards(data.cards);
     if (current === "collection") ui.animeData = data;
@@ -1674,6 +1717,9 @@ window.addEventListener("hashchange", async () => {
   ui.pickemPage = 1;
   ui.playerPage = 1;
   profileData = null;
+  ui.profileView = "overview";
+  ui.profileCardsPage = 1;
+  ui.profileCardsData = null;
   try {
     if (sharedRefreshNeeded && page() !== "arcade") await refresh();
     else {
@@ -2008,6 +2054,14 @@ async function handleFeatureClick(a, t) {
         await openFusionPicker("target", t.dataset.rarity);
         return true;
       }
+      if (a === "alchemy-move" || a === "alchemy-remove") {
+        if (a === "alchemy-move")
+          alchemyUI.move(Number(t.dataset.index), Number(t.dataset.direction));
+        else alchemyUI.remove(Number(t.dataset.index));
+        if (alchemyUI.pickerOpen()) renderFusionPicker();
+        else render();
+        return true;
+      }
       if (a === "alchemy-material-select" || a === "fusion-card") {
         const item = state.inventory.find((i) => i.card === t.dataset.id);
         alchemyUI.add({
@@ -2020,7 +2074,10 @@ async function handleFeatureClick(a, t) {
               : t.dataset.variant,
         });
         if (a === "fusion-card") location.hash = "fusion";
-        else closeFusionPicker();
+        else {
+          renderFusionPicker();
+          return true;
+        }
         render();
         return true;
       }
@@ -2047,7 +2104,13 @@ async function handleFeatureClick(a, t) {
         openFusionReview(alchemyUI.drawRequest(t.dataset.rarity));
         return true;
       }
-      if (a === "alchemy-material-clear") alchemyUI.clear();
+      if (a === "alchemy-material-clear") {
+        alchemyUI.clear();
+        if (alchemyUI.pickerOpen()) {
+          renderFusionPicker();
+          return true;
+        }
+      }
       if (a === "alchemy-dismiss") alchemyUI.dismiss();
       if (a === "alchemy-prev" || a === "alchemy-next") {
         a.endsWith("next") ? alchemyUI.next() : alchemyUI.prev();
@@ -2070,6 +2133,36 @@ async function handleFeatureClick(a, t) {
       ui.collectionPage += a.endsWith("next") ? 1 : -1;
       render();
       $("#main .filters")?.scrollIntoView({ block: "start" });
+      return true;
+    }
+    if (a === "wishlist-toggle") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      await execute("wishlist", {
+        card: t.dataset.id,
+        wanted: !(state.wishlist || []).includes(t.dataset.id),
+      });
+      return true;
+    }
+    if (a === "profile-cards-view" || a === "profile-cards-page") {
+      if (a === "profile-cards-view") {
+        ui.profileView = t.dataset.view;
+        ui.profileCardsPage = 1;
+      } else ui.profileCardsPage = Number(t.dataset.page);
+      ui.profileCardsData = null;
+      await loadDynamic();
+      render();
+      return true;
+    }
+    if (a === "profile-venue") {
+      if (t.dataset.venue === "auction") location.hash = "auctions";
+      else {
+        ui.shopSection = t.dataset.venue === "trade" ? "trades" : "market";
+        ui.tradeView = "browse";
+        location.hash = "shop";
+      }
       return true;
     }
     if (a === "rank-metric") {

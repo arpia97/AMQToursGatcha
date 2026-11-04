@@ -222,3 +222,7 @@ Pick’ems → Manage Published Pick’ems → Manage Tour exposes **Reopen Voti
 Select an existing quiz from the Quiz dropdown or use New Quiz beside it. Selecting a song JSON automatically runs a read-only review through the same AMQ matching and MP3 resolution used by Save Quiz. Review song names, artists, anime and skipped-row reasons in the scrollable list before saving. No quiz pool is changed by the review. AMQ audio metadata is cached between review and save.
 
 POST `/api/host/quiz-preview` accepts `{input: <AnisongDB or AMQ JSON>}` with host authorization and the same upload limit as quiz saving. It returns matched song metadata and rejected rows without creating a quiz, changing songs, awarding credits or resetting scores.
+
+### Edit Quiz Songs
+
+Choose a quiz to load its current song pool. Check songs to remove and click Save Quiz; uncheck before saving to undo a removal. When uploading JSON, choose Add Songs to Current Pool or Replace Pool (the default). Imports still show their matched-song review. Duplicate MP3s appear once. Edits are checked against the loaded pool version, so another host's changes require reloading. Published quizzes must retain at least 20 songs. Existing runs keep their original song snapshot, and personal bests, credit rewards and completion titles remain.

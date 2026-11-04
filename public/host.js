@@ -3,6 +3,7 @@ import {
   quizHostPanel,
   quizHostBody,
   previewQuizFile,
+  quizPoolEditor,
 } from "./quiz-host-ui.js";
 import { chooseTourStaff } from "./tour-staff-ui.js";
 import {
@@ -27,7 +28,8 @@ import {
 import { updateRewardDefaults } from "./host-defaults.js";
 import { accessPanel, participationPanel } from "./host-panels.js";
 let deductionDraft = null,
-  quizSelection = null;
+  quizSelection = null,
+  quizPool = null;
 let participationDraft = null,
   matchDraft = null,
   managedTour = null,
@@ -113,7 +115,7 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
   if (tab === "quiz")
-    html = quizHostPanel(state.quizzes || [], esc, quizSelection);
+    html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool);
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
@@ -197,6 +199,9 @@ function render() {
 async function load() {
   state = await api("state");
   state.quizzes = (await api("quizzes")).quizzes;
+  quizPool = quizSelection
+    ? await api("quiz-songs?id=" + encodeURIComponent(quizSelection))
+    : null;
   if (settlementTour) {
     if (state.pickemEvents.some((t) => t.id === settlementTour.id))
       settlementTour = await api("pickem-event?event=" + settlementTour.id);
@@ -801,13 +806,30 @@ document.addEventListener("click", (ev) => {
     return;
   }
   quizSelection = null;
+  quizPool = null;
   render();
 });
 
 document.addEventListener("change", (ev) => {
   if (ev.target.id === "host-quiz-select" && !working) {
     quizSelection = ev.target.value || null;
+    quizPool = null;
     render();
+    if (quizSelection) {
+      const selected = quizSelection;
+      api("quiz-songs?id=" + encodeURIComponent(selected))
+        .then((pool) => {
+          if (quizSelection !== selected || tab !== "quiz") return;
+          quizPool = pool;
+          const region = $("#quiz-current-pool");
+          if (region) {
+            region.innerHTML = quizPoolEditor(pool, esc);
+            $("#quiz-save").dataset.poolLoading = "false";
+            $("#quiz-save button[type=submit]").disabled = false;
+          }
+        })
+        .catch((err) => report(err.message, true));
+    }
     $("#host-quiz-select")?.focus();
   }
   if (

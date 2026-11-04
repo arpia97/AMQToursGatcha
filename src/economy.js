@@ -1,3 +1,4 @@
+import { Wishlist } from "./wishlist.js";
 import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
@@ -22,6 +23,7 @@ const MONDAY = Date.UTC(2026, 0, 5);
 export class Economy {
   constructor(e) {
     this.e = e;
+    this.wishlist = new Wishlist(e);
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
     this.applyShopPriceRevision();
     for (const [column, definition] of [
@@ -470,7 +472,11 @@ export class Economy {
     }
     if (action === "fusion") return this.fusion.fuse(player, b);
     if (action === "alchemy-target") return this.alchemy.target(player, b);
-    if (action === "alchemy-feed") return this.alchemy.refine(player, b);
+    if (action === "alchemy-feed")
+      return b.materials !== undefined
+        ? this.alchemy.refineBatch(player, b)
+        : this.alchemy.refine(player, b);
+    if (action === "wishlist") return this.wishlist.change(player, b);
     if (action === "alchemy-draw") return this.alchemy.draw(player, b);
     if (action === "sell-instant") {
       const id = text(b.card, 100),
@@ -778,6 +784,7 @@ export class Economy {
     const e = this.e;
     e.run("DELETE FROM card_alchemy WHERE player=?", player);
     e.run("DELETE FROM alchemy_targets WHERE player=?", player);
+    e.run("DELETE FROM card_wishlist WHERE player=?", player);
     this.trades.resetPlayer(player);
     for (const a of e.all(
       "SELECT * FROM auctions WHERE seller=? AND paid=0",

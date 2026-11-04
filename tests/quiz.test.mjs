@@ -666,3 +666,68 @@ test("submitted answers are hidden before locking and persist separately from th
   f.e.quiz.persist("p", "test", stored);
   assert.equal(f.e.quiz.view("p", "test").run.submittedAnswer, alternative);
 });
+
+test("host edits append or remove songs with version checks, deduplicate MP3s and protect publication and active snapshots", (t) => {
+  const f = fixture(t),
+    initial = f.e.quiz.hostSongs("test");
+  f.action("p", "quiz-start", { quiz: "test" });
+  const active = JSON.stringify(f.e.quiz.run("p", "test"));
+  f.save({
+    songs: undefined,
+    expectedUpdated: initial.updated,
+    removeSongIds: [0],
+  });
+  let pool = f.e.quiz.hostSongs("test");
+  assert.equal(pool.songs.length, 24);
+  assert.ok(pool.updated > initial.updated);
+  assert.equal(
+    pool.songs.some((s) => s.audio === f.songs[0].audio),
+    false,
+  );
+  f.save({
+    expectedUpdated: pool.updated,
+    songMode: "append",
+    songs: [
+      f.songs[1],
+      {
+        audio: "https://example.com/new.mp3",
+        answers: ["New"],
+        title: "New Song",
+      },
+    ],
+  });
+  const added = f.e.quiz.hostSongs("test");
+  assert.equal(added.songs.length, 25);
+  assert.equal(added.songs.at(-1).title, "New Song");
+  assert.throws(
+    () =>
+      f.save({
+        songs: undefined,
+        expectedUpdated: pool.updated,
+        removeSongIds: [0],
+      }),
+    /changed/,
+  );
+  assert.throws(
+    () =>
+      f.save({
+        songs: undefined,
+        expectedUpdated: added.updated,
+        removeSongIds: added.songs.slice(0, 6).map((s) => s.id),
+      }),
+    /20/,
+  );
+  assert.equal(f.e.quiz.hostSongs("test").songs.length, 25);
+  assert.throws(
+    () => f.save({ songMode: "append", songs: [f.songs[0]] }),
+    /Load/,
+  );
+  assert.equal(JSON.stringify(f.e.quiz.run("p", "test")), active);
+  f.save({
+    songs: undefined,
+    published: false,
+    expectedUpdated: added.updated,
+    removeSongIds: added.songs.map((s) => s.id),
+  });
+  assert.equal(f.e.quiz.hostSongs("test").songs.length, 0);
+});

@@ -409,6 +409,8 @@ export class Game extends DurableObject {
         );
         return json({ result: r ? JSON.parse(r.result) : null });
       }
+      if (path === "host/quiz-songs" && !post)
+        return json(e.quiz.hostSongs(url.searchParams.get("id")));
       if (path === "host/quizzes" && !post)
         return json({ quizzes: e.quiz.list(null, true) });
       if (["host/quiz-save", "host/quiz-preview"].includes(path) && post) {
@@ -943,6 +945,14 @@ export class Game extends DurableObject {
             ),
       );
     }
+    if (path === "player-cards" && !post)
+      return json(
+        e.economy.wishlist.page(
+          url.searchParams.get("id"),
+          url.searchParams.get("view"),
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
     if (path === "profiles" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const result = e.profilesPage(

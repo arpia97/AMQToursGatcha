@@ -125,7 +125,35 @@ export class Alchemy {
         : "Target cleared. This tier draws randomly.",
     };
   }
-  refine(player, b) {
+  refineBatch(player, b) {
+    if (b.confirmed !== true)
+      fail("Review and confirm before consuming cards.", 409);
+    if (
+      !Array.isArray(b.materials) ||
+      !b.materials.length ||
+      b.materials.length > 100
+    )
+      fail("Choose between 1 and 100 cards.");
+    const progress = this.checkVersion(player, b);
+    const results = b.materials.map((m, index) =>
+      this.refine(
+        player,
+        { ...m, confirmed: true, expectedVersion: progress.version + index },
+        true,
+      ),
+    );
+    return {
+      message: results.length + " cards refined.",
+      refinements: results,
+      xpGained: results.reduce((s, r) => s + r.xpGained, 0),
+      alchemyState: this.state(player),
+      collectionPatch: this.collectionPatch(
+        player,
+        results.map((r) => r.material.id),
+      ),
+    };
+  }
+  refine(player, b, compact = false) {
     if (b.confirmed !== true)
       fail("Review and confirm before consuming a card.", 409);
     const progress = this.checkVersion(player, b),
@@ -171,8 +199,12 @@ export class Alchemy {
         level,
         investment: quote.investment,
       },
-      alchemyState: this.state(player),
-      collectionPatch: this.collectionPatch(player, [id]),
+      ...(compact
+        ? {}
+        : {
+            alchemyState: this.state(player),
+            collectionPatch: this.collectionPatch(player, [id]),
+          }),
     };
   }
   draw(player, b) {

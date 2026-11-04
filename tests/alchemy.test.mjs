@@ -311,3 +311,63 @@ test("alchemy progress and targets migrate with canonical identity and gameplay 
   assert.equal(f.e.player("90001").balance, 5000);
   assert.equal(f.e.catalogStore.pool("character").cards.length, 18);
 });
+
+test("ordered batch refinements roll each card at its own position, retain enhanced copy values and replay once", (t) => {
+  const f = fixture(t);
+  f.seed(0, 4);
+  f.add("D1", 3, 3);
+  f.e.rand = () => 50;
+  const b = {
+    confirmed: true,
+    expectedVersion: 0,
+    materials: [
+      { card: "D1", variant: "card", expectedRarity: "D", expectedLevel: 3 },
+      { card: "D1", variant: "extra", expectedRarity: "D", expectedLevel: 1 },
+      { card: "D1", variant: "card", expectedRarity: "D", expectedLevel: 1 },
+    ],
+  };
+  const r = f.act("alchemy-feed", b, "batch");
+  assert.deepEqual(
+    r.refinements.map((x) => x.lucky),
+    [false, true, false],
+  );
+  assert.deepEqual(
+    r.refinements.map((x) => x.xpGained),
+    [40, 20, 10],
+  );
+  assert.equal(r.xpGained, 70);
+  assert.equal(r.alchemyState.refinements, 7);
+  assert.equal(r.alchemyState.version, 3);
+  assert.equal(
+    f.e.one("SELECT * FROM inventory WHERE player='p' AND card='D1'"),
+    undefined,
+  );
+  assert.deepEqual(f.act("alchemy-feed", b, "batch"), r);
+  assert.equal(r.collectionPatch.inventory.length, 1);
+});
+test("a failure later in an alchemy batch rolls back all earlier consumption, XP and lucky progression", (t) => {
+  const f = fixture(t);
+  f.add("D1", 2);
+  f.add("D2");
+  f.e.run("UPDATE inventory SET protected=1 WHERE player='p' AND card='D2'");
+  const b = {
+    confirmed: true,
+    expectedVersion: 0,
+    materials: [
+      { card: "D1", variant: "extra", expectedRarity: "D", expectedLevel: 1 },
+      { card: "D2", variant: "card", expectedRarity: "D", expectedLevel: 1 },
+    ],
+  };
+  assert.throws(() => f.act("alchemy-feed", b), /protected/);
+  assert.equal(
+    f.e.one("SELECT copies FROM inventory WHERE player='p' AND card='D1'")
+      .copies,
+    2,
+  );
+  assert.equal(f.e.economy.alchemy.read("p").xp, 0);
+  assert.equal(f.e.economy.alchemy.read("p").refinements, 0);
+  assert.throws(
+    () => f.act("alchemy-feed", { ...b, confirmed: false }),
+    /confirm/,
+  );
+});

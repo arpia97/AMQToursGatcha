@@ -870,6 +870,7 @@ export class Engine {
         "profile_title_preferences",
         "card_alchemy",
         "alchemy_targets",
+        "card_wishlist",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
@@ -1029,6 +1030,7 @@ export class Engine {
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
       ),
       inventory,
+      wishlist: id ? this.economy.wishlist.read(id) : [],
       roles: this.publicRoles(),
       myListings,
       ledger: id
