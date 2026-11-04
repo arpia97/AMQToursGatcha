@@ -65,13 +65,17 @@ export class Alchemy {
       this.e.catalogStore.pool(kind).cards.filter((c) => c.rarity === rarity),
     );
   }
-  targetsPage(options) {
-    return fusionOutcomesPage(
-      ["character", "seiyuu"].flatMap(
-        (kind) => this.e.catalogStore.pool(kind).cards,
-      ),
-      options,
-    );
+  targetsPage(options, player = null) {
+    if (options.wishlistOnly && !player)
+      fail("Sign in to search your wishlist.", 401);
+    const pool = options.wishlistOnly
+      ? this.e.catalogStore
+          .cards(this.e.economy.wishlist.read(player))
+          .filter((c) => c.active !== 0)
+      : ["character", "seiyuu"].flatMap(
+          (kind) => this.e.catalogStore.pool(kind).cards,
+        );
+    return fusionOutcomesPage(pool, options);
   }
   collectionPatch(player, ids) {
     return {

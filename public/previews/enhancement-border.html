@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Enhancement Border Draft · AMQ Tours</title>
     <style>
+      @property --glow-angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
       :root {
         color-scheme: dark;
         font-family: Inter, system-ui, sans-serif;
@@ -12,9 +17,9 @@
         color: #f2f2f6;
         --accent: #f0cc63;
         --duration: 5s;
-        --trail: 85;
-        --glow: 7px;
-        --width: 3px;
+        --softness: 9px;
+        --spread: 10px;
+        --strength: 0.65;
       }
       * {
         box-sizing: border-box;
@@ -119,8 +124,7 @@
         border: 2px solid var(--accent);
         border-radius: 13px;
         background: #080a11;
-        box-shadow: 0 0 var(--glow)
-          color-mix(in srgb, var(--accent) 24%, transparent);
+        isolation: isolate;
       }
       .portrait {
         width: 100%;
@@ -171,8 +175,7 @@
         position: relative;
         border: 2px solid var(--accent);
         background: #0a0b13;
-        box-shadow: 0 0 var(--glow)
-          color-mix(in srgb, var(--accent) 24%, transparent);
+        isolation: isolate;
       }
       .avatar img {
         width: 100%;
@@ -194,45 +197,54 @@
         font-size: 12px;
         white-space: nowrap;
       }
-      .orbit {
+      .glow-field {
         position: absolute;
-        inset: -2px;
-        width: calc(100% + 4px);
-        height: calc(100% + 4px);
-        overflow: visible;
+        inset: calc(-1 * var(--spread));
+        border-radius: calc(13px + var(--spread));
         pointer-events: none;
-        z-index: 2;
+        z-index: -1;
+        filter: blur(var(--softness));
+        opacity: var(--strength);
       }
-      .orbit .trail,
-      .orbit .tip {
-        fill: none;
-        stroke: var(--accent);
-        stroke-width: var(--width);
-        stroke-linecap: round;
-        stroke-dasharray: var(--trail) calc(1000 - var(--trail));
-        animation: orbit var(--duration) linear infinite;
-        filter: drop-shadow(0 0 var(--glow) var(--accent));
+      .avatar .glow-field {
+        border-radius: 50%;
       }
-      .orbit .tip {
-        stroke: #fff7d9;
-        stroke-dasharray: 9 991;
-        stroke-width: calc(var(--width) * 0.75);
+      .glow-field::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        padding: var(--spread);
+        background: conic-gradient(
+          from var(--glow-angle),
+          transparent 0deg 200deg,
+          color-mix(in srgb, var(--accent) 18%, transparent) 235deg,
+          var(--accent) 280deg,
+          #fff6dc 305deg,
+          var(--accent) 330deg,
+          transparent 360deg
+        );
+        mask:
+          linear-gradient(#fff 0 0) content-box,
+          linear-gradient(#fff 0 0);
+        mask-composite: exclude;
+        animation: glow-orbit var(--duration) linear infinite;
       }
-      .orbit .second {
-        animation-delay: calc(var(--duration) / -2);
-      }
-      .second {
-        opacity: 0;
-      }
-      .level-1 .orbit {
+      .glow-field.second {
         display: none;
       }
-      .level-4 .second,
-      .level-5 .second,
-      .level-6 .second {
-        opacity: 1;
+      .glow-field.second::before {
+        animation-delay: calc(var(--duration) / -2);
       }
-      .paused .orbit * {
+      .level-1 .glow-field {
+        display: none;
+      }
+      .level-4 .glow-field.second,
+      .level-5 .glow-field.second,
+      .level-6 .glow-field.second {
+        display: block;
+      }
+      .paused .glow-field::before {
         animation-play-state: paused;
       }
       .status {
@@ -259,12 +271,21 @@
       .ag .avatar {
         border-color: #d993f4;
       }
-      .ag .trail {
-        stroke: url(#rainbow);
+      .ag .glow-field::before {
+        background: conic-gradient(
+          from var(--glow-angle),
+          transparent 0deg 190deg,
+          #f27a9e 220deg,
+          #f4d56a 240deg,
+          #7cddb9 265deg,
+          #8cb8ff 290deg,
+          #d996fb 320deg,
+          transparent 360deg
+        );
       }
-      @keyframes orbit {
+      @keyframes glow-orbit {
         to {
-          stroke-dashoffset: -1000;
+          --glow-angle: 360deg;
         }
       }
       @media (max-width: 560px) {
@@ -329,53 +350,8 @@
             <div class="caption">
               <strong>Rem</strong><small>Re:ZERO</small>
             </div>
-            <svg class="orbit" viewBox="0 0 200 280" aria-hidden="true">
-              <defs>
-                <linearGradient id="rainbow">
-                  <stop stop-color="#f27a9e" />
-                  <stop offset=".25" stop-color="#f4d56a" />
-                  <stop offset=".5" stop-color="#7cddb9" />
-                  <stop offset=".75" stop-color="#8cb8ff" />
-                  <stop offset="1" stop-color="#d996fb" />
-                </linearGradient>
-              </defs>
-              <rect
-                class="trail"
-                x="2"
-                y="2"
-                width="196"
-                height="276"
-                rx="12"
-                pathLength="1000"
-              />
-              <rect
-                class="tip"
-                x="2"
-                y="2"
-                width="196"
-                height="276"
-                rx="12"
-                pathLength="1000"
-              />
-              <rect
-                class="trail second"
-                x="2"
-                y="2"
-                width="196"
-                height="276"
-                rx="12"
-                pathLength="1000"
-              />
-              <rect
-                class="tip second"
-                x="2"
-                y="2"
-                width="196"
-                height="276"
-                rx="12"
-                pathLength="1000"
-              />
-            </svg>
+            <span class="glow-field" aria-hidden="true"></span
+            ><span class="glow-field second" aria-hidden="true"></span>
           </div>
           <p>Card</p>
         </div>
@@ -385,44 +361,29 @@
               src="https://cdn.myanimelist.net/images/characters/9/311327.jpg"
               referrerpolicy="no-referrer"
               alt="Rem Profile Picture"
-            /><svg class="orbit" viewBox="0 0 128 128" aria-hidden="true">
-              <circle class="trail" cx="64" cy="64" r="61" pathLength="1000" />
-              <circle class="tip" cx="64" cy="64" r="61" pathLength="1000" />
-              <circle
-                class="trail second"
-                cx="64"
-                cy="64"
-                r="61"
-                pathLength="1000"
-              />
-              <circle
-                class="tip second"
-                cx="64"
-                cy="64"
-                r="61"
-                pathLength="1000"
-              /></svg
+            /><span class="glow-field" aria-hidden="true"></span
+            ><span class="glow-field second" aria-hidden="true"></span
             ><b>Lv. 3</b>
           </div>
           <p>Profile Picture</p>
         </div>
       </div>
       <p class="status">
-        <strong id="intensity">Lv. 3 · Brighter Orbit</strong>
+        <strong id="intensity">Lv. 3 · Brighter Aura</strong>
       </p>
       <p class="help">
-        Rarity keeps its colour. Enhancement adds travelling light: a subtle
-        trail at Lv. 2, a second trail from Lv. 4, and the strongest glow at
-        MAX. The portrait and level badge stay clear.
+        Rarity keeps its colour. A soft glow area circles the border: subtle at
+        Lv. 2, broader and brighter with each level, with a second glow from Lv.
+        4 and the fullest aura at MAX. The portrait and level badge stay clear.
       </p>
       <footer>
         Separate preview; this animation is not applied to the game. Motion
         inspiration:
         <a
-          href="https://uiverse.io/xXJollyHAKERXx/lucky-falcon-75"
+          href="https://uiverse.io/nazar-gavrylyk/slippery-snake-30"
           target="_blank"
           rel="noopener"
-          >xXJollyHAKERXx on Uiverse</a
+          >nazar-gavrylyk on Uiverse</a
         >.
       </footer>
     </main>
@@ -440,15 +401,14 @@
           D: "#85909d",
         },
         durations = [0, 7, 6, 5, 4, 3.2, 2.5],
-        trails = [0, 0, 55, 85, 100, 125, 155],
         labels = [
           "",
-          "No Enhancement Orbit",
-          "Subtle Orbit",
-          "Brighter Orbit",
-          "Two Travelling Lights",
-          "Stronger Dual Glow",
-          "Full Glow",
+          "No Enhancement Aura",
+          "Subtle Aura",
+          "Brighter Aura",
+          "Two Soft Glow Areas",
+          "Stronger Circling Aura",
+          "Full Circling Aura",
         ];
       let level = 3;
       function paint() {
@@ -462,9 +422,12 @@
           palette[document.getElementById("rarity").value],
         );
         root.style.setProperty("--duration", durations[level] + "s");
-        root.style.setProperty("--trail", trails[level]);
-        root.style.setProperty("--glow", (level === 1 ? 0 : level * 2) + "px");
-        root.style.setProperty("--width", (level < 4 ? 3 : 4) + "px");
+        root.style.setProperty("--softness", 4 + level * 1.6 + "px");
+        root.style.setProperty("--spread", 4 + level * 1.6 + "px");
+        root.style.setProperty(
+          "--strength",
+          [0, 0, 0.45, 0.6, 0.72, 0.86, 1][level],
+        );
         root.querySelector(".rank").textContent =
           document.getElementById("rarity").value;
         root

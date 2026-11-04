@@ -3796,3 +3796,27 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .profile-listing-label {
   margin: 10px 0;
 }
+
+.alchemy-type-filter {
+  display: grid;
+  gap: 9px;
+}
+.alchemy-target-filters {
+  align-items: start;
+}
+.alchemy-target-filters .search {
+  margin-top: 18px;
+}
+.fusion-filters .alchemy-wishlist-filter {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  cursor: pointer;
+}
+.alchemy-wishlist-filter input {
+  margin: 0;
+  accent-color: var(--mint, #b8dfcb);
+  width: 14px;
+  height: 14px;
+}

@@ -839,12 +839,16 @@ export class Game extends DurableObject {
     if (path === "alchemy-targets" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
-        e.economy.alchemy.targetsPage({
-          rarity: url.searchParams.get("rarity") || "",
-          kind: url.searchParams.get("kind") || "mixed",
-          query: url.searchParams.get("q") || "",
-          page: Number(url.searchParams.get("page") || 1),
-        }),
+        e.economy.alchemy.targetsPage(
+          {
+            rarity: url.searchParams.get("rarity") || "",
+            kind: url.searchParams.get("kind") || "mixed",
+            query: url.searchParams.get("q") || "",
+            page: Number(url.searchParams.get("page") || 1),
+            wishlistOnly: url.searchParams.get("wishlist") === "1",
+          },
+          session?.player || null,
+        ),
       );
     }
     if (path === "catalog-recent" && !post) {

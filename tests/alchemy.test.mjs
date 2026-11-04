@@ -371,3 +371,67 @@ test("a failure later in an alchemy batch rolls back all earlier consumption, XP
     /confirm/,
   );
 });
+
+test("wishlist targets use only the signed-in player's active cards before type, search and pagination; draw odds remain unchanged", (t) => {
+  const f = fixture(t),
+    alchemy = f.e.economy.alchemy;
+  for (let i = 0; i < 16; i++) {
+    const c = {
+      id: "wish" + i,
+      name: "Wish " + String(i).padStart(2, "0"),
+      rarity: "D",
+      kind: i === 15 ? "seiyuu" : "character",
+    };
+    f.cards.set(c.id, c);
+    f.e.economy.wishlist.change("p", { card: c.id, wanted: true });
+  }
+  f.e.economy.wishlist.change("q", { card: "D1", wanted: true });
+  f.cards.set("inactive", {
+    id: "inactive",
+    name: "Inactive",
+    rarity: "D",
+    kind: "character",
+    active: 0,
+  });
+  f.e.economy.wishlist.change("p", { card: "inactive", wanted: true });
+  f.e.economy.wishlist.change("p", { card: "C1", wanted: true });
+  const options = { rarity: "D", wishlistOnly: true };
+  assert.throws(() => alchemy.targetsPage(options), { status: 401 });
+  const before = alchemy.pool("D").length;
+  const pool = f.e.catalogStore.pool;
+  f.e.catalogStore.pool = () => {
+    throw Error("Wishlist search should not scan the full pool");
+  };
+  let result = alchemy.targetsPage(options, "p");
+  assert.equal(result.total, 16);
+  assert.equal(result.cards.length, 12);
+  assert.equal(result.hasMore, true);
+  assert.ok(result.cards.every((c) => c.id.startsWith("wish")));
+  result = alchemy.targetsPage({ ...options, page: 2 }, "p");
+  assert.equal(result.cards.length, 4);
+  assert.equal(result.hasMore, false);
+  assert.equal(
+    alchemy.targetsPage({ ...options, kind: "seiyuu" }, "p").total,
+    1,
+  );
+  assert.equal(
+    alchemy.targetsPage({ ...options, query: "Wish 03" }, "p").cards[0].id,
+    "wish3",
+  );
+  assert.deepEqual(
+    alchemy.targetsPage(options, "q").cards.map((c) => c.id),
+    ["D1"],
+  );
+  f.e.economy.wishlist.change("p", { card: "wish3", wanted: false });
+  assert.equal(
+    alchemy.targetsPage({ ...options, query: "Wish 03" }, "p").total,
+    0,
+  );
+  assert.equal(
+    alchemy.targetsPage({ rarity: "AG", wishlistOnly: true }, "p").total,
+    0,
+  );
+  f.e.catalogStore.pool = pool;
+  assert.equal(alchemy.pool("D").length, before);
+  assert.ok(alchemy.targetsPage({ rarity: "D" }).total > 16);
+});

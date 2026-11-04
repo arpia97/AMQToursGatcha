@@ -2682,21 +2682,30 @@ document.addEventListener("input", async (ev) => {
   renderFusionPicker(false, true);
 });
 document.addEventListener("change", async (ev) => {
-  if (!["fusion-kind", "fusion-rarity"].includes(ev.target.id)) return;
+  if (
+    !["fusion-kind", "fusion-rarity", "alchemy-wishlist"].includes(ev.target.id)
+  )
+    return;
   alchemyUI.filter(
-    ev.target.id === "fusion-kind" ? "kind" : "grade",
-    ev.target.value,
+    ev.target.id === "alchemy-wishlist"
+      ? "wishlist"
+      : ev.target.id === "fusion-kind"
+        ? "kind"
+        : "grade",
+    ev.target.id === "alchemy-wishlist" ? ev.target.checked : ev.target.value,
   );
-  const id = ev.target.id;
   try {
-    if (alchemyUI.pickerMode() === "target") await alchemyUI.loadTargets(api);
+    if (
+      alchemyUI.pickerMode() === "target" &&
+      !(await alchemyUI.loadTargets(api))
+    )
+      return;
   } catch (err) {
     toast(err.message, true);
     return;
   }
   if (!alchemyUI.pickerOpen()) return;
-  renderFusionPicker();
-  $("#" + id)?.focus();
+  renderFusionPicker(false, true);
 });
 
 document.addEventListener("change", (ev) => {

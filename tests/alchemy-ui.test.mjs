@@ -214,3 +214,46 @@ test("batch result popups keep the shared Done focus target and escape card name
   assert.match(f.ui.refinementResult(), /&lt;Alchemy>/);
   assert.doesNotMatch(f.ui.refinementResult(), /<form|type="submit"/);
 });
+
+test("target Wishlist filter is beneath Type, stays in requests with search/type/page, and ignores stale unfiltered responses", async () => {
+  const f = fixture();
+  f.ui.openPicker("target", "D");
+  assert.match(
+    f.ui.renderPicker(),
+    /id="fusion-kind"[\s\S]*id="alchemy-wishlist"/,
+  );
+  const pending = [],
+    paths = [];
+  const api = (path) => {
+    paths.push(new URL("http://local/" + path));
+    return new Promise((resolve) => pending.push(resolve));
+  };
+  const old = f.ui.loadTargets(api);
+  f.ui.filter("wishlist", true);
+  f.ui.filter("kind", "seiyuu");
+  f.ui.filter("query", "D");
+  f.ui.next();
+  const current = f.ui.loadTargets(api);
+  assert.equal(paths[1].searchParams.get("wishlist"), "1");
+  assert.equal(paths[1].searchParams.get("kind"), "seiyuu");
+  assert.equal(paths[1].searchParams.get("q"), "D");
+  assert.equal(paths[1].searchParams.get("page"), "2");
+  pending[1]({ cards: [f.cards[1]], page: 1, total: 1, eligibleTotal: 1 });
+  assert.ok(await current);
+  assert.match(f.ui.renderPicker(), /D Card/);
+  pending[0]({ cards: [f.cards[0]], page: 1, total: 1, eligibleTotal: 1 });
+  assert.equal(await old, null);
+  assert.match(
+    f.ui.renderPicker(),
+    /id="alchemy-wishlist" type="checkbox" checked/,
+  );
+  assert.doesNotMatch(f.ui.renderPicker(), /&lt;Alchemy>/);
+  f.ui.filter("wishlist", false);
+  const unfiltered = f.ui.loadTargets(api);
+  assert.equal(paths[2].searchParams.get("wishlist"), "0");
+  assert.equal(paths[2].searchParams.get("page"), "1");
+  pending[2]({ cards: [], page: 1, total: 0 });
+  await unfiltered;
+  f.ui.openPicker("material");
+  assert.doesNotMatch(f.ui.renderPicker(), /id="alchemy-wishlist"/);
+});

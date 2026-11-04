@@ -176,7 +176,8 @@ Card Alchemy supports an ordered queue of up to 100 physical cards. The material
 
 Collectors can save up to 500 cards with the Wishlist button, even before owning them. Every profile has Overview, Wishlist and Listed views. Wishlist and current listings are public and paginated; listings show their venue and enhancement level. Completed, cancelled and expired listings disappear from the active view. Wishlist changes do not affect credits or ownership.
 
-
 Enhancement is capped at Level 6, displayed as MAX. Upgrades consume 2, 3, 4, 5 and 6 additional copies respectively (21 invested copies total at MAX). Selling and Alchemy XP use investments of 1, 3, 6, 10, 15 and 21 copies. A one-time revision-2 migration converts old levels by their original invested-copy totals, returns any remainder as spare copies, and records an audit receipt. Active auction, marketplace and trade escrow keeps its surplus copies with the held card until transfer or withdrawal. Merging enhanced cards preserves all invested copies.
 
 Rankings include profile pictures and enhancement badges. Quiz rewards already contribute to cumulative earned credits and are not awarded again. My Titles omits the quiz subtitle when it duplicates the title name. The circling enhancement-border concept is a separate interactive draft at `/previews/enhancement-border.html`; it is not applied to live cards or profile pictures pending review.
+
+Alchemy’s target picker has a Wishlist checkbox beneath Type. It filters the signed-in player’s own saved cards by the selected rarity, type and search term, with normal pagination. This changes browsing only; it does not restrict the draw pool or change target odds. The separate enhancement-border draft now uses a broad blurred glow area rotating around card and circular avatar borders, rather than a travelling stroke; live card styling still awaits review.

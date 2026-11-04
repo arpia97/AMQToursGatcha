@@ -21,6 +21,7 @@ export function createAlchemyUI(h) {
     picker = null,
     query = "",
     kind = "",
+    wishlistOnly = false,
     grade = "",
     page = 1,
     targetTier = "D",
@@ -43,16 +44,32 @@ export function createAlchemyUI(h) {
     return { cards: [...cards.values()] };
   }
   async function loadTargets(api) {
-    const snapshot = JSON.stringify([targetTier, kind, query, page]);
+    const snapshot = JSON.stringify([
+      getState().me?.id,
+      targetTier,
+      kind,
+      query,
+      page,
+      wishlistOnly,
+    ]);
     const p = new URLSearchParams({
       rarity: targetTier,
       kind: kind || "mixed",
       q: query,
       page,
+      wishlist: wishlistOnly ? "1" : "0",
     });
     const value = await api("alchemy-targets?" + p);
     if (
-      snapshot !== JSON.stringify([targetTier, kind, query, page]) ||
+      snapshot !==
+        JSON.stringify([
+          getState().me?.id,
+          targetTier,
+          kind,
+          query,
+          page,
+          wishlistOnly,
+        ]) ||
       picker !== "target"
     )
       return null;
@@ -638,13 +655,22 @@ export function createAlchemyUI(h) {
           "</div>" +
           btn("Done Selecting", "alchemy-close", "", "mint")
         : "") +
-      '<div class="fusion-filters"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
+      '<div class="fusion-filters ' +
+      (targetMode ? "alchemy-target-filters" : "") +
+      '"><input class="search" id="fusion-search" aria-label="Search Alchemy Cards" placeholder="Search cards or anime…" value="' +
       e(query) +
-      '"><label>Type<select id="fusion-kind"><option value="">Characters + Seiyuus</option><option value="character" ' +
+      '">' +
+      (targetMode ? '<div class="alchemy-type-filter">' : "") +
+      '<label>Type<select id="fusion-kind"><option value="">Characters + Seiyuus</option><option value="character" ' +
       (kind === "character" ? "selected" : "") +
       '>Characters</option><option value="seiyuu" ' +
       (kind === "seiyuu" ? "selected" : "") +
       ">Seiyuus</option></select></label>" +
+      (targetMode
+        ? '<label class="alchemy-wishlist-filter"><input id="alchemy-wishlist" type="checkbox" ' +
+          (wishlistOnly ? "checked" : "") +
+          ">Wishlist</label></div>"
+        : "") +
       (!targetMode
         ? '<label>Rarity<select id="fusion-rarity"><option value="">All Rarities</option>' +
           ALCHEMY_TIERS.map(
@@ -694,6 +720,7 @@ export function createAlchemyUI(h) {
       targetTier = rarity || targetTier;
       query = "";
       kind = "";
+      wishlistOnly = false;
       page = 1;
       targetData = null;
     },
@@ -701,6 +728,7 @@ export function createAlchemyUI(h) {
     filter: (field, value) => {
       if (field === "query") query = value;
       if (field === "kind") kind = value;
+      if (field === "wishlist") wishlistOnly = value === true;
       if (field === "grade") grade = value;
       page = 1;
     },
