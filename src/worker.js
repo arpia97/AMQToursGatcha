@@ -409,15 +409,54 @@ export class Game extends DurableObject {
         );
         return json({ result: r ? JSON.parse(r.result) : null });
       }
-      if (path === "host/enhancement-migration" && !post)
-        return json({
-          ...e.one(
-            "SELECT * FROM enhancement_migrations ORDER BY revision DESC LIMIT 1",
-          ),
+      if (path === "host/enhancement-migration" && !post) {
+        const migration = e.one(
+          "SELECT * FROM enhancement_migrations ORDER BY revision DESC LIMIT 1",
+        );
+        const result = {
+          ...migration,
           invalidInventoryLevels: e.one(
             "SELECT count(*) AS n FROM inventory WHERE level<1 OR level>6",
           ).n,
-        });
+        };
+        if (url.searchParams.get("audit") === "1") {
+          requireOwner();
+          result.rows = e
+            .all(
+              "SELECT * FROM enhancement_migration_rows ORDER BY location,record_key",
+            )
+            .map((r) => ({
+              ...r,
+              before: JSON.parse(r.before_json),
+              after: JSON.parse(r.after_json),
+            }));
+          result.enhancements = e
+            .all(
+              "SELECT scope,key,input,result,at FROM receipts WHERE scope LIKE '%:enhance' AND at<=? ORDER BY at,key",
+              migration?.at || 0,
+            )
+            .map((r) => ({
+              scope: r.scope,
+              key: r.key,
+              at: r.at,
+              input: JSON.parse(r.input),
+              result: JSON.parse(r.result),
+            }));
+          result.current = result.rows
+            .filter((r) => r.location === "inventory")
+            .map((r) => ({
+              player: r.before.player,
+              card: r.before.card,
+              inventory:
+                e.one(
+                  "SELECT * FROM inventory WHERE player=? AND card=?",
+                  r.before.player,
+                  r.before.card,
+                ) || null,
+            }));
+        }
+        return json(result);
+      }
       if (path === "host/quiz-songs" && !post)
         return json(e.quiz.hostSongs(url.searchParams.get("id")));
       if (path === "host/quizzes" && !post)
