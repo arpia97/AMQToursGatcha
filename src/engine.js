@@ -1,3 +1,9 @@
+import { migrateEnhancements } from "./enhancement-migration.js";
+import {
+  MAX_CARD_LEVEL,
+  enhancementCost,
+  ENHANCEMENT_REVISION,
+} from "../public/card-values.js";
 import { validFavorites } from "./popularity.js";
 import { Quiz } from "./quiz.js";
 import {
@@ -89,6 +95,7 @@ export class Engine {
     this.pickemEvents = new PickemEvents(this);
     this.participation = new Participation(this);
     this.quiz = new Quiz(this);
+    migrateEnhancements(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
@@ -368,8 +375,16 @@ export class Engine {
         text(b.card),
       );
       if (!item) fail("You do not own this card.");
-      if (item.level >= 20) fail("Maximum level reached.");
-      const cost = 2 ** (item.level - 1); // Extra copies, preserving the base card.
+      if (
+        b.enhancementRevision !== ENHANCEMENT_REVISION ||
+        b.expectedLevel !== item.level
+      )
+        fail(
+          "Enhancement rules or card level changed. Refresh and review again.",
+          409,
+        );
+      if (item.level >= MAX_CARD_LEVEL) fail("Maximum level reached.");
+      const cost = enhancementCost(item.level);
       if (item.copies - 1 < cost)
         fail(`You need ${cost} extra copies to reach level ${item.level + 1}.`);
       this.run(
@@ -378,7 +393,12 @@ export class Engine {
         player,
         b.card,
       );
-      return { message: `Enhanced to level ${item.level + 1}.` };
+      return {
+        message:
+          item.level + 1 === MAX_CARD_LEVEL
+            ? "Enhanced to MAX."
+            : `Enhanced to level ${item.level + 1}.`,
+      };
     }
     if (action === "bid") {
       const a = this.one(
@@ -426,7 +446,7 @@ export class Engine {
       );
       if (!a || now < a.ends || a.winner !== player || a.claimed)
         fail("This auction cannot be claimed.", 409);
-      this.economy.acquire(player, a.card, a.level);
+      this.economy.acquire(player, a.card, a.level, a.extra_copies);
       if (a.seller && !a.paid) {
         this.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
         this.economy.notices.add(

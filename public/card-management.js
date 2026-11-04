@@ -1,7 +1,11 @@
 const invalid = (message) => Object.assign(new Error(message), { status: 400 });
-import { instantSalePrice } from "./card-values.js";
+import {
+  instantSalePrice,
+  MAX_CARD_LEVEL,
+  enhancementCost,
+} from "./card-values.js";
 export const canUpgrade = (item) =>
-  item.level < 20 && item.copies - 1 >= 2 ** (item.level - 1);
+  item.level < MAX_CARD_LEVEL && item.copies - 1 >= enhancementCost(item.level);
 export function batchSaleQuote(inventory, cardBy, filters) {
   const {
     kind,

@@ -124,19 +124,40 @@ test("insufficient balance rolls back purchases and invalid pack types are rejec
   assert.equal(f.e.all("SELECT * FROM inventory").length, 0);
   assert.throws(() => f.act("1", "pack", { kind: "unknown" }), /pack type/);
 });
-test("enhancement consumes 1, 2, 4 extra copies and preserves a base card", () => {
+test("enhancement consumes2,3,4,5,6 extras, caps at6 and protects stale clients", () => {
   const f = fixture();
-  f.e.addCard("1", "character0", 8);
-  for (const expected of [
-    [2, 7],
-    [3, 5],
-    [4, 1],
+  f.e.addCard("1", "character0", 21);
+  for (const [level, copies] of [
+    [2, 19],
+    [3, 16],
+    [4, 12],
+    [5, 7],
+    [6, 1],
   ]) {
-    f.act("1", "enhance", { card: "character0" });
-    const i = f.e.one("SELECT * FROM inventory");
-    assert.deepEqual([i.level, i.copies], expected);
+    const old = level - 1;
+    f.act("1", "enhance", {
+      card: "character0",
+      expectedLevel: old,
+      enhancementRevision: 2,
+    });
+    assert.deepEqual(
+      [
+        f.e.one("SELECT * FROM inventory").level,
+        f.e.one("SELECT * FROM inventory").copies,
+      ],
+      [level, copies],
+    );
   }
-  assert.throws(() => f.act("1", "enhance", { card: "character0" }), /8 extra/);
+  assert.throws(
+    () =>
+      f.act("1", "enhance", {
+        card: "character0",
+        expectedLevel: 6,
+        enhancementRevision: 2,
+      }),
+    /Maximum/,
+  );
+  assert.throws(() => f.act("1", "enhance", { card: "character0" }), /Refresh/);
 });
 test("weekly auctions contain exactly five distinct random cards per type", () => {
   const f = fixture();

@@ -1,3 +1,4 @@
+import { levelLabel } from "./card-values.js";
 import {
   collectionView,
   collectionPage,
@@ -20,9 +21,9 @@ export function createTradesUI(h, ui) {
     getState,
   } = h;
   let picker = null;
-  const card = (id, level) => {
+  const card = (id, level, extra=0) => {
     const c = cardBy(id);
-    return `<div class="collect-card trade-card-mini tier-${rarityClass(c.rarity)} rarity-${rarity(level)}">${image(c)}<div><strong>${e(c.name)}</strong><span>${e(c.kind === "seiyuu" ? "Seiyuu" : "Character")} · ${e(c.rarity || "Pending")} · Lv. ${level}</span><small>${e(series(c))}</small></div></div>`;
+    return `<div class="collect-card trade-card-mini tier-${rarityClass(c.rarity)} rarity-${rarity(level)}">${image(c)}<div><strong>${e(c.name)}</strong><span>${e(c.kind === "seiyuu" ? "Seiyuu" : "Character")} · ${e(c.rarity || "Pending")} · ${levelLabel(level)}${extra ? ` · +${n(extra)} Spares` : ""}</span><small>${e(series(c))}</small></div></div>`;
   };
   const offerCards = (o) =>
     o.cards?.length ? o.cards : [{ card: o.card, level: o.level }];
@@ -33,7 +34,7 @@ export function createTradesUI(h, ui) {
     (offerCards(o).length === 1 ? "Card" : "Cards") +
     "</p>" +
     offerCards(o)
-      .map((c) => card(c.card, c.level))
+      .map((c) => card(c.card, c.level,c.extra_copies))
       .join("") +
     "</div>";
   function render() {
@@ -72,7 +73,7 @@ export function createTradesUI(h, ui) {
           ownOffer = l.offers.find(
             (o) => o.proposer === s.me?.id && o.status === "open",
           );
-        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Make an Offer", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${offer(o)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
+        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Make an Offer", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${offer(o)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
       })
       .join("");
     return (
@@ -196,7 +197,7 @@ export function createTradesUI(h, ui) {
       const item = s.inventory.find((i) => i.card === selected.card);
       return (
         intro +
-        `<form id="trade-card-form" class="stack"><p class="subtext">${picker.listing ? "You offer" : "Your listing"}</p>${card(selected.card, selected.expectedLevel)}<label>Copy to Trade<select id="trade-copy"><option value="card" ${selected.variant === "card" ? "selected" : ""}>Base Card · Lv. ${item.level}</option>${item.copies > 1 ? `<option value="extra" ${selected.variant === "extra" ? "selected" : ""}>Spare Copy · Lv. 1</option>` : ""}</select></label><p class="form-hint">This copy leaves your inventory while held. Enhancement levels transfer. If a recipient already owns the same card, the higher level is kept and the other copy becomes a Lv. 1 spare.</p><div class="form-error" role="alert"></div><div class="trade-confirm-actions">${btn("Choose Another Card", "trade-picker-back", 'type="button"', "secondary")}<button type="submit" class="button mint">${picker.listing ? "Send Offer" : "List for Trade"}</button></div></form>`
+        `<form id="trade-card-form" class="stack"><p class="subtext">${picker.listing ? "You offer" : "Your listing"}</p>${card(selected.card, selected.expectedLevel)}<label>Copy to Trade<select id="trade-copy"><option value="card" ${selected.variant === "card" ? "selected" : ""}>Base Card · ${levelLabel(item.level)}</option>${item.copies > 1 ? `<option value="extra" ${selected.variant === "extra" ? "selected" : ""}>Spare Copy · Lv. 1</option>` : ""}</select></label><p class="form-hint">This copy leaves your inventory while held. Enhancement levels transfer. If a recipient already owns the same card, the higher level is kept and all invested copies are preserved as spares.</p><div class="form-error" role="alert"></div><div class="trade-confirm-actions">${btn("Choose Another Card", "trade-picker-back", 'type="button"', "secondary")}<button type="submit" class="button mint">${picker.listing ? "Send Offer" : "List for Trade"}</button></div></form>`
       );
     }
     const bundle = picker.bundle;
@@ -221,8 +222,8 @@ export function createTradesUI(h, ui) {
               (c.variant === "card" ? "selected" : "") +
               " " +
               (others.some((c) => c.variant === "card") ? "disabled" : "") +
-              ">Base · Lv. " +
-              item.level +
+              ">Base · " +
+              levelLabel(item.level) +
               "</option>" +
               (item.copies > 1
                 ? '<option value="extra" ' +
@@ -254,7 +255,7 @@ export function createTradesUI(h, ui) {
         (bundle.length
           ? ""
           : '<p class="subtext">Choose cards below. Click the same card again to add another available copy.</p>') +
-        '<form id="trade-card-form"><p class="form-hint">The full bundle is held until accepted, declined or withdrawn. Enhanced cards retain their levels; duplicate arrivals keep the higher level and add a Lv. 1 spare.</p><div class="form-error" role="alert"></div><button type="submit" class="button mint" ' +
+        '<form id="trade-card-form"><p class="form-hint">The full bundle is held until accepted, declined or withdrawn. Enhanced cards retain their levels; duplicate arrivals keep the higher level and preserve invested copies as spares.</p><div class="form-error" role="alert"></div><button type="submit" class="button mint" ' +
         (bundle.length ? "" : "disabled") +
         ">Send Offer · " +
         bundle.length +

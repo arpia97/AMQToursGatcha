@@ -102,7 +102,7 @@ test("XP and draw costs double from D to AG; normal and lucky rolls have exact r
     }
     assert.deepEqual(counts, expected);
   }
-  assert.equal(refinementQuote("AG", 20).baseXP, 2560 * 524288);
+  assert.equal(refinementQuote("AG", 6).baseXP, 2560 * 21);
   assert.throws(() => refinementQuote("Pending"), /classified/);
 });
 test("refinement consumes one physical card, credits exact XP once, and sixth glow repeats per player across restarts", (t) => {
@@ -150,8 +150,8 @@ test("enhanced bases contribute invested XP, spare copies drop to Lv1, extras re
   );
   f.e.rand = () => 99;
   r = f.act("alchemy-feed", f.feed("AG1"));
-  assert.equal(r.xpGained, 2560 * 8 * 5);
-  assert.equal(r.material.investment, 8);
+  assert.equal(r.xpGained, 2560 * 10 * 5);
+  assert.equal(r.material.investment, 10);
   const item = f.e.one(
     "SELECT * FROM inventory WHERE player='p' AND card='AG1'",
   );
@@ -333,9 +333,9 @@ test("ordered batch refinements roll each card at its own position, retain enhan
   );
   assert.deepEqual(
     r.refinements.map((x) => x.xpGained),
-    [40, 20, 10],
+    [60, 20, 10],
   );
-  assert.equal(r.xpGained, 70);
+  assert.equal(r.xpGained, 90);
   assert.equal(r.alchemyState.refinements, 7);
   assert.equal(r.alchemyState.version, 3);
   assert.equal(

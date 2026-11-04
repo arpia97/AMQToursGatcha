@@ -178,14 +178,14 @@ test("old single-card sale quotes reject before consuming, while revised enhance
     item,
   );
   assert.deepEqual(e.player("p"), before);
-  const body = { ...old, expectedPrice: 200 },
+  const body = { ...old, expectedPrice: 250 },
     act = () =>
       e.mutate("p:sell-instant", "new", body, () =>
         e.action("p", "sell-instant", body),
       );
-  assert.equal(act().price, 200);
-  assert.equal(act().price, 200);
-  assert.equal(e.player("p").balance, before.balance + 200);
+  assert.equal(act().price, 250);
+  assert.equal(act().price, 250);
+  assert.equal(e.player("p").balance, before.balance + 250);
   assert.equal(e.player("p").earned, before.earned);
   assert.equal(SHOP_PRICES.AG, 12800);
   assert.equal(instantSalePrice({ rarity: "AG" }), 6400);

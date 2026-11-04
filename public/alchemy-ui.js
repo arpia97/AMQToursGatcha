@@ -1,3 +1,4 @@
+import { levelLabel } from "./card-values.js";
 import {
   ALCHEMY_TIERS,
   refinementQuote,
@@ -124,8 +125,8 @@ export function createAlchemyUI(h) {
             m.next +
             " · " +
             e(m.rarity) +
-            " · Lv. " +
-            m.level +
+            " · " +
+            levelLabel(m.level) +
             (m.lucky ? " · ✦ LUCKY" : "") +
             "</small></div>" +
             (editable
@@ -225,8 +226,8 @@ export function createAlchemyUI(h) {
         e(m.name) +
         "</strong><p>" +
         e(m.rarity) +
-        " · Lv. " +
-        m.level +
+        " · " +
+        levelLabel(m.level) +
         " · " +
         n(m.investment) +
         " Invested Copies</p></div></div><p>This consumes one selected card. " +
@@ -321,8 +322,8 @@ export function createAlchemyUI(h) {
       e(r.material.name) +
       "</strong><p>" +
       e(r.material.rarity) +
-      " · Lv. " +
-      r.material.level +
+      " · " +
+      levelLabel(r.material.level) +
       " · " +
       r.multiplier +
       "× XP" +
@@ -399,8 +400,8 @@ export function createAlchemyUI(h) {
           e(m.name) +
           "</strong><span>" +
           e(m.rarity) +
-          " · Lv. " +
-          m.level +
+          " · " +
+          levelLabel(m.level) +
           "</span>"
         : "<span>＋</span><strong>Choose Cards</strong>") +
       '</button><div class="alchemy-feed-details"><div class="alchemy-chances">' +
@@ -572,15 +573,15 @@ export function createAlchemyUI(h) {
             ">" +
             (variant === "extra"
               ? "Add Extra · Lv. 1"
-              : "Add Card · Lv. " + level) +
+              : "Add Card · " + levelLabel(level)) +
             "</button>"
           );
         };
         return (
           '<article class="alchemy-material-choice">' +
           cardHTML(c, null, { preview: true }) +
-          "<small>Lv. " +
-          item.level +
+          "<small>" +
+          levelLabel(item.level) +
           " · " +
           (item.copies - 1) +
           " Extra Copies" +

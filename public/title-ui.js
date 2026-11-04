@@ -27,9 +27,14 @@ export function titleSettingsPanel(data, escape) {
             (t) =>
               '<label class="title-option"><span><strong>' +
               escape(t.title) +
-              "</strong><small>" +
-              escape(t.quizName) +
-              '</small></span><input type="checkbox" name="quiz" value="' +
+              "</strong>" +
+              (t.title.trim().toLocaleLowerCase() ===
+              String(t.quizName || "")
+                .trim()
+                .toLocaleLowerCase()
+                ? ""
+                : "<small>" + escape(t.quizName) + "</small>") +
+              '</span><input type="checkbox" name="quiz" value="' +
               escape(t.quiz) +
               '" ' +
               (t.equipped ? "checked" : "") +

@@ -1,3 +1,4 @@
+import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
 import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
@@ -197,7 +198,7 @@ export class Economy {
       a.level,
       a.buyout,
     );
-    this.acquire(player, a.card, a.level);
+    this.acquire(player, a.card, a.level, a.extra_copies);
     e.run(
       "UPDATE auctions SET bid=?,winner=?,ends=?,closed=1,paid=1,claimed=1 WHERE id=?",
       a.buyout,
@@ -220,12 +221,24 @@ export class Economy {
       level: a.level,
     };
   }
-  acquire(player, card, level = 1) {
+  acquire(player, card, level = 1, extraCopies = 0) {
+    const current = this.e.one(
+        "SELECT copies,level FROM inventory WHERE player=? AND card=?",
+        player,
+        card,
+      ),
+      highest = Math.max(current?.level || 1, level);
+    const total =
+        (current ? cardInvestment(current.level) + current.copies - 1 : 0) +
+        cardInvestment(level) +
+        (extraCopies || 0),
+      copies = total - cardInvestment(highest) + 1;
     this.e.run(
-      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,1,?,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+1,level=max(level,excluded.level)",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,?,?) ON CONFLICT(player,card) DO UPDATE SET copies=excluded.copies,level=excluded.level",
       player,
       card,
-      level,
+      copies,
+      highest,
       this.e.now(),
     );
   }
@@ -293,7 +306,7 @@ export class Economy {
         );
         e.run("UPDATE auctions SET paid=1,closed=1 WHERE id=?", a.id);
       } else {
-        this.acquire(a.seller, a.card, a.level);
+        this.acquire(a.seller, a.card, a.level, a.extra_copies);
         e.run("UPDATE auctions SET paid=1,closed=1,claimed=1 WHERE id=?", a.id);
       }
     }
@@ -620,7 +633,7 @@ export class Economy {
           player,
         );
         if (!l) fail("This listing cannot be withdrawn.", 409);
-        this.acquire(player, l.card, l.level);
+        this.acquire(player, l.card, l.level, l.extra_copies);
         e.run("UPDATE market_listings SET status='cancelled' WHERE id=?", id);
       } else if (b.venue === "auction") {
         const a = e.one(
@@ -631,7 +644,7 @@ export class Economy {
         );
         if (!a || a.winner)
           fail("An auction can only be withdrawn before its first bid.", 409);
-        this.acquire(player, a.card, a.level);
+        this.acquire(player, a.card, a.level, a.extra_copies);
         e.run(
           "UPDATE auctions SET closed=1,claimed=1,paid=1,ends=? WHERE id=?",
           now,
@@ -659,7 +672,7 @@ export class Economy {
         l.level,
         l.price,
       );
-      this.acquire(player, l.card, l.level);
+      this.acquire(player, l.card, l.level, l.extra_copies);
       e.run(
         "UPDATE market_listings SET status='sold',buyer=?,sold_at=? WHERE id=?",
         player,
@@ -737,10 +750,21 @@ export class Economy {
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
-    return { metric, page, rows: rows.slice(0, 50), hasMore: rows.length > 50 };
+    return {
+      metric,
+      page,
+      rows: rows.slice(0, 50),
+      hasMore: rows.length > 50,
+      cards: this.e.catalogStore.cards(
+        rows
+          .slice(0, 50)
+          .map((p) => p.avatar_card)
+          .filter(Boolean),
+      ),
+    };
   }
   completion(player) {
     const e = this.e,

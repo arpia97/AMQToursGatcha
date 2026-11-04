@@ -194,6 +194,10 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
   const perfect = play(f, 20);
   assert.equal(perfect.run.reward.total, 1850);
   assert.equal(f.e.player("p").earned, 2900);
+  assert.equal(
+    f.e.economy.rankings("earned").rows.find((p) => p.id === "p").value,
+    2900,
+  );
   assert.equal(f.e.profile("p").titles[0].title, "Perfect Listener");
   assert.equal(play(f, 20).run.reward.total, 0);
   assert.equal(f.e.player("p").earned, 2900);

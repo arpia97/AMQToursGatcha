@@ -67,9 +67,9 @@ export class Wishlist {
     else if (view === "listings")
       rows = e.all(
         `SELECT * FROM (
- SELECT id,card,level,price,'sale' AS venue,created AS at FROM market_listings WHERE seller=? AND status='open'
- UNION ALL SELECT id,card,level,CASE WHEN bid>0 THEN bid ELSE reserve END AS price,'auction' AS venue,ends AS at FROM auctions WHERE seller=? AND closed=0 AND paid=0 AND ends>?
- UNION ALL SELECT id,card,level,NULL AS price,'trade' AS venue,created_at AS at FROM trade_listings WHERE seller=? AND status='open'
+ SELECT id,card,level,extra_copies,price,'sale' AS venue,created AS at FROM market_listings WHERE seller=? AND status='open'
+ UNION ALL SELECT id,card,level,extra_copies,CASE WHEN bid>0 THEN bid ELSE reserve END AS price,'auction' AS venue,ends AS at FROM auctions WHERE seller=? AND closed=0 AND paid=0 AND ends>?
+ UNION ALL SELECT id,card,level,extra_copies,NULL AS price,'trade' AS venue,created_at AS at FROM trade_listings WHERE seller=? AND status='open'
  ) ORDER BY at DESC,venue,id DESC LIMIT 25 OFFSET ?`,
         id,
         id,

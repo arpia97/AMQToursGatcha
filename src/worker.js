@@ -409,6 +409,15 @@ export class Game extends DurableObject {
         );
         return json({ result: r ? JSON.parse(r.result) : null });
       }
+      if (path === "host/enhancement-migration" && !post)
+        return json({
+          ...e.one(
+            "SELECT * FROM enhancement_migrations ORDER BY revision DESC LIMIT 1",
+          ),
+          invalidInventoryLevels: e.one(
+            "SELECT count(*) AS n FROM inventory WHERE level<1 OR level>6",
+          ).n,
+        });
       if (path === "host/quiz-songs" && !post)
         return json(e.quiz.hostSongs(url.searchParams.get("id")));
       if (path === "host/quizzes" && !post)

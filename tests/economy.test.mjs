@@ -508,7 +508,7 @@ test("buyouts refund a third-party bidder, preserve level, and cannot pay twice"
   e.host("players", { players: [{ id: "third", name: "Third" }] });
   e.wallet("third", 10000, "Test");
   e.addCard("seller", "mal-character-1");
-  e.run("UPDATE inventory SET level=7 WHERE player='seller'");
+  e.run("UPDATE inventory SET level=6 WHERE player='seller'");
   for (const hours of [0, 169, 1.5])
     assert.throws(
       () =>
@@ -550,7 +550,7 @@ test("buyouts refund a third-party bidder, preserve level, and cannot pay twice"
   assert.equal(e.player("buyer").balance, 10000);
   assert.equal(e.player("seller").balance, 10900);
   assert.equal(e.player("third").balance, 9100);
-  assert.equal(e.state("third").inventory[0].level, 7);
+  assert.equal(e.state("third").inventory[0].level, 6);
   assert.throws(
     () => f.act("buyer", "buyout", { auction: a.id }),
     /not available/,

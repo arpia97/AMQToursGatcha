@@ -60,10 +60,18 @@ test("players cannot adopt another player’s alias or historical username", () 
 test("avatars must be owned; displayed avatar enhancement follows inventory level", () => {
   const f = fixture();
   assert.throws(() => f.act("profile", { avatar: "card-a" }), /inventory/);
-  f.e.addCard("001", "card-a", 4);
+  f.e.addCard("001", "card-a", 6);
   f.act("profile", { avatar: "card-a" });
-  f.act("enhance", { card: "card-a" });
-  f.act("enhance", { card: "card-a" });
+  f.act("enhance", {
+    card: "card-a",
+    expectedLevel: 1,
+    enhancementRevision: 2,
+  });
+  f.act("enhance", {
+    card: "card-a",
+    expectedLevel: 2,
+    enhancementRevision: 2,
+  });
   const p = f.e.profile("001");
   assert.equal(p.avatar_card, "card-a");
   assert.equal(p.inventory[0].level, 3);
@@ -185,4 +193,18 @@ test("reset-all gameplay retains identity; full reset deletes registry while pro
   assert.equal(f.e.all("SELECT * FROM players").length, 0);
   assert.equal(f.e.all("SELECT * FROM catalog").length, 1);
   assert.equal(f.e.all("SELECT * FROM aliases").length, 0);
+});
+
+test("rankings return equipped card portraits and their current enhancement level", () => {
+  const f = fixture();
+  f.host("catalog",{cards:[{id:"card-a",name:"Card A",kind:"character",image:"https://example.com/a.jpg"}]});
+  f.e.addCard("001", "card-a", 1);
+  f.e.run("UPDATE inventory SET level=6 WHERE player='001' AND card='card-a'");
+  f.act("profile", { avatar: "card-a" });
+  f.e.wallet("001", 100, "Quiz: Example · 2/20", true);
+  const ranks = f.e.economy.rankings("earned"),
+    p = ranks.rows.find((p) => p.id === "001");
+  assert.equal(p.avatar_card, "card-a");
+  assert.equal(p.avatar_level, 6);
+  assert.ok(ranks.cards.some((c) => c.id === "card-a"));
 });

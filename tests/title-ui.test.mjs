@@ -43,3 +43,16 @@ test("My Titles is nested under My Profile rather than adding a main menu item",
     false,
   );
 });
+
+test("identical quiz and title labels appear once while different quiz names remain useful context", () => {
+  const panel = titleSettingsPanel(
+    {
+      titles: [
+        { quiz: "e", title: "EGOIST", quizName: "EGOIST", equipped: true },
+      ],
+    },
+    escape,
+  );
+  assert.equal(panel.split("EGOIST").length - 1, 1);
+  assert.doesNotMatch(panel, /<small>EGOIST/);
+});

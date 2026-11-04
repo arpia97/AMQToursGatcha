@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Enhancement Border Draft · AMQ Tours</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, system-ui, sans-serif;
+        background: #101116;
+        color: #f2f2f6;
+        --accent: #f0cc63;
+        --duration: 5s;
+        --trail: 85;
+        --glow: 7px;
+        --width: 3px;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 36px 24px;
+      }
+      main {
+        max-width: 840px;
+        margin: auto;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+      header img {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+      }
+      h1 {
+        margin: 0;
+        font-size: 25px;
+      }
+      p {
+        color: #b9bbc8;
+        line-height: 1.6;
+      }
+      small {
+        color: #b9bbc8;
+      }
+      .badge {
+        margin-left: auto;
+        border: 1px solid #65552c;
+        color: #f1d87f;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+      }
+      select,
+      button {
+        font: inherit;
+        background: #20222c;
+        color: #f3f3f7;
+        border: 1px solid #3a3d49;
+        padding: 10px 13px;
+        border-radius: 7px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button[aria-pressed="true"] {
+        background: #254337;
+        border-color: #76bda0;
+        color: #d1ffe6;
+      }
+      .controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .levels {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .stage {
+        display: flex;
+        gap: 80px;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 52px 24px 40px;
+        background: #181a22;
+        border: 1px solid #2b2e39;
+        border-radius: 16px;
+        margin-top: 25px;
+      }
+      .column {
+        text-align: center;
+      }
+      .column > p {
+        margin: 20px 0 0;
+        font-size: 13px;
+      }
+      .demo-card {
+        position: relative;
+        width: 200px;
+        height: 280px;
+        border: 2px solid var(--accent);
+        border-radius: 13px;
+        background: #080a11;
+        box-shadow: 0 0 var(--glow)
+          color-mix(in srgb, var(--accent) 24%, transparent);
+      }
+      .portrait {
+        width: 100%;
+        height: 216px;
+        object-fit: cover;
+        object-position: center 15%;
+        border-radius: 11px 11px 0 0;
+      }
+      .caption {
+        text-align: left;
+        padding: 9px 11px;
+        font-size: 13px;
+      }
+      .caption strong {
+        display: block;
+      }
+      .caption small {
+        display: block;
+        font-size: 11px;
+        margin-top: 4px;
+      }
+      .rank {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: var(--accent);
+        color: #15151b;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 800;
+        border-radius: 5px;
+      }
+      .level {
+        position: absolute;
+        bottom: 75px;
+        right: 10px;
+        background: #1f252e;
+        border: 1px solid #a9b2c2;
+        border-radius: 5px;
+        padding: 4px 6px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .avatar {
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        position: relative;
+        border: 2px solid var(--accent);
+        background: #0a0b13;
+        box-shadow: 0 0 var(--glow)
+          color-mix(in srgb, var(--accent) 24%, transparent);
+      }
+      .avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 18%;
+        border-radius: 50%;
+      }
+      .avatar b {
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 3;
+        background: #202735;
+        border: 1px solid #aab7d1;
+        border-radius: 5px;
+        padding: 4px 9px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .orbit {
+        position: absolute;
+        inset: -2px;
+        width: calc(100% + 4px);
+        height: calc(100% + 4px);
+        overflow: visible;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .orbit .trail,
+      .orbit .tip {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: var(--width);
+        stroke-linecap: round;
+        stroke-dasharray: var(--trail) calc(1000 - var(--trail));
+        animation: orbit var(--duration) linear infinite;
+        filter: drop-shadow(0 0 var(--glow) var(--accent));
+      }
+      .orbit .tip {
+        stroke: #fff7d9;
+        stroke-dasharray: 9 991;
+        stroke-width: calc(var(--width) * 0.75);
+      }
+      .orbit .second {
+        animation-delay: calc(var(--duration) / -2);
+      }
+      .second {
+        opacity: 0;
+      }
+      .level-1 .orbit {
+        display: none;
+      }
+      .level-4 .second,
+      .level-5 .second,
+      .level-6 .second {
+        opacity: 1;
+      }
+      .paused .orbit * {
+        animation-play-state: paused;
+      }
+      .status {
+        text-align: center;
+        margin: 20px 0 0;
+        font-size: 14px;
+      }
+      .status strong {
+        color: #f7dfa4;
+      }
+      footer {
+        margin-top: 24px;
+        font-size: 12px;
+        color: #9da1b4;
+      }
+      footer a {
+        color: #b8c8ee;
+      }
+      .help {
+        font-size: 13px;
+        max-width: 600px;
+      }
+      .ag .demo-card,
+      .ag .avatar {
+        border-color: #d993f4;
+      }
+      .ag .trail {
+        stroke: url(#rainbow);
+      }
+      @keyframes orbit {
+        to {
+          stroke-dashoffset: -1000;
+        }
+      }
+      @media (max-width: 560px) {
+        body {
+          padding: 22px 16px;
+        }
+        h1 {
+          font-size: 20px;
+        }
+        .badge {
+          display: none;
+        }
+        .stage {
+          gap: 36px;
+          padding: 32px 20px;
+        }
+        .levels button {
+          padding: 9px 10px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="draft" class="level-3">
+      <header>
+        <img src="../amq-tours-logo.png" alt="AMQ Tours" />
+        <h1>Enhancement Border Preview</h1>
+        <span class="badge">Draft · For Review</span>
+      </header>
+      <div class="controls">
+        <label
+          >Card Rarity<select id="rarity">
+            <option>S</option>
+            <option>SS</option>
+            <option selected>SSS</option>
+            <option>Ubers</option>
+            <option>AG</option>
+            <option>A</option>
+            <option>B</option>
+            <option>C</option>
+            <option>D</option>
+          </select></label
+        ><button id="motion" type="button">Pause Animation</button>
+      </div>
+      <div class="levels" role="group" aria-label="Preview Card Level">
+        <button data-level="1" aria-pressed="false">Lv. 1</button
+        ><button data-level="2" aria-pressed="false">Lv. 2</button
+        ><button data-level="3" aria-pressed="true">Lv. 3</button
+        ><button data-level="4" aria-pressed="false">Lv. 4</button
+        ><button data-level="5" aria-pressed="false">Lv. 5</button
+        ><button data-level="6" aria-pressed="false">MAX</button>
+      </div>
+      <div class="stage">
+        <div class="column">
+          <div class="demo-card">
+            <img
+              class="portrait"
+              src="https://cdn.myanimelist.net/images/characters/9/311327.jpg"
+              referrerpolicy="no-referrer"
+              alt="Rem"
+            /><span class="rank">SSS</span><span class="level">Lv. 3</span>
+            <div class="caption">
+              <strong>Rem</strong><small>Re:ZERO</small>
+            </div>
+            <svg class="orbit" viewBox="0 0 200 280" aria-hidden="true">
+              <defs>
+                <linearGradient id="rainbow">
+                  <stop stop-color="#f27a9e" />
+                  <stop offset=".25" stop-color="#f4d56a" />
+                  <stop offset=".5" stop-color="#7cddb9" />
+                  <stop offset=".75" stop-color="#8cb8ff" />
+                  <stop offset="1" stop-color="#d996fb" />
+                </linearGradient>
+              </defs>
+              <rect
+                class="trail"
+                x="2"
+                y="2"
+                width="196"
+                height="276"
+                rx="12"
+                pathLength="1000"
+              />
+              <rect
+                class="tip"
+                x="2"
+                y="2"
+                width="196"
+                height="276"
+                rx="12"
+                pathLength="1000"
+              />
+              <rect
+                class="trail second"
+                x="2"
+                y="2"
+                width="196"
+                height="276"
+                rx="12"
+                pathLength="1000"
+              />
+              <rect
+                class="tip second"
+                x="2"
+                y="2"
+                width="196"
+                height="276"
+                rx="12"
+                pathLength="1000"
+              />
+            </svg>
+          </div>
+          <p>Card</p>
+        </div>
+        <div class="column">
+          <div class="avatar">
+            <img
+              src="https://cdn.myanimelist.net/images/characters/9/311327.jpg"
+              referrerpolicy="no-referrer"
+              alt="Rem Profile Picture"
+            /><svg class="orbit" viewBox="0 0 128 128" aria-hidden="true">
+              <circle class="trail" cx="64" cy="64" r="61" pathLength="1000" />
+              <circle class="tip" cx="64" cy="64" r="61" pathLength="1000" />
+              <circle
+                class="trail second"
+                cx="64"
+                cy="64"
+                r="61"
+                pathLength="1000"
+              />
+              <circle
+                class="tip second"
+                cx="64"
+                cy="64"
+                r="61"
+                pathLength="1000"
+              /></svg
+            ><b>Lv. 3</b>
+          </div>
+          <p>Profile Picture</p>
+        </div>
+      </div>
+      <p class="status">
+        <strong id="intensity">Lv. 3 · Brighter Orbit</strong>
+      </p>
+      <p class="help">
+        Rarity keeps its colour. Enhancement adds travelling light: a subtle
+        trail at Lv. 2, a second trail from Lv. 4, and the strongest glow at
+        MAX. The portrait and level badge stay clear.
+      </p>
+      <footer>
+        Separate preview; this animation is not applied to the game. Motion
+        inspiration:
+        <a
+          href="https://uiverse.io/xXJollyHAKERXx/lucky-falcon-75"
+          target="_blank"
+          rel="noopener"
+          >xXJollyHAKERXx on Uiverse</a
+        >.
+      </footer>
+    </main>
+    <script>
+      const root = document.getElementById("draft"),
+        palette = {
+          S: "#f0a25c",
+          SS: "#e2e8f2",
+          SSS: "#f0cc63",
+          Ubers: "#c18bff",
+          AG: "#d993f4",
+          A: "#73c69f",
+          B: "#7caad9",
+          C: "#a17e57",
+          D: "#85909d",
+        },
+        durations = [0, 7, 6, 5, 4, 3.2, 2.5],
+        trails = [0, 0, 55, 85, 100, 125, 155],
+        labels = [
+          "",
+          "No Enhancement Orbit",
+          "Subtle Orbit",
+          "Brighter Orbit",
+          "Two Travelling Lights",
+          "Stronger Dual Glow",
+          "Full Glow",
+        ];
+      let level = 3;
+      function paint() {
+        root.className =
+          "level-" +
+          level +
+          (document.getElementById("rarity").value === "AG" ? " ag" : "") +
+          (paused ? " paused" : "");
+        root.style.setProperty(
+          "--accent",
+          palette[document.getElementById("rarity").value],
+        );
+        root.style.setProperty("--duration", durations[level] + "s");
+        root.style.setProperty("--trail", trails[level]);
+        root.style.setProperty("--glow", (level === 1 ? 0 : level * 2) + "px");
+        root.style.setProperty("--width", (level < 4 ? 3 : 4) + "px");
+        root.querySelector(".rank").textContent =
+          document.getElementById("rarity").value;
+        root
+          .querySelectorAll(".level,.avatar b")
+          .forEach(
+            (el) => (el.textContent = level === 6 ? "MAX" : "Lv. " + level),
+          );
+        document.getElementById("intensity").textContent =
+          (level === 6 ? "MAX" : "Lv. " + level) + " · " + labels[level];
+        root
+          .querySelectorAll("[data-level]")
+          .forEach((el) =>
+            el.setAttribute(
+              "aria-pressed",
+              String(Number(el.dataset.level) === level),
+            ),
+          );
+      }
+      let paused = matchMedia("(prefers-reduced-motion:reduce)").matches;
+      document.getElementById("motion").textContent = paused
+        ? "Play Animation"
+        : "Pause Animation";
+      root.querySelectorAll("[data-level]").forEach((el) =>
+        el.addEventListener("click", () => {
+          level = Number(el.dataset.level);
+          paint();
+        }),
+      );
+      document.getElementById("rarity").addEventListener("change", paint);
+      document.getElementById("motion").addEventListener("click", () => {
+        paused = !paused;
+        document.getElementById("motion").textContent = paused
+          ? "Play Animation"
+          : "Pause Animation";
+        paint();
+      });
+      paint();
+    </script>
+  </body>
+</html>

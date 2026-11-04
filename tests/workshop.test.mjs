@@ -113,12 +113,15 @@ function fixture() {
 }
 
 test("sale values use half the shop tier price times the exact enhancement investment", () => {
-  assert.deepEqual([1, 2, 3, 4, 20].map(cardInvestment), [1, 2, 4, 8, 524288]);
+  assert.deepEqual(
+    [1, 2, 3, 4, 5, 6].map(cardInvestment),
+    [1, 3, 6, 10, 15, 21],
+  );
   for (let i = 0; i < RARITIES.length; i++)
-    for (const level of [1, 2, 4, 20])
+    for (const level of [1, 2, 4, 6])
       assert.equal(
         instantSalePrice({ rarity: RARITIES[i] }, level),
-        25 * 2 ** i * 2 ** (level - 1),
+        25 * 2 ** i * cardInvestment(level),
       );
   assert.equal(instantSalePrice({ rarity: null }), 25);
   assert.throws(() => instantSalePrice({ rarity: "__proto__" }), /sale price/);
@@ -129,11 +132,11 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
     { e } = f;
   f.add("D", 3, 4);
   const m = f.material("D"),
-    b = { ...m, expectedPrice: 200 };
+    b = { ...m, expectedPrice: 250 };
   const r = f.act("sell-instant", b, "sale");
-  assert.equal(r.price, 200);
+  assert.equal(r.price, 250);
   assert.deepEqual(f.act("sell-instant", b, "sale"), r);
-  assert.equal(e.player("p").balance, 200);
+  assert.equal(e.player("p").balance, 250);
   assert.equal(e.player("p").earned, 0);
   assert.deepEqual(
     {
@@ -145,7 +148,7 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
   );
   assert.equal(f.sell("D", "extra").price, 25);
   assert.throws(() => f.sell("D", "extra"), /extra copy/);
-  assert.equal(e.player("p").balance, 225);
+  assert.equal(e.player("p").balance, 275);
 });
 test("selling a last copy cleans profile references and rejects stale quotes, foreign cards and wallet overflow atomically", () => {
   const f = fixture(),
@@ -169,9 +172,9 @@ test("selling a last copy cleans profile references and rejects stale quotes, fo
 });
 test("high-level AG sale values fit the wallet without truncating the invested-card payout", () => {
   const f = fixture();
-  f.add("AG", 1, 20);
-  assert.equal(f.sell("AG").price, 3355443200);
-  assert.equal(f.e.player("p").balance, 3355443200);
+  f.add("AG", 1, 6);
+  assert.equal(f.sell("AG").price, 134400);
+  assert.equal(f.e.player("p").balance, 134400);
 });
 const m = (rarity, level = 1) => ({ rarity, level });
 test("fusion tiers, halved fodder, invested copies, caps and overload risk", () => {
@@ -181,22 +184,22 @@ test("fusion tiers, halved fodder, invested copies, caps and overload risk", () 
   assert.equal(fusionQuote([m("S"), m("B")]).upgrade, 1075);
   assert.equal(fusionQuote([m("Ubers"), m("D")]).upgrade, 37.5);
   assert.deepEqual(fusionContribution(m("D"), 3, "B"), {
-    upgrade: 3900,
-    copies: 4,
+    upgrade: 5850,
+    copies: 6,
   });
-  assert.equal(fusionQuote([m("S", 2)]).upgrade, 4300);
+  assert.equal(fusionQuote([m("S", 2)]).upgrade, 6300);
   assert.equal(fusionQuote([m("S", 3)]).upgrade, 6300);
-  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 4568.75);
+  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 6300);
   for (const rows of [
     [m("S", 2), m("S")],
     [m("S"), m("S", 2)],
   ])
     assert.equal(fusionQuote(rows).upgrade, 6300);
-  const full = fusionQuote(Array(5).fill(m("Ubers", 20)));
+  const full = fusionQuote(Array(5).fill(m("Ubers", 6)));
   assert.equal(full.upgrade, 7000);
   assert.equal(full.stay, 1000);
   assert.equal(full.downgrade, 2000);
-  assert.equal(full.investment, 5 * 524288);
+  assert.equal(full.investment, 5 * 21);
   const tiers = ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers"];
   let previous = null;
   for (const tier of tiers) {
@@ -207,7 +210,7 @@ test("fusion tiers, halved fodder, invested copies, caps and overload risk", () 
       assert.ok(pair.downgrade < previous.downgrade);
     }
     previous = pair;
-    for (let level = 1; level <= 20; level++) {
+    for (let level = 1; level <= 6; level++) {
       const q = fusionQuote([m(tier, level), m("D")]);
       assert.equal(q.upgrade + q.stay + q.downgrade, 10000);
       assert.ok(q.stay >= 1000 && q.downgrade >= 0 && q.upgrade <= q.cap);

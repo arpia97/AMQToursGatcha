@@ -71,7 +71,7 @@ test("protection persists across pulls and restart and blocks sales, listings an
         act("sell-instant", {
           card: "d",
           variant,
-          expectedPrice: variant === "extra" ? 25 : 100,
+          expectedPrice: variant === "extra" ? 25 : 150,
           expectedLevel: variant === "extra" ? 1 : 3,
           expectedRarity: "D",
         }),
@@ -147,7 +147,7 @@ test("batch full sales account for invested levels and clean avatar/showcase onl
   const { e, act, filters, quote } = fixture(t),
     f = { ...filters, mode: "all", rarity: "D" },
     q = quote(f);
-  assert.equal(q.total, 175);
+  assert.equal(q.total, 225);
   assert.equal(q.count, 4);
   e.run("UPDATE players SET avatar_card='d' WHERE id='p'");
   act("showcase", { cards: ["d", "s"] });

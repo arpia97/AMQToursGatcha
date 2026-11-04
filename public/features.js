@@ -1,3 +1,4 @@
+import { levelLabel } from "./card-values.js";
 import { roleBadge } from "./role-label.js";
 import { createShopUI } from "./shop-ui.js";
 export function createFeatures(h, ui) {
@@ -20,7 +21,7 @@ export function createFeatures(h, ui) {
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
   const readCard = (id, level = 1) => {
     const c = cardBy(id);
-    return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${level}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div></div></article>`;
+    return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(level)}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div></div></article>`;
   };
   function profileExtras(p, own) {
     const favorites = p.showcase || [],
@@ -79,7 +80,7 @@ export function createFeatures(h, ui) {
       earned: [
         "Cumulative",
         "Earned Credits",
-        "Daily bonuses, host rewards, and pick’em winnings. Purchases, refunds, trading, and gambling do not increase this total.",
+        "Daily bonuses, host rewards, pick’em winnings and quiz rewards. Purchases, refunds, trading, and gambling do not increase this total.",
       ],
       balance: [
         "Richest Players",
@@ -106,7 +107,7 @@ export function createFeatures(h, ui) {
       )
       .join(
         "",
-      )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>Rank</th><th>Collector</th><th>${e(labels[metric][1])}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}"><span class="mini-avatar">${e(p.name.slice(0, 2).toUpperCase())}</span>${e(p.name)} ${roleBadge(getState().roles?.[p.id])} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A Place on the Board Is Waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
+      )}</div><div class="notice">${labels[metric][2]}</div>${data.rows.length ? `<div class="table-wrap space-top"><table><thead><tr><th>Rank</th><th>Collector</th><th>${e(labels[metric][1])}</th></tr></thead><tbody>${data.rows.map((p, i) => `<tr><td><span class="rank-number ${(p.rank || i + 1) <= 3 ? "top" : ""}">${String(p.rank || (ui.rankPage - 1) * 50 + i + 1).padStart(2, "0")}</span></td><td><a class="player-cell" href="${profileURL(p.id)}">${h.avatarHTML(p)}${e(p.name)} ${roleBadge(getState().roles?.[p.id])} ${p.id === getState().me?.id ? '<span class="you-label">YOU</span>' : ""}</a></td><td class="money ${metric.startsWith("gambling_") ? (p.value < 0 ? "ledger-negative" : p.value > 0 ? "ledger-positive" : "") : ""}">✦ ${metric.startsWith("gambling_") && p.value > 0 ? "+" : ""}${n(p.value)}</td></tr>`).join("")}</tbody></table></div>` : empty("A Place on the Board Is Waiting.", metric.startsWith("gambling_") ? "Play a game to appear here. Players with a net gain, loss or zero are included." : "Only collectors with a positive total in this category are listed.")}${pager("ranks", ui.rankPage, data.hasMore)}`;
   }
   function catalogPager(data, page, prefix = "catalog", limit = 40) {
     const totalPages =

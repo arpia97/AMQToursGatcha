@@ -46,10 +46,22 @@ export class Trades {
   }
   offerCards(o) {
     const rows = this.e.all(
-      "SELECT card,level FROM trade_offer_cards WHERE offer=? ORDER BY position",
+      "SELECT card,level,extra_copies FROM trade_offer_cards WHERE offer=? ORDER BY position",
       o.id,
     );
-    return rows.length ? rows : [{ card: o.card, level: o.level }];
+    return rows.length
+      ? rows.map((r) => ({
+          card: r.card,
+          level: r.level,
+          ...(r.extra_copies ? { extra_copies: r.extra_copies } : {}),
+        }))
+      : [
+          {
+            card: o.card,
+            level: o.level,
+            ...(o.extra_copies ? { extra_copies: o.extra_copies } : {}),
+          },
+        ];
   }
   takeBundle(player, b) {
     const rows = b.cards === undefined ? [b] : b.cards;
@@ -98,7 +110,7 @@ export class Trades {
   }
   returnOffer(o, status = "returned") {
     for (const c of this.offerCards(o))
-      this.e.economy.acquire(o.proposer, c.card, c.level);
+      this.e.economy.acquire(o.proposer, c.card, c.level, c.extra_copies);
     this.e.run(
       "UPDATE trade_offers SET status=?,updated_at=? WHERE id=?",
       status,
@@ -108,7 +120,7 @@ export class Trades {
   }
   close(l, skipPlayer = null) {
     if (l.seller !== skipPlayer)
-      this.e.economy.acquire(l.seller, l.card, l.level);
+      this.e.economy.acquire(l.seller, l.card, l.level, l.extra_copies);
     for (const o of this.e.all(
       "SELECT * FROM trade_offers WHERE listing=? AND status='open'",
       l.id,
@@ -239,8 +251,8 @@ export class Trades {
         return { message: "Offer declined. The offered card was returned." };
       }
       for (const c of this.offerCards(o))
-        e.economy.acquire(l.seller, c.card, c.level);
-      e.economy.acquire(o.proposer, l.card, l.level);
+        e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
+      e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);
       e.run(
         "UPDATE trade_offers SET status='accepted',updated_at=? WHERE id=?",
         e.now(),

@@ -1,4 +1,10 @@
 import {
+  MAX_CARD_LEVEL,
+  ENHANCEMENT_REVISION,
+  enhancementCost,
+  levelLabel,
+} from "./card-values.js";
+import {
   wishlistButton,
   profileCardTabs,
   profileCardPanel,
@@ -220,7 +226,7 @@ const isDemo =
   location.hostname.endsWith(".github.io");
 const page = () => resolvePage(location.hash);
 const rarity = (level) =>
-  level >= 10 ? 5 : level >= 6 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1;
+  level >= 6 ? 5 : level >= 5 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1;
 const profileURL = (id) => "#player/" + encodeURIComponent(id);
 const cardBy = (id) =>
   cardCache.get(id) ||
@@ -401,9 +407,9 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${2 ** (item.level - 1)} to enhance</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= 20 || item.copies - 1 < 2 ** (item.level - 1) ? "disabled" : ""}>${item.level >= 20 ? "Max level" : "Enhance → " + (item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
+      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to enhance" : ""}</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
       : "";
-  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">LV. ' + level + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
+  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">' + levelLabel(level) + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${a?.extra_copies ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>` : ""}${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -490,6 +496,7 @@ const features = createFeatures(
     profileURL,
     tabs,
     getState: () => state,
+    avatarHTML,
     renderTrades: () => tradesUI.render(),
   },
   ui,
@@ -801,7 +808,7 @@ function collection() {
       ? `<div class="collection-footer-pager">${features.catalogPager(collectionData, ui.collectionPage, "collection")}</div>` +
         features.animeCollection()
       : "") +
-    `<div class="notice space-top">Enhancement uses extra copies of the same card: Lv. 1 → 2 costs 1, Lv. 2 → 3 costs 2, then 4, 8, and so on. Your base card is kept. There is no extra credit fee.</div>`
+    `<div class="notice space-top">Enhance with extra copies of the same card: Lv. 2 needs 2, Lv. 3 needs 3, Lv. 4 needs 4, Lv. 5 needs 5, and MAX needs 6. MAX is Level 6 (21 invested copies total). Your base card is kept; there is no credit fee.</div>`
   );
 }
 function packs() {
@@ -897,7 +904,7 @@ function avatarHTML(p, large = false) {
       (i) => i.card === p.avatar_card,
     ),
     card = p.avatar_card ? cardBy(p.avatar_card) : null;
-  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} rarity-${rarity(p.avatar_level || item?.level || 1)}"><span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>Lv. ${p.avatar_level || item?.level}</b>` : ""}</span>`;
+  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} rarity-${rarity(p.avatar_level || item?.level || 1)}"><span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
 }
 function players() {
   return (
@@ -956,7 +963,7 @@ function profile() {
             .slice(0, 20)
             .map((item) => {
               const c = cardBy(item.card);
-              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">LV. ${item.level}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
+              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(item.level)}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
             })
             .join(
               "",
@@ -1432,7 +1439,7 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "edit-profile") {
     modal(
-      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · Lv. ${i.level}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
+      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
     );
     return;
   }
@@ -1446,7 +1453,13 @@ document.addEventListener("click", async (ev) => {
       a === "daily"
         ? {}
         : a === "enhance"
-          ? { card: t.dataset.id }
+          ? {
+              card: t.dataset.id,
+              expectedLevel: state.inventory.find(
+                (i) => i.card === t.dataset.id,
+              )?.level,
+              enhancementRevision: ENHANCEMENT_REVISION,
+            }
           : { auction: Number(t.dataset.id) },
       a === "claim"
         ? (r) => revealAcquired(r, "Your Auction Prize Is Here.")
@@ -2314,8 +2327,8 @@ async function handleFeatureClick(a, t) {
           escape(cardBy(auct.card).name) +
           "?</h2><p>Pay " +
           number(auct.buyout) +
-          " credits and receive the Lv. " +
-          auct.level +
+          " credits and receive the " +
+          levelLabel(auct.level) +
           ' card immediately. Any existing bid you hold is deducted from that price.</p><form id="purchase-form"><input type="hidden" name="action" value="buyout"><input type="hidden" name="id" value="' +
           auct.id +
           '"><div class="form-error" role="alert"></div><button class="button full" type="submit">Buy out for ' +
@@ -2375,7 +2388,7 @@ function listingForm(id, venue, variant) {
     item = state.inventory.find((i) => i.card === id),
     auction = venue === "auction";
   modal(
-    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
+    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
   );
 }
 function openInstantSale(id, variant) {
@@ -2389,7 +2402,7 @@ function openInstantSale(id, variant) {
   const level = variant === "extra" ? 1 : item.level,
     price = instantSalePrice(c, level);
   modal(
-    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · Lv. ${item.level}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
+    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
   );
 }
 async function handleFeatureSubmit(f, b) {

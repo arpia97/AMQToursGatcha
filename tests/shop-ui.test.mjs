@@ -112,7 +112,7 @@ test("shop exposes enhanced instant quotes, fixed-price listings, withdrawals, a
   assert.match(html, /disabled/);
   ui.shopSection = "sell";
   html = shop.render();
-  assert.match(html, /Sell now · ✦ 1600/);
+  assert.match(html, /Sell now · ✦ 2400/);
   assert.match(html, /data-action="sell-card"/);
   assert.match(html, /Card &lt;A>/);
   ui.shopSection = "market";

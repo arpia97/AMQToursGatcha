@@ -18,7 +18,7 @@ export function profileCardTabs(view) {
     [
       ["overview", "Overview"],
       ["wishlist", "Wishlist"],
-      ["listings", "For Sale / Auction / Trade"],
+      ["listings", "Listed"],
     ]
       .map(
         ([id, label]) =>
@@ -53,6 +53,7 @@ export function profileCardPanel(
       const actions = venue
         ? '<p class="profile-listing-label">' +
           label +
+          (row.extra_copies ? " · +" + n(row.extra_copies) + " Spares" : "") +
           (venue !== "trade" ? " · ✦ " + n(row.price) : "") +
           '</p><button type="button" class="button secondary" data-action="profile-venue" data-venue="' +
           venue +
