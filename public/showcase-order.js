@@ -1,3 +1,5 @@
+import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
+import { rarityClass } from "./card-display.js";
 import { RARITIES } from "./card-values.js";
 
 export function createShowcaseEditor({
@@ -83,7 +85,7 @@ export function createShowcaseEditor({
       .map((id, index) => {
         const card = cardBy(id),
           name = e(card.name);
-        return `<li class="showcase-order-row"><span class="showcase-order-portrait">${image(card)}${gradeBadge(card)}</span><div class="showcase-order-name"><strong>${name}</strong><small>${e(series(card))} · Lv. ${levels.get(id) || 1}</small></div><label class="showcase-position"><span class="sr-only">Position for ${name}</span><select data-showcase-position="${e(id)}" aria-label="Position for ${name}">${order.map((_, i) => `<option value="${i}" ${index === i ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label><div class="showcase-move"><button type="button" class="button secondary" data-action="showcase-move" data-id="${e(id)}" data-position="${index - 1}" data-step="-1" aria-label="Move ${name} Earlier" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="button secondary" data-action="showcase-move" data-id="${e(id)}" data-position="${index + 1}" data-step="1" aria-label="Move ${name} Later" ${index === order.length - 1 ? "disabled" : ""}>↓</button></div></li>`;
+        return `<li class="showcase-order-row"><span class="showcase-order-portrait tier-${rarityClass(card.rarity)} ${cardFrameClass(levels.get(id))}">${cardAura(levels.get(id))}${image(card)}${gradeBadge(card)}</span><div class="showcase-order-name"><strong>${name}</strong><small>${e(series(card))} · ${enhancementBadge(levels.get(id))}</small></div><label class="showcase-position"><span class="sr-only">Position for ${name}</span><select data-showcase-position="${e(id)}" aria-label="Position for ${name}">${order.map((_, i) => `<option value="${i}" ${index === i ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label><div class="showcase-move"><button type="button" class="button secondary" data-action="showcase-move" data-id="${e(id)}" data-position="${index - 1}" data-step="-1" aria-label="Move ${name} Earlier" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" class="button secondary" data-action="showcase-move" data-id="${e(id)}" data-position="${index + 1}" data-step="1" aria-label="Move ${name} Later" ${index === order.length - 1 ? "disabled" : ""}>↓</button></div></li>`;
       })
       .join(
         "",

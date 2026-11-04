@@ -1,3 +1,4 @@
+import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
 import { levelLabel } from "./card-values.js";
 import {
   collectionView,
@@ -14,16 +15,15 @@ export function createTradesUI(h, ui) {
     image,
     gradeBadge,
     rarityClass,
-    rarity,
     series,
     empty,
     profileURL,
     getState,
   } = h;
   let picker = null;
-  const card = (id, level, extra=0) => {
+  const card = (id, level, extra = 0) => {
     const c = cardBy(id);
-    return `<div class="collect-card trade-card-mini tier-${rarityClass(c.rarity)} rarity-${rarity(level)}">${image(c)}<div><strong>${e(c.name)}</strong><span>${e(c.kind === "seiyuu" ? "Seiyuu" : "Character")} · ${e(c.rarity || "Pending")} · ${levelLabel(level)}${extra ? ` · +${n(extra)} Spares` : ""}</span><small>${e(series(c))}</small></div></div>`;
+    return `<div class="collect-card trade-card-mini tier-${rarityClass(c.rarity)} ${cardFrameClass(level)}">${cardAura(level)}${image(c)}<div><strong>${e(c.name)}</strong><span>${e(c.kind === "seiyuu" ? "Seiyuu" : "Character")} · ${e(c.rarity || "Pending")} · ${enhancementBadge(level)}${extra ? ` · +${n(extra)} Spares` : ""}</span><small>${e(series(c))}</small></div></div>`;
   };
   const offerCards = (o) =>
     o.cards?.length ? o.cards : [{ card: o.card, level: o.level }];
@@ -34,7 +34,7 @@ export function createTradesUI(h, ui) {
     (offerCards(o).length === 1 ? "Card" : "Cards") +
     "</p>" +
     offerCards(o)
-      .map((c) => card(c.card, c.level,c.extra_copies))
+      .map((c) => card(c.card, c.level, c.extra_copies))
       .join("") +
     "</div>";
   function render() {

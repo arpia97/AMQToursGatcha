@@ -1,3 +1,4 @@
+import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
 export function noticeCopy(notice) {
   switch (notice.kind) {
     case "market-sale":
@@ -46,7 +47,7 @@ export function noticePanel(
     .map((notice) => {
       const copy = noticeCopy(notice),
         card = cardBy(notice.card);
-      return `<article class="trade-notice tier-${rarityClass(card.rarity)}"><div class="trade-notice-portrait">${image(card)}</div><div><h3>${e(copy.title)}</h3><strong>${e(card.name)} <small>Lv. ${notice.level || 1}</small></strong><p>${e(copy.detail)}</p><span class="money">${copy.sign}✦ ${n(notice.credits)} · ${e(copy.credit)}</span></div></article>`;
+      return `<article class="trade-notice tier-${rarityClass(card.rarity)}"><div class="trade-notice-portrait tier-${rarityClass(card.rarity)} ${cardFrameClass(notice.level)}">${cardAura(notice.level)}${image(card)}</div><div><h3>${e(copy.title)}</h3><strong>${e(card.name)} ${enhancementBadge(notice.level)}</strong><p>${e(copy.detail)}</p><span class="money">${copy.sign}✦ ${n(notice.credits)} · ${e(copy.credit)}</span></div></article>`;
     })
     .join(
       "",

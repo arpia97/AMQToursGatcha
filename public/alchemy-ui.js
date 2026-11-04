@@ -1,3 +1,4 @@
+import { cardFrameClass, cardAura } from "./card-frames.js";
 import { levelLabel } from "./card-values.js";
 import {
   ALCHEMY_TIERS,
@@ -409,10 +410,13 @@ export function createAlchemyUI(h) {
           " before the next lucky surge.</p>") +
       queueHTML() +
       '<div class="alchemy-feed-row"><button type="button" class="alchemy-material-slot ' +
-      (m ? "tier-" + rarityClass(m.rarity) : "empty-slot") +
+      (m
+        ? "tier-" + rarityClass(m.rarity) + " " + cardFrameClass(m.level)
+        : "empty-slot") +
       '" data-action="alchemy-material-open">' +
       (m
-        ? image(m) +
+        ? cardAura(m.level) +
+          image(m) +
           "<strong>" +
           e(m.name) +
           "</strong><span>" +

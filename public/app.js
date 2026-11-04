@@ -1,3 +1,4 @@
+import { cardFrameClass, cardAura } from "./card-frames.js";
 import {
   MAX_CARD_LEVEL,
   ENHANCEMENT_REVISION,
@@ -225,8 +226,6 @@ const isDemo =
   new URLSearchParams(location.search).has("demo") ||
   location.hostname.endsWith(".github.io");
 const page = () => resolvePage(location.hash);
-const rarity = (level) =>
-  level >= 6 ? 5 : level >= 5 ? 4 : level >= 4 ? 3 : level >= 2 ? 2 : 1;
 const profileURL = (id) => "#player/" + encodeURIComponent(id);
 const cardBy = (id) =>
   cardCache.get(id) ||
@@ -409,7 +408,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     item && !item.preview
       ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to enhance" : ""}</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
       : "";
-  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${level ? "rarity-" + rarity(level) : ""}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">' + levelLabel(level) + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${a?.extra_copies ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>` : ""}${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
+  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(level)}">${cardAura(level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">' + levelLabel(level) + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${a?.extra_copies ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>` : ""}${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -469,7 +468,6 @@ const tradesUI = createTradesUI(
     image,
     gradeBadge,
     rarityClass,
-    rarity,
     series,
     empty,
     profileURL,
@@ -487,7 +485,6 @@ const features = createFeatures(
     image,
     gradeBadge,
     rarityClass,
-    rarity,
     series,
     empty,
     remaining,
@@ -751,7 +748,7 @@ function home() {
     ) +
     (state.activePickem
       ? pickemHero(state.activePickem)
-      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
+      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)} ${cardFrameClass()}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +
@@ -822,7 +819,7 @@ function packs() {
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
     <div class="section-head"><h2>Premium Packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five Independent Draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every Card, Equal Chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
-    <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 1, 2, 4, 8… extra copies, keeping one base card.</p></div></div>`
+    <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 2, 3, 4, 5 and 6 extra copies, keeping one base card. Level 6 is MAX.</p></div></div>`
   );
 }
 function catalogue() {
@@ -904,7 +901,7 @@ function avatarHTML(p, large = false) {
       (i) => i.card === p.avatar_card,
     ),
     card = p.avatar_card ? cardBy(p.avatar_card) : null;
-  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} rarity-${rarity(p.avatar_level || item?.level || 1)}"><span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
+  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} ${cardFrameClass(p.avatar_level || item?.level || 1)}">${cardAura(p.avatar_level || item?.level || 1)}<span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
 }
 function players() {
   return (
@@ -963,7 +960,7 @@ function profile() {
             .slice(0, 20)
             .map((item) => {
               const c = cardBy(item.card);
-              return `<article class="collect-card tier-${rarityClass(c.rarity)} rarity-${rarity(item.level)}"><div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(item.level)}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
+              return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(item.level)}">${cardAura(item.level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(item.level)}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
             })
             .join(
               "",

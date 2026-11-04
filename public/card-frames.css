@@ -1,0 +1,273 @@
+/* Rarity colours the existing frame; enhancement alone sets aura and badge. */
+@property --enhancement-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.enhancement-level-1 {
+  --frame-width: 2px;
+  --level-colour: #85909d;
+  --aura-strength: 0;
+}
+.enhancement-level-2 {
+  --frame-width: 2.5px;
+  --level-colour: #f0a25c;
+  --aura-strength: 0.45;
+  --aura-duration: 6s;
+  --aura-blur: 6.4px;
+  --aura-spread: 6.4px;
+}
+.enhancement-level-3 {
+  --frame-width: 3px;
+  --level-colour: #e2e8f2;
+  --aura-strength: 0.6;
+  --aura-duration: 5s;
+  --aura-blur: 7.6px;
+  --aura-spread: 7.6px;
+}
+.enhancement-level-4 {
+  --frame-width: 3.5px;
+  --level-colour: #f0cc63;
+  --aura-strength: 0.72;
+  --aura-duration: 4s;
+  --aura-blur: 8.8px;
+  --aura-spread: 8.8px;
+}
+.enhancement-level-5 {
+  --frame-width: 4px;
+  --level-colour: #c18bff;
+  --aura-strength: 0.86;
+  --aura-duration: 3.2s;
+  --aura-blur: 10px;
+  --aura-spread: 10px;
+}
+.enhancement-level-6 {
+  --frame-width: 4.5px;
+  --level-colour: #d993f4;
+  --aura-strength: 1;
+  --aura-duration: 2.5s;
+  --aura-blur: 11.2px;
+  --aura-spread: 11.2px;
+}
+.enhancement-frame.tier-d,
+.enhancement-frame.tier-pending {
+  --frame-colour: #797985;
+}
+.enhancement-frame.tier-c {
+  --frame-colour: #a68a62;
+}
+.enhancement-frame.tier-b {
+  --frame-colour: #83cdb4;
+}
+.enhancement-frame.tier-a {
+  --frame-colour: #78b9ed;
+}
+.enhancement-frame.tier-s {
+  --frame-colour: #f5a35d;
+}
+.enhancement-frame.tier-ss {
+  --frame-colour: #eef3fc;
+}
+.enhancement-frame.tier-sss {
+  --frame-colour: #edc763;
+}
+.enhancement-frame.tier-ubers {
+  --frame-colour: #bb8af5;
+}
+.enhancement-frame.tier-ag {
+  --frame-colour: #d993f4;
+}
+:is(
+    .collect-card,
+    .profile-avatar,
+    .hero-card,
+    .trade-notice-portrait,
+    .showcase-order-portrait,
+    .alchemy-material-slot
+  ).enhancement-frame[class] {
+  --frame-radius: 11px;
+  --frame-surface: var(--panel, #191b23);
+  --aura-scale: 1;
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  border: var(--frame-width) solid var(--frame-colour, #797985);
+  border-radius: var(--frame-radius);
+  background: var(--frame-surface);
+  box-shadow:
+    inset 0 0 0 1px #ffffff24,
+    0 0 5px color-mix(in srgb, var(--frame-colour, #797985) 22%, transparent);
+  animation: none;
+}
+:is(.collect-card, .profile-avatar, .hero-card).enhancement-frame::after {
+  content: none;
+}
+.collect-card.enhancement-frame > .portrait {
+  border-radius: calc(var(--frame-radius) - var(--frame-width))
+    calc(var(--frame-radius) - var(--frame-width)) 0 0;
+}
+.profile-avatar.enhancement-frame[class] {
+  --frame-radius: 50%;
+  --frame-surface: #303641;
+  --aura-scale: 0.65;
+}
+.profile-avatar.large.enhancement-frame[class] {
+  --aura-scale: 1;
+}
+.avatar .profile-avatar.enhancement-frame[class] {
+  --aura-scale: 0.5;
+}
+.hero-card.enhancement-frame[class] {
+  --frame-radius: 10px;
+  --frame-surface: #1f2027;
+}
+.hero-card.enhancement-frame > img {
+  border-radius: calc(var(--frame-radius) - var(--frame-width));
+}
+.hero-card.enhancement-frame > strong {
+  border-radius: 0 0 calc(var(--frame-radius) - var(--frame-width))
+    calc(var(--frame-radius) - var(--frame-width));
+}
+.trade-card-mini.enhancement-frame[class] {
+  --frame-radius: 10px;
+  --frame-surface: #11141b;
+  --aura-scale: 0.7;
+}
+.trade-notice-portrait.enhancement-frame[class] {
+  --frame-radius: 8px;
+  --aura-scale: 0.7;
+}
+.showcase-order-portrait.enhancement-frame[class] {
+  --frame-radius: 7px;
+  --aura-scale: 0.6;
+}
+:is(.trade-notice-portrait, .showcase-order-portrait).enhancement-frame > img {
+  border-radius: calc(var(--frame-radius) - var(--frame-width));
+}
+.alchemy-material-slot.enhancement-frame[class] {
+  --frame-radius: 13px;
+  --frame-surface: #141720;
+}
+/* A complete rainbow ring, including where the halo is dimmest. */
+:is(
+    .collect-card,
+    .profile-avatar,
+    .hero-card,
+    .trade-notice-portrait,
+    .showcase-order-portrait,
+    .alchemy-material-slot
+  ).enhancement-frame.tier-ag {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--frame-surface), var(--frame-surface)) padding-box,
+    conic-gradient(
+        #ff779b,
+        #ffd463,
+        #7ee3b0,
+        #71d3fa,
+        #ad99ff,
+        #f38ce8,
+        #ff779b
+      )
+      border-box;
+}
+.enhancement-frame > .frame-aura {
+  position: absolute;
+  inset: calc(-1 * var(--aura-spread) * var(--aura-scale));
+  border-radius: calc(
+    var(--frame-radius) + var(--aura-spread) * var(--aura-scale)
+  );
+  pointer-events: none;
+  z-index: -1;
+  filter: blur(calc(var(--aura-blur) * var(--aura-scale)));
+  opacity: var(--aura-strength);
+  display: block;
+}
+.profile-avatar.enhancement-frame > .frame-aura {
+  border-radius: 50%;
+}
+.enhancement-frame > .frame-aura::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: calc(var(--aura-spread) * var(--aura-scale));
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--enhancement-angle),
+    color-mix(in srgb, var(--level-colour) 65%, transparent) 0deg 150deg,
+    var(--level-colour) 230deg,
+    #fff9ef 280deg,
+    var(--level-colour) 320deg,
+    color-mix(in srgb, var(--level-colour) 65%, transparent) 360deg
+  );
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: enhancement-orbit var(--aura-duration) linear infinite;
+}
+.enhancement-frame > .frame-aura-soft {
+  filter: blur(calc(var(--aura-blur) * var(--aura-scale) * 2.6));
+  opacity: calc(var(--aura-strength) * 0.55);
+}
+.enhancement-frame.enhancement-level-6 > .frame-aura::before {
+  background: conic-gradient(
+    from var(--enhancement-angle),
+    #ff779b,
+    #ffd463,
+    #7ee3b0,
+    #71d3fa,
+    #ad99ff,
+    #f38ce8,
+    #ff779b
+  );
+}
+.enhancement-frame .level-tag,
+.enhancement-frame.profile-avatar > b,
+.enhancement-badge[class] {
+  background: var(--level-colour);
+  color: #12141a;
+  border: 1px solid var(--level-colour);
+  font-weight: 800;
+  text-shadow: none;
+}
+.enhancement-badge[class] {
+  display: inline-block;
+  padding: 2px 5px;
+  border-radius: 5px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.enhancement-level-6 .level-tag,
+.enhancement-level-6.profile-avatar > b,
+.enhancement-badge.enhancement-level-6 {
+  background: linear-gradient(
+    110deg,
+    #ff779b,
+    #ffd463,
+    #7ee3b0,
+    #71d3fa,
+    #ad99ff,
+    #f38ce8
+  );
+  border-color: #f4d9ff;
+}
+@keyframes enhancement-orbit {
+  to {
+    --enhancement-angle: 360deg;
+  }
+}
+/* Entry animation stays on the card; the level aura animates independently. */
+.pack-results .pull-reveal .collect-card.enhancement-frame {
+  animation: card-arrive 0.8s ease both;
+}
+html[data-pack-motion="full"]
+  .pack-results
+  .pull-reveal
+  .collect-card.enhancement-frame {
+  animation-name: card-arrive !important;
+  animation-duration: 0.8s !important;
+  animation-iteration-count: 1 !important;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1) !important;
+  animation-fill-mode: both !important;
+}
