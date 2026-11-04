@@ -78,6 +78,31 @@ test("the actual host submit handler saves a draft with a hidden id field instea
         json: async () => ({ message: "Quiz scores and titles reset." }),
       };
     }
+    if (path === "api/host/quiz-preview")
+      return {
+        ok: true,
+        json: async () => ({
+          songs: [
+            {
+              audio: "https://naedist.animemusicquiz.com/dntpj0.mp3",
+              title: "Example",
+              answers: ["Anime"],
+            },
+          ],
+          rejected: [],
+        }),
+      };
+    if (path === "api/host/quiz-audio-check")
+      return {
+        ok: true,
+        json: async () => ({
+          checks: JSON.parse(options.body).songs.map((s) => ({
+            audio: s.audio,
+            resolvedAudio: s.audio,
+            working: true,
+          })),
+        }),
+      };
     if (path === "api/host/quiz-save") {
       const body = JSON.parse(options.body);
       requests.push({ path, body });
@@ -135,8 +160,21 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     elements: { songsFile: { files: [file] }, coverFile: { files: [] } },
     dataset: {},
     isConnected: false,
-    querySelector: () => submit,
+    querySelector: (s) =>
+      s === "[data-quiz-song-review]" ? node("review-output") : submit,
   };
+  Object.assign(form.elements.songsFile, {
+    name: "songsFile",
+    form,
+    dataset: {},
+    closest: () => null,
+    isConnected: true,
+    setCustomValidity() {},
+  });
+  for (const handler of handlers.get("change"))
+    await handler({ target: form.elements.songsFile });
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
   await handlers.get("submit")[0]({ preventDefault() {}, target: form });
   assert.equal(requests.length, 1, node("#result").textContent);
   assert.equal(requests[0].body.name, "Sample Draft");

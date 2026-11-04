@@ -1,3 +1,4 @@
+import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
@@ -442,6 +443,65 @@ export class Game extends DurableObject {
               input: JSON.parse(r.input),
               result: JSON.parse(r.result),
             }));
+          const auditPlayer = url.searchParams.get("player");
+          if (auditPlayer) {
+            const player = text(auditPlayer, 100);
+            const actions = [
+              "pack",
+              "daily-pack",
+              "enhance",
+              "sell-instant",
+              "sell-batch",
+              "alchemy-feed",
+              "alchemy-draw",
+              "shop-buy",
+              "buyout",
+              "claim",
+              "trade-list",
+              "trade-offer",
+              "trade-accept",
+              "trade-withdraw",
+              "list-card",
+              "cancel-listing",
+              "fusion",
+            ];
+            result.history = e
+              .all(
+                "SELECT scope,key,input,result,at FROM receipts WHERE scope IN (" +
+                  actions.map(() => "?").join(",") +
+                  ") AND at<=? ORDER BY at,key LIMIT 3000",
+                ...actions.map((a) => player + ":" + a),
+                migration.at,
+              )
+              .map((r) => ({
+                ...r,
+                input: JSON.parse(r.input),
+                result: JSON.parse(r.result),
+              }));
+            result.playerLedger = e.all(
+              "SELECT * FROM ledger WHERE player=? AND at<=? ORDER BY id",
+              player,
+              migration.at,
+            );
+            const card = url.searchParams.get("card");
+            if (card)
+              result.cardTransactions = {
+                market: e.all(
+                  "SELECT * FROM market_listings WHERE card=?",
+                  card,
+                ),
+                auctions: e.all("SELECT * FROM auctions WHERE card=?", card),
+                tradeListings: e.all(
+                  "SELECT * FROM trade_listings WHERE card=?",
+                  card,
+                ),
+                tradeOffers: e.all(
+                  "SELECT * FROM trade_offer_cards WHERE card=?",
+                  card,
+                ),
+              };
+          }
+
           result.current = result.rows
             .filter((r) => r.location === "inventory")
             .map((r) => ({
@@ -461,6 +521,18 @@ export class Game extends DurableObject {
         return json(e.quiz.hostSongs(url.searchParams.get("id")));
       if (path === "host/quizzes" && !post)
         return json({ quizzes: e.quiz.list(null, true) });
+      if (path === "host/quiz-audio-check" && post) {
+        this.quizLinkCache ||= new Map();
+        const result = await checkQuizAudio(
+          b.songs,
+          fetch,
+          this.quizLinkCache,
+          Date.now(),
+          b.force === true,
+        );
+        requireHost();
+        return json(result);
+      }
       if (["host/quiz-save", "host/quiz-preview"].includes(path) && post) {
         const preview = path === "host/quiz-preview";
         const key = text(request.headers.get("Idempotency-Key"), 100);
@@ -496,14 +568,15 @@ export class Game extends DurableObject {
           if (preview) {
             requireHost();
             return json({
-              songs: prepared.songs.map(({ title, artist, answers }) => ({
-                title,
-                artist,
-                answers,
-              })),
+              songs: prepared.songs,
               rejected: prepared.rejected,
             });
           }
+          prepared = applyQuizAudioReview(
+            prepared,
+            b,
+            this.quizLinkCache || new Map(),
+          );
           if (!prepared.songs.length)
             fail(
               "No playable MP3 songs matched AMQ. " +

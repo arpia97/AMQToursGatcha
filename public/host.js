@@ -3,6 +3,7 @@ import {
   quizHostPanel,
   quizHostBody,
   previewQuizFile,
+  handleQuizAudioReview,
   quizPoolEditor,
 } from "./quiz-host-ui.js";
 import { chooseTourStaff } from "./tour-staff-ui.js";
@@ -837,4 +838,11 @@ document.addEventListener("change", (ev) => {
     formIdentifier(ev.target.form) === "quiz-save"
   )
     previewQuizFile(ev.target, api, esc);
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-quiz-audio-action]") && !working)
+    handleQuizAudioReview(event, api, esc).catch((err) =>
+      report(err.message, true),
+    );
 });

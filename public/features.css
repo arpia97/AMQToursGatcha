@@ -3820,3 +3820,33 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   width: 14px;
   height: 14px;
 }
+
+.rankings-table {
+  table-layout: fixed;
+  min-width: 560px;
+}
+.rankings-table .ranking-position {
+  width: 84px;
+}
+.rankings-table .ranking-value {
+  width: 210px;
+}
+.rankings-table th:last-child,
+.rankings-table td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rankings-table .profile-avatar {
+  flex-shrink: 0;
+}
+.rankings-table td {
+  vertical-align: middle;
+}
+@media (max-width: 680px) {
+  .rankings-table .ranking-position {
+    width: 68px;
+  }
+  .rankings-table .ranking-value {
+    width: 165px;
+  }
+}

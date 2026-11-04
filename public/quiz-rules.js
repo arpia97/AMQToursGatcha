@@ -84,15 +84,20 @@ export function quizImportRows(input) {
       amqSongId: row.amqSongId ?? info.amqSongId,
       songName: row.songName ?? info.songName,
       artist: row.songArtist ?? row.artist ?? info.artist,
-      audio:
-        row.audio ||
-        row.audioUrl ||
-        row.audio_url ||
-        row.mp3 ||
-        row.songLink ||
-        info.audio ||
-        info.audioUrl ||
+      audio: [
+        row.audio,
+        row.audioUrl,
+        row.audio_url,
+        row.mp3,
+        row.songLink,
+        info.audio,
+        info.audioUrl,
         info.mp3,
+        row.videoUrl,
+        info.videoUrl,
+      ]
+        .map(resolveQuizAudio)
+        .find(Boolean),
     };
   });
 }
@@ -119,9 +124,17 @@ export function prepareQuizSongs(input, master) {
       rejected.push({ row: index + 1, reason: "Invalid song record" });
       continue;
     }
-    const audio = resolveQuizAudio(
-      row.audio || row.audioUrl || row.audio_url || row.mp3 || row.songLink,
-    );
+    const audio =
+      [
+        row.audio,
+        row.audioUrl,
+        row.audio_url,
+        row.mp3,
+        row.songLink,
+        row.videoUrl,
+      ]
+        .map(resolveQuizAudio)
+        .find(Boolean) || null;
     const ann = String(row.annId ?? row.annID ?? row.animeAnnId ?? "");
     const direct = master.animeMap[ann];
     const matched = [
@@ -161,6 +174,10 @@ export function prepareQuizSongs(input, master) {
     songs.push({
       id: String(row.annSongId ?? row.amqSongId ?? row.songId ?? index),
       audio,
+      ...(resolveQuizAudio(row.videoUrl) &&
+      resolveQuizAudio(row.videoUrl) !== audio
+        ? { alternatives: [resolveQuizAudio(row.videoUrl)] }
+        : {}),
       answers,
       title: String(row.songName || row.songTitle || "Unknown Song").slice(
         0,

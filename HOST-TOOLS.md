@@ -231,3 +231,8 @@ Choose a quiz to load its current song pool. Check songs to remove and click Sav
 ### Enhancement Revision 2
 
 Cards now cap at Level 6 (MAX), with 2/3/4/5/6 additional copies per upgrade. The transactional migration preserves original invested copies, returns remainders to inventory, and attaches escrow remainders to the held card. Do not delete or rerun its receipt. Authenticated GET `/api/host/enhancement-migration` returns the latest migration receipt and an invalid-inventory-level count for read-only verification. Before/after rows are retained in `enhancement_migration_rows`. No credits or ownership are reset. Old enhancement clients must refresh before submitting the revised costs.
+
+
+The owner can read `/api/host/enhancement-migration?audit=1` to inspect the saved before/after conversion rows and original enhancement receipts. Optional `player` and `card` parameters add that player’s bounded pre-migration gameplay receipts, ledger and relevant card escrow history. This is read-only; it never reruns conversion or changes player inventory.
+
+Quiz Song Review checks imported MP3 links before saving. Broken links offer Use Another MP3, Retry Link and Skip Song; replacement links are checked before acceptance. The audio-check endpoint is host-only, accepts at most eight songs per call and runs two remote checks at a time. Working results are cached for 24 hours; failed checks may be retried after a minute. A changed or expired review must be checked again.

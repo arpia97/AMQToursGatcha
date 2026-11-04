@@ -5,6 +5,7 @@ import {
   quizSongReview,
   readQuizJSON,
   previewQuizFile,
+  handleQuizAudioReview,
 } from "../public/quiz-host-ui.js";
 const e = (s) =>
   String(s ?? "")
@@ -73,6 +74,14 @@ test("file review blocks premature save, renders server matches and clears on re
   const pending = previewQuizFile(
     f.input,
     async (path, b) => {
+      if (path === "quiz-audio-check")
+        return {
+          checks: b.songs.map((s) => ({
+            audio: s.audio,
+            resolvedAudio: s.audio,
+            working: true,
+          })),
+        };
       assert.equal(path, "quiz-preview");
       assert.equal(b.input[0].annId, 1);
       return new Promise((r) => (resolve = r));
@@ -82,7 +91,12 @@ test("file review blocks premature save, renders server matches and clears on re
   await new Promise((r) => setImmediate(r));
   assert.equal(f.submit.disabled, true);
   assert.match(f.input.validity, /Reviewing/);
-  resolve({ songs: [{ title: "A", answers: ["Anime"] }], rejected: [] });
+  resolve({
+    songs: [
+      { title: "A", audio: "https://example.com/a.mp3", answers: ["Anime"] },
+    ],
+    rejected: [],
+  });
   await pending;
   assert.equal(f.submit.disabled, false);
   assert.equal(f.input.validity, "");
@@ -126,12 +140,132 @@ test("invalid files and lookup errors show retry, zero matches stay invalid, and
   f.input.files = [file([{ annId: 2 }])];
   await previewQuizFile(
     f.input,
-    async () => ({ songs: [{ title: "New", answers: ["Anime"] }] }),
+    async (path, b) =>
+      path === "quiz-audio-check"
+        ? {
+            checks: b.songs.map((s) => ({
+              audio: s.audio,
+              resolvedAudio: s.audio,
+              working: true,
+            })),
+          }
+        : {
+            songs: [
+              {
+                title: "New",
+                audio: "https://example.com/new.mp3",
+                answers: ["Anime"],
+              },
+            ],
+          },
     e,
   );
   oldResolve({ songs: [{ title: "Old" }] });
   await old;
   assert.match(f.output.innerHTML, /New/);
+  assert.doesNotMatch(f.output.innerHTML, /Old/);
+  assert.equal(f.input.validity, "");
+});
+
+test("broken links prompt for a replacement or skip, and a checked working replacement unlocks save", async () => {
+  const f = fixture(file([])),
+    audio = "https://example.com/broken.mp3",
+    replacement = "https://example.com/replacement.mp3";
+  const call = async (path, b) =>
+    path === "quiz-preview"
+      ? {
+          songs: [{ audio, title: "Broken Song", answers: ["Anime"] }],
+          rejected: [],
+        }
+      : {
+          checks: b.songs.map((s) => ({
+            audio: s.audio,
+            resolvedAudio: s.audio,
+            working: s.audio === replacement,
+            message: "HTTP 404",
+          })),
+        };
+  await previewQuizFile(f.input, call, e);
+  assert.match(f.input.validity, /Replace or skip/);
+  assert.match(f.output.innerHTML, /Register a working MP3 link/);
+  const replacementInput = { value: replacement, focus() {} };
+  f.output.querySelector = () => replacementInput;
+  f.input.form.elements = { songsFile: f.input };
+  const action = (name) =>
+    handleQuizAudioReview(
+      {
+        target: {
+          closest: () => ({
+            dataset: { quizAudioAction: name, quizAudioIndex: "0" },
+            closest: () => f.input.form,
+          }),
+        },
+      },
+      call,
+      e,
+    );
+  await action("replace");
+  assert.match(f.output.innerHTML, /Replacement MP3/);
+  await action("check");
+  assert.equal(f.input.validity, "");
+  assert.match(f.output.innerHTML, /Working MP3/);
+  await action("recheck");
+  assert.equal(f.input.validity, "");
+  assert.match(f.output.innerHTML, /Replacement Link/);
+  await action("skip");
+  assert.match(f.input.validity, /No playable/);
+  await action("restore");
+  assert.equal(f.input.validity, "");
+});
+
+test("an old audio-check completion cannot replace a new file's review", async () => {
+  const f = fixture(file([]));
+  let finishOld;
+  const old = previewQuizFile(
+    f.input,
+    async (path, b) =>
+      path === "quiz-preview"
+        ? {
+            songs: [
+              {
+                title: "Old",
+                audio: "https://example.com/old.mp3",
+                answers: ["A"],
+              },
+            ],
+          }
+        : new Promise((resolve) => (finishOld = resolve)),
+    e,
+  );
+  await new Promise((resolve) => setImmediate(resolve));
+  f.input.files = [file([{}])];
+  await previewQuizFile(
+    f.input,
+    async (path, b) =>
+      path === "quiz-preview"
+        ? {
+            songs: [
+              {
+                title: "New File",
+                audio: "https://example.com/new.mp3",
+                answers: ["A"],
+              },
+            ],
+          }
+        : {
+            checks: b.songs.map((s) => ({
+              audio: s.audio,
+              resolvedAudio: s.audio,
+              working: true,
+            })),
+          },
+    e,
+  );
+  finishOld({
+    checks: [{ audio: "https://example.com/old.mp3", working: false }],
+  });
+  await old;
+  assert.match(f.output.innerHTML, /New File/);
   assert.doesNotMatch(f.output.innerHTML, /Old/);
   assert.equal(f.input.validity, "");
 });

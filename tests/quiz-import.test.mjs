@@ -150,3 +150,26 @@ test("unavailable metadata fails clearly without yielding a replacement pool; ma
   assert.equal(ready.songs.length, 0);
   assert.equal(ready.rejected[0].reason, "No HTTPS MP3");
 });
+
+test("AMQ videoUrl MP3s are used directly without metadata requests and remain an alternate when explicit audio exists", async () => {
+  const rows = await resolveQuizImport(
+    {
+      songs: [
+        row(1, { videoUrl: "https://nawdist.animemusicquiz.com/direct.mp3" }),
+        row(2, {
+          audio: "https://example.com/old.mp3",
+          videoUrl: "https://nawdist.animemusicquiz.com/new.mp3",
+        }),
+      ],
+    },
+    () => assert.fail("Supplied MP3 needs no lookup"),
+  );
+  const ready = prepareQuizSongs(rows, master);
+  assert.equal(
+    ready.songs[0].audio,
+    "https://nawdist.animemusicquiz.com/direct.mp3",
+  );
+  assert.deepEqual(ready.songs[1].alternatives, [
+    "https://nawdist.animemusicquiz.com/new.mp3",
+  ]);
+});

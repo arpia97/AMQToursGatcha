@@ -56,6 +56,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
           outboundService: {
             type: "fetcher",
             handler: async (request) => {
+              if (new URL(request.url).pathname.includes("broken.mp3"))
+                return new RuntimeResponse(null, { status: 404 });
+              if (new URL(request.url).pathname.endsWith(".mp3"))
+                return new RuntimeResponse(null, {
+                  headers: {
+                    "Content-Type": "audio/mpeg",
+                    "Content-Length": "1024",
+                  },
+                });
               if (
                 new URL(request.url).pathname === "/api/ann_song_ids_request"
               ) {
@@ -145,7 +154,26 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(review.songs.length, 20);
   assert.equal(review.songs[0].title, "Song 0");
   assert.equal(review.songs[0].answers[0], "Anime Test");
-  assert.equal(review.songs[0].audio, undefined);
+  assert.match(review.songs[0].audio, /fixture-song-0.mp3$/);
+  response = await post("host/quiz-audio-check", {
+    songs: review.songs.slice(0, 1),
+  });
+  assert.equal(response.status, 401);
+  response = await post(
+    "host/quiz-save",
+    { id: "unchecked", name: "Unchecked", input, published: true },
+    host,
+  );
+  assert.equal(response.status, 409);
+  for (let n = 0; n < review.songs.length; n += 8) {
+    response = await post(
+      "host/quiz-audio-check",
+      { songs: review.songs.slice(n, n + 8) },
+      host,
+    );
+    assert.equal(response.status, 200);
+    assert.ok((await response.json()).checks.every((c) => c.working));
+  }
   assert.equal(review.rejected.length, 1);
   response = await mf.dispatchFetch("http://game/api/host/quizzes", {
     headers: host,
@@ -176,6 +204,16 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     headers: host,
   });
   let editing = await response.json();
+  response = await post(
+    "host/quiz-audio-check",
+    {
+      songs: [
+        { audio: "https://naedist.animemusicquiz.com/fixture-song-20.mp3" },
+      ],
+    },
+    host,
+  );
+  assert.equal(response.status, 200);
   assert.equal(editing.songs.length, 20);
   response = await post(
     "host/quiz-save",
@@ -250,7 +288,14 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   };
   response = await post("host/quiz-preview", { input: amqBody.input }, host);
   assert.equal(response.status, 200, await response.clone().text());
-  assert.equal((await response.json()).songs.length, 2);
+  const amqReview = await response.json();
+  assert.equal(amqReview.songs.length, 2);
+  response = await post(
+    "host/quiz-audio-check",
+    { songs: amqReview.songs },
+    host,
+  );
+  assert.equal(response.status, 200);
   assert.equal(audioLookups, 1);
   const importKey = "amq-test-import";
   response = await post("host/quiz-save", amqBody, {
@@ -269,6 +314,14 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response = await post("host/quiz-save", amqBody, host);
   assert.equal(response.status, 200);
   assert.equal(audioLookups, 1);
+  response = await post(
+    "host/quiz-audio-check",
+    {
+      songs: [{ audio: "https://naedist.animemusicquiz.com/replacement.mp3" }],
+    },
+    host,
+  );
+  assert.equal(response.status, 200);
   response = await post(
     "host/quiz-save",
     {
@@ -313,6 +366,50 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     1,
   );
   failAudioLookup = false;
+  const badAudio = "https://example.com/broken.mp3",
+    replacement = "https://example.com/repaired.mp3";
+  response = await post(
+    "host/quiz-audio-check",
+    { songs: [{ audio: badAudio }] },
+    host,
+  );
+  assert.equal((await response.json()).checks[0].working, false);
+  const brokenBody = {
+    id: "repaired-draft",
+    name: "Repaired Draft",
+    published: false,
+    input: [{ annId: 1, audio: badAudio, songName: "Repaired" }],
+  };
+  response = await post("host/quiz-save", brokenBody, host);
+  assert.equal(response.status, 409);
+  response = await post(
+    "host/quiz-audio-check",
+    { songs: [{ audio: replacement }] },
+    host,
+  );
+  assert.equal((await response.json()).checks[0].working, true);
+  response = await post(
+    "host/quiz-save",
+    { ...brokenBody, audioOverrides: { [badAudio]: replacement } },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  response = await mf.dispatchFetch(
+    "http://game/api/host/quiz-songs?id=repaired-draft",
+    { headers: host },
+  );
+  assert.equal((await response.json()).songs[0].audio, replacement);
+  response = await mf.dispatchFetch(
+    "http://game/api/host/enhancement-migration?audit=1",
+    { headers: host },
+  );
+  assert.equal(response.status, 200);
+  assert.ok(Array.isArray((await response.json()).rows));
+  response = await mf.dispatchFetch(
+    "http://game/api/host/enhancement-migration?audit=1",
+    { headers: auth },
+  );
+  assert.equal(response.status, 401);
   const visible = await mf.dispatchFetch("http://game/api/quizzes");
   assert.deepEqual(
     (await visible.json()).quizzes.map((q) => q.id),

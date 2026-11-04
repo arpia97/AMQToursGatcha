@@ -20,6 +20,9 @@
         --softness: 9px;
         --spread: 10px;
         --strength: 0.65;
+        --aura-color: #e2e8f2;
+        --badge-color: #e2e8f2;
+        --border-width: 3px;
       }
       * {
         box-sizing: border-box;
@@ -121,10 +124,13 @@
         position: relative;
         width: 200px;
         height: 280px;
-        border: 2px solid var(--accent);
+        border: var(--border-width) solid var(--accent);
         border-radius: 13px;
         background: #080a11;
         isolation: isolate;
+        box-shadow:
+          inset 0 0 0 1px #ffffff24,
+          0 0 5px color-mix(in srgb, var(--accent) 22%, transparent);
       }
       .portrait {
         width: 100%;
@@ -162,7 +168,9 @@
         bottom: 75px;
         right: 10px;
         background: #1f252e;
-        border: 1px solid #a9b2c2;
+        border: 1px solid var(--badge-color);
+        color: #12141a;
+        background: var(--badge-color);
         border-radius: 5px;
         padding: 4px 6px;
         font-size: 11px;
@@ -173,9 +181,12 @@
         height: 128px;
         border-radius: 50%;
         position: relative;
-        border: 2px solid var(--accent);
+        border: var(--border-width) solid var(--accent);
         background: #0a0b13;
         isolation: isolate;
+        box-shadow:
+          inset 0 0 0 1px #ffffff24,
+          0 0 5px color-mix(in srgb, var(--accent) 22%, transparent);
       }
       .avatar img {
         width: 100%;
@@ -191,7 +202,9 @@
         transform: translateX(-50%);
         z-index: 3;
         background: #202735;
-        border: 1px solid #aab7d1;
+        border: 1px solid var(--badge-color);
+        color: #12141a;
+        background: var(--badge-color);
         border-radius: 5px;
         padding: 4px 9px;
         font-size: 12px;
@@ -217,12 +230,11 @@
         padding: var(--spread);
         background: conic-gradient(
           from var(--glow-angle),
-          transparent 0deg 200deg,
-          color-mix(in srgb, var(--accent) 18%, transparent) 235deg,
-          var(--accent) 280deg,
-          #fff6dc 305deg,
-          var(--accent) 330deg,
-          transparent 360deg
+          color-mix(in srgb, var(--aura-color) 65%, transparent) 0deg 150deg,
+          var(--aura-color) 230deg,
+          #fff9ef 280deg,
+          var(--aura-color) 320deg,
+          color-mix(in srgb, var(--aura-color) 65%, transparent) 360deg
         );
         mask:
           linear-gradient(#fff 0 0) content-box,
@@ -231,18 +243,11 @@
         animation: glow-orbit var(--duration) linear infinite;
       }
       .glow-field.second {
-        display: none;
-      }
-      .glow-field.second::before {
-        animation-delay: calc(var(--duration) / -2);
+        filter: blur(calc(var(--softness) * 2.6));
+        opacity: calc(var(--strength) * 0.55);
       }
       .level-1 .glow-field {
         display: none;
-      }
-      .level-4 .glow-field.second,
-      .level-5 .glow-field.second,
-      .level-6 .glow-field.second {
-        display: block;
       }
       .paused .glow-field::before {
         animation-play-state: paused;
@@ -269,19 +274,55 @@
       }
       .ag .demo-card,
       .ag .avatar {
-        border-color: #d993f4;
+        border-color: transparent;
+        background:
+          linear-gradient(#080a11, #080a11) padding-box,
+          conic-gradient(
+              #ff779b,
+              #ffd463,
+              #7ee3b0,
+              #71d3fa,
+              #ad99ff,
+              #f38ce8,
+              #ff779b
+            )
+            border-box;
       }
-      .ag .glow-field::before {
+      .ag .rank {
+        background: linear-gradient(
+          110deg,
+          #ff779b,
+          #ffd463,
+          #7ee3b0,
+          #71d3fa,
+          #ad99ff,
+          #f38ce8
+        );
+      }
+      .level-6 .glow-field::before {
         background: conic-gradient(
           from var(--glow-angle),
-          transparent 0deg 190deg,
-          #f27a9e 220deg,
-          #f4d56a 240deg,
-          #7cddb9 265deg,
-          #8cb8ff 290deg,
-          #d996fb 320deg,
-          transparent 360deg
+          #ff779b,
+          #ffd463,
+          #7ee3b0,
+          #71d3fa,
+          #ad99ff,
+          #f38ce8,
+          #ff779b
         );
+      }
+      .level-6 .level,
+      .level-6 .avatar b {
+        background: linear-gradient(
+          110deg,
+          #ff779b,
+          #ffd463,
+          #7ee3b0,
+          #71d3fa,
+          #ad99ff,
+          #f38ce8
+        );
+        border-color: #f4d9ff;
       }
       @keyframes glow-orbit {
         to {
@@ -372,9 +413,12 @@
         <strong id="intensity">Lv. 3 · Brighter Aura</strong>
       </p>
       <p class="help">
-        Rarity keeps its colour. A soft glow area circles the border: subtle at
-        Lv. 2, broader and brighter with each level, with a second glow from Lv.
-        4 and the fullest aura at MAX. The portrait and level badge stay clear.
+        Base frames keep their rarity colour and rounded style, with the same
+        thickness and glow at every rarity. Enhancement increases the frame
+        thickness and soft aura: Lv. 1 none, Lv. 2 orange (S), Lv. 3 silver
+        (SS), Lv. 4 gold (SSS), Lv. 5 purple (Ubers), MAX rainbow (AG). Level
+        badges follow D → S → SS → SSS → Ubers → AG. The aura fully surrounds
+        the card and fades gently outwards.
       </p>
       <footer>
         Separate preview; this animation is not applied to the game. Motion
@@ -404,11 +448,11 @@
         labels = [
           "",
           "No Enhancement Aura",
-          "Subtle Aura",
-          "Brighter Aura",
-          "Two Soft Glow Areas",
-          "Stronger Circling Aura",
-          "Full Circling Aura",
+          "Orange Aura",
+          "Silver Aura",
+          "Gold Aura",
+          "Purple Aura",
+          "Full Rainbow Aura",
         ];
       let level = 3;
       function paint() {
@@ -422,8 +466,15 @@
           palette[document.getElementById("rarity").value],
         );
         root.style.setProperty("--duration", durations[level] + "s");
-        root.style.setProperty("--softness", 4 + level * 1.6 + "px");
-        root.style.setProperty("--spread", 4 + level * 1.6 + "px");
+        root.style.setProperty("--softness", 4 + level * 1.2 + "px");
+        root.style.setProperty("--spread", 4 + level * 1.2 + "px");
+        root.style.setProperty(
+          "--border-width",
+          [0, 2, 2.5, 3, 3.5, 4, 4.5][level] + "px",
+        );
+        const progression = ["D", "D", "S", "SS", "SSS", "Ubers", "AG"];
+        root.style.setProperty("--aura-color", palette[progression[level]]);
+        root.style.setProperty("--badge-color", palette[progression[level]]);
         root.style.setProperty(
           "--strength",
           [0, 0, 0.45, 0.6, 0.72, 0.86, 1][level],
@@ -446,7 +497,7 @@
             ),
           );
       }
-      let paused = matchMedia("(prefers-reduced-motion:reduce)").matches;
+      let paused = false;
       document.getElementById("motion").textContent = paused
         ? "Play Animation"
         : "Pause Animation";
