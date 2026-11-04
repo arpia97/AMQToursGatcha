@@ -1,3 +1,4 @@
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { fail, text } from "./engine.js";
 import {
   ALCHEMY_TIERS,
@@ -142,7 +143,12 @@ export class Alchemy {
     const results = b.materials.map((m, index) =>
       this.refine(
         player,
-        { ...m, confirmed: true, expectedVersion: progress.version + index },
+        {
+          ...m,
+          confirmed: true,
+          expectedVersion: progress.version + index,
+          enhancementRevision: b.enhancementRevision,
+        },
         true,
       ),
     );
@@ -158,6 +164,11 @@ export class Alchemy {
     };
   }
   refine(player, b, compact = false) {
+    if (b.enhancementRevision !== ENHANCEMENT_REVISION)
+      fail(
+        "Enhancement rules changed. Refresh and review the Alchemy XP again.",
+        409,
+      );
     if (b.confirmed !== true)
       fail("Review and confirm before consuming a card.", 409);
     const progress = this.checkVersion(player, b),

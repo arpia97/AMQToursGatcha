@@ -71,7 +71,7 @@ test("protection persists across pulls and restart and blocks sales, listings an
         act("sell-instant", {
           card: "d",
           variant,
-          expectedPrice: variant === "extra" ? 25 : 150,
+          expectedPrice: variant === "extra" ? 25 : 100,
           expectedLevel: variant === "extra" ? 1 : 3,
           expectedRarity: "D",
         }),
@@ -147,7 +147,7 @@ test("batch full sales account for invested levels and clean avatar/showcase onl
   const { e, act, filters, quote } = fixture(t),
     f = { ...filters, mode: "all", rarity: "D" },
     q = quote(f);
-  assert.equal(q.total, 225);
+  assert.equal(q.total, 175);
   assert.equal(q.count, 4);
   e.run("UPDATE players SET avatar_card='d' WHERE id='p'");
   act("showcase", { cards: ["d", "s"] });
@@ -205,7 +205,7 @@ test("upgradable filtering uses exact duplicate requirements, combines role and 
   };
   const inventory = [
     { card: "x", copies: 5, level: 3 },
-    { card: "y", copies: 4, level: 3 },
+    { card: "y", copies: 3, level: 3 },
     { card: "z", copies: 99999999, level: 20 },
   ];
   assert.equal(canUpgrade(inventory[0]), true);

@@ -1,6 +1,8 @@
 import {
   convertLegacyLevel,
   ENHANCEMENT_REVISION,
+  REVISION_2_INVESTMENTS,
+  convertRevision2Level,
 } from "../public/card-values.js";
 const TABLES = [
   "auctions",
@@ -27,6 +29,9 @@ export function migrateEnhancements(e) {
   e.run(
     "CREATE TABLE IF NOT EXISTS enhancement_migration_rows(location TEXT NOT NULL,record_key TEXT NOT NULL,before_json TEXT NOT NULL,after_json TEXT NOT NULL,PRIMARY KEY(location,record_key))",
   );
+  e.run(
+    "CREATE TABLE IF NOT EXISTS enhancement_revision_rows(revision INTEGER NOT NULL,location TEXT NOT NULL,record_key TEXT NOT NULL,before_json TEXT NOT NULL,after_json TEXT NOT NULL,PRIMARY KEY(revision,location,record_key))",
+  );
   if (
     e.one(
       "SELECT revision FROM enhancement_migrations WHERE revision=?",
@@ -34,23 +39,49 @@ export function migrateEnhancements(e) {
     )
   )
     return;
+  if (!e.one("SELECT revision FROM enhancement_migrations WHERE revision=2"))
+    migrateRevision(e, 2, (level) =>
+      convertLegacyLevel(level, REVISION_2_INVESTMENTS),
+    );
+  migrateRevision(e, 3, convertRevision2Level);
+}
+function migrateRevision(e, revision, convert) {
+  if (
+    e.one(
+      "SELECT revision FROM enhancement_migrations WHERE revision=?",
+      revision,
+    )
+  )
+    return;
   e.tx(() => {
     const summary = {
+      fromRevision: revision === 2 ? 1 : 2,
       inventory: 0,
       held: 0,
       returnedSpareCopies: 0,
       heldSpareCopies: 0,
     };
-    const audit = (table, key, before, after) =>
-      e.run(
-        "INSERT INTO enhancement_migration_rows VALUES(?,?,?,?)",
-        table,
-        key,
-        JSON.stringify(before),
-        JSON.stringify(after),
-      );
+    const audit = (table, key, before, after) => {
+      if (revision === 2)
+        e.run(
+          "INSERT INTO enhancement_migration_rows VALUES(?,?,?,?)",
+          table,
+          key,
+          JSON.stringify(before),
+          JSON.stringify(after),
+        );
+      else
+        e.run(
+          "INSERT INTO enhancement_revision_rows VALUES(?,?,?,?,?)",
+          revision,
+          table,
+          key,
+          JSON.stringify(before),
+          JSON.stringify(after),
+        );
+    };
     for (const row of e.all("SELECT * FROM inventory WHERE level>1")) {
-      const next = convertLegacyLevel(row.level),
+      const next = convert(row.level),
         after = { level: next.level, copies: row.copies + next.extraCopies };
       audit("inventory", JSON.stringify([row.player, row.card]), row, after);
       e.run(
@@ -67,15 +98,18 @@ export function migrateEnhancements(e) {
       for (const row of e.all(
         "SELECT * FROM " + table + " WHERE level>1 AND (" + where + ")",
       )) {
-        const next = convertLegacyLevel(row.level);
-        audit(table, JSON.stringify(keys.map((k) => row[k])), row, next);
+        const next = convert(row.level);
+        audit(table, JSON.stringify(keys.map((k) => row[k])), row, {
+          level: next.level,
+          extra_copies: (row.extra_copies || 0) + next.extraCopies,
+        });
         e.run(
           "UPDATE " +
             table +
             " SET level=?,extra_copies=? WHERE " +
             keys.map((k) => k + "=?").join(" AND "),
           next.level,
-          next.extraCopies,
+          (row.extra_copies || 0) + next.extraCopies,
           ...keys.map((k) => row[k]),
         );
         summary.held++;
@@ -102,13 +136,17 @@ export function migrateEnhancements(e) {
     ))
       e.run(
         "UPDATE player_notices SET level=? WHERE id=?",
-        convertLegacyLevel(n.level).level,
+        convert(n.level).level,
         n.id,
       );
     e.run("UPDATE card_alchemy SET version=version+1");
+    if (revision >= 3)
+      e.run(
+        "INSERT INTO card_alchemy(player,xp,refinements,version) SELECT DISTINCT i.player,0,0,1 FROM inventory i WHERE i.level>1 AND NOT EXISTS(SELECT 1 FROM card_alchemy a WHERE a.player=i.player)",
+      );
     e.run(
       "INSERT INTO enhancement_migrations VALUES(?,?,?)",
-      ENHANCEMENT_REVISION,
+      revision,
       e.now(),
       JSON.stringify(summary),
     );

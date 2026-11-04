@@ -1,3 +1,4 @@
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -65,12 +66,12 @@ test("avatars must be owned; displayed avatar enhancement follows inventory leve
   f.act("enhance", {
     card: "card-a",
     expectedLevel: 1,
-    enhancementRevision: 2,
+    enhancementRevision: ENHANCEMENT_REVISION,
   });
   f.act("enhance", {
     card: "card-a",
     expectedLevel: 2,
-    enhancementRevision: 2,
+    enhancementRevision: ENHANCEMENT_REVISION,
   });
   const p = f.e.profile("001");
   assert.equal(p.avatar_card, "card-a");
@@ -197,7 +198,16 @@ test("reset-all gameplay retains identity; full reset deletes registry while pro
 
 test("rankings return equipped card portraits and their current enhancement level", () => {
   const f = fixture();
-  f.host("catalog",{cards:[{id:"card-a",name:"Card A",kind:"character",image:"https://example.com/a.jpg"}]});
+  f.host("catalog", {
+    cards: [
+      {
+        id: "card-a",
+        name: "Card A",
+        kind: "character",
+        image: "https://example.com/a.jpg",
+      },
+    ],
+  });
   f.e.addCard("001", "card-a", 1);
   f.e.run("UPDATE inventory SET level=6 WHERE player='001' AND card='card-a'");
   f.act("profile", { avatar: "card-a" });

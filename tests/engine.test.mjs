@@ -1,3 +1,4 @@
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -124,21 +125,21 @@ test("insufficient balance rolls back purchases and invalid pack types are rejec
   assert.equal(f.e.all("SELECT * FROM inventory").length, 0);
   assert.throws(() => f.act("1", "pack", { kind: "unknown" }), /pack type/);
 });
-test("enhancement consumes2,3,4,5,6 extras, caps at6 and protects stale clients", () => {
+test("enhancement consumes1,2,3,4,5 extras, caps at6 and protects stale clients", () => {
   const f = fixture();
-  f.e.addCard("1", "character0", 21);
+  f.e.addCard("1", "character0", 16);
   for (const [level, copies] of [
-    [2, 19],
-    [3, 16],
-    [4, 12],
-    [5, 7],
+    [2, 15],
+    [3, 13],
+    [4, 10],
+    [5, 6],
     [6, 1],
   ]) {
     const old = level - 1;
     f.act("1", "enhance", {
       card: "character0",
       expectedLevel: old,
-      enhancementRevision: 2,
+      enhancementRevision: ENHANCEMENT_REVISION,
     });
     assert.deepEqual(
       [
@@ -153,7 +154,7 @@ test("enhancement consumes2,3,4,5,6 extras, caps at6 and protects stale clients"
       f.act("1", "enhance", {
         card: "character0",
         expectedLevel: 6,
-        enhancementRevision: 2,
+        enhancementRevision: ENHANCEMENT_REVISION,
       }),
     /Maximum/,
   );

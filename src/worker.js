@@ -1,9 +1,10 @@
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
 import { DurableObject } from "cloudflare:workers";
-import { Engine, fail, text } from "./engine.js";
+import { Engine, fail, text, integer } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
 import { inspectEconomyRepair, applyEconomyRepair } from "./economy-repair.js";
 import {
@@ -411,9 +412,16 @@ export class Game extends DurableObject {
         return json({ result: r ? JSON.parse(r.result) : null });
       }
       if (path === "host/enhancement-migration" && !post) {
-        const migration = e.one(
-          "SELECT * FROM enhancement_migrations ORDER BY revision DESC LIMIT 1",
-        );
+        const requestedRevision = url.searchParams.get("revision");
+        const migration = requestedRevision
+          ? e.one(
+              "SELECT * FROM enhancement_migrations WHERE revision=?",
+              integer(Number(requestedRevision), 2, ENHANCEMENT_REVISION),
+            )
+          : e.one(
+              "SELECT * FROM enhancement_migrations ORDER BY revision DESC LIMIT 1",
+            );
+        if (!migration) fail("Enhancement migration receipt not found.", 404);
         const result = {
           ...migration,
           invalidInventoryLevels: e.one(
@@ -422,15 +430,20 @@ export class Game extends DurableObject {
         };
         if (url.searchParams.get("audit") === "1") {
           requireOwner();
-          result.rows = e
-            .all(
-              "SELECT * FROM enhancement_migration_rows ORDER BY location,record_key",
-            )
-            .map((r) => ({
-              ...r,
-              before: JSON.parse(r.before_json),
-              after: JSON.parse(r.after_json),
-            }));
+          result.rows = (
+            migration.revision >= 3
+              ? e.all(
+                  "SELECT * FROM enhancement_revision_rows WHERE revision=? ORDER BY location,record_key",
+                  migration.revision,
+                )
+              : e.all(
+                  "SELECT * FROM enhancement_migration_rows ORDER BY location,record_key",
+                )
+          ).map((r) => ({
+            ...r,
+            before: JSON.parse(r.before_json),
+            after: JSON.parse(r.after_json),
+          }));
           result.enhancements = e
             .all(
               "SELECT scope,key,input,result,at FROM receipts WHERE scope LIKE '%:enhance' AND at<=? ORDER BY at,key",

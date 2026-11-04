@@ -115,7 +115,7 @@ function fixture() {
 test("sale values use half the shop tier price times the exact enhancement investment", () => {
   assert.deepEqual(
     [1, 2, 3, 4, 5, 6].map(cardInvestment),
-    [1, 3, 6, 10, 15, 21],
+    [1, 2, 4, 7, 11, 16],
   );
   for (let i = 0; i < RARITIES.length; i++)
     for (const level of [1, 2, 4, 6])
@@ -132,11 +132,11 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
     { e } = f;
   f.add("D", 3, 4);
   const m = f.material("D"),
-    b = { ...m, expectedPrice: 250 };
+    b = { ...m, expectedPrice: 175 };
   const r = f.act("sell-instant", b, "sale");
-  assert.equal(r.price, 250);
+  assert.equal(r.price, 175);
   assert.deepEqual(f.act("sell-instant", b, "sale"), r);
-  assert.equal(e.player("p").balance, 250);
+  assert.equal(e.player("p").balance, 175);
   assert.equal(e.player("p").earned, 0);
   assert.deepEqual(
     {
@@ -148,7 +148,7 @@ test("instant sale preserves extra levels correctly, excludes earned rankings, a
   );
   assert.equal(f.sell("D", "extra").price, 25);
   assert.throws(() => f.sell("D", "extra"), /extra copy/);
-  assert.equal(e.player("p").balance, 275);
+  assert.equal(e.player("p").balance, 200);
 });
 test("selling a last copy cleans profile references and rejects stale quotes, foreign cards and wallet overflow atomically", () => {
   const f = fixture(),
@@ -173,8 +173,8 @@ test("selling a last copy cleans profile references and rejects stale quotes, fo
 test("high-level AG sale values fit the wallet without truncating the invested-card payout", () => {
   const f = fixture();
   f.add("AG", 1, 6);
-  assert.equal(f.sell("AG").price, 134400);
-  assert.equal(f.e.player("p").balance, 134400);
+  assert.equal(f.sell("AG").price, 102400);
+  assert.equal(f.e.player("p").balance, 102400);
 });
 const m = (rarity, level = 1) => ({ rarity, level });
 test("fusion tiers, halved fodder, invested copies, caps and overload risk", () => {
@@ -184,12 +184,12 @@ test("fusion tiers, halved fodder, invested copies, caps and overload risk", () 
   assert.equal(fusionQuote([m("S"), m("B")]).upgrade, 1075);
   assert.equal(fusionQuote([m("Ubers"), m("D")]).upgrade, 37.5);
   assert.deepEqual(fusionContribution(m("D"), 3, "B"), {
-    upgrade: 5850,
-    copies: 6,
+    upgrade: 3900,
+    copies: 4,
   });
-  assert.equal(fusionQuote([m("S", 2)]).upgrade, 6300);
+  assert.equal(fusionQuote([m("S", 2)]).upgrade, 4300);
   assert.equal(fusionQuote([m("S", 3)]).upgrade, 6300);
-  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 6300);
+  assert.equal(fusionQuote([m("D"), m("S", 2)]).upgrade, 4568.75);
   for (const rows of [
     [m("S", 2), m("S")],
     [m("S"), m("S", 2)],
@@ -199,7 +199,7 @@ test("fusion tiers, halved fodder, invested copies, caps and overload risk", () 
   assert.equal(full.upgrade, 7000);
   assert.equal(full.stay, 1000);
   assert.equal(full.downgrade, 2000);
-  assert.equal(full.investment, 5 * 21);
+  assert.equal(full.investment, 5 * 16);
   const tiers = ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers"];
   let previous = null;
   for (const tier of tiers) {

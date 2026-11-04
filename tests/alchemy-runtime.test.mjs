@@ -1,3 +1,4 @@
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -171,6 +172,7 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
         expectedLevel: 1,
         expectedVersion: progress.version,
         confirmed: true,
+        enhancementRevision: ENHANCEMENT_REVISION,
       },
       key = crypto.randomUUID();
     response = await post("alchemy-feed", { ...body, confirmed: false }, auth);

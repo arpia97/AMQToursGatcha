@@ -227,12 +227,16 @@ POST `/api/host/quiz-preview` accepts `{input: <AnisongDB or AMQ JSON>}` with ho
 
 Choose a quiz to load its current song pool. Check songs to remove and click Save Quiz; uncheck before saving to undo a removal. When uploading JSON, choose Add Songs to Current Pool or Replace Pool (the default). Imports still show their matched-song review. Duplicate MP3s appear once. Edits are checked against the loaded pool version, so another host's changes require reloading. Published quizzes must retain at least 20 songs. Existing runs keep their original song snapshot, and personal bests, credit rewards and completion titles remain.
 
-
 ### Enhancement Revision 2
 
-Cards now cap at Level 6 (MAX), with 2/3/4/5/6 additional copies per upgrade. The transactional migration preserves original invested copies, returns remainders to inventory, and attaches escrow remainders to the held card. Do not delete or rerun its receipt. Authenticated GET `/api/host/enhancement-migration` returns the latest migration receipt and an invalid-inventory-level count for read-only verification. Before/after rows are retained in `enhancement_migration_rows`. No credits or ownership are reset. Old enhancement clients must refresh before submitting the revised costs.
-
+The original revision-2 conversion capped cards at Level 6 (MAX), with 2/3/4/5/6 additional copies per upgrade. The transactional migration preserves original invested copies, returns remainders to inventory, and attaches escrow remainders to the held card. Do not delete or rerun its receipt. Authenticated GET `/api/host/enhancement-migration` returns the latest migration receipt and an invalid-inventory-level count for read-only verification. Before/after rows are retained in `enhancement_migration_rows`. No credits or ownership are reset. Old enhancement clients must refresh before submitting the revised costs.
 
 The owner can read `/api/host/enhancement-migration?audit=1` to inspect the saved before/after conversion rows and original enhancement receipts. Optional `player` and `card` parameters add that player’s bounded pre-migration gameplay receipts, ledger and relevant card escrow history. This is read-only; it never reruns conversion or changes player inventory.
 
 Quiz Song Review checks imported MP3 links before saving. Broken links offer Use Another MP3, Retry Link and Skip Song; replacement links are checked before acceptance. The audio-check endpoint is host-only, accepts at most eight songs per call and runs two remote checks at a time. Working results are cached for 24 hours; failed checks may be retried after a minute. A changed or expired review must be checked again.
+
+### Enhancement Revision 3
+
+Current upgrade costs are 1/2/3/4/5 additional copies, with total investments of 1/2/4/7/11/16. The one-time atomic revision-3 migration keeps current levels, refunds the invested-copy difference as spares, and carries held-card refunds through transfers or withdrawals. Existing spares are never auto-consumed. Credits, ownership, protection and Alchemy XP are unchanged. Existing Alchemy quote versions are invalidated; old enhancement/Alchemy clients must refresh.
+
+Never delete either migration receipt. Owner-only GET `/api/host/enhancement-migration?revision=3&audit=1` returns the new audit in `enhancement_revision_rows`; `revision=2` returns the immutable original audit. Omitting revision selects the latest.

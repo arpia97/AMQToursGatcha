@@ -1,5 +1,5 @@
 import { cardFrameClass, cardAura } from "./card-frames.js";
-import { levelLabel } from "./card-values.js";
+import { levelLabel, ENHANCEMENT_REVISION } from "./card-values.js";
 import {
   ALCHEMY_TIERS,
   refinementQuote,
@@ -195,6 +195,7 @@ export function createAlchemyUI(h) {
     if (selected.length > 1)
       return {
         action: "alchemy-feed",
+        enhancementRevision: ENHANCEMENT_REVISION,
         materials: materials().map((m) => ({
           card: m.id,
           variant: m.variant,
@@ -205,6 +206,7 @@ export function createAlchemyUI(h) {
       };
     return {
       action: "alchemy-feed",
+      enhancementRevision: ENHANCEMENT_REVISION,
       card: m.id,
       variant: m.variant,
       expectedRarity: m.rarity,

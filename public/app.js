@@ -805,7 +805,7 @@ function collection() {
       ? `<div class="collection-footer-pager">${features.catalogPager(collectionData, ui.collectionPage, "collection")}</div>` +
         features.animeCollection()
       : "") +
-    `<div class="notice space-top">Enhance with extra copies of the same card: Lv. 2 needs 2, Lv. 3 needs 3, Lv. 4 needs 4, Lv. 5 needs 5, and MAX needs 6. MAX is Level 6 (21 invested copies total). Your base card is kept; there is no credit fee.</div>`
+    `<div class="notice space-top">Enhance with extra copies of the same card: Lv. 2 needs 1, Lv. 3 needs 2, Lv. 4 needs 3, Lv. 5 needs 4, and MAX needs 5. MAX is Level 6 (16 invested copies total). Your base card is kept; there is no credit fee.</div>`
   );
 }
 function packs() {
@@ -819,7 +819,7 @@ function packs() {
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
     <div class="section-head"><h2>Premium Packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five Independent Draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every Card, Equal Chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
-    <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 2, 3, 4, 5 and 6 extra copies, keeping one base card. Level 6 is MAX.</p></div></div>`
+    <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 1, 2, 3, 4 and 5 extra copies, keeping one base card. Level 6 is MAX.</p></div></div>`
   );
 }
 function catalogue() {

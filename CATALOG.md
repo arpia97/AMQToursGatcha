@@ -54,9 +54,9 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 
 ## Card Alchemy
 
-Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, `2^(level−1)`. A level-4 D sells for 25 × 8 = 200 credits. Extra copies are level 1. Pending uses D pricing. Quotes reject changed terms before consumption.
+Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, 1/2/4/7/11/16 by level. A level-4 D sells for 25 × 7 = 175 credits. Extra copies are level 1. Pending uses D pricing. Quotes reject changed terms before consumption.
 
-Card Alchemy replaces the former multi-material fusion. One confirmed refinement consumes one owned, unprotected physical card and adds XP to a persistent shared pool. Enhanced cards multiply XP by their invested-copy count, `2^(level−1)`; spare copies are level 1. One physical refinement advances the lucky counter once regardless of enhancement. Pending cards cannot be refined.
+Card Alchemy replaces the former multi-material fusion. One confirmed refinement consumes one owned, unprotected physical card and adds XP to a persistent shared pool. Enhanced cards multiply XP by their invested-copy count (1/2/4/7/11/16 by level); spare copies are level 1. One physical refinement advances the lucky counter once regardless of enhancement. Pending cards cannot be refined.
 
 | Rarity | Base Material XP | Draw Cost |
 | ------ | ---------------: | --------: |

@@ -1,3 +1,4 @@
+import { enhancementCost, MAX_CARD_LEVEL } from "./card-values.js";
 import { DAILY_CREDITS } from "./site-defaults.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { drawFeatured } from "./auction-odds.js";
@@ -303,8 +304,8 @@ export class Demo {
       a.winner_name = s.me.name;
     } else if (path === "enhance") {
       const i = s.inventory.find((i) => i.card === b.card),
-        cost = 2 ** (i.level - 1);
-      if (i.copies - 1 < cost || i.level >= 20)
+        cost = enhancementCost(i.level);
+      if (i.copies - 1 < cost || i.level >= MAX_CARD_LEVEL)
         throw new Error("Not enough duplicate cards.");
       i.copies -= cost;
       i.level++;
