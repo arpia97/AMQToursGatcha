@@ -348,14 +348,19 @@ export class Engine {
       if (b.premium !== undefined && typeof b.premium !== "boolean")
         fail("Invalid pack type.");
       const premium = b.premium === true;
+      const count = integer(b.count ?? 1, 1, 100);
       const price = this.one(
         "SELECT value FROM settings WHERE key=?",
         (premium ? "premium_" : "") + b.kind + "_price",
       ).value;
-      this.wallet(player, -price, `${premium ? "Premium " : ""}${b.kind} pack`);
+      this.wallet(
+        player,
+        -price * count,
+        `${premium ? "Premium " : ""}${b.kind} pack${count > 1 ? " × " + count : ""}`,
+      );
       const weight = 100;
       const drawContext = {};
-      const pulls = Array.from({ length: 5 }, () =>
+      const pulls = Array.from({ length: 5 * count }, () =>
         premium
           ? this.economy.premiumDraw(b.kind, drawContext)
           : this.catalogStore.draw(
@@ -367,7 +372,12 @@ export class Engine {
             ),
       );
       for (const card of pulls) this.addCard(player, card.id);
-      return { message: "Five new cards for your collection.", cards: pulls };
+      return {
+        message: pulls.length + " new cards for your collection.",
+        cards: pulls,
+        packCount: count,
+        cost: price * count,
+      };
     }
     if (action === "enhance") {
       const item = this.one(

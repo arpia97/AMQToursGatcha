@@ -58,30 +58,50 @@ export function createPackReveal({
   getState,
   motionControl = () => "",
 }) {
-  let pull = null;
+  let pull = null,
+    last = null,
+    resultPage = 1;
   function show(result, pack) {
     pull = { result, pack };
+    last = null;
+    resultPage = 1;
     const best = [...result.cards].sort(
       (a, b) => rarityRank(a) - rarityRank(b),
     )[0];
     const tier = rarityClass(best?.rarity);
     modal(
-      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>A Little Light. A New Favourite.</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your five cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">Your five cards are already safely in your collection.</p><button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
+      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>A Little Light. A New Favourite.</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your ${result.cards.length} cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">Your ${result.cards.length} cards are already safely in your collection.</p><button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
       true,
     );
   }
   function reveal() {
     if (!pull) return;
-    const { result, pack } = pull;
+    last = pull;
     pull = null;
+    renderResults();
+  }
+  function renderResults() {
+    const { result, pack } = last;
+    const pages = Math.max(1, Math.ceil(result.cards.length / 20));
+    resultPage = Math.min(pages, Math.max(1, resultPage));
+    const shown = result.cards.slice((resultPage - 1) * 20, resultPage * 20);
     const price =
       getState().settings[
         (pack.premium ? "premium_" : "") + pack.kind + "_price"
       ] || (pack.premium ? 1000 : 500);
     modal(
-      `<section class="pack-results">${motionControl()}<div class="pull-label">${pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who Found Their Way to You?</h2><p>Five cards added. Duplicates are saved as extra copies.</p><div class="card-grid pull-reveal">${result.cards.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c, null, null, packCardActions(c.id, getState(), escape))}</div>`).join("")}</div><div class="reveal-actions">${!pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}">Open another pack · ✦ ${number(price)}</button>` : '<a class="button mint" href="#packs" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="#collection" data-close-dialog>My Collection ↗</a></div></section>`,
+      `<section class="pack-results">${motionControl()}<div class="pull-label">${pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who Found Their Way to You?</h2><p>${result.cards.length === 5 ? "Five" : number(result.cards.length)} cards added. Duplicates are saved as extra copies.</p><div class="card-grid pull-reveal">${shown.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c, null, null, packCardActions(c.id, getState(), escape))}</div>`).join("")}</div>${pages > 1 ? `<div class="toolbar"><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="-1" ${resultPage <= 1 ? "disabled" : ""}>← Previous</button><span>Page ${resultPage} of ${pages}</span><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="1" ${resultPage >= pages ? "disabled" : ""}>Next →</button></div>` : ""}<div class="reveal-actions">${!pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}" data-count="${pack.count || 1}">Open ${pack.count > 1 ? pack.count + " more packs" : "another pack"} · ✦ ${number(price * (pack.count || 1))}</button>` : '<a class="button mint" href="#packs" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="#collection" data-close-dialog>My Collection ↗</a></div></section>`,
       true,
     );
   }
-  return { show, reveal };
+  return {
+    show,
+    reveal,
+    turn: (delta) => {
+      if (last) {
+        resultPage += delta;
+        renderResults();
+      }
+    },
+  };
 }

@@ -318,3 +318,30 @@ test("ranks use lifetime earned, independent of spending and refunds", () => {
   assert.equal(state.me.balance, 500);
   assert.equal(state.me.earned, 1000);
 });
+
+test("bulk card packs charge once, grant five cards per pack and replay safely without consuming earned credits", () => {
+  const f = fixture(),
+    e = f.e;
+  f.grant("1", 10000);
+  const b = { kind: "character", count: 3, premium: false };
+  const buy = () =>
+    e.mutate("1:pack", "bulk", b, () => e.action("1", "pack", b));
+  const before = e.player("1");
+  const r = buy();
+  assert.equal(r.cards.length, 15);
+  assert.equal(r.packCount, 3);
+  assert.equal(r.cost, 1500);
+  assert.deepEqual(buy(), r);
+  assert.equal(e.player("1").balance, before.balance - 1500);
+  assert.equal(e.player("1").earned, before.earned);
+  assert.equal(
+    e.one("SELECT sum(copies) n FROM inventory WHERE player='1'").n,
+    15,
+  );
+  for (const count of [0, 101, 1.5])
+    assert.throws(() => f.act("1", "pack", { kind: "character", count }));
+  assert.equal(
+    e.one("SELECT sum(copies) n FROM inventory WHERE player='1'").n,
+    15,
+  );
+});

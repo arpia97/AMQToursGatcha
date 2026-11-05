@@ -240,3 +240,11 @@ Quiz Song Review checks imported MP3 links before saving. Broken links offer Use
 Current upgrade costs are 1/2/3/4/5 additional copies, with total investments of 1/2/4/7/11/16. The one-time atomic revision-3 migration keeps current levels, refunds the invested-copy difference as spares, and carries held-card refunds through transfers or withdrawals. Existing spares are never auto-consumed. Credits, ownership, protection and Alchemy XP are unchanged. Existing Alchemy quote versions are invalidated; old enhancement/Alchemy clients must refresh.
 
 Never delete either migration receipt. Owner-only GET `/api/host/enhancement-migration?revision=3&audit=1` returns the new audit in `enhancement_revision_rows`; `revision=2` returns the immutable original audit. Omitting revision selects the latest.
+
+### November 5 Alchemy and Answer Repairs
+
+Owner-only GET `/api/host/alchemy-compensation` previews historical XP and returns the saved receipt after application. POST with `{confirmed:true}` applies the audited difference atomically once. Historical compensation is 50% of actual old-rate XP in the current reset lifecycle, including batches and bonuses, regardless of XP already spent. Never clear `alchemy_compensations` to repeat it.
+
+Owner-only GET `/api/host/quiz-answer-repair` previews verified working-answer additions. POST `{confirmed:true,signature:<preview.signature>}` applies that exact current plan, updates answer banks and unfinished question snapshots, and stores a receipt in `quiz_answer_repairs`. Scores, credits and completion titles stay untouched. Never delete that receipt. Future AMQ exports preserve `altAnimeNames` and `altAnimeNamesAnswers`; those cross-anime fields are absent from the public master list.
+
+Quiz category is selected beside its name. Existing quizzes remain in Singers; Composers uses the same editor and scoring. Quiz count is no longer capped at 30. Team-result pick’em inputs have no separate text-field cap (the normal request size limit still applies); canonical AMQ aliases are shown with vertical-bar separators.

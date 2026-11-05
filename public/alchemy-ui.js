@@ -5,6 +5,7 @@ import {
   ALCHEMY_TIERS,
   refinementQuote,
   refinementQueue,
+  autoRefinementPlan,
 } from "./alchemy-rules.js";
 import { rarityClass, cardComparator } from "./card-display.js";
 export function createAlchemyUI(h) {
@@ -24,6 +25,7 @@ export function createAlchemyUI(h) {
     query = "",
     kind = "",
     wishlistOnly = false,
+    hideProtected = false,
     grade = "",
     page = 1,
     targetTier = "D",
@@ -458,6 +460,7 @@ export function createAlchemyUI(h) {
         !m || error ? "disabled" : "",
         "mint",
       ) +
+      btn("Auto Refine", "alchemy-auto", "", "secondary") +
       (m
         ? btn("Clear Selection", "alchemy-material-clear", "", "secondary")
         : "") +
@@ -554,6 +557,7 @@ export function createAlchemyUI(h) {
           .filter(
             (i) =>
               i.c &&
+              (!hideProtected || !i.protected) &&
               (!kind || i.c.kind === kind) &&
               (!grade || i.c.rarity === grade) &&
               matches(cardSearchText(i.c)),
@@ -685,7 +689,9 @@ export function createAlchemyUI(h) {
               t.rarity +
               "</option>",
           ).join("") +
-          "</select></label>"
+          '</select></label><label class="alchemy-wishlist-filter"><input id="alchemy-hide-protected" type="checkbox" ' +
+          (hideProtected ? "checked" : "") +
+          ">Hide Protected Cards</label>"
         : "") +
       '</div><div id="alchemy-picker-results">' +
       results +
@@ -700,6 +706,26 @@ export function createAlchemyUI(h) {
     renderPicker,
     add,
     move,
+    autoSelect: (count, maxRarity) => {
+      selected = autoRefinementPlan(
+        getState().inventory,
+        card,
+        count,
+        maxRarity,
+        data?.refinements || 0,
+      );
+    },
+    autoForm: () =>
+      '<h2 id="fusion-review-title">Auto Refine</h2><p>Uses unprotected cards only. Lowest rarities go first on normal attempts; the highest available rarity is saved for each lucky attempt. Review the ordered selection before confirming.</p><form id="alchemy-auto-form" class="stack"><label>Cards to Use<input type="number" name="count" min="1" max="100" value="10" required></label><label>Maximum Rarity<select name="maxRarity">' +
+      ALCHEMY_TIERS.map(
+        (t) =>
+          "<option" +
+          (t.rarity === "D" ? " selected" : "") +
+          ">" +
+          t.rarity +
+          "</option>",
+      ).join("") +
+      '</select></label><div class="form-error" role="alert"></div><button type="submit" class="button mint">Review Auto Refinement →</button></form>',
     queueHTML,
     remove: (index) => {
       if (Number.isInteger(index) && index >= 0) selected.splice(index, 1);
@@ -733,6 +759,7 @@ export function createAlchemyUI(h) {
       if (field === "query") query = value;
       if (field === "kind") kind = value;
       if (field === "wishlist") wishlistOnly = value === true;
+      if (field === "hideProtected") hideProtected = value === true;
       if (field === "grade") grade = value;
       page = 1;
     },

@@ -1,3 +1,4 @@
+import { quizAnswerIndex } from "./quiz-answer-index.js";
 export const QUIZ_SONG_MS = 20000;
 export const QUIZ_LEAD_IN_MS = 2000;
 export const QUIZ_ANSWER_GRACE_MS = 1000;
@@ -105,20 +106,10 @@ export function prepareQuizSongs(input, master) {
   const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
-  const bySong = new Map(),
-    byAnnSong = new Map();
-  for (const anime of Object.values(master.animeMap))
-    for (const links of Object.values(anime.songLinks || {}))
-      for (const song of links) {
-        if (song.annSongId != null)
-          byAnnSong.set(String(song.annSongId), String(song.songId));
-        if (!bySong.has(String(song.songId)))
-          bySong.set(String(song.songId), []);
-        bySong.get(String(song.songId)).push(anime);
-      }
+  const indexer = quizAnswerIndex(master);
   const songs = [],
     rejected = [],
-    seen = new Set();
+    seen = new Map();
   for (const [index, row] of rows.entries()) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       rejected.push({ row: index + 1, reason: "Invalid song record" });
@@ -135,42 +126,34 @@ export function prepareQuizSongs(input, master) {
       ]
         .map(resolveQuizAudio)
         .find(Boolean) || null;
-    const ann = String(row.annId ?? row.annID ?? row.animeAnnId ?? "");
-    const direct = master.animeMap[ann];
-    const matched = [
-      ...(direct ? [direct] : []),
-      ...(bySong.get(
-        String(
-          byAnnSong.get(String(row.annSongId ?? "")) ??
-            row.amqSongId ??
-            row.songId ??
-            "",
-        ),
-      ) || []),
-    ];
-    if (!audio || !matched.length) {
+    const resolved = indexer.resolve(row);
+    if (!audio || !resolved.answers.length) {
       rejected.push({
         row: index + 1,
         reason: !audio ? "No HTTPS MP3" : "Anime/song ID not found in AMQ",
       });
       continue;
     }
-    if (seen.has(audio)) continue;
-    const answers = [
-      ...new Set(
-        matched
-          .flatMap((a) => [
-            ...Object.values(a.mainNames || {}),
-            ...(a.names || []).map((n) => n.name),
-          ])
-          .filter(Boolean),
-      ),
-    ];
+    const answers = resolved.answers;
+    const previous = seen.get(audio);
+    if (previous) {
+      previous.answers = [...new Set([...previous.answers, ...answers])];
+      previous.workingTitles = [
+        ...new Set([...previous.workingTitles, ...resolved.workingTitles]),
+      ];
+      for (const kind of Object.keys(previous.sourceIds))
+        previous.sourceIds[kind] = [
+          ...new Set([
+            ...previous.sourceIds[kind],
+            ...resolved.sourceIds[kind],
+          ]),
+        ];
+      continue;
+    }
     if (!answers.length) {
       rejected.push({ row: index + 1, reason: "No accepted AMQ titles" });
       continue;
     }
-    seen.add(audio);
     songs.push({
       id: String(row.annSongId ?? row.amqSongId ?? row.songId ?? index),
       audio,
@@ -179,12 +162,15 @@ export function prepareQuizSongs(input, master) {
         ? { alternatives: [resolveQuizAudio(row.videoUrl)] }
         : {}),
       answers,
+      sourceIds: resolved.sourceIds,
+      workingTitles: resolved.workingTitles,
       title: String(row.songName || row.songTitle || "Unknown Song").slice(
         0,
         200,
       ),
       artist: String(row.songArtist || row.artist || "").slice(0, 200),
     });
+    seen.set(audio, songs.at(-1));
   }
   return { songs, rejected, masterListId: String(master.masterListId || "") };
 }

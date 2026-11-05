@@ -269,3 +269,16 @@ test("material picker finds comma-separated names in either order and retains pr
   f.ui.filter("query", "Iwami Someone");
   assert.doesNotMatch(f.ui.renderPicker(), /alt="Iwami, Manaka"/);
 });
+
+test("Hide Protected Cards filters material choices and Auto Refine respects protection and maximum rarity", () => {
+  const f = fixture();
+  f.state.inventory[0].protected = 1;
+  f.ui.update({ xp: 0, refinements: 5, version: 0, cards: [], targets: {} });
+  f.ui.openPicker("material");
+  assert.match(f.ui.renderPicker(), /Hide Protected Cards/);
+  f.ui.filter("hideProtected", true);
+  assert.doesNotMatch(f.ui.renderPicker(true), /data-id="a"/);
+  f.ui.autoSelect(1, "D");
+  assert.equal(f.ui.request().card, "d");
+  assert.match(f.ui.autoForm(), /Maximum Rarity/);
+});

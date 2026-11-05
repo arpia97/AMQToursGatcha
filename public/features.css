@@ -3863,3 +3863,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   min-width: 0;
   max-width: 540px;
 }
+
+.quiz-categories {
+  margin-bottom: 24px;
+}

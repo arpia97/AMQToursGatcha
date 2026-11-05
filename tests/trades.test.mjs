@@ -526,3 +526,22 @@ test("trade search keeps account scopes and private offers intact and never chan
     "cancelled",
   );
 });
+
+test("trade requests create exactly one persistent owner notification and seen notices remain private", (t) => {
+  const f = fixture(t);
+  f.card("a", "one", 3);
+  f.card("b", "two", 1);
+  const listing = f.list();
+  const body = { listing, card: "two", variant: "card", expectedLevel: 1 };
+  f.act("b", "trade-offer", body, "request");
+  f.act("b", "trade-offer", body, "request");
+  const notices = f.e.economy.notices.pending("a");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].kind, "trade-request");
+  assert.equal(notices[0].metadata.listing, listing);
+  assert.equal(notices[0].metadata.proposer, "b");
+  assert.equal(f.e.economy.notices.pending("c").length, 0);
+  assert.throws(() => f.e.economy.notices.seen("b", [notices[0].id]));
+  f.e.economy.notices.seen("a", [notices[0].id]);
+  assert.equal(f.e.economy.notices.pending("a").length, 0);
+});

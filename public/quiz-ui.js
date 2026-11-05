@@ -28,7 +28,8 @@ export function createQuizUI({
     generation = 0,
     leaderboardOnly = false,
     leaderboardData = null,
-    quizSort = "recent";
+    quizSort = "recent",
+    category = "singers";
   let sampleStart = 0,
     audioState = "loading",
     playAttempted = false,
@@ -184,6 +185,9 @@ export function createQuizUI({
   function render() {
     if (!selected) {
       stop();
+      const visibleQuizzes = quizzes.filter(
+        (q) => (q.category || "singers") === category,
+      );
       const sortControl = quizzes.length
         ? '<label class="quiz-sort-control">Sort By<select id="quiz-sort">' +
           [
@@ -208,9 +212,10 @@ export function createQuizUI({
         '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
         sortControl +
         "</div>" +
-        (quizzes.length
+        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
+        (visibleQuizzes.length
           ? '<div class="quiz-grid">' +
-            [...quizzes]
+            [...visibleQuizzes]
               .sort((a, b) =>
                 quizSort === "best-desc"
                   ? b.best - a.best
@@ -642,6 +647,13 @@ export function createQuizUI({
     },
     closeSuggestions,
     async click(button) {
+      if (button.hasAttribute("data-quiz-category")) {
+        const next = button.dataset.quizCategory;
+        if (!["singers", "composers"].includes(next)) return true;
+        category = next;
+        onRender();
+        return true;
+      }
       if (button.hasAttribute("data-quiz-leaderboard")) {
         if (working) return true;
         selected = button.dataset.quizLeaderboard;

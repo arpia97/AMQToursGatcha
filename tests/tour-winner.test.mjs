@@ -312,3 +312,24 @@ test("closed pickem editors expose an editable five-minute reopening action, whi
     /id="reopen-pickem"/,
   );
 });
+
+test("long team results strip statistics and use canonical AMQ aliases without a field-length cap", (t) => {
+  const f = fixture(t);
+  f.e.host("players", {
+    players: [
+      { id: "n", name: "neoburnz" },
+      { id: "z", name: "Zozo", aliases: ["zozo"] },
+      { id: "r", name: "RyoutaVN", aliases: ["ryoutavn"] },
+      { id: "k", name: "Kazuyasouma1", aliases: ["kazuyasouma1"] },
+    ],
+  });
+  const raw =
+    "neoburnz (121.146) zozo (112.320) ryoutavn (97.909) kazuyasouma1 (50.519) | Total = 381.894 | Guesses = [5551]";
+  const p = f.create({ name: "Long Tour", teams: [raw, "Opponents"] });
+  assert.deepEqual(JSON.parse(p.teams), [
+    "neoburnz | Zozo | RyoutaVN | Kazuyasouma1",
+    "Opponents",
+  ]);
+  assert.equal(winnerTeams(["X".repeat(500), "Other"])[0].length, 500);
+  assert.doesNotMatch(winnerCreatePanel(), /maxlength="6500"/);
+});

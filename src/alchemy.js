@@ -2,6 +2,7 @@ import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { fail, text } from "./engine.js";
 import {
   ALCHEMY_TIERS,
+  ALCHEMY_XP_REVISION,
   refinementQuote,
   rollRefinement,
   drawAlchemyCard,
@@ -36,6 +37,7 @@ export class Alchemy {
       ...progress,
       targets,
       tiers: ALCHEMY_TIERS,
+      xpRevision: ALCHEMY_XP_REVISION,
       cards: this.e.catalogStore.cards(Object.values(targets)),
       nextLucky: (progress.refinements + 1) % 6 === 0,
       nextRefinement: progress.refinements + 1,
@@ -154,6 +156,7 @@ export class Alchemy {
     );
     return {
       message: results.length + " cards refined.",
+      xpRevision: ALCHEMY_XP_REVISION,
       refinements: results,
       xpGained: results.reduce((s, r) => s + r.xpGained, 0),
       alchemyState: this.state(player),
@@ -203,6 +206,7 @@ export class Alchemy {
       message:
         outcome.label + " · +" + outcome.xp.toLocaleString("en-US") + " XP",
       outcome: outcome.outcome,
+      xpRevision: ALCHEMY_XP_REVISION,
       label: outcome.label,
       xpGained: outcome.xp,
       multiplier: outcome.multiplier,

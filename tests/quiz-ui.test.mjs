@@ -543,3 +543,39 @@ test("quiz performance sorting uses personal best, keeps ties stable and preserv
     ["mid", "low", "high", "tie"],
   );
 });
+
+test("Singers and Composers tabs filter identical-format quiz tiles without extra requests", async () => {
+  const list = [
+    { id: "s", name: "Singer Tile", songs: 20, best: 4, published: 1 },
+    {
+      id: "c",
+      name: "Composer Tile",
+      category: "composers",
+      songs: 20,
+      best: 9,
+      published: 1,
+    },
+  ];
+  let calls = 0;
+  const ui = createQuizUI({
+    api: async () => {
+      calls++;
+      return { quizzes: list };
+    },
+    escape,
+    getState: () => ({ me: { id: "p" } }),
+    onRender: () => {},
+    onWallet: () => {},
+  });
+  await ui.load();
+  assert.match(ui.render(), /Singer Tile/);
+  assert.doesNotMatch(ui.render(), /Composer Tile/);
+  await ui.click({
+    hasAttribute: (k) => k === "data-quiz-category",
+    dataset: { quizCategory: "composers" },
+  });
+  assert.match(ui.render(), /Composer Tile/);
+  assert.doesNotMatch(ui.render(), /Singer Tile/);
+  assert.equal(calls, 1);
+  ui.stop();
+});

@@ -1,4 +1,6 @@
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
+import { alchemyCompensation } from "./alchemy-compensation.js";
+import { repairQuizAnswers } from "./quiz-answer-repair.js";
 import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
@@ -530,6 +532,24 @@ export class Game extends DurableObject {
         }
         return json(result);
       }
+      if (path === "host/alchemy-compensation") {
+        requireOwner();
+        if (post && b.confirmed !== true)
+          fail("Confirm the Alchemy XP compensation.");
+        return json(e.tx(() => alchemyCompensation(e, post)));
+      }
+      if (path === "host/quiz-answer-repair") {
+        requireOwner();
+        if (post && b.confirmed !== true)
+          fail("Confirm the quiz answer repair.");
+        const saved = e.tx(() => repairQuizAnswers(e, null));
+        if (saved) return json(saved);
+        const master = await loadQuizMaster(fetch, this.env.ASSETS, true);
+        requireOwner();
+        return json(
+          e.tx(() => repairQuizAnswers(e, master.data, post, b.signature)),
+        );
+      }
       if (path === "host/quiz-songs" && !post)
         return json(e.quiz.hostSongs(url.searchParams.get("id")));
       if (path === "host/quizzes" && !post)
@@ -1038,6 +1058,14 @@ export class Game extends DurableObject {
           Number(url.searchParams.get("page") || 1),
         ),
       );
+    if (path === "notices" && !post) {
+      if (!session) fail("Sign in to view notifications.", 401);
+      const notices = e.economy.notices.pending(session.player);
+      return json({
+        notices,
+        cards: e.catalogStore.cards(notices.map((n) => n.card)),
+      });
+    }
     if (path === "trades" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

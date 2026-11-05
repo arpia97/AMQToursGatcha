@@ -227,6 +227,12 @@ export class PickemEvents {
   }
   action(action, b) {
     const e = this.e;
+    const canonicalAlias = (name) =>
+      e.one(
+        "SELECT p.name FROM players p LEFT JOIN aliases a ON a.player=p.id WHERE a.alias=? OR lower(p.name)=? ORDER BY p.id LIMIT 1",
+        name.toLowerCase(),
+        name.toLowerCase(),
+      )?.name || name;
     if (action === "pickem-reopen") {
       const p = this.match(b.pickem);
       this.assertUnchanged(p, b.expected);
@@ -251,8 +257,8 @@ export class PickemEvents {
       };
     }
     if (action === "pickem-winner") {
-      const teams = winnerTeams(b.teams),
-        name = text(b.name, 100),
+      const teams = winnerTeams(b.teams, canonicalAlias),
+        name = text(b.name, 1000000),
         ends = integer(
           b.ends ?? e.now() + PICKEM_WINDOW,
           e.now() + 60000,
@@ -283,8 +289,8 @@ export class PickemEvents {
       const p = this.match(b.pickem);
       this.assertUnchanged(p, b.expected);
       if (p.mode !== "tour") fail("Choose a tour-winner pick’em.");
-      const teams = winnerTeams(b.teams),
-        name = text(b.name, 100),
+      const teams = winnerTeams(b.teams, canonicalAlias),
+        name = text(b.name, 1000000),
         ends =
           b.ends === p.ends
             ? p.ends

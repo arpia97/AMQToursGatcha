@@ -23,6 +23,10 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
     ])
       e.run(sql);
+    if (!e.all("PRAGMA table_info(quizzes)").some((c) => c.name === "category"))
+      e.run(
+        "ALTER TABLE quizzes ADD COLUMN category TEXT NOT NULL DEFAULT 'singers'",
+      );
     if (
       !e
         .all("PRAGMA table_info(quiz_progress)")
@@ -162,8 +166,9 @@ export class Quiz {
       b.expectedUpdated === undefined
     )
       fail("Load the current pool before editing it.", 409);
-    if (!existing && e.one("SELECT count(*) AS n FROM quizzes").n >= 30)
-      fail("At most 30 quizzes can be configured.");
+    const category = b.category ?? existing?.category ?? "singers";
+    if (!["singers", "composers"].includes(category))
+      fail("Choose Singers or Composers.");
     const cover = b.cover ?? existing?.cover ?? "";
     if (
       typeof cover !== "string" ||
@@ -190,12 +195,40 @@ export class Quiz {
             ? [...kept, ...b.songs]
             : b.songs;
       if (!Array.isArray(incoming)) fail("Invalid quiz pool.");
-      b = {
-        ...b,
-        songs: [
-          ...new Map(incoming.map((song) => [song.audio, song])).values(),
-        ],
-      };
+      const combined = new Map();
+      for (const song of incoming) {
+        const old = combined.get(song.audio);
+        combined.set(
+          song.audio,
+          old
+            ? {
+                ...old,
+                ...song,
+                answers: [
+                  ...new Set([...(old.answers || []), ...(song.answers || [])]),
+                ],
+                workingTitles: [
+                  ...new Set([
+                    ...(old.workingTitles || []),
+                    ...(song.workingTitles || []),
+                  ]),
+                ],
+                sourceIds: Object.fromEntries(
+                  ["amqSongIds", "annSongIds", "annIds"].map((k) => [
+                    k,
+                    [
+                      ...new Set([
+                        ...(old.sourceIds?.[k] || []),
+                        ...(song.sourceIds?.[k] || []),
+                      ]),
+                    ],
+                  ]),
+                ),
+              }
+            : song,
+        );
+      }
+      b = { ...b, songs: [...combined.values()] };
       if (!Array.isArray(b.songs) || b.songs.length > 2000)
         fail("Invalid quiz pool.");
       const normalized = [];
@@ -205,7 +238,7 @@ export class Quiz {
           !audio ||
           !Array.isArray(s.answers) ||
           !s.answers.length ||
-          s.answers.length > 100
+          s.answers.length > 1000
         )
           fail("A quiz song is invalid.");
         const answers = [...new Set(s.answers.map((a) => text(a, 300)))];
@@ -213,6 +246,8 @@ export class Quiz {
           id: index,
           audio,
           answers,
+          ...(s.sourceIds ? { sourceIds: s.sourceIds } : {}),
+          ...(s.workingTitles ? { workingTitles: s.workingTitles } : {}),
           title: text(s.title || "Unknown Song", 200),
           artist: String(s.artist || "").slice(0, 200),
         });
@@ -242,7 +277,7 @@ export class Quiz {
     if (b.published && count < QUIZ_LENGTH)
       fail("At least 20 matched MP3 songs are needed before publishing.");
     e.run(
-      "INSERT INTO quizzes VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,cover=excluded.cover,title=excluded.title,published=excluded.published,source=excluded.source,updated=excluded.updated",
+      "INSERT INTO quizzes(id,name,cover,title,published,source,updated,category) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,cover=excluded.cover,title=excluded.title,published=excluded.published,source=excluded.source,updated=excluded.updated,category=excluded.category",
       id,
       name,
       cover,
@@ -250,6 +285,7 @@ export class Quiz {
       b.published ? 1 : 0,
       String(b.source || existing?.source || ""),
       Math.max(e.now(), (existing?.updated || 0) + 1),
+      category,
     );
     return {
       id,
@@ -534,7 +570,6 @@ export class Quiz {
     const earned = this.titleOptions(player);
     if (
       !Array.isArray(b.quizzes) ||
-      b.quizzes.length > 30 ||
       b.quizzes.some(
         (id) => typeof id !== "string" || !earned.some((t) => t.quiz === id),
       ) ||

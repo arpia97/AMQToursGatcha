@@ -343,6 +343,23 @@ function showTradeNotices() {
   if ($("#modal").open)
     markTradeNoticesSeen(notices.map((notice) => notice.id));
 }
+let pollingNotices = false;
+setInterval(async () => {
+  if (pollingNotices || !state?.me || document.hidden || isDemo) return;
+  const player = state.me.id;
+  pollingNotices = true;
+  try {
+    const value = await api("notices");
+    if (state.me?.id === player) {
+      rememberCards(value.cards);
+      state.notices = value.notices;
+      showTradeNotices();
+    }
+  } catch {
+  } finally {
+    pollingNotices = false;
+  }
+}, 30000);
 function revealAcquired(result, title = "A New Favourite Is Yours.") {
   const c = result.cards?.[0];
   if (!c) {
@@ -570,13 +587,13 @@ let fusionPickerFocus = null,
 function fusionOverlayOpen() {
   return alchemyUI.pickerOpen() || fusionReviewOpen;
 }
-function openFusionReview(body) {
+function openFusionReview(body, content = null) {
   fusionPickerFocus = document.activeElement;
   fusionReviewOpen = true;
   const overlay = $("#fusion-picker");
   overlay.innerHTML =
     '<section class="fusion-picker-dialog fusion-review-dialog" role="dialog" aria-modal="true" aria-labelledby="fusion-review-title" tabindex="-1"><button type="button" class="fusion-review-close" data-action="alchemy-close" aria-label="Close Alchemy Review">×</button>' +
-    alchemyUI.confirmation(body) +
+    (content || alchemyUI.confirmation(body)) +
     "</section>";
   overlay.hidden = false;
   document
@@ -1619,16 +1636,33 @@ document.addEventListener("submit", async (ev) => {
   if (formIdentifier(f) === "pack-form")
     await execute(
       "pack",
-      { kind: b.kind, premium: b.premium === "true" },
+      {
+        kind: b.kind,
+        premium: b.premium === "true",
+        count: Number(b.count || 1),
+      },
       (result) =>
         packReveal.show(result, {
           kind: b.kind,
           premium: b.premium === "true",
+          count: Number(b.count || 1),
         }),
     );
 });
 document.addEventListener("input", (ev) => {
   savePredictionDraft(ev.target);
+  if (ev.target.form?.id === "pack-form" && ev.target.name === "count") {
+    const count = Number(ev.target.value),
+      form = ev.target.form;
+    form.querySelector("[data-pack-total]").textContent =
+      "✦ Open " +
+      count +
+      " Pack" +
+      (count === 1 ? "" : "s") +
+      " · " +
+      number(Number(form.dataset.packPrice) * count) +
+      " credits";
+  }
   if (ev.target.id === "trade-search") {
     ev.target.classList.remove("no-results");
     ev.target.setAttribute("aria-invalid", "false");
@@ -1850,6 +1884,19 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a?.startsWith("trade-")) {
+      if (a === "trade-notice-open") {
+        $("#modal").close();
+        ui.shopSection = "trades";
+        ui.tradeView = "listings";
+        ui.tradePage = 1;
+        ui.tradeQuery = cardBy(t.dataset.card).name;
+        if (page() !== "shop") location.hash = "shop";
+        else {
+          await loadDynamic();
+          render();
+        }
+        return true;
+      }
       if (a === "trade-search-clear") {
         clearTimeout(searchTimer);
         ui.tradeQuery = "";
@@ -2107,16 +2154,33 @@ async function handleFeatureClick(a, t) {
         await openFusionPicker("material");
         return true;
       }
+      if (a === "alchemy-auto") {
+        openFusionReview(null, alchemyUI.autoForm());
+        return true;
+      }
       if (a === "alchemy-target-open") {
         await openFusionPicker("target", t.dataset.rarity);
         return true;
       }
       if (a === "alchemy-move" || a === "alchemy-remove") {
+        const scrollSelector =
+          "#fusion-picker,.fusion-picker-dialog,.alchemy-queue-list";
+        const scrolls = [...document.querySelectorAll(scrollSelector)].map(
+          (el) => [el.scrollTop, el.scrollLeft],
+        );
+        const pageScroll = [window.scrollX, window.scrollY];
         if (a === "alchemy-move")
           alchemyUI.move(Number(t.dataset.index), Number(t.dataset.direction));
         else alchemyUI.remove(Number(t.dataset.index));
         if (alchemyUI.pickerOpen()) renderFusionPicker();
         else render();
+        [...document.querySelectorAll(scrollSelector)].forEach((el, index) => {
+          if (scrolls[index]) {
+            el.scrollTop = scrolls[index][0];
+            el.scrollLeft = scrolls[index][1];
+          }
+        });
+        window.scrollTo(...pageScroll);
         return true;
       }
       if (a === "alchemy-material-select" || a === "fusion-card") {
@@ -2278,6 +2342,10 @@ async function handleFeatureClick(a, t) {
       auth();
       return true;
     }
+    if (a === "pack-reveal-page") {
+      packReveal.turn(Number(t.dataset.delta));
+      return true;
+    }
     if (a === "pack") {
       const kind = t.dataset.kind,
         premium = t.dataset.premium === "true",
@@ -2285,7 +2353,7 @@ async function handleFeatureClick(a, t) {
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
           (premium ? 1000 : 500);
       modal(
-        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><div class="form-error" role="alert"></div><button class="button full" type="submit">✦ Open for ${number(price)} credits</button></form>`,
+        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><label>Packs to Open<input type="number" name="count" min="1" max="100" step="1" value="${Math.min(100, Math.max(1, Number(t.dataset.count) || 1))}" required></label><p class="form-hint">5 cards per pack · up to 100 packs at once.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total>✦ Open for ${number(price * (Number(t.dataset.count) || 1))} credits</button></form>`,
       );
       return true;
     }
@@ -2450,6 +2518,17 @@ function openInstantSale(id, variant) {
   );
 }
 async function handleFeatureSubmit(f, b) {
+  if (formIdentifier(f) === "alchemy-auto-form") {
+    try {
+      alchemyUI.autoSelect(Number(b.count), b.maxRarity);
+      $("#modal").close();
+      render();
+      openFusionReview(alchemyUI.request());
+    } catch (err) {
+      f.querySelector(".form-error").textContent = err.message;
+    }
+    return true;
+  }
   if (formIdentifier(f) === "trade-card-form") {
     try {
       const p = tradesUI.payload();
@@ -2727,16 +2806,25 @@ document.addEventListener("input", async (ev) => {
 });
 document.addEventListener("change", async (ev) => {
   if (
-    !["fusion-kind", "fusion-rarity", "alchemy-wishlist"].includes(ev.target.id)
+    ![
+      "fusion-kind",
+      "fusion-rarity",
+      "alchemy-wishlist",
+      "alchemy-hide-protected",
+    ].includes(ev.target.id)
   )
     return;
   alchemyUI.filter(
-    ev.target.id === "alchemy-wishlist"
-      ? "wishlist"
-      : ev.target.id === "fusion-kind"
-        ? "kind"
-        : "grade",
-    ev.target.id === "alchemy-wishlist" ? ev.target.checked : ev.target.value,
+    ev.target.id === "alchemy-hide-protected"
+      ? "hideProtected"
+      : ev.target.id === "alchemy-wishlist"
+        ? "wishlist"
+        : ev.target.id === "fusion-kind"
+          ? "kind"
+          : "grade",
+    ["alchemy-wishlist", "alchemy-hide-protected"].includes(ev.target.id)
+      ? ev.target.checked
+      : ev.target.value,
   );
   try {
     if (

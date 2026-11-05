@@ -1,6 +1,6 @@
 const MASTER_URL = "https://animemusicquiz.com/libraryMasterList";
 const ASSET_URL = "https://quiz-assets.invalid/quiz-amq-master.json";
-async function readMaster(response) {
+async function readMaster(response, includeSongMetadata = false) {
   if (!response.ok) throw Error("AMQ source returned HTTP " + response.status);
   const reader = response.body?.getReader();
   if (!reader) throw Error("AMQ answer database is empty.");
@@ -32,22 +32,48 @@ async function readMaster(response) {
     !Object.keys(data.animeMap).length
   )
     throw Error("Invalid AMQ answer database.");
-  return { masterListId: data.masterListId, animeMap: data.animeMap };
+  return {
+    masterListId: data.masterListId,
+    animeMap: data.animeMap,
+    songMap: includeSongMetadata
+      ? Object.fromEntries(
+          Object.entries(data.songMap || {}).map(([id, s]) => [
+            id,
+            {
+              name: s.name,
+              artist:
+                s.artist ||
+                data.artistMap?.[s.songArtistId]?.name ||
+                data.groupMap?.[s.songGroupId]?.name ||
+                "",
+            },
+          ]),
+        )
+      : undefined,
+  };
 }
-export async function loadQuizMaster(fetcher, assets) {
+export async function loadQuizMaster(
+  fetcher,
+  assets,
+  includeSongMetadata = false,
+) {
   let upstreamStatus = null;
   try {
     const response = await fetcher(MASTER_URL, {
       signal: AbortSignal.timeout(20000),
     });
     upstreamStatus = response.status;
-    return { data: await readMaster(response), mode: "live", upstreamStatus };
+    return {
+      data: await readMaster(response, includeSongMetadata),
+      mode: "live",
+      upstreamStatus,
+    };
   } catch {
     try {
       if (!assets) throw Error("AMQ fallback is not configured.");
       const response = await assets.fetch(new Request(ASSET_URL));
       return {
-        data: await readMaster(response),
+        data: await readMaster(response, includeSongMetadata),
         mode: "bundled",
         upstreamStatus,
       };

@@ -1,8 +1,9 @@
 import { RARITIES, cardInvestment } from "./card-values.js";
+export const ALCHEMY_XP_REVISION = 2;
 export const ALCHEMY_TIERS = RARITIES.map((rarity, index) => ({
   rarity,
   cost: 50 * 2 ** index,
-  xp: 10 * 2 ** index,
+  xp: 15 * 2 ** index,
 }));
 export const ALCHEMY_OUTCOMES = [
   {
@@ -105,6 +106,55 @@ export function drawAlchemyCard(pool, target, rand) {
     choice = rand(pool.length - 1);
   if (index < 0) throw Error("Choose a valid target card.");
   return pool[choice >= index ? choice + 1 : choice];
+}
+export function autoRefinementPlan(
+  inventory,
+  cardBy,
+  count,
+  maxRarity,
+  refinements = 0,
+) {
+  if (!Number.isInteger(count) || count < 1 || count > 100)
+    throw Error("Choose between 1 and 100 cards.");
+  const cap = RARITIES.indexOf(maxRarity);
+  if (cap < 0) throw Error("Choose a maximum rarity.");
+  const pool = inventory
+    .filter((i) => !i.protected)
+    .map((i) => ({ ...i, c: cardBy(i.card), base: true, extras: i.copies - 1 }))
+    .filter(
+      (i) =>
+        i.c &&
+        RARITIES.indexOf(i.c.rarity) >= 0 &&
+        RARITIES.indexOf(i.c.rarity) <= cap,
+    );
+  if (pool.reduce((n, i) => n + i.copies, 0) < count)
+    throw Error("Not enough unprotected cards within that rarity limit.");
+  const plan = [];
+  for (let turn = 0; turn < count; turn++) {
+    const lucky = (refinements + turn + 1) % 6 === 0;
+    const options = pool.flatMap((i) => [
+      ...(i.base ? [{ i, variant: "card", level: i.level }] : []),
+      ...(i.extras > 0 ? [{ i, variant: "extra", level: 1 }] : []),
+    ]);
+    options.sort((a, b) => {
+      const rarity =
+        RARITIES.indexOf(a.i.c.rarity) - RARITIES.indexOf(b.i.c.rarity);
+      const xp =
+        refinementQuote(a.i.c.rarity, a.level).baseXP -
+        refinementQuote(b.i.c.rarity, b.level).baseXP;
+      return (
+        (lucky ? -1 : 1) * (rarity || xp) ||
+        (a.variant === "extra" ? -1 : 1) - (b.variant === "extra" ? -1 : 1) ||
+        a.i.card.localeCompare(b.i.card)
+      );
+    });
+    const choice = options[0];
+    plan.push({ card: choice.i.card, variant: choice.variant });
+    if (choice.variant === "extra") choice.i.extras--;
+    else choice.i.base = false;
+  }
+  refinementQueue(plan, inventory, cardBy, refinements);
+  return plan;
 }
 export function applyAlchemyPatch(state, result) {
   if (!result.alchemyState) return null;

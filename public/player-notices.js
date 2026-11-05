@@ -1,6 +1,17 @@
 import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
 export function noticeCopy(notice) {
   switch (notice.kind) {
+    case "trade-request":
+      return {
+        title: "New Trade Offer",
+        detail:
+          (notice.metadata?.name || "A collector") +
+          " offered " +
+          (notice.metadata?.count || 1) +
+          " card(s) for your listing.",
+        credit: "",
+        sign: "",
+      };
     case "market-sale":
       return {
         title: "Your Marketplace Card Sold",
@@ -47,7 +58,7 @@ export function noticePanel(
     .map((notice) => {
       const copy = noticeCopy(notice),
         card = cardBy(notice.card);
-      return `<article class="trade-notice tier-${rarityClass(card.rarity)}"><div class="trade-notice-portrait tier-${rarityClass(card.rarity)} ${cardFrameClass(notice.level)}">${cardAura(notice.level)}${image(card)}</div><div><h3>${e(copy.title)}</h3><strong>${e(card.name)} ${enhancementBadge(notice.level)}</strong><p>${e(copy.detail)}</p><span class="money">${copy.sign}✦ ${n(notice.credits)} · ${e(copy.credit)}</span></div></article>`;
+      return `<article class="trade-notice tier-${rarityClass(card.rarity)}"><div class="trade-notice-portrait tier-${rarityClass(card.rarity)} ${cardFrameClass(notice.level)}">${cardAura(notice.level)}${image(card)}</div><div><h3>${e(copy.title)}</h3><strong>${e(card.name)} ${enhancementBadge(notice.level)}</strong><p>${e(copy.detail)}</p>${notice.kind === "trade-request" ? `<button type="button" class="button secondary" data-action="trade-notice-open" data-card="${e(notice.card)}">Review Trade Offers →</button>` : `<span class="money">${copy.sign}✦ ${n(notice.credits)} · ${e(copy.credit)}</span>`}</div></article>`;
     })
     .join(
       "",

@@ -224,6 +224,21 @@ export class Trades {
           c.level,
         ),
       );
+      e.economy.notices.add(
+        l.seller,
+        "trade-offer:" + offer,
+        "trade-request",
+        l.card,
+        l.level,
+        0,
+        {
+          listing: l.id,
+          offer,
+          proposer: player,
+          name: e.player(player).name,
+          count: cards.length,
+        },
+      );
       return {
         message:
           "Trade offer sent. Your cards are held until accepted, declined or withdrawn.",

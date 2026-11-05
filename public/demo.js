@@ -237,19 +237,26 @@ export class Demo {
       this.wallet(DAILY_CREDITS, "Daily login", true);
       s.me.daily = day;
     } else if (path === "pack") {
+      const count = b.count ?? 1;
+      if (!Number.isInteger(count) || count < 1 || count > 100)
+        throw Error("Choose 1 to 100 packs.");
       const pool = s.catalog.filter((c) => c.kind === b.kind);
       const enhanced = b.premium ? premiumPool(pool) : null;
       this.wallet(
-        -s.settings[(b.premium ? "premium_" : "") + b.kind + "_price"],
+        -s.settings[(b.premium ? "premium_" : "") + b.kind + "_price"] * count,
         `${b.premium ? "Premium " : ""}${b.kind} pack`,
       );
       const rand = (n) => Math.floor(Math.random() * n);
-      const cards = Array.from({ length: 5 }, () =>
+      const cards = Array.from({ length: 5 * count }, () =>
         enhanced ? drawPremium(enhanced, rand) : pool[rand(pool.length)],
       );
       cards.forEach((c) => this.add(c.id));
       this.save();
-      return { message: "Five new demo cards.", cards };
+      return {
+        message: cards.length + " new demo cards.",
+        cards,
+        packCount: count,
+      };
     } else if (path === "profile") {
       if (b.username !== undefined) {
         const name = b.username.trim();

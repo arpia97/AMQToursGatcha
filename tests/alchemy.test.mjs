@@ -89,7 +89,7 @@ test("XP and draw costs double from D to AG; normal and lucky rolls have exact r
   );
   assert.deepEqual(
     ALCHEMY_TIERS.map((t) => t.xp),
-    [10, 20, 40, 80, 160, 320, 640, 1280, 2560],
+    [15, 30, 60, 120, 240, 480, 960, 1920, 3840],
   );
   for (const [count, expected] of [
     [0, [90, 9, 1]],
@@ -100,11 +100,11 @@ test("XP and draw costs double from D to AG; normal and lucky rolls have exact r
     for (let i = 0; i < 100; i++) {
       const o = rollRefinement(q, () => i);
       counts[["success", "great", "erig"].indexOf(o.outcome)]++;
-      assert.equal(o.xp, 10 * o.multiplier);
+      assert.equal(o.xp, 15 * o.multiplier);
     }
     assert.deepEqual(counts, expected);
   }
-  assert.equal(refinementQuote("AG", 6).baseXP, 2560 * 16);
+  assert.equal(refinementQuote("AG", 6).baseXP, 3840 * 16);
   assert.throws(() => refinementQuote("Pending"), /classified/);
 });
 test("refinement consumes one physical card, credits exact XP once, and sixth glow repeats per player across restarts", (t) => {
@@ -114,7 +114,7 @@ test("refinement consumes one physical card, credits exact XP once, and sixth gl
     const b = f.feed("D1", "extra"),
       r = f.act("alchemy-feed", b, "feed" + i);
     assert.equal(r.lucky, false);
-    assert.equal(r.xpGained, 10);
+    assert.equal(r.xpGained, 15);
     assert.deepEqual(f.act("alchemy-feed", b, "feed" + i), r);
   }
   const restarted = new Engine(f.e.db, f.e.transaction, f.e.now, () => 50);
@@ -126,8 +126,8 @@ test("refinement consumes one physical card, credits exact XP once, and sixth gl
   );
   assert.equal(result.lucky, true);
   assert.equal(result.label, "Great Success");
-  assert.equal(result.xpGained, 20);
-  assert.equal(result.alchemyState.xp, 70);
+  assert.equal(result.xpGained, 30);
+  assert.equal(result.alchemyState.xp, 105);
   assert.equal(result.alchemyState.refinements, 6);
   assert.equal(result.alchemyState.nextLucky, false);
   assert.equal(f.e.player("p").balance, 0);
@@ -144,7 +144,7 @@ test("enhanced bases contribute invested XP, spare copies drop to Lv1, extras re
   f.add("AG1", 3, 4);
   f.add("B1");
   let r = f.act("alchemy-feed", f.feed("AG1", "extra"));
-  assert.equal(r.xpGained, 2560);
+  assert.equal(r.xpGained, 3840);
   assert.equal(
     f.e.one("SELECT level FROM inventory WHERE player='p' AND card='AG1'")
       .level,
@@ -152,7 +152,7 @@ test("enhanced bases contribute invested XP, spare copies drop to Lv1, extras re
   );
   f.e.rand = () => 99;
   r = f.act("alchemy-feed", f.feed("AG1"));
-  assert.equal(r.xpGained, 2560 * 7 * 5);
+  assert.equal(r.xpGained, 3840 * 7 * 5);
   assert.equal(r.material.investment, 7);
   const item = f.e.one(
     "SELECT * FROM inventory WHERE player='p' AND card='AG1'",
@@ -208,7 +208,7 @@ test("unconfirmed, protected, stale, duplicate, unavailable and overflowing refi
   const old = f.feed("D1", "extra");
   f.act("alchemy-feed", old);
   assert.throws(() => f.act("alchemy-feed", old), /changed/);
-  assert.equal(f.e.economy.alchemy.read("p").xp, 10);
+  assert.equal(f.e.economy.alchemy.read("p").xp, 15);
 });
 test("each tier saves its own target and cash-outs spend only required XP with exactly half target mass", (t) => {
   const f = fixture(t);
@@ -336,9 +336,9 @@ test("ordered batch refinements roll each card at its own position, retain enhan
   );
   assert.deepEqual(
     r.refinements.map((x) => x.xpGained),
-    [40, 20, 10],
+    [60, 30, 15],
   );
-  assert.equal(r.xpGained, 70);
+  assert.equal(r.xpGained, 105);
   assert.equal(r.alchemyState.refinements, 7);
   assert.equal(r.alchemyState.version, 3);
   assert.equal(

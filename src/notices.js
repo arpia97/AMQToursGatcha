@@ -9,10 +9,18 @@ export class PlayerNotices {
     e.run(
       "CREATE INDEX IF NOT EXISTS notices_pending ON player_notices(player,seen,id)",
     );
+    if (
+      !e
+        .all("PRAGMA table_info(player_notices)")
+        .some((c) => c.name === "metadata")
+    )
+      e.run(
+        "ALTER TABLE player_notices ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'",
+      );
   }
-  add(player, key, kind, card, level, credits) {
+  add(player, key, kind, card, level, credits, metadata = {}) {
     this.e.run(
-      "INSERT OR IGNORE INTO player_notices(player,event_key,kind,card,level,credits,created) VALUES(?,?,?,?,?,?,?)",
+      "INSERT OR IGNORE INTO player_notices(player,event_key,kind,card,level,credits,created,metadata) VALUES(?,?,?,?,?,?,?,?)",
       player,
       key,
       kind,
@@ -20,16 +28,19 @@ export class PlayerNotices {
       level || 1,
       credits,
       this.e.now(),
+      JSON.stringify(metadata),
     );
     return this.e.one("SELECT id FROM player_notices WHERE event_key=?", key)
       .id;
   }
   pending(player) {
     return player
-      ? this.e.all(
-          "SELECT id,kind,card,level,credits,created FROM player_notices WHERE player=? AND seen=0 ORDER BY id LIMIT 20",
-          player,
-        )
+      ? this.e
+          .all(
+            "SELECT id,kind,card,level,credits,created,metadata FROM player_notices WHERE player=? AND seen=0 ORDER BY id LIMIT 20",
+            player,
+          )
+          .map((r) => ({ ...r, metadata: JSON.parse(r.metadata) }))
       : [];
   }
   seen(player, ids) {
