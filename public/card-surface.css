@@ -1,6 +1,8 @@
 /* Full-art first state; compact controls share the same card on hover/focus. */
 .card-surface-stage {
   position: relative;
+  width: 100%;
+  min-width: 0;
   aspect-ratio: 2 / 3.4;
   overflow: hidden;
   border-radius: calc(var(--frame-radius, 11px) - var(--frame-width, 2px));
