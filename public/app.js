@@ -1,3 +1,4 @@
+import { cardSurface, installCardSurfaces } from "./card-surface.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import {
   MAX_CARD_LEVEL,
@@ -58,6 +59,7 @@ import {
   collectionPage,
 } from "./card-display.js";
 const $ = (s) => document.querySelector(s);
+const cardSurfaces = installCardSurfaces(document);
 let titleMode = "romaji";
 try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
@@ -424,9 +426,39 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="bid-label"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} extra copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to enhance" : ""}</span></div><div class="card-controls"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button><details class="card-menu"><summary>Actions ▾</summary><div class="collection-actions"><button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile picture</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List card ↗</button></div></details></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
       : "";
-  return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(level)}">${cardAura(level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="card-tag">${c.kind === "seiyuu" ? "SEIYUU" : c.role === "main" ? "MAIN" : c.role === "unknown" ? "UNSORTED" : "SUPPORTING"}</span>${level ? '<span class="level-tag">' + levelLabel(level) + "</span>" : ""}</div><div class="card-body"><div class="card-name" title="${escape(c.name)}">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div>${a?.extra_copies ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>` : ""}${auction}${owned}${state.me && !item?.preview ? wishlistButton(c, state.wishlist || [], escape) : ""}${extraActions}</div></article>`;
+  const actions =
+    auction +
+    owned +
+    (state.me && !item?.preview && !owned
+      ? wishlistButton(c, state.wishlist || [], escape)
+      : "") +
+    extraActions;
+  const meta = a
+    ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>`
+    : "";
+  return cardSurface(
+    c,
+    {
+      level: level || 1,
+      showLevel: !!level,
+      tag:
+        c.kind === "seiyuu"
+          ? "SEIYUU"
+          : c.role === "main"
+            ? "MAIN"
+            : c.role === "unknown"
+              ? "UNSORTED"
+              : "SUPPORTING",
+      actions,
+      meta,
+      details: a?.extra_copies
+        ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>`
+        : "",
+    },
+    { escape, image, gradeBadge, series },
+  );
 }
 function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
@@ -609,6 +641,17 @@ function showRefinementResult() {
     alchemyUI.refinementResult();
   dialog.querySelector(".fusion-review-actions button").focus();
 }
+function showAlchemyDrawResult() {
+  const dialog = $("#fusion-picker .fusion-review-dialog");
+  dialog.classList.add("alchemy-draw-dialog");
+  dialog.innerHTML =
+    '<button type="button" class="fusion-review-close" data-action="alchemy-close" aria-label="Close Alchemy Result">×</button>' +
+    alchemyUI.drawResult();
+  (
+    dialog.querySelector('[data-action="alchemy-draw-reveal"]') ||
+    dialog.querySelector(".fusion-review-actions button")
+  ).focus({ preventScroll: true });
+}
 function renderFusionPicker(focusSearch = false, resultsOnly = false) {
   const overlay = $("#fusion-picker");
   const results = overlay.querySelector("#alchemy-picker-results");
@@ -662,9 +705,19 @@ function closeFusionPicker(force = false) {
     el.inert = false;
   });
   document.body.classList.remove("fusion-picker-open");
-  if (fusionPickerFocus?.isConnected) fusionPickerFocus.focus();
+  const returnFocus = fusionPickerFocus;
   fusionPickerFocus = null;
   if (page() === "fusion") render();
+  const returnTarget = returnFocus?.isConnected
+    ? returnFocus
+    : [...document.querySelectorAll("#main [data-action]")].find(
+        (el) =>
+          returnFocus?.dataset.action &&
+          el.dataset.action === returnFocus.dataset.action &&
+          el.dataset.rarity === returnFocus.dataset.rarity &&
+          el.dataset.id === returnFocus.dataset.id,
+      );
+  returnTarget?.focus({ preventScroll: true });
 }
 document.addEventListener("keydown", (ev) => {
   if (!fusionOverlayOpen()) return;
@@ -978,7 +1031,7 @@ function profile() {
             .slice(0, 20)
             .map((item) => {
               const c = cardBy(item.card);
-              return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(item.level)}">${cardAura(item.level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(item.level)}</span></div><div class="card-body"><div class="card-name">${escape(c.name)}</div><div class="card-series">${escape(series(c))}</div></div></article>`;
+              return cardHTML(c, null, { level: item.level, preview: true });
             })
             .join(
               "",
@@ -1116,6 +1169,10 @@ async function loadDynamic() {
 }
 function render() {
   if (!state) return;
+  const cardSurfaceState =
+    $("#main").dataset.cardPage === page()
+      ? cardSurfaces.capture($("#main"))
+      : [];
   const active = document.activeElement;
   const searchFocus =
     active?.matches("input.search, input[type=search]") && active.id
@@ -1176,6 +1233,8 @@ function render() {
         ? profileTabs("profile") + profile()
         : profile(),
   }[route]();
+  $("#main").dataset.cardPage = route;
+  cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI.mount();
   else quizUI.stop();
   if (searchFocus) {
@@ -1539,9 +1598,8 @@ document.addEventListener("submit", async (ev) => {
             render();
             showRefinementResult();
           } else {
-            closeFusionPicker(true);
             render();
-            toast(result.message);
+            showAlchemyDrawResult();
           }
         },
         f,
@@ -2219,6 +2277,10 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "alchemy-refine") {
         openFusionReview(alchemyUI.request());
+        return true;
+      }
+      if (a === "alchemy-draw-reveal") {
+        if (alchemyUI.revealDraw()) showAlchemyDrawResult();
         return true;
       }
       if (a === "alchemy-draw-review") {

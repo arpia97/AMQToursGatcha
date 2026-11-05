@@ -228,18 +228,6 @@
   background: #93d3ba;
   border-radius: 8px;
 }
-.collection-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-.collection-actions .text-button {
-  font-size: 10px;
-}
 .collect-card .card-body > a.button {
   width: 100%;
 }
@@ -1546,69 +1534,6 @@ button.fusion-slot:focus-visible {
 .aura-ag .sealed-pack::after {
   inset: -3px;
 }
-.card-controls {
-  position: relative;
-  margin-top: 10px;
-}
-.card-controls .bid-button {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: calc(100% - 70px);
-  margin: 0;
-  padding: 8px 6px;
-  font-size: 10px;
-  min-height: 32px;
-}
-.card-menu summary {
-  width: 63px;
-  min-height: 32px;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  list-style: none;
-  cursor: pointer;
-  font-size: 10px;
-  padding: 8px;
-  border: 1px solid #424550;
-  border-radius: 6px;
-  background: #292c36;
-  color: #e8e8eb;
-  text-align: center;
-}
-.card-menu summary::-webkit-details-marker {
-  display: none;
-}
-.card-menu .collection-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: stretch;
-  margin-top: 8px;
-  padding-top: 0;
-  border-top: 0;
-  gap: 6px;
-}
-.card-menu .collection-actions .text-button {
-  margin: 0;
-  padding: 8px 5px;
-  min-width: 0;
-  min-height: 34px;
-  border: 1px solid #343741;
-  border-radius: 6px;
-  background: #ffffff05;
-  font-size: 10px;
-  line-height: 1.3;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.card-menu summary:focus-visible {
-  outline: 2px solid var(--mint);
-  outline-offset: 2px;
-}
 .auction-leader {
   overflow-wrap: anywhere;
 }
@@ -1900,28 +1825,6 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   .shop-controls .search {
     flex-basis: 100%;
   }
-}
-
-.card-menu .collection-actions .text-button:is(:hover, :focus-visible):enabled {
-  background: #ffffff0d;
-  border-color: #666a78;
-}
-.card-menu
-  .collection-actions
-  .text-button:is([aria-pressed="true"], .is-selected) {
-  color: var(--mint);
-  background: #9ad6b410;
-  border-color: #9ad6b44d;
-}
-.card-menu .collection-actions .text-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-.card-menu
-  .collection-actions
-  .text-button[data-action="instant-sell"]:hover:enabled {
-  color: var(--pink);
-  border-color: #f47c9b66;
 }
 
 /* Compact tour overview, with every round available in one expanded board. */
@@ -3251,8 +3154,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   -webkit-background-clip: text;
   color: transparent;
 }
-.alchemy-refinery,
-.alchemy-result {
+.alchemy-refinery {
   background: #191c25;
   border: 1px solid #434052;
   border-radius: 16px;
@@ -3417,18 +3319,6 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .alchemy-tier > .text-button {
   margin-top: 10px;
 }
-.alchemy-result.alchemy-great {
-  border-color: #ffd57a;
-  box-shadow: 0 0 25px #ffd57a26;
-}
-.alchemy-result.alchemy-erig {
-  border-color: #d19fff;
-  box-shadow: 0 0 35px #d19fff50;
-}
-.alchemy-drawn-card {
-  width: 190px;
-  margin: 20px auto;
-}
 .alchemy-review-material {
   display: flex;
   align-items: center;
@@ -3495,8 +3385,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   }
 }
 @media (max-width: 600px) {
-  .alchemy-refinery,
-  .alchemy-result {
+  .alchemy-refinery {
     padding: 16px;
   }
   .alchemy-feed-row {
@@ -3563,16 +3452,16 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   margin: 12px auto 0;
 }
 
-.alchemy-tier.tier-d {
+:is(.alchemy-tier, .alchemy-draw-popup).tier-d {
   --tier-color: #797985;
 }
-.alchemy-tier.tier-c {
+:is(.alchemy-tier, .alchemy-draw-popup).tier-c {
   --tier-color: #a68a62;
 }
-.alchemy-tier.tier-b {
+:is(.alchemy-tier, .alchemy-draw-popup).tier-b {
   --tier-color: #83cdb4;
 }
-.alchemy-tier.tier-a {
+:is(.alchemy-tier, .alchemy-draw-popup).tier-a {
   --tier-color: #78b9ed;
 }
 
@@ -3866,4 +3755,153 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 
 .quiz-categories {
   margin-bottom: 24px;
+}
+
+/* The draw is committed once; this popup only reveals the granted card. */
+.alchemy-draw-dialog {
+  max-width: 470px;
+}
+.alchemy-draw-popup {
+  text-align: center;
+  overflow-y: auto;
+  padding: 4px;
+  --draw-colour: var(--tier-color, #8eb6d6);
+}
+.alchemy-draw-popup h2 {
+  margin: 0 22px;
+}
+.alchemy-draw-stage {
+  width: min(190px, 100%);
+  aspect-ratio: 2/3.4;
+  margin: 12px auto;
+  perspective: 900px;
+  flex-shrink: 0;
+  position: relative;
+}
+.alchemy-draw-seal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border-radius: 11px;
+  border: 2px solid var(--draw-colour);
+  color: #f3edf7;
+  background: radial-gradient(
+    ellipse at 50% 25%,
+    color-mix(in srgb, var(--draw-colour) 30%, #17202b),
+    #10151f 70%
+  );
+  box-shadow:
+    inset 0 0 24px #ffffff14,
+    0 0 25px var(--tier-glow, #91bada26);
+  cursor: pointer;
+  animation: alchemy-sealed-pulse 2.4s ease-in-out infinite;
+}
+.alchemy-draw-seal:hover {
+  border-color: #fff;
+}
+.alchemy-draw-seal:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 5px;
+}
+.alchemy-draw-seal .alchemy-seal-symbol {
+  color: var(--draw-colour);
+  font-size: 58px;
+  text-shadow: 0 0 24px var(--draw-colour);
+}
+.alchemy-draw-seal strong {
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+.alchemy-draw-seal > span:not(.alchemy-seal-symbol) {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #c6cddb;
+}
+.alchemy-draw-seal small {
+  font-size: 10px;
+  margin-top: 30px;
+  color: #d6dce5;
+}
+.alchemy-draw-popup.tier-ag .alchemy-draw-seal {
+  border-color: transparent;
+  background:
+    linear-gradient(#1c202d, #10151f) padding-box,
+    conic-gradient(
+        #ff779b,
+        #ffd463,
+        #7ee3b0,
+        #71d3fa,
+        #ad99ff,
+        #f38ce8,
+        #ff779b
+      )
+      border-box;
+}
+.alchemy-draw-revealed {
+  width: 100%;
+  animation: alchemy-card-unseal 0.7s cubic-bezier(0.16, 0.7, 0.2, 1) both;
+}
+.alchemy-draw-stage.is-unsealed::after {
+  content: "";
+  position: absolute;
+  inset: -20px;
+  border-radius: 30px;
+  pointer-events: none;
+  background: radial-gradient(ellipse, #fff8, transparent 68%);
+  animation: alchemy-card-flash 0.7s ease-out both;
+}
+.alchemy-target-hit {
+  color: var(--mint) !important;
+  font-weight: 700;
+}
+.alchemy-draw-popup .fusion-review-actions {
+  display: flex;
+  justify-content: center;
+}
+.alchemy-draw-popup .fusion-review-actions button {
+  min-width: 130px;
+}
+@keyframes alchemy-sealed-pulse {
+  50% {
+    transform: translateY(-4px);
+    box-shadow:
+      inset 0 0 28px #ffffff20,
+      0 0 35px var(--tier-glow, #91bada38);
+  }
+}
+@keyframes alchemy-card-unseal {
+  from {
+    opacity: 0;
+    transform: rotateY(90deg) scale(0.9);
+    filter: brightness(2);
+  }
+  to {
+    opacity: 1;
+    transform: rotateY(0) scale(1);
+    filter: brightness(1);
+  }
+}
+@keyframes alchemy-card-flash {
+  from {
+    opacity: 0.8;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .alchemy-draw-seal,
+  .alchemy-draw-revealed,
+  .alchemy-draw-stage.is-unsealed::after {
+    animation: none;
+  }
+  .alchemy-draw-stage.is-unsealed::after {
+    display: none;
+  }
 }

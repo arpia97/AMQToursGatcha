@@ -1,0 +1,271 @@
+/* Full-art first state; compact controls share the same card on hover/focus. */
+.card-surface-stage {
+  position: relative;
+  aspect-ratio: 2 / 3.4;
+  overflow: hidden;
+  border-radius: calc(var(--frame-radius, 11px) - var(--frame-width, 2px));
+  isolation: isolate;
+}
+.card-surface .portrait {
+  position: absolute;
+  inset: 0;
+  aspect-ratio: auto;
+  border-radius: inherit;
+}
+.card-surface .portrait > img,
+.card-surface .portrait > .fallback-img {
+  transition:
+    filter 0.36s ease,
+    transform 0.45s ease;
+}
+.card-surface .portrait::after {
+  inset: 28% 0 0;
+  background: linear-gradient(transparent, #0c0f1799 45%, #0c0f17f5);
+}
+.card-surface .grade-badge,
+.card-surface .card-tag,
+.card-surface .level-tag {
+  z-index: 3;
+  pointer-events: none;
+}
+.card-surface .level-tag {
+  bottom: 9px;
+}
+.card-front {
+  position: absolute;
+  inset: auto 11px 13px;
+  transition:
+    opacity 0.24s ease,
+    transform 0.36s ease,
+    visibility 0.24s;
+  pointer-events: none;
+}
+.card-surface:has([data-card-toggle]) .card-front,
+.card-surface:has(.level-tag) .card-front {
+  bottom: 46px;
+}
+.card-surface .card-name {
+  color: #fff;
+  line-height: 1.35;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-shadow: 0 1px 5px #0009;
+}
+.card-surface .card-series {
+  margin: 5px 0 0;
+  color: #d2d5df;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.card-front-meta {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mint);
+  line-height: 1.5;
+}
+.card-front-meta small {
+  display: block;
+  color: #d2d5df;
+  font-weight: 400;
+  font-size: 9px;
+}
+.card-actions-toggle {
+  position: absolute;
+  z-index: 5;
+  bottom: 7px;
+  left: 8px;
+  min-width: 34px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #ffffff60;
+  border-radius: 6px;
+  background: #111620c9;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+.card-actions-toggle[aria-expanded="true"] {
+  color: var(--mint);
+  border-color: var(--mint);
+}
+.card-actions-toggle:focus-visible,
+.card-back :is(button, a):focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
+.card-back {
+  position: absolute;
+  inset: 35px 0 41px;
+  z-index: 4;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #8992a966 transparent;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(24px) rotate(5deg) scale(0.96);
+  transform-origin: 50% 100%;
+  transition:
+    opacity 0.28s ease,
+    transform 0.36s cubic-bezier(0.2, 0.7, 0.2, 1),
+    visibility 0.36s;
+}
+.card-surface .card-back > .card-body {
+  padding: 0 10px 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+.card-back-heading {
+  margin: 0;
+}
+.card-back-heading .card-name {
+  font-size: 12px;
+}
+.card-back-heading .card-series {
+  -webkit-line-clamp: 1;
+  font-size: 9px;
+  margin-top: 3px;
+}
+.card-back .form-hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.card-back .card-price {
+  margin: 0;
+  font-size: 14px;
+}
+.card-action-content {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.card-action-content > :is(.button, .text-button, .bid-button),
+.card-action-grid > :is(button, a) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  padding: 7px 4px;
+  border: 1px solid #ffffff35;
+  border-radius: 6px;
+  background: #202633cf;
+  color: #f1f3f8;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+  white-space: normal;
+  margin: 0;
+  cursor: pointer;
+}
+.card-action-content .button.mint {
+  background: var(--mint);
+  color: #14251d;
+}
+.card-action-content :is(button, a):is(:hover, :focus-visible):not(:disabled) {
+  border-color: var(--mint);
+  background: #345a4bea;
+  color: #fff;
+}
+.card-action-content :is([aria-pressed="true"], .is-selected) {
+  color: var(--mint);
+  border-color: #b7e4ca80;
+  background: #24493bcc;
+}
+.card-action-content button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.card-action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.card-copy-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  color: #d2d5df;
+  font-size: 9px;
+}
+.card-surface .pack-card-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  gap: 7px;
+}
+.card-surface .pack-card-actions .text-button {
+  min-height: 32px;
+  flex-basis: auto;
+}
+.card-surface.is-revealed .portrait > :is(img, .fallback-img) {
+  filter: blur(6px) brightness(0.38);
+  transform: scale(1.08);
+}
+.card-surface.is-revealed .card-front {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-20px) scale(0.97);
+}
+.card-surface.is-revealed .card-back {
+  opacity: 1;
+  transform: translateY(0) rotate(0) scale(1);
+  visibility: visible;
+  pointer-events: auto;
+}
+.card-surface.is-revealed .portrait::after {
+  background: #10141b44;
+}
+.card-surface.is-revealed {
+  z-index: 2;
+}
+/* Stable dimensions: revealing controls never expands or reflows the grid. */
+.card-grid > .card-surface {
+  align-self: start;
+}
+.pull-slot .card-surface {
+  height: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-surface .portrait > img,
+  .card-surface .portrait > .fallback-img,
+  .card-front,
+  .card-back {
+    transition: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .card-action-grid > :is(button, a) {
+    font-size: 9px;
+    min-height: 30px;
+    padding: 6px 2px;
+  }
+  .card-action-grid {
+    gap: 4px;
+  }
+  .card-surface .card-back > .card-body {
+    gap: 6px;
+  }
+  .card-back-heading .card-name {
+    font-size: 11px;
+  }
+}

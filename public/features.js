@@ -1,5 +1,5 @@
-import { cardFrameClass, cardAura } from "./card-frames.js";
-import { levelLabel } from "./card-values.js";
+import { cardSurface } from "./card-surface.js";
+
 import { roleBadge } from "./role-label.js";
 import { createShopUI } from "./shop-ui.js";
 export function createFeatures(h, ui) {
@@ -9,9 +9,6 @@ export function createFeatures(h, ui) {
     btn,
     cardHTML,
     cardBy,
-    image,
-    gradeBadge,
-    rarityClass,
     series,
     empty,
     profileURL,
@@ -20,8 +17,7 @@ export function createFeatures(h, ui) {
   const pager = (prefix, page, more) =>
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
   const readCard = (id, level = 1) => {
-    const c = cardBy(id);
-    return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(level)}">${cardAura(level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(level)}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div></div></article>`;
+    return cardSurface(cardBy(id), { level, showLevel: true }, h);
   };
   function profileExtras(p, own) {
     const favorites = p.showcase || [],

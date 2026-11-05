@@ -30,7 +30,8 @@ export function createAlchemyUI(h) {
     page = 1,
     targetTier = "D",
     targetData = null,
-    lastResult = null;
+    lastResult = null,
+    drawRevealed = false;
   const cards = new Map();
   const remember = (list) => {
     for (const c of list || []) cards.set(c.id, c);
@@ -358,23 +359,28 @@ export function createAlchemyUI(h) {
       ' XP</strong></p></div><div class="fusion-review-actions"><button type="button" class="button mint" data-action="alchemy-close">Done</button></div></section>'
     );
   }
-  function resultHTML() {
+  function drawResult() {
     const drawn = lastResult?.cards?.[0];
     if (!drawn) return "";
+    const tier = rarityClass(lastResult.rarity || drawn.rarity);
     return (
-      '<section class="alchemy-result" role="status"><div class="section-head"><div><span class="eyebrow">ALCHEMY DRAW</span><h2>' +
-      e(drawn.name) +
-      "</h2></div>" +
-      btn("Dismiss", "alchemy-dismiss", "", "secondary") +
-      "</div><p>" +
-      e(lastResult.rarity) +
-      " · " +
+      '<section class="fusion-review-form alchemy-draw-popup tier-' +
+      tier +
+      '"><h2 id="fusion-review-title">Alchemy Draw</h2><p>' +
       n(lastResult.xpSpent) +
-      " XP" +
-      (lastResult.targetHit ? " · Target Card!" : "") +
-      '</p><div class="alchemy-drawn-card">' +
-      cardHTML(drawn, null, { copies: 1, level: 1, preview: true }) +
-      "</div></section>"
+      ' XP Spent · Your card is safely in your collection.</p><div class="alchemy-draw-stage ' +
+      (drawRevealed ? "is-unsealed" : "") +
+      '">' +
+      (drawRevealed
+        ? '<div class="alchemy-draw-revealed">' +
+          cardHTML(drawn, null, { copies: 1, level: 1, preview: true }) +
+          "</div>"
+        : '<button type="button" class="alchemy-draw-seal" data-action="alchemy-draw-reveal" aria-label="Reveal Your Alchemy Card"><span class="alchemy-seal-symbol" aria-hidden="true">✦</span><strong>AMQ TOURS</strong><span>ALCHEMY</span><small>Click to Reveal</small></button>') +
+      "</div>" +
+      (drawRevealed && lastResult.targetHit
+        ? '<p class="alchemy-target-hit" role="status">✦ Target Card!</p>'
+        : "") +
+      '<div class="fusion-review-actions"><button type="button" class="button mint" data-action="alchemy-close">Done</button></div></section>'
     );
   }
   function render() {
@@ -528,7 +534,6 @@ export function createAlchemyUI(h) {
     }).join("");
     return (
       '<div class="page-intro"><div><h1>Card Alchemy</h1><p>Refine your cards. Build XP. Draw your favourites.</p></div><a href="#collection" class="text-button">My Collection ↗</a></div>' +
-      resultHTML() +
       feed +
       '<div class="section-head"><h2>Your Alchemy Targets</h2><span class="subtext">One Shared XP Pool · Unused XP Is Kept</span></div><div class="alchemy-tier-grid">' +
       tiers +
@@ -735,10 +740,17 @@ export function createAlchemyUI(h) {
     targetRequest,
     confirmation,
     refinementResult,
+    drawResult,
+    revealDraw: () => {
+      if (!lastResult?.cards?.length || drawRevealed) return false;
+      drawRevealed = true;
+      return true;
+    },
     complete: (r) => {
       update(r.alchemyState);
       remember(r.cards);
       lastResult = r;
+      drawRevealed = false;
       if (r.material || r.refinements) selected = [];
     },
     clear: () => (selected = []),

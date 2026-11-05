@@ -282,3 +282,40 @@ test("Hide Protected Cards filters material choices and Auto Refine respects pro
   assert.equal(f.ui.request().card, "d");
   assert.match(f.ui.autoForm(), /Maximum Rarity/);
 });
+
+test("draw results stay in a covered-card popup and reveal locally once without issuing another draw", () => {
+  const f = fixture();
+  const result = {
+    cards: [f.cards[0]],
+    rarity: "AG",
+    xpSpent: 12800,
+    targetHit: true,
+    alchemyState: {
+      xp: 200,
+      refinements: 1,
+      version: 4,
+      targets: {},
+      cards: [],
+    },
+  };
+  const saved = structuredClone(result);
+  f.ui.complete(result);
+  assert.match(f.ui.drawResult(), /Reveal Your Alchemy Card/);
+  assert.doesNotMatch(f.ui.drawResult(), /&lt;Alchemy>|Target Card!/);
+  assert.doesNotMatch(
+    f.ui.render(),
+    /alchemy-draw-popup|alchemy-result|12800 XP Spent/,
+  );
+  assert.equal(f.ui.revealDraw(), true);
+  assert.match(f.ui.drawResult(), /&lt;Alchemy>/);
+  assert.match(f.ui.drawResult(), /Target Card!/);
+  assert.doesNotMatch(
+    f.ui.drawResult(),
+    /<form|type="submit"|data-action="alchemy-draw-review"/,
+  );
+  assert.equal(f.ui.revealDraw(), false);
+  assert.deepEqual(result, saved);
+  assert.throws(() => f.ui.drawRequest("AG"), /Not enough/);
+  f.ui.dismiss();
+  assert.equal(f.ui.drawResult(), "");
+});

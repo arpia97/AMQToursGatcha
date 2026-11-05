@@ -1,4 +1,4 @@
-import { cardFrameClass, cardAura } from "./card-frames.js";
+import { cardSurface } from "./card-surface.js";
 import { levelLabel } from "./card-values.js";
 import { roleBadge } from "./role-label.js";
 import { collectionView, collectionPage } from "./card-display.js";
@@ -20,19 +20,7 @@ export function shopSellPage(inventory, cardBy, options, kind) {
 }
 
 export function createShopUI(h, ui) {
-  const {
-    escape: e,
-    number: n,
-    btn,
-    cardBy,
-    image,
-    gradeBadge,
-    rarityClass,
-    series,
-    empty,
-    profileURL,
-    getState,
-  } = h;
+  const { escape: e, number: n, btn, cardBy, empty, profileURL, getState } = h;
   function listingCard(l, weekly = false) {
     const s = getState(),
       c = cardBy(l.card),
@@ -56,7 +44,16 @@ export function createShopUI(h, ui) {
           `data-id="${l.id}" ${shortfall ? "disabled" : ""}`,
           "mint",
         );
-    return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(l.level || 1)}">${cardAura(l.level || 1)}<div class="portrait">${image(c)}${gradeBadge(c)}${l.level > 1 ? `<span class="level-tag">${levelLabel(l.level)}</span>` : ""}</div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${weekly ? "Weekly selection · 1 shared copy" : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}</div></article>`;
+    return cardSurface(
+      c,
+      {
+        level: l.level || 1,
+        showLevel: l.level > 1,
+        meta: `✦ ${n(l.price)}`,
+        actions: `<p class="form-hint">${weekly ? "Weekly Selection · 1 Shared Copy" : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}`,
+      },
+      h,
+    );
   }
   function batchReview() {
     const draft = ui.shopBatchReview;
@@ -103,7 +100,16 @@ export function createShopUI(h, ui) {
               const c = item.c,
                 extra = item.copies > 1,
                 level = extra ? 1 : item.level;
-              return `<article class="collect-card tier-${rarityClass(c.rarity)} ${cardFrameClass(item.level)}">${cardAura(item.level)}<div class="portrait">${image(c)}${gradeBadge(c)}<span class="level-tag">${levelLabel(item.level)}</span></div><div class="card-body"><div class="card-name">${e(c.name)}</div><div class="card-series">${e(series(c))}</div><p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p><div class="shop-sell-actions">${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}</div></div></article>`;
+              return cardSurface(
+                c,
+                {
+                  level: item.level,
+                  showLevel: true,
+                  meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}`,
+                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}`,
+                },
+                h,
+              );
             })
             .join("")}</div>`
         : empty(
