@@ -85,8 +85,7 @@
 }
 .card-back {
   position: absolute;
-  inset: 35px 8px
-    calc(9px + var(--card-level-space, 0px) + var(--card-icon-space, 0px));
+  inset: 35px 8px calc(9px + var(--card-level-space, 0px));
   z-index: 4;
   overflow: visible;
   opacity: 0;
@@ -201,6 +200,7 @@
   pointer-events: auto;
 }
 .card-surface.is-revealed .portrait::after {
+  inset: 0;
   background: #10141b44;
 }
 .card-surface.is-revealed {
@@ -245,12 +245,6 @@
 .card-surface.has-card-level {
   --card-level-space: 26px;
 }
-.card-surface:has(.card-state-icons) {
-  --card-icon-space: 24px;
-}
-.card-surface:has(.card-state-heart):has(.card-state-lock) {
-  --card-icon-space: 48px;
-}
 .card-state-icons {
   position: absolute;
   right: 10px;
@@ -260,6 +254,11 @@
   flex-direction: column;
   gap: 4px;
   pointer-events: none;
+}
+/* Keep status indicators clear of controls without changing their position. */
+.card-surface.is-revealed .card-state-icons {
+  top: 44px;
+  bottom: auto;
 }
 .card-state-icons span {
   display: grid;
