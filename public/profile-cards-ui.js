@@ -61,7 +61,19 @@ export function profileCardPanel(
           label +
           " →</button>"
         : wishlistButton(c, wishlist, e);
-      return cardHTML(c, null, { preview: true, level: row.level }, actions);
+      return cardHTML(
+        c,
+        null,
+        {
+          preview: true,
+          level: row.level,
+          ownerFlags: {
+            protectedCard: !!row.protected,
+            wishlisted: data.view === "wishlist" || !!row.wishlisted,
+          },
+        },
+        actions,
+      );
     })
     .join("");
   return (

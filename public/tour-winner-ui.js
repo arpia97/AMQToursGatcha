@@ -24,18 +24,9 @@ export function winnerCard(
     p
       ? `<div class="tour-winner-choice" id="tour-rounds-${t.key}"><p class="form-hint">✦ ${n(p.winner_reward)} for the correct winner · Voting closes ${e(new Date(p.ends).toLocaleString("en-GB", { timeZone: "Asia/Seoul" }))} KST</p>${
           open
-            ? `<form id="tour-prediction-${p.id}" data-inline-prediction="${p.id}" class="tour-winner-form"><input type="hidden" name="pickem" value="${p.id}"><input type="hidden" name="mode" value="tour"><input type="hidden" name="expectedTeams" value="${e(p.teams)}"><label>Who will win?<select name="winner" required><option value="">Choose a team…</option>${pickemTeams(
-                p,
-              )
-                .map(
-                  (team) =>
-                    `<option value="${e(team)}" ${selected === team ? "selected" : ""}>${e(team)}</option>`,
-                )
-                .join(
-                  "",
-                )}</select></label><button class="button secondary" ${signedIn ? 'type="submit"' : 'type="button" data-action="account"'}>${signedIn ? "Confirm pick" : "Sign in"}</button><div class="form-error" role="alert"></div></form>`
+            ? `<form id="tour-prediction-${p.id}" data-inline-prediction="${p.id}" class="tour-winner-form"><input type="hidden" name="pickem" value="${p.id}"><input type="hidden" name="mode" value="tour"><input type="hidden" name="expectedTeams" value="${e(p.teams)}">${pickemVoteChart(p, { escape: e, number: n, selectable: true, selected })}<button class="button secondary" ${signedIn ? 'type="submit"' : 'type="button" data-action="account"'}>${signedIn ? "Confirm pick" : "Sign in"}</button><div class="form-error" role="alert"></div></form>`
             : `<p>${p.prediction ? "Your pick: <strong>" + e(p.prediction) + "</strong>" : "No pick submitted."}</p>${p.settled ? `<p>Winner: <strong>${e(p.result_winner)}</strong></p>` : ""}`
-        }${pickemVoteChart(p, { escape: e, number: n })}</div>`
+        }${open ? "" : pickemVoteChart(p, { escape: e, number: n, selected })}</div>`
       : ""
   }</article>`;
 }

@@ -1,4 +1,9 @@
-import { cardSurface, installCardSurfaces } from "./card-surface.js";
+import { cardSizeControl, installCardSize } from "./card-preferences.js";
+import {
+  cardSurface,
+  installCardSurfaces,
+  syncCardFlags,
+} from "./card-surface.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import {
   MAX_CARD_LEVEL,
@@ -60,6 +65,10 @@ import {
 } from "./card-display.js";
 const $ = (s) => document.querySelector(s);
 const cardSurfaces = installCardSurfaces(document);
+const currentCardSize = installCardSize(document, {
+  getItem: (key) => localStorage.getItem(key),
+  setItem: (key, value) => localStorage.setItem(key, value),
+});
 let titleMode = "romaji";
 try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
@@ -417,6 +426,12 @@ function showAuctionWin() {
     );
   }
 }
+function cardFlags(c) {
+  return {
+    protectedCard: !!state?.inventory?.find((i) => i.card === c.id)?.protected,
+    wishlisted: (state?.wishlist || []).includes(c.id),
+  };
+}
 function cardHTML(c, a = null, item = null, extraActions = "") {
   const mine = a?.winner === state.me?.id,
     selling = a?.seller === state.me?.id,
@@ -443,6 +458,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     {
       level: level || 1,
       showLevel: !!level,
+      ...(item?.ownerFlags || cardFlags(c)),
       tag:
         c.kind === "seiyuu"
           ? "SEIYUU"
@@ -457,7 +473,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
         ? `<p class="form-hint">Includes ${number(a.extra_copies)} spare copies from level conversion.</p>`
         : "",
     },
-    { escape, image, gradeBadge, series },
+    { escape, image, gradeBadge, series, cardFlags },
   );
 }
 function tabs() {
@@ -531,6 +547,7 @@ const features = createFeatures(
     number,
     btn,
     cardHTML,
+    cardFlags,
     cardBy,
     image,
     gradeBadge,
@@ -780,6 +797,7 @@ async function saveCardAction(path, body, t) {
     return await execute(path, body, (result) => toast(result.message));
   } finally {
     syncPackCardActions(root, state);
+    syncCardFlags(root, cardFlags);
   }
 }
 function dailyPack() {
@@ -1031,7 +1049,14 @@ function profile() {
             .slice(0, 20)
             .map((item) => {
               const c = cardBy(item.card);
-              return cardHTML(c, null, { level: item.level, preview: true });
+              return cardHTML(c, null, {
+                level: item.level,
+                preview: true,
+                ownerFlags: {
+                  protectedCard: !!item.protected,
+                  wishlisted: (p.wishlist || []).includes(item.card),
+                },
+              });
             })
             .join(
               "",
@@ -1233,6 +1258,21 @@ function render() {
         ? profileTabs("profile") + profile()
         : profile(),
   }[route]();
+  if (
+    ["collection", "catalog", "shop", "auctions", "profile", "player"].includes(
+      route,
+    )
+  ) {
+    const sizeLocation =
+      $("#main .collection-toolbar .catalog-pager") ||
+      $("#main .collection-toolbar") ||
+      $("#main .page-intro") ||
+      $("#main .profile-heading");
+    sizeLocation?.insertAdjacentHTML(
+      "beforeend",
+      cardSizeControl(currentCardSize()),
+    );
+  }
   $("#main").dataset.cardPage = route;
   cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI.mount();

@@ -60,7 +60,7 @@ export class Wishlist {
     let rows;
     if (view === "wishlist")
       rows = e.all(
-        "SELECT card,created FROM card_wishlist WHERE player=? ORDER BY created DESC,card LIMIT 25 OFFSET ?",
+        "SELECT w.card,w.created,COALESCE(i.protected,0) AS protected FROM card_wishlist w LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card WHERE w.player=? ORDER BY w.created DESC,w.card LIMIT 25 OFFSET ?",
         id,
         (page - 1) * 24,
       );
@@ -79,12 +79,31 @@ export class Wishlist {
       );
     else fail("Choose wishlist or listings.");
     const visible = rows.slice(0, 24);
+    const wanted =
+      view === "wishlist"
+        ? new Set(visible.map((r) => r.card))
+        : new Set(
+            visible.length
+              ? e
+                  .all(
+                    "SELECT card FROM card_wishlist WHERE player=? AND card IN (" +
+                      visible.map(() => "?").join(",") +
+                      ")",
+                    id,
+                    ...visible.map((r) => r.card),
+                  )
+                  .map((r) => r.card)
+              : [],
+          );
     return {
       player: id,
       view,
       page,
       hasMore: rows.length > 24,
-      rows: visible,
+      rows: visible.map((row) => ({
+        ...row,
+        wishlisted: wanted.has(row.card),
+      })),
       cards: e.catalogStore.cards(visible.map((r) => r.card)),
     };
   }

@@ -24,7 +24,10 @@ export function pickemVoteSummary(p, tallies = []) {
   };
 }
 
-export function pickemVoteChart(p, { escape: e, number: n }) {
+export function pickemVoteChart(
+  p,
+  { escape: e, number: n, selectable = false, selected = p.prediction || "" },
+) {
   const summary = p.voteSummary || pickemVoteSummary(p);
   const max = Math.max(0, ...summary.choices.map((choice) => choice.votes));
   const percentage = (votes) =>
@@ -43,7 +46,25 @@ export function pickemVoteChart(p, { escape: e, number: n }) {
         " (" +
         percentage(choice.votes) +
         "%)";
-      return `<div class="pickem-vote-row ${max > 0 && choice.votes === max ? "is-leading" : ""}"><div class="pickem-vote-label"><span>${e(choice.team)}</span><strong>${n(choice.votes)} ${choice.votes === 1 ? "vote" : "votes"} · ${percentage(choice.votes)}%</strong></div><progress max="${Math.max(1, summary.total)}" value="${choice.votes}" aria-label="${e(label)}" aria-valuetext="${e(label)}">${e(label)}</progress></div>`;
+      const winner =
+        p.settled &&
+        choice.key ===
+          (p.mode === "tour"
+            ? p.result_winner
+            : p.result_a > p.result_b
+              ? "a"
+              : p.result_b > p.result_a
+                ? "b"
+                : "draw");
+      const classes =
+        "pickem-vote-row " +
+        (max > 0 && choice.votes === max ? "is-leading " : "") +
+        (choice.key === selected ? "is-selected " : "") +
+        (winner ? "is-winner" : "");
+      const contents = `<div class="pickem-vote-content"><div class="pickem-vote-label"><span>${e(choice.team)}${winner ? '<b class="pickem-winner-label">Winner</b>' : ""}</span><strong>${n(choice.votes)} ${choice.votes === 1 ? "vote" : "votes"} · ${percentage(choice.votes)}%</strong></div><progress max="${Math.max(1, summary.total)}" value="${choice.votes}" aria-label="${e(label)}" aria-valuetext="${e(label)}">${e(label)}</progress></div><span class="pickem-vote-check" aria-hidden="true">✓</span>`;
+      return selectable
+        ? `<label class="${classes} is-selectable"><input type="radio" name="winner" value="${e(choice.key)}" required ${selected === choice.key ? "checked" : ""} aria-label="Pick ${e(choice.team)}">${contents}</label>`
+        : `<div class="${classes}">${contents}</div>`;
     })
     .join("")}</div></section>`;
 }

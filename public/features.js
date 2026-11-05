@@ -16,13 +16,13 @@ export function createFeatures(h, ui) {
   } = h;
   const pager = (prefix, page, more) =>
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
-  const readCard = (id, level = 1) => {
-    return cardSurface(cardBy(id), { level, showLevel: true }, h);
+  const readCard = (id, level = 1, flags = {}) => {
+    return cardSurface(cardBy(id), { level, showLevel: true, ...flags }, h);
   };
   function profileExtras(p, own) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions">' + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="#collection">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level)).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose up to 20 favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions">' + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="#collection">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card) })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose up to 20 favourites from your collection to display here." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]

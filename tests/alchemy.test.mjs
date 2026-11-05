@@ -229,6 +229,7 @@ test("each tier saves its own target and cash-outs spend only required XP with e
   const r = f.act("alchemy-draw", b, "draw");
   assert.equal(r.cards[0].id, "AG2");
   assert.equal(r.targetHit, true);
+  assert.equal(r.targetChance, 50);
   assert.equal(r.alchemyState.xp, 7200);
   assert.equal(r.alchemyState.refinements, 5);
   assert.equal(r.alchemyState.nextLucky, true);

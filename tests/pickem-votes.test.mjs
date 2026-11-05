@@ -225,3 +225,34 @@ test("tour cards show total voters when collapsed and the chart for open, locked
   f.host("settle", { pickem: p.id, winner: "Alpha", expectedTeams: p.teams });
   assert.match(render(f.e.pickemEvents.detail(p.event_id)), /1 vote · 100%/);
 });
+
+test("graph choices preserve form values and drafts, and settled winner styling follows the result rather than the vote leader", () => {
+  const p = {
+    mode: "tour",
+    teams: JSON.stringify(["A", "B"]),
+    prediction: "A",
+    voteSummary: {
+      total: 5,
+      choices: [
+        { key: "A", team: "A", votes: 4 },
+        { key: "B", team: "B", votes: 1 },
+      ],
+    },
+  };
+  const open = pickemVoteChart(p, {
+    escape,
+    number: String,
+    selectable: true,
+    selected: "B",
+  });
+  assert.match(open, /type="radio" name="winner" value="B" required checked/);
+  assert.match(open, /pickem-vote-check/);
+  assert.doesNotMatch(open, /<select|is-winner/);
+  const settled = pickemVoteChart(
+    { ...p, settled: 1, result_winner: "B" },
+    { escape, number: String },
+  );
+  assert.match(settled, /class="pickem-vote-row is-winner"/);
+  assert.match(settled, /pickem-winner-label/);
+  assert.doesNotMatch(settled, /type="radio"/);
+});

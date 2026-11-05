@@ -1141,7 +1141,7 @@ export class Engine {
       id,
     );
     const showcase = this.all(
-      "SELECT s.card,i.level,i.copies FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
+      "SELECT s.card,i.level,i.copies,i.protected FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
       id,
     );
     return {
@@ -1162,6 +1162,7 @@ export class Engine {
         pickems: picks,
       },
       showcase,
+      wishlist: this.economy.wishlist.read(id),
       pinnedAnime: this.economy.anime.pinned(id),
       completion: this.economy.completion(id),
       inventory: this.all("SELECT * FROM inventory WHERE player=?", id),

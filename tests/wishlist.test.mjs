@@ -122,3 +122,20 @@ test("wishlist follows canonical identity migration and player reset clears only
   assert.deepEqual(e.economy.wishlist.read("newp"), []);
   assert.deepEqual(e.economy.wishlist.read("q"), ["c1"]);
 });
+
+test("public profile and wishlist card flags belong to that profile's player", (t) => {
+  const { e, act } = fixture(t);
+  e.addCard("p", "c0");
+  e.addCard("q", "c0");
+  act("p", "protect-card", { card: "c0", protected: true });
+  act("p", "wishlist", { card: "c0", wanted: true });
+  act("p", "showcase", { cards: ["c0"] });
+  const profile = e.profile("p");
+  assert.deepEqual(profile.wishlist, ["c0"]);
+  assert.equal(profile.showcase[0].protected, 1);
+  const row = e.economy.wishlist.page("p", "wishlist").rows[0];
+  assert.equal(row.protected, 1);
+  assert.equal(row.wishlisted, true);
+  assert.deepEqual(e.profile("q").wishlist, []);
+  assert.equal(e.profile("q").inventory[0].protected, 0);
+});

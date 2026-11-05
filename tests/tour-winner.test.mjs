@@ -232,8 +232,9 @@ test("public and host winner forms contain no score controls, retain team-keyed 
       drafts: { [p.id]: d },
       signedIn: true,
     });
-  assert.match(html, /Who will win/);
-  assert.match(html, /value="Delta" selected/);
+  assert.match(html, /Vote Distribution/);
+  assert.doesNotMatch(html, /<select name="winner"/);
+  assert.match(html, /value="Delta" required checked/);
   assert.doesNotMatch(html, /name="score[AB]"|Two-game result/);
   assert.match(winnerCreatePanel(), /name="winnerReward"[^>]*value="1000"/);
   assert.doesNotMatch(winnerCreatePanel(), /name="format"|name="scoreReward"/);
