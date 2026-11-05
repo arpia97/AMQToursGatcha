@@ -414,3 +414,13 @@ html[data-card-size="large"]
 .card-size-control select {
   min-width: 94px;
 }
+
+/* A gentle opacity fade remains legible without introducing reduced-motion movement. */
+@media (prefers-reduced-motion: reduce) {
+  .card-surface .card-front,
+  .card-surface .card-back {
+    transition:
+      opacity 0.25s ease,
+      visibility 0.25s !important;
+  }
+}
