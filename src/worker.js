@@ -638,6 +638,17 @@ export class Game extends DurableObject {
           })),
         );
       }
+      if (path === "host/credit-audit" && !post)
+        return json(e.creditAudit.page(Object.fromEntries(url.searchParams)));
+      if (path === "host/activity-csv" && !post)
+        return new Response(e.creditAudit.recentCSV(), {
+          headers: {
+            "Content-Type": "text/csv; charset=utf-8",
+            "Content-Disposition":
+              'attachment; filename="amqtours-recent-activity-12h.csv"',
+            "Cache-Control": "no-store",
+          },
+        });
       if (path === "host/state" && !post)
         return json({
           canManageHosts:
@@ -835,7 +846,11 @@ export class Game extends DurableObject {
         "host:" + path,
         request.headers.get("Idempotency-Key"),
         b,
-        () => e.host(path.slice(5), b),
+        () =>
+          e.creditAudit.asHost(
+            hostTokenValid ? "host-token" : e.hostIdentity(sessionHash),
+            () => e.host(path.slice(5), b),
+          ),
       );
       const next = e.ensureAuctions();
       await this.scheduleAlarm(next);

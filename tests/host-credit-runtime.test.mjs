@@ -126,4 +126,81 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   });
   assert.equal(response.status, 409);
   assert.equal((await read()).balance, after.balance);
+  // Delegated hosts share read-only credit audits, without owner-only access.
+  await post(
+    "host/players",
+    { players: [{ id: "2", name: "Delegated Host" }] },
+    host,
+  );
+  const registeredHost = await post("register", {
+    player: "2",
+    password: "local-host-password",
+  });
+  assert.equal(registeredHost.status, 200);
+  const hostCookie = registeredHost.headers.get("set-cookie").split(";")[0];
+  response = await post(
+    "host/permissions",
+    { player: "2", enabled: true },
+    host,
+  );
+  assert.equal(response.status, 200);
+  for (const path of ["host/credit-audit", "host/activity-csv"]) {
+    assert.equal(
+      (await mf.dispatchFetch("http://game/api/" + path)).status,
+      401,
+    );
+    assert.equal(
+      (
+        await mf.dispatchFetch("http://game/api/" + path, {
+          headers: { Cookie: cookie },
+        })
+      ).status,
+      401,
+    );
+    assert.equal(
+      (
+        await mf.dispatchFetch("http://game/api/" + path, {
+          headers: { Cookie: hostCookie },
+        })
+      ).status,
+      200,
+    );
+  }
+  response = await post(
+    "host/grant",
+    {
+      player: "1",
+      amount: 200,
+      reason: "reporting",
+      note: "Delegated audit award",
+      event: "Runtime tour",
+    },
+    { Cookie: hostCookie },
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  const audit = await (
+    await mf.dispatchFetch("http://game/api/host/credit-audit?kind=host", {
+      headers: { Cookie: hostCookie },
+    })
+  ).json();
+  const award = audit.rows.find((r) =>
+    r.reason.includes("Delegated audit award"),
+  );
+  assert.equal(award.actor, "2");
+  assert.equal(award.category, "reporting");
+  response = await mf.dispatchFetch("http://game/api/host/activity-csv", {
+    headers: { Cookie: hostCookie },
+  });
+  assert.match(response.headers.get("content-type"), /text\/csv/);
+  assert.match(await response.text(), /Delegated audit award/);
+  assert.equal(
+    (
+      await post(
+        "host/permissions",
+        { player: "1", enabled: true },
+        { Cookie: hostCookie },
+      )
+    ).status,
+    403,
+  );
 });

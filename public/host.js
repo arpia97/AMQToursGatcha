@@ -1,3 +1,4 @@
+import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
 import {
   quizHostPanel,
@@ -36,6 +37,18 @@ let participationDraft = null,
   managedTour = null,
   settlementTour = null;
 const settlementDrafts = {};
+let auditData = null,
+  auditFilters = { kind: "spent", scope: "all", window: "12h", player: "" },
+  auditHistory = [];
+async function loadCreditAudit(reset = false) {
+  if (reset) {
+    delete auditFilters.before;
+    delete auditFilters.to;
+    auditHistory = [];
+  }
+  auditData = await api("credit-audit?" + new URLSearchParams(auditFilters));
+  auditFilters.to = auditData.to;
+}
 const importActive = (j) =>
   ["running", "waiting"].includes(j.status) ||
   (j.status === "completed" && !!j.favorites);
@@ -120,7 +133,7 @@ function render() {
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
-    html = `<section class="host-panel"><h2>Recover Account Access</h2><p>Codes can be used once and expire in seven days. Deliver the code to the correct player through your usual channel. An account reset revokes sessions and preserves credits and cards.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><label>Action<select name="operation"><option value="invite">Issue access recovery code</option><option value="reset">Reset existing account access</option></select></label><button class="button secondary" type="submit">Generate one-use code →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
+    html = `<section class="host-panel"><h2>Recover Account Access</h2><p>Reset an existing account’s access while preserving its credits and cards. Existing sessions are revoked. The replacement recovery code can be used once and expires in seven days.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><button class="button secondary" type="submit">Reset Account Access →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
         (p) =>
           `<tr><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${p.registered ? "Registered" : "Awaiting registration"}</td><td>${state.aliases
@@ -157,8 +170,10 @@ function render() {
     if (state.catalogSummary?.source?.provider === "ACDB")
       html += `<section class="host-panel danger-panel"><h2>Replace the Retired ACDB Catalogue</h2><p class="warning-copy">Removes ACDB cards from collections and auctions, clears affected avatars, and refunds unclaimed auction holds. Other gameplay and accounts remain. Starts the MAL character import on Tenrai.</p><form id="replace-acdb" class="stack"><label>Type REPLACE ACDB WITH TENRAI<input name="confirmation" required autocomplete="off"></label><button class="button danger" type="submit">Replace ACDB with Tenrai</button></form></section>`;
   }
+  if (tab === "credit-audit")
+    html = creditAuditPanel(auditData, auditFilters, state.players, esc);
   if (tab === "activity")
-    html = `<section class="host-panel"><h2>Every Credit Leaves a Trail.</h2><p>Latest 100 wallet movements, including grants, pack purchases, auction holds, refunds, and pick’em payouts. Refunds do not increase lifetime earnings.</p><button class="button secondary" id="export-ledger">Download recent activity CSV</button></section><div class="table-wrap"><table><thead><tr><th>Time</th><th>Player ID</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
+    html = `<section class="host-panel"><h2>Every Credit Leaves a Trail.</h2><p>Latest 100 wallet movements. The CSV includes all available activity from the last 12 hours, including grants, purchases, holds, refunds and payouts.</p><button class="button secondary" id="export-ledger">Download Last 12 Hours CSV</button></section><div class="table-wrap"><table><thead><tr><th>Time</th><th>Player ID</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
     html += `<section class="host-panel"><h2>Character Main / Supporting Roles</h2><p>The first Main appearance is preferred as the series shown on the card; later Supporting credits do not demote it. Host corrections take precedence. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role-search" class="stack"><label>Find a character by name or series<input name="query" maxlength="100" placeholder="Frieren"></label><button class="button secondary" type="submit">Search catalog →</button></form><form id="role" class="stack space-top"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
       .filter((c) => c.kind === "character")
@@ -277,6 +292,18 @@ document.addEventListener("submit", async (ev) => {
       return;
     }
     const b = Object.fromEntries(new FormData(form));
+    if (formIdentifier(form) === "credit-audit-filters") {
+      auditFilters = {
+        kind: b.kind,
+        scope: b.scope,
+        window: b.window,
+        player: b.player,
+      };
+      await loadCreditAudit(true);
+      render();
+      report("");
+      return;
+    }
     let result;
     if (formIdentifier(form) === "quiz-save") {
       result = await api("quiz-save", await quizHostBody(form), key);
@@ -474,7 +501,6 @@ document.addEventListener("submit", async (ev) => {
     }
     if (formIdentifier(form) === "access") {
       if (
-        b.operation === "reset" &&
         !confirm(
           "Reset access for " +
             b.player +
@@ -482,7 +508,7 @@ document.addEventListener("submit", async (ev) => {
         )
       )
         return;
-      result = await api(b.operation, { player: b.player });
+      result = await api("reset", { player: b.player });
     }
     if (form.dataset.settleMatch) {
       const match = settlementMatch(form.dataset.settleMatch),
@@ -675,7 +701,7 @@ document.addEventListener("change", (ev) => {
 });
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest(
-    "[data-tab],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh],[data-cancel-deduction]",
+    "[data-tab],[data-audit-page],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh],[data-cancel-deduction]",
   );
   if (!t || working) return;
   if (t.hasAttribute("data-cancel-deduction")) {
@@ -725,6 +751,17 @@ document.addEventListener("click", async (ev) => {
     tab = t.dataset.tab;
     render();
     report("");
+    if (tab === "credit-audit") {
+      working = true;
+      try {
+        await loadCreditAudit(true);
+        render();
+      } catch (error) {
+        report(error.message, true);
+      } finally {
+        working = false;
+      }
+    }
   }
   if (t.id === "lock") {
     if (adminSession) {
@@ -749,29 +786,39 @@ document.addEventListener("click", async (ev) => {
     $("#unlock").hidden = false;
     report("Console locked.");
   }
+  if (t.dataset.auditPage) {
+    working = true;
+    try {
+      if (t.dataset.auditPage === "next") {
+        auditHistory.push(auditFilters.before || "");
+        auditFilters.before = auditData.next;
+      } else auditFilters.before = auditHistory.pop() || "";
+      await loadCreditAudit();
+      render();
+    } catch (error) {
+      report(error.message, true);
+    } finally {
+      working = false;
+    }
+  }
   if (t.id === "export-ledger") {
-    const cell = (s) =>
-      '"' +
-      String(s ?? "")
-        .replace(/"/g, '""')
-        .replace(/^[=+@-]/, "'$&") +
-      '"';
-    const csv = [
-      ["time", "player", "delta", "reason"],
-      ...state.ledger.map((l) => [
-        new Date(l.at).toISOString(),
-        l.player,
-        l.delta,
-        l.reason,
-      ]),
-    ]
-      .map((r) => r.map(cell).join(","))
-      .join("\r\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = "amqtours-recent-activity.csv";
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    working = true;
+    t.disabled = true;
+    try {
+      const response = await fetch("api/host/activity-csv");
+      if (!response.ok)
+        throw Error((await response.json()).error || "Activity export failed.");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(await response.blob());
+      a.download = "amqtours-recent-activity-12h.csv";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (error) {
+      report(error.message, true);
+    } finally {
+      working = false;
+      t.disabled = false;
+    }
   }
 });
 

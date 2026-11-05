@@ -1,3 +1,4 @@
+import { CreditAudit } from "./credit-audit.js";
 import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
@@ -96,6 +97,7 @@ export class Engine {
     this.pickemEvents = new PickemEvents(this);
     this.participation = new Participation(this);
     this.quiz = new Quiz(this);
+    this.creditAudit = new CreditAudit(this);
     migrateEnhancements(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
@@ -612,6 +614,7 @@ export class Engine {
           409,
         );
       this.wallet(quote.player, -quote.amount, "Host deduction: " + quote.note);
+      this.creditAudit.record("deduction");
       return {
         message:
           "Deducted " + quote.amount + " credits from " + quote.name + ".",
@@ -647,6 +650,7 @@ export class Engine {
           240,
         );
       this.wallet(id, amount, `${b.reason}: ${note}`, true);
+      this.creditAudit.record(b.reason, b.event || note);
       if (["participation", "reporting", "counting"].includes(b.reason))
         this.run(
           "INSERT OR IGNORE INTO tour_events VALUES(?,?,?)",
@@ -844,6 +848,10 @@ export class Engine {
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
       this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
+      this.run(
+        "DELETE FROM host_credit_issues WHERE ledger IN (SELECT id FROM ledger WHERE player=?)",
+        id,
+      );
       for (const table of [
         "inventory",
         "ledger",
@@ -874,6 +882,7 @@ export class Engine {
         fail("The confirmation phrase does not match the selected reset.");
       for (const table of [
         "inventory",
+        "host_credit_issues",
         "ledger",
         "predictions",
         "tour_events",

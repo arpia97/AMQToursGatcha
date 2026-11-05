@@ -1130,10 +1130,9 @@
 .profile-avatar.large .avatar-crop img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
-  background: #171d28;
-  border-radius: 0;
+  object-fit: cover;
+  object-position: center 20%;
+  border-radius: 50%;
   display: block;
 }
 .profile-avatar b {
