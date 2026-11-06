@@ -193,7 +193,6 @@ function fixture(
     writes,
     node,
     button,
-    setScore: (score) => (run.score = score),
     advance: async (ms) => {
       now += ms;
       interval?.();
@@ -349,101 +348,6 @@ test("leaderboard-only navigation never starts or resumes audio or a quiz run", 
   );
 });
 
-test("the live score badge follows every established quiz rarity threshold", async (t) => {
-  const f = fixture(t);
-  await f.start();
-  for (const [score, tier] of [
-    [0, "d"],
-    [3, "c"],
-    [5, "b"],
-    [8, "a"],
-    [10, "s"],
-    [13, "ss"],
-    [15, "sss"],
-    [18, "ubers"],
-    [20, "ag"],
-  ]) {
-    f.setScore(score);
-    assert.match(f.ui.render(), new RegExp("quiz-score tier-" + tier + '"'));
-  }
-});
-
-test("quiz keeps a visible top-20 sidebar and button controls without dropdowns, paging or ranking prose", async (t) => {
-  const rows = Array.from({ length: 25 }, (_, i) => ({
-    id: "p" + i,
-    name: "Collector " + (i + 1),
-    best: 20 - Math.floor(i / 2),
-    bestAt: 1000 + i,
-  }));
-  const f = fixture(t, { leaderboardRows: rows });
-  await f.start();
-  const html = f.ui.render();
-  assert.match(html, /quiz-play-layout/);
-  assert.match(html, /<aside class="quiz-leaderboard"/);
-  assert.match(html, /Top 20/);
-  assert.ok(html.includes("Collector 20</a>"));
-  assert.ok(!html.includes("Collector 21</a>"));
-  assert.doesNotMatch(
-    html,
-    /Highest score first|Ties go to|data-quiz-rank-page|<details class="quiz-leaderboard"/,
-  );
-  assert.match(
-    html,
-    /class="button secondary" data-quiz-action="quiz-restart"/,
-  );
-  assert.match(html, /class="button secondary" data-quiz-back/);
-  assert.equal(
-    f.calls.filter((c) => c.path.startsWith("quiz-leaderboard")).length,
-    1,
-  );
-});
-
-test("Enter locks the only dropdown answer once without arrow selection or submitting the typed prefix", async (t) => {
-  const f = fixture(t);
-  await f.start();
-  await f.advance(2000);
-  const input = f.node("quiz-answer");
-  input.value = "boc";
-  await f.ui.input(input);
-  let prevented = 0;
-  const key = {
-    key: "Enter",
-    target: input,
-    preventDefault() {
-      prevented++;
-    },
-  };
-  f.ui.key(key);
-  f.ui.key({ ...key, repeat: true });
-  await flush();
-  assert.equal(input.value, "Bocchi the Rock!");
-  assert.equal(prevented, 2);
-  const answers = f.calls.filter((c) => c.path === "quiz-answer");
-  assert.equal(answers.length, 1);
-  assert.equal(answers[0].b.answer, "Bocchi the Rock!");
-  assert.equal(f.node("quiz-suggestions").hidden, true);
-  assert.match(f.ui.render(), /Correct!/);
-});
-test("arrow navigation previews each option in the input while retaining the original matches", async (t) => {
-  const f = fixture(t);
-  await f.start();
-  await f.advance(2000);
-  const input = f.node("quiz-answer");
-  input.value = "bo";
-  await f.ui.input(input);
-  const before = f.calls.length;
-  const arrow = (key) => f.ui.key({ key, target: input, preventDefault() {} });
-  arrow("ArrowDown");
-  assert.equal(input.value, "Bocchi the Rock!");
-  arrow("ArrowDown");
-  assert.equal(input.value, "Boku no Hero Academia");
-  assert.equal(input.attrs["aria-activedescendant"], "quiz-option-1");
-  arrow("ArrowUp");
-  assert.equal(input.value, "Bocchi the Rock!");
-  assert.equal(f.calls.length, before);
-  assert.match(f.node("quiz-suggestions").innerHTML, /Boku no Hero Academia/);
-});
-
 test("Enter locks the first match by default and the arrow-highlighted match when explicitly selected", async (t) => {
   const f = fixture(t);
   await f.start();
@@ -465,9 +369,16 @@ test("Enter locks the first match by default and the arrow-highlighted match whe
   await f.advance(2000);
   input.value = "bo";
   await f.ui.input(input);
+  const beforeArrows = f.calls.length;
   press("ArrowDown");
+  assert.equal(input.value, "Bocchi the Rock!");
   press("ArrowDown");
   assert.equal(input.value, "Boku no Hero Academia");
+  press("ArrowUp");
+  assert.equal(input.value, "Bocchi the Rock!");
+  assert.equal(f.calls.length, beforeArrows);
+  assert.match(f.node("quiz-suggestions").innerHTML, /Boku no Hero Academia/);
+  press("ArrowDown");
   press("Enter");
   await flush();
   const answers = f.calls.filter((c) => c.path === "quiz-answer");
@@ -495,14 +406,6 @@ test("answer reveals distinguish correct and incorrect glow states and escape th
   assert.match(html, /quiz-question is-incorrect/);
   assert.ok(html.includes("&lt;My &amp; Guess>"));
   assert.ok(!html.includes("<My & Guess>"));
-});
-test("skipped questions show No Answer with incorrect feedback", async (t) => {
-  const f = fixture(t);
-  await f.start();
-  await f.ui.click(f.button("data-quiz-skip"));
-  const html = f.ui.render();
-  assert.match(html, /quiz-question is-incorrect/);
-  assert.match(html, /No Answer/);
 });
 
 test("quiz performance sorting uses personal best, keeps ties stable and preserves source order", async () => {

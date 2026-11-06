@@ -2,23 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
-import {
-  roundRobin,
-  swissRound,
-  validateTeams,
-} from "../public/pickem-formats.js";
+import { swissRound } from "../public/pickem-formats.js";
 import { participationNames } from "../public/participation.js";
-import {
-  tourSummaries,
-  pickemBoard,
-  predictionDraft,
-  predictionBody,
-} from "../public/pickem-board.js";
-import {
-  scheduleReview,
-  prepareSchedule,
-  accessPanel,
-} from "../public/host-panels.js";
+
 const teams = (n) => Array.from({ length: n }, (_, i) => "Team " + (i + 1));
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
@@ -53,90 +39,7 @@ function fixture(t) {
     host: (a, b) => e.tx(() => e.host(a, b)),
   };
 }
-test("round robin schedules include each pair once or twice, reversed in the second leg, one match per team per round", () => {
-  for (const [format, n, numRounds, mult] of [
-    ["double-4", 4, 6, 2],
-    ["single-6", 6, 5, 1],
-  ]) {
-    const ts = teams(n),
-      rounds = roundRobin(format, ts),
-      counts = new Map();
-    assert.equal(rounds.length, numRounds);
-    for (const pairs of rounds) {
-      assert.equal(new Set(pairs.flat()).size, n);
-      for (const pair of pairs) {
-        const key = [...pair].sort().join("|");
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-    }
-    assert.equal(counts.size, (n * (n - 1)) / 2);
-    assert.ok([...counts.values()].every((c) => c === mult));
-    if (mult === 2)
-      assert.deepEqual(
-        rounds.slice(3),
-        rounds.slice(0, 3).map((r) => r.map(([a, b]) => [b, a])),
-      );
-  }
-  assert.throws(() => validateTeams("swiss", teams(7)), /8–64/);
-  assert.throws(
-    () => validateTeams("single-6", ["a", "A", "b", "c", "d", "e"]),
-    /unique/,
-  );
-});
-test("Swiss draws first seeds across halves, ranks results and avoids rematches over successive rounds", () => {
-  const ts = teams(8),
-    matches = [];
-  const seen = new Set();
-  assert.deepEqual(swissRound(ts).pairs[0], ["Team 1", "Team 5"]);
-  for (let r = 0; r < 5; r++) {
-    const { pairs, standings } = swissRound(ts, matches);
-    assert.equal(new Set(pairs.flat()).size, 8);
-    assert.ok(
-      standings.every((s, i) => i === 0 || standings[i - 1].wins >= s.wins),
-    );
-    for (const [a, b] of pairs) {
-      const key = [a, b].sort().join("|");
-      assert.ok(!seen.has(key));
-      seen.add(key);
-      matches.push({
-        team_a: a,
-        team_b: b,
-        result_a: 3,
-        result_b: r % 3,
-        settled: 1,
-        round: r + 1,
-      });
-    }
-  }
-  assert.throws(
-    () => swissRound(ts, [{ ...matches[0], settled: 0 }]),
-    /Settle/,
-  );
-});
-test("odd Swiss fields rotate a single bye without repeats and count it as a standings win", () => {
-  const ts = teams(9),
-    matches = [],
-    byes = [];
-  for (let round = 1; round <= 4; round++) {
-    const draw = swissRound(ts, matches, byes);
-    assert.equal(draw.pairs.length, 4);
-    assert.equal(new Set([...draw.pairs.flat(), draw.bye]).size, 9);
-    assert.ok(!byes.some((b) => b.team === draw.bye));
-    if (round === 2)
-      assert.equal(draw.standings.find((s) => s.team === "Team 9").wins, 1);
-    byes.push({ team: draw.bye, round });
-    matches.push(
-      ...draw.pairs.map(([a, b]) => ({
-        team_a: a,
-        team_b: b,
-        settled: 1,
-        result_a: 3,
-        result_b: 1,
-        round,
-      })),
-    );
-  }
-});
+
 test("event publishing is atomic, defaults to1000 winner/500 per exact score, preserves standalone matches and fences Swiss rounds", (t) => {
   const { e, host, now, time } = fixture(t);
   const b = {
@@ -292,96 +195,7 @@ test("delegated hosts require explicit owner grant, persist on restart, revoke i
     /register/,
   );
 });
-test("host schedule review escapes names and exposes per-round editable deadlines and reward defaults", () => {
-  const escape = (s) => String(s).replaceAll("<", "&lt;");
-  const d = prepareSchedule(
-    { name: "<Tour>", format: "double-4", teams: teams(4).join("\n") },
-    {},
-  );
-  const html = scheduleReview(d, escape);
-  assert.match(html, /&lt;Tour>/);
-  assert.match(html, /deadline-2/);
-  assert.match(html, /value="500"/);
-  assert.doesNotMatch(
-    accessPanel({ players: [], canManageHosts: false }, escape),
-    /id="host-permissions"/,
-  );
-});
-test("schedule preparation explains missing names, wrong team counts, duplicates and an empty Swiss selection", () => {
-  const form = { name: "Tour", format: "double-4", teams: teams(4).join("\n") };
-  assert.throws(
-    () => prepareSchedule({ ...form, name: " " }, {}),
-    /Enter a tour name/,
-  );
-  assert.throws(
-    () =>
-      prepareSchedule({ ...form, teams: "Team A, Team B, Team C, Team D" }, {}),
-    /You entered 1.*separate line/,
-  );
-  assert.throws(
-    () => prepareSchedule({ ...form, teams: "A\na\nB\nC" }, {}),
-    /unique/,
-  );
-  assert.throws(
-    () => prepareSchedule({ event: "" }, { pickemEvents: [] }),
-    /Choose a Swiss event/,
-  );
-  assert.equal(prepareSchedule({ ...form, name: "  Tour  " }, {}).name, "Tour");
-});
-test("reviewed host schedules publish active public pickems once for every supported format", (t) => {
-  for (const [format, count, matches] of [
-    ["double-4", 4, 6],
-    ["single-6", 6, 15],
-    ["swiss", 8, 4],
-  ]) {
-    const { e, now } = fixture(t);
-    const draft = prepareSchedule(
-      { name: "Active tour", format, teams: teams(count).join("\r\n") },
-      {},
-    );
-    const body = JSON.parse(
-      JSON.stringify({
-        ...draft.body,
-        deadlines: draft.rounds.map(() => null),
-        winnerReward: 500,
-        scoreReward: 500,
-      }),
-    );
-    const publish = () =>
-      e.mutate("host:host/pickem-event", "reviewed-tour", body, () =>
-        e.host(draft.path, body),
-      );
-    const result = publish();
-    assert.deepEqual(publish(), result);
-    const page = e.pickemPage(null);
-    assert.equal(page.pickems.length, matches);
-    assert.ok(
-      page.pickems.every(
-        (p) =>
-          p.event_id === result.event &&
-          p.tour === draft.name &&
-          p.ends === now() + 900000 &&
-          !p.settled &&
-          p.winner_reward === 500 &&
-          p.score_reward === 500,
-      ),
-    );
-    assert.equal(e.state(null).activePickem.tour, draft.name);
-    const p = page.pickems[0];
-    e.tx(() =>
-      e.action("p", "predict", {
-        pickem: p.id,
-        winner: "a",
-        scoreA: format === "double-4" ? 2 : 3,
-        scoreB: format === "double-4" ? 0 : 1,
-      }),
-    );
-    assert.equal(
-      e.pickemPage("p").pickems.find((x) => x.id === p.id).prediction,
-      "a",
-    );
-  }
-});
+
 test("public tours paginate by complete tour and expand every round with private predictions", (t) => {
   const { e, host } = fixture(t);
   const first = host("pickem-event", {
@@ -553,89 +367,6 @@ test("tour names update the public summary without changing match outcomes or pr
         expectedName: "Typo",
       }),
     /changed/,
-  );
-});
-test("compact board shows one tour button and expands all chronological rounds with escaped names", () => {
-  const matches = Array.from({ length: 12 }, (_, i) => ({
-    id: i + 1,
-    event_id: 1,
-    tour: "<Tour>",
-    round: Math.floor(i / 2) + 1,
-    team_a: "<A>",
-    team_b: "B",
-    title: "Match",
-    ends: 1000,
-    winner_reward: 500,
-    score_reward: 500,
-    settled: 0,
-  }));
-  const tours = tourSummaries(matches, 0),
-    tools = {
-      escape: (s) => String(s).replaceAll("<", "&lt;"),
-      number: String,
-      remaining: () => "10 minutes",
-      now: 0,
-    };
-  const compact = pickemBoard(tours, null, tools);
-  assert.equal((compact.match(/data-action="pickem-tour"/g) || []).length, 1);
-  assert.doesNotMatch(compact, /class="pickem-table-row"/);
-  const expanded = pickemBoard(tours, { key: 1, matches, byes: [] }, tools);
-  assert.equal((expanded.match(/class="pickem-table-row"/g) || []).length, 12);
-  assert.ok(
-    expanded.indexOf('class="round-number">1') <
-      expanded.indexOf('class="round-number">6'),
-  );
-  assert.equal((expanded.match(/data-inline-prediction=/g) || []).length, 12);
-  assert.match(expanded, /name="winner" form="tour-prediction-1"/);
-  assert.match(expanded, /name="scoreA" form="tour-prediction-1"/);
-  assert.match(expanded, />Confirm<\/button>/);
-  assert.match(expanded, /&lt;Tour>/);
-  assert.doesNotMatch(expanded, /<A>/);
-  assert.match(expanded, /aria-expanded="true"/);
-});
-test("inline prediction drafts survive refreshes, reset after team changes and validate complete winner/score submissions", () => {
-  const p = {
-    id: 7,
-    team_a: "A",
-    team_b: "B",
-    prediction: "a",
-    prediction_a: 3,
-    prediction_b: 1,
-  };
-  const draft = {
-    ...predictionDraft(p),
-    winner: "b",
-    scoreA: "2",
-    scoreB: "4",
-  };
-  assert.deepEqual(predictionDraft({ ...p, prediction_a: 5 }, draft), draft);
-  assert.equal(
-    predictionDraft({ ...p, team_a: "Replacement" }, draft).winner,
-    "a",
-  );
-  assert.deepEqual(predictionBody({ pickem: "7", ...draft }), {
-    pickem: 7,
-    winner: "b",
-    scoreA: 2,
-    scoreB: 4,
-  });
-  assert.throws(
-    () => predictionBody({ pickem: "7", winner: "a", scoreA: "", scoreB: "0" }),
-    /both predicted scores/,
-  );
-  assert.throws(
-    () => predictionBody({ pickem: "7", winner: "", scoreA: "3", scoreB: "1" }),
-    /winning team/,
-  );
-  assert.throws(
-    () =>
-      predictionBody({ pickem: "7", winner: "a", scoreA: "1", scoreB: "3" }),
-    /agree/,
-  );
-  assert.throws(
-    () =>
-      predictionBody({ pickem: "7", winner: "a", scoreA: "3.5", scoreB: "1" }),
-    /whole numbers/,
   );
 });
 

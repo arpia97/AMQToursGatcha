@@ -100,6 +100,9 @@ pnpm build
 
 `pnpm check` discovers JavaScript modules in `src`, `public`, `tools`, and `tests` automatically. Generated `public/vendor` files are checked separately by rebuilding them in CI. The test suite uses real SQLite transactions for the shared economy, weighted draws, aliases, profiles, and reset operations. `pnpm build` performs a Cloudflare deployment dry run. With the local dev server running, `node tools/smoke.mjs` checks the actual API, auth, and concurrent mutations using synthetic players. It creates local test data only. Do not point it at production.
 
+Test maintenance: keep coverage for live economic behavior, permissions, ownership, imports, and migrations. Prefer one cohesive interaction test over repeated markup/wording checks. Retired features retain only compatibility, restoration, and rejection coverage where existing data or callable endpoints still need it; do not retain a complete obsolete gameplay/UI suite. Avoid fixed catalogue/portrait counts that force unrelated test edits whenever content is added.
+
+
 ## Initial data and remaining setup
 
 Characters and Japanese seiyuus now import gradually from the MAL catalogue through Tenrai, using MAL IDs and portraits. Character roles use documented Main/Supporting credits. Cards retain English and Romaji/default anime titles, with a persistent display toggle and search across both versions. The old ACDB snapshot and public download have been retired.

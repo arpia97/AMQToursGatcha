@@ -61,7 +61,7 @@ function fixture(t) {
     );
   return { e, act, filters, quote, map, sql, tx };
 }
-test("protection persists across pulls and restart and blocks sales, listings and fusion for all copies", (t) => {
+test("protection persists across pulls and restart and blocks sales and listings for all copies", (t) => {
   const { e, act, sql, tx } = fixture(t);
   act("protect-card", { card: "d", protected: true });
   e.addCard("p", "d");
@@ -79,13 +79,6 @@ test("protection persists across pulls and restart and blocks sales, listings an
     );
     assert.throws(
       () => act("list-card", { card: "d", variant, venue: "shop", price: 100 }),
-      /protected/,
-    );
-    assert.throws(
-      () =>
-        e.economy.fusion.prepare("p", [
-          { card: "d", variant, expectedRarity: "D", expectedLevel: 3 },
-        ]),
       /protected/,
     );
   }

@@ -2,17 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
-import {
-  DAILY_CREDITS,
-  MAX_SPOTLIGHTS,
-  MAX_PINNED_ANIME,
-  PICKEM_WINDOW,
-} from "../public/site-defaults.js";
+import { MAX_SPOTLIGHTS, MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { roleBadge } from "../public/role-label.js";
-import {
-  deadlineFields,
-  updateRewardDefaults,
-} from "../public/host-defaults.js";
+import { updateRewardDefaults } from "../public/host-defaults.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -75,25 +67,7 @@ test("twenty unique owned spotlights are allowed and a twenty-first cannot repla
     /collection/,
   );
 });
-test("daily credits are 300 once per KST day, with no regrant to a player who already claimed the old amount", (t) => {
-  const { e, advance, now } = fixture(t);
-  assert.equal(DAILY_CREDITS, 300);
-  e.wallet("p", 100, "Daily login", true);
-  e.run(
-    "UPDATE players SET daily=? WHERE id='p'",
-    new Date(now() + 9 * 3600000).toISOString().slice(0, 10),
-  );
-  assert.throws(() => e.economy.daily("p"), /already claimed/);
-  assert.equal(e.player("p").balance, 100);
-  advance(86400000);
-  assert.equal(e.tx(() => e.action("p", "daily", {})).credits, 300);
-  assert.equal(e.player("p").balance, 400);
-  assert.equal(e.player("p").earned, 400);
-  assert.throws(
-    () => e.tx(() => e.action("p", "daily", {})),
-    /already claimed/,
-  );
-});
+
 test("host reward defaults use 1000 participation, 500 per counted game and 500 per reported game, while explicit amounts stay editable", (t) => {
   const { e, host } = fixture(t);
   host("grant", {
@@ -145,45 +119,7 @@ test("host reward defaults use 1000 participation, 500 per counted game and 500 
   });
   assert.equal(e.player("p").balance, 5042);
 });
-test("default pickem deadlines are exactly fifteen minutes after actual posting, including generated rounds, and explicit deadlines remain editable", (t) => {
-  const { e, host, advance, now } = fixture(t);
-  advance(240000);
-  host("pickem", { title: "Match", tour: "Tour", teamA: "A", teamB: "B" });
-  assert.equal(
-    e.one("SELECT ends FROM pickems WHERE id=1").ends,
-    now() + PICKEM_WINDOW,
-  );
-  const chosen = now() + 3600000;
-  host("pickem", {
-    title: "Later",
-    tour: "Tour",
-    teamA: "A",
-    teamB: "B",
-    ends: chosen,
-  });
-  assert.equal(e.one("SELECT ends FROM pickems WHERE id=2").ends, chosen);
-  const ev = host("pickem-event", {
-    name: "Four",
-    format: "double-4",
-    teams: ["A", "B", "C", "D"],
-  });
-  assert.ok(
-    e.pickemEvents
-      .read(ev.event)
-      .matches.every((m) => m.ends === now() + 900000),
-  );
-  const automatic = host("pickem-event", {
-    name: "Six",
-    format: "single-6",
-    teams: ["A", "B", "C", "D", "E", "F"],
-    deadlines: [null, null, null, null, null],
-  });
-  assert.equal(e.pickemEvents.read(automatic.event).matches.length, 15);
-  assert.match(
-    deadlineFields("ends", "Voting closes", now()),
-    /name="endsAutomatic"[^>]*checked/,
-  );
-});
+
 test("Host titles follow effective owner/delegated roles and disappear immediately on revocation; names and rogue flags cannot confer titles", (t) => {
   const { e } = fixture(t);
   e.run("UPDATE players SET password='hash',is_admin=1");

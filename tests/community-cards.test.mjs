@@ -30,56 +30,7 @@ function fixture(t) {
   e.host("players", { players: [{ id: "p", name: "Player" }] });
   return { e, sql, tx, host: (b) => e.tx(() => e.host("catalog", b)) };
 }
-test("GGius Tours manifest has all25 exact names/rarities, correct types and original local image assets", () => {
-  const expected = {
-    ArronChu: "AG",
-    "Austin the Kangaroo": "Ubers",
-    bop: "AG",
-    catdelusion: "SS",
-    catdespair: "SSS",
-    Catge: "B",
-    Chommy: "C",
-    cluegi: "S",
-    como: "SSS",
-    dogmelon: "SS",
-    doncato: "AG",
-    DONTENJOY: "A",
-    ENJOY: "A",
-    gregory: "B",
-    pogsire: "S",
-    raiva: "SSS",
-    SHADOG: "B",
-    skull_emoji: "AG",
-    vosnatu: "A",
-    worryriot: "A",
-    CHOMMYNOODLES: "AG",
-    "Chris Lefkó": "AG",
-    "Pregnant Noel": "AG",
-    comochungus: "A",
-    msfearful: "SSS",
-  };
-  assert.equal(cards.length, 25);
-  assert.equal(new Set(cards.map((c) => c.id)).size, 25);
-  assert.deepEqual(
-    Object.fromEntries(cards.map((c) => [c.name, c.fixedRarity])),
-    expected,
-  );
-  for (const c of cards) {
-    assert.equal(
-      c.kind,
-      c.id === "community-ggius-chrislefko" ? "seiyuu" : "character",
-    );
-    assert.equal(c.series, "GGius Tours");
-    assert.equal(c.series_romaji, c.series);
-    assert.equal(c.series_english, c.series);
-    const url = new URL(c.image);
-    assert.equal(url.origin, "https://play.amqtours-gatcha.workers.dev");
-    assert.ok(
-      fs.statSync(new URL("../public" + url.pathname, import.meta.url)).size >
-        0,
-    );
-  }
-});
+
 test("community rarity survives metadata updates, favorite refresh, restart and gameplay reset without changing MAL percentile ranks", (t) => {
   const { e, sql, tx, host } = fixture(t);
   host({ cards });
@@ -108,14 +59,14 @@ test("community rarity survives metadata updates, favorite refresh, restart and 
       },
     ],
   });
-  assert.equal(e.catalogStore.card(first.id).rarity, "AG");
+  assert.equal(e.catalogStore.card(first.id).rarity, first.fixedRarity);
   const restart = new Engine(sql, tx);
-  assert.equal(restart.catalogStore.card(first.id).rarity, "AG");
+  assert.equal(restart.catalogStore.card(first.id).rarity, first.fixedRarity);
   e.host("reset-all", {
     confirmation: "RESET ALL GAME DATA",
     deleteRegistry: false,
   });
-  assert.equal(e.catalogStore.card(first.id).rarity, "AG");
+  assert.equal(e.catalogStore.card(first.id).rarity, first.fixedRarity);
   assert.equal(e.catalogStore.card("mal-character-1").favorites, 1234);
 });
 test("community cards participate in search, rarity sorting, uniform draw pools, premium weighting and anime collection progress", (t) => {

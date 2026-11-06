@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { shopSellPage, createShopUI } from "../public/shop-ui.js";
-import { tileName } from "../public/mahjong-ui.js";
+
 const escape = (s) =>
   String(s)
     .replaceAll("&", "&amp;")
@@ -133,14 +133,4 @@ test("shop exposes enhanced instant quotes, fixed-price listings, withdrawals, a
   html = shop.render();
   assert.match(html, /Sign in/);
   assert.doesNotMatch(html, /data-action="instant-sell"/);
-});
-test("Mahjong numbered tile labels consistently use man, pin and sou while honors retain names", () => {
-  assert.equal(tileName(0), "1 man");
-  assert.equal(tileName(8), "9 man");
-  assert.equal(tileName(9), "1 pin");
-  assert.equal(tileName(17), "9 pin");
-  assert.equal(tileName(18), "1 sou");
-  assert.equal(tileName(26), "9 sou");
-  assert.equal(tileName(27), "East wind");
-  assert.equal(tileName(33), "Red dragon");
 });

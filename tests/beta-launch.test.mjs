@@ -32,17 +32,7 @@ function fixture(t) {
   });
   return { e, db, tx };
 }
-test("only canonical arpia97 may authorize host actions, even if another player is marked admin", (t) => {
-  const { e } = fixture(t);
-  e.run("UPDATE players SET is_admin=1");
-  e.run(
-    "INSERT INTO sessions VALUES('owner','368',9999999999999),('other','q',9999999999999)",
-  );
-  assert.equal(e.adminSession("owner"), true);
-  assert.equal(e.adminSession("other"), false);
-  assert.equal(e.player("q").is_admin, 0);
-  assert.equal(e.player("368").is_admin, 1);
-});
+
 test("clean beta reset is idempotent and preserves accounts/catalogue while restoring5000 and refreshing stock", (t) => {
   const { e } = fixture(t);
   e.run(

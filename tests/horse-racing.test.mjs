@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
+
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
-import { HORSE_ROSTER } from "../public/horse-roster.js";
+
 import {
   makeRaceField,
   decoratedHorse,
@@ -66,26 +66,7 @@ const equalField = () =>
     weight: 100,
   }));
 const close = (a, b) => assert(Math.abs(a - b) < 1e-10, `${a} != ${b}`);
-test("163 original horse portraits are present, staff excluded, career records distinguish decorated and fictional runners", () => {
-  assert.equal(HORSE_ROSTER.length, 163);
-  assert.equal(new Set(HORSE_ROSTER.map((h) => h.id)).size, 163);
-  assert(!HORSE_ROSTER.some((h) => h.name === "Aoi Kiryuin"));
-  for (const h of HORSE_ROSTER) {
-    const b = fs.readFileSync(new URL("../public/" + h.image, import.meta.url));
-    assert.equal(b.subarray(1, 4).toString(), "PNG");
-    assert.equal(b.readUInt32BE(16), 256);
-    assert.equal(b.readUInt32BE(20), 256);
-    assert(Number.isFinite(horseStrength(h)));
-  }
-  const gold = HORSE_ROSTER.find((h) => h.name === "Gold Ship"),
-    urara = HORSE_ROSTER.find((h) => h.name === "Haru Urara"),
-    rickey = HORSE_ROSTER.find((h) => h.name === "Copano Rickey");
-  assert.equal(gold.g1Wins, 6);
-  assert.equal(rickey.g1Wins, 11);
-  assert(horseStrength(gold) > 4 * horseStrength(urara));
-  for (const h of HORSE_ROSTER.filter((h) => h.fictional))
-    assert.equal(horseStrength(h), 1);
-});
+
 test("fields use six decorated and six other unique runners with shuffled numbers, correct eight brackets and persisted form strength", () => {
   const rng = random(),
     seen = new Set();
