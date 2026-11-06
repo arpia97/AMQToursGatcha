@@ -116,18 +116,34 @@ test("event publishing is atomic, defaults to1000 winner/500 per exact score, pr
   assert.equal(e.pickemEvents.read(ev.event).byes.length, 2);
   assert.throws(() => host("pickem-swiss-round", next), /changed/);
 });
-test("participation paste ignores ratings/totals/guesses, deduplicates aliases to canonical players and credits exactly once per event", (t) => {
+test("participation accepts scored results and ranked signup lists, resolves aliases and credits exactly once per event", (t) => {
   const { e, host } = fixture(t);
   const raw =
     "Player (98.893) oldname (83.829) | Total = 182.722 | Guesses = [54]\nOther (95.528) | Total = 95.528 | Guesses = [5]";
   assert.deepEqual(participationNames(raw), ["Player", "oldname", "Other"]);
+  const ranked = "Player (A), oldname (B-), Other (S+)";
+  assert.deepEqual(participationNames(ranked), ["Player", "oldname", "Other"]);
+  const signup = "HaruUrara (A), xeyz (B-), LordGrond (C), Beokros (S-), lily (S+), Progenitor (S), Ilffam (D+), Mikuu_ (D), Wolbachia (D), UwUKingPikachu (C-), dking20 (A-), ONAI (C+), RyoutaVN (B-), hmsuis (S-), chemist (A+), Dovixx (D+), Bommie (B+), claydoll1091 (S)";
+  const signupNames = [
+    "HaruUrara", "xeyz", "LordGrond", "Beokros", "lily", "Progenitor",
+    "Ilffam", "Mikuu_", "Wolbachia", "UwUKingPikachu", "dking20", "ONAI",
+    "RyoutaVN", "hmsuis", "chemist", "Dovixx", "Bommie", "claydoll1091",
+  ];
+  assert.deepEqual(participationNames(signup), signupNames);
+  host("players", { players: signupNames.map((name, i) => ({ id: "signup-" + i, name })) });
+  assert.equal(e.participation.preview(signup).players.length, 18);
+  assert.deepEqual(
+    participationNames("Player (AG), oldname (Anything Goes)\nOther (None)"),
+    ["Player", "oldname", "Other"],
+  );
   const preview = e.participation.preview(raw);
+  assert.deepEqual(e.participation.preview(ranked), preview);
   assert.deepEqual(
     preview.players.map((p) => p.id),
     ["p", "q"],
   );
   const b = {
-    text: raw,
+    text: ranked,
     amount: 500,
     event: "tour-1",
     note: "Beta tour",
@@ -142,16 +158,17 @@ test("participation paste ignores ratings/totals/guesses, deduplicates aliases t
   assert.equal(e.player("p").balance, 500);
   assert.equal(e.player("q").earned, 500);
   assert.equal(e.profile("p").stats.participation, 1);
-  assert.throws(() => host("participation-batch", b), /already been awarded/);
+  assert.throws(
+    () => host("participation-batch", { ...b, text: raw }),
+    /already been awarded/,
+  );
   assert.equal(e.player("p").balance, 500);
   assert.throws(
-    () => e.participation.preview(raw + "\nmissing (100)"),
+    () => e.participation.preview(ranked + ", missing (A)"),
     /Unknown.*missing/,
   );
-  assert.throws(
-    () => participationNames("Player (100) garbage"),
-    /Cannot read/,
-  );
+  for (const bad of ["Player (100) garbage", "Player (A),", "Player (A++), Other (S)"])
+    assert.throws(() => participationNames(bad), /Cannot read/);
   assert.throws(
     () =>
       host("participation-batch", {
