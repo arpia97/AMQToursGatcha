@@ -1741,7 +1741,7 @@ document.addEventListener("submit", async (ev) => {
       "equip-titles",
       {
         quizzes: new FormData(f).getAll("quiz"),
-        cards: new FormData(f).getAll("card"),
+        awards: new FormData(f).getAll("award"),
       },
       null,
       f,

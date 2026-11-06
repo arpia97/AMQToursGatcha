@@ -11,8 +11,98 @@ export function cardTitleName(name) {
 export class CardTitles {
   constructor(e) {
     this.e = e;
+    // Retain the original table as migration evidence; new awards have their own IDs.
     e.run(
       "CREATE TABLE IF NOT EXISTS card_titles(player TEXT NOT NULL,card TEXT NOT NULL,title TEXT NOT NULL,rarity TEXT NOT NULL,at INTEGER NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,card))",
+    );
+    e.run(
+      "CREATE TABLE IF NOT EXISTS card_title_awards(player TEXT NOT NULL,award TEXT NOT NULL,card TEXT NOT NULL,title TEXT NOT NULL,rarity TEXT NOT NULL,at INTEGER NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,award))",
+    );
+    this.migrate();
+  }
+  migrate() {
+    const e = this.e;
+    if (e.one("SELECT key FROM catalog_meta WHERE key='card-title-awards-v2'"))
+      return;
+    e.tx(() => {
+      const old = e.all("SELECT * FROM card_titles ORDER BY player,at,card"),
+        histories = new Map();
+      let recovered = 0;
+      for (const t of old) {
+        this.insert(
+          t.player,
+          t.card,
+          t.title,
+          t.rarity,
+          t.at,
+          t.hidden,
+          "legacy:" + t.card,
+        );
+        if (!histories.has(t.player)) {
+          histories.set(
+            t.player,
+            e
+              .all(
+                "SELECT key,input,result,at FROM receipts WHERE scope=? AND at>=? ORDER BY at,key",
+                t.player + ":enhance",
+                t.at,
+              )
+              .flatMap((r) => {
+                try {
+                  const input = JSON.parse(r.input),
+                    result = JSON.parse(r.result);
+                  return input.expectedLevel === 5 &&
+                    String(result.message || "").startsWith("Enhanced to MAX.")
+                    ? [{ ...r, input }]
+                    : [];
+                } catch {
+                  return [];
+                }
+              }),
+          );
+        }
+        const matches = histories
+          .get(t.player)
+          .filter((r) => r.input.card === t.card && r.at >= t.at);
+        // The original award already covers its first enhancement receipt.
+        if (matches[0]?.at === t.at) matches.shift();
+        for (const r of matches) {
+          this.insert(
+            t.player,
+            t.card,
+            t.title,
+            t.rarity,
+            r.at,
+            t.hidden,
+            "receipt:" + r.key,
+          );
+          recovered++;
+        }
+      }
+      e.run(
+        "INSERT INTO catalog_meta VALUES('card-title-awards-v2',?)",
+        JSON.stringify({ at: e.now(), preserved: old.length, recovered }),
+      );
+    });
+  }
+  insert(
+    player,
+    card,
+    title,
+    rarity,
+    at,
+    hidden = 0,
+    award = crypto.randomUUID(),
+  ) {
+    this.e.run(
+      "INSERT OR IGNORE INTO card_title_awards(player,award,card,title,rarity,at,hidden) VALUES(?,?,?,?,?,?,?)",
+      player,
+      award,
+      card,
+      title,
+      rarity,
+      at,
+      hidden,
     );
   }
   award(player, id) {
@@ -20,18 +110,10 @@ export class CardTitles {
     if (!c) throw Error("The card could not be loaded. Refresh and try again.");
     const title = cardTitleName(c.name),
       rarity = RARITIES.includes(c.rarity) ? c.rarity : "Pending";
-    this.e.run(
-      "INSERT OR IGNORE INTO card_titles(player,card,title,rarity,at) VALUES(?,?,?,?,?)",
-      player,
-      id,
-      title,
-      rarity,
-      this.e.now(),
-    );
+    this.insert(player, id, title, rarity, this.e.now());
     return title;
   }
-  // One-time cosmetic catch-up for current MAX owners, including escrowed cards.
-  // The marker survives gameplay resets, so old awards never reappear afterward.
+  // Existing MAX owners were caught up once; never rerun that historical award.
   backfill() {
     if (
       this.e.one("SELECT key FROM catalog_meta WHERE key='max-card-titles-v1'")
@@ -54,11 +136,24 @@ export class CardTitles {
     });
   }
   options(player) {
-    return this.e
-      .all(
-        "SELECT card,title,rarity,hidden FROM card_titles WHERE player=? ORDER BY at,card",
-        player,
-      )
-      .map(({ hidden, ...r }) => ({ ...r, source: "card", equipped: !hidden }));
+    const rows = this.e.all(
+      "SELECT award,card,title,rarity,hidden FROM card_title_awards WHERE player=? ORDER BY at,award",
+      player,
+    );
+    const cards = new Map(
+      this.e.catalogStore
+        .cards([...new Set(rows.map((r) => r.card))])
+        .map((c) => [c.id, c]),
+    );
+    return rows.map(({ hidden, ...r }) => {
+      const c = cards.get(r.card);
+      return {
+        ...r,
+        rarity: c ? c.rarity || "Pending" : r.rarity,
+        kind: c?.kind,
+        source: "card",
+        equipped: !hidden,
+      };
+    });
   }
 }

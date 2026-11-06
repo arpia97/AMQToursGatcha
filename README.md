@@ -232,10 +232,19 @@ The connected minus/value/plus quantity input supports direct typing, keyboard i
 
 ### MAX Titles, Anime Checklists and Quiz Clocks
 
-Enhancing a card to MAX awards a permanent card-name title, coloured by the card rarity at award time. Comma-separated names reverse their parts and remove the commas (Miyafuji, Yoshika → Yoshika Miyafuji). Card and quiz titles have separate equipment selections in My Titles; Host remains mandatory. A one-time cosmetic catch-up includes current MAX inventory and seller/offer escrow, without changing cards or credits. Its max-card-titles-v1 marker prevents reruns; unavailable legacy card metadata is recorded in that marker rather than blocking the site. Player/gameplay resets clear card-title awards, and canonical identity migrations retain them. Selling or trading a card afterward does not remove an earned title.
+Enhancing a card to MAX awards a permanent card-name title, coloured by the card’s current rarity (with the saved rarity retained as a fallback if its catalogue entry is unavailable). Comma-separated names reverse their parts and remove the commas (Miyafuji, Yoshika → Yoshika Miyafuji). Card and quiz titles have separate equipment selections in My Titles; Host remains mandatory. A one-time cosmetic catch-up includes current MAX inventory and seller/offer escrow, without changing cards or credits. Its max-card-titles-v1 marker prevents reruns; unavailable legacy card metadata is recorded in that marker rather than blocking the site. Player/gameplay resets clear card-title awards, and canonical identity migrations retain them. Selling or trading a card afterward does not remove an earned title.
 
 Anime titles on the owner's collection/progress board open an authenticated, 24-card checklist. It uses the same primary-anime associations and unique inventory/escrow ownership as the progress counts. Missing portraits are grey, ownership labels stay readable, and wishlist actions work without closing the popup or resetting its scroll. Only the visible page's catalogue records are resolved.
 
 Active quizzes show an elapsed clock beside volume controls, in addition to the song countdown. It continues through earlier answer reviews, survives reloads, resets on Restart and stops at the final locked answer. It uses the server-aligned clock with no new polling. Perfect 20/20 quiz tiles, result panels and score badges receive a rainbow border/glow; reduced-motion mode retains the rainbow without animation.
 
 Bulk-pack Next/Previous actions now pass the application's event filter. Turning a reveal page scrolls to the top of that page and never purchases again or grants additional cards.
+
+
+### Title Award Instances and Approved Badge Colours
+
+Title badges display the name alone. Character/seiyuu badges follow the card rarity palette; quiz badges use luminous aqua with a violet-pink edge. Host remains rainbow, mandatory and above other titles. My Titles retains source descriptions and numbers repeated card awards so each can be selected independently. Different cards or quizzes sharing the same title text remain separate rewards.
+
+Each successful MAX enhancement creates a card_title_awards row with an independent award ID; mutation receipts prevent retry duplicates. The card-title-awards-v2 migration preserves original card_titles rows and hidden states, and recovers additional MAX events only when retained enhancement receipts at/after the original award verify them. It excludes the first already-covered receipt and does not rebuild deleted/reset awards. The original table remains migration evidence; neither this migration nor restarts repeat max-card-titles-v1. Both title tables follow canonical identity changes and gameplay resets.
+
+The equipment API accepts quizzes plus individual awards. Legacy cards selections apply to all awards of those card IDs; omitting both leaves current card-award visibility intact. Quiz score resets still affect only quiz titles. These cosmetic changes never consume cards or change credit balances.

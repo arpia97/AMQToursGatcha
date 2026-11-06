@@ -602,13 +602,31 @@ export class Quiz {
     const earned = this.titleOptions(player),
       quizTitles = earned.filter((t) => t.source !== "card"),
       cardTitles = earned.filter((t) => t.source === "card");
-    const cards =
-      b.cards === undefined
-        ? cardTitles.filter((t) => t.equipped).map((t) => t.card)
-        : b.cards;
+    // Older clients select card IDs; new clients select each award independently.
+    const awards =
+      b.awards !== undefined
+        ? b.awards
+        : b.cards === undefined
+          ? cardTitles.filter((t) => t.equipped).map((t) => t.award)
+          : Array.isArray(b.cards)
+            ? cardTitles
+                .filter((t) => b.cards.includes(t.card))
+                .map((t) => t.award)
+            : null;
+    if (
+      b.awards === undefined &&
+      b.cards !== undefined &&
+      (!Array.isArray(b.cards) ||
+        new Set(b.cards).size !== b.cards.length ||
+        b.cards.some(
+          (id) =>
+            typeof id !== "string" || !cardTitles.some((t) => t.card === id),
+        ))
+    )
+      fail("Choose only titles you have earned.");
     for (const [selected, options, key] of [
       [b.quizzes, quizTitles, "quiz"],
-      [cards, cardTitles, "card"],
+      [awards, cardTitles, "award"],
     ]) {
       if (
         !Array.isArray(selected) ||
@@ -629,10 +647,10 @@ export class Quiz {
         );
     for (const title of cardTitles)
       this.e.run(
-        "UPDATE card_titles SET hidden=? WHERE player=? AND card=?",
-        cards.includes(title.card) ? 0 : 1,
+        "UPDATE card_title_awards SET hidden=? WHERE player=? AND award=?",
+        awards.includes(title.award) ? 0 : 1,
         player,
-        title.card,
+        title.award,
       );
     return {
       ...this.titleSettings(player),
@@ -644,7 +662,13 @@ export class Quiz {
       .filter((t) => t.equipped)
       .map((t) =>
         t.source === "card"
-          ? { card: t.card, title: t.title, rarity: t.rarity, source: "card" }
+          ? {
+              award: t.award,
+              card: t.card,
+              title: t.title,
+              rarity: t.rarity,
+              source: "card",
+            }
           : { quiz: t.quiz, title: t.title },
       );
   }

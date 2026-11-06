@@ -871,6 +871,7 @@ export class Engine {
       this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
       this.run("DELETE FROM card_titles WHERE player=?", id);
+      this.run("DELETE FROM card_title_awards WHERE player=?", id);
       this.run(
         "DELETE FROM host_credit_issues WHERE ledger IN (SELECT id FROM ledger WHERE player=?)",
         id,
@@ -932,6 +933,7 @@ export class Engine {
         "quiz_reward_history",
         "profile_title_preferences",
         "card_titles",
+        "card_title_awards",
         "card_alchemy",
         "alchemy_targets",
         "card_wishlist",

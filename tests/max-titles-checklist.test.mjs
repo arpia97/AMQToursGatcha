@@ -65,7 +65,7 @@ test("MAX enhancement awards a rarity title atomically, once, and keeps it after
   const result = act("enhance", body, "max-once");
   assert.match(result.message, /Yoshika Miyafuji/);
   assert.deepEqual(act("enhance", body, "max-once"), result);
-  assert.equal(e.one("SELECT count(*) AS n FROM card_titles").n, 1);
+  assert.equal(e.one("SELECT count(*) AS n FROM card_title_awards").n, 1);
   assert.equal(e.quiz.titles("p")[0].rarity, "AG");
   assert.equal(e.quiz.titles("p")[0].title, "Yoshika Miyafuji");
   assert.equal(
@@ -168,8 +168,9 @@ test("card title equipment is independent of quiz titles, host titles and alias 
   assert.ok(html.indexOf("Host") < html.indexOf("Yoshika Miyafuji"));
   assert.match(html, /card-earned-title tier-ag/);
   const settings = titleSettingsPanel(e.quiz.titleSettings("p"), escape);
-  assert.match(settings, /name="card" value="community-00"/);
-  assert.match(settings, /MAX Card · AG/);
+  assert.match(settings, /name="award"/);
+  assert.match(settings, /MAX Character Card/);
+  assert.doesNotMatch(settings, /MAX Card · AG/);
   e.quiz.resetScores({
     quiz: "quiz",
     confirmation: "RESET QUIZ SCORES AND TITLES",
@@ -234,4 +235,187 @@ test("anime checklists paginate primary-series cards with unique escrow ownershi
     () => e.economy.anime.checklist("p", "anime", 0),
     /whole number/,
   );
+});
+
+test("each separate MAX enhancement earns a distinct title, retries do not, and matching quiz names remain independent", (t) => {
+  const { e, act, make } = fixture(t);
+  const card = "community-actor";
+  e.host("catalog", {
+    cards: [
+      { id: card, kind: "seiyuu", name: "Touyama, Nao", fixedRarity: "Ubers" },
+    ],
+  });
+  function max(key) {
+    e.addCard("p", card, 16);
+    for (let level = 1; level < 6; level++) {
+      const b = {
+        card,
+        expectedLevel: level,
+        enhancementRevision: ENHANCEMENT_REVISION,
+      };
+      const result = act("enhance", b, key + "-" + level);
+      assert.deepEqual(act("enhance", b, key + "-" + level), result);
+    }
+  }
+  max("first");
+  e.action("p", "list-card", {
+    card,
+    variant: "card",
+    venue: "shop",
+    price: 100,
+  });
+  max("second");
+  const awards = e.cardTitles.options("p");
+  assert.equal(awards.length, 2);
+  assert.notEqual(awards[0].award, awards[1].award);
+  assert.ok(
+    awards.every(
+      (a) =>
+        a.title === "Nao Touyama" &&
+        a.rarity === "Ubers" &&
+        a.kind === "seiyuu",
+    ),
+  );
+  e.run(
+    "INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES('same','Nao Touyama','','Nao Touyama',1,'',1)",
+  );
+  e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','same',20,1)",
+  );
+  act("equip-titles", { quizzes: ["same"], awards: [awards[0].award] });
+  let shown = e.quiz.titles("p");
+  assert.equal(shown.length, 2);
+  assert.equal(shown.filter((t) => t.source === "card").length, 1);
+  assert.ok(shown.every((t) => t.title === "Nao Touyama"));
+  const html = titleBadges({ role: "Host", titles: shown }, escape);
+  assert.match(html, /quiz-earned-title/);
+  assert.match(html, /card-earned-title tier-ubers/);
+  assert.equal((html.match(/>Nao Touyama<\/span>/g) || []).length, 2);
+  const panel = titleSettingsPanel(e.quiz.titleSettings("p"), escape);
+  assert.match(panel, /Award 1 of 2/);
+  assert.match(panel, /Award 2 of 2/);
+  assert.doesNotMatch(panel, />Ubers<|>QUIZ<|♫|♬|✧/);
+  assert.throws(
+    () => act("equip-titles", { quizzes: [], awards: ["foreign"] }),
+    /earned/,
+  );
+  // Old clients preserve per-award settings when omitting cards, or select all copies by card ID.
+  act("equip-titles", { quizzes: [] });
+  assert.equal(e.quiz.titles("p").length, 1);
+  act("equip-titles", { quizzes: [], cards: [card] });
+  assert.equal(e.quiz.titles("p").length, 2);
+  const restarted = make();
+  assert.equal(restarted.cardTitles.options("p").length, 2);
+  assert.equal(restarted.quiz.titles("p").length, 2);
+  e.host("catalog", {
+    cards: [
+      { id: card, kind: "seiyuu", name: "Touyama, Nao", fixedRarity: "SSS" },
+    ],
+  });
+  assert.ok(e.cardTitles.options("p").every((a) => a.rarity === "SSS"));
+  // Cosmetic rarity refreshes never affect existing cards, listings, credits or quizzes.
+  assert.equal(
+    e.one("SELECT level FROM inventory WHERE player='p' AND card=?", card)
+      .level,
+    6,
+  );
+  assert.equal(
+    e.one("SELECT level FROM market_listings WHERE seller='p'").level,
+    6,
+  );
+});
+test("title-award migration preserves visibility, recovers only evidenced repeats, and runs once across reset/restart", (t) => {
+  const { e, make } = fixture(t);
+  e.run(
+    "INSERT INTO card_titles VALUES('p','community-00','Yoshika Miyafuji','AG',100,1)",
+  );
+  for (const [key, card, at, expectedLevel, message] of [
+    ["before", "community-00", 50, 5, "Enhanced to MAX."],
+    [
+      "first",
+      "community-00",
+      100,
+      5,
+      "Enhanced to MAX. Title Unlocked: Yoshika Miyafuji.",
+    ],
+    [
+      "repeat",
+      "community-00",
+      200,
+      5,
+      "Enhanced to MAX. Title Unlocked: Yoshika Miyafuji.",
+    ],
+    ["not-max", "community-00", 300, 4, "Enhanced to level 5."],
+    ["other", "community-01", 400, 5, "Enhanced to MAX."],
+  ])
+    e.run(
+      "INSERT INTO receipts VALUES(?,?,?,?,?)",
+      "p:enhance",
+      key,
+      JSON.stringify({ card, expectedLevel }),
+      JSON.stringify({ message }),
+      at,
+    );
+  // A player's old receipts without a retained award are outside this migration's evidence.
+  e.run(
+    "INSERT INTO receipts VALUES(?,?,?,?,?)",
+    "q:enhance",
+    "old-reset",
+    JSON.stringify({ card: "community-00", expectedLevel: 5 }),
+    JSON.stringify({ message: "Enhanced to MAX." }),
+    200,
+  );
+  e.run("DELETE FROM catalog_meta WHERE key='card-title-awards-v2'");
+  const upgraded = make(),
+    awards = upgraded.cardTitles.options("p");
+  assert.equal(awards.length, 2);
+  assert.ok(awards.every((a) => !a.equipped));
+  assert.deepEqual(
+    awards.map((a) => a.award),
+    ["legacy:community-00", "receipt:repeat"],
+  );
+  assert.equal(upgraded.cardTitles.options("q").length, 0);
+  assert.equal(make().cardTitles.options("p").length, 2);
+  const marker = JSON.parse(
+    upgraded.one(
+      "SELECT value FROM catalog_meta WHERE key='card-title-awards-v2'",
+    ).value,
+  );
+  assert.equal(marker.preserved, 1);
+  assert.equal(marker.recovered, 1);
+  upgraded.tx(() =>
+    upgraded.host("reset-player", {
+      player: "p",
+      confirmation: "RESET PLAYER p",
+    }),
+  );
+  assert.equal(make().cardTitles.options("p").length, 0);
+});
+test("same text from distinct card IDs keeps each rarity, and award IDs survive canonical migration", (t) => {
+  const { e } = fixture(t);
+  e.host("catalog", {
+    cards: [
+      {
+        id: "community-01",
+        kind: "character",
+        name: "Miyafuji, Yoshika",
+        series: "Other Anime",
+        fixedRarity: "C",
+      },
+    ],
+  });
+  e.cardTitles.award("p", "community-00");
+  e.cardTitles.award("p", "community-01");
+  const before = e.cardTitles.options("p");
+  assert.deepEqual(
+    before.map((t) => t.title),
+    ["Yoshika Miyafuji", "Yoshika Miyafuji"],
+  );
+  assert.deepEqual(new Set(before.map((t) => t.rarity)), new Set(["AG", "C"]));
+  e.tx(() => new AliasSync(e).renamePlayer("p", "12345"));
+  assert.deepEqual(
+    new Set(e.cardTitles.options("12345").map((t) => t.award)),
+    new Set(before.map((t) => t.award)),
+  );
+  assert.equal(e.cardTitles.options("p").length, 0);
 });

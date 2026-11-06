@@ -2982,7 +2982,11 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 }
 .equipped-title {
   display: inline-block;
-  padding: 5px 9px;
+  padding: 8px 10px;
+  font-weight: 650;
+  line-height: 1.3;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   border-radius: 6px;
   border: 1px solid #69718566;
   background: #202530;
@@ -4230,18 +4234,8 @@ dialog.avatar-editor-modal {
   }
 }
 
-.card-earned-title {
-  border-color: var(--tier-color, #797985);
-}
-.equipped-title.card-earned-title {
-  color: var(--tier-color, #cbd0da);
-}
-.title-option.card-earned-title strong {
-  color: var(--tier-color, #cbd0da);
-}
-
 /* Perfect quizzes remain rainbow in every view, independent of card levels. */
-:is(.quiz-tile, .quiz-complete, .quiz-score, .card-earned-title).tier-ag {
+:is(.quiz-tile, .quiz-complete, .quiz-score).tier-ag {
   border-color: transparent;
   background:
     linear-gradient(#191b23, #191b23) padding-box,
@@ -4268,12 +4262,8 @@ dialog.avatar-editor-modal {
 .quiz-tile.collect-card.tier-ag::after {
   content: none;
 }
-.card-earned-title.tier-ag strong,
-.equipped-title.card-earned-title.tier-ag {
-  color: #f9edff;
-}
 @media (prefers-reduced-motion: reduce) {
-  :is(.quiz-tile, .quiz-complete, .quiz-score, .card-earned-title).tier-ag {
+  :is(.quiz-tile, .quiz-complete, .quiz-score).tier-ag {
     animation: none;
   }
 }
@@ -4292,4 +4282,74 @@ dialog.avatar-editor-modal {
 .quiz-elapsed strong {
   color: var(--text);
   font-variant-numeric: tabular-nums;
+}
+
+/* Approved title badges: names only, card rarity colours, signature quiz aqua. */
+.equipped-title.card-earned-title {
+  --title-colour: var(--tier-color, #a1a1ac);
+  border-color: color-mix(in srgb, var(--title-colour) 70%, transparent);
+  background: color-mix(in srgb, var(--title-colour) 7%, #151820);
+  color: var(--title-colour);
+  box-shadow: 0 0 9px color-mix(in srgb, var(--title-colour) 12%, transparent);
+}
+.equipped-title.card-earned-title.tier-d,
+.equipped-title.card-earned-title.tier-pending {
+  --title-colour: #a1a1ac;
+}
+.equipped-title.card-earned-title.tier-c {
+  --title-colour: #b59972;
+}
+.equipped-title.card-earned-title.tier-b {
+  --title-colour: #83cdb4;
+}
+.equipped-title.card-earned-title.tier-a {
+  --title-colour: #78b9ed;
+}
+.equipped-title.card-earned-title.tier-ubers {
+  --title-colour: #c397ff;
+}
+.equipped-title.card-earned-title.tier-ag {
+  border-color: transparent;
+  background:
+    linear-gradient(#1c1c28, #1c1c28) padding-box,
+    linear-gradient(
+        110deg,
+        #ff8fae,
+        #ffd774,
+        #90f2bd,
+        #80caff,
+        #cb9dff,
+        #ff8fae
+      )
+      border-box;
+  background-size:
+    auto,
+    220% 220%;
+  color: #f1deff;
+  animation: rainbow-flow 6s ease infinite;
+  box-shadow:
+    -3px 0 12px #ff91b12a,
+    3px 0 12px #80caff2a;
+}
+.equipped-title.quiz-earned-title {
+  color: #a2fff5;
+  border-color: transparent;
+  background:
+    linear-gradient(110deg, #123338, #28223b) padding-box,
+    linear-gradient(110deg, #6af5e6, #80daff, #f3a3e3) border-box;
+  box-shadow:
+    0 0 15px #6af5e630,
+    inset 0 0 12px #8ceff309;
+}
+.title-option .equipped-title {
+  font-size: 12px;
+}
+.title-option > span {
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .equipped-title.card-earned-title.tier-ag {
+    animation: none;
+  }
 }
