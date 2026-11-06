@@ -1,3 +1,4 @@
+import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
 import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
@@ -706,33 +707,91 @@ export class Economy {
       fail("Coin Flip has been replaced by Roulette.", 410);
     return null;
   }
-  market(venue = "shop", kind = "character", page = 1) {
+  market(
+    venue = "shop",
+    kind = "character",
+    page = 1,
+    options = {},
+    player = null,
+  ) {
     integer(page, 1, 10000);
+    const sort = options.sort || "newest",
+      wishlistOnly = options.wishlistOnly === true;
     if (
       !["shop", "auction"].includes(venue) ||
-      !["character", "seiyuu"].includes(kind)
+      !["character", "seiyuu"].includes(kind) ||
+      !MARKET_SORTS.some(([v]) => v === sort) ||
+      (venue === "shop" && sort === "ending")
     )
       fail("Unknown marketplace filter.");
+    if ((sort === "wishlist" || wishlistOnly) && !player)
+      fail("Sign in to use your wishlist.", 401);
     const e = this.e,
-      rows =
-        venue === "shop"
-          ? e.all(
-              "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name FROM market_listings l JOIN players p ON p.id=l.seller WHERE l.status='open' AND l.kind=? ORDER BY l.id DESC LIMIT 41 OFFSET ?",
-              kind,
-              (page - 1) * 40,
-            )
-          : e.all(
-              "SELECT a.*,COALESCE(p.display_name,p.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name FROM auctions a JOIN players p ON p.id=a.seller LEFT JOIN players w ON w.id=a.winner WHERE a.closed=0 AND a.ends>? AND a.kind=? ORDER BY a.id DESC LIMIT 41 OFFSET ?",
-              e.now(),
-              kind,
-              (page - 1) * 40,
-            );
+      auction = venue === "auction",
+      alias = auction ? "a" : "l";
+    const args = [player || "", ...(auction ? [e.now()] : []), kind];
+    const select = auction
+      ? "SELECT a.*,COALESCE(p.display_name,p.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name"
+      : "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name";
+    const query =
+      select +
+      ",EXISTS(SELECT 1 FROM card_wishlist wish WHERE wish.player=? AND wish.card=" +
+      alias +
+      ".card) AS is_wishlisted FROM " +
+      (auction ? "auctions a" : "market_listings l") +
+      " JOIN players p ON p.id=" +
+      alias +
+      ".seller" +
+      (auction ? " LEFT JOIN players w ON w.id=a.winner" : "") +
+      " WHERE " +
+      (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
+      " AND " +
+      alias +
+      ".kind=?" +
+      (wishlistOnly ? " AND is_wishlisted=1" : "");
+    const price = auction
+      ? "CASE WHEN a.bid>0 THEN a.bid ELSE a.reserve END"
+      : "l.price";
+    const orders = {
+      newest: alias + ".id DESC",
+      oldest: alias + ".id ASC",
+      wishlist: "is_wishlisted DESC," + alias + ".id DESC",
+      "price-low": price + " ASC," + alias + ".id DESC",
+      "price-high": price + " DESC," + alias + ".id DESC",
+      level: alias + ".level DESC," + alias + ".id DESC",
+      ending: "a.ends ASC,a.id DESC",
+    };
+    let rows, metadata;
+    if (["rarity", "rarity-low", "name"].includes(sort)) {
+      // Resolve only listed card IDs, never the full catalogue, before paging.
+      rows = e.all(query, ...args);
+      metadata = new Map(
+        e.catalogStore
+          .cards([...new Set(rows.map((l) => l.card))])
+          .map((c) => [c.id, c]),
+      );
+      rows = sortMarketItems(rows, metadata, sort).slice(
+        (page - 1) * 40,
+        page * 40 + 1,
+      );
+    } else
+      rows = e.all(
+        query + " ORDER BY " + orders[sort] + " LIMIT 41 OFFSET ?",
+        ...args,
+        (page - 1) * 40,
+      );
     const items = rows.slice(0, 40);
     return {
       items,
       page,
+      sort,
+      wishlistOnly,
       hasMore: rows.length > 40,
-      cards: e.catalogStore.cards([...new Set(items.map((i) => i.card))]),
+      cards: metadata
+        ? [...new Set(items.map((l) => l.card))]
+            .map((id) => metadata.get(id))
+            .filter(Boolean)
+        : e.catalogStore.cards([...new Set(items.map((l) => l.card))]),
     };
   }
   rankings(metric = "earned", page = 1) {
@@ -750,7 +809,7 @@ export class Economy {
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
     return {

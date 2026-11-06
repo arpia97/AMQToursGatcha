@@ -203,4 +203,30 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     ).status,
     403,
   );
+  // Personal listing filters derive identity from the session, never query input.
+  assert.equal(
+    (await mf.dispatchFetch("http://game/api/market?sort=wishlist&player=1"))
+      .status,
+    401,
+  );
+  assert.equal(
+    (
+      await mf.dispatchFetch("http://game/api/market?sort=wishlist", {
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await post("profile", { crop: { x: 0.5, y: 0.5, zoom: 2 } })).status,
+    401,
+  );
+  const publicState = await (
+    await mf.dispatchFetch("http://game/api/state")
+  ).json();
+  assert.equal(
+    publicState.catalogSummary.importProgress === null ||
+      typeof publicState.catalogSummary.importProgress === "object",
+    true,
+  );
 });

@@ -210,3 +210,12 @@ Tour-winner pick’ems use the vote-distribution rows as native radio choices. A
 ### Host Credit Audit
 
 Every authorized host can open Credit Audit to filter spending, positive wallet inflows, and host activity rewards by period, player, or current-host status. Spending and received totals describe wallet movements, including refunds and payouts, rather than cumulative earned rankings. New manual and batch awards record the issuing host in the same transaction; older awards without issuer metadata display Not recorded. The Activity and Credit Audit CSV buttons export every available wallet movement in the last 12 hours, with UTC/KST timestamps and issuer details, independently of the 100-row screen. Existing-account recovery remains available; the unused issue-access-code option is removed. Closed pick’ems rely on the graph’s selected and winning-team indicators without duplicate summaries.
+
+
+### Profile Cropping, Listing Sorts and Import Progress
+
+Profile Pic and Edit Profile open a circular crop preview with dragging, keyboard position controls, zoom and reset. The server stores validated normalized coordinates on the player and renders the same crop in profiles, player search and rankings; existing avatars retain their original framing. No image files are uploaded or rewritten. Only an owned inventory card can be selected. Changing cards resets its crop, while username edits preserve it.
+
+Player auctions and marketplace pages sort before pagination by age, rarity, name, price, enhancement level or the signed-in player’s wishlist. Auctions also offer Ending Soon. My Wishlist Only filters before pagination and never accepts another player ID from the query string. Metadata sorts resolve listed card IDs only; ordinary age/price sorting keeps bounded SQL pages.
+
+Catalogue Import shows the saved anime-cast scan percentage (scanned titles / latest known upstream title total). This measures discovery coverage rather than an unknowable final card count. Unknown totals stay unestimated; completed initial discovery shows 100%. The display does not issue upstream requests or change the existing importer cadence.

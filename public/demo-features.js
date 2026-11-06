@@ -1,3 +1,4 @@
+import { sortMarketItems } from "./market-sort.js";
 import { searchMatcher, cardSearchText } from "./search.js";
 import { demoAlchemy } from "./demo-alchemy.js";
 import { pickemVoteSummary } from "./pickem-votes.js";
@@ -854,14 +855,28 @@ export function demoFeatures(d, path, b) {
     const p = new URLSearchParams(path.split("?")[1]),
       kind = p.get("kind"),
       auction = p.get("venue") === "auction";
-    return {
-      items: (auction
+    const rows = (
+      auction
         ? s.auctions.filter((a) => a.seller && !a.closed && a.ends > now)
         : s.market.filter((l) => l.status === "open")
-      ).filter((x) => x.kind === kind),
+    )
+      .filter((x) => x.kind === kind)
+      .map((x) => ({
+        ...x,
+        is_wishlisted: (s.wishlist || []).includes(x.card),
+      }))
+      .filter((x) => p.get("wishlist") !== "1" || x.is_wishlisted);
+    const sorted = sortMarketItems(
+        rows,
+        new Map(d.cards.map((c) => [c.id, c])),
+        p.get("sort") || "newest",
+      ),
+      page = Number(p.get("page") || 1);
+    return {
+      items: sorted.slice((page - 1) * 40, page * 40),
       cards: d.cards,
-      page: 1,
-      hasMore: false,
+      page,
+      hasMore: sorted.length > page * 40,
     };
   }
   if (path.startsWith("fusion-outcomes?")) {
@@ -922,6 +937,7 @@ export function demoFeatures(d, path, b) {
       balance: mine ? me.balance : 7400,
       ...s.history[id],
       avatar_card: mine ? me.avatar_card : d.cards[2].id,
+      avatar_crop: mine ? me.avatar_crop : null,
       stats: {
         participation: 24,
         counting: 7,

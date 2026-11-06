@@ -1,3 +1,4 @@
+import { validateAvatarCrop } from "./avatar-crop.js";
 import { searchMatcher, cardSearchText } from "./search.js";
 import { enhancementCost, MAX_CARD_LEVEL } from "./card-values.js";
 import { DAILY_CREDITS } from "./site-defaults.js";
@@ -190,6 +191,7 @@ export class Demo {
         .map((p) => ({
           ...p,
           avatar_card: p.id === s.me.id ? s.me.avatar_card : this.cards[2].id,
+          avatar_crop: p.id === s.me.id ? s.me.avatar_crop : null,
           avatar_level:
             p.id === s.me.id
               ? s.inventory.find((i) => i.card === s.me.avatar_card)?.level
@@ -212,6 +214,7 @@ export class Demo {
         ...p,
         balance: mine ? s.me.balance : 7400,
         avatar_card: mine ? s.me.avatar_card : this.cards[2].id,
+        avatar_crop: mine ? s.me.avatar_crop : null,
         ...s.history[id],
         stats: {
           participation: 24,
@@ -285,7 +288,12 @@ export class Demo {
       if (b.avatar !== undefined) {
         if (b.avatar !== null && !s.inventory.some((i) => i.card === b.avatar))
           throw new Error("Choose a card from your inventory.");
+        if (b.avatar !== s.me.avatar_card) s.me.avatar_crop = null;
         s.me.avatar_card = b.avatar;
+      }
+      if (b.crop !== undefined) {
+        if (!s.me.avatar_card) throw Error("Choose a card first.");
+        s.me.avatar_crop = validateAvatarCrop(b.crop);
       }
     } else if (path === "bid") {
       const a = s.auctions.find((a) => a.id === b.auction);

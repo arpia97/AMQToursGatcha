@@ -1,3 +1,4 @@
+import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
 import { levelLabel } from "./card-values.js";
 import { roleBadge } from "./role-label.js";
@@ -154,7 +155,7 @@ export function createShopUI(h, ui) {
     if (section === "market")
       return (
         header +
-        `<div class="section-head"><h2>Player Marketplace</h2>${btn("Sell a card", "shop-section", 'data-section="sell"', "secondary")}</div><p class="subtext">Buy directly from another collector at their asking price. No listing fee or selling fee. Enhanced purchases keep the higher level and return the other card’s invested copies as spares.</p>${h.tabs()}${market.items.length ? `<div class="card-grid market-card-grid space-top">${market.items.map((l) => listingCard(l)).join("")}</div>` : empty("No Cards Listed for This Type.", "Be the first to offer a card from your collection.")}${h.pager("market", ui.marketPage, market.hasMore)}`
+        `<div class="section-head"><h2>Player Marketplace</h2>${btn("Sell a card", "shop-section", 'data-section="sell"', "secondary")}</div><p class="subtext">Buy directly from another collector at their asking price. No listing fee or selling fee. Enhanced purchases keep the higher level and return the other card’s invested copies as spares.</p>${h.tabs()}${marketSortControl(ui.marketSort, ui.marketWishlistOnly, !!s.me)}${market.items.length ? `<div class="card-grid market-card-grid space-top">${market.items.map((l) => listingCard(l)).join("")}</div>` : empty("No Cards Listed for This Type.", "Be the first to offer a card from your collection.")}${h.pager("market", ui.marketPage, market.hasMore)}`
       );
     return (
       header +

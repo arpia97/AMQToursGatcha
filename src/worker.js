@@ -1097,6 +1097,11 @@ export class Game extends DurableObject {
           url.searchParams.get("venue") || "shop",
           url.searchParams.get("kind") || "character",
           Number(url.searchParams.get("page") || 1),
+          {
+            sort: url.searchParams.get("sort") || "newest",
+            wishlistOnly: url.searchParams.get("wishlist") === "1",
+          },
+          session?.player,
         ),
       );
     if (path === "quizzes" && !post)

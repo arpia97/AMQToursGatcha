@@ -1,3 +1,4 @@
+import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
 
 import { roleBadge } from "./role-label.js";
@@ -67,7 +68,7 @@ export function createFeatures(h, ui) {
     const own = (getState().myListings || []).filter(
       (x) => x.venue === "auction" && x.kind === ui.tab(),
     );
-    return `${own.length ? `<section class="own-listings"><div class="section-head"><h2>Your Auctions</h2></div><p class="form-hint">Withdraw before the first bid; once bidding starts, the auction runs to completion.</p><div class="card-grid market-card-grid">${own.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div></section>` : ""}<div class="section-head"><h2>User Auctions</h2><a href="#collection" class="text-button">Auction one of your cards ↗</a></div><p class="subtext">Credits are held when bidding. Sellers receive payment when the timer ends; winners claim their card here. Unsold cards return automatically.</p>${data.items.length ? `<div class="card-grid market-card-grid space-top">${data.items.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("Your Collection Could Be Someone’s Favourite.", "List a card from My collection for up to seven days, with an optional buyout.")}${pager("market", ui.marketPage, data.hasMore)}`;
+    return `${own.length ? `<section class="own-listings"><div class="section-head"><h2>Your Auctions</h2></div><p class="form-hint">Withdraw before the first bid; once bidding starts, the auction runs to completion.</p><div class="card-grid market-card-grid">${own.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div></section>` : ""}<div class="section-head"><h2>User Auctions</h2><a href="#collection" class="text-button">Auction one of your cards ↗</a></div><p class="subtext">Credits are held when bidding. Sellers receive payment when the timer ends; winners claim their card here. Unsold cards return automatically.</p>${marketSortControl(ui.marketSort, ui.marketWishlistOnly, !!getState().me, true)}${data.items.length ? `<div class="card-grid market-card-grid space-top">${data.items.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("Your Collection Could Be Someone’s Favourite.", "List a card from My collection for up to seven days, with an optional buyout.")}${pager("market", ui.marketPage, data.hasMore)}`;
   }
   function ranks() {
     const data = ui.rankData || { rows: [] },

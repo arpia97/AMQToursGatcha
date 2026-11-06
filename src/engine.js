@@ -1,3 +1,4 @@
+import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
 import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
@@ -57,6 +58,7 @@ export class Engine {
     for (const [table, column, definition] of [
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
+      ["players", "avatar_crop", "TEXT"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
@@ -154,7 +156,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -528,19 +530,32 @@ export class Engine {
         );
         this.run("UPDATE players SET display_name=? WHERE id=?", name, player);
       }
-      if (b.avatar !== undefined) {
+      if (b.avatar !== undefined || b.crop !== undefined) {
+        const previous = this.player(player),
+          avatar = b.avatar === undefined ? previous.avatar_card : b.avatar;
         if (
-          b.avatar !== null &&
+          avatar !== null &&
           !this.one(
             "SELECT card FROM inventory WHERE player=? AND card=?",
             player,
-            text(b.avatar, 100),
+            text(avatar, 100),
           )
         )
           fail("Choose a card from your inventory.");
+        let crop =
+          avatar === previous.avatar_card ? previous.avatar_crop : null;
+        if (b.crop !== undefined) {
+          if (!avatar) fail("Choose a card before cropping a profile picture.");
+          try {
+            crop = JSON.stringify(validateAvatarCrop(b.crop));
+          } catch (error) {
+            fail(error.message);
+          }
+        }
         this.run(
-          "UPDATE players SET avatar_card=? WHERE id=?",
-          b.avatar,
+          "UPDATE players SET avatar_card=?,avatar_crop=? WHERE id=?",
+          avatar,
+          avatar ? crop : null,
           player,
         );
       }
@@ -861,7 +876,7 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
-        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL WHERE id=?",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL WHERE id=?",
         id,
       );
       this.run(
@@ -914,7 +929,7 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
-        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL",
       );
       if (!full)
         this.run(
@@ -1006,7 +1021,7 @@ export class Engine {
       ? this.all("SELECT * FROM inventory WHERE player=?", id)
       : [];
     const ranks = this.all(
-      "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
+      "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
     );
     const references = new Set([
       ...auctions.map((a) => a.card),
@@ -1115,7 +1130,7 @@ export class Engine {
     integer(limit, 1, 100);
     const search = profileSearchSql(typeof query === "string" ? query : "");
     return this.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ${search.where} ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ${search.where} ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
       ...search.args,
       limit,
       (page - 1) * 50,

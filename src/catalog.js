@@ -1,3 +1,4 @@
+import { catalogProgress } from "../public/catalog-progress.js";
 import { fail, integer, text } from "./engine.js";
 import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
 import { Popularity } from "./popularity.js";
@@ -193,7 +194,15 @@ export class Catalog {
       ? this.e.one("SELECT n FROM catalog_totals WHERE key='overrides'").n
       : 0;
     counts.character -= overrides;
-    return { ...counts, total: counts.character + counts.seiyuu, source: m };
+    const scan = this.e.one(
+      "SELECT value FROM catalog_meta WHERE key='jikan-import'",
+    );
+    return {
+      ...counts,
+      total: counts.character + counts.seiyuu,
+      source: m,
+      importProgress: catalogProgress(scan ? JSON.parse(scan.value) : null),
+    };
   }
   draw(kind, rand, mainWeight = 100, excluded = new Set(), context = {}) {
     return this.popularity.decorate(

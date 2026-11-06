@@ -1,3 +1,6 @@
+import { avatarCropStyle } from "./avatar-crop.js";
+import { createAvatarEditor } from "./avatar-editor.js";
+import { catalogProgressHTML } from "./catalog-progress.js";
 import { cardSizeControl, installCardSize } from "./card-preferences.js";
 import {
   cardSurface,
@@ -191,6 +194,8 @@ const ui = {
   pickemDrafts: {},
   marketPage: 1,
   marketData: null,
+  marketSort: "newest",
+  marketWishlistOnly: false,
   shopSection: "buy",
   tradeView: "browse",
   tradeQuery: "",
@@ -915,6 +920,11 @@ function catalogue() {
   if (ui.catalogRecent)
     return (
       intro("Card Catalogue", "Recently imported characters and seiyuus.") +
+      catalogProgressHTML(
+        state.catalogSummary?.importProgress,
+        escape,
+        number,
+      ) +
       recentCardsView(catalogPageData, {
         cardHTML,
         pager: features.catalogPager,
@@ -932,7 +942,7 @@ function catalogue() {
       "Card Catalogue",
       "Find your favourites among all imported characters and seiyuus.",
     ) +
-    `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div><details class="rarity-guide"><summary>MAL Popularity Rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
+    `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div>${catalogProgressHTML(pool.importProgress, escape, number)}<details class="rarity-guide"><summary>MAL Popularity Rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
      <section class="collection-toolbar catalog-toolbar" aria-label="Catalogue controls"><div class="filters collection-toolbar-main">${catalogueTabs(tab)}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}">${features.filters()}</div>${features.catalogPager(catalogPageData, catalogPageNumber, "catalog-top")}</section>
      <div class="card-grid collection-card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No Matching Cards.", "Try another name or series.")}</div>
      <div class="collection-footer-pager">${features.catalogPager(catalogPageData, catalogPageNumber)}</div>`
@@ -990,8 +1000,15 @@ function avatarHTML(p, large = false) {
       (i) => i.card === p.avatar_card,
     ),
     card = p.avatar_card ? cardBy(p.avatar_card) : null;
-  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} ${cardFrameClass(p.avatar_level || item?.level || 1)}">${cardAura(p.avatar_level || item?.level || 1)}<span class="avatar-crop">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
+  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} ${cardFrameClass(p.avatar_level || item?.level || 1)}">${cardAura(p.avatar_level || item?.level || 1)}<span class="avatar-crop" style="${avatarCropStyle(p.avatar_crop)}">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
 }
+const avatarEditor = createAvatarEditor({
+  avatarHTML,
+  getState: () => state,
+  cardBy,
+  escape,
+});
+
 function players() {
   return (
     intro(
@@ -1073,6 +1090,12 @@ async function loadDynamic() {
     current = page(),
     hash = location.hash;
   let data, pickemDetail, profileCardsResult;
+  if (current === "shop" && ui.marketSort === "ending")
+    ui.marketSort = "newest";
+  if (!state.me) {
+    ui.marketWishlistOnly = false;
+    if (ui.marketSort === "wishlist") ui.marketSort = "newest";
+  }
   if (current === "quiz") await quizUI.load();
   if (current === "catalog")
     data = await api(
@@ -1122,7 +1145,11 @@ async function loadDynamic() {
         "&kind=" +
         tab +
         "&page=" +
-        ui.marketPage,
+        ui.marketPage +
+        "&sort=" +
+        encodeURIComponent(ui.marketSort) +
+        "&wishlist=" +
+        (ui.marketWishlistOnly ? "1" : "0"),
     );
   if (
     current === "shop" &&
@@ -1560,12 +1587,28 @@ document.addEventListener("click", async (ev) => {
   }
   if (a === "edit-profile") {
     modal(
-      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
+      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
+      false,
+      "avatar-editor-modal",
+    );
+    avatarEditor.mount(
+      $("#profile-form"),
+      state.me.avatar_card,
+      state.me.avatar_crop,
     );
     return;
   }
   if (a === "set-avatar") {
-    await execute("profile", { avatar: t.dataset.id });
+    modal(
+      `<h2>Choose Your Profile Picture</h2><form id="avatar-form" class="stack"><input type="hidden" name="avatar" value="${escape(t.dataset.id)}"><div data-avatar-editor></div><div class="form-error" role="alert"></div><button type="submit" class="button full">Save Profile Picture →</button></form>`,
+      false,
+      "avatar-editor-modal",
+    );
+    avatarEditor.mount(
+      $("#avatar-form"),
+      t.dataset.id,
+      t.dataset.id === state.me.avatar_card ? state.me.avatar_crop : null,
+    );
     return;
   }
   if (a === "daily" || a === "enhance" || a === "claim") {
@@ -1715,8 +1758,9 @@ document.addEventListener("submit", async (ev) => {
     await loadDynamic();
     render();
   }
-  if (formIdentifier(f) === "profile-form") {
+  if (["profile-form", "avatar-form"].includes(formIdentifier(f))) {
     b.avatar = b.avatar || null;
+    if (b.avatar) b.crop = avatarEditor.read(f);
     await execute("profile", b);
   }
   if (formIdentifier(f) === "bid-form")
@@ -3013,4 +3057,26 @@ document.addEventListener("submit", (ev) => {
   if (ev.target.id !== "quiz-answer-form") return;
   ev.preventDefault();
   quizUI.submit(ev.target).catch((err) => toast(err.message, true));
+});
+
+document.addEventListener("change", async (ev) => {
+  if (ev.target.matches("#profile-form select[name=avatar]")) {
+    const id = ev.target.value;
+    avatarEditor.mount(
+      ev.target.form,
+      id,
+      id === state.me.avatar_card ? state.me.avatar_crop : null,
+    );
+  }
+  if (["market-sort", "market-wishlist-only"].includes(ev.target.id)) {
+    if (ev.target.id === "market-sort") ui.marketSort = ev.target.value;
+    else ui.marketWishlistOnly = ev.target.checked;
+    ui.marketPage = 1;
+    try {
+      await loadDynamic();
+      render();
+    } catch (error) {
+      toast(error.message);
+    }
+  }
 });
