@@ -203,6 +203,45 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     ).status,
     403,
   );
+  response = await post(
+    "host/catalog",
+    {
+      cards: Array.from({ length: 5 }, (_, i) => ({
+        id: "community-runtime-search-" + i,
+        kind: "character",
+        name: "Iwami, Manaka",
+        series: "Runtime Search",
+        fixedRarity: "A",
+      })),
+    },
+    host,
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  response = await post(
+    "pack",
+    { kind: "character", premium: false, count: 1 },
+    { Cookie: cookie },
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  const pulled = (await response.json()).cards[0].id;
+  response = await post(
+    "list-card",
+    { card: pulled, variant: "card", venue: "shop", price: 100 },
+    { Cookie: cookie },
+  );
+  assert.equal(response.status, 200, await response.clone().text());
+  const matched = await mf.dispatchFetch(
+    "http://game/api/market?venue=shop&kind=character&q=Manaka%20Iwami&sort=rarity",
+  );
+  assert.equal(matched.status, 200);
+  const found = await matched.json();
+  assert.equal(found.query, "Manaka Iwami");
+  assert.equal(found.items.length, 1);
+  const noMatch = await mf.dispatchFetch(
+    "http://game/api/market?venue=shop&kind=character&q=DefinitelyMissing",
+  );
+  assert.equal(noMatch.status, 200);
+  assert.deepEqual((await noMatch.json()).items, []);
   const searched = await mf.dispatchFetch(
     "http://game/api/market?venue=auction&q=Missing%20Card&sort=rarity",
   );
