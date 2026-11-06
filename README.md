@@ -228,3 +228,14 @@ Player auctions and marketplace searches cover card names, anime titles and sell
 New quiz runs persist a server start timestamp. Completion time stops when the twentieth answer is locked, so reading the final reveal before clicking Finish does not add time. Earlier loading, pauses and reloads count. Time appears beside each leaderboard score and on the finished run. Faster equal-score replays replace the saved duration; slower or lower-score attempts leave it alone, with no repeat reward payments. Existing untimed scores and in-progress legacy runs are preserved without invented timing; restarting records a new timed run. Exact score-and-duration ties use the first time that record was set.
 
 The connected minus/value/plus quantity input supports direct typing, keyboard input and bounded stepping. It is used for pack counts, Auto Refine counts, auction duration and horse-ticket stakes (100-credit increments), without changing their limits or costs. Design attribution is in THIRD-PARTY-NOTICES.md.
+
+
+### MAX Titles, Anime Checklists and Quiz Clocks
+
+Enhancing a card to MAX awards a permanent card-name title, coloured by the card rarity at award time. Comma-separated names reverse their parts and remove the commas (Miyafuji, Yoshika → Yoshika Miyafuji). Card and quiz titles have separate equipment selections in My Titles; Host remains mandatory. A one-time cosmetic catch-up includes current MAX inventory and seller/offer escrow, without changing cards or credits. Its max-card-titles-v1 marker prevents reruns; unavailable legacy card metadata is recorded in that marker rather than blocking the site. Player/gameplay resets clear card-title awards, and canonical identity migrations retain them. Selling or trading a card afterward does not remove an earned title.
+
+Anime titles on the owner's collection/progress board open an authenticated, 24-card checklist. It uses the same primary-anime associations and unique inventory/escrow ownership as the progress counts. Missing portraits are grey, ownership labels stay readable, and wishlist actions work without closing the popup or resetting its scroll. Only the visible page's catalogue records are resolved.
+
+Active quizzes show an elapsed clock beside volume controls, in addition to the song countdown. It continues through earlier answer reviews, survives reloads, resets on Restart and stops at the final locked answer. It uses the server-aligned clock with no new polling. Perfect 20/20 quiz tiles, result panels and score badges receive a rainbow border/glow; reduced-motion mode retains the rainbow without animation.
+
+Bulk-pack Next/Previous actions now pass the application's event filter. Turning a reveal page scrolls to the top of that page and never purchases again or grants additional cards.

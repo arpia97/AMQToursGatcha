@@ -1049,6 +1049,17 @@ export class Game extends DurableObject {
         ),
       );
     }
+    if (path === "anime-checklist" && !post) {
+      if (!session) fail("Sign in to view your anime checklist.", 401);
+      this.bursts.take("read:" + session.player, 60, 5);
+      return json(
+        e.economy.anime.checklist(
+          session.player,
+          url.searchParams.get("series"),
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
     if (path === "anime-search" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

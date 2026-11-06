@@ -129,7 +129,7 @@ export function createFeatures(h, ui) {
   function animeCard(c, own = true, pinned = false) {
     const title = series({ ...c, series: c.series_romaji }),
       owned = c.owned || 0;
-    return `<article class="anime-progress-card ${owned === c.total ? "complete" : ""}"><span class="eyebrow">${pinned ? "★ PINNED ANIME" : owned === c.total ? "COLLECTION COMPLETE" : "IN PROGRESS"}</span><h3>${e(title)}</h3><div class="completion-label"><strong>${n(owned)} / ${n(c.total)} characters</strong><span>${Math.round((owned * 100) / c.total)}%</span></div><progress aria-label="${e(title)} completion" value="${owned}" max="${Math.max(1, c.total)}"></progress>${own ? `<button class="text-button space-top" data-action="pin-anime" data-series="${e(c.series_key)}" data-pinned="${pinned}">${pinned ? "★ Unpin anime" : "☆ Pin anime"}</button>` : ""}</article>`;
+    return `<article class="anime-progress-card ${owned === c.total ? "complete" : ""}"><span class="eyebrow">${pinned ? "★ PINNED ANIME" : owned === c.total ? "COLLECTION COMPLETE" : "IN PROGRESS"}</span><h3>${own ? `<button type="button" class="anime-checklist-open" data-action="anime-checklist-open" data-series="${e(c.series_key)}">${e(title)} ↗</button>` : e(title)}</h3><div class="completion-label"><strong>${n(owned)} / ${n(c.total)} characters</strong><span>${Math.round((owned * 100) / c.total)}%</span></div><progress aria-label="${e(title)} completion" value="${owned}" max="${Math.max(1, c.total)}"></progress>${own ? `<button class="text-button space-top" data-action="pin-anime" data-series="${e(c.series_key)}" data-pinned="${pinned}">${pinned ? "★ Unpin anime" : "☆ Pin anime"}</button>` : ""}</article>`;
   }
   function pinnedPanel(pins, own) {
     if (!pins.length) return "";

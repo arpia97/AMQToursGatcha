@@ -1,3 +1,4 @@
+import { animeChecklist } from "./anime-checklist-ui.js";
 import { quantityInput, installQuantityInputs } from "./quantity-input.js";
 import { avatarCropStyle } from "./avatar-crop.js";
 import { createAvatarEditor } from "./avatar-editor.js";
@@ -276,6 +277,27 @@ function modal(html, wide = false, className = "") {
     .join(" ");
   $("#modal-body").innerHTML = html;
   $("#modal").showModal();
+}
+let animeChecklistData = null;
+async function openAnimeChecklist(seriesKey, pageNumber = 1) {
+  const data = await api(
+    "anime-checklist?series=" +
+      encodeURIComponent(seriesKey) +
+      "&page=" +
+      pageNumber,
+  );
+  animeChecklistData = data;
+  modal(
+    animeChecklist(data, {
+      escape,
+      cardHTML,
+      wishlist: state.wishlist || [],
+      titleMode,
+    }),
+    true,
+    "anime-checklist-dialog",
+  );
+  $("#modal").scrollTop = 0;
 }
 function empty(title, description, button = "") {
   return `<div class="empty"><div class="empty-icon">✦</div><h3>${title}</h3><p>${description}</p>${button}</div>`;
@@ -1717,7 +1739,10 @@ document.addEventListener("submit", async (ev) => {
   if (formIdentifier(f) === "titles-form") {
     await execute(
       "equip-titles",
-      { quizzes: new FormData(f).getAll("quiz") },
+      {
+        quizzes: new FormData(f).getAll("quiz"),
+        cards: new FormData(f).getAll("card"),
+      },
       null,
       f,
     );
@@ -2455,15 +2480,50 @@ async function handleFeatureClick(a, t) {
       $("#main .filters")?.scrollIntoView({ block: "start" });
       return true;
     }
+    if (a === "anime-checklist-open" || a === "anime-checklist-page") {
+      await openAnimeChecklist(
+        a === "anime-checklist-open"
+          ? t.dataset.series
+          : animeChecklistData.series_key,
+        a === "anime-checklist-page" ? Number(t.dataset.page) : 1,
+      );
+      return true;
+    }
     if (a === "wishlist-toggle") {
       if (!state.me) {
         auth();
         return true;
       }
-      await execute("wishlist", {
-        card: t.dataset.id,
-        wanted: !(state.wishlist || []).includes(t.dataset.id),
-      });
+      const checklist = t.closest(".anime-checklist") && animeChecklistData;
+      await execute(
+        "wishlist",
+        {
+          card: t.dataset.id,
+          wanted: !(state.wishlist || []).includes(t.dataset.id),
+        },
+        checklist
+          ? () => {
+              const body = $("#modal-body");
+              const scroll = body.scrollTop,
+                dialogScroll = $("#modal").scrollTop;
+              body.innerHTML = animeChecklist(checklist, {
+                escape,
+                cardHTML,
+                wishlist: state.wishlist || [],
+                titleMode,
+              });
+              body.scrollTop = scroll;
+              $("#modal").scrollTop = dialogScroll;
+              body
+                .querySelector(
+                  '[data-action="wishlist-toggle"][data-id="' +
+                    CSS.escape(t.dataset.id) +
+                    '"]',
+                )
+                ?.focus({ preventScroll: true });
+            }
+          : null,
+      );
       return true;
     }
     if (a === "profile-cards-view" || a === "profile-cards-page") {
@@ -2520,6 +2580,7 @@ async function handleFeatureClick(a, t) {
     if (
       ![
         "pack",
+        "pack-reveal-page",
         "showcase-toggle",
         "showcase-arrange",
         "showcase-move",
@@ -2543,6 +2604,7 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "pack-reveal-page") {
       packReveal.turn(Number(t.dataset.delta));
+      $("#modal").scrollTop = 0;
       return true;
     }
     if (a === "pack") {

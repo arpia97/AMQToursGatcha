@@ -90,6 +90,7 @@ function fixture(
     if (path === "quiz-start")
       run = {
         id: "run",
+        startedAt: now,
         index: 0,
         score: 0,
         preview: true,
@@ -110,6 +111,7 @@ function fixture(
       run = {
         ...run,
         id: "restarted",
+        startedAt: now,
         index: 0,
         score: 0,
         answered: false,
@@ -595,4 +597,21 @@ test("leaderboards show precise completion times and explicitly label missing le
   assert.match(html, /Not Recorded/);
   assert.match(html, /Fast &lt;Player>/);
   assert.doesNotMatch(html, /Fast <Player>/);
+});
+
+test("elapsed quiz clock advances through guesses and answer review, survives reload, and resets on restart", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  assert.match(f.ui.render(), /Elapsed Quiz Time/);
+  await f.advance(5000);
+  assert.equal(f.node("quiz-elapsed").textContent, "0:05");
+  await f.ui.click(f.button("data-quiz-answer-option", "0"));
+  await f.advance(3000);
+  assert.equal(f.node("quiz-elapsed").textContent, "0:08");
+  await f.ui.load();
+  f.ui.mount();
+  await f.advance(2000);
+  assert.equal(f.node("quiz-elapsed").textContent, "0:10");
+  await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
+  assert.equal(f.node("quiz-elapsed").textContent, "0:00");
 });

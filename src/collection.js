@@ -173,6 +173,31 @@ export class AnimeCollection {
         : rows,
     };
   }
+  checklist(player, series, page = 1) {
+    const key = text(series, 1000);
+    integer(page, 1, 10000);
+    const progress = this.progress(player, key);
+    if (!progress) fail("This anime is not in the catalogue yet.", 404);
+    const rows = this.e.all(
+      "WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open') SELECT s.card,EXISTS(SELECT 1 FROM owned o WHERE o.card=s.card) AS owned FROM character_series s WHERE s.series_key=? ORDER BY s.card LIMIT 25 OFFSET ?",
+      player,
+      player,
+      player,
+      player,
+      player,
+      key,
+      (page - 1) * 24,
+    );
+    const states = new Map(rows.slice(0, 24).map((r) => [r.card, !!r.owned]));
+    return {
+      ...progress,
+      page,
+      hasMore: rows.length > 24,
+      cards: this.e.catalogStore
+        .cards([...states.keys()])
+        .map((c) => ({ ...c, owned: states.get(c.id) })),
+    };
+  }
   page(player, page = 1) {
     integer(page, 1, 10000);
     const e = this.e;

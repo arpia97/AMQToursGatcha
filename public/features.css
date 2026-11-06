@@ -4164,3 +4164,132 @@ dialog.avatar-editor-modal {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Primary-anime checklists keep ownership and wishlist actions visible together. */
+.anime-checklist-open {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.anime-checklist-open:hover {
+  color: var(--mint, #b8e3cc);
+}
+.anime-checklist-open:focus-visible {
+  outline: 2px solid var(--mint, #b8e3cc);
+  outline-offset: 5px;
+}
+.anime-checklist .section-head {
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.anime-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 16px;
+}
+.anime-checklist-entry {
+  min-width: 0;
+}
+.anime-checklist-entry.is-missing .portrait > img,
+.anime-checklist-entry.is-missing .fallback-img {
+  filter: grayscale(1);
+  opacity: 0.42;
+}
+.anime-checklist-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11px;
+}
+.anime-checklist-status > span {
+  color: var(--muted, #9aa3b4);
+}
+.anime-checklist-entry.is-owned .anime-checklist-status > span {
+  color: #b8e3cc;
+}
+.anime-checklist-status button {
+  padding: 8px 0;
+  font-size: 11px;
+}
+.anime-checklist .toolbar {
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .anime-checklist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 14px;
+  }
+}
+
+.card-earned-title {
+  border-color: var(--tier-color, #797985);
+}
+.equipped-title.card-earned-title {
+  color: var(--tier-color, #cbd0da);
+}
+.title-option.card-earned-title strong {
+  color: var(--tier-color, #cbd0da);
+}
+
+/* Perfect quizzes remain rainbow in every view, independent of card levels. */
+:is(.quiz-tile, .quiz-complete, .quiz-score, .card-earned-title).tier-ag {
+  border-color: transparent;
+  background:
+    linear-gradient(#191b23, #191b23) padding-box,
+    linear-gradient(
+        110deg,
+        #ff8fae,
+        #ffd774,
+        #90f2bd,
+        #80caff,
+        #cb9dff,
+        #ff8fae
+      )
+      border-box;
+  background-size:
+    auto,
+    240% 240%;
+  box-shadow:
+    -6px 0 20px #ff91b140,
+    0 -6px 20px #ffd77435,
+    6px 0 20px #80caff40,
+    0 6px 20px #b99aff40;
+  animation: rainbow-flow 6s ease infinite;
+}
+.quiz-tile.collect-card.tier-ag::after {
+  content: none;
+}
+.card-earned-title.tier-ag strong,
+.equipped-title.card-earned-title.tier-ag {
+  color: #f9edff;
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.quiz-tile, .quiz-complete, .quiz-score, .card-earned-title).tier-ag {
+    animation: none;
+  }
+}
+
+.quiz-elapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.quiz-elapsed strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}

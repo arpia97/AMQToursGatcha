@@ -214,6 +214,7 @@ export class AliasSync {
       "quiz_reward_history",
       "quiz_runs",
       "profile_title_preferences",
+      "card_titles",
       "card_alchemy",
       "alchemy_targets",
       "card_wishlist",

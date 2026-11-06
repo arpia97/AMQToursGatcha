@@ -8,6 +8,7 @@ import {
   ENHANCEMENT_REVISION,
 } from "../public/card-values.js";
 import { validFavorites } from "./popularity.js";
+import { CardTitles } from "./card-titles.js";
 import { Quiz } from "./quiz.js";
 import {
   PICKEM_WINNER_REWARD,
@@ -100,7 +101,9 @@ export class Engine {
     this.participation = new Participation(this);
     this.quiz = new Quiz(this);
     this.creditAudit = new CreditAudit(this);
+    this.cardTitles = new CardTitles(this);
     migrateEnhancements(this);
+    this.cardTitles.backfill();
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
@@ -408,10 +411,14 @@ export class Engine {
         player,
         b.card,
       );
+      const title =
+        item.level + 1 === MAX_CARD_LEVEL
+          ? this.cardTitles.award(player, b.card)
+          : null;
       return {
         message:
           item.level + 1 === MAX_CARD_LEVEL
-            ? "Enhanced to MAX."
+            ? "Enhanced to MAX. Title Unlocked: " + title + "."
             : `Enhanced to level ${item.level + 1}.`,
       };
     }
@@ -863,6 +870,7 @@ export class Engine {
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
       this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
+      this.run("DELETE FROM card_titles WHERE player=?", id);
       this.run(
         "DELETE FROM host_credit_issues WHERE ledger IN (SELECT id FROM ledger WHERE player=?)",
         id,
@@ -923,6 +931,7 @@ export class Engine {
         "quiz_progress",
         "quiz_reward_history",
         "profile_title_preferences",
+        "card_titles",
         "card_alchemy",
         "alchemy_targets",
         "card_wishlist",

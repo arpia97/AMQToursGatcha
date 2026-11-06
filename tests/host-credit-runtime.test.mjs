@@ -265,6 +265,33 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     (await post("profile", { crop: { x: 0.5, y: 0.5, zoom: 2 } })).status,
     401,
   );
+
+  const checklistPath =
+    "http://game/api/anime-checklist?series=runtime%20search";
+  assert.equal((await mf.dispatchFetch(checklistPath)).status, 401);
+  const checklistResponse = await mf.dispatchFetch(checklistPath, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(checklistResponse.status, 200);
+  const checklist = await checklistResponse.json();
+  assert.equal(checklist.total, 5);
+  assert.equal(checklist.cards.length, 5);
+  assert.ok(checklist.owned > 0);
+  assert.equal(checklist.cards.filter((c) => c.owned).length, checklist.owned);
+  const otherChecklist = await (
+    await mf.dispatchFetch(checklistPath + "&player=1", {
+      headers: { Cookie: hostCookie },
+    })
+  ).json();
+  assert.equal(otherChecklist.owned, 0);
+  assert.equal(
+    (
+      await mf.dispatchFetch(checklistPath + "&page=0", {
+        headers: { Cookie: cookie },
+      })
+    ).status,
+    400,
+  );
   const publicState = await (
     await mf.dispatchFetch("http://game/api/state")
   ).json();

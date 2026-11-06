@@ -116,8 +116,7 @@ export function createAlchemyUI(h) {
     selected = next;
   }
   function queueHTML(editable = true) {
-    if (!selected.length)
-      return '<p class="form-hint">Select cards to build your order. Every sixth refinement is lucky.</p>';
+    if (!selected.length) return "";
     let queue;
     try {
       queue = materials();

@@ -1,4 +1,4 @@
-import { quizDuration } from "./quiz-time.js";
+import { quizDuration, quizElapsed } from "./quiz-time.js";
 import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
@@ -54,6 +54,16 @@ export function createQuizUI({
       volume = Math.min(100, Math.max(0, Math.round(Number(saved))));
   } catch {}
   const serverNow = () => time.now() + serverOffset;
+  const elapsed = () =>
+    run?.index === 19 && run?.answered
+      ? run.elapsedMs
+      : quizElapsed(run?.startedAt, Math.round(serverNow()));
+  const elapsedControl = () =>
+    run && !run.finished && Number.isSafeInteger(run.startedAt)
+      ? '<span class="quiz-elapsed">Elapsed <strong id="quiz-elapsed" role="timer" aria-label="Elapsed Quiz Time">' +
+        quizDuration(elapsed(), false) +
+        "</strong></span>"
+      : "";
   async function call(path, body) {
     const sent = time.now(),
       result = await api(path, body),
@@ -278,7 +288,7 @@ export function createQuizUI({
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
       '</div><div class="quiz-top-controls">' +
-      (!leaderboardOnly ? volumeControl() : "") +
+      (!leaderboardOnly ? elapsedControl() + volumeControl() : "") +
       (!leaderboardOnly && run && !run.finished
         ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
         : "") +
@@ -502,6 +512,9 @@ export function createQuizUI({
       });
   }
   function tick() {
+    const clock = document.getElementById("quiz-elapsed");
+    if (clock && run && !run.finished)
+      clock.textContent = quizDuration(elapsed(), false);
     if (!run || run.finished || run.answered) return;
     const now = serverNow(),
       started =
@@ -564,8 +577,14 @@ export function createQuizUI({
       attemptPlay();
   }
   function mount() {
-    if (!selected || !run || run.finished || run.answered) {
+    if (!selected || !run || run.finished) {
       stop();
+      return;
+    }
+    if (run.answered) {
+      stop();
+      tick();
+      if (run.index < 19) timer = time.every(tick, 200);
       return;
     }
     const key = run.id + ":" + run.index;

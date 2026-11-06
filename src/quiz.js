@@ -582,12 +582,15 @@ export class Quiz {
     };
   }
   titleOptions(player) {
-    return this.e
-      .all(
-        "SELECT q.id AS quiz,q.title,q.name AS quizName,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
-        player,
-      )
-      .map(({ hidden, ...title }) => ({ ...title, equipped: !hidden }));
+    return [
+      ...this.e
+        .all(
+          "SELECT q.id AS quiz,q.title,q.name AS quizName,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
+          player,
+        )
+        .map(({ hidden, ...title }) => ({ ...title, equipped: !hidden })),
+      ...this.e.cardTitles.options(player),
+    ];
   }
   titleSettings(player) {
     return {
@@ -596,23 +599,41 @@ export class Quiz {
     };
   }
   equipTitles(player, b) {
-    const earned = this.titleOptions(player);
-    if (
-      !Array.isArray(b.quizzes) ||
-      b.quizzes.some(
-        (id) => typeof id !== "string" || !earned.some((t) => t.quiz === id),
-      ) ||
-      new Set(b.quizzes).size !== b.quizzes.length
-    )
-      fail("Choose only titles you have earned.");
+    const earned = this.titleOptions(player),
+      quizTitles = earned.filter((t) => t.source !== "card"),
+      cardTitles = earned.filter((t) => t.source === "card");
+    const cards =
+      b.cards === undefined
+        ? cardTitles.filter((t) => t.equipped).map((t) => t.card)
+        : b.cards;
+    for (const [selected, options, key] of [
+      [b.quizzes, quizTitles, "quiz"],
+      [cards, cardTitles, "card"],
+    ]) {
+      if (
+        !Array.isArray(selected) ||
+        selected.some(
+          (id) => typeof id !== "string" || !options.some((t) => t[key] === id),
+        ) ||
+        new Set(selected).size !== selected.length
+      )
+        fail("Choose only titles you have earned.");
+    }
     this.e.run("DELETE FROM profile_title_preferences WHERE player=?", player);
-    for (const title of earned)
+    for (const title of quizTitles)
       if (!b.quizzes.includes(title.quiz))
         this.e.run(
           "INSERT INTO profile_title_preferences VALUES(?,?,1)",
           player,
           title.quiz,
         );
+    for (const title of cardTitles)
+      this.e.run(
+        "UPDATE card_titles SET hidden=? WHERE player=? AND card=?",
+        cards.includes(title.card) ? 0 : 1,
+        player,
+        title.card,
+      );
     return {
       ...this.titleSettings(player),
       message: "Displayed titles updated.",
@@ -621,6 +642,10 @@ export class Quiz {
   titles(player) {
     return this.titleOptions(player)
       .filter((t) => t.equipped)
-      .map(({ quiz, title }) => ({ quiz, title }));
+      .map((t) =>
+        t.source === "card"
+          ? { card: t.card, title: t.title, rarity: t.rarity, source: "card" }
+          : { quiz: t.quiz, title: t.title },
+      );
   }
 }
