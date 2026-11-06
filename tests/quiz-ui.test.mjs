@@ -579,3 +579,20 @@ test("Singers and Composers tabs filter identical-format quiz tiles without extr
   assert.equal(calls, 1);
   ui.stop();
 });
+
+test("leaderboards show precise completion times and explicitly label missing legacy timings", async (t) => {
+  const f = fixture(t, {
+    leaderboardRows: [
+      { id: "p", name: "Fast <Player>", best: 20, bestAt: 1, durationMs: 1250 },
+      { id: "q", name: "Legacy", best: 20, bestAt: 2, durationMs: null },
+    ],
+  });
+  await f.ui.load();
+  await f.ui.click(f.button("data-quiz-leaderboard", "q"));
+  const html = f.ui.render();
+  assert.match(html, /<th>Time Taken<\/th>/);
+  assert.match(html, /0:01.250/);
+  assert.match(html, /Not Recorded/);
+  assert.match(html, /Fast &lt;Player>/);
+  assert.doesNotMatch(html, /Fast <Player>/);
+});

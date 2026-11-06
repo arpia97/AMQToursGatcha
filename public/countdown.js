@@ -21,3 +21,15 @@ export function nextWeeklyReset(now) {
     week = 7 * 86400000;
   return monday + (Math.floor((now - monday) / week) + 1) * week;
 }
+
+export function compactCountdownText(end, now) {
+  let seconds = Math.max(0, Math.ceil((end - now) / 1000));
+  const d = Math.floor(seconds / 86400);
+  seconds %= 86400;
+  const h = Math.floor(seconds / 3600);
+  seconds %= 3600;
+  const m = Math.floor(seconds / 60),
+    s = seconds % 60,
+    pad = (n) => String(n).padStart(2, "0");
+  return (d ? d + "d " : "") + pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
+}

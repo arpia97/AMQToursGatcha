@@ -865,7 +865,13 @@ export function demoFeatures(d, path, b) {
         ...x,
         is_wishlisted: (s.wishlist || []).includes(x.card),
       }))
-      .filter((x) => p.get("wishlist") !== "1" || x.is_wishlisted);
+      .filter((x) => p.get("wishlist") !== "1" || x.is_wishlisted)
+      .filter((x) =>
+        searchMatcher(p.get("q") || "")([
+          cardSearchText(d.cards.find((c) => c.id === x.card) || {}),
+          x.seller_name || s.ranks.find((p) => p.id === x.seller)?.name,
+        ]),
+      );
     const sorted = sortMarketItems(
         rows,
         new Map(d.cards.map((c) => [c.id, c])),

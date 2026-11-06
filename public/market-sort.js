@@ -16,9 +16,31 @@ export function marketSortControl(
   wishlistOnly = false,
   signedIn = false,
   auction = false,
+  query = "",
+  noResults = false,
 ) {
+  const escape = (s) =>
+    String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
   return (
-    '<div class="market-sort-controls"><label>Sort By<select id="market-sort" aria-label="Sort player ' +
+    '<div class="market-sort-controls"><input class="search ' +
+    (query && noResults ? "no-results" : "") +
+    '" id="market-search" type="search" aria-label="Search player ' +
+    (auction ? "auctions" : "marketplace") +
+    '" placeholder="Search cards, anime or sellers…" maxlength="100" value="' +
+    escape(query) +
+    '" aria-invalid="' +
+    !!(query && noResults) +
+    '"><label>Sort By<select id="market-sort" aria-label="Sort player ' +
     (auction ? "auctions" : "marketplace") +
     '">' +
     MARKET_SORTS.filter(([v]) => auction || v !== "ending")

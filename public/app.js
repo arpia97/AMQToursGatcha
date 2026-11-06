@@ -1,3 +1,4 @@
+import { quantityInput, installQuantityInputs } from "./quantity-input.js";
 import { avatarCropStyle } from "./avatar-crop.js";
 import { createAvatarEditor } from "./avatar-editor.js";
 import { catalogProgressHTML } from "./catalog-progress.js";
@@ -41,7 +42,11 @@ import {
 import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
-import { countdownText, nextWeeklyReset } from "./countdown.js";
+import {
+  countdownText,
+  compactCountdownText,
+  nextWeeklyReset,
+} from "./countdown.js";
 import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
@@ -68,6 +73,7 @@ import {
 } from "./card-display.js";
 const $ = (s) => document.querySelector(s);
 const cardSurfaces = installCardSurfaces(document);
+installQuantityInputs(document);
 const currentCardSize = installCardSize(document, {
   getItem: (key) => localStorage.getItem(key),
   setItem: (key, value) => localStorage.setItem(key, value),
@@ -195,6 +201,7 @@ const ui = {
   marketPage: 1,
   marketData: null,
   marketSort: "newest",
+  marketQuery: "",
   marketWishlistOnly: false,
   shopSection: "buy",
   tradeView: "browse",
@@ -278,7 +285,13 @@ function intro(title, description, extra = "") {
 }
 const btn = (label, action, extra = "", cls = "") =>
   `<button class="button ${cls}" data-action="${action}" ${extra}>${label}</button>`;
-function countdown(end, prefix = "", days = true, ended = "Ended") {
+function countdown(
+  end,
+  prefix = "",
+  days = true,
+  ended = "Ended",
+  compact = false,
+) {
   return (
     '<span class="countdown" data-countdown-end="' +
     Number(end) +
@@ -288,10 +301,15 @@ function countdown(end, prefix = "", days = true, ended = "Ended") {
     days +
     '" data-countdown-ended="' +
     escape(ended) +
+    '" data-countdown-compact="' +
+    compact +
     '">' +
     (end <= Date.now() + clockOffset
       ? ended
-      : prefix + countdownText(end, Date.now() + clockOffset, days)) +
+      : prefix +
+        (compact
+          ? compactCountdownText(end, Date.now() + clockOffset)
+          : countdownText(end, Date.now() + clockOffset, days))) +
     "</span>"
   );
 }
@@ -308,7 +326,9 @@ function tickCountdowns() {
       now >= end
         ? el.dataset.countdownEnded
         : el.dataset.countdownPrefix +
-          countdownText(end, now, el.dataset.countdownDays === "true");
+          (el.dataset.countdownCompact === "true"
+            ? compactCountdownText(end, now)
+            : countdownText(end, now, el.dataset.countdownDays === "true"));
     if (now >= end && end > state.now && !handledDeadlines.has(end)) {
       handledDeadlines.add(end);
       expired = true;
@@ -442,7 +462,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
   const auction = a
-    ? `<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a> " + roleBadge(state.roles?.[a.seller]) : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a> ${roleBadge(state.roles?.[a.winner])}${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
+    ? `${a.seller ? `<p class="form-hint user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</p>` : ""}<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a> " + roleBadge(state.roles?.[a.seller]) : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a> ${roleBadge(state.roles?.[a.winner])}${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
     : "";
   const owned =
     item && !item.preview
@@ -456,7 +476,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
       : "") +
     extraActions;
   const meta = a
-    ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>`
+    ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>${a.seller ? `<small class="user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</small>` : ""}`
     : "";
   return cardSurface(
     c,
@@ -1149,7 +1169,9 @@ async function loadDynamic() {
         "&sort=" +
         encodeURIComponent(ui.marketSort) +
         "&wishlist=" +
-        (ui.marketWishlistOnly ? "1" : "0"),
+        (ui.marketWishlistOnly ? "1" : "0") +
+        "&q=" +
+        encodeURIComponent(ui.marketQuery),
     );
   if (
     current === "shop" &&
@@ -1804,6 +1826,37 @@ document.addEventListener("input", (ev) => {
       " · " +
       number(Number(form.dataset.packPrice) * count) +
       " credits";
+  }
+  if (ev.target.id === "market-search") {
+    ev.target.classList.remove("no-results");
+    ev.target.setAttribute("aria-invalid", "false");
+    ui.marketQuery = ev.target.value;
+    ui.marketPage = 1;
+    ++loadVersion;
+    clearTimeout(searchTimer);
+    const query = ui.marketQuery;
+    searchTimer = setTimeout(async () => {
+      if (
+        !(
+          page() === "auctions" ||
+          (page() === "shop" && ui.shopSection === "market")
+        ) ||
+        query !== ui.marketQuery
+      )
+        return;
+      try {
+        await loadDynamic();
+        if (
+          (page() === "auctions" ||
+            (page() === "shop" && ui.shopSection === "market")) &&
+          query === ui.marketQuery
+        )
+          render();
+      } catch (err) {
+        if (query === ui.marketQuery) toast(err.message, true);
+      }
+    }, 350);
+    return;
   }
   if (ev.target.id === "trade-search") {
     ev.target.classList.remove("no-results");
@@ -2499,7 +2552,7 @@ async function handleFeatureClick(a, t) {
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
           (premium ? 1000 : 500);
       modal(
-        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}"><label>Packs to Open<input type="number" name="count" min="1" max="100" step="1" value="${Math.min(100, Math.max(1, Number(t.dataset.count) || 1))}" required></label><p class="form-hint">5 cards per pack · up to 100 packs at once.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total>✦ Open for ${number(price * (Number(t.dataset.count) || 1))} credits</button></form>`,
+        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: 1, max: 100, value: Math.min(100, Math.max(1, Number(t.dataset.count) || 1)) })}<p class="form-hint">5 cards per pack · up to 100 packs at once.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total>✦ Open for ${number(price * (Number(t.dataset.count) || 1))} credits</button></form>`,
       );
       return true;
     }
@@ -2646,7 +2699,7 @@ function listingForm(id, venue, variant) {
     item = state.inventory.find((i) => i.card === id),
     auction = venue === "auction";
   modal(
-    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields"><label>Duration in hours (max 7 days)<input name="hours" type="number" min="1" max="168" step="1" value="72" required></label><label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
+    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields">' + quantityInput({ id: "auction-hours", name: "hours", label: "Duration in Hours (Max 7 Days)", min: 1, max: 168, value: 72 }) + '<label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
   );
 }
 function openInstantSale(id, variant) {

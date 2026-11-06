@@ -4053,3 +4053,114 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 dialog.avatar-editor-modal {
   width: 640px;
 }
+
+.quantity-field {
+  margin: 12px 0;
+}
+.quantity-field > label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 12px;
+}
+.quantity-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  width: 180px;
+  max-width: 100%;
+  height: 44px;
+  border: 1px solid #4a505e;
+  border-radius: 9px;
+  overflow: hidden;
+  background: #252b36;
+}
+.quantity-stepper:focus-within {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 2px #b7e4ca25;
+}
+.quantity-stepper button {
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: #303743;
+  color: var(--text);
+  padding: 0;
+  cursor: pointer;
+}
+.quantity-stepper button:hover:not(:disabled) {
+  background: #414c59;
+  color: var(--mint);
+}
+.quantity-stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.quantity-stepper button:focus-visible {
+  outline: 2px solid var(--mint);
+  outline-offset: -3px;
+}
+.quantity-stepper svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.quantity-stepper input {
+  width: 0;
+  min-width: 0;
+  flex: 1;
+  text-align: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0 4px;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.quantity-stepper input::-webkit-inner-spin-button,
+.quantity-stepper input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.quantity-stepper input:focus {
+  box-shadow: none;
+  outline: none;
+}
+.market-sort-controls .search {
+  flex: 1 1 260px;
+  max-width: 400px;
+  margin: 0;
+}
+.user-auction-timer {
+  font-variant-numeric: tabular-nums;
+  color: #d8e8e2;
+}
+.quiz-play-layout {
+  grid-template-columns: minmax(0, 1fr) 370px;
+}
+.quiz-leaderboard td.quiz-duration {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.quiz-timing-guide {
+  margin: 14px 0 0;
+  line-height: 1.6;
+}
+.quiz-completion-time {
+  margin: 16px 0;
+  font-size: 15px;
+  color: var(--mint);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 1100px) {
+  .quiz-play-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

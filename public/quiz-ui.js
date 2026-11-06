@@ -1,3 +1,4 @@
+import { quizDuration } from "./quiz-time.js";
 import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
@@ -164,22 +165,24 @@ export function createQuizUI({
           encodeURIComponent(p.id) +
           '">' +
           e(p.name) +
-          '</a></td><td title="First Achieved: ' +
+          '</a></td><td title="Time Set: ' +
           e(achieved) +
           '"><strong>' +
           p.best +
-          " / 20</strong></td></tr>"
+          ' / 20</strong></td><td class="quiz-duration">' +
+          e(quizDuration(p.durationMs)) +
+          "</td></tr>"
         );
       })
       .join("");
     return (
       '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
       (rows
-        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th></tr></thead><tbody>' +
+        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
           rows +
           "</tbody></table></div>"
         : '<p class="notice">No completed scores yet.</p>') +
-      "</aside>"
+      '<p class="form-hint quiz-timing-guide">Ties: fastest time, then earliest set. Includes loading and pauses; ends at the final locked answer. Older untimed scores follow timed scores.</p></aside>'
     );
   }
   function render() {
@@ -317,7 +320,9 @@ export function createQuizUI({
           (preview ? "Preview Complete" : "Quiz Complete") +
           " · " +
           run.score +
-          "/20</h2>" +
+          '/20</h2><p class="quiz-completion-time">Time Taken: ' +
+          e(quizDuration(run.durationMs)) +
+          "</p>" +
           (preview
             ? "<p>Test Score Only · No Credits Awarded</p>"
             : "<p>Personal Best: " +
@@ -365,6 +370,9 @@ export function createQuizUI({
         " / 20</strong></div></div>" +
         (!preview
           ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
+          : "") +
+        (!Number.isSafeInteger(run.startedAt)
+          ? '<p class="form-hint">This run predates completion timing. Restart Quiz to record a time.</p>'
           : "") +
         (!run.answered
           ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'

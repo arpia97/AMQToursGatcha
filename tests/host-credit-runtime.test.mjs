@@ -203,6 +203,11 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     ).status,
     403,
   );
+  const searched = await mf.dispatchFetch(
+    "http://game/api/market?venue=auction&q=Missing%20Card&sort=rarity",
+  );
+  assert.equal(searched.status, 200);
+  assert.deepEqual((await searched.json()).items, []);
   // Personal listing filters derive identity from the session, never query input.
   assert.equal(
     (await mf.dispatchFetch("http://game/api/market?sort=wishlist&player=1"))

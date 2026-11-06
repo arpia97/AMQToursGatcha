@@ -1006,6 +1006,7 @@ export class Game extends DurableObject {
             query: url.searchParams.get("q") || "",
             page: Number(url.searchParams.get("page") || 1),
             wishlistOnly: url.searchParams.get("wishlist") === "1",
+            query: url.searchParams.get("q") || "",
           },
           session?.player || null,
         ),

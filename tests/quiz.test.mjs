@@ -735,3 +735,108 @@ test("host edits append or remove songs with version checks, deduplicate MP3s an
   });
   assert.equal(f.e.quiz.hostSongs("test").songs.length, 0);
 });
+
+function timedPlay(f, score, player = "p", delay = 1000, finishDelay = 0) {
+  let result = f.action(player, "quiz-start", { quiz: "test" }),
+    run = result.run;
+  const startedAt = run.startedAt;
+  for (let i = 0; i < 20; i++) {
+    const ready = f.action(player, "quiz-ready", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+    });
+    f.advance(Math.max(0, ready.run.startsAt - f.e.now()) + delay);
+    const song = f.e.quiz.run(player, "test").songs[i];
+    const body = {
+      quiz: "test",
+      run: run.id,
+      index: i,
+      answer: i < score ? song.answers[0] : "Wrong",
+      durationMs: 1,
+      startedAt: 0,
+    };
+    const key = crypto.randomUUID(),
+      answer = f.action(player, "quiz-answer", body, key);
+    assert.deepEqual(f.action(player, "quiz-answer", body, key), answer);
+    if (i === 19) f.advance(finishDelay);
+    result = f.action(player, "quiz-next", {
+      quiz: "test",
+      run: run.id,
+      index: i,
+    });
+    run = result.run;
+  }
+  return { result, startedAt };
+}
+test("quiz clocks are server-owned, persisted and stop at the last answer rather than the Finish button", (t) => {
+  const f = fixture(t),
+    { result, startedAt } = timedPlay(f, 20, "p", 1234, 90000);
+  assert.equal(result.run.durationMs, 2000 + 20 * 1234);
+  assert.equal(result.run.startedAt, startedAt);
+  assert.equal(
+    f.e.quiz.leaderboard("test").rows[0].durationMs,
+    result.run.durationMs,
+  );
+  const restarted = new Engine(f.e.db, f.e.transaction, f.e.now, () => 0);
+  assert.equal(
+    restarted.quiz.view("p", "test").run.durationMs,
+    result.run.durationMs,
+  );
+  assert.equal(f.e.player("p").earned, 2900);
+});
+test("leaderboard ties use fastest matching score, then first set; slower/lower repeats cannot replace it or award credits", (t) => {
+  const f = fixture(t);
+  timedPlay(f, 20, "p", 2000);
+  timedPlay(f, 20, "q", 1000);
+  assert.deepEqual(
+    f.e.quiz.leaderboard("test").rows.map((r) => r.id),
+    ["q", "p"],
+  );
+  timedPlay(f, 20, "p", 500);
+  const fastest = f.e.quiz.leaderboard("test").rows[0];
+  assert.equal(fastest.id, "p");
+  assert.equal(fastest.durationMs, 12000);
+  timedPlay(f, 20, "p", 3000);
+  timedPlay(f, 19, "p", 0);
+  assert.equal(f.e.quiz.leaderboard("test").rows[0].durationMs, 12000);
+  assert.equal(f.e.quiz.leaderboard("test").rows[0].bestAt, fastest.bestAt);
+  timedPlay(f, 20, "q", 500);
+  assert.deepEqual(
+    f.e.quiz.leaderboard("test").rows.map((r) => r.id),
+    ["p", "q"],
+  );
+  assert.equal(f.e.player("p").earned, 2900);
+  assert.equal(f.e.player("q").earned, 2900);
+});
+test("legacy scores and in-flight runs remain untimed rather than receiving invented durations; a timed replay can set it", (t) => {
+  const f = fixture(t);
+  f.e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at,best_at) VALUES('q','test',20,1,1)",
+  );
+  assert.equal(f.e.quiz.leaderboard("test").rows[0].durationMs, null);
+  let r = f.action("p", "quiz-start", { quiz: "test" }).run;
+  const old = f.e.quiz.run("p", "test");
+  delete old.startedAt;
+  f.e.quiz.persist("p", "test", old);
+  assert.equal(timedPlay(f, 20, "p", 100).result.run.durationMs, null);
+  timedPlay(f, 20, "q", 500);
+  assert.deepEqual(
+    f.e.quiz.leaderboard("test").rows.map((r) => r.id),
+    ["q", "p"],
+  );
+  assert.equal(
+    f.e.player("q").earned,
+    0,
+    "previous score remains paid without a repeat reward",
+  );
+  const restarted = f.action("p", "quiz-start", { quiz: "test" }).run;
+  f.advance(5000);
+  const fresh = f.action("p", "quiz-restart", {
+    quiz: "test",
+    run: restarted.id,
+    index: 0,
+  }).run;
+  assert.ok(fresh.startedAt > restarted.startedAt);
+  assert.notEqual(fresh.id, restarted.id);
+});

@@ -1,3 +1,4 @@
+import { quizElapsed } from "../public/quiz-time.js";
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
@@ -33,6 +34,15 @@ export class Quiz {
         .some((c) => c.name === "best_at")
     )
       e.run("ALTER TABLE quiz_progress ADD COLUMN best_at INTEGER");
+    if (
+      !e
+        .all("PRAGMA table_info(quiz_progress)")
+        .some((c) => c.name === "best_duration_ms")
+    )
+      e.run("ALTER TABLE quiz_progress ADD COLUMN best_duration_ms INTEGER");
+    e.run(
+      "CREATE INDEX IF NOT EXISTS quiz_leaderboard_speed ON quiz_progress(quiz,best DESC,COALESCE(best_duration_ms,9007199254740991),best_at,player)",
+    );
     e.run(
       "CREATE INDEX IF NOT EXISTS quiz_leaderboard ON quiz_progress(quiz,best DESC,best_at,player)",
     );
@@ -65,7 +75,7 @@ export class Quiz {
           );
       });
     const rows = this.e.all(
-      "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,p.best_at,p.player LIMIT 21 OFFSET ?",
+      "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 21 OFFSET ?",
       id,
       (page - 1) * 20,
     );
@@ -334,6 +344,8 @@ export class Quiz {
           index: 20,
           score,
           finished: true,
+          startedAt: run.startedAt ?? null,
+          durationMs: run.durationMs ?? null,
           reward: run.reward,
           preview: !!run.preview || !q.published,
         },
@@ -347,6 +359,8 @@ export class Quiz {
         index: run.index,
         score,
         finished: false,
+        startedAt: run.startedAt ?? null,
+        elapsedMs: quizElapsed(run.startedAt, run.completedAt ?? now),
         audio: song.audio,
         sample: song.sample,
         preview: !!run.preview || !q.published,
@@ -423,6 +437,7 @@ export class Quiz {
       if (pool.length < 20) fail("This quiz needs at least 20 songs.");
       run = {
         id: crypto.randomUUID(),
+        startedAt: e.now(),
         index: 0,
         songs: pool
           .slice(0, 20)
@@ -475,12 +490,16 @@ export class Quiz {
             (a) => quizAnswerKey(a) === quizAnswerKey(answer),
           ),
       });
+      if (run.index === 19) {
+        run.completedAt = e.now();
+        run.durationMs = quizElapsed(run.startedAt, run.completedAt);
+      }
     } else if (action === "quiz-next") {
       if (!run.answers[run.index]) fail("Lock an answer first.");
       if (run.index === 19) {
         const score = run.answers.filter((a) => a.correct).length;
         const previous = e.one(
-          "SELECT best,at,best_at FROM quiz_progress WHERE player=? AND quiz=?",
+          "SELECT best,at,best_at,best_duration_ms FROM quiz_progress WHERE player=? AND quiz=?",
           player,
           q.id,
         );
@@ -503,18 +522,28 @@ export class Quiz {
               "Quiz: " + q.name + " · " + score + "/20",
               true,
             );
-          const bestAt =
-            !previous || score > previous.best
-              ? e.now()
-              : (previous.best_at ??
-                this.bestTime(player, q.id, previous.best, previous.at));
+          const faster =
+            score === previous?.best &&
+            run.durationMs !== null &&
+            run.durationMs !== undefined &&
+            (previous.best_duration_ms === null ||
+              run.durationMs < previous.best_duration_ms);
+          const improved = !previous || score > previous.best || faster;
+          const bestAt = improved
+            ? (run.completedAt ?? e.now())
+            : (previous.best_at ??
+              this.bestTime(player, q.id, previous.best, previous.at));
+          const duration = improved
+            ? (run.durationMs ?? null)
+            : previous.best_duration_ms;
           e.run(
-            "INSERT INTO quiz_progress(player,quiz,best,at,best_at) VALUES(?,?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at,best_at=excluded.best_at",
+            "INSERT INTO quiz_progress(player,quiz,best,at,best_at,best_duration_ms) VALUES(?,?,?,?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=excluded.best,at=excluded.at,best_at=excluded.best_at,best_duration_ms=excluded.best_duration_ms",
             player,
             q.id,
             displayBest,
             e.now(),
             bestAt,
+            duration,
           );
           e.run(
             "INSERT INTO quiz_reward_history VALUES(?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=MAX(best,excluded.best)",

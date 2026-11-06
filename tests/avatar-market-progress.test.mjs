@@ -291,3 +291,73 @@ test("catalogue progress uses only persisted scan counters, handles unknown tota
   assert.match(marketSortControl("wishlist", true, true, true), /Ending Soon/);
   assert.doesNotMatch(marketSortControl(), /Ending Soon/);
 });
+
+test("market searches card names in either order, anime and sellers before sorting/paging and keeps filters private", (t) => {
+  const f = fixture(t);
+  listings(f);
+  const e = f.e;
+  e.run(
+    "UPDATE catalog SET name='Iwami, Manaka',series='Voice Actor' WHERE id='community-ag'",
+  );
+  e.catalogStore.invalidate();
+  e.host("players", { players: [{ id: "q", name: "Rare Seller" }] });
+  for (const query of ["Iwami Manaka", "Manaka Iwami", "Voice Actor"]) {
+    const r = e.economy.market("shop", "character", 1, { query });
+    assert.deepEqual(
+      r.items.map((l) => l.id),
+      [1],
+    );
+    assert.equal(r.hasMore, false);
+  }
+  assert.equal(
+    e.economy.market("shop", "character", 1, { query: "Rare Seller" }).items
+      .length,
+    40,
+  );
+  assert.equal(
+    e.economy.market(
+      "shop",
+      "character",
+      1,
+      { query: "Manaka", wishlistOnly: true },
+      "q",
+    ).items.length,
+    0,
+  );
+  assert.equal(
+    e.economy.market(
+      "shop",
+      "character",
+      1,
+      { query: "Manaka", wishlistOnly: true },
+      "p",
+    ).items.length,
+    1,
+  );
+  assert.equal(
+    e.economy.market("shop", "character", 1, { query: "%' OR 1=1 --" }).items
+      .length,
+    0,
+  );
+  for (let i = 0; i < 60; i++)
+    e.run(
+      "INSERT INTO auctions(card,kind,starts,ends,bid,reserve,seller,level) VALUES(?,'character',0,?,0,100,'q',1)",
+      i < 45 ? "community-ag" : "community-d",
+      f.now + 1000 + i,
+    );
+  const pages = [1, 2].map((page) =>
+    e.economy.market("auction", "character", page, {
+      query: "Manaka Iwami",
+      sort: "ending",
+    }),
+  );
+  assert.deepEqual(
+    pages.map((p) => p.items.length),
+    [40, 5],
+  );
+  assert.equal(pages[0].items[0].ends, f.now + 1000);
+  assert.match(
+    marketSortControl("newest", false, false, false, '<b>"'),
+    /&lt;b&gt;&quot;/,
+  );
+});

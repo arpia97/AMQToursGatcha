@@ -1,3 +1,4 @@
+import { searchMatcher, cardSearchText } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
@@ -716,7 +717,10 @@ export class Economy {
   ) {
     integer(page, 1, 10000);
     const sort = options.sort || "newest",
-      wishlistOnly = options.wishlistOnly === true;
+      wishlistOnly = options.wishlistOnly === true,
+      queryText = String(options.query || "")
+        .trim()
+        .slice(0, 100);
     if (
       !["shop", "auction"].includes(venue) ||
       !["character", "seiyuu"].includes(kind) ||
@@ -762,7 +766,7 @@ export class Economy {
       ending: "a.ends ASC,a.id DESC",
     };
     let rows, metadata;
-    if (["rarity", "rarity-low", "name"].includes(sort)) {
+    if (queryText || ["rarity", "rarity-low", "name"].includes(sort)) {
       // Resolve only listed card IDs, never the full catalogue, before paging.
       rows = e.all(query, ...args);
       metadata = new Map(
@@ -770,6 +774,12 @@ export class Economy {
           .cards([...new Set(rows.map((l) => l.card))])
           .map((c) => [c.id, c]),
       );
+      if (queryText) {
+        const matches = searchMatcher(queryText);
+        rows = rows.filter((l) =>
+          matches([cardSearchText(metadata.get(l.card) || {}), l.seller_name]),
+        );
+      }
       rows = sortMarketItems(rows, metadata, sort).slice(
         (page - 1) * 40,
         page * 40 + 1,
@@ -786,6 +796,7 @@ export class Economy {
       page,
       sort,
       wishlistOnly,
+      query: queryText,
       hasMore: rows.length > 40,
       cards: metadata
         ? [...new Set(items.map((l) => l.card))]

@@ -1,3 +1,4 @@
+import { quantityInput } from "./quantity-input.js";
 import { searchMatcher, cardSearchText } from "./search.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import { levelLabel, ENHANCEMENT_REVISION } from "./card-values.js";
@@ -721,7 +722,16 @@ export function createAlchemyUI(h) {
       );
     },
     autoForm: () =>
-      '<section class="fusion-review-form"><h2 id="fusion-review-title">Auto Refine</h2><p>Uses unprotected cards only. Lowest rarities go first on normal attempts; the highest available rarity is saved for each lucky attempt. Review the ordered selection before confirming.</p><form id="alchemy-auto-form" class="stack"><label>Cards to Use<input type="number" name="count" min="1" max="100" value="10" required></label><label>Maximum Rarity<select name="maxRarity">' +
+      '<section class="fusion-review-form"><h2 id="fusion-review-title">Auto Refine</h2><p>Uses unprotected cards only. Lowest rarities go first on normal attempts; the highest available rarity is saved for each lucky attempt. Review the ordered selection before confirming.</p><form id="alchemy-auto-form" class="stack">' +
+      quantityInput({
+        id: "alchemy-auto-quantity",
+        name: "count",
+        label: "Cards to Use",
+        min: 1,
+        max: 100,
+        value: 10,
+      }) +
+      '<label>Maximum Rarity<select name="maxRarity">' +
       ALCHEMY_TIERS.map(
         (t) =>
           "<option" +
