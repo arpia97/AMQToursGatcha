@@ -1312,6 +1312,25 @@ dialog.account-modal {
     padding-top: 5px;
   }
 }
+/* Keep every desktop navigation item reachable on short screens. */
+@media (min-width: 601px) {
+  .sidebar {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+  .sidebar > .brand,
+  .sidebar > #navigation,
+  .sidebar > .sidebar-bottom {
+    flex-shrink: 0;
+  }
+}
+
 @media (max-width: 1150px) {
   .sidebar {
     width: 195px;

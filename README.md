@@ -248,3 +248,6 @@ Title badges display the name alone. Character/seiyuu badges follow the card rar
 Each successful MAX enhancement creates a card_title_awards row with an independent award ID; mutation receipts prevent retry duplicates. The card-title-awards-v2 migration preserves original card_titles rows and hidden states, and recovers additional MAX events only when retained enhancement receipts at/after the original award verify them. It excludes the first already-covered receipt and does not rebuild deleted/reset awards. The original table remains migration evidence; neither this migration nor restarts repeat max-card-titles-v1. Both title tables follow canonical identity changes and gameplay resets.
 
 The equipment API accepts quizzes plus individual awards. Legacy cards selections apply to all awards of those card IDs; omitting both leaves current card-award visibility intact. Quiz score resets still affect only quiz titles. These cosmetic changes never consume cards or change credit balances.
+
+
+Desktop sidebars scroll vertically when the viewport cannot fit their logo, navigation and footer. Browser scrollbars are hidden without disabling wheel, touchpad, touch or focus navigation; sidebar children retain their natural height. The mobile bottom navigation keeps its existing horizontal overflow.
