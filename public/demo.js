@@ -7,6 +7,7 @@ import { drawFeatured } from "./auction-odds.js";
 import { premiumPool, drawPremium } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
 import { demoFeatures } from "./demo-features.js";
+import { blackjackView } from "./blackjack-rules.js";
 const KEY = "amqtours-demo-v2";
 export class Demo {
   static async create() {
@@ -174,7 +175,8 @@ export class Demo {
         hasMore: cards.length > page * 40,
       };
     }
-    if (path === "state") return structuredClone(s);
+    if (path === "state")
+      return { ...structuredClone(s), blackjack: blackjackView(s.blackjack) };
     if (path.startsWith("profiles?")) {
       const params = new URLSearchParams(path.split("?")[1]),
         matches = searchMatcher(params.get("q")),

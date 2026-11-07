@@ -143,6 +143,7 @@ test("batch full sales account for invested levels and clean avatar/showcase onl
   assert.equal(q.total, 175);
   assert.equal(q.count, 4);
   e.run("UPDATE players SET avatar_card='d' WHERE id='p'");
+  e.run("INSERT INTO showcase_slots VALUES('p',2)");
   act("showcase", { cards: ["d", "s"] });
   act("sell-batch", { filters: f, expectedItems: q.items });
   assert.equal(e.player("p").avatar_card, null);

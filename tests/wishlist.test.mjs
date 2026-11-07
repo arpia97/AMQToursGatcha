@@ -58,7 +58,37 @@ test("wishlists persist, paginate and deduplicate without requiring ownership or
   assert.equal(e.economy.wishlist.page("p", "wishlist", 2).rows.length, 2);
   assert.equal(e.economy.wishlist.read("q").length, 0);
   assert.equal(e.player("p").balance, before);
+  const expected = e.economy.wishlist.read("p"),
+    cards = [...expected].reverse();
+  const reordered = act(
+    "p",
+    "wishlist-order",
+    { cards, expectedCards: expected },
+    "reorder-once",
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "wishlist").rows.map((r) => r.card),
+    cards.slice(0, 24),
+  );
+  assert.deepEqual(
+    act(
+      "p",
+      "wishlist-order",
+      { cards, expectedCards: expected },
+      "reorder-once",
+    ),
+    reordered,
+  );
+  assert.throws(
+    () => act("p", "wishlist-order", { cards, expectedCards: expected }),
+    /changed/,
+  );
+  assert.throws(
+    () => act("q", "wishlist-order", { cards, expectedCards: [] }),
+    /already/,
+  );
   const restarted = new Engine(e.db, e.transaction, e.now);
+  assert.deepEqual(restarted.economy.wishlist.read("p"), cards);
   assert.equal(restarted.economy.wishlist.read("p").length, 26);
   act("q", "wishlist", { card: "c0", wanted: true });
   act("q", "wishlist", { card: "c0", wanted: false });
@@ -93,6 +123,22 @@ test("public profile listings include only current sale, auction and trade cards
   });
   act("p", "trade-list", { card: "c2", variant: "card", expectedLevel: 3 });
   act("q", "wishlist", { card: "c3", wanted: true });
+  for (const card of ["c0", "c1", "c2", "c3"])
+    assert.deepEqual(
+      e.economy.wishlist.collectors(card).rows.map((p) => p.id),
+      ["p"],
+    );
+  const wanted = e.economy.wishlist.collectors("c3", "wanted");
+  assert.deepEqual(
+    wanted.rows.map((p) => p.id),
+    ["q"],
+  );
+  assert.deepEqual(wanted.counts, { owned: 1, wanted: 1 });
+  assert.ok(
+    wanted.rows.every(
+      (p) => !Object.hasOwn(p, "balance") && !Object.hasOwn(p, "password"),
+    ),
+  );
   let data = e.economy.wishlist.page("p", "listings");
   assert.deepEqual(
     new Set(data.rows.map((r) => r.venue)),
@@ -105,6 +151,10 @@ test("public profile listings include only current sale, auction and trade cards
   e.run("UPDATE players SET balance=1000 WHERE id='q'");
   act("q", "buy-listing", { listing: shop.id });
   data = e.economy.wishlist.page("p", "listings");
+  assert.deepEqual(
+    e.economy.wishlist.collectors("c0").rows.map((p) => p.id),
+    ["q"],
+  );
   assert.equal(data.rows.length, 2);
   e.run("UPDATE auctions SET ends=0 WHERE seller='p'");
   assert.equal(e.economy.wishlist.page("p", "listings").rows.length, 1);
@@ -129,6 +179,7 @@ test("public profile and wishlist card flags belong to that profile's player", (
   e.addCard("q", "c0");
   act("p", "protect-card", { card: "c0", protected: true });
   act("p", "wishlist", { card: "c0", wanted: true });
+  e.run("INSERT INTO showcase_slots VALUES('p',1)");
   act("p", "showcase", { cards: ["c0"] });
   const profile = e.profile("p");
   assert.deepEqual(profile.wishlist, ["c0"]);

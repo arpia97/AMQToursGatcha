@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
+import { blackjackTotal, blackjackShoe } from "../public/blackjack-rules.js";
 import { gemValue, nextFacetChance } from "../public/gem-rules.js";
 import { AliasSync } from "../src/aliases.js";
 function fixture(t) {
@@ -161,4 +162,90 @@ test("retired coin/dice endpoints cannot charge credits or create new rounds", (
     );
   assert.equal(e.player("p").balance, before);
   assert.equal(e.all("SELECT * FROM gambling_rounds").length, 0);
+});
+
+test("67 Blackjack keeps its shoe and hole card private, persists active hands, settles ties/busts once and blocks stale or foreign moves", (t) => {
+  const { e, act } = fixture(t);
+  e.rand = (n) => n - 1;
+  const shoe = blackjackShoe(e.rand);
+  assert.equal(shoe.length, 208);
+  for (let rank = 1; rank <= 13; rank++)
+    assert.equal(shoe.filter((c) => c.rank === rank).length, 16);
+  assert.deepEqual(blackjackTotal([{ rank: 1 }, { rank: 1 }, { rank: 10 }]), {
+    total: 44,
+    soft: false,
+  });
+  assert.deepEqual(blackjackTotal([{ rank: 1 }, { rank: 10 }]), {
+    total: 67,
+    soft: true,
+  });
+  const start = { stake: 101, previousGame: null };
+  act("blackjack-start", start, "deal");
+  act("blackjack-start", start, "deal");
+  let g = e.gameState("p").blackjack;
+  assert.equal(e.player("p").balance, 9899);
+  assert.equal(g.total, 60);
+  assert.equal(g.dealer[1], null);
+  assert.equal(g.dealerTotal, null);
+  assert.ok(!Object.hasOwn(g, "shoe"));
+  assert.ok(
+    !JSON.parse(
+      e.one("SELECT outcome FROM gambling_rounds WHERE game='blackjack67'")
+        .outcome,
+    ).shoe,
+  );
+  assert.throws(
+    () => act("blackjack-start", { stake: 100, previousGame: g.id }),
+    /Finish/,
+  );
+  assert.throws(
+    () => act("blackjack-hit", { game: g.id, version: 9 }),
+    /changed/,
+  );
+  assert.throws(
+    () =>
+      act("blackjack-hit", { game: g.id, version: g.version }, "foreign", "q"),
+    /Start/,
+  );
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  assert.deepEqual(restarted.gameState("p").blackjack, g);
+  act("blackjack-stand", { game: g.id, version: g.version }, "stand");
+  act("blackjack-stand", { game: g.id, version: g.version }, "stand");
+  g = e.gameState("p").blackjack;
+  assert.equal(g.result, "push");
+  assert.equal(g.payout, 101);
+  assert.equal(e.player("p").balance, 10000);
+  assert.equal(g.dealer.length, 2);
+  assert.ok(g.dealer.every(Boolean));
+  act("blackjack-start", { stake: 100, previousGame: g.id });
+  g = e.gameState("p").blackjack;
+  act("blackjack-hit", { game: g.id, version: g.version });
+  g = e.gameState("p").blackjack;
+  assert.equal(g.result, "bust");
+  assert.equal(g.payout, 0);
+  assert.equal(e.player("p").balance, 9900);
+  assert.equal(e.economy.rankings("gambling_lost").rows[0].gambling_net, -100);
+  assert.equal(e.player("p").earned, 10000);
+});
+test("67 Blackjack floors natural payouts, recognizes dealer naturals and rolls back unaffordable or invalid stakes", (t) => {
+  const { e, act } = fixture(t);
+  let shuffled = 0;
+  e.rand = (n) => (shuffled++ === 0 ? 195 : n - 1);
+  act("blackjack-start", { stake: 101, previousGame: null });
+  let g = e.gameState("p").blackjack;
+  assert.equal(g.status, "complete");
+  assert.equal(g.result, "blackjack");
+  assert.equal(g.payout, 252);
+  assert.equal(e.player("p").balance, 10151);
+  shuffled = 0;
+  e.rand = (n) => (shuffled++ === 1 ? 195 : n - 1);
+  act("blackjack-start", { stake: 100, previousGame: g.id });
+  g = e.gameState("p").blackjack;
+  assert.equal(g.result, "dealer-blackjack");
+  assert.equal(g.payout, 0);
+  assert.equal(e.player("p").balance, 10051);
+  for (const stake of [0, 1.5, 1000001, 10052])
+    assert.throws(() => act("blackjack-start", { stake, previousGame: g.id }));
+  assert.equal(e.player("p").balance, 10051);
+  assert.equal(e.gameState("p").blackjack.id, g.id);
 });

@@ -22,6 +22,10 @@ import { PickemEvents } from "./pickem-events.js";
 import { pickemOutcome } from "../public/pickem-formats.js";
 import { Participation } from "./participation.js";
 import { RARITIES } from "../public/card-values.js";
+import {
+  minimumBid,
+  COMMUNITY_AUCTION_MS,
+} from "../public/community-market-rules.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -159,7 +163,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,COALESCE((SELECT slots FROM showcase_slots WHERE player=players.id),0) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -313,6 +317,7 @@ export class Engine {
       const now = this.now();
       this.run("UPDATE auctions SET closed=1 WHERE ends<=? AND closed=0", now);
       const start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
+      if (this.economy.community.active()) return this.economy.tick(start);
       for (const kind of ["character", "seiyuu"]) {
         if (
           this.one(
@@ -432,8 +437,8 @@ export class Engine {
       const amount = integer(b.amount, 1);
       if (a.buyout && amount >= a.buyout)
         return this.economy.buyout(player, a.id);
-      if (amount < (a.bid ? a.bid + 1 : a.reserve))
-        fail(`The minimum bid is ${a.bid ? a.bid + 1 : a.reserve} credits.`);
+      if (amount < minimumBid(a))
+        fail(`The minimum bid is ${minimumBid(a)} credits.`);
       if (a.winner === player)
         this.wallet(player, -(amount - a.bid), "Auction bid increase");
       else {
@@ -451,9 +456,10 @@ export class Engine {
         }
       }
       this.run(
-        "UPDATE auctions SET bid=?,winner=? WHERE id=?",
+        "UPDATE auctions SET bid=?,winner=?,ends=? WHERE id=?",
         amount,
         player,
+        a.rolling ? now + COMMUNITY_AUCTION_MS : a.ends,
         a.id,
       );
       return {
@@ -927,6 +933,7 @@ export class Engine {
         "pachinko_games",
         "player_notices",
         "profile_showcase",
+        "showcase_slots",
         "profile_anime",
         "quiz_runs",
         "quiz_progress",
@@ -1056,7 +1063,8 @@ export class Engine {
       : [];
     for (const listing of myListings) references.add(listing.card);
     const shop = this.all(
-      "SELECT * FROM weekly_shop WHERE ends>? AND buyer IS NULL ORDER BY id",
+      "SELECT * FROM weekly_shop WHERE starts<=? AND ends>? AND buyer IS NULL ORDER BY id",
+      now,
       now,
     );
     const showcase = id
@@ -1107,6 +1115,7 @@ export class Engine {
         : [],
       ranks,
       shop,
+      communityMarket: this.economy.community.info(),
       showcase,
       activePickem:
         this.one(

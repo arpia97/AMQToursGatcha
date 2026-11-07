@@ -1,4 +1,8 @@
 import test from "node:test";
+import {
+  createPickemAutosave,
+  focusPredictionField,
+} from "../public/pickem-autosave.js";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
@@ -255,4 +259,51 @@ test("graph choices preserve form values and drafts, and settled winner styling 
   assert.match(settled, /class="pickem-vote-row is-winner"/);
   assert.match(settled, /pickem-winner-label/);
   assert.doesNotMatch(settled, /type="radio"/);
+});
+
+test("automatic picks serialize rapid changes, save only the last queued choice and report the latest save failure", async () => {
+  let focused = null;
+  const group = [
+    { checked: false, focus: () => (focused = "A") },
+    { checked: true, focus: () => (focused = "B") },
+  ];
+  focusPredictionField({ elements: { namedItem: () => group } }, "winner");
+  assert.equal(focused, "B");
+  focusPredictionField(null, "winner");
+  const sent = [],
+    saved = [],
+    failed = [],
+    releases = [];
+  const choose = createPickemAutosave({
+    send: (body) => {
+      sent.push(body.winner);
+      return new Promise((resolve, reject) =>
+        releases.push({ resolve, reject }),
+      );
+    },
+    saved: (body) => saved.push(body.winner),
+    failed: (error) => failed.push(error.message),
+  });
+  const flush = async () => {
+    for (let i = 0; i < 8; i++) await Promise.resolve();
+  };
+  choose({ pickem: 1, winner: "A" }, "p");
+  choose({ pickem: 1, winner: "B" }, "p");
+  choose({ pickem: 1, winner: "C" }, "p");
+  assert.deepEqual(sent, ["A"]);
+  releases[0].resolve();
+  await flush();
+  assert.deepEqual(sent, ["A", "C"]);
+  assert.deepEqual(saved, []);
+  releases[1].resolve();
+  await flush();
+  assert.deepEqual(saved, ["C"]);
+  choose({ pickem: 1, winner: "B" }, "p");
+  releases[2].reject(Error("Voting Closed"));
+  await flush();
+  assert.deepEqual(failed, ["Voting Closed"]);
+  choose({ pickem: 1, winner: "A" }, "p");
+  releases[3].resolve();
+  await flush();
+  assert.deepEqual(saved, ["C", "A"]);
 });

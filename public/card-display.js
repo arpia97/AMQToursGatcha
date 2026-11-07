@@ -79,6 +79,7 @@ export function collectionView(
     rarity = "",
     role = "",
     upgradable = false,
+    hideProtected = false,
     sort = "rarity",
   } = {},
 ) {
@@ -88,6 +89,7 @@ export function collectionView(
     .filter(
       ({ c, ...item }) =>
         (!upgradable || canUpgrade(item)) &&
+        (!hideProtected || !item.protected) &&
         c.kind === kind &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&

@@ -51,6 +51,10 @@ test("twenty unique owned spotlights are allowed and a twenty-first cannot repla
   e.host("catalog", { cards });
   for (const c of cards) e.addCard("p", c.id);
   const chosen = cards.slice(0, 20).map((c) => c.id);
+  e.wallet("p", 2000, "Fixture");
+  e.tx(() =>
+    e.action("p", "showcase-slots", { quantity: 20, expectedSlots: 0 }),
+  );
   e.tx(() => e.action("p", "showcase", { cards: chosen }));
   assert.equal(e.profile("p").showcase.length, 20);
   assert.throws(

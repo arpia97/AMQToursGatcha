@@ -208,6 +208,7 @@ export class AliasSync {
       "pachinko_games",
       "player_notices",
       "profile_showcase",
+      "showcase_slots",
       "profile_anime",
       "host_delegations",
       "quiz_progress",

@@ -79,7 +79,11 @@ export function profileCardPanel(
   return (
     '<section class="profile-card-panel"><div class="section-head"><h2>' +
     (data.view === "wishlist" ? "Wishlist" : "Active Listings") +
-    "</h2></div>" +
+    "</h2>" +
+    (own && data.view === "wishlist" && wishlist.length > 1
+      ? '<button class="text-button" data-action="wishlist-arrange">Arrange Wishlist</button>'
+      : "") +
+    "</div>" +
     (tiles
       ? '<div class="card-grid">' + tiles + "</div>"
       : '<p class="notice">' +

@@ -80,8 +80,9 @@ test("countdowns use KST daily boundaries and the existing UTC Monday weekly sch
   );
 });
 
-function fixture() {
+function fixture(t) {
   const db = new DatabaseSync(":memory:");
+  if (t) t.after(() => db.close());
   let now = Date.UTC(2026, 9, 24);
   const e = new Engine(
     (s, ...a) => db.prepare(s).all(...a),
@@ -123,8 +124,8 @@ function fixture() {
   return {
     e,
     act,
-    advance: () => {
-      now += 8 * 86400000;
+    advance: (ms = 8 * 86400000) => {
+      now += ms;
     },
   };
 }
@@ -232,5 +233,134 @@ test("shop purchases return reveal metadata without granting extra copies on ret
       slot.card,
     ).copies,
     1,
+  );
+});
+
+test("community reform waits for the weekly boundary, preserves pending wins and restarts only new community lots by 12 hours with exact 10% raises", (t) => {
+  const f = fixture(t),
+    { e, act } = f,
+    old = e.state("p"),
+    activation = e.economy.community.activation();
+  const lot = old.auctions[0];
+  act("p", "bid", { auction: lot.id, amount: 100 });
+  act("q", "bid", { auction: lot.id, amount: 101 }); // Current weekly rules remain intact.
+  assert.equal(
+    e.one("SELECT ends FROM auctions WHERE id=?", lot.id).ends,
+    lot.ends,
+  );
+  assert.deepEqual(e.state().shop, old.shop);
+  f.advance(activation - e.now());
+  e.ensureAuctions();
+  const lots = e.state("q").auctions.filter((a) => a.ends > e.now());
+  assert.equal(lots.length, 10);
+  assert.ok(
+    lots.every((a) => a.rolling === 1 && a.ends === e.now() + 12 * 3600000),
+  );
+  assert.ok(e.state("q").auctionWins.some((a) => a.id === lot.id));
+  act("q", "claim", { auction: lot.id });
+  const a = lots[0];
+  act("p", "bid", { auction: a.id, amount: 100 });
+  f.advance(3600000);
+  const before = e.player("q").balance;
+  assert.throws(() => act("q", "bid", { auction: a.id, amount: 109 }), /110/);
+  assert.equal(e.player("q").balance, before);
+  act("q", "bid", { auction: a.id, amount: 110 }, "rolling-bid");
+  const held = e.player("q").balance;
+  act("q", "bid", { auction: a.id, amount: 110 }, "rolling-bid");
+  assert.equal(e.player("q").balance, held);
+  assert.equal(
+    e.one("SELECT ends FROM auctions WHERE id=?", a.id).ends,
+    e.now() + 12 * 3600000,
+  );
+  f.advance(11 * 3600000);
+  e.ensureAuctions();
+  assert.equal(e.one("SELECT closed FROM auctions WHERE id=?", a.id).closed, 0);
+  assert.equal(
+    e.all("SELECT id FROM auctions WHERE seller IS NULL AND closed=0").length,
+    10,
+  );
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  assert.equal(restarted.economy.community.activation(), activation);
+  assert.equal(
+    restarted.one("SELECT winner FROM auctions WHERE id=?", a.id).winner,
+    "q",
+  );
+  e.addCard("q", "character0");
+  act("q", "list-card", {
+    card: "character0",
+    variant: "card",
+    venue: "auction",
+    price: 100,
+    hours: 1,
+  });
+  const user = e.one("SELECT * FROM auctions WHERE seller IS NOT NULL");
+  act("p", "bid", { auction: user.id, amount: 100 });
+  act("p", "bid", { auction: user.id, amount: 101 });
+  assert.equal(
+    e.one("SELECT ends FROM auctions WHERE id=?", user.id).ends,
+    user.ends,
+  );
+});
+test("flash stock is S-or-higher, shared, refilled once per paid purchase, and opens on a persistent random schedule after closing", (t) => {
+  const f = fixture(t),
+    { e, act } = f;
+  e.host("catalog", {
+    cards: ["character", "seiyuu"].flatMap((kind) =>
+      Array.from({ length: 6 }, (_, i) => ({
+        id: "community-flash-" + kind + i,
+        kind,
+        name: "Flash " + kind + i,
+        fixedRarity: "S",
+      })),
+    ),
+  });
+  f.advance(e.economy.community.activation() - e.now());
+  e.ensureAuctions();
+  const slots = e.state("p").shop;
+  assert.equal(slots.length, 10);
+  assert.ok(
+    slots.every(
+      (s) =>
+        s.ends === e.now() + 3 * 3600000 &&
+        e.catalogStore.card(s.card).rarity === "S",
+    ),
+  );
+  const next = e.one(
+    "SELECT value FROM settings WHERE key='flash_shop_next'",
+  ).value;
+  assert.ok(
+    next >= slots[0].ends + 12 * 3600000 &&
+      next <= slots[0].ends + 24 * 3600000,
+  );
+  const s = slots[0],
+    before = e.player("p").balance;
+  const buy = act("p", "shop-buy", { slot: s.id }, "flash-buy");
+  assert.deepEqual(act("p", "shop-buy", { slot: s.id }, "flash-buy"), buy);
+  assert.equal(e.player("p").balance, before - s.price);
+  assert.equal(e.state().shop.length, 10);
+  assert.equal(new Set(e.state().shop.map((s) => s.card)).size, 10);
+  f.advance(3 * 3600000);
+  e.ensureAuctions();
+  assert.equal(e.state().shop.length, 0);
+  assert.throws(() => act("q", "shop-buy", { slot: slots[1].id }), /expired/);
+  assert.equal(
+    e.one("SELECT value FROM settings WHERE key='flash_shop_next'").value,
+    next,
+  );
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  assert.equal(
+    restarted.one("SELECT value FROM settings WHERE key='flash_shop_next'")
+      .value,
+    next,
+  );
+  f.advance(next - e.now());
+  e.ensureAuctions();
+  assert.equal(e.state().shop.length, 10);
+  assert.ok(e.state().shop.every((s) => s.starts === next));
+  const ids = e.state().shop.map((s) => s.id);
+  e.ensureAuctions();
+  assert.deepEqual(
+    e.state().shop.map((s) => s.id),
+    ids,
   );
 });

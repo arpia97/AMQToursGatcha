@@ -150,6 +150,7 @@ test("selling a last copy cleans profile references and rejects stale quotes, fo
     { e } = f;
   f.add("D");
   e.action("p", "profile", { avatar: "D" });
+  e.run("INSERT INTO showcase_slots VALUES('p',1)");
   e.action("p", "showcase", { cards: ["D"] });
   const b = { ...f.material("D"), expectedPrice: 25 };
   f.cards.get("D").rarity = "C";

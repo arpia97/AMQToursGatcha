@@ -1,4 +1,6 @@
 import { fail, integer } from "./engine.js";
+import { Blackjack67 } from "./blackjack.js";
+import { blackjackView } from "../public/blackjack-rules.js";
 import {
   ROULETTE_DURATION,
   ROULETTE_POCKETS,
@@ -16,6 +18,7 @@ import {
 export class Pachinko {
   constructor(e) {
     this.e = e;
+    this.blackjack = new Blackjack67(e, this);
     e.run(
       "CREATE TABLE IF NOT EXISTS pachinko_games(player TEXT PRIMARY KEY,data TEXT NOT NULL)",
     );
@@ -32,7 +35,8 @@ export class Pachinko {
     return data;
   }
   view(player) {
-    return this.read(player);
+    const data = this.read(player);
+    return { ...data, blackjack: blackjackView(data.blackjack) };
   }
   save(player, data, game, kind) {
     const e = this.e;
@@ -45,7 +49,7 @@ export class Pachinko {
       "UPDATE gambling_rounds SET payout=?,net=?,outcome=? WHERE player=? AND id=?",
       game.payout,
       game.payout - game.stake,
-      JSON.stringify(game),
+      JSON.stringify(kind === "blackjack67" ? blackjackView(game) : game),
       player,
       game.id,
     );
@@ -75,6 +79,8 @@ export class Pachinko {
     if (player) this.settle(player, this.read(player));
   }
   action(player, action, b) {
+    if (action.startsWith("blackjack-"))
+      return this.blackjack.action(player, action, b);
     if (!action.startsWith("roulette-") && !action.startsWith("climb-"))
       return null;
     const e = this.e,

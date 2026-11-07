@@ -24,7 +24,7 @@ export function winnerCard(
     p
       ? `<div class="tour-winner-choice" id="tour-rounds-${t.key}"><p class="form-hint">✦ ${n(p.winner_reward)} for the correct winner · Voting closes ${e(new Date(p.ends).toLocaleString("en-GB", { timeZone: "Asia/Seoul" }))} KST</p>${
           open
-            ? `<form id="tour-prediction-${p.id}" data-inline-prediction="${p.id}" class="tour-winner-form"><input type="hidden" name="pickem" value="${p.id}"><input type="hidden" name="mode" value="tour"><input type="hidden" name="expectedTeams" value="${e(p.teams)}">${pickemVoteChart(p, { escape: e, number: n, selectable: true, selected })}<button class="button secondary" ${signedIn ? 'type="submit"' : 'type="button" data-action="account"'}>${signedIn ? "Confirm pick" : "Sign in"}</button><div class="form-error" role="alert"></div></form>`
+            ? `<form id="tour-prediction-${p.id}" data-inline-prediction="${p.id}" class="tour-winner-form"><input type="hidden" name="pickem" value="${p.id}"><input type="hidden" name="mode" value="tour"><input type="hidden" name="expectedTeams" value="${e(p.teams)}">${pickemVoteChart(p, { escape: e, number: n, selectable: true, selected })}${signedIn ? '<span class="pickem-save-status form-hint" role="status">' + (p.prediction ? "Pick Saved · Change Anytime Before Voting Closes" : "Select a Team to Save Your Pick") + "</span>" : '<button class="button secondary" type="button" data-action="account">Sign In</button>'}<div class="form-error" role="alert"></div></form>`
             : ""
         }${open ? "" : pickemVoteChart(p, { escape: e, number: n, selected })}</div>`
       : ""

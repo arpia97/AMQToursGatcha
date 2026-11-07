@@ -10,6 +10,12 @@ import {
   climbPayout,
   climbInMetres,
 } from "./pachinko-rules.js";
+import {
+  blackjackShoe,
+  blackjackNatural,
+  blackjackTotal,
+  blackjackSettlement,
+} from "./blackjack-rules.js";
 // Explicit local demo only; production outcomes are generated and saved by the server.
 export function demoPachinko(d, path, b) {
   const s = d.s,
@@ -31,6 +37,61 @@ export function demoPachinko(d, path, b) {
       net: g.payout - g.stake,
     });
   };
+  if (path.startsWith("blackjack-")) {
+    let g = s.blackjack;
+    const finish = () => {
+      Object.assign(g, blackjackSettlement(g), {
+        status: "complete",
+        version: g.version + 1,
+        finishedAt: now,
+      });
+      if (g.payout) d.wallet(g.payout, "67 Blackjack: " + g.result);
+      save(g, "blackjack67");
+    };
+    if (path === "blackjack-start") {
+      if (g?.status === "active")
+        throw Error("Finish your current hand first.");
+      if (b.previousGame !== (g?.id ?? null))
+        throw Error("Your hand changed. Refresh first.");
+      if (!Number.isSafeInteger(b.stake) || b.stake < 1 || b.stake > 1000000)
+        throw Error("Choose a whole-credit stake from 1 to 1,000,000.");
+      d.wallet(-b.stake, "67 Blackjack: bet");
+      const shoe = blackjackShoe(rand);
+      g = {
+        id: (s.blackjackCounter = (s.blackjackCounter || 0) + 1),
+        status: "active",
+        version: 0,
+        stake: b.stake,
+        payout: 0,
+        shoe,
+        hand: [shoe.pop()],
+        dealer: [shoe.pop()],
+        startedAt: now,
+      };
+      g.hand.push(shoe.pop());
+      g.dealer.push(shoe.pop());
+      s.blackjack = g;
+      if (blackjackNatural(g.hand) || blackjackNatural(g.dealer)) finish();
+      else save(g, "blackjack67");
+    } else {
+      if (
+        !g ||
+        g.status !== "active" ||
+        b.game !== g.id ||
+        b.version !== g.version
+      )
+        throw Error("Your hand changed. Refresh first.");
+      if (path === "blackjack-hit") {
+        g.hand.push(g.shoe.pop());
+        g.version++;
+      } else if (path !== "blackjack-stand")
+        throw Error("Unknown game action.");
+      if (path === "blackjack-stand" || blackjackTotal(g.hand).total >= 67)
+        finish();
+      else save(g, "blackjack67");
+    }
+    return { message: "Demo hand saved." };
+  }
   const spin = s.roulette;
   if (spin?.status === "spinning" && spin.endsAt <= now) {
     spin.status = "complete";

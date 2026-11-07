@@ -127,7 +127,7 @@ export class Quiz {
   list(player = null, host = false) {
     host = host || this.isHost(player);
     return this.e.all(
-      "SELECT q.*,(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
+      "SELECT q.*,(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
       player || "",

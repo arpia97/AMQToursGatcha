@@ -20,6 +20,7 @@ import { CardManagement } from "./card-management.js";
 import { PlayerNotices } from "./notices.js";
 import { Trades } from "./trades.js";
 import { Pachinko } from "./pachinko.js";
+import { CommunityMarket } from "./community-market.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -29,6 +30,13 @@ export class Economy {
     this.wishlist = new Wishlist(e);
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
     this.applyShopPriceRevision();
+    if (!e.one("SELECT value FROM settings WHERE key='showcase_slots_v1'"))
+      e.tx(() => {
+        e.run(
+          "INSERT OR IGNORE INTO showcase_slots(player,slots) SELECT player,count(*) FROM profile_showcase GROUP BY player",
+        );
+        e.run("INSERT INTO settings VALUES('showcase_slots_v1',1)");
+      });
     for (const [column, definition] of [
       ["seller", "TEXT"],
       ["level", "INTEGER NOT NULL DEFAULT 1"],
@@ -79,6 +87,7 @@ export class Economy {
     this.notices = new PlayerNotices(e);
     this.trades = new Trades(e);
     this.pachinko = new Pachinko(e);
+    this.community = new CommunityMarket(e);
   }
   applyShopPriceRevision() {
     const e = this.e;
@@ -312,6 +321,15 @@ export class Economy {
         e.run("UPDATE auctions SET paid=1,closed=1,claimed=1 WHERE id=?", a.id);
       }
     }
+    if (this.community.active()) {
+      return Math.min(
+        this.community.tick(),
+        e.one(
+          "SELECT min(ends) AS ends FROM auctions WHERE seller IS NOT NULL AND ends>? AND paid=0",
+          now,
+        )?.ends || Infinity,
+      );
+    }
     if (!e.one("SELECT id FROM weekly_shop WHERE starts=? LIMIT 1", start))
       this.seedShop(start, start + WEEK);
     else this.refillShop(start, start + WEEK);
@@ -423,7 +441,8 @@ export class Economy {
         a.id,
       );
     }
-    e.seedCommunityAuctions(start);
+    if (this.community.active()) this.community.auctions();
+    else e.seedCommunityAuctions(start);
     return {
       message:
         "Community auctions refreshed. Active community bids refunded; shop, player listings and owned cards preserved.",
@@ -445,7 +464,10 @@ export class Economy {
       now = e.now();
     const start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
     e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
-    this.seedShop(start, start + WEEK);
+    if (this.community.active()) {
+      this.community.refill(now, now + 3 * 3600000);
+      this.community.scheduleFlash(now + 3 * 3600000);
+    } else this.seedShop(start, start + WEEK);
     return {
       ...result,
       message:
@@ -492,6 +514,7 @@ export class Economy {
         ? this.alchemy.refineBatch(player, b)
         : this.alchemy.refine(player, b);
     if (action === "wishlist") return this.wishlist.change(player, b);
+    if (action === "wishlist-order") return this.wishlist.reorder(player, b);
     if (action === "alchemy-draw") return this.alchemy.draw(player, b);
     if (action === "sell-instant") {
       const id = text(b.card, 100),
@@ -533,6 +556,28 @@ export class Economy {
     if (action === "daily-pack") return this.dailyPack(player, b.kind);
     if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
+    if (action === "showcase-slots") {
+      const slots = e.player(player).showcase_slots,
+        quantity = integer(b.quantity, 1, MAX_SPOTLIGHTS);
+      if (b.expectedSlots !== slots)
+        fail("Your showcase slots changed. Review the purchase again.", 409);
+      if (slots + quantity > MAX_SPOTLIGHTS)
+        fail("Your showcase can hold up to 20 slots.");
+      e.wallet(player, -quantity * 100, "Showcase slots: " + quantity);
+      e.run(
+        "INSERT INTO showcase_slots VALUES(?,?) ON CONFLICT(player) DO UPDATE SET slots=excluded.slots",
+        player,
+        slots + quantity,
+      );
+      return {
+        message:
+          quantity +
+          " showcase slot" +
+          (quantity === 1 ? "" : "s") +
+          " unlocked.",
+        slots: slots + quantity,
+      };
+    }
     if (action === "showcase") {
       if (b.expectedCards !== undefined) {
         if (
@@ -570,6 +615,11 @@ export class Economy {
           )
         )
           fail("Showcase cards must be in your collection.");
+      if (b.cards.length > e.player(player).showcase_slots)
+        fail(
+          "Buy more showcase slots from My Profile before adding another card.",
+          409,
+        );
       e.run("DELETE FROM profile_showcase WHERE player=?", player);
       b.cards.forEach((id, i) =>
         e.run("INSERT INTO profile_showcase VALUES(?,?,?)", player, id, i),
@@ -693,13 +743,20 @@ export class Economy {
         integer(b.slot, 1),
         now,
       );
-      if (!s) fail("This weekly card is sold out or expired.", 409);
-      e.wallet(player, -s.price, "Weekly shop: " + s.card);
+      if (!s || s.starts > now)
+        fail("This shop card is sold out or expired.", 409);
+      e.wallet(
+        player,
+        -s.price,
+        (this.community.active() ? "Flash shop: " : "Weekly shop: ") + s.card,
+      );
       this.acquire(player, s.card);
       e.run("UPDATE weekly_shop SET buyer=? WHERE id=?", player, s.id);
-      this.refillShop(s.starts, s.ends, s.card);
+      if (this.community.active())
+        this.community.refill(s.starts, s.ends, s.card);
+      else this.refillShop(s.starts, s.ends, s.card);
       return {
-        message: "Weekly shop card added to your collection.",
+        message: "Shop card added to your collection.",
         cards: [e.catalogStore.card(s.card)],
         level: 1,
       };
@@ -899,6 +956,7 @@ export class Economy {
     e.run("DELETE FROM pachinko_games WHERE player=?", player);
     e.run("DELETE FROM player_notices WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
+    e.run("DELETE FROM showcase_slots WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }
 }
@@ -911,5 +969,6 @@ CREATE INDEX IF NOT EXISTS shop_week ON weekly_shop(starts,kind);
 CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL;
 CREATE TABLE IF NOT EXISTS gambling_rounds(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,game TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL,net INTEGER NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS gambling_player ON gambling_rounds(player,id);
+CREATE TABLE IF NOT EXISTS showcase_slots(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 0 AND 20));
 CREATE TABLE IF NOT EXISTS profile_showcase(player TEXT NOT NULL,card TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(player,card));
 `;

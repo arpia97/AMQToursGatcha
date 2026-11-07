@@ -201,6 +201,9 @@ export function createQuizUI({
       const visibleQuizzes = quizzes.filter(
         (q) => (q.category || "singers") === category,
       );
+      const progressPool = visibleQuizzes.filter((q) => q.published);
+      const played = progressPool.filter((q) => q.played).length;
+      const completion = `<span class="quiz-completion-status">${played}/${progressPool.length} Played · ${progressPool.length ? ((played * 100) / progressPool.length).toFixed(1) : "0.0"}%</span>`;
       const sortControl = quizzes.length
         ? '<label class="quiz-sort-control">Sort By<select id="quiz-sort">' +
           [
@@ -223,7 +226,10 @@ export function createQuizUI({
         : "";
       return (
         '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
+        '<div class="quiz-list-controls">' +
+        completion +
         sortControl +
+        "</div>" +
         "</div>" +
         `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
         (visibleQuizzes.length

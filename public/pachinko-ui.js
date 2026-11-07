@@ -1,4 +1,5 @@
 import { gameHelp } from "./game-help.js";
+import { blackjackUI } from "./blackjack-ui.js";
 import { createAdventureUI } from "./adventure-ui.js";
 import { GEM_CLICK_PRICE, gemCounts, gemValue } from "./gem-rules.js";
 export function createPachinkoUI({
@@ -44,6 +45,7 @@ export function createPachinkoUI({
         "roulette",
         "horse",
         "climb",
+        "blackjack",
       ].includes(ui.pachinkoGame)
         ? ui.pachinkoGame
         : "mahjong";
@@ -52,6 +54,7 @@ export function createPachinkoUI({
         ["horse", "Horse Racing"],
         ["gem", "Gem Faceting"],
         ["roulette", "Roulette"],
+        ["blackjack", "67 Blackjack"],
         ["climb", "Mountain Climbing"],
       ]
         .map(
@@ -60,7 +63,7 @@ export function createPachinkoUI({
         )
         .join(
           "",
-        )}<span>More Games to Come</span></nav>${selected === "mahjong" ? mahjong() : selected === "gem" ? gem() : selected === "horse" ? horse() : selected === "roulette" ? games.roulette() : games.climb()}`;
+        )}<span>More Games to Come</span></nav>${selected === "mahjong" ? mahjong() : selected === "gem" ? gem() : selected === "horse" ? horse() : selected === "roulette" ? games.roulette() : selected === "blackjack" ? blackjackUI(getState(), ui, { escape: e, number: n }) : games.climb()}`;
     },
   };
 }

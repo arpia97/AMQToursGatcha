@@ -36,3 +36,14 @@ All mutations require a player session and an `Idempotency-Key`:
 Mutations return a compact `gameState`. Both full state and `GET /api/game-state` include only the current player's `roulette` and `climb`. Climbing snapshots include `distanceUnit:"m"`; `height` and each move's `from`, `to` and `delta` are integer metres. Old unmarked payloads are converted on read without a separate financial migration. Starts reject a stale previous ID or unfinished game; climbing moves reject stale revisions and unavailable routes. Crypto-backed server randomness determines every pocket, offer and random step. Debits, game state, receipts and payouts share the existing SQLite transaction.
 
 One bounded `pachinko_games` row per player stores both current games. Detailed round payloads retain the latest 50 of each new game; financial totals remain for rankings. State follows alias migrations and existing gameplay-reset scopes. No deployment reset or account grant is required. The retired `/api/gamble` endpoint returns 410, preserving old financial records without allowing old Coin Flip clients to place bets.
+
+
+## 67 Blackjack
+
+Target 67 without busting. Each hand shuffles a fresh four-deck shoe (208 cards). Ranks 2–9 are worth 6/9/12/15/18/21/24/27, 10/J/Q/K are worth 30, and Aces are worth 7 or 37. The dealer stands on every total of 52 or higher, including soft totals. Players can Hit or Stand; there is no splitting, doubling or insurance.
+
+Two-card 67 is a natural: gross return 2.5× stake, rounded down, and it beats non-natural 67. Ordinary wins return 2×; ties return the stake; losses/busts return zero. Simultaneous naturals push. Stakes are 1–1,000,000 whole credits within the wallet balance.
+
+The infinite-shoe optimal Hit/Stand model returns about 97.50%; a seeded 300,000-hand four-deck simulation using that strategy returned 97.476% (about 2.52% house advantage, before odd-stake rounding differences). Finite-deck strategy and actual samples can differ. The default 100-credit stake avoids fractional natural returns. Reproduce the model with `node tools/blackjack-model.mjs` (an optional analysis tool, outside the test suite).
+
+State lives in the existing pachinko_games row. POST /api/blackjack-start uses previousGame; blackjack-hit and blackjack-stand require game and version. All moves use economic idempotency receipts and compact gameState responses. Refresh resumes the hand. Active responses mask the dealer hole card and never expose the remaining shoe; financial history stores the public view. Payouts update net gambling rankings but not cumulative earned credits.

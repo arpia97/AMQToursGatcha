@@ -51,6 +51,79 @@ export function demoFeatures(d, path, b) {
   const s = d.s,
     me = s.me,
     now = Date.now();
+  s.wishlist ||= [];
+  if (me && me.showcase_slots === undefined)
+    me.showcase_slots = (s.showcase || s.inventory.slice(0, 2)).length;
+  if (path === "wishlist-order" && !b)
+    return {
+      wishlist: [...s.wishlist],
+      cards: d.cards.filter((c) => s.wishlist.includes(c.id)),
+    };
+  if (path === "wishlist") {
+    if (!d.cards.some((c) => c.id === b.card) || typeof b.wanted !== "boolean")
+      throw Error("Choose a catalogue card.");
+    s.wishlist = s.wishlist.filter((id) => id !== b.card);
+    if (b.wanted) s.wishlist.unshift(b.card);
+    return { message: "Demo wishlist updated.", wishlist: s.wishlist };
+  }
+  if (path === "wishlist-order" && b) {
+    if (JSON.stringify(s.wishlist) !== JSON.stringify(b.expectedCards))
+      throw Error("Your wishlist changed.");
+    if (
+      b.cards.length !== s.wishlist.length ||
+      new Set(b.cards).size !== s.wishlist.length ||
+      b.cards.some((id) => !s.wishlist.includes(id))
+    )
+      throw Error("Arrange your current wishlist.");
+    s.wishlist = [...b.cards];
+    return { message: "Demo wishlist order saved." };
+  }
+  if (path.startsWith("card-collectors?")) {
+    const params = new URLSearchParams(path.split("?")[1]),
+      card = params.get("card"),
+      view = params.get("view") || "owned";
+    const owners = s.inventory.some((i) => i.card === card) ? [me] : [];
+    const wanted = s.wishlist.includes(card) ? [me] : [];
+    return {
+      card,
+      view,
+      page: 1,
+      counts: { owned: owners.length, wanted: wanted.length },
+      rows: view === "wanted" ? wanted : owners,
+      hasMore: false,
+      cards: d.cards,
+    };
+  }
+  if (path.startsWith("player-cards?")) {
+    const params = new URLSearchParams(path.split("?")[1]),
+      id = params.get("id"),
+      view = params.get("view"),
+      page = Number(params.get("page") || 1);
+    const rows =
+      id === me.id && view === "wishlist"
+        ? s.wishlist.map((card) => ({ card }))
+        : [];
+    return {
+      player: id,
+      view,
+      page,
+      rows: rows.slice((page - 1) * 24, page * 24),
+      hasMore: rows.length > page * 24,
+      cards: d.cards,
+    };
+  }
+  if (path === "showcase-slots") {
+    if (
+      b.expectedSlots !== me.showcase_slots ||
+      !Number.isSafeInteger(b.quantity) ||
+      b.quantity < 1 ||
+      b.quantity + me.showcase_slots > 20
+    )
+      throw Error("Review your showcase slots.");
+    d.wallet(-100 * b.quantity, "Showcase slots");
+    me.showcase_slots += b.quantity;
+    return { message: "Demo showcase slots unlocked." };
+  }
   s.betaRegistration = false;
   s.openRegistration = true;
   const newGame = demoPachinko(d, path, b);
@@ -951,6 +1024,7 @@ export function demoFeatures(d, path, b) {
         pickems: { total: 20, correct: 14 },
       },
       inventory,
+      wishlist: mine ? s.wishlist : [],
       cards: d.cards,
       showcase: mine
         ? s.showcase
@@ -1029,7 +1103,7 @@ export function demoFeatures(d, path, b) {
         "Your showcase changed. Close this window and refresh your profile before arranging it again.",
       );
     if (
-      b.cards.length > MAX_SPOTLIGHTS ||
+      b.cards.length > Math.min(MAX_SPOTLIGHTS, me.showcase_slots) ||
       b.cards.some((id) => !s.inventory.some((i) => i.card === id))
     )
       throw Error("Choose up to 20 owned cards.");

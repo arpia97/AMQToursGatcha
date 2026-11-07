@@ -642,6 +642,7 @@ test("listing rollback prevents overselling and cancellation returns an enhanced
   e.addCard("seller", "mal-character-1");
   e.run("UPDATE inventory SET level=5 WHERE player='seller'");
   e.tx(() => e.action("seller", "profile", { avatar: "mal-character-1" }));
+  f.act("seller", "showcase-slots", { quantity: 1, expectedSlots: 0 });
   f.act("seller", "showcase", { cards: ["mal-character-1"] });
   assert.throws(
     () =>
@@ -777,7 +778,8 @@ test("weekly shop has ten unique mixed-pool slots, one shared stock and atomic a
   assert.throws(() => f.act("buyer", "shop-buy", { slot: s.id }), /sold out/);
   f.tick(WEEK);
   e.ensureAuctions();
-  assert.equal(e.state().shop.length, 10);
+  assert.equal(e.state().communityMarket.active, true);
+  assert.equal(e.state().shop.length, 0); // Pending cards never dilute S+ flash stock.
 });
 test("shop refill is atomic, idempotent, preserves other slots and repairs old sold gaps", () => {
   const f = fixture(),
@@ -912,6 +914,27 @@ test("showcase requires owned unique cards, maintains order and completion ignor
       }),
     /different/,
   );
+  assert.throws(
+    () => f.act("buyer", "showcase", { cards: ["mal-character-1"] }),
+    /slots/,
+  );
+  const purchase = { quantity: 2, expectedSlots: 0 };
+  f.act("buyer", "showcase-slots", purchase, "slots-once");
+  f.act("buyer", "showcase-slots", purchase, "slots-once");
+  assert.equal(e.player("buyer").balance, 9800);
+  assert.equal(e.player("buyer").earned, 10000);
+  assert.equal(e.player("buyer").showcase_slots, 2);
+  assert.throws(() => f.act("buyer", "showcase-slots", purchase), /changed/);
+  assert.throws(
+    () => f.act("buyer", "showcase-slots", { quantity: 19, expectedSlots: 2 }),
+    /20/,
+  );
+  e.run("UPDATE players SET balance=0 WHERE id='buyer'");
+  assert.throws(
+    () => f.act("buyer", "showcase-slots", { quantity: 1, expectedSlots: 2 }),
+    /enough/,
+  );
+  assert.equal(e.player("buyer").showcase_slots, 2);
   f.act("buyer", "showcase", { cards: ["mal-person-7", "mal-character-1"] });
   const p = e.profile("buyer");
   assert.deepEqual(
@@ -933,6 +956,7 @@ test("showcase reordering persists publicly across restart, replays once and rej
   );
   const original = ["mal-character-1", "mal-person-7"],
     reversed = [...original].reverse();
+  f.act("buyer", "showcase-slots", { quantity: 2, expectedSlots: 0 });
   f.act("buyer", "showcase", { cards: original });
   const before = e.player("buyer");
   const body = { cards: reversed, expectedCards: original };
@@ -962,10 +986,15 @@ test("showcase reordering persists publicly across restart, replays once and rej
     e.profile("buyer").showcase.find((c) => c.card === "mal-character-1").level,
     3,
   );
+  // Emulate pre-reform storage: occupied slots become free capacity once.
+  e.run("DELETE FROM settings WHERE key='showcase_slots_v1'");
+  e.run("DELETE FROM showcase_slots");
   const restarted = new Engine(
     (sql, ...args) => f.db.prepare(sql).all(...args),
     (fn) => fn(),
   );
+  assert.equal(restarted.player("buyer").showcase_slots, 2);
+  assert.equal(restarted.player("buyer").balance, before.balance);
   assert.deepEqual(
     restarted.profile("buyer").showcase.map((c) => c.card),
     reversed,

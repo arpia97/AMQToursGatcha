@@ -27,6 +27,8 @@ import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
 import { createTradesUI } from "./trades-ui.js";
 import { createShowcaseEditor } from "./showcase-order.js";
+import { createWishlistEditor } from "./wishlist-order.js";
+import { collectorsPanel } from "./card-collectors.js";
 import { authFormHTML } from "./auth-form.js";
 import {
   SITE_ROUTES,
@@ -34,6 +36,11 @@ import {
   navigationSection,
 } from "./site-navigation.js";
 import { pickemTeams } from "./tour-winner.js";
+import {
+  createPickemAutosave,
+  focusPredictionField,
+} from "./pickem-autosave.js";
+import { minimumBid } from "./community-market-rules.js";
 import {
   pickemBoard,
   tourSummaries,
@@ -187,7 +194,12 @@ const ui = {
   catalogRecent: false,
   collectionSort: "rarity",
   collectionPage: 1,
-  collectionFilters: { rarity: "", role: "", upgradable: false },
+  collectionFilters: {
+    rarity: "",
+    role: "",
+    upgradable: false,
+    hideProtected: false,
+  },
   playerPage: 1,
   playerData: null,
   tab: () => tab,
@@ -214,6 +226,7 @@ const ui = {
     rarity: "",
     role: "",
     upgradable: false,
+    hideProtected: false,
     mode: "extras",
     sort: "rarity",
     page: 1,
@@ -484,7 +497,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
   const auction = a
-    ? `${a.seller ? `<p class="form-hint user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</p>` : ""}<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a> " + roleBadge(state.roles?.[a.seller]) : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a> ${roleBadge(state.roles?.[a.winner])}${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
+    ? `${a.seller || a.rolling ? `<p class="form-hint user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</p>` : ""}<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a> " + roleBadge(state.roles?.[a.seller]) : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a> ${roleBadge(state.roles?.[a.winner])}${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
     : "";
   const owned =
     item && !item.preview
@@ -496,9 +509,12 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     (state.me && !item?.preview && !owned
       ? wishlistButton(c, state.wishlist || [], escape)
       : "") +
-    extraActions;
+    extraActions +
+    (page() === "catalog"
+      ? `<button type="button" class="text-button" data-action="card-collectors" data-id="${escape(c.id)}">Collectors ↗</button>`
+      : "");
   const meta = a
-    ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>${a.seller ? `<small class="user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</small>` : ""}`
+    ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>${a.seller || a.rolling ? `<small class="user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</small>` : ""}`
     : "";
   return cardSurface(
     c,
@@ -612,12 +628,70 @@ const features = createFeatures(
   },
   ui,
 );
+const wishlistEditor = createWishlistEditor({
+  escape,
+  cardBy,
+  image,
+  gradeBadge,
+  series,
+});
 const showcaseEditor = createShowcaseEditor({
   escape,
   cardBy,
   image,
   gradeBadge,
   series,
+});
+function openShowcasePurchase() {
+  const slots = state.me?.showcase_slots || 0,
+    max = Math.min(20 - slots, Math.floor((state.me?.balance || 0) / 100));
+  if (slots >= 20) {
+    toast("All 20 showcase slots are unlocked.");
+    return;
+  }
+  if (max < 1) {
+    toast("You need 100 credits to unlock a showcase slot.", true);
+    return;
+  }
+  modal(
+    "<h2>Unlock Showcase Slots</h2><p>100 credits per slot · " +
+      slots +
+      '/20 unlocked. Slots stay available when you swap or remove cards.</p><form id="showcase-slots-form" class="stack"><input type="hidden" name="expectedSlots" value="' +
+      slots +
+      '">' +
+      quantityInput({
+        id: "showcase-slot-count",
+        name: "quantity",
+        label: "Slots to Unlock",
+        max,
+      }) +
+      '<p class="money">Total: ✦ <span id="showcase-slot-price">100</span></p><div class="form-error" role="alert"></div><button class="button mint" type="submit">Buy Slots</button></form>',
+  );
+}
+document.addEventListener("input", (event) => {
+  if (event.target.id === "showcase-slot-count")
+    $("#showcase-slot-price").textContent = number(
+      Number(event.target.value) * 100,
+    );
+});
+function paintWishlistEditor() {
+  const scroll = $("#wishlist-order-list")?.scrollTop || 0;
+  $("#modal-body").innerHTML = wishlistEditor.render();
+  $("#wishlist-order-list").scrollTop = scroll;
+}
+document.addEventListener("change", (event) => {
+  if (!event.target.closest("#wishlist-order-form") || busy) return;
+  if (event.target.id === "wishlist-sort") {
+    wishlistEditor.sortBy(event.target.value);
+    paintWishlistEditor();
+    $("#wishlist-sort").focus({ preventScroll: true });
+  } else if (event.target.dataset.wishlistPosition) {
+    wishlistEditor.move(
+      event.target.dataset.wishlistPosition,
+      Number(event.target.value),
+    );
+    paintWishlistEditor();
+  }
 });
 function paintShowcaseEditor(card = null, position = null) {
   const scroll = $("#showcase-order-list")?.scrollTop || 0;
@@ -888,7 +962,7 @@ function home() {
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +
-    `<div class="section-head"><div class="section-title"><h2>This Week’s Auction</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
+    `<div class="section-head"><div class="section-title"><h2>${state.communityMarket?.active ? "Community Auctions" : "This Week’s Auction"}</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${state.communityMarket?.active ? "12 Hours · Each Bid Restarts the Clock" : countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
       featured.length
         ? `<div class="overview-auctions">${["character", "seiyuu"]
             .map(
@@ -997,10 +1071,12 @@ function auctions() {
     won = list.filter((a) => a.ends <= state.now);
   return (
     intro(
-      "A New Week. A New Lineup.",
+      state.communityMarket?.active
+        ? "Community Auctions"
+        : "A New Week. A New Lineup.",
       "Five characters. Five seiyuus. Higher tiers in the spotlight.",
     ) +
-    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to Join Your Deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>Weekly Community Auctions</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No Auctions Just Yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
+    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.${state.communityMarket?.active ? " Each bid restarts that card’s 12-hour timer. The next bid must be at least 10% higher." : ""}</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to Join Your Deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>${state.communityMarket?.active ? "Community Auctions" : "Weekly Community Auctions"}</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), state.communityMarket?.active ? "Next Auction Ends in " : "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No Auctions Just Yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
     features.userAuctions()
   );
 }
@@ -1010,7 +1086,7 @@ function pickems() {
       "Who Takes the Tour?",
       "Pick the winning team and earn credits for a correct call.",
     ) +
-    `<div class="notice">Choose one team to win the tour and confirm. Entry is free, and you can change your pick until voting closes. Correct picks earn the tour’s winner reward.</div>` +
+    `<div class="notice">Choose one team to win the tour. Your latest choice is saved automatically. Entry is free, and you can change your pick until voting closes. Correct picks earn the tour’s winner reward.</div>` +
     ((ui.pickemData?.tours || tourSummaries(state.pickems, state.now)).length
       ? pickemBoard(
           ui.pickemData?.tours || tourSummaries(state.pickems, state.now),
@@ -1360,10 +1436,10 @@ function render() {
     }
   }
   if (predictionFocus)
-    document
-      .getElementById(predictionFocus.form)
-      ?.elements.namedItem(predictionFocus.name)
-      ?.focus({ preventScroll: true });
+    focusPredictionField(
+      document.getElementById(predictionFocus.form),
+      predictionFocus.name,
+    );
   const queryInput = $("#search") || $("#profile-search");
   if (queryInput && search.trim()) {
     const none =
@@ -1508,6 +1584,7 @@ async function execute(path, b, after, form = null) {
         path.startsWith("gem-") ||
         path.startsWith("horse-") ||
         path.startsWith("roulette-") ||
+        path.startsWith("blackjack-") ||
         path.startsWith("climb-")) &&
       err.status === 409
     ) {
@@ -1680,7 +1757,7 @@ document.addEventListener("click", async (ev) => {
       (x) => x.id === Number(t.dataset.id),
     );
     modal(
-      `<h2>${escape(cardBy(lot.card).name)}</h2><p>${lot.bid ? "Highest bid: " + number(lot.bid) + " credits." : "Be the first to bid."} Your credits are held while your bid leads.</p><form id="bid-form" class="stack"><input type="hidden" name="auction" value="${lot.id}"><label>Your bid in credits<input type="number" name="amount" required min="${lot.bid ? lot.bid + 1 : lot.reserve || 1}" max="100000000" step="1" value="${lot.bid ? lot.bid + 1 : lot.reserve || 1}"></label><span class="form-hint">Available: ${number(state.me.balance)} credits${lot.winner === state.me.id ? " · Your existing bid counts toward the total." : ""}</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Place bid →</button></form>`,
+      `<h2>${escape(cardBy(lot.card).name)}</h2><p>${lot.bid ? "Highest bid: " + number(lot.bid) + " credits." : "Be the first to bid."} Your credits are held while your bid leads.</p><form id="bid-form" class="stack"><input type="hidden" name="auction" value="${lot.id}"><label>Your bid in credits<input type="number" name="amount" required min="${minimumBid(lot)}" max="100000000" step="1" value="${minimumBid(lot)}"></label><span class="form-hint">Available: ${number(state.me.balance)} credits${lot.winner === state.me.id ? " · Your existing bid counts toward the total." : ""}</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Place bid →</button></form>`,
     );
     return;
   }
@@ -1748,12 +1825,44 @@ document.addEventListener("submit", async (ev) => {
     );
     return;
   }
+  if (formIdentifier(f) === "showcase-slots-form") {
+    await execute(
+      "showcase-slots",
+      { quantity: Number(b.quantity), expectedSlots: Number(b.expectedSlots) },
+      null,
+      f,
+    );
+    return;
+  }
+  if (formIdentifier(f) === "wishlist-order-form") {
+    await execute(
+      "wishlist-order",
+      wishlistEditor.payload(state.me?.id),
+      null,
+      f,
+    );
+    return;
+  }
   if (formIdentifier(f) === "showcase-order-form") {
     try {
       await execute("showcase", showcaseEditor.payload(state.me?.id), null, f);
     } catch (error) {
       f.querySelector(".form-error").textContent = error.message;
     }
+    return;
+  }
+  if (formIdentifier(f) === "blackjack-bet") {
+    ui.blackjackStake = Number(b.stake);
+    if (!state.me) {
+      auth();
+      return;
+    }
+    await execute(
+      "blackjack-start",
+      { stake: Number(b.stake), previousGame: state.blackjack?.id ?? null },
+      null,
+      f,
+    );
     return;
   }
   if (formIdentifier(f) === "daily-pack-form") {
@@ -1970,7 +2079,73 @@ function savePredictionDraft(input) {
   };
   form.querySelector(".form-error").textContent = "";
 }
-document.addEventListener("change", (ev) => savePredictionDraft(ev.target));
+const autoPick = createPickemAutosave({
+  send: (body, identity) => {
+    if (state.me?.id !== identity)
+      throw Error("Sign in again before choosing a team.");
+    return api("predict", body);
+  },
+  async saved(body, identity) {
+    if (state.me?.id !== identity) return;
+    const draft = ui.pickemDrafts[body.pickem];
+    if (draft && draft.winner !== body.winner) return;
+    const p = ui.pickemDetail?.matches.find((p) => p.id === body.pickem);
+    if (p) p.prediction = body.winner;
+    const current = state.pickems.find((p) => p.id === body.pickem);
+    if (current) current.prediction = body.winner;
+    delete ui.pickemDrafts[body.pickem];
+    if (page() === "pickems") {
+      try {
+        await loadDynamic();
+        render();
+      } catch {
+        toast("Pick saved. Refresh to update the vote totals.", true);
+      }
+    }
+  },
+  failed(error, body, identity) {
+    if (state.me?.id !== identity) return;
+    const form = document.getElementById("tour-prediction-" + body.pickem);
+    if (form) {
+      form.querySelector(".form-error").textContent =
+        "Pick Not Saved: " + error.message + " Select a team to try again.";
+      const status = form.querySelector(".pickem-save-status");
+      if (status) status.textContent = "Not Saved";
+      const previous =
+        ui.pickemDetail?.matches.find((p) => p.id === body.pickem)
+          ?.prediction || "";
+      form.querySelectorAll('input[name="winner"]').forEach((input) => {
+        input.checked = input.value === previous;
+        input
+          .closest(".pickem-vote-row")
+          ?.classList.toggle("is-selected", input.checked);
+      });
+    }
+    delete ui.pickemDrafts[body.pickem];
+  },
+});
+document.addEventListener("change", (ev) => {
+  savePredictionDraft(ev.target);
+  const form = ev.target.form;
+  if (
+    !form?.dataset.inlinePrediction ||
+    ev.target.name !== "winner" ||
+    form.elements.mode?.value !== "tour"
+  )
+    return;
+  if (!state.me) {
+    auth();
+    return;
+  }
+  const status = form.querySelector(".pickem-save-status");
+  if (status) status.textContent = "Saving Pick…";
+  form
+    .querySelectorAll(".pickem-vote-row")
+    .forEach((row) =>
+      row.classList.toggle("is-selected", row.querySelector("input")?.checked),
+    );
+  autoPick(predictionBody(Object.fromEntries(new FormData(form))), state.me.id);
+});
 document.addEventListener("change", (ev) => {
   const form = ev.target.form;
   if (form?.id !== "horse-ticket-form") return;
@@ -2240,6 +2415,17 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "roulette-refresh") {
       await refreshCurrent();
+      return true;
+    }
+    if (a === "blackjack-hit" || a === "blackjack-stand") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      await execute(a, {
+        game: Number(t.dataset.game),
+        version: Number(t.dataset.version),
+      });
       return true;
     }
     if (a === "climb-start" || a === "climb-choose") {
@@ -2545,6 +2731,49 @@ async function handleFeatureClick(a, t) {
       }
       return true;
     }
+    if (a === "card-collectors") {
+      const data = await api(
+        "card-collectors?card=" +
+          encodeURIComponent(t.dataset.id) +
+          "&view=" +
+          (t.dataset.view || "owned") +
+          "&page=" +
+          (t.dataset.page || 1),
+      );
+      rememberCards(data.cards);
+      modal(
+        collectorsPanel(data, {
+          escape,
+          number,
+          cardBy,
+          avatarHTML,
+          profileURL,
+        }),
+        true,
+      );
+      return true;
+    }
+    if (a === "wishlist-arrange") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      const data = await api("wishlist-order");
+      rememberCards(data.cards);
+      wishlistEditor.open(
+        { id: state.me.id, wishlist: data.wishlist },
+        state.me.id,
+      );
+      modal(wishlistEditor.render(), true);
+      return true;
+    }
+    if (a === "wishlist-move") {
+      if (!busy && t.closest("#wishlist-order-form")) {
+        wishlistEditor.move(t.dataset.id, Number(t.dataset.position));
+        paintWishlistEditor();
+      }
+      return true;
+    }
     if (a === "rank-metric") {
       ui.metric = t.dataset.metric;
       ui.rankPage = 1;
@@ -2566,7 +2795,12 @@ async function handleFeatureClick(a, t) {
       }
     if (a === "clear-collection-filters") {
       ui.collectionPage = 1;
-      ui.collectionFilters = { rarity: "", role: "", upgradable: false };
+      ui.collectionFilters = {
+        rarity: "",
+        role: "",
+        upgradable: false,
+        hideProtected: false,
+      };
       render();
       return true;
     }
@@ -2582,6 +2816,7 @@ async function handleFeatureClick(a, t) {
         "pack",
         "pack-reveal-page",
         "showcase-toggle",
+        "showcase-buy-slots",
         "showcase-arrange",
         "showcase-move",
         "protect-toggle",
@@ -2663,6 +2898,10 @@ async function handleFeatureClick(a, t) {
       });
       return true;
     }
+    if (a === "showcase-buy-slots") {
+      openShowcasePurchase();
+      return true;
+    }
     if (a === "showcase-arrange") {
       if (!state.me || profileData?.id !== state.me.id) return true;
       showcaseEditor.open(profileData, state.me.id);
@@ -2684,6 +2923,10 @@ async function handleFeatureClick(a, t) {
       else {
         if (cards.length >= MAX_SPOTLIGHTS) {
           toast("Your spotlights hold up to 20 cards. Remove one first.", true);
+          return true;
+        }
+        if (cards.length >= (state.me.showcase_slots || 0)) {
+          openShowcasePurchase();
           return true;
         }
         cards.push(t.dataset.id);
@@ -2775,7 +3018,7 @@ function openInstantSale(id, variant) {
   const level = variant === "extra" ? 1 : item.level,
     price = instantSalePrice(c, level);
   modal(
-    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><p class="form-hint">50% of the weekly shop price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
+    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><p class="form-hint">50% of the shop rarity price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
   );
 }
 async function handleFeatureSubmit(f, b) {
@@ -2940,6 +3183,7 @@ document.addEventListener("change", (ev) => {
     "shop-sort": "sort",
     "shop-role": "role",
     "shop-upgradable": "upgradable",
+    "shop-hide-protected": "hideProtected",
     "shop-sale-mode": "mode",
     "shop-sell-page": "page",
     "shop-sell-page-bottom": "page",
@@ -2953,8 +3197,9 @@ document.addEventListener("change", (ev) => {
     if (!Number.isSafeInteger(value) || value < 1) return;
     ui.shopSell.page = value;
   } else {
-    ui.shopSell[key] =
-      key === "upgradable" ? ev.target.checked : ev.target.value;
+    ui.shopSell[key] = ["upgradable", "hideProtected"].includes(key)
+      ? ev.target.checked
+      : ev.target.value;
     ui.shopSell.page = 1;
   }
   render();
@@ -3002,8 +3247,14 @@ document.addEventListener("change", async (ev) => {
 });
 
 document.addEventListener("change", async (ev) => {
-  if (ev.target.id === "collection-upgradable") {
-    ui.collectionFilters.upgradable = ev.target.checked;
+  if (
+    ["collection-upgradable", "collection-hide-protected"].includes(
+      ev.target.id,
+    )
+  ) {
+    ui.collectionFilters[
+      ev.target.id === "collection-upgradable" ? "upgradable" : "hideProtected"
+    ] = ev.target.checked;
     ui.collectionPage = 1;
     render();
     return;

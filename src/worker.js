@@ -957,6 +957,7 @@ export class Game extends DurableObject {
           path.startsWith("gem-") ||
           path.startsWith("horse-") ||
           path.startsWith("roulette-") ||
+          path.startsWith("blackjack-") ||
           path.startsWith("climb-") ||
           path === "notice-seen" ||
           path === "gamble"))
@@ -1008,6 +1009,16 @@ export class Game extends DurableObject {
             wishlistOnly: url.searchParams.get("wishlist") === "1",
           },
           session?.player || null,
+        ),
+      );
+    }
+    if (path === "card-collectors" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.economy.wishlist.collectors(
+          url.searchParams.get("card"),
+          url.searchParams.get("view") || "owned",
+          Number(url.searchParams.get("page") || 1),
         ),
       );
     }
@@ -1193,6 +1204,10 @@ export class Game extends DurableObject {
       fail("Your session ended. Please sign in again.", 401);
     if (path === "quiz-run" && !post)
       return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
+    if (path === "wishlist-order" && !post) {
+      const wishlist = e.economy.wishlist.read(session.player);
+      return json({ wishlist, cards: e.catalogStore.cards(wishlist) });
+    }
     if (path === "my-titles" && !post)
       return json(e.quiz.titleSettings(session.player));
     if (path === "alchemy" && !post)
