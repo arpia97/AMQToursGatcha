@@ -20,8 +20,8 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
  e.action('offerer','list-card',{card:'c1',variant:'card',venue:'shop',price:100});
  const listing=e.action('lister','trade-list',{card:'c1',variant:'card',expectedLevel:1}).listing;
  e.action('offerer','trade-offer',{listing,cards:[{card:'c2',variant:'card',expectedLevel:1},{card:'p1',variant:'card',expectedLevel:1}]});
- e.economy.anime.pin('offerer',{series:'anime',pinned:true});});}
- async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer')});}catch(error){return Response.json({error:error.message},{status:500});}}}
+ e.economy.anime.pin('offerer',{series:'anime',pinned:true});e.action('lister','wishlist',{card:'p1',wanted:true});e.action('offerer','wishlist',{card:'p1',wanted:true});});}
+ async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted')});}catch(error){return Response.json({error:error.message},{status:500});}}}
  export default {fetch(request,env){return env.GAME.getByName('isolated-profile').fetch(request);}};
  `,
     },
@@ -74,4 +74,15 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
   assert.equal(data.profile.pinnedAnime[0].owned, 2);
   assert.equal(data.anime.series[0].owned, 2);
   assert.equal(data.profile.inventory.length, 0);
+  assert.equal(data.collectors.counts.owned, 2);
+  assert.deepEqual(
+    new Set(data.collectors.rows.map((p) => p.id)),
+    new Set(["lister", "offerer"]),
+  );
+  assert.deepEqual(
+    data.offered.rows.map((p) => p.id),
+    ["offerer"],
+  );
+  assert.deepEqual(data.wanted.counts, { owned: 1, wanted: 2 });
+  assert.ok(data.wanted.rows.every((p) => !Object.hasOwn(p, "balance")));
 });

@@ -100,11 +100,13 @@ export class Wishlist {
     if (!e.catalogStore.card(card)) fail("Unknown card.", 404);
     if (!["owned", "wanted"].includes(view))
       fail("Choose owners or wishlist collectors.");
-    const ownership = `SELECT player FROM inventory WHERE card=? AND copies>0
+    // Cloudflare limits each compound SELECT to five terms. Nest the first
+    // group so held trade offers and unclaimed wins can both be included.
+    const ownership = `SELECT player FROM (SELECT player FROM inventory WHERE card=? AND copies>0
       UNION SELECT seller FROM market_listings WHERE card=? AND status='open'
       UNION SELECT seller FROM auctions WHERE card=? AND seller IS NOT NULL AND paid=0
       UNION SELECT winner FROM auctions WHERE card=? AND winner IS NOT NULL AND ends<=? AND claimed=0
-      UNION SELECT seller FROM trade_listings WHERE card=? AND status='open'
+      UNION SELECT seller FROM trade_listings WHERE card=? AND status='open')
       UNION SELECT o.proposer FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE COALESCE(c.card,o.card)=? AND o.status='open'`;
     const ownerArgs = [card, card, card, card, e.now(), card, card];
     const counts = {
