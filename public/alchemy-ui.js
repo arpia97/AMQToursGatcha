@@ -345,29 +345,31 @@ export function createAlchemyUI(h) {
   function refinementResult() {
     if (lastResult?.refinements)
       return (
-        '<section class="fusion-review-form alchemy-refinement-result"><h2 id="fusion-review-title">Refinement Results</h2><ol class="alchemy-queue-list">' +
+        '<section class="fusion-review-form alchemy-refinement-result alchemy-batch-result"><h2 id="fusion-review-title">Refinement Results</h2><ol class="alchemy-result-list" aria-label="Refinement Results">' +
         lastResult.refinements
           .map(
             (r, i) =>
-              "<li>" +
+              '<li class="alchemy-result-row alchemy-result-' +
+              e(r.outcome) +
+              '"><div class="alchemy-result-portrait">' +
               image({ ...card(r.material.id), ...r.material }) +
-              "<div><strong>" +
+              '</div><div class="alchemy-result-copy"><strong>' +
               (i + 1) +
               ". " +
               e(r.material.name) +
               "</strong><small>" +
               e(r.label) +
               (r.lucky ? " · ✦ Lucky Refinement" : "") +
-              " · +" +
+              '</small></div><strong class="alchemy-result-xp">+' +
               n(r.xpGained) +
-              " XP</small></div></li>",
+              " XP</strong></li>",
           )
           .join("") +
-        '</ol><p class="alchemy-xp">+' +
+        '</ol><p class="alchemy-result-total"><strong>+' +
         n(lastResult.xpGained) +
-        " XP · Pool: " +
+        " XP</strong><span>Pool: " +
         n(data.xp) +
-        ' XP</p><div class="fusion-review-actions">' +
+        ' XP</span></p><div class="fusion-review-actions">' +
         btn("Done", "alchemy-close", "", "mint") +
         "</div></section>"
       );

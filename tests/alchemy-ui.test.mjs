@@ -170,6 +170,33 @@ test("refinement results stay in the confirmation dialog without creating a page
     f.ui.render(),
     /REFINEMENT COMPLETE|alchemy-result|Great Success ·/,
   );
+  f.ui.complete({
+    refinements: Array.from({ length: 4 }, (_, i) => ({
+      outcome: i === 2 ? "great" : "success",
+      label: i === 2 ? "Great Success" : "Success",
+      lucky: i === 2,
+      xpGained: i === 2 ? 960 : 15,
+      material: {
+        id: "a",
+        name: i === 0 ? "<Long & Result>" : "Material " + i,
+      },
+    })),
+    xpGained: 1005,
+    alchemyState: {
+      xp: 1925,
+      refinements: 8,
+      version: 2,
+      targets: {},
+      cards: [],
+    },
+  });
+  const batch = f.ui.refinementResult();
+  assert.equal((batch.match(/class="alchemy-result-row /g) || []).length, 4);
+  assert.match(batch, /&lt;Long &amp; Result>/);
+  assert.match(batch, /Great Success · ✦ Lucky Refinement/);
+  assert.match(batch, /\+960 XP/);
+  assert.match(batch, /Pool: 1925 XP/);
+  assert.doesNotMatch(batch, /alchemy-queue-list|<form|type="submit"/);
 });
 
 test("reordering enhanced base and extra copies preserves their investment and last extra becomes a valid level-one card", () => {
