@@ -131,7 +131,8 @@
 .showcase-position {
   margin: 0;
 }
-.showcase-position .sr-only {
+.showcase-position .sr-only,
+.wishlist-sort-tools .sr-only {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -4540,7 +4541,7 @@ dialog.avatar-editor-modal {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 9px;
 }
 .wishlist-drag-handle {
@@ -4562,9 +4563,9 @@ dialog.avatar-editor-modal {
   color: var(--muted, #a2a8bc);
 }
 .wishlist-sort-tools input {
-  width: 64px;
+  width: 43px;
   min-width: 0;
-  padding: 5px 7px;
+  padding: 4px;
   height: 32px;
 }
 .wishlist-dragging {
@@ -4630,4 +4631,12 @@ dialog.avatar-editor-modal {
   flex: 1;
   min-width: 0;
   white-space: nowrap;
+}
+
+.wishlist-sort-tools .wishlist-drag-handle {
+  padding: 5px 8px;
+  font-size: 18px;
+}
+.wishlist-sort-tools label {
+  min-width: 0;
 }
