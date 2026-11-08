@@ -93,6 +93,42 @@ test("incremental buckets deduplicate characters, promote Main appearances, and 
   );
   assert.equal(c.page("character", "Attack on Titan").cards.length, 2);
   assert.equal(c.page("character", "Shingeki").cards.length, 2);
+  e.host("catalog", {
+    cards: [
+      {
+        id: "voice-search",
+        kind: "seiyuu",
+        name: "Iwami, Manaka",
+        series: "Voice actor",
+      },
+      {
+        id: "unicode-search",
+        kind: "seiyuu",
+        name: "ÅVoice",
+        series: "Voice actor",
+      },
+    ],
+  });
+  const pool = c.pool;
+  c.pool = () => {
+    throw Error("Search must not materialize the entire pool");
+  };
+  assert.equal(
+    c.page("both", "Manaka Iwami", 1, 40, { sort: "name" }).cards[0].id,
+    "voice-search",
+  );
+  assert.equal(
+    c.page("seiyuu", "åvoice", 1, 40, { sort: "name" }).cards[0].id,
+    "unicode-search",
+  );
+  const searched = c.page("character", "Attack Titan", 1, 1, { sort: "name" });
+  assert.equal(searched.total, 2);
+  assert.equal(searched.hasMore, true);
+  assert.notEqual(
+    c.page("character", "Attack Titan", 2, 1, { sort: "name" }).cards[0].id,
+    searched.cards[0].id,
+  );
+  c.pool = pool;
   e.host("catalog", { cards: [{ ...card(1), role: "supporting" }] });
   assert.equal(c.summary().character, 2);
   assert.equal(c.rawCard("mal-character-1").role, "supporting");

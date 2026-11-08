@@ -459,6 +459,47 @@ export class Catalog {
       });
     return this.browseCache.kinds.get("both");
   }
+  searchPool(kind, query) {
+    const kinds = kind === "both" ? ["character", "seiyuu"] : [kind],
+      matches = searchMatcher(query),
+      local = this.e.all(
+        "SELECT * FROM catalog WHERE kind IN (" +
+          kinds.map(() => "?").join(",") +
+          ")",
+        ...kinds,
+      ),
+      overrides = new Set(local.map((c) => c.id)),
+      raw = local.filter((c) => c.active && matches(characterSearch(c)));
+    if (kinds.includes("character")) {
+      // Native SQL narrows packed rows before JSON decoding or rarity decoration.
+      // SQLite lower() is ASCII-only; non-ASCII searches keep JS case matching.
+      const search = searchSql(
+        "search",
+        /[^\x00-\x7F]/.test(query) ? "" : query,
+      );
+      if (this.tenrai.manifest()) {
+        for (const row of this.e.all(
+          "SELECT payload FROM tenrai_characters WHERE " + search.where,
+          ...search.args,
+        ))
+          for (const c of Object.values(JSON.parse(row.payload)))
+            if (!overrides.has(c.id) && matches(characterSearch(c)))
+              raw.push(c);
+      } else if (this.manifest()) {
+        for (const row of this.e.all(
+          "SELECT payload FROM catalog_bulk WHERE version=? AND section='browse' AND (" +
+            search.where +
+            ")",
+          this.manifest().version,
+          ...search.args,
+        ))
+          for (const c of JSON.parse(row.payload))
+            if (!overrides.has(c.id) && matches(characterSearch(c)))
+              raw.push(c);
+      }
+    }
+    return { cards: this.popularity.decorate(raw), orders: new Map() };
+  }
   sortedPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
     if (
@@ -468,8 +509,12 @@ export class Catalog {
       (kind !== "character" && filters.sort === "role")
     )
       fail("Choose a valid catalogue sort.");
-    const view = kind === "both" ? this.combinedPool() : this.pool(kind);
     const q = String(query).trim().toLowerCase().slice(0, 100);
+    const view = q
+      ? this.searchPool(kind, q)
+      : kind === "both"
+        ? this.combinedPool()
+        : this.pool(kind);
     const matches = searchMatcher(q);
     if (!view.orders.has(filters.sort))
       view.orders.set(
