@@ -565,7 +565,11 @@ const quizUI = createQuizUI({
   api,
   escape,
   getState: () => state,
-  onRender: () => render(),
+  onRender: (options) => {
+    if (page() === "quiz" && options?.questionOnly && quizUI.updateQuestion())
+      return;
+    render();
+  },
   onWallet: (me) => {
     state.me = me;
   },

@@ -12,7 +12,13 @@ const flush = async () => {
 };
 function fixture(
   t,
-  { blocked = false, saved = null, leaderboardRows = [], audioCache } = {},
+  {
+    blocked = false,
+    saved = null,
+    leaderboardRows = [],
+    audioCache,
+    transitions = false,
+  } = {},
 ) {
   const old = globalThis.document,
     nodes = new Map();
@@ -48,7 +54,16 @@ function fixture(
   };
   globalThis.document = {
     getElementById: node,
-    querySelector: () => node("play"),
+    querySelector: (selector) =>
+      transitions
+        ? selector === ".quiz-play-main > .quiz-question"
+          ? node("question")
+          : selector === '[data-quiz-action="quiz-next"]'
+            ? node("next")
+            : selector === "[data-quiz-skip]"
+              ? node("skip")
+              : node("play")
+        : node("play"),
   };
   t.after(() => (globalThis.document = old));
   let now = 10000,
@@ -57,7 +72,9 @@ function fixture(
     ui;
   const calls = [],
     audios = [],
-    writes = [];
+    writes = [],
+    renders = [],
+    gates = new Map();
   const quiz = {
     id: "q",
     name: "Draft Quiz",
@@ -68,6 +85,7 @@ function fixture(
   };
   const api = async (path, b) => {
     calls.push({ path, b });
+    if (gates.has(path)) await gates.get(path);
     if (path === "quizzes") return { quizzes: [quiz] };
     if (path.startsWith("quiz-leaderboard"))
       return {
@@ -138,7 +156,9 @@ function fixture(
     audioCache,
     escape,
     getState: () => ({ me: { id: "host" } }),
-    onRender: () => {
+    onRender: (options) => {
+      renders.push(options?.questionOnly ? "question" : "page");
+      if (transitions && options?.questionOnly && ui.updateQuestion()) return;
       ui.render();
       ui.mount();
     },
@@ -192,6 +212,18 @@ function fixture(
   return {
     ui,
     calls,
+    renders,
+    hold(path) {
+      let release, reject;
+      gates.set(
+        path,
+        new Promise((resolve, fail) => {
+          release = resolve;
+          reject = fail;
+        }),
+      );
+      return { release, reject };
+    },
     audios,
     writes,
     node,
@@ -301,7 +333,7 @@ test("the countdown panel drains with the clock, contains its numeric time, and 
   await f.start();
   await f.advance(12000);
   assert.equal(f.node("quiz-time-left").textContent, "10s");
-  assert.equal(f.node("quiz-time-progress").style["--quiz-time"], "50%");
+  assert.equal(f.node("quiz-time-progress").style["--quiz-progress"], "0.5");
   assert.equal(f.node("quiz-time-progress").attrs["aria-valuenow"], "10.0");
   assert.equal(f.node("quiz-audio-status").hidden, true);
   const html = f.ui.render();
@@ -558,4 +590,49 @@ test("Competitive loading completes before starting the scored clock and cancell
   await restart;
   assert.equal(signal.aborted, true);
   assert.equal(f.calls.filter((c) => c.path === "quiz-restart").length, 0);
+});
+
+test("Quiz transitions patch only the question; readiness keeps the existing form and pending/failing actions unlock safely", async (t) => {
+  const f = fixture(t, { transitions: true });
+  await f.start();
+  const pages = f.renders.filter((x) => x === "page").length;
+  assert.equal(
+    pages,
+    2,
+    "open and start only; audio readiness must not rebuild the page",
+  );
+  await f.advance(2000);
+  const focuses = f.node("quiz-answer").focused;
+  await f.audios[0].emit("canplay");
+  assert.equal(f.node("quiz-answer").focused, focuses);
+  const gate = f.hold("quiz-answer");
+  const answer = f.ui.submit({
+    elements: { answer: { value: "Bocchi the Rock!" } },
+  });
+  assert.equal(f.node("quiz-lock-answer").textContent, "Locking Answer…");
+  assert.equal(f.node("quiz-lock-answer").disabled, true);
+  await f.ui.submit({ elements: { answer: { value: "duplicate" } } });
+  gate.release();
+  await answer;
+  assert.match(f.node("question").outerHTML, /Correct!/);
+  assert.equal(f.node("next").disabled, false);
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  assert.match(f.node("question").outerHTML, /Song 2 of 20/);
+  await f.audios.at(-1).emit("loadedmetadata");
+  await f.audios.at(-1).emit("canplay");
+  await flush();
+  assert.equal(f.renders.filter((x) => x === "page").length, pages);
+  assert.equal(f.renders.filter((x) => x === "question").length, 2);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, 1);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-ready").length, 2);
+  await f.ui.submit({ elements: { answer: { value: "wrong" } } });
+  const failing = f.hold("quiz-next");
+  const pending = f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  assert.equal(f.node("next").disabled, true);
+  assert.equal(f.node("next").textContent, "Loading Next Song…");
+  failing.reject(Error("Temporarily unavailable"));
+  await assert.rejects(pending, /Temporarily unavailable/);
+  assert.equal(f.node("next").disabled, false);
+  assert.equal(f.node("next").textContent, "Next Song (Enter)");
+  assert.match(f.node("question").outerHTML, /Incorrect/);
 });

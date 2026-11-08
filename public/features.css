@@ -2918,9 +2918,11 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-countdown-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  width: var(--quiz-time, 100%);
+  width: 100%;
+  transform: scaleX(var(--quiz-progress, 1));
+  transform-origin: left center;
   background: linear-gradient(110deg, #603780, #285b6b);
-  transition: width 0.2s linear;
+  transition: transform 0.2s linear;
 }
 .quiz-countdown-meter.is-urgent .quiz-countdown-fill {
   background: linear-gradient(110deg, #a34e71, #8c3743);

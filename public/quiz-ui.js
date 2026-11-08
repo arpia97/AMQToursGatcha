@@ -35,6 +35,7 @@ export function createQuizUI({
     selected = null,
     run = null,
     working = false,
+    pendingAction = "",
     audio = null,
     audioKey = "",
     generation = 0,
@@ -467,6 +468,10 @@ export function createQuizUI({
           "</div></section>",
       );
     }
+    return withLeaderboard(questionHTML(q));
+  }
+  function questionHTML(q) {
+    const preview = !q.published || run?.preview;
     const answerForm =
       '<form id="quiz-answer-form" class="stack"><div class="quiz-answer-field"><label for="quiz-answer">Anime Title</label><input id="quiz-answer" class="search" name="answer" value="' +
       e(draft) +
@@ -485,35 +490,43 @@ export function createQuizUI({
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
       (run.index === 19 ? "Finish Quiz (Enter)" : "Next Song (Enter)") +
       "</button>";
-    return withLeaderboard(
+    return (
       '<section class="quiz-question' +
-        (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
-        '"><div class="quiz-question-heading"><h2>Song ' +
-        (run.index + 1) +
-        ' of 20</h2><div class="quiz-score tier-' +
-        rarityClass(quizRarity(run.score)) +
-        '"><span>Score</span><strong>' +
-        run.score +
-        " / 20</strong></div></div>" +
-        (!preview
-          ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
-          : "") +
-        (!Number.isSafeInteger(run.startedAt)
-          ? '<p class="form-hint">This run predates completion timing. Restart Quiz to record a time.</p>'
-          : "") +
-        (!run.answered
-          ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
-          : "") +
-        '<div class="quiz-audio-line">' +
-        (!run.answered
-          ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
-          : "") +
-        "</div>" +
-        (run.answered ? result : answerForm) +
-        '<p id="quiz-inline-error" class="form-error" role="alert">' +
-        e(errorMessage) +
-        "</p></section>",
+      (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
+      '"><div class="quiz-question-heading"><h2>Song ' +
+      (run.index + 1) +
+      ' of 20</h2><div class="quiz-score tier-' +
+      rarityClass(quizRarity(run.score)) +
+      '"><span>Score</span><strong>' +
+      run.score +
+      " / 20</strong></div></div>" +
+      (!preview
+        ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
+        : "") +
+      (!Number.isSafeInteger(run.startedAt)
+        ? '<p class="form-hint">This run predates completion timing. Restart Quiz to record a time.</p>'
+        : "") +
+      (!run.answered
+        ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
+        : "") +
+      '<div class="quiz-audio-line">' +
+      (!run.answered
+        ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
+        : "") +
+      "</div>" +
+      (run.answered ? result : answerForm) +
+      '<p id="quiz-inline-error" class="form-error" role="alert">' +
+      e(errorMessage) +
+      "</p></section>"
     );
+  }
+  function updateQuestion() {
+    const section = document.querySelector(".quiz-play-main > .quiz-question");
+    const q = quizzes.find((q) => q.id === selected);
+    if (!section || !q || !run || run.finished || leaderboardOnly) return false;
+    section.outerHTML = questionHTML(q);
+    mount();
+    return true;
   }
   function closeSuggestions() {
     suggestionsOpen = false;
@@ -585,6 +598,7 @@ export function createQuizUI({
   async function mutate(action, answer, skip = false) {
     if (working) return;
     working = true;
+    pendingAction = action;
     closeSuggestions();
     tick();
     try {
@@ -602,9 +616,12 @@ export function createQuizUI({
           "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1",
         );
       }
-      onRender();
+      onRender({
+        questionOnly: action === "quiz-answer" || action === "quiz-next",
+      });
     } finally {
       working = false;
+      pendingAction = "";
       tick();
     }
   }
@@ -628,10 +645,27 @@ export function createQuizUI({
         }
       });
   }
+  function text(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
   function tick() {
+    const next = document.querySelector('[data-quiz-action="quiz-next"]');
+    if (next) {
+      next.disabled = working;
+      text(
+        next,
+        working
+          ? run?.index === 19
+            ? "Finishing Quiz…"
+            : "Loading Next Song…"
+          : run?.index === 19
+            ? "Finish Quiz (Enter)"
+            : "Next Song (Enter)",
+      );
+    }
     const clock = document.getElementById("quiz-elapsed");
     if (clock && run && !run.finished)
-      clock.textContent = quizDuration(elapsed(), false);
+      text(clock, quizDuration(elapsed(), false));
     if (!run || run.finished || run.answered) return;
     const now = serverNow(),
       started =
@@ -645,21 +679,31 @@ export function createQuizUI({
     const input = document.getElementById("quiz-answer"),
       lock = document.getElementById("quiz-lock-answer");
     if (input) input.disabled = !started || working;
-    if (lock) lock.disabled = !started || working;
+    if (lock) {
+      lock.disabled = !started || working;
+      text(
+        lock,
+        pendingAction === "quiz-answer" ? "Locking Answer…" : "Lock Answer →",
+      );
+    }
+    const skip = document.querySelector("[data-quiz-skip]");
+    if (skip) skip.disabled = working;
     if (started && remaining > 0 && !working && input && !answerFocused) {
       answerFocused = true;
       input.focus({ preventScroll: true });
     }
     const left = document.getElementById("quiz-time-left"),
       bar = document.getElementById("quiz-time-progress");
-    if (left)
-      left.textContent = lead
+    text(
+      left,
+      lead
         ? "Starts in " + lead + "s"
         : run.endsAt
           ? Math.ceil(remaining) + "s"
-          : "Loading Audio…";
+          : "Loading Audio…",
+    );
     if (bar) {
-      bar.style.setProperty("--quiz-time", (remaining / 20) * 100 + "%");
+      bar.style.setProperty("--quiz-progress", String(remaining / 20));
       bar.setAttribute("aria-valuenow", remaining.toFixed(1));
       bar.classList.toggle("is-urgent", !!run.endsAt && remaining <= 5);
     }
@@ -744,7 +788,6 @@ export function createQuizUI({
         if (token !== generation) return;
         useRun(result.run);
         audioState = "ready";
-        onRender();
         tick();
       } catch (err) {
         if (token === generation) {
@@ -784,6 +827,7 @@ export function createQuizUI({
     load,
     render,
     mount,
+    updateQuestion,
     stop,
     leave() {
       preparing?.abort();
