@@ -146,6 +146,8 @@ test("trade search stays visible across views, escapes queries, and distinguishe
   ui.tradeQuery = "Manaka Iwami";
   ui.tradeData = { query: "Manaka Iwami", items: [], page: 1, hasMore: false };
   assert.match(c.render(), /aria-label="Search Trades"/);
+  ui.tradeWishlistOnly = true;
+  assert.match(c.render(), /id="trade-wishlist-only" type="checkbox" checked/);
   assert.match(c.render(), /value="Manaka Iwami"/);
   assert.match(c.render(), /no-results/);
   assert.match(c.render(), /No Matching Trades/);

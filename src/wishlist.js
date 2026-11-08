@@ -107,7 +107,8 @@ export class Wishlist {
         UNION SELECT card,seller FROM auctions WHERE card IN (SELECT card FROM requested) AND seller IS NOT NULL AND paid=0
         UNION SELECT card,winner FROM auctions WHERE card IN (SELECT card FROM requested) AND winner IS NOT NULL AND ends<=? AND claimed=0
         UNION SELECT card,seller FROM trade_listings WHERE card IN (SELECT card FROM requested) AND status='open'
-      ) UNION SELECT COALESCE(c.card,o.card),o.proposer FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE COALESCE(c.card,o.card) IN (SELECT card FROM requested) AND o.status='open'
+      ) UNION SELECT c.card,o.proposer FROM trade_offer_cards c JOIN trade_offers o ON o.id=c.offer WHERE c.card IN (SELECT card FROM requested) AND o.status='open'
+      UNION SELECT o.card,o.proposer FROM trade_offers o WHERE o.card IN (SELECT card FROM requested) AND o.status='open' AND NOT EXISTS(SELECT 1 FROM trade_offer_cards c WHERE c.offer=o.id)
     ) SELECT card,count(*) AS owned FROM held GROUP BY card`,
       ids,
       e.now(),

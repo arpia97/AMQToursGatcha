@@ -380,6 +380,15 @@ export class Quiz {
       },
     };
   }
+  audioManifest(id, player) {
+    const q = this.definition(id, player);
+    return {
+      version: q.updated,
+      audio: this.e
+        .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", id)
+        .map((row) => JSON.parse(row.data).audio),
+    };
+  }
   answerBank(id, player = null, page = 1) {
     const q = this.definition(id, player);
     integer(page, 1, 10000);

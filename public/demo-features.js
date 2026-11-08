@@ -738,6 +738,7 @@ export function demoFeatures(d, path, b) {
       matches = searchMatcher(query),
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
+      .filter((l) => q.get("wishlist") !== "1" || s.wishlist.includes(l.card))
       .filter((l) =>
         view === "listings"
           ? l.seller === me.id
@@ -1012,15 +1013,13 @@ export function demoFeatures(d, path, b) {
       page = Number(p.get("page") || 1);
     all.sort(cardComparator(p.get("sort") || "name"));
     return {
-      cards: all
-        .slice((page - 1) * 40, page * 40)
-        .map((c) => ({
-          ...c,
-          collectors: {
-            wanted: s.wishlist.includes(c.id) ? 1 : 0,
-            owned: s.inventory.some((i) => i.card === c.id) ? 1 : 0,
-          },
-        })),
+      cards: all.slice((page - 1) * 40, page * 40).map((c) => ({
+        ...c,
+        collectors: {
+          wanted: s.wishlist.includes(c.id) ? 1 : 0,
+          owned: s.inventory.some((i) => i.card === c.id) ? 1 : 0,
+        },
+      })),
       page,
       total: all.length,
       hasMore: all.length > page * 40,

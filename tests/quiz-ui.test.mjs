@@ -12,7 +12,7 @@ const flush = async () => {
 };
 function fixture(
   t,
-  { blocked = false, saved = null, leaderboardRows = [] } = {},
+  { blocked = false, saved = null, leaderboardRows = [], audioCache } = {},
 ) {
   const old = globalThis.document,
     nodes = new Map();
@@ -86,6 +86,8 @@ function fixture(
         version: 1,
         hasMore: false,
       };
+    if (path.startsWith("quiz-audio?"))
+      return { version: 1, audio: ["https://example.com/a.mp3"] };
     if (path.startsWith("quiz-run")) return { now, run };
     if (path === "quiz-start")
       run = {
@@ -133,6 +135,7 @@ function fixture(
   };
   ui = createQuizUI({
     api,
+    audioCache,
     escape,
     getState: () => ({ me: { id: "host" } }),
     onRender: () => {
@@ -517,4 +520,42 @@ test("elapsed quiz clock advances through guesses and answer review, survives re
   assert.equal(f.node("quiz-elapsed").textContent, "0:10");
   await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
   assert.equal(f.node("quiz-elapsed").textContent, "0:00");
+});
+
+test("Competitive loading completes before starting the scored clock and cancellation never starts a run", async (t) => {
+  let done, signal;
+  const cached = {
+    url: () => "blob:cached",
+    prepare: async (sources, server, options) => {
+      signal = options.signal;
+      options.onProgress({ loaded: 0, total: 1, bytes: 0 });
+      await new Promise((resolve) => (done = resolve));
+      signal.throwIfAborted();
+    },
+  };
+  const f = fixture(t, { audioCache: cached });
+  await f.ui.load();
+  await f.ui.click(f.button("data-quiz-open", "q"));
+  f.ui.setServer("NAW");
+  assert.ok(
+    f.writes.some(
+      ([key, value]) => key === "amqtours-quiz-server" && value === "NAW",
+    ),
+  );
+  f.ui.setCompetitive(true);
+  const start = f.ui.click(f.button("data-quiz-action", "quiz-start"));
+  await flush();
+  assert.match(f.ui.render(), /Loading Quiz Audio/);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-start").length, 0);
+  done();
+  await start;
+  assert.equal(f.calls.filter((c) => c.path === "quiz-start").length, 1);
+  assert.equal(f.audios.at(-1).src, "blob:cached");
+  const restart = f.ui.click(f.button("data-quiz-action", "quiz-restart"));
+  await flush();
+  await f.ui.click(f.button("data-quiz-download-cancel"));
+  done();
+  await restart;
+  assert.equal(signal.aborted, true);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-restart").length, 0);
 });

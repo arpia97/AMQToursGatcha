@@ -470,6 +470,24 @@ test("trade search matches card names in either order, anime and sellers before 
     e.economy.trades.page(null, { query: "' OR 1=1 --" }).items.length,
     0,
   );
+  e.action("c", "wishlist", { card: "two", wanted: true });
+  assert.throws(() => e.economy.trades.page(null, { wishlistOnly: true }), {
+    status: 401,
+  });
+  const wished = [1, 2, 3].flatMap(
+    (page) => e.economy.trades.page("c", { wishlistOnly: true, page }).items,
+  );
+  assert.equal(wished.length, 25);
+  assert.ok(wished.every((l) => l.card === "two"));
+  assert.equal(
+    e.economy.trades.page("c", { wishlistOnly: true, query: "missing" }).items
+      .length,
+    0,
+  );
+  assert.equal(
+    e.economy.trades.page("b", { wishlistOnly: true }).items.length,
+    0,
+  );
   const unfiltered = e.economy.trades.page(null);
   assert.equal(unfiltered.items[0].id, 130);
   assert.equal(unfiltered.query, "");

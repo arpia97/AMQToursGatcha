@@ -1,3 +1,8 @@
+import {
+  QUIZ_SERVERS,
+  quizAudioUrl,
+  createQuizAudioCache,
+} from "./quiz-audio-cache.js";
 import { quizDuration, quizElapsed } from "./quiz-time.js";
 import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
@@ -12,6 +17,7 @@ export function createQuizUI({
   storage,
   audioFactory,
   clock,
+  audioCache,
 }) {
   const time = clock || {
     now: () => Date.now(),
@@ -20,6 +26,11 @@ export function createQuizUI({
   };
   const makeAudio = audioFactory || ((src) => new Audio(src));
   const banks = new Map();
+  const cache = audioCache || createQuizAudioCache();
+  let server = "EU",
+    competitive = false,
+    preparing = null,
+    download = null;
   let quizzes = [],
     selected = null,
     run = null,
@@ -49,6 +60,8 @@ export function createQuizUI({
   let volume = 30;
   try {
     storage = storage || globalThis.localStorage;
+    const savedServer = storage?.getItem("amqtours-quiz-server");
+    if (QUIZ_SERVERS.includes(savedServer)) server = savedServer;
     const saved = storage?.getItem("amqtours-quiz-volume");
     if (saved !== null && saved !== undefined && Number.isFinite(Number(saved)))
       volume = Math.min(100, Math.max(0, Math.round(Number(saved))));
@@ -152,6 +165,100 @@ export function createQuizUI({
     }
   }
 
+  const serverControl = () =>
+    '<label class="quiz-server-control">Server<select id="quiz-server" aria-label="Quiz Audio Server" ' +
+    (working || preparing || (run && !run.finished) ? "disabled" : "") +
+    ">" +
+    QUIZ_SERVERS.map(
+      (s) =>
+        "<option " + (s === server ? "selected" : "") + ">" + s + "</option>",
+    ).join("") +
+    "</select></label>";
+  const competitiveControl = () =>
+    '<label class="quiz-competitive"><input id="quiz-competitive" type="checkbox" ' +
+    (competitive ? "checked" : "") +
+    " " +
+    (working || preparing ? "disabled" : "") +
+    ">Competitive</label>";
+  function downloadHTML() {
+    return preparing
+      ? '<section class="quiz-download" role="status"><strong>Loading Quiz Audio…</strong><progress id="quiz-download-progress" max="' +
+          (download?.total || 1) +
+          '" value="' +
+          (download?.loaded || 0) +
+          '"></progress><span id="quiz-download-label">' +
+          downloadLabel() +
+          '</span><button type="button" class="button secondary" data-quiz-download-cancel>Cancel Loading</button></section>'
+      : "";
+  }
+  const downloadLabel = () =>
+    download
+      ? download.loaded +
+        " / " +
+        download.total +
+        " Songs · " +
+        (download.bytes / 1048576).toFixed(1) +
+        " MB"
+      : "Preparing Download…";
+  const startControls = (label) =>
+    '<div class="quiz-start-controls"><button class="button mint" data-quiz-action="quiz-start" ' +
+    (preparing ? "disabled" : "") +
+    ">" +
+    label +
+    "</button>" +
+    competitiveControl() +
+    '</div><p class="form-hint">Competitive preloads the entire song pool before starting. Audio stays in this tab until it is closed or reloaded.</p>' +
+    downloadHTML() +
+    '<p class="form-error" id="quiz-inline-error" role="alert">' +
+    e(errorMessage) +
+    "</p>";
+  async function start(action) {
+    if (preparing || working) return;
+    const q = quizzes.find((q) => q.id === selected);
+    if (competitive) {
+      const controller = new AbortController();
+      preparing = controller;
+      download = null;
+      errorMessage = "";
+      onRender();
+      try {
+        const manifest = await call(
+          "quiz-audio?quiz=" + encodeURIComponent(selected),
+        );
+        if (manifest.version !== q.updated)
+          throw Error(
+            "The quiz pool changed. Reopen the quiz to load the latest songs.",
+          );
+        await cache.prepare(manifest.audio, server, {
+          signal: controller.signal,
+          onProgress: (p) => {
+            download = p;
+            const label = document.getElementById("quiz-download-label"),
+              bar = document.getElementById("quiz-download-progress");
+            if (label) label.textContent = downloadLabel();
+            if (bar) {
+              bar.max = p.total;
+              bar.value = p.loaded;
+            }
+          },
+        });
+      } catch (error) {
+        if (error.name !== "AbortError")
+          errorMessage =
+            "Competitive loading failed: " +
+            error.message +
+            " Try again or turn Competitive off.";
+        return;
+      } finally {
+        if (preparing === controller) {
+          preparing = null;
+          onRender();
+        }
+      }
+      if (controller.signal.aborted) return;
+    }
+    await mutate(action);
+  }
   const volumeControl = () =>
     '<label class="quiz-volume-control">Volume<input id="quiz-volume" type="range" min="0" max="100" step="1" value="' +
     volume +
@@ -192,7 +299,7 @@ export function createQuizUI({
           rows +
           "</tbody></table></div>"
         : '<p class="notice">No completed scores yet.</p>') +
-      '<p class="form-hint quiz-timing-guide">Ties: fastest time, then earliest set. Includes loading and pauses; ends at the final locked answer. Older untimed scores follow timed scores.</p></aside>'
+      "</aside>"
     );
   }
   function render() {
@@ -228,6 +335,7 @@ export function createQuizUI({
         '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
         '<div class="quiz-list-controls">' +
         completion +
+        serverControl() +
         sortControl +
         "</div>" +
         "</div>" +
@@ -294,11 +402,14 @@ export function createQuizUI({
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
       '</div><div class="quiz-top-controls">' +
-      (!leaderboardOnly ? elapsedControl() + volumeControl() : "") +
+      (!leaderboardOnly
+        ? elapsedControl() + serverControl() + volumeControl()
+        : "") +
       (!leaderboardOnly && run && !run.finished
         ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
         : "") +
       '<button class="button secondary" data-quiz-back>All Quizzes ←</button></div></div>';
+    if (preparing && run && !run.finished) top += downloadHTML();
     if (leaderboardOnly)
       return (
         top +
@@ -322,9 +433,7 @@ export function createQuizUI({
         "<p>20 Seconds Per Song · Two-Second Starting Countdown</p>" +
           (q.songs < 20
             ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
-            : '<button class="button mint space-top" data-quiz-action="quiz-start">' +
-              (preview ? "Start Preview →" : "Start Quiz →") +
-              "</button>"),
+            : startControls(preview ? "Start Preview →" : "Start Quiz →")),
       );
     }
     if (run.finished) {
@@ -353,7 +462,9 @@ export function createQuizUI({
           (run.reward.title
             ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
             : "") +
-          '<div class="quiz-complete-actions"><button class="button mint" data-quiz-action="quiz-start">Play Again →</button></div></section>',
+          '<div class="quiz-complete-actions">' +
+          startControls("Play Again →") +
+          "</div></section>",
       );
     }
     const answerForm =
@@ -609,7 +720,9 @@ export function createQuizUI({
       tick();
       return;
     }
-    audio = makeAudio(run.audio);
+    audio = makeAudio(
+      cache.url(run.audio, server) || quizAudioUrl(run.audio, server),
+    );
     audio.preload = "auto";
     audio.volume = volume / 100;
     const current = audio;
@@ -672,7 +785,27 @@ export function createQuizUI({
     render,
     mount,
     stop,
+    leave() {
+      preparing?.abort();
+      stop();
+    },
     setVolume,
+    active: () => !!preparing || !!(selected && run && !run.finished),
+    setServer(value) {
+      if (!QUIZ_SERVERS.includes(value) || working || preparing) return;
+      server = value;
+      try {
+        storage?.setItem("amqtours-quiz-server", value);
+      } catch {}
+      stop();
+      onRender();
+    },
+    setCompetitive(value) {
+      if (!preparing && !working) {
+        competitive = !!value;
+        onRender();
+      }
+    },
     setSort(value) {
       if (!["recent", "best-desc", "best-asc"].includes(value)) return;
       quizSort = value;
@@ -680,6 +813,11 @@ export function createQuizUI({
     },
     closeSuggestions,
     async click(button) {
+      if (button.hasAttribute("data-quiz-download-cancel")) {
+        preparing?.abort();
+        return true;
+      }
+      if (preparing) return true;
       if (button.hasAttribute("data-quiz-category")) {
         const next = button.dataset.quizCategory;
         if (!["singers", "composers"].includes(next)) return true;
@@ -725,7 +863,10 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-action")) {
-        await mutate(button.dataset.quizAction);
+        const action = button.dataset.quizAction;
+        if (action === "quiz-start" || action === "quiz-restart")
+          await start(action);
+        else await mutate(action);
         return true;
       }
       if (button.hasAttribute("data-quiz-skip")) {

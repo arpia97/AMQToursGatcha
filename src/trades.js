@@ -291,18 +291,27 @@ export class Trades {
     }
     fail("Unknown trade action.", 404);
   }
-  page(player, { view = "browse", page = 1, query = "" } = {}) {
+  page(
+    player,
+    { view = "browse", page = 1, query = "", wishlistOnly = false } = {},
+  ) {
     integer(page, 1, 10000);
     if (!["browse", "listings", "offers"].includes(view))
       fail("Unknown trade view.");
     if (view !== "browse" && !player) fail("Sign in to see your trades.", 401);
-    const where =
+    if (wishlistOnly && !player) fail("Sign in to use your wishlist.", 401);
+    let where =
       view === "listings"
         ? "l.seller=?"
         : view === "offers"
           ? "EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=?)"
           : "l.status='open'";
     const args = view === "browse" ? [] : [player];
+    if (wishlistOnly) {
+      where +=
+        " AND EXISTS(SELECT 1 FROM card_wishlist w WHERE w.player=? AND w.card=l.card)";
+      args.push(player);
+    }
     query = String(query || "")
       .trim()
       .slice(0, 100);
@@ -361,6 +370,7 @@ export class Trades {
       items,
       page,
       query,
+      wishlistOnly,
       hasMore: rows.length > 12,
       cards: this.e.catalogStore.cards([
         ...new Set(

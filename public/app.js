@@ -220,6 +220,7 @@ const ui = {
   shopSection: "buy",
   tradeView: "browse",
   tradeQuery: "",
+  tradeWishlistOnly: false,
   tradePage: 1,
   tradeData: null,
   shopSell: {
@@ -423,7 +424,14 @@ function showTradeNotices() {
 }
 let pollingNotices = false;
 setInterval(async () => {
-  if (pollingNotices || !state?.me || document.hidden || isDemo) return;
+  if (
+    pollingNotices ||
+    !state?.me ||
+    document.hidden ||
+    isDemo ||
+    quizUI.active()
+  )
+    return;
   const player = state.me.id;
   pollingNotices = true;
   try {
@@ -1277,6 +1285,7 @@ async function loadDynamic() {
   if (current === "shop" && ui.marketSort === "ending")
     ui.marketSort = "newest";
   if (!state.me) {
+    ui.tradeWishlistOnly = false;
     ui.marketWishlistOnly = false;
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
   }
@@ -1348,7 +1357,9 @@ async function loadDynamic() {
         "&page=" +
         ui.tradePage +
         "&q=" +
-        encodeURIComponent(ui.tradeQuery),
+        encodeURIComponent(ui.tradeQuery) +
+        "&wishlist=" +
+        (ui.tradeWishlistOnly ? "1" : "0"),
     );
   if (current === "players")
     data = await api(
@@ -1490,7 +1501,7 @@ function render() {
   $("#main").dataset.cardPage = route;
   cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI.mount();
-  else quizUI.stop();
+  else quizUI.leave();
   if (searchFocus) {
     const input = document.getElementById(searchFocus.id);
     if (input && input.value === searchFocus.value) {
@@ -1585,27 +1596,52 @@ function ensureCollectorCounts() {
       ensureCollectorCounts();
     });
 }
+const pendingReads = new Map();
 async function api(path, body, key) {
   if (demo && path === "quizzes") return { quizzes: [] };
   if (demo) return demo.request(path, body);
-  const res = await fetch("api/" + path, {
-    method: body ? "POST" : "GET",
-    headers: body
-      ? {
-          "Content-Type": "application/json",
-          "Idempotency-Key": key || crypto.randomUUID(),
-        }
-      : {},
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: "same-origin",
-  });
-  const data = await res.json();
-  if (!res.ok)
-    throw Object.assign(new Error(data.error || "The request failed."), {
-      status: res.status,
+  if (!body && pendingReads.has(path)) return pendingReads.get(path);
+  const request = (async () => {
+    const res = await fetch("api/" + path, {
+      method: body ? "POST" : "GET",
+      headers: body
+        ? {
+            "Content-Type": "application/json",
+            "Idempotency-Key": key || crypto.randomUUID(),
+          }
+        : {},
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: "same-origin",
     });
-  return data;
+    const raw = await res.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw Object.assign(
+        new Error(
+          res.status >= 500
+            ? "The server is temporarily unavailable. Please try again shortly."
+            : "The server returned an unexpected response. Please reload and try again.",
+        ),
+        { status: res.status },
+      );
+    }
+    if (!res.ok)
+      throw Object.assign(new Error(data.error || "The request failed."), {
+        status: res.status,
+      });
+    return data;
+  })();
+  if (body) return request;
+  pendingReads.set(path, request);
+  try {
+    return await request;
+  } finally {
+    if (pendingReads.get(path) === request) pendingReads.delete(path);
+  }
 }
+
 let sharedRefreshNeeded = false;
 async function refresh() {
   const previousPlayer = state?.me?.id;
@@ -2341,14 +2377,31 @@ window.addEventListener("hashchange", async () => {
   }
   window.scrollTo(0, 0);
 });
+let backgroundRefresh = null,
+  lastBackgroundRefresh = 0,
+  backgroundRetryAt = 0;
+function refreshInBackground() {
+  if (
+    document.hidden ||
+    busy ||
+    $("#modal").open ||
+    fusionOverlayOpen() ||
+    quizUI.active() ||
+    backgroundRefresh ||
+    Date.now() < backgroundRetryAt
+  )
+    return;
+  lastBackgroundRefresh = Date.now();
+  backgroundRefresh = refreshCurrent()
+    .catch(() => {
+      backgroundRetryAt = Date.now() + 30000;
+    })
+    .finally(() => (backgroundRefresh = null));
+}
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !busy && !$("#modal").open && !fusionOverlayOpen())
-    refreshCurrent().catch(() => {});
+  if (Date.now() - lastBackgroundRefresh > 15000) refreshInBackground();
 });
-setInterval(() => {
-  if (!document.hidden && !busy && !$("#modal").open && !fusionOverlayOpen())
-    refreshCurrent().catch(() => {});
-}, 60000);
+setInterval(refreshInBackground, 120000);
 $("#reset-demo").addEventListener("click", () => {
   demo?.reset();
   refresh();
@@ -3561,6 +3614,16 @@ document.addEventListener("input", (ev) => {
     quizUI.input(ev.target).catch((err) => toast(err.message, true));
 });
 document.addEventListener("change", (ev) => {
+  if (ev.target.id === "trade-wishlist-only") {
+    ui.tradeWishlistOnly = ev.target.checked;
+    ui.tradePage = 1;
+    loadDynamic()
+      .then(render)
+      .catch((err) => toast(err.message, true));
+  }
+  if (ev.target.id === "quiz-server") quizUI.setServer(ev.target.value);
+  if (ev.target.id === "quiz-competitive")
+    quizUI.setCompetitive(ev.target.checked);
   if (ev.target.id === "quiz-sort") {
     quizUI.setSort(ev.target.value);
     $("#quiz-sort")?.focus();

@@ -5,6 +5,7 @@ import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
+import { durableRead, storageUnavailableResponse } from "./durable-recovery.js";
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text, integer } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
@@ -151,7 +152,15 @@ export class Game extends DurableObject {
     this.budget.flush(true);
     await this.scheduleAlarm(next);
   }
-  async scheduleAlarm(auctionEnd = this.engine.ensureAuctions()) {
+  maintainMarket(force = false) {
+    const now = this.engine.now();
+    if (!force && now < this.marketCheckedAt + 5000 && now < this.marketNext)
+      return this.marketNext;
+    this.marketNext = this.engine.ensureAuctions();
+    this.marketCheckedAt = now;
+    return this.marketNext;
+  }
+  async scheduleAlarm(auctionEnd = this.maintainMarket(true)) {
     const next = Math.min(
       auctionEnd,
       this.budget.paused()
@@ -194,7 +203,8 @@ export class Game extends DurableObject {
     try {
       return await this.handle(request);
     } catch (err) {
-      const limited = storageQuotaResponse(err);
+      const limited =
+        storageQuotaResponse(err) || storageUnavailableResponse(err);
       if (limited) return limited;
       if (!err.status)
         console.error(
@@ -979,7 +989,7 @@ export class Game extends DurableObject {
       );
       return json({ ...result, gameState: e.gameState(session.player) });
     }
-    const next = e.ensureAuctions();
+    const next = this.maintainMarket();
     if (!(await this.ctx.storage.getAlarm()))
       await this.ctx.storage.setAlarm(next);
     if (path === "featured" && !post) {
@@ -1129,6 +1139,7 @@ export class Game extends DurableObject {
           view: url.searchParams.get("view") || "browse",
           page: Number(url.searchParams.get("page") || 1),
           query: url.searchParams.get("q") || "",
+          wishlistOnly: url.searchParams.get("wishlist") === "1",
         }),
       );
     }
@@ -1224,6 +1235,12 @@ export class Game extends DurableObject {
       )
     )
       fail("Your session ended. Please sign in again.", 401);
+    if (path === "quiz-audio" && !post) {
+      this.bursts.take("read:" + session.player, 60, 5);
+      return json(
+        e.quiz.audioManifest(url.searchParams.get("quiz"), session.player),
+      );
+    }
     if (path === "quiz-run" && !post)
       return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
     if (path === "wishlist-order" && !post) {
@@ -1256,7 +1273,18 @@ export class Game extends DurableObject {
       b,
       () => e.action(session.player, path, b),
     );
-    await this.scheduleAlarm();
+    await this.scheduleAlarm(
+      this.maintainMarket(
+        [
+          "bid",
+          "buyout",
+          "list-card",
+          "cancel-listing",
+          "buy-listing",
+          "shop-buy",
+        ].includes(path),
+      ),
+    );
     return json(result);
   }
 }
@@ -1283,13 +1311,21 @@ export default {
       const forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
       try {
-        return await env.GAME.get(
-          env.GAME.idFromName("amqtours-economy-v1"),
-        ).fetch(forwarded);
+        return await durableRead(env.GAME, forwarded);
       } catch (err) {
-        const limited = storageQuotaResponse(err);
+        const limited =
+          storageQuotaResponse(err) || storageUnavailableResponse(err);
         if (limited) return limited;
-        throw err;
+        console.error(
+          JSON.stringify({ event: "durable_forward_failed", name: err.name }),
+        );
+        return json(
+          {
+            error:
+              "The request could not be completed. Please try again shortly.",
+          },
+          500,
+        );
       }
     }
     const response = await env.ASSETS.fetch(request),
@@ -1298,7 +1334,7 @@ export default {
     headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     headers.set(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self'; media-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https:; media-src 'self' https: blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     return new Response(response.body, { status: response.status, headers });
   },
