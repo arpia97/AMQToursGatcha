@@ -136,3 +136,77 @@ test("host role overrides replace bulk identities and preserve exact weighted dr
   assert.equal(result.cards.length, 5);
   assert.equal(f.e.player("p1").balance, 500);
 });
+
+test("compact browse caches keep full metadata at response boundaries and survive unrelated errors; catalogue rollback invalidates derived views", () => {
+  const f = fixture(1001);
+  try {
+    f.seed();
+    const catalog = f.e.catalogStore;
+    const cached = catalog.pool("character");
+    assert.equal(cached.cards.length, 1001);
+    assert.ok(
+      cached.cards.every(
+        (c) =>
+          !("image" in c) &&
+          !("source" in c) &&
+          !("series" in c) &&
+          !("searchText" in c),
+      ),
+    );
+    const page = catalog.page("character", "Anime series", 1, 40, {
+      sort: "name",
+    });
+    assert.equal(page.total, 1001);
+    assert.ok(
+      page.cards.every(
+        (c) => c.image && c.source && c.series === "Anime series",
+      ),
+    );
+    const ids = [
+      f.cards[1000].id,
+      f.cards[0].id,
+      f.cards[500].id,
+      f.cards[0].id,
+    ];
+    assert.deepEqual(
+      catalog.cards(ids).map((c) => c.id),
+      ids,
+    );
+    assert.throws(
+      () =>
+        f.e.tx(() => {
+          throw Error("Unrelated wallet error");
+        }),
+      /wallet/,
+    );
+    assert.equal(catalog.pool("character"), cached);
+    assert.throws(
+      () =>
+        f.e.tx(() => {
+          f.e.host("catalog", {
+            cards: [{ ...f.cards[0], name: "Transient Name" }],
+          });
+          assert.equal(
+            catalog.pool("character").cards.find((c) => c.id === f.cards[0].id)
+              .name,
+            "Transient Name",
+          );
+          throw Error("rollback");
+        }),
+      /rollback/,
+    );
+    assert.equal(
+      catalog.pool("character").cards.find((c) => c.id === f.cards[0].id).name,
+      f.cards[0].name,
+    );
+    f.e.host("players", { players: [{ id: "p", name: "Local" }] });
+    f.e.wallet("p", 1000000, "Local");
+    const pack = f.e.tx(() =>
+      f.e.action("p", "pack", { kind: "character", count: 100 }),
+    );
+    assert.equal(pack.cards.length, 500);
+    assert.ok(pack.cards.every((c) => c.image && c.source && c.series));
+  } finally {
+    f.db.close();
+  }
+});

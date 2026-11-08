@@ -3,6 +3,7 @@ import { searchMatcher } from "../public/search.js";
 import { searchSql } from "./search.js";
 
 export const characterSearch = (c) =>
+  c.searchText ||
   [c.name, c.series, c.series_romaji, c.series_english]
     .filter(Boolean)
     .join(" ")
@@ -188,6 +189,7 @@ export class TenraiCatalog {
               (c) => (c.role === "main" ? "main" : "other") === g.role,
             ),
           );
+        while (buckets.size > 8) buckets.delete(buckets.keys().next().value);
         const c = buckets.get(key)[pos];
         if (c && !blocked.has(c.id)) return c;
         break;

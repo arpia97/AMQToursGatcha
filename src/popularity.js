@@ -89,29 +89,34 @@ export class Popularity {
   }
   decorate(cards, context = {}) {
     const snapshots = (context.popSnapshots ||= new Map()),
-      histograms = (context.popHistograms ||= new Map());
+      histograms = (context.popHistograms ||= new Map()),
+      project =
+        context.project || ((card, popularity) => ({ ...card, ...popularity }));
     return cards.map((c) => {
       if (!c) return c;
       if (
         c.id.startsWith("community-") &&
         RARITY_BANDS.some(([, r]) => r === c.fixed_rarity)
       )
-        return {
-          ...c,
+        return project(c, {
           rarity: c.fixed_rarity,
           raritySource: "community",
           favorites: null,
           topPercent: null,
           rankedPopulation: null,
-        };
+        });
       const m = identity(c.id);
-      if (!m) return { ...c, rarity: null };
+      if (!m) return project(c, { rarity: null });
       const kind = m[1] === "person" ? "seiyuu" : "character",
         b = Math.floor(Number(m[2]) / 500),
         key = kind + ":" + b;
-      if (!snapshots.has(key)) snapshots.set(key, this.read(kind, b));
+      if (!snapshots.has(key)) {
+        snapshots.set(key, this.read(kind, b));
+        while (snapshots.size > 8)
+          snapshots.delete(snapshots.keys().next().value);
+      }
       const p = snapshots.get(key)[c.id];
-      if (!p) return { ...c, rarity: null, favorites: null };
+      if (!p) return project(c, { rarity: null, favorites: null });
       if (!histograms.has(kind)) {
         let total = 0;
         const counts = this.histogram(kind);
@@ -134,7 +139,7 @@ export class Popularity {
           total
         : 100;
       const rarity = RARITY_BANDS.find(([cut]) => topPercent < cut)?.[1] || "D";
-      return { ...c, ...p, rarity, topPercent, rankedPopulation: total };
+      return project(c, { ...p, rarity, topPercent, rankedPopulation: total });
     });
   }
 }

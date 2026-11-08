@@ -138,6 +138,7 @@ export class Catalog {
     return this.cards([id])[0] || null;
   }
   invalidate() {
+    this.revision = (this.revision || 0) + 1;
     this.browseCache = null;
     this.lookupCache = null;
   }
@@ -161,19 +162,31 @@ export class Catalog {
     }
     for (const id of missing) {
       if (raw.has(id)) continue;
-      const b = this.tenrai.bucket(id);
-      if (b !== null) {
-        if (!buckets.has(b)) buckets.set(b, this.tenrai.read(b));
-        if (buckets.get(b)[id]) raw.set(id, buckets.get(b)[id]);
+      const bucket = this.tenrai.bucket(id);
+      if (bucket !== null) {
+        if (!buckets.has(bucket)) buckets.set(bucket, []);
+        buckets.get(bucket).push(id);
       } else {
         const match = /^acdb-character-(\d+)$/.exec(id);
         if (match) {
-          const b = Math.floor(Number(match[1]) / 500);
-          if (!legacy.has(b)) legacy.set(b, this.chunk("cards", b) || {});
-          if (legacy.get(b)[id]) raw.set(id, legacy.get(b)[id]);
+          const bucket = Math.floor(Number(match[1]) / 500);
+          if (!legacy.has(bucket)) legacy.set(bucket, []);
+          legacy.get(bucket).push(id);
         }
       }
     }
+    for (const [bucket, ids] of buckets)
+      this.packedCards("tenrai_characters", "bucket=?", [bucket], ids, raw);
+    const version = legacy.size ? this.manifest()?.version : null;
+    for (const [bucket, ids] of legacy)
+      if (version)
+        this.packedCards(
+          "catalog_bulk",
+          "version=? AND section='cards' AND bucket=?",
+          [version, bucket],
+          ids,
+          raw,
+        );
     for (const c of this.popularity.decorate([...raw.values()]))
       cache.set(c.id, c);
     const result = requested
@@ -182,6 +195,26 @@ export class Catalog {
       .map((c) => ({ ...c }));
     while (cache.size > 5000) cache.delete(cache.keys().next().value);
     return result;
+  }
+  packedCards(table, where, args, ids, result) {
+    // Project only requested objects in SQLite. Decoding a whole500-card bucket
+    // for every sparse portrait lookup causes large, short-lived allocations.
+    for (let start = 0; start < ids.length; start += 80) {
+      const group = ids.slice(start, start + 80);
+      const row = this.e.one(
+        "SELECT " +
+          group.map((_, i) => "json_extract(payload,?) AS c" + i).join(",") +
+          " FROM " +
+          table +
+          " WHERE " +
+          where,
+        ...group.map((id) => "$." + JSON.stringify(id)),
+        ...args,
+      );
+      if (!row) continue;
+      for (let i = 0; i < group.length; i++)
+        if (row["c" + i]) result.set(group[i], JSON.parse(row["c" + i]));
+    }
   }
   summary() {
     const m = this.tenrai.manifest() || this.manifest(),
@@ -418,35 +451,87 @@ export class Catalog {
     )
       fail("Choose a rarity.");
   }
+  // Stream packed rows so raw JSON, decoded cards and decorated copies are never
+  // resident for the entire catalogue at once. Keep only draw/sort/search fields.
+  *batches(kind, query = "") {
+    const kinds = kind === "both" ? ["character", "seiyuu"] : [kind];
+    const local = this.e.all(
+      "SELECT id FROM catalog WHERE kind IN (" +
+        kinds.map(() => "?").join(",") +
+        ")",
+      ...kinds,
+    );
+    const overrides = new Set(local.map((c) => c.id));
+    const matches = searchMatcher(query);
+    for (const selected of kinds) {
+      let cursor = "";
+      for (;;) {
+        const rows = this.e.all(
+          "SELECT * FROM catalog WHERE kind=? AND id>? ORDER BY id LIMIT 500",
+          selected,
+          cursor,
+        );
+        if (!rows.length) break;
+        yield rows.filter((c) => c.active && matches(characterSearch(c)));
+        cursor = rows.at(-1).id;
+      }
+    }
+    if (!kinds.includes("character")) return;
+    const search = searchSql("search", /[^\x00-\x7F]/.test(query) ? "" : query);
+    if (this.tenrai.manifest()) {
+      const rows = this.e.all(
+        "SELECT bucket FROM tenrai_characters WHERE " +
+          search.where +
+          " ORDER BY bucket",
+        ...search.args,
+      );
+      for (const row of rows)
+        yield Object.values(this.tenrai.read(row.bucket)).filter(
+          (c) => !overrides.has(c.id) && matches(characterSearch(c)),
+        );
+    } else {
+      const manifest = this.manifest();
+      if (!manifest) return;
+      const rows = this.e.all(
+        "SELECT bucket FROM catalog_bulk WHERE version=? AND section='browse' AND (" +
+          search.where +
+          ") ORDER BY bucket",
+        manifest.version,
+        ...search.args,
+      );
+      for (const row of rows)
+        yield this.chunk("browse", row.bucket, manifest.version).filter(
+          (c) => !overrides.has(c.id) && matches(characterSearch(c)),
+        );
+    }
+  }
+  compactPool(kind, query = "") {
+    const cards = [],
+      context = {
+        project: (card, popularity) => ({
+          id: card.id,
+          kind: card.kind,
+          name: card.name,
+          role: card.role,
+          rarity: popularity.rarity,
+          favorites: popularity.favorites,
+          ...(query ? { searchText: characterSearch(card) } : {}),
+        }),
+      };
+    for (const batch of this.batches(kind, query)) {
+      cards.push(...this.popularity.decorate(batch, context));
+      // Snapshot payloads are bounded to this batch; histogram ranks are small
+      // and reused. Keeping every popularity bucket recreated the full pool.
+      context.popSnapshots?.clear();
+    }
+    return { cards, orders: new Map() };
+  }
   pool(kind) {
     if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
-    // Read the packed catalogue once, then reuse this derived, short-lived view.
-    // Any catalogue/popularity write invalidates it through Engine.run().
     if (!this.browseCache || this.e.now() - this.browseCache.at > 300000)
       this.browseCache = { at: this.e.now(), kinds: new Map() };
-    if (!this.browseCache.kinds.has(kind)) {
-      const local = this.e.all("SELECT * FROM catalog WHERE kind=?", kind);
-      const overrides = new Set(local.map((c) => c.id));
-      const raw = local.filter((c) => c.active);
-      if (kind === "character" && this.tenrai.manifest()) {
-        for (const row of this.e.all(
-          "SELECT payload FROM tenrai_characters ORDER BY bucket",
-        ))
-          for (const c of Object.values(JSON.parse(row.payload)))
-            if (!overrides.has(c.id)) raw.push(c);
-      } else if (kind === "character" && this.manifest()) {
-        for (const row of this.e.all(
-          "SELECT payload FROM catalog_bulk WHERE version=? AND section='browse' ORDER BY bucket",
-          this.manifest().version,
-        ))
-          for (const c of JSON.parse(row.payload))
-            if (!overrides.has(c.id)) raw.push(c);
-      }
-      this.browseCache.kinds.set(kind, {
-        cards: this.popularity.decorate(raw),
-        orders: new Map(),
-      });
-    }
+    if (!this.browseCache.kinds.has(kind))
+      this.browseCache.kinds.set(kind, this.compactPool(kind));
     return this.browseCache.kinds.get(kind);
   }
   combinedPool() {
@@ -460,45 +545,7 @@ export class Catalog {
     return this.browseCache.kinds.get("both");
   }
   searchPool(kind, query) {
-    const kinds = kind === "both" ? ["character", "seiyuu"] : [kind],
-      matches = searchMatcher(query),
-      local = this.e.all(
-        "SELECT * FROM catalog WHERE kind IN (" +
-          kinds.map(() => "?").join(",") +
-          ")",
-        ...kinds,
-      ),
-      overrides = new Set(local.map((c) => c.id)),
-      raw = local.filter((c) => c.active && matches(characterSearch(c)));
-    if (kinds.includes("character")) {
-      // Native SQL narrows packed rows before JSON decoding or rarity decoration.
-      // SQLite lower() is ASCII-only; non-ASCII searches keep JS case matching.
-      const search = searchSql(
-        "search",
-        /[^\x00-\x7F]/.test(query) ? "" : query,
-      );
-      if (this.tenrai.manifest()) {
-        for (const row of this.e.all(
-          "SELECT payload FROM tenrai_characters WHERE " + search.where,
-          ...search.args,
-        ))
-          for (const c of Object.values(JSON.parse(row.payload)))
-            if (!overrides.has(c.id) && matches(characterSearch(c)))
-              raw.push(c);
-      } else if (this.manifest()) {
-        for (const row of this.e.all(
-          "SELECT payload FROM catalog_bulk WHERE version=? AND section='browse' AND (" +
-            search.where +
-            ")",
-          this.manifest().version,
-          ...search.args,
-        ))
-          for (const c of JSON.parse(row.payload))
-            if (!overrides.has(c.id) && matches(characterSearch(c)))
-              raw.push(c);
-      }
-    }
-    return { cards: this.popularity.decorate(raw), orders: new Map() };
+    return this.compactPool(kind, query);
   }
   sortedPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
@@ -528,12 +575,12 @@ export class Catalog {
             (c) =>
               (!filters.role || c.role === filters.role) &&
               (!filters.rarity || (c.rarity || "Pending") === filters.rarity) &&
-              (!q || matches(characterSearch(c))),
+              (!q || matches(c.searchText)),
           )
         : ordered;
     const offset = (page - 1) * limit;
     return {
-      cards: rows.slice(offset, offset + limit),
+      cards: this.cards(rows.slice(offset, offset + limit).map((c) => c.id)),
       page,
       limit,
       total: rows.length,

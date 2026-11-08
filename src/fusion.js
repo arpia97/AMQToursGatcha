@@ -15,14 +15,27 @@ export class Fusion {
     this.e = e;
   }
   outcomes(options) {
-    const kinds =
-      options.kind === "mixed" ? ["character", "seiyuu"] : [options.kind];
+    const kind = options.kind || "mixed";
+    const kinds = kind === "mixed" ? ["character", "seiyuu"] : [kind];
     if (!kinds.every((kind) => ["character", "seiyuu"].includes(kind)))
       fail("Choose a card type.");
-    return fusionOutcomesPage(
-      kinds.flatMap((kind) => this.e.catalogStore.pool(kind).cards),
+    const pool = kinds.flatMap((kind) => this.e.catalogStore.pool(kind).cards);
+    const candidates = options.query
+      ? this.e.catalogStore.searchPool(
+          kind === "mixed" ? "both" : kind,
+          options.query,
+        ).cards
+      : pool;
+    const result = fusionOutcomesPage(
+      candidates,
       options,
+      (c) => c.searchText || c.name,
     );
+    return {
+      ...result,
+      eligibleTotal: pool.filter((c) => c.rarity === options.rarity).length,
+      cards: this.e.catalogStore.cards(result.cards.map((c) => c.id)),
+    };
   }
   prepare(player, board) {
     if (!Array.isArray(board) || board.length < 1 || board.length > 5)
@@ -259,7 +272,7 @@ export class Fusion {
         !!target &&
         odds.outcomes.some((o) => o.outcome === outcome) &&
         result?.id === target.id,
-      cards: result ? [result] : [],
+      cards: result ? this.e.catalogStore.cards([result.id]) : [],
     };
   }
 }

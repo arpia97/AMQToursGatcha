@@ -6,6 +6,7 @@ const invalid = (message) => Object.assign(new Error(message), { status: 400 });
 export function fusionOutcomesPage(
   cards,
   { rarity, kind = "mixed", query = "", page = 1 },
+  searchText = cardSearchText,
 ) {
   if (
     !RARITIES.includes(rarity) ||
@@ -19,7 +20,7 @@ export function fusionOutcomesPage(
   );
   const matches = searchMatcher(query);
   const matching = eligible
-    .filter((c) => matches(cardSearchText(c)))
+    .filter((c) => matches(searchText(c)))
     .sort(cardComparator("name"));
   const limit = 12;
   page = Math.min(page, Math.max(1, Math.ceil(matching.length / limit)));

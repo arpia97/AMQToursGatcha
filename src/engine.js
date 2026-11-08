@@ -143,10 +143,12 @@ export class Engine {
       this.catalogStore.invalidate();
   }
   tx(fn) {
+    const catalogRevision = this.catalogStore?.revision || 0;
     try {
       return this.transaction(fn);
     } catch (err) {
-      this.catalogStore?.invalidate();
+      if ((this.catalogStore?.revision || 0) !== catalogRevision)
+        this.catalogStore?.invalidate();
       throw err;
     }
   }
@@ -372,7 +374,7 @@ export class Engine {
       );
       const weight = 100;
       const drawContext = {};
-      const pulls = Array.from({ length: 5 * count }, () =>
+      const selected = Array.from({ length: 5 * count }, () =>
         premium
           ? this.economy.premiumDraw(b.kind, drawContext)
           : this.catalogStore.draw(
@@ -383,6 +385,7 @@ export class Engine {
               drawContext,
             ),
       );
+      const pulls = this.catalogStore.cards(selected.map((c) => c.id));
       for (const card of pulls) this.addCard(player, card.id);
       return {
         message: pulls.length + " new cards for your collection.",
@@ -1132,11 +1135,13 @@ export class Engine {
     };
   }
   featuredCards() {
-    return drawFeatured(
-      ["character", "seiyuu"].flatMap(
-        (kind) => this.catalogStore.pool(kind).cards,
-      ),
-      this.rand,
+    return this.catalogStore.cards(
+      drawFeatured(
+        ["character", "seiyuu"].flatMap(
+          (kind) => this.catalogStore.pool(kind).cards,
+        ),
+        this.rand,
+      ).map((c) => c.id),
     );
   }
   publicRoles() {

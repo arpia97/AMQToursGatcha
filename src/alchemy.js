@@ -78,7 +78,33 @@ export class Alchemy {
       : ["character", "seiyuu"].flatMap(
           (kind) => this.e.catalogStore.pool(kind).cards,
         );
-    return fusionOutcomesPage(pool, options);
+    const candidates =
+      !options.wishlistOnly && options.query
+        ? this.e.catalogStore.searchPool(
+            !options.kind || options.kind === "mixed" ? "both" : options.kind,
+            options.query,
+          ).cards
+        : pool;
+    const result = fusionOutcomesPage(
+      candidates,
+      options,
+      (c) =>
+        c.searchText ||
+        [c.name, c.series, c.series_romaji, c.series_english]
+          .filter(Boolean)
+          .join(" "),
+    );
+    return {
+      ...result,
+      eligibleTotal: pool.filter(
+        (c) =>
+          c.rarity === options.rarity &&
+          (!options.kind ||
+            options.kind === "mixed" ||
+            options.kind === c.kind),
+      ).length,
+      cards: this.e.catalogStore.cards(result.cards.map((c) => c.id)),
+    };
   }
   collectionPatch(player, ids) {
     return {
@@ -251,7 +277,9 @@ export class Alchemy {
       );
     if (!pool.length)
       fail("This tier has no available cards. Your XP was kept.", 409);
-    const result = drawAlchemyCard(pool, target, (n) => this.e.rand(n));
+    const result = this.e.catalogStore.card(
+      drawAlchemyCard(pool, target, (n) => this.e.rand(n)).id,
+    );
     this.e.addCard(player, result.id);
     this.save(player, {
       ...progress,
