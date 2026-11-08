@@ -189,11 +189,28 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(response.status, 400);
   response = await post(
     "host/quiz-save",
-    { id: "test", name: "Test", input, published: true, title: "Perfect" },
+    {
+      id: "test",
+      name: "Test",
+      input,
+      published: true,
+      title: "Perfect",
+      cover:
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==",
+    },
     host,
   );
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).songs, 20);
+  const tile = (
+    await (await mf.dispatchFetch("http://game/api/quizzes")).json()
+  ).quizzes.find((q) => q.id === "test");
+  assert.match(tile.cover, /^api\/quiz-cover/);
+  const imageResponse = await mf.dispatchFetch("http://game/" + tile.cover);
+  assert.equal(imageResponse.status, 200);
+  assert.equal(imageResponse.headers.get("Content-Type"), "image/png");
+  assert.match(imageResponse.headers.get("Cache-Control"), /^public/);
+  assert.ok((await imageResponse.arrayBuffer()).byteLength > 0);
   response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test");
   assert.equal(response.status, 401);
   response = await mf.dispatchFetch("http://game/api/host/quiz-songs?id=test", {

@@ -359,7 +359,7 @@ export function createQuizUI({
                   (q.cover
                     ? '<img src="' +
                       e(q.cover) +
-                      '" alt="' +
+                      '" loading="lazy" decoding="async" alt="' +
                       e(q.name) +
                       ' Cover">'
                     : '<div class="quiz-cover-placeholder" aria-hidden="true">♫</div>') +

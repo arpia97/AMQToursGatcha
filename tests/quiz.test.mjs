@@ -1,3 +1,4 @@
+import { cachedQuizCover } from "../src/quiz-cover-cache.js";
 import { AliasSync } from "../src/aliases.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -839,4 +840,66 @@ test("legacy scores and in-flight runs remain untimed rather than receiving inve
   }).run;
   assert.ok(fresh.startedAt > restarted.startedAt);
   assert.notEqual(fresh.id, restarted.id);
+});
+
+test("quiz metadata excludes embedded covers; versioned published images cache separately while drafts remain private", async (t) => {
+  const f = fixture(t),
+    cover =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  f.save({ cover });
+  const q = f.e.quiz.list("p")[0];
+  assert.match(q.cover, /^api\/quiz-cover\?quiz=test&v=\d+$/);
+  assert.equal("cover" in f.e.quiz.definition("test", "p"), false);
+  assert.equal(f.e.quiz.list(null, true)[0].cover, cover);
+  assert.equal(f.e.quiz.cover("test", null, q.updated).type, "image/png");
+  assert.throws(() => f.e.quiz.cover("test", null, q.updated - 1), /not found/);
+  f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.save({ published: false });
+  const draft = f.e.quiz.list("368")[0];
+  assert.equal(f.e.quiz.list("p").length, 0);
+  assert.throws(() => f.e.quiz.cover("test", "p", draft.updated), /not found/);
+  assert.equal(f.e.quiz.cover("test", "368", draft.updated).published, false);
+  const stored = new Map();
+  let calls = 0;
+  const cache = {
+    match: async (r) => stored.get(r.url)?.clone(),
+    put: async (r, v) => stored.set(r.url, v),
+  };
+  const published = new Request("https://game/api/quiz-cover?quiz=public&v=1");
+  const fetchPublic = async () => {
+    calls++;
+    return new Response("image", {
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400, immutable",
+      },
+    });
+  };
+  await cachedQuizCover(published, fetchPublic, cache);
+  await cachedQuizCover(published, fetchPublic, cache);
+  assert.equal(calls, 1);
+  const privateRequest = new Request(
+    "https://game/api/quiz-cover?quiz=draft&v=1",
+  );
+  const fetchPrivate = async () => {
+    calls++;
+    return new Response("private", {
+      headers: {
+        "Content-Type": "image/png",
+        "Cache-Control": "private, no-store",
+      },
+    });
+  };
+  await cachedQuizCover(privateRequest, fetchPrivate, cache);
+  await cachedQuizCover(privateRequest, fetchPrivate, cache);
+  assert.equal(calls, 3);
+  assert.equal(stored.size, 1);
+  const missing = new Request("https://game/api/quiz-cover?quiz=missing&v=1");
+  await cachedQuizCover(
+    missing,
+    async () => new Response("missing", { status: 404 }),
+    cache,
+  );
+  assert.equal(stored.size, 1);
 });

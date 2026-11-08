@@ -1,3 +1,4 @@
+import { cachedQuizCover } from "./quiz-cover-cache.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { alchemyCompensation } from "./alchemy-compensation.js";
 import { repairQuizAnswers } from "./quiz-answer-repair.js";
@@ -958,6 +959,25 @@ export class Game extends DurableObject {
     if (path === "account" && !post) {
       return json({ account: e.account(session?.player) });
     }
+    if (path === "quiz-cover" && !post) {
+      const cover = e.quiz.cover(
+        url.searchParams.get("quiz"),
+        session?.player,
+        url.searchParams.get("v"),
+      );
+      return new Response(
+        Uint8Array.from(atob(cover.base64), (c) => c.charCodeAt(0)),
+        {
+          headers: {
+            "Content-Type": cover.type,
+            "X-Content-Type-Options": "nosniff",
+            "Cache-Control": cover.published
+              ? "public, max-age=86400, immutable"
+              : "private, no-store",
+          },
+        },
+      );
+    }
     // Paid game moves never need catalogue, inventory, auction settlement or
     // global rankings. Keep their authoritative wallet/state response small.
     if (
@@ -1290,7 +1310,7 @@ export class Game extends DurableObject {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
       if (
@@ -1311,6 +1331,13 @@ export default {
       const forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
       try {
+        if (url.pathname === "/api/quiz-cover")
+          return await cachedQuizCover(
+            forwarded,
+            () => durableRead(env.GAME, forwarded),
+            typeof caches === "undefined" ? null : caches.default,
+            ctx?.waitUntil?.bind(ctx),
+          );
         return await durableRead(env.GAME, forwarded);
       } catch (err) {
         const limited =

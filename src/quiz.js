@@ -125,13 +125,47 @@ export class Quiz {
     return !!player && !!this.e.player(player).is_admin;
   }
   list(player = null, host = false) {
+    const includeCoverData = host;
     host = host || this.isHost(player);
-    return this.e.all(
-      "SELECT q.*,(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
+    const rows = this.e.all(
+      "SELECT " +
+        (includeCoverData
+          ? "q.*"
+          : "q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover") +
+        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
       player || "",
     );
+    return includeCoverData
+      ? rows
+      : rows.map(({ has_cover, ...row }) => ({
+          ...row,
+          cover: has_cover
+            ? "api/quiz-cover?quiz=" +
+              encodeURIComponent(row.id) +
+              "&v=" +
+              row.updated
+            : "",
+        }));
+  }
+  cover(id, player, version) {
+    const quiz = this.e.one(
+      "SELECT cover,published,updated FROM quizzes WHERE id=?",
+      text(id, 100),
+    );
+    if (
+      !quiz ||
+      (!quiz.published && !this.isHost(player)) ||
+      String(quiz.updated) !== String(version)
+    )
+      fail("Quiz cover was not found.", 404);
+    const match =
+      /^data:(image\/(?:png|jpeg|webp));base64,([a-zA-Z0-9+/=]+)$/.exec(
+        quiz.cover,
+      );
+    if (!match) fail("Quiz cover was not found.", 404);
+    return { type: match[1], base64: match[2], published: !!quiz.published };
   }
   hostSongs(id) {
     const quiz = this.e.one(
@@ -309,7 +343,10 @@ export class Quiz {
     };
   }
   definition(id, player = null) {
-    const q = this.e.one("SELECT * FROM quizzes WHERE id=?", text(id, 100));
+    const q = this.e.one(
+      "SELECT id,name,title,published,source,updated,category FROM quizzes WHERE id=?",
+      text(id, 100),
+    );
     if (!q || (!q.published && !this.isHost(player)))
       fail("That quiz is not available.", 404);
     return q;
