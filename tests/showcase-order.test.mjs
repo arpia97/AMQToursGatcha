@@ -30,7 +30,7 @@ const helpers = {
 };
 const profile = {
   id: "p",
-  showcase: cards.map((c, i) => ({ card: c.id, level: [4, 2, 8, 1][i] })),
+  showcase: cards.map((c, i) => ({ card: c.id, level: [4, 2, 6, 1][i] })),
 };
 test("manual moves and position selection preserve all showcase cards and leave the saved profile untouched", () => {
   const editor = createShowcaseEditor(helpers),
@@ -68,7 +68,9 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
   assert.match(editor.render(), /type="submit" class="button mint" disabled/);
   assert.match(editor.render(), /Position for &lt;Unknown&gt;/);
   assert.doesNotMatch(editor.render(), /<Unknown>/);
-  assert.match(editor.render(), /Move Zeta Earlier" disabled/);
+  assert.match(editor.render(), /data-showcase-handle="a"/);
+  assert.doesNotMatch(editor.render(), /dialog|showcase-move/);
+  assert.match(editor.render(), /has-card-level/);
   editor.move("a", 1);
   assert.doesNotMatch(
     editor.render(),
@@ -103,7 +105,7 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
   );
 });
 
-test("inline wishlist arrangement preserves all pages, supports before/after drops and global positions, and cancels without changing saved data", () => {
+test("Inline Showcase and Wishlist editors preserve all pages, support drops/global positions, and cancel without changing saved data", () => {
   const all = Array.from({ length: 30 }, (_, i) => ({
     id: "w" + i,
     name: "Card " + i,
@@ -111,40 +113,60 @@ test("inline wishlist arrangement preserves all pages, supports before/after dro
     rarity: "S",
     series: "One",
   }));
-  const editor = createWishlistEditor({
-      ...helpers,
-      cardBy: (id) => all.find((c) => c.id === id),
-    }),
-    profile = { id: "p", wishlist: all.map((c) => c.id) },
-    saved = structuredClone(profile);
-  assert.throws(() => editor.open(profile, "q"));
-  editor.open(profile, "p", 1);
-  assert.equal(editor.activeFor("p"), true);
-  assert.equal(editor.activeFor("q"), false);
-  assert.equal(
-    (editor.render().match(/data-wishlist-sort-card=/g) || []).length,
-    24,
-  );
-  assert.doesNotMatch(editor.render(), /modal|dialog/);
-  editor.drop("w0", "w2", true);
-  assert.deepEqual(editor.cards().slice(0, 3), ["w1", "w2", "w0"]);
-  editor.move("w0", 29, true);
-  assert.equal(editor.currentPage(), 2);
-  assert.equal(editor.cards()[29], "w0");
-  assert.equal(
-    (editor.render().match(/data-wishlist-sort-card=/g) || []).length,
-    6,
-  );
-  editor.drop("w0", "w24");
-  assert.equal(editor.cards()[23], "w0");
-  assert.equal(new Set(editor.cards()).size, 30);
-  assert.deepEqual(editor.payload("p").expectedCards, saved.wishlist);
-  assert.throws(() => editor.payload("q"), /same account/);
-  editor.setPage(999);
-  assert.equal(editor.currentPage(), 2);
-  editor.close();
-  assert.equal(editor.activeFor("p"), false);
-  assert.deepEqual(profile, saved);
-  editor.open(profile, "p");
-  assert.deepEqual(editor.cards(), saved.wishlist);
+  for (const mode of ["showcase", "wishlist"]) {
+    const factory =
+        mode === "showcase" ? createShowcaseEditor : createWishlistEditor,
+      editor = factory({
+        ...helpers,
+        cardBy: (id) => all.find((c) => c.id === id),
+      }),
+      profile = {
+        id: "p",
+        wishlist: all.map((c) => c.id),
+        showcase: all.map((c) => ({ card: c.id, level: 2, protected: 1 })),
+      },
+      saved = structuredClone(profile);
+    assert.throws(() => editor.open(profile, "q"));
+    editor.open(profile, "p", 1);
+    assert.equal(editor.activeFor("p"), true);
+    assert.equal(editor.activeFor("q"), false);
+    assert.equal(
+      (
+        editor
+          .render()
+          .match(new RegExp("data-" + mode + "-sort-card=", "g")) || []
+      ).length,
+      24,
+    );
+    assert.doesNotMatch(editor.render(), /modal|dialog/);
+    editor.drop("w0", "w2", true);
+    assert.deepEqual(editor.cards().slice(0, 3), ["w1", "w2", "w0"]);
+    editor.move("w0", 29, true);
+    assert.equal(editor.currentPage(), 2);
+    assert.equal(editor.cards()[29], "w0");
+    assert.equal(
+      (
+        editor
+          .render()
+          .match(new RegExp("data-" + mode + "-sort-card=", "g")) || []
+      ).length,
+      6,
+    );
+    editor.drop("w0", "w24");
+    assert.equal(editor.cards()[23], "w0");
+    assert.equal(new Set(editor.cards()).size, 30);
+    assert.deepEqual(editor.payload("p").expectedCards, saved.wishlist);
+    assert.throws(() => editor.payload("q"), /same account/);
+    editor.setPage(999);
+    assert.equal(editor.currentPage(), 2);
+    editor.close();
+    assert.equal(editor.activeFor("p"), false);
+    assert.deepEqual(profile, saved);
+    editor.open(profile, "p");
+    assert.deepEqual(editor.cards(), saved.wishlist);
+    if (mode === "showcase") {
+      assert.match(editor.render(), /Protected/);
+      assert.match(editor.render(), /Lv. 2/);
+    }
+  }
 });

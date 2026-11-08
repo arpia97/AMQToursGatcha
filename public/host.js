@@ -1,3 +1,4 @@
+import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
 import {
@@ -102,16 +103,7 @@ async function api(path, body, key) {
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  let data;
-  try {
-    data = await r.json();
-  } catch {
-    throw new Error(
-      "Host tools need the Cloudflare backend. This static preview does not process host actions.",
-    );
-  }
-  if (!r.ok) throw new Error(data.error);
-  return data;
+  return readApiResponse(r);
 }
 const players = () =>
   state.players
@@ -281,8 +273,7 @@ document.addEventListener("submit", async (ev) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.fromEntries(new FormData(form))),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      await readApiResponse(response);
       adminSession = true;
       await load();
       form.reset();
@@ -456,8 +447,7 @@ document.addEventListener("submit", async (ev) => {
       const response = await fetch(
         "api/catalog?kind=character&q=" + encodeURIComponent(b.query),
       );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await readApiResponse(response);
       state.cards = data.cards;
       render();
       report(
@@ -806,8 +796,11 @@ document.addEventListener("click", async (ev) => {
     t.disabled = true;
     try {
       const response = await fetch("api/host/activity-csv");
-      if (!response.ok)
-        throw Error((await response.json()).error || "Activity export failed.");
+      if (
+        !response.ok ||
+        response.headers.get("Content-Type")?.includes("text/html")
+      )
+        await readApiResponse(response);
       const a = document.createElement("a");
       a.href = URL.createObjectURL(await response.blob());
       a.download = "amqtours-recent-activity-12h.csv";
@@ -824,7 +817,7 @@ document.addEventListener("click", async (ev) => {
 
 // Existing administrator sessions also work when opening this page from the player site.
 fetch("api/state")
-  .then((r) => r.json())
+  .then(readApiResponse)
   .then(async (s) => {
     if (s.me?.is_admin) {
       adminSession = true;

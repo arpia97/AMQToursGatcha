@@ -36,7 +36,7 @@ async function fixture(status = "synced") {
     ledger: [],
     aliasSync: { status: "synced", players: 1, aliases: 1 },
   };
-  const fetch = async (path, options = {}) => {
+  const mockFetch = async (path, options = {}) => {
     if (path === "api/state")
       return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
     if (path === "api/host/state") return { ok: true, json: async () => state };
@@ -59,6 +59,12 @@ async function fixture(status = "synced") {
       };
     }
     throw Error("Unexpected request " + path);
+  };
+  const fetch = async (path, options) => {
+    const result = await mockFetch(path, options);
+    return Response.json(await result.json(), {
+      status: result.ok ? 200 : result.status || 500,
+    });
   };
   const context = vm.createContext({
     document: {

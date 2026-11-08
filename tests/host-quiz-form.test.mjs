@@ -45,7 +45,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     ledger: [],
   };
   let saved = false;
-  const fetch = async (path, options = {}) => {
+  const mockFetch = async (path, options = {}) => {
     if (path === "api/state")
       return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
     if (path === "api/host/state")
@@ -118,6 +118,12 @@ test("the actual host submit handler saves a draft with a hidden id field instea
       };
     }
     throw Error("Unexpected request " + path);
+  };
+  const fetch = async (path, options) => {
+    const result = await mockFetch(path, options);
+    return Response.json(await result.json(), {
+      status: result.ok ? 200 : result.status || 500,
+    });
   };
   class FormData {
     constructor(form) {

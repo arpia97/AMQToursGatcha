@@ -1,3 +1,4 @@
+import { readApiResponse } from "./api-response.js";
 import { installCardOrderDrag } from "./card-order-drag.js";
 import { animeChecklist } from "./anime-checklist-ui.js";
 import { quantityInput, installQuantityInputs } from "./quantity-input.js";
@@ -715,35 +716,30 @@ const wishlistDrag = installWishlistDrag(document, wishlistEditor, {
         ".";
   },
 });
-function paintShowcaseEditor(card = null, position = null) {
-  const scroll = $("#showcase-order-list")?.scrollTop || 0;
-  $("#modal-body").innerHTML = showcaseEditor.render();
-  $("#showcase-order-list").scrollTop = scroll;
-  if (card) {
-    const controls = [
-      ...$("#showcase-order-list").querySelectorAll("button,select"),
-    ];
-    const target =
-      controls.find(
-        (el) =>
-          !el.disabled &&
-          el.dataset.id === card &&
-          Number(el.dataset.position) === position,
-      ) || controls.find((el) => el.dataset.showcasePosition === card);
-    target?.focus({ preventScroll: true });
-  }
-}
-document.addEventListener("change", (event) => {
-  if (!event.target.closest("#showcase-order-form") || busy) return;
-  if (event.target.id === "showcase-sort") {
-    showcaseEditor.sortBy(event.target.value);
-    paintShowcaseEditor();
-    $("#showcase-sort").focus({ preventScroll: true });
-  } else if (event.target.dataset.showcasePosition) {
-    const card = event.target.dataset.showcasePosition;
-    showcaseEditor.move(card, Number(event.target.value));
-    paintShowcaseEditor(card);
-  }
+const showcaseDrag = installCardOrderDrag(document, showcaseEditor, {
+  prefix: "showcase",
+  visualPrefix: "wishlist",
+  panel: ".showcase-arrange-panel",
+  capture: "#main",
+  canEdit: () => !busy,
+  changed(card) {
+    const scroll = window.scrollY;
+    render();
+    window.scrollTo(0, scroll);
+    if (card) {
+      document
+        .querySelector('[data-showcase-handle="' + CSS.escape(card) + '"]')
+        ?.focus({ preventScroll: true });
+      const status = document.getElementById("showcase-arrange-status");
+      if (status)
+        status.textContent =
+          cardBy(card).name +
+          " moved to position " +
+          (showcaseEditor.cards().indexOf(card) + 1) +
+          ".";
+    } else
+      document.getElementById("showcase-sort")?.focus({ preventScroll: true });
+  },
 });
 
 document.addEventListener("input", (event) => {
@@ -1251,7 +1247,7 @@ function profile() {
     );
   return (
     heading +
-    `${features.profileExtras(p, own)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+    `${features.profileExtras(p, own, own && showcaseEditor.activeFor(p.id) ? showcaseEditor.render() : null)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
       p.inventory.length
         ? `<div class="card-grid">${p.inventory
             .slice(0, 20)
@@ -1613,25 +1609,7 @@ async function api(path, body, key) {
       body: body ? JSON.stringify(body) : undefined,
       credentials: "same-origin",
     });
-    const raw = await res.text();
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      throw Object.assign(
-        new Error(
-          res.status >= 500
-            ? "The server is temporarily unavailable. Please try again shortly."
-            : "The server returned an unexpected response. Please reload and try again.",
-        ),
-        { status: res.status },
-      );
-    }
-    if (!res.ok)
-      throw Object.assign(new Error(data.error || "The request failed."), {
-        status: res.status,
-      });
-    return data;
+    return readApiResponse(res);
   })();
   if (body) return request;
   pendingReads.set(path, request);
@@ -1659,6 +1637,8 @@ async function refresh() {
   if (previousPlayer && previousPlayer !== state.me?.id) {
     wishlistDrag.cancel();
     wishlistEditor.close();
+    showcaseDrag.cancel();
+    showcaseEditor.close();
     ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
@@ -2005,6 +1985,8 @@ document.addEventListener("submit", async (ev) => {
     if (result) {
       wishlistDrag.cancel();
       wishlistEditor.close();
+      showcaseDrag.cancel();
+      showcaseEditor.close();
       await loadDynamic();
       render();
       toast(result.message);
@@ -2012,13 +1994,22 @@ document.addEventListener("submit", async (ev) => {
     return;
   }
   if (formIdentifier(f) === "showcase-order-form") {
-    try {
-      await execute("showcase", showcaseEditor.payload(state.me?.id), null, f);
-    } catch (error) {
-      f.querySelector(".form-error").textContent = error.message;
+    const result = await execute(
+      "showcase",
+      showcaseEditor.payload(state.me?.id),
+      () => {},
+      f,
+    );
+    if (result) {
+      showcaseDrag.cancel();
+      showcaseEditor.close();
+      await loadDynamic();
+      render();
+      toast(result.message);
     }
     return;
   }
+
   if (formIdentifier(f) === "blackjack-bet") {
     ui.blackjackStake = Number(b.stake);
     if (!state.me) {
@@ -2355,6 +2346,8 @@ document.addEventListener("click", (e) => {
 window.addEventListener("hashchange", async () => {
   wishlistDrag.cancel();
   wishlistEditor.close();
+  showcaseDrag.cancel();
+  showcaseEditor.close();
   if (fusionOverlayOpen()) closeFusionPicker();
   search = "";
   catalogPageNumber = 1;
@@ -2917,6 +2910,8 @@ async function handleFeatureClick(a, t) {
     if (a === "profile-cards-view" || a === "profile-cards-page") {
       wishlistDrag.cancel();
       wishlistEditor.close();
+      showcaseDrag.cancel();
+      showcaseEditor.close();
       if (a === "profile-cards-view") {
         ui.profileView = t.dataset.view;
         ui.profileCardsPage = 1;
@@ -2966,6 +2961,8 @@ async function handleFeatureClick(a, t) {
       if (wishlistEditor.activeFor(state.me.id)) {
         wishlistDrag.cancel();
         wishlistEditor.close();
+        showcaseDrag.cancel();
+        showcaseEditor.close();
         await loadDynamic();
         render();
         return true;
@@ -3030,7 +3027,8 @@ async function handleFeatureClick(a, t) {
         "showcase-toggle",
         "showcase-buy-slots",
         "showcase-arrange",
-        "showcase-move",
+        "showcase-cancel",
+        "showcase-page",
         "protect-toggle",
         "batch-sell",
         "batch-cancel",
@@ -3114,18 +3112,23 @@ async function handleFeatureClick(a, t) {
       openShowcasePurchase();
       return true;
     }
-    if (a === "showcase-arrange") {
-      if (!state.me || profileData?.id !== state.me.id) return true;
-      showcaseEditor.open(profileData, state.me.id);
-      modal(showcaseEditor.render(), true, "showcase-editor");
+    if (a === "showcase-page") {
+      showcaseEditor.setPage(Number(t.dataset.page));
+      render();
       return true;
     }
-    if (a === "showcase-move") {
-      if (!busy && t.closest("#showcase-order-form")) {
-        const position = Number(t.dataset.position);
-        showcaseEditor.move(t.dataset.id, position);
-        paintShowcaseEditor(t.dataset.id, position + Number(t.dataset.step));
+    if (a === "showcase-arrange" || a === "showcase-cancel") {
+      if (profileData?.id !== state.me.id || busy) return true;
+      if (a === "showcase-cancel" || showcaseEditor.activeFor(state.me.id)) {
+        showcaseDrag.cancel();
+        showcaseEditor.close();
+        await loadDynamic();
+      } else {
+        wishlistDrag.cancel();
+        wishlistEditor.close();
+        showcaseEditor.open(profileData, state.me.id);
       }
+      render();
       return true;
     }
     if (a === "showcase-toggle") {

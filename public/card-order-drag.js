@@ -5,6 +5,7 @@ export function installCardOrderDrag(
     changed,
     canEdit = () => true,
     prefix = "wishlist",
+    visualPrefix = prefix,
     panel = ".wishlist-arrange-panel",
     capture = "#main",
     scrollSelector = null,
@@ -15,7 +16,7 @@ export function installCardOrderDrag(
   const attr = (name) => `data-${prefix}-${name}`,
     selector = (name) => `[${attr(name)}]`,
     value = (el, name) => el.getAttribute(attr(name)),
-    cls = (name) => prefix + "-" + name;
+    cls = (name) => visualPrefix + "-" + name;
   let drag = null,
     ignoreClick = false,
     frame = null;

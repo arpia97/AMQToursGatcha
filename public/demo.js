@@ -1,3 +1,4 @@
+import { readApiResponse } from "./api-response.js";
 import { validateAvatarCrop } from "./avatar-crop.js";
 import { searchMatcher, cardSearchText } from "./search.js";
 import { enhancementCost, MAX_CARD_LEVEL } from "./card-values.js";
@@ -11,7 +12,7 @@ import { blackjackView } from "./blackjack-rules.js";
 const KEY = "amqtours-demo-v2";
 export class Demo {
   static async create() {
-    const cards = await (await fetch("sample-catalog.json")).json();
+    const cards = await readApiResponse(await fetch("sample-catalog.json"));
     return new Demo(cards);
   }
   constructor(cards) {
