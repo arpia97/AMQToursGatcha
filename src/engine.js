@@ -343,6 +343,7 @@ export class Engine {
       [
         "quiz-start",
         "quiz-restart",
+        "quiz-stop",
         "quiz-ready",
         "quiz-answer",
         "quiz-next",

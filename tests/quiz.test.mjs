@@ -903,3 +903,52 @@ test("quiz metadata excludes embedded covers; versioned published images cache s
   );
   assert.equal(stored.size, 1);
 });
+
+test("Stop Quiz removes only the current unfinished attempt, preserves earned progress, rejects stale stops and cannot discard a completed result", (t) => {
+  const f = fixture(t),
+    before = f.e.player("p");
+  f.e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','test',10,1)",
+  );
+  f.e.run("INSERT INTO quiz_reward_history VALUES('p','test',10)");
+  const other = f.action("q", "quiz-start", { quiz: "test" }).run;
+  const first = f.action("p", "quiz-start", { quiz: "test" }).run;
+  assert.throws(
+    () => f.action("p", "quiz-stop", { quiz: "test", run: other.id, index: 0 }),
+    /changed/,
+  );
+  const body = { quiz: "test", run: first.id, index: 0 },
+    key = "stop-first";
+  assert.equal(f.action("p", "quiz-stop", body, key).run, null);
+  assert.equal(f.e.quiz.view("p", "test").run, null);
+  assert.equal(f.e.quiz.view("q", "test").run.id, other.id);
+  assert.equal(f.e.quiz.list("p")[0].best, 10);
+  assert.equal(f.e.player("p").balance, before.balance);
+  assert.equal(
+    f.e.one(
+      "SELECT best FROM quiz_reward_history WHERE player='p' AND quiz='test'",
+    ).best,
+    10,
+  );
+  const fresh = f.action("p", "quiz-start", { quiz: "test" }).run;
+  assert.notEqual(fresh.id, first.id);
+  assert.equal(f.action("p", "quiz-stop", body, key).run, null);
+  assert.equal(f.e.quiz.view("p", "test").run.id, fresh.id);
+  assert.throws(() => f.action("p", "quiz-stop", body), /changed/);
+  for (let i = 0; i < 20; i++) {
+    f.action("p", "quiz-answer", {
+      quiz: "test",
+      run: fresh.id,
+      index: i,
+      skip: true,
+    });
+    if (i < 19)
+      f.action("p", "quiz-next", { quiz: "test", run: fresh.id, index: i });
+  }
+  assert.throws(
+    () =>
+      f.action("p", "quiz-stop", { quiz: "test", run: fresh.id, index: 19 }),
+    /Finish Quiz/,
+  );
+  assert.equal(f.e.quiz.view("p", "test").run.index, 19);
+});

@@ -460,6 +460,22 @@ export class Quiz {
     const q = this.definition(b.quiz, player),
       e = this.e;
     let run = this.run(player, q.id);
+    if (action === "quiz-stop") {
+      if (run?.answers.length === 20 && !run.finished)
+        fail(
+          "All songs are answered. Finish Quiz to collect your result.",
+          409,
+        );
+      if (run && (run.finished || run.id !== b.run || run.index !== b.index))
+        fail("The quiz run changed. Refresh before stopping.", 409);
+      e.run("DELETE FROM quiz_runs WHERE player=? AND quiz=?", player, q.id);
+      return {
+        now: e.now(),
+        run: null,
+        message:
+          "Quiz stopped. Your personal best and earned rewards were kept.",
+      };
+    }
     if (action === "quiz-start" || action === "quiz-restart") {
       if (
         action === "quiz-restart" &&

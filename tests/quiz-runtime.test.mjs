@@ -456,6 +456,31 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     "http://game/api/quiz-answers?quiz=test&q=Alt",
   );
   assert.deepEqual((await response.json()).answers, ["Alternative Test"]);
+  response = await post("quiz-stop", { quiz: "test", run: run.id, index: 0 });
+  assert.equal(response.status, 401);
+  response = await post(
+    "quiz-stop",
+    { quiz: "test", run: oldRunId, index: 0 },
+    auth,
+  );
+  assert.equal(response.status, 409);
+  const stoppedRunId = run.id;
+  response = await post(
+    "quiz-stop",
+    { quiz: "test", run: run.id, index: 0 },
+    auth,
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).run, null);
+  response = await mf.dispatchFetch("http://game/api/quiz-run?quiz=test", {
+    headers: auth,
+  });
+  assert.equal((await response.json()).run, null);
+  response = await post("quiz-start", { quiz: "test" }, auth);
+  assert.equal(response.status, 200);
+  run = (await response.json()).run;
+  assert.notEqual(run.id, stoppedRunId);
+  assert.equal(run.index, 0);
   for (let i = 0; i < 20; i++) {
     await new Promise((resolve) => setTimeout(resolve, 500));
     response = await post(

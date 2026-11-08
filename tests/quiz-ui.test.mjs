@@ -60,9 +60,11 @@ function fixture(
           ? node("question")
           : selector === '[data-quiz-action="quiz-next"]'
             ? node("next")
-            : selector === "[data-quiz-skip]"
-              ? node("skip")
-              : node("play")
+            : selector === '[data-quiz-action="quiz-stop"]'
+              ? node("stop")
+              : selector === "[data-quiz-skip]"
+                ? node("skip")
+                : node("play")
         : node("play"),
   };
   t.after(() => (globalThis.document = old));
@@ -119,6 +121,7 @@ function fixture(
         audio: "https://example.com/a.mp3",
         sample: 0.5,
       };
+    if (path === "quiz-stop") run = null;
     if (path === "quiz-next")
       run = {
         ...run,
@@ -222,7 +225,16 @@ function fixture(
           reject = fail;
         }),
       );
-      return { release, reject };
+      return {
+        release: () => {
+          gates.delete(path);
+          release();
+        },
+        reject: (error) => {
+          gates.delete(path);
+          reject(error);
+        },
+      };
     },
     audios,
     writes,
@@ -635,4 +647,32 @@ test("Quiz transitions patch only the question; readiness keeps the existing for
   assert.equal(f.node("next").disabled, false);
   assert.equal(f.node("next").textContent, "Next Song (Enter)");
   assert.match(f.node("question").outerHTML, /Incorrect/);
+});
+
+test("Stop Quiz pauses audio immediately, never submits an answer, stays stopped through failure, and retries back to the list", async (t) => {
+  const f = fixture(t, { transitions: true });
+  await f.start();
+  await f.advance(2000);
+  assert.match(f.ui.render(), />Stop Quiz<\/button>/);
+  const audio = f.audios.at(-1),
+    answers = f.calls.filter((c) => c.path === "quiz-answer").length;
+  const gate = f.hold("quiz-stop");
+  const stopping = f.ui.click(f.button("data-quiz-action", "quiz-stop"));
+  assert.ok(audio.paused > 0);
+  await f.advance(30000);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, answers);
+  gate.reject(Error("temporarily unavailable"));
+  await assert.rejects(stopping, /Audio stopped.*temporarily unavailable/);
+  assert.equal(f.node("stop").textContent, "Retry Stop Quiz");
+  assert.equal(f.node("quiz-answer").disabled, true);
+  const count = f.audios.length;
+  f.ui.mount();
+  await f.advance(30000);
+  assert.equal(f.audios.length, count);
+  await f.ui.click(f.button("data-quiz-action", "quiz-stop"));
+  assert.match(f.ui.render(), /quiz-list-header/);
+  assert.equal(f.ui.active(), false);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, answers);
+  await f.ui.click(f.button("data-quiz-open", "q"));
+  assert.match(f.ui.render(), /Start Preview/);
 });

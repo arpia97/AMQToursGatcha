@@ -36,6 +36,7 @@ export function createQuizUI({
     run = null,
     working = false,
     pendingAction = "",
+    locallyStopped = false,
     audio = null,
     audioKey = "",
     generation = 0,
@@ -97,6 +98,7 @@ export function createQuizUI({
       suggestionsOpen = false;
       errorMessage = "";
       answerFocused = false;
+      locallyStopped = false;
     }
   }
   function stop() {
@@ -407,7 +409,7 @@ export function createQuizUI({
         ? elapsedControl() + serverControl() + volumeControl()
         : "") +
       (!leaderboardOnly && run && !run.finished
-        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button>'
+        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button><button type="button" class="button secondary" data-quiz-action="quiz-stop" title="End This Attempt and Return to All Quizzes">Stop Quiz</button>'
         : "") +
       '<button class="button secondary" data-quiz-back>All Quizzes ←</button></div></div>';
     if (preparing && run && !run.finished) top += downloadHTML();
@@ -599,6 +601,10 @@ export function createQuizUI({
     if (working) return;
     working = true;
     pendingAction = action;
+    if (action === "quiz-stop") {
+      locallyStopped = true;
+      stop();
+    }
     closeSuggestions();
     tick();
     try {
@@ -609,6 +615,10 @@ export function createQuizUI({
         ...(skip ? { skip: true } : {}),
       });
       useRun(result.run);
+      if (action === "quiz-stop") {
+        selected = null;
+        leaderboardOnly = false;
+      }
       if (result.me) onWallet(result.me);
       if (run?.finished) {
         quizzes = (await call("quizzes")).quizzes;
@@ -619,6 +629,15 @@ export function createQuizUI({
       onRender({
         questionOnly: action === "quiz-answer" || action === "quiz-next",
       });
+    } catch (error) {
+      if (action === "quiz-stop") {
+        error.message =
+          "Audio stopped, but the attempt could not be ended: " +
+          error.message +
+          " Retry Stop Quiz.";
+        showError(error);
+      }
+      throw error;
     } finally {
       working = false;
       pendingAction = "";
@@ -649,12 +668,25 @@ export function createQuizUI({
     if (node && node.textContent !== value) node.textContent = value;
   }
   function tick() {
+    const stopButton = document.querySelector('[data-quiz-action="quiz-stop"]');
+    if (stopButton) {
+      stopButton.disabled =
+        working || !!preparing || (run?.index === 19 && run.answered);
+      text(
+        stopButton,
+        pendingAction === "quiz-stop"
+          ? "Stopping…"
+          : locallyStopped
+            ? "Retry Stop Quiz"
+            : "Stop Quiz",
+      );
+    }
     const next = document.querySelector('[data-quiz-action="quiz-next"]');
     if (next) {
-      next.disabled = working;
+      next.disabled = working || locallyStopped;
       text(
         next,
-        working
+        working && pendingAction === "quiz-next"
           ? run?.index === 19
             ? "Finishing Quiz…"
             : "Loading Next Song…"
@@ -666,6 +698,15 @@ export function createQuizUI({
     const clock = document.getElementById("quiz-elapsed");
     if (clock && run && !run.finished)
       text(clock, quizDuration(elapsed(), false));
+    if (locallyStopped) {
+      for (const id of ["quiz-answer", "quiz-lock-answer"]) {
+        const control = document.getElementById(id);
+        if (control) control.disabled = true;
+      }
+      const skip = document.querySelector("[data-quiz-skip]");
+      if (skip) skip.disabled = true;
+      return;
+    }
     if (!run || run.finished || run.answered) return;
     const now = serverNow(),
       started =
@@ -740,6 +781,11 @@ export function createQuizUI({
   function mount() {
     if (!selected || !run || run.finished) {
       stop();
+      return;
+    }
+    if (locallyStopped) {
+      stop();
+      tick();
       return;
     }
     if (run.answered) {
@@ -948,6 +994,7 @@ export function createQuizUI({
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if (locallyStopped) return;
       if (event.key === "Enter" && (event.repeat || event.isComposing)) {
         event.preventDefault();
         return;
