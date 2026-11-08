@@ -18,6 +18,7 @@ import {
   PICKEM_WINNER_REWARD,
   MAX_PINNED_ANIME,
   MAX_SPOTLIGHTS,
+  FREE_SPOTLIGHTS,
 } from "./site-defaults.js";
 import { batchSaleQuote } from "./card-management.js";
 import {
@@ -53,7 +54,7 @@ export function demoFeatures(d, path, b) {
     now = Date.now();
   s.wishlist ||= [];
   if (me && me.showcase_slots === undefined)
-    me.showcase_slots = (s.showcase || s.inventory.slice(0, 2)).length;
+    me.showcase_slots = FREE_SPOTLIGHTS;
   if (path === "wishlist-order" && !b)
     return {
       wishlist: [...s.wishlist],
@@ -78,6 +79,22 @@ export function demoFeatures(d, path, b) {
     s.wishlist = [...b.cards];
     return { message: "Demo wishlist order saved." };
   }
+  if (path.startsWith("card-counts?")) {
+    const ids = JSON.parse(
+      new URLSearchParams(path.split("?")[1]).get("cards"),
+    );
+    return {
+      cards: d.cards
+        .filter((c) => ids.includes(c.id))
+        .map((c) => ({
+          ...c,
+          collectors: {
+            owned: s.inventory.some((i) => i.card === c.id) ? 1 : 0,
+            wanted: s.wishlist.includes(c.id) ? 1 : 0,
+          },
+        })),
+    };
+  }
   if (path.startsWith("card-collectors?")) {
     const params = new URLSearchParams(path.split("?")[1]),
       card = params.get("card"),
@@ -86,6 +103,7 @@ export function demoFeatures(d, path, b) {
     const wanted = s.wishlist.includes(card) ? [me] : [];
     return {
       card,
+      rarity: d.cards.find((c) => c.id === card)?.rarity,
       view,
       page: 1,
       counts: { owned: owners.length, wanted: wanted.length },
@@ -117,7 +135,7 @@ export function demoFeatures(d, path, b) {
       b.expectedSlots !== me.showcase_slots ||
       !Number.isSafeInteger(b.quantity) ||
       b.quantity < 1 ||
-      b.quantity + me.showcase_slots > 20
+      b.quantity + me.showcase_slots > MAX_SPOTLIGHTS
     )
       throw Error("Review your showcase slots.");
     d.wallet(-100 * b.quantity, "Showcase slots");
@@ -933,7 +951,7 @@ export function demoFeatures(d, path, b) {
         ? s.auctions.filter((a) => a.seller && !a.closed && a.ends > now)
         : s.market.filter((l) => l.status === "open")
     )
-      .filter((x) => x.kind === kind)
+      .filter((x) => kind === "both" || x.kind === kind)
       .map((x) => ({
         ...x,
         is_wishlisted: (s.wishlist || []).includes(x.card),
@@ -986,7 +1004,7 @@ export function demoFeatures(d, path, b) {
       grade = p.get("rarity");
     const all = d.cards.filter(
         (c) =>
-          c.kind === kind &&
+          (kind === "both" || c.kind === kind) &&
           (!role || c.role === role) &&
           (!grade || (c.rarity || "Pending") === grade) &&
           matches(cardSearchText(c)),
@@ -994,7 +1012,15 @@ export function demoFeatures(d, path, b) {
       page = Number(p.get("page") || 1);
     all.sort(cardComparator(p.get("sort") || "name"));
     return {
-      cards: all.slice((page - 1) * 40, page * 40),
+      cards: all
+        .slice((page - 1) * 40, page * 40)
+        .map((c) => ({
+          ...c,
+          collectors: {
+            wanted: s.wishlist.includes(c.id) ? 1 : 0,
+            owned: s.inventory.some((i) => i.card === c.id) ? 1 : 0,
+          },
+        })),
       page,
       total: all.length,
       hasMore: all.length > page * 40,

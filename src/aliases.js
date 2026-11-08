@@ -209,6 +209,7 @@ export class AliasSync {
       "player_notices",
       "profile_showcase",
       "showcase_slots",
+      "showcase_capacity",
       "profile_anime",
       "host_delegations",
       "quiz_progress",

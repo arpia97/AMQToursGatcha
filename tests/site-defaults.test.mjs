@@ -38,34 +38,34 @@ function fixture(t) {
     host: (a, b) => e.tx(() => e.host(a, b)),
   };
 }
-test("twenty unique owned spotlights are allowed and a twenty-first cannot replace the saved list", (t) => {
+test("thirty free showcase slots accept owned cards and paid extras preserve capacity", (t) => {
   const { e } = fixture(t),
-    cards = Array.from({ length: 21 }, (_, i) => ({
+    cards = Array.from({ length: 31 }, (_, i) => ({
       id: "c" + i,
       kind: "character",
       name: "Card " + i,
-      series: "Anime " + i,
+      series: "Anime",
     }));
-  assert.equal(MAX_SPOTLIGHTS, 20);
+  assert.equal(MAX_SPOTLIGHTS, 100);
   assert.equal(MAX_PINNED_ANIME, 20);
   e.host("catalog", { cards });
   for (const c of cards) e.addCard("p", c.id);
-  const chosen = cards.slice(0, 20).map((c) => c.id);
-  e.wallet("p", 2000, "Fixture");
-  e.tx(() =>
-    e.action("p", "showcase-slots", { quantity: 20, expectedSlots: 0 }),
-  );
+  const chosen = cards.slice(0, 30).map((c) => c.id);
+  assert.equal(e.player("p").showcase_slots, 30);
   e.tx(() => e.action("p", "showcase", { cards: chosen }));
-  assert.equal(e.profile("p").showcase.length, 20);
   assert.throws(
     () =>
       e.tx(() => e.action("p", "showcase", { cards: cards.map((c) => c.id) })),
-    /20/,
+    /slots/,
   );
-  assert.deepEqual(
-    e.profile("p").showcase.map((c) => c.card),
-    chosen,
+  e.wallet("p", 100, "Fixture");
+  e.tx(() =>
+    e.action("p", "showcase-slots", { quantity: 1, expectedSlots: 30 }),
   );
+  e.tx(() => e.action("p", "showcase", { cards: cards.map((c) => c.id) }));
+  assert.equal(e.profile("p").showcase.length, 31);
+  assert.equal(e.player("p").balance, 0);
+  assert.equal(e.player("p").showcase_slots, 31);
   assert.throws(
     () => e.tx(() => e.action("q", "showcase", { cards: chosen })),
     /collection/,

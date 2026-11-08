@@ -293,9 +293,15 @@ export class Catalog {
     fail("Could not select a card. Please retry.", 503);
   }
   page(kind = "character", query = "", page = 1, limit = 40, filters = {}) {
-    if (!["character", "seiyuu"].includes(kind)) fail("Unknown catalog type.");
+    if (!["character", "seiyuu", "both"].includes(kind))
+      fail("Unknown catalog type.");
     integer(page, 1, 10000);
     integer(limit, 1, 100);
+    if (kind === "both")
+      return this.sortedPage(kind, query, page, limit, {
+        ...filters,
+        sort: filters.sort || "name",
+      });
     if (filters.sort) return this.sortedPage(kind, query, page, limit, filters);
     if (filters.rarity || filters.role)
       return this.filteredPage(kind, query, page, limit, filters);
@@ -443,16 +449,26 @@ export class Catalog {
     }
     return this.browseCache.kinds.get(kind);
   }
+  combinedPool() {
+    const characters = this.pool("character"),
+      seiyuus = this.pool("seiyuu");
+    if (!this.browseCache.kinds.has("both"))
+      this.browseCache.kinds.set("both", {
+        cards: [...characters.cards, ...seiyuus.cards],
+        orders: new Map(),
+      });
+    return this.browseCache.kinds.get("both");
+  }
   sortedPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
     if (
       !["name", "name-desc", "rarity", "role", "favorites", "newest"].includes(
         filters.sort,
       ) ||
-      (kind === "seiyuu" && filters.sort === "role")
+      (kind !== "character" && filters.sort === "role")
     )
       fail("Choose a valid catalogue sort.");
-    const view = this.pool(kind);
+    const view = kind === "both" ? this.combinedPool() : this.pool(kind);
     const q = String(query).trim().toLowerCase().slice(0, 100);
     const matches = searchMatcher(q);
     if (!view.orders.has(filters.sort))

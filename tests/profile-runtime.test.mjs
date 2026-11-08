@@ -21,7 +21,7 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
  const listing=e.action('lister','trade-list',{card:'c1',variant:'card',expectedLevel:1}).listing;
  e.action('offerer','trade-offer',{listing,cards:[{card:'c2',variant:'card',expectedLevel:1},{card:'p1',variant:'card',expectedLevel:1}]});
  e.economy.anime.pin('offerer',{series:'anime',pinned:true});e.action('lister','wishlist',{card:'p1',wanted:true});e.action('offerer','wishlist',{card:'p1',wanted:true});});}
- async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted')});}catch(error){return Response.json({error:error.message},{status:500});}}}
+ async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
  export default {fetch(request,env){return env.GAME.getByName('isolated-profile').fetch(request);}};
  `,
     },
@@ -74,6 +74,16 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
   assert.equal(data.profile.pinnedAnime[0].owned, 2);
   assert.equal(data.anime.series[0].owned, 2);
   assert.equal(data.profile.inventory.length, 0);
+  assert.deepEqual(data.counts.find((c) => c.id === "c1").collectors, {
+    owned: 2,
+    wanted: 0,
+  });
+  assert.deepEqual(data.counts.find((c) => c.id === "p1").collectors, {
+    owned: 1,
+    wanted: 2,
+  });
+  assert.equal(data.both.total, 3);
+  assert.equal(new Set(data.both.cards.map((c) => c.kind)).size, 2);
   assert.equal(data.collectors.counts.owned, 2);
   assert.deepEqual(
     new Set(data.collectors.rows.map((p) => p.id)),

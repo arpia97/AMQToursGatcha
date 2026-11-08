@@ -90,7 +90,7 @@ export function collectionView(
       ({ c, ...item }) =>
         (!upgradable || canUpgrade(item)) &&
         (!hideProtected || !item.protected) &&
-        c.kind === kind &&
+        (kind === "both" || c.kind === kind) &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&
         matches(cardSearchText(c)),

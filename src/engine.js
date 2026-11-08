@@ -163,7 +163,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,COALESCE((SELECT slots FROM showcase_slots WHERE player=players.id),0) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -934,6 +934,7 @@ export class Engine {
         "player_notices",
         "profile_showcase",
         "showcase_slots",
+        "showcase_capacity",
         "profile_anime",
         "quiz_runs",
         "quiz_progress",

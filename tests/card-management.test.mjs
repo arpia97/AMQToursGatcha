@@ -142,6 +142,9 @@ test("batch full sales account for invested levels and clean avatar/showcase onl
     q = quote(f);
   assert.equal(q.total, 175);
   assert.equal(q.count, 4);
+  assert.ok(
+    quote({ ...filters, kind: "both" }).items.some((i) => i.card === "v"),
+  );
   e.run("UPDATE players SET avatar_card='d' WHERE id='p'");
   e.run("INSERT INTO showcase_slots VALUES('p',2)");
   act("showcase", { cards: ["d", "s"] });

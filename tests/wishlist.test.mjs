@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
+import {
+  collectorsButton,
+  collectorsPanel,
+} from "../public/card-collectors.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -187,6 +191,24 @@ test("public profile and wishlist card flags belong to that profile's player", (
   const row = e.economy.wishlist.page("p", "wishlist").rows[0];
   assert.equal(row.protected, 1);
   assert.equal(row.wishlisted, true);
+  const counted = e.economy.wishlist.withCounts(
+    e.catalogStore.cards(["c0"]),
+  )[0];
+  assert.deepEqual(counted.collectors, { wanted: 1, owned: 2 });
+  assert.match(collectorsButton(counted, String), /Collectors \(1\/2\)/);
+  const panel = collectorsPanel(
+    { ...e.economy.wishlist.collectors("c0"), rarity: "SSS" },
+    {
+      escape: String,
+      number: String,
+      cardBy: () => counted,
+      avatarHTML: () => "",
+      profileURL: () => "#profile",
+    },
+  );
+  assert.match(panel, /grade-sss collector-rarity/);
+  assert.match(panel, /Owned By/);
+  assert.match(panel, /Wanted By/);
   assert.deepEqual(e.profile("q").wishlist, []);
   assert.equal(e.profile("q").inventory[0].protected, 0);
 });

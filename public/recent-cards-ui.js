@@ -2,6 +2,7 @@ export function catalogueTabs(kind, recent = false) {
   return `<div class="tabs" role="group" aria-label="Catalogue Sections">${[
     ["character", "Characters"],
     ["seiyuu", "Seiyuus"],
+    ["both", "Both"],
   ]
     .map(
       ([id, label]) =>

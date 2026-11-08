@@ -1012,6 +1012,26 @@ export class Game extends DurableObject {
         ),
       );
     }
+    if (path === "card-counts" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      let ids;
+      try {
+        ids = JSON.parse(url.searchParams.get("cards") || "[]");
+      } catch {
+        fail("Choose a valid card list.");
+      }
+      if (
+        !Array.isArray(ids) ||
+        ids.length > 50 ||
+        ids.some((id) => typeof id !== "string" || !id || id.length > 100)
+      )
+        fail("Choose up to 50 card IDs.");
+      return json({
+        cards: e.economy.wishlist.withCounts(
+          e.catalogStore.cards([...new Set(ids)]),
+        ),
+      });
+    }
     if (path === "card-collectors" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -1022,27 +1042,26 @@ export class Game extends DurableObject {
         ),
       );
     }
-    if (path === "catalog-recent" && !post) {
+    if ((path === "catalog-recent" || path === "catalog") && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
-      return json(
-        e.catalogStore.recentPage(Number(url.searchParams.get("page") || 1)),
-      );
-    }
-    if (path === "catalog" && !post) {
-      this.bursts.take("read:" + (session?.player || ip), 60, 5);
-      return json(
-        e.catalogStore.page(
-          url.searchParams.get("kind") || "character",
-          url.searchParams.get("q") || "",
-          Number(url.searchParams.get("page") || 1),
-          40,
-          {
-            rarity: url.searchParams.get("rarity") || "",
-            role: url.searchParams.get("role") || "",
-            sort: url.searchParams.get("sort") || "",
-          },
-        ),
-      );
+      const result =
+        path === "catalog-recent"
+          ? e.catalogStore.recentPage(Number(url.searchParams.get("page") || 1))
+          : e.catalogStore.page(
+              url.searchParams.get("kind") || "character",
+              url.searchParams.get("q") || "",
+              Number(url.searchParams.get("page") || 1),
+              40,
+              {
+                rarity: url.searchParams.get("rarity") || "",
+                role: url.searchParams.get("role") || "",
+                sort: url.searchParams.get("sort") || "",
+              },
+            );
+      return json({
+        ...result,
+        cards: e.economy.wishlist.withCounts(result.cards),
+      });
     }
     if (path === "rankings" && !post)
       return json(
@@ -1155,14 +1174,17 @@ export class Game extends DurableObject {
             ),
       );
     }
-    if (path === "player-cards" && !post)
-      return json(
-        e.economy.wishlist.page(
-          url.searchParams.get("id"),
-          url.searchParams.get("view"),
-          Number(url.searchParams.get("page") || 1),
-        ),
+    if (path === "player-cards" && !post) {
+      const result = e.economy.wishlist.page(
+        url.searchParams.get("id"),
+        url.searchParams.get("view"),
+        Number(url.searchParams.get("page") || 1),
       );
+      return json({
+        ...result,
+        cards: e.economy.wishlist.withCounts(result.cards),
+      });
+    }
     if (path === "profiles" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const result = e.profilesPage(

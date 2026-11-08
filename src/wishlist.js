@@ -93,11 +93,45 @@ export class Wishlist {
     );
     return { message: "Wishlist order saved.", wishlist: this.read(player) };
   }
+  withCounts(cards) {
+    if (!cards.length) return cards;
+    const e = this.e,
+      ids = JSON.stringify([...new Set(cards.map((c) => c.id))]);
+    // Bind the page once as JSON. Each nested compound SELECT stays below the
+    // Workers five-term limit; duplicate ownership across escrow counts once.
+    const owners = e.all(
+      `WITH requested AS (SELECT value AS card FROM json_each(?)), held AS (
+      SELECT card,player FROM (
+        SELECT card,player FROM inventory WHERE card IN (SELECT card FROM requested) AND copies>0
+        UNION SELECT card,seller FROM market_listings WHERE card IN (SELECT card FROM requested) AND status='open'
+        UNION SELECT card,seller FROM auctions WHERE card IN (SELECT card FROM requested) AND seller IS NOT NULL AND paid=0
+        UNION SELECT card,winner FROM auctions WHERE card IN (SELECT card FROM requested) AND winner IS NOT NULL AND ends<=? AND claimed=0
+        UNION SELECT card,seller FROM trade_listings WHERE card IN (SELECT card FROM requested) AND status='open'
+      ) UNION SELECT COALESCE(c.card,o.card),o.proposer FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE COALESCE(c.card,o.card) IN (SELECT card FROM requested) AND o.status='open'
+    ) SELECT card,count(*) AS owned FROM held GROUP BY card`,
+      ids,
+      e.now(),
+    );
+    const wanted = e.all(
+      "SELECT card,count(*) AS wanted FROM card_wishlist WHERE card IN (SELECT value FROM json_each(?)) GROUP BY card",
+      ids,
+    );
+    const ownedBy = new Map(owners.map((r) => [r.card, r.owned])),
+      wantedBy = new Map(wanted.map((r) => [r.card, r.wanted]));
+    return cards.map((c) => ({
+      ...c,
+      collectors: {
+        owned: ownedBy.get(c.id) || 0,
+        wanted: wantedBy.get(c.id) || 0,
+      },
+    }));
+  }
   collectors(card, view = "owned", page = 1) {
     const e = this.e;
     card = text(card, 100);
     integer(page, 1, 10000);
-    if (!e.catalogStore.card(card)) fail("Unknown card.", 404);
+    const catalogCard = e.catalogStore.card(card);
+    if (!catalogCard) fail("Unknown card.", 404);
     if (!["owned", "wanted"].includes(view))
       fail("Choose owners or wishlist collectors.");
     // Cloudflare limits each compound SELECT to five terms. Nest the first
@@ -132,6 +166,7 @@ export class Wishlist {
     );
     return {
       card,
+      rarity: catalogCard.rarity || "Pending",
       view,
       page,
       counts,

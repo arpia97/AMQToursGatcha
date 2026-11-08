@@ -1,3 +1,4 @@
+import { installCardOrderDrag } from "./card-order-drag.js";
 import { animeChecklist } from "./anime-checklist-ui.js";
 import { quantityInput, installQuantityInputs } from "./quantity-input.js";
 import { avatarCropStyle } from "./avatar-crop.js";
@@ -27,8 +28,8 @@ import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
 import { createTradesUI } from "./trades-ui.js";
 import { createShowcaseEditor } from "./showcase-order.js";
-import { createWishlistEditor } from "./wishlist-order.js";
-import { collectorsPanel } from "./card-collectors.js";
+import { createWishlistEditor, installWishlistDrag } from "./wishlist-order.js";
+import { collectorsPanel, collectorsButton } from "./card-collectors.js";
 import { authFormHTML } from "./auth-form.js";
 import {
   SITE_ROUTES,
@@ -254,10 +255,16 @@ document.addEventListener("change", (ev) => {
 let loadVersion = 0;
 const pendingMutations = new Map();
 const cardCache = new Map();
+const collectorCounts = new Map();
+let collectorCountRequest = null;
 let catalogPageData = null,
   catalogPageNumber = 1;
 function rememberCards(cards = []) {
-  for (const c of cards) cardCache.set(c.id, c);
+  for (const c of cards) {
+    cardCache.set(c.id, c);
+    if (c.collectors)
+      collectorCounts.set(c.id, { counts: c.collectors, at: Date.now() });
+  }
   while (cardCache.size > 5000) cardCache.delete(cardCache.keys().next().value);
 }
 const isDemo =
@@ -501,18 +508,16 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="fusion-card" data-id="${escape(c.id)}" title="Use in Card Alchemy">Alchemy ↗</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button>${collectorsButton(c, escape)}<button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
       : "";
   const actions =
+    (page() === "catalog" ? collectorsButton(c, escape) : "") +
     auction +
     owned +
     (state.me && !item?.preview && !owned
       ? wishlistButton(c, state.wishlist || [], escape)
       : "") +
-    extraActions +
-    (page() === "catalog"
-      ? `<button type="button" class="text-button" data-action="card-collectors" data-id="${escape(c.id)}">Collectors ↗</button>`
-      : "");
+    extraActions;
   const meta = a
     ? `✦ ${number(a.bid || a.reserve || 1)}<small>${a.winner && a.bid ? "Highest Bidder: " + escape(a.winner_name || a.winner) : "Opening Bid"}</small>${a.seller || a.rolling ? `<small class="user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</small>` : ""}`
     : "";
@@ -540,7 +545,12 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
   );
 }
 function tabs() {
-  return `<div class="tabs" role="group" aria-label="Card type"><button class="tab ${tab === "character" ? "active" : ""}" data-tab="character">Characters</button><button class="tab ${tab === "seiyuu" ? "active" : ""}" data-tab="seiyuu">Seiyuus</button></div>`;
+  const choices = [
+    ["character", "Characters"],
+    ["seiyuu", "Seiyuus"],
+    ...(page() === "packs" ? [] : [["both", "Both"]]),
+  ];
+  return `<div class="tabs" role="group" aria-label="Card type">${choices.map(([id, label]) => `<button class="tab ${tab === id ? "active" : ""}" data-tab="${id}" aria-pressed="${tab === id}">${label}</button>`).join("")}</div>`;
 }
 const quizUI = createQuizUI({
   api,
@@ -643,10 +653,13 @@ const showcaseEditor = createShowcaseEditor({
   series,
 });
 function openShowcasePurchase() {
-  const slots = state.me?.showcase_slots || 0,
-    max = Math.min(20 - slots, Math.floor((state.me?.balance || 0) / 100));
-  if (slots >= 20) {
-    toast("All 20 showcase slots are unlocked.");
+  const slots = state.me?.showcase_slots ?? 30,
+    max = Math.min(
+      MAX_SPOTLIGHTS - slots,
+      Math.floor((state.me?.balance || 0) / 100),
+    );
+  if (slots >= MAX_SPOTLIGHTS) {
+    toast("All " + MAX_SPOTLIGHTS + " showcase slots are unlocked.");
     return;
   }
   if (max < 1) {
@@ -656,7 +669,7 @@ function openShowcasePurchase() {
   modal(
     "<h2>Unlock Showcase Slots</h2><p>100 credits per slot · " +
       slots +
-      '/20 unlocked. Slots stay available when you swap or remove cards.</p><form id="showcase-slots-form" class="stack"><input type="hidden" name="expectedSlots" value="' +
+      ' slots unlocked · 30 free. Slots stay available when you swap or remove cards.</p><form id="showcase-slots-form" class="stack"><input type="hidden" name="expectedSlots" value="' +
       slots +
       '">' +
       quantityInput({
@@ -674,24 +687,25 @@ document.addEventListener("input", (event) => {
       Number(event.target.value) * 100,
     );
 });
-function paintWishlistEditor() {
-  const scroll = $("#wishlist-order-list")?.scrollTop || 0;
-  $("#modal-body").innerHTML = wishlistEditor.render();
-  $("#wishlist-order-list").scrollTop = scroll;
-}
-document.addEventListener("change", (event) => {
-  if (!event.target.closest("#wishlist-order-form") || busy) return;
-  if (event.target.id === "wishlist-sort") {
-    wishlistEditor.sortBy(event.target.value);
-    paintWishlistEditor();
-    $("#wishlist-sort").focus({ preventScroll: true });
-  } else if (event.target.dataset.wishlistPosition) {
-    wishlistEditor.move(
-      event.target.dataset.wishlistPosition,
-      Number(event.target.value),
-    );
-    paintWishlistEditor();
-  }
+const wishlistDrag = installWishlistDrag(document, wishlistEditor, {
+  canEdit: () => !busy,
+  changed(card) {
+    ui.profileCardsPage = wishlistEditor.currentPage();
+    const scroll = window.scrollY;
+    render();
+    window.scrollTo(0, scroll);
+    if (card)
+      document
+        .querySelector('[data-wishlist-handle="' + CSS.escape(card) + '"]')
+        ?.focus({ preventScroll: true });
+    const status = document.getElementById("wishlist-arrange-status");
+    if (status && card)
+      status.textContent =
+        cardBy(card).name +
+        " moved to position " +
+        (wishlistEditor.cards().indexOf(card) + 1) +
+        ".";
+  },
 });
 function paintShowcaseEditor(card = null, position = null) {
   const scroll = $("#showcase-order-list")?.scrollTop || 0;
@@ -753,7 +767,56 @@ document.addEventListener("change", (event) => {
 });
 
 let fusionPickerFocus = null,
-  fusionReviewOpen = false;
+  fusionReviewOpen = false,
+  pendingAlchemyMaterial = null;
+function repaintAlchemyOrder(key = null) {
+  const selector = "#fusion-picker,.fusion-picker-dialog,.alchemy-queue-list",
+    scrolls = [...document.querySelectorAll(selector)].map((el) => [
+      el.scrollTop,
+      el.scrollLeft,
+    ]),
+    pageScroll = [window.scrollX, window.scrollY];
+  if (alchemyUI.pickerOpen()) renderFusionPicker();
+  else render();
+  [...document.querySelectorAll(selector)].forEach((el, i) => {
+    if (scrolls[i]) {
+      el.scrollTop = scrolls[i][0];
+      el.scrollLeft = scrolls[i][1];
+    }
+  });
+  window.scrollTo(...pageScroll);
+  if (key)
+    document
+      .querySelector('[data-alchemy-handle="' + CSS.escape(key) + '"]')
+      ?.focus({ preventScroll: true });
+}
+const alchemyDrag = installCardOrderDrag(
+  document,
+  {
+    cards: () => alchemyUI.orderKeys(),
+    move: (key, to) => alchemyUI.moveKey(key, to),
+    drop: (key, target, after) => alchemyUI.dropKey(key, target, after),
+  },
+  {
+    prefix: "alchemy",
+    panel: ".alchemy-sort-grid",
+    capture: "#fusion-picker",
+    scrollSelector: ".alchemy-queue-list",
+    canEdit: () => !busy && !fusionReviewOpen,
+    changed: repaintAlchemyOrder,
+  },
+);
+document.addEventListener("change", (event) => {
+  const id = event.target.dataset.alchemyExtras;
+  if (!id || busy) return;
+  try {
+    alchemyUI.setExtras(id, Number(event.target.value));
+    repaintAlchemyOrder();
+  } catch (error) {
+    toast(error.message, true);
+    event.target.value = event.target.defaultValue;
+  }
+});
 function fusionOverlayOpen() {
   return alchemyUI.pickerOpen() || fusionReviewOpen;
 }
@@ -1066,7 +1129,7 @@ function catalogue() {
 }
 
 function auctions() {
-  const list = state.auctions.filter((a) => a.kind === tab),
+  const list = state.auctions.filter((a) => tab === "both" || a.kind === tab),
     active = list.filter((a) => !a.seller && a.ends > state.now),
     won = list.filter((a) => a.ends <= state.now);
   return (
@@ -1167,14 +1230,16 @@ function profile() {
   if (ui.profileView !== "overview")
     return (
       heading +
-      profileCardPanel(ui.profileCardsData, {
-        cardBy,
-        cardHTML,
-        escape,
-        number,
-        own,
-        wishlist: state.wishlist || [],
-      })
+      (own && ui.profileView === "wishlist" && wishlistEditor.activeFor(p.id)
+        ? wishlistEditor.render()
+        : profileCardPanel(ui.profileCardsData, {
+            cardBy,
+            cardHTML,
+            escape,
+            number,
+            own,
+            wishlist: state.wishlist || [],
+          }))
     );
   return (
     heading +
@@ -1207,6 +1272,7 @@ async function loadDynamic() {
   const version = ++loadVersion,
     current = page(),
     hash = location.hash;
+  if (current === "packs" && tab === "both") tab = "character";
   let data, pickemDetail, profileCardsResult;
   if (current === "shop" && ui.marketSort === "ending")
     ui.marketSort = "newest";
@@ -1300,7 +1366,8 @@ async function loadDynamic() {
   if (
     (current === "player" || current === "profile") &&
     data &&
-    ui.profileView !== "overview"
+    ui.profileView !== "overview" &&
+    !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id))
   )
     profileCardsResult = await api(
       "player-cards?id=" +
@@ -1459,9 +1526,64 @@ function render() {
     queryInput.setAttribute("aria-invalid", String(none));
   }
   tickCountdowns();
+  ensureCollectorCounts();
   horseUI.mount();
   pachinkoUI.mount();
   document.title = title + " · AMQ Tours Gatcha";
+}
+function ensureCollectorCounts() {
+  const buttons = [...document.querySelectorAll("[data-collector-card]")];
+  const paint = () =>
+    buttons.forEach((button) => {
+      const value = collectorCounts.get(button.dataset.collectorCard)?.counts;
+      if (!value || !button.isConnected) return;
+      button.textContent =
+        "Collectors (" + value.wanted + "/" + value.owned + ") ↗";
+      button.title =
+        "Wishlisted by " + value.wanted + " · Owned by " + value.owned;
+      button.setAttribute(
+        "aria-label",
+        "Collectors: " +
+          value.wanted +
+          " wishlisted, " +
+          value.owned +
+          " owned",
+      );
+    });
+  paint();
+  if (collectorCountRequest) return;
+  const ids = [...new Set(buttons.map((b) => b.dataset.collectorCard))]
+    .filter(
+      (id) =>
+        !collectorCounts.has(id) ||
+        Date.now() - collectorCounts.get(id).at > 60000,
+    )
+    .slice(0, 50);
+  if (!ids.length) return;
+  collectorCountRequest = api(
+    "card-counts?cards=" + encodeURIComponent(JSON.stringify(ids)),
+  )
+    .then((result) => {
+      rememberCards(result.cards);
+      for (const id of ids) {
+        const cached = collectorCounts.get(id);
+        collectorCounts.set(id, { counts: cached?.counts, at: Date.now() });
+      }
+      paint();
+    })
+    .catch(() => {
+      for (const id of ids)
+        collectorCounts.set(id, {
+          at: Date.now(),
+          counts: collectorCounts.get(id)?.counts,
+        });
+    })
+    .finally(() => {
+      collectorCountRequest = null;
+      while (collectorCounts.size > 5000)
+        collectorCounts.delete(collectorCounts.keys().next().value);
+      ensureCollectorCounts();
+    });
 }
 async function api(path, body, key) {
   if (demo && path === "quizzes") return { quizzes: [] };
@@ -1499,6 +1621,8 @@ async function refresh() {
     }
   }
   if (previousPlayer && previousPlayer !== state.me?.id) {
+    wishlistDrag.cancel();
+    wishlistEditor.close();
     ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
@@ -1638,8 +1762,9 @@ document.addEventListener("click", async (ev) => {
     ui.filters.role = "";
     ui.collectionFilters.role = "";
     ui.collectionPage = 1;
-    if (tab === "seiyuu" && ui.catalogSort === "role") ui.catalogSort = "name";
-    if (tab === "seiyuu" && ui.collectionSort === "role")
+    if (tab !== "character" && ui.catalogSort === "role")
+      ui.catalogSort = "name";
+    if (tab !== "character" && ui.collectionSort === "role")
       ui.collectionSort = "name";
     catalogPageNumber = 1;
     await loadDynamic();
@@ -1835,12 +1960,19 @@ document.addEventListener("submit", async (ev) => {
     return;
   }
   if (formIdentifier(f) === "wishlist-order-form") {
-    await execute(
+    const result = await execute(
       "wishlist-order",
       wishlistEditor.payload(state.me?.id),
-      null,
+      () => {},
       f,
     );
+    if (result) {
+      wishlistDrag.cancel();
+      wishlistEditor.close();
+      await loadDynamic();
+      render();
+      toast(result.message);
+    }
     return;
   }
   if (formIdentifier(f) === "showcase-order-form") {
@@ -2185,6 +2317,8 @@ document.addEventListener("click", (e) => {
     $("#modal").close();
 });
 window.addEventListener("hashchange", async () => {
+  wishlistDrag.cancel();
+  wishlistEditor.close();
   if (fusionOverlayOpen()) closeFusionPicker();
   search = "";
   catalogPageNumber = 1;
@@ -2568,44 +2702,58 @@ async function handleFeatureClick(a, t) {
         await openFusionPicker("target", t.dataset.rarity);
         return true;
       }
+      if (a === "alchemy-material-cancel" || a === "alchemy-material-confirm") {
+        if (a === "alchemy-material-confirm" && pendingAlchemyMaterial) {
+          const item = state.inventory.find(
+            (i) => i.card === pendingAlchemyMaterial.card,
+          );
+          if (!item || item.level !== pendingAlchemyMaterial.level)
+            throw Error("This card changed. Select it again.");
+          alchemyUI.toggle(pendingAlchemyMaterial, true);
+        }
+        const scroll = pendingAlchemyMaterial?.scroll || 0;
+        pendingAlchemyMaterial = null;
+        fusionReviewOpen = false;
+        renderFusionPicker();
+        $("#fusion-picker .fusion-picker-dialog").scrollTop = scroll;
+        return true;
+      }
       if (a === "alchemy-move" || a === "alchemy-remove") {
-        const scrollSelector =
-          "#fusion-picker,.fusion-picker-dialog,.alchemy-queue-list";
-        const scrolls = [...document.querySelectorAll(scrollSelector)].map(
-          (el) => [el.scrollTop, el.scrollLeft],
-        );
-        const pageScroll = [window.scrollX, window.scrollY];
         if (a === "alchemy-move")
           alchemyUI.move(Number(t.dataset.index), Number(t.dataset.direction));
         else alchemyUI.remove(Number(t.dataset.index));
-        if (alchemyUI.pickerOpen()) renderFusionPicker();
-        else render();
-        [...document.querySelectorAll(scrollSelector)].forEach((el, index) => {
-          if (scrolls[index]) {
-            el.scrollTop = scrolls[index][0];
-            el.scrollLeft = scrolls[index][1];
-          }
-        });
-        window.scrollTo(...pageScroll);
+        repaintAlchemyOrder();
         return true;
       }
       if (a === "alchemy-material-select" || a === "fusion-card") {
-        const item = state.inventory.find((i) => i.card === t.dataset.id);
-        alchemyUI.add({
-          card: t.dataset.id,
-          variant:
-            a === "fusion-card"
-              ? item?.copies > 1
-                ? "extra"
-                : "card"
-              : t.dataset.variant,
-        });
-        if (a === "fusion-card") location.hash = "fusion";
-        else {
-          renderFusionPicker();
+        const item = state.inventory.find((i) => i.card === t.dataset.id),
+          entry = {
+            card: t.dataset.id,
+            variant:
+              a === "fusion-card"
+                ? item?.copies > 1
+                  ? "extra"
+                  : "card"
+                : t.dataset.variant,
+          };
+        if (!alchemyUI.toggle(entry)) {
+          pendingAlchemyMaterial = {
+            ...entry,
+            level: item.level,
+            scroll: $("#fusion-picker .fusion-picker-dialog")?.scrollTop || 0,
+          };
+          openFusionReview(
+            null,
+            '<h2 id="fusion-review-title">Use This Enhanced Card?</h2><p><strong>' +
+              escape(cardBy(entry.card).name) +
+              " · " +
+              levelLabel(item.level) +
+              '</strong> will be added to your refinement order. Refining consumes the enhanced card and all invested copies.</p><div class="toolbar"><button type="button" class="button secondary" data-action="alchemy-material-cancel">Cancel</button><button type="button" class="button mint" data-action="alchemy-material-confirm">Add to Refinement Order</button></div>',
+          );
           return true;
         }
-        render();
+        if (a === "fusion-card") location.hash = "fusion";
+        repaintAlchemyOrder();
         return true;
       }
       if (a === "alchemy-target-select" || a === "alchemy-target-clear") {
@@ -2676,6 +2824,7 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "wishlist-toggle") {
+      collectorCounts.delete(t.dataset.id);
       if (!state.me) {
         auth();
         return true;
@@ -2713,6 +2862,8 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "profile-cards-view" || a === "profile-cards-page") {
+      wishlistDrag.cancel();
+      wishlistEditor.close();
       if (a === "profile-cards-view") {
         ui.profileView = t.dataset.view;
         ui.profileCardsPage = 1;
@@ -2753,9 +2904,17 @@ async function handleFeatureClick(a, t) {
       );
       return true;
     }
-    if (a === "wishlist-arrange") {
+    if (a === "wishlist-arrange" || a === "wishlist-cancel") {
       if (!state.me) {
         auth();
+        return true;
+      }
+      if (busy) return true;
+      if (wishlistEditor.activeFor(state.me.id)) {
+        wishlistDrag.cancel();
+        wishlistEditor.close();
+        await loadDynamic();
+        render();
         return true;
       }
       const data = await api("wishlist-order");
@@ -2763,15 +2922,15 @@ async function handleFeatureClick(a, t) {
       wishlistEditor.open(
         { id: state.me.id, wishlist: data.wishlist },
         state.me.id,
+        ui.profileCardsPage,
       );
-      modal(wishlistEditor.render(), true);
+      render();
       return true;
     }
-    if (a === "wishlist-move") {
-      if (!busy && t.closest("#wishlist-order-form")) {
-        wishlistEditor.move(t.dataset.id, Number(t.dataset.position));
-        paintWishlistEditor();
-      }
+    if (a === "wishlist-page") {
+      wishlistEditor.setPage(Number(t.dataset.page));
+      ui.profileCardsPage = wishlistEditor.currentPage();
+      render();
       return true;
     }
     if (a === "rank-metric") {
@@ -2922,10 +3081,15 @@ async function handleFeatureClick(a, t) {
       if (i >= 0) cards.splice(i, 1);
       else {
         if (cards.length >= MAX_SPOTLIGHTS) {
-          toast("Your spotlights hold up to 20 cards. Remove one first.", true);
+          toast(
+            "Your spotlights hold up to " +
+              MAX_SPOTLIGHTS +
+              " cards. Remove one first.",
+            true,
+          );
           return true;
         }
-        if (cards.length >= (state.me.showcase_slots || 0)) {
+        if (cards.length >= (state.me.showcase_slots ?? 30)) {
           openShowcasePurchase();
           return true;
         }

@@ -166,7 +166,8 @@ export class Demo {
         matches = searchMatcher(p.get("q")),
         page = Number(p.get("page") || 1);
       const cards = s.catalog.filter(
-        (c) => c.kind === kind && matches(cardSearchText(c)),
+        (c) =>
+          (kind === "both" || c.kind === kind) && matches(cardSearchText(c)),
       );
       return {
         cards: cards.slice((page - 1) * 40, page * 40),

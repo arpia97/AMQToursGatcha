@@ -181,6 +181,23 @@ test("market sorts globally before paging, uses only listed metadata, and keeps 
       id,
     );
   assert.equal(e.one("SELECT count(*) n FROM ledger").n, before);
+  e.run(
+    "INSERT INTO catalog(id,kind,name,fixed_rarity) VALUES('community-voice','seiyuu','Voice','S')",
+  );
+  e.run(
+    "INSERT INTO market_listings(seller,card,kind,level,price,created) VALUES('q','community-voice','seiyuu',1,500,?)",
+    f.now,
+  );
+  const both = [1, 2, 3].map((page) =>
+    e.economy.market("shop", "both", page, { sort: "newest" }),
+  );
+  assert.deepEqual(
+    both.map((p) => p.items.length),
+    [40, 40, 11],
+  );
+  assert.equal(both[0].items[0].kind, "seiyuu");
+  assert.equal(new Set(both.flatMap((p) => p.items.map((i) => i.id))).size, 91);
+  assert.equal(e.economy.market("shop", "seiyuu", 1).items.length, 1);
   e.catalogStore.pool = pool;
 });
 test("personal wishlist filters belong only to the authenticated player and apply before pagination", (t) => {

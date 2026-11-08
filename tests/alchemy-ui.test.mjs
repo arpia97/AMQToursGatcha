@@ -49,7 +49,9 @@ test("alchemy keeps an ordered selection and confirmation preserves the exact ve
     nextLucky: true,
     nextRefinement: 6,
   });
-  f.ui.add({ card: "a", variant: "card" });
+  assert.equal(f.ui.toggle({ card: "a", variant: "card" }), false);
+  assert.throws(() => f.ui.request(), /Choose cards/);
+  assert.equal(f.ui.toggle({ card: "a", variant: "card" }, true), true);
   const request = f.ui.request();
   assert.equal(request.expectedLevel, 4);
   assert.equal(request.expectedVersion, 7);
@@ -68,10 +70,25 @@ test("alchemy keeps an ordered selection and confirmation preserves the exact ve
     ["d", "a"],
   );
   assert.match(f.ui.queueHTML(), /Refinement #6/);
-  assert.match(f.ui.queueHTML(), /LUCKY/);
+  assert.match(f.ui.queueHTML(), /Lucky/);
   f.ui.remove(0);
   assert.equal(f.ui.request().card, "a");
   assert.equal(f.state.inventory.length, 2);
+  f.ui.toggle({ card: "a", variant: "card" });
+  assert.throws(() => f.ui.request(), /Choose cards/);
+  f.state.inventory[0].copies = 5;
+  f.ui.setExtras("a", 3);
+  f.ui.toggle({ card: "d", variant: "card" });
+  const keys = f.ui.orderKeys();
+  f.ui.dropKey(keys[3], keys[0], false);
+  assert.equal(f.ui.request().materials[0].card, "d");
+  f.ui.setExtras("a", 1);
+  assert.equal(f.ui.request().materials.length, 2);
+  assert.equal(f.ui.orderKeys()[1], keys[0]);
+  f.ui.openPicker("material");
+  assert.doesNotMatch(f.ui.renderPicker(), />Add Card|>Add Extra/);
+  f.ui.toggle({ card: "a", variant: "extra" });
+  assert.equal(f.ui.request().card, "d");
 });
 test("target clearing addresses its own tier and cash-out quotes keep leftover XP for other tiers", () => {
   const f = fixture();

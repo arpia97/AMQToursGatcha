@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createShowcaseEditor } from "../public/showcase-order.js";
+import { createWishlistEditor } from "../public/wishlist-order.js";
 import { createFeatures } from "../public/features.js";
 const cards = [
   { id: "a", name: "Zeta", kind: "character", rarity: "D", series: "One" },
@@ -100,4 +101,50 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
     ),
     /data-action="showcase-arrange"/,
   );
+});
+
+test("inline wishlist arrangement preserves all pages, supports before/after drops and global positions, and cancels without changing saved data", () => {
+  const all = Array.from({ length: 30 }, (_, i) => ({
+    id: "w" + i,
+    name: "Card " + i,
+    kind: i % 2 ? "seiyuu" : "character",
+    rarity: "S",
+    series: "One",
+  }));
+  const editor = createWishlistEditor({
+      ...helpers,
+      cardBy: (id) => all.find((c) => c.id === id),
+    }),
+    profile = { id: "p", wishlist: all.map((c) => c.id) },
+    saved = structuredClone(profile);
+  assert.throws(() => editor.open(profile, "q"));
+  editor.open(profile, "p", 1);
+  assert.equal(editor.activeFor("p"), true);
+  assert.equal(editor.activeFor("q"), false);
+  assert.equal(
+    (editor.render().match(/data-wishlist-sort-card=/g) || []).length,
+    24,
+  );
+  assert.doesNotMatch(editor.render(), /modal|dialog/);
+  editor.drop("w0", "w2", true);
+  assert.deepEqual(editor.cards().slice(0, 3), ["w1", "w2", "w0"]);
+  editor.move("w0", 29, true);
+  assert.equal(editor.currentPage(), 2);
+  assert.equal(editor.cards()[29], "w0");
+  assert.equal(
+    (editor.render().match(/data-wishlist-sort-card=/g) || []).length,
+    6,
+  );
+  editor.drop("w0", "w24");
+  assert.equal(editor.cards()[23], "w0");
+  assert.equal(new Set(editor.cards()).size, 30);
+  assert.deepEqual(editor.payload("p").expectedCards, saved.wishlist);
+  assert.throws(() => editor.payload("q"), /same account/);
+  editor.setPage(999);
+  assert.equal(editor.currentPage(), 2);
+  editor.close();
+  assert.equal(editor.activeFor("p"), false);
+  assert.deepEqual(profile, saved);
+  editor.open(profile, "p");
+  assert.deepEqual(editor.cards(), saved.wishlist);
 });

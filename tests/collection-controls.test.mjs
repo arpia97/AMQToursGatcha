@@ -43,6 +43,7 @@ test("collection combines rarity, character role, bilingual search and independe
   assert.deepEqual(view({ sort: "level" }), ["a", "b", "c"]);
   assert.deepEqual(view({ sort: "name-desc" }), ["c", "b", "a"]);
   assert.deepEqual(view({ kind: "seiyuu", role: "main", rarity: "SS" }), ["v"]);
+  assert.deepEqual(view({ kind: "both", sort: "name" }), ["a", "b", "c", "v"]);
   inventory[0].protected = 1;
   inventory[3].protected = 1;
   assert.deepEqual(view({ hideProtected: true }), ["b", "c"]);

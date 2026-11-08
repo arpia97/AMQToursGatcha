@@ -1,3 +1,4 @@
+import { collectorsButton } from "./card-collectors.js";
 export function wishlistButton(card, wishlist, e) {
   const wanted = wishlist.includes(card.id);
   return (
@@ -60,7 +61,7 @@ export function profileCardPanel(
           '">View ' +
           label +
           " →</button>"
-        : wishlistButton(c, wishlist, e);
+        : collectorsButton(c, e) + wishlistButton(c, wishlist, e);
       return cardHTML(
         c,
         null,
@@ -81,7 +82,7 @@ export function profileCardPanel(
     (data.view === "wishlist" ? "Wishlist" : "Active Listings") +
     "</h2>" +
     (own && data.view === "wishlist" && wishlist.length > 1
-      ? '<button class="text-button" data-action="wishlist-arrange">Arrange Wishlist</button>'
+      ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
       : "") +
     "</div>" +
     (tiles

@@ -1,3 +1,8 @@
+import { rarityClass } from "./card-display.js";
+export function collectorsButton(card, e) {
+  const counts = card.collectors;
+  return `<button type="button" class="text-button collector-button" data-collector-card="${e(card.id)}" data-action="card-collectors" data-id="${e(card.id)}" ${counts ? `title="Wishlisted by ${counts.wanted} · Owned by ${counts.owned}" aria-label="Collectors: ${counts.wanted} wishlisted, ${counts.owned} owned"` : ""}>Collectors${counts ? " (" + counts.wanted + "/" + counts.owned + ")" : ""} ↗</button>`;
+}
 export function collectorsPanel(
   data,
   { escape: e, number: n, cardBy, avatarHTML, profileURL },
@@ -17,6 +22,7 @@ export function collectorsPanel(
   return (
     '<section class="card-collectors"><h2>' +
     e(cardBy(data.card).name) +
+    ` <span class="grade-badge grade-${rarityClass(data.rarity || cardBy(data.card).rarity)} collector-rarity">${e(data.rarity || cardBy(data.card).rarity || "Pending")}</span>` +
     '</h2><nav class="tabs" aria-label="Card Collectors">' +
     ["owned", "wanted"]
       .map(

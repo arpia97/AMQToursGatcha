@@ -34,6 +34,11 @@ export function createAlchemyUI(h) {
     lastResult = null,
     drawRevealed = false;
   const cards = new Map();
+  let selectionId = 0;
+  const keyed = (entry) => ({ ...entry, key: String(++selectionId) });
+  const count = (id, variant) =>
+    selected.filter((entry) => entry.card === id && entry.variant === variant)
+      .length;
   const remember = (list) => {
     for (const c of list || []) cards.set(c.id, c);
   };
@@ -97,21 +102,63 @@ export function createAlchemyUI(h) {
     return materials()[0];
   }
   function add(entry) {
-    const next = [...selected, { card: entry.card, variant: entry.variant }];
+    const next = [
+      ...selected,
+      keyed({ card: entry.card, variant: entry.variant }),
+    ];
     materials(next);
     selected = next;
   }
-  function move(index, direction) {
-    const other = index + direction;
+  function moveTo(index, position) {
     if (
       !Number.isInteger(index) ||
-      ![-1, 1].includes(direction) ||
+      !Number.isInteger(position) ||
       !selected[index] ||
-      !selected[other]
+      position < 0 ||
+      position >= selected.length ||
+      index === position
     )
-      return;
-    const next = [...selected];
-    [next[index], next[other]] = [next[other], next[index]];
+      return false;
+    const next = [...selected],
+      [entry] = next.splice(index, 1);
+    next.splice(position, 0, entry);
+    materials(next);
+    selected = next;
+    return true;
+  }
+  function move(index, direction) {
+    return [-1, 1].includes(direction) && moveTo(index, index + direction);
+  }
+  function toggle(entry, confirmed = false) {
+    if (count(entry.card, entry.variant)) {
+      selected = selected.filter(
+        (i) => i.card !== entry.card || i.variant !== entry.variant,
+      );
+      return true;
+    }
+    const item = getState().inventory.find((i) => i.card === entry.card);
+    if (entry.variant === "card" && item?.level > 1 && !confirmed) {
+      materials([...selected, entry]);
+      return false;
+    }
+    add(entry);
+    return true;
+  }
+  function setExtras(id, quantity) {
+    if (!Number.isInteger(quantity) || quantity < 0)
+      throw Error("Choose a whole number of extra copies.");
+    const current = count(id, "extra");
+    let next = [...selected];
+    if (quantity < current) {
+      let remove = current - quantity;
+      for (let i = next.length - 1; i >= 0 && remove; i--)
+        if (next[i].card === id && next[i].variant === "extra") {
+          next.splice(i, 1);
+          remove--;
+        }
+    } else
+      for (let i = current; i < quantity; i++)
+        next.push(keyed({ card: id, variant: "extra" }));
     materials(next);
     selected = next;
   }
@@ -131,68 +178,59 @@ export function createAlchemyUI(h) {
     return (
       '<section class="alchemy-queue"><div class="section-head"><h3>Selected Cards · ' +
       selected.length +
-      '/100</h3></div><ol class="alchemy-queue-list">' +
+      '/100</h3><span class="subtext">Drag to Reorder · ✦ Lucky Every Sixth</span></div><ol class="alchemy-queue-list alchemy-sort-grid" aria-label="Refinement Order">' +
       queue
-        .map(
-          (m, index) =>
-            '<li class="' +
+        .map((m, index) => {
+          const key = selected[index].key;
+          return (
+            '<li class="alchemy-sort-card ' +
             (m.lucky ? "is-lucky" : "") +
-            '">' +
-            image(m) +
-            "<div><strong>" +
-            (index + 1) +
-            ". " +
-            e(m.name) +
-            "</strong><small>Refinement #" +
-            m.next +
-            " · " +
-            e(m.rarity) +
-            " · " +
-            levelLabel(m.level) +
-            (m.lucky ? " · ✦ LUCKY" : "") +
-            "</small></div>" +
+            '" ' +
             (editable
-              ? '<div class="alchemy-order-actions">' +
-                btn(
-                  "↑",
-                  "alchemy-move",
-                  'data-index="' +
-                    index +
-                    '" data-direction="-1" aria-label="Move ' +
-                    e(m.name) +
-                    ' earlier" ' +
-                    (!index ? "disabled" : ""),
-                  "secondary",
-                ) +
-                btn(
-                  "↓",
-                  "alchemy-move",
-                  'data-index="' +
-                    index +
-                    '" data-direction="1" aria-label="Move ' +
-                    e(m.name) +
-                    ' later" ' +
-                    (index === queue.length - 1 ? "disabled" : ""),
-                  "secondary",
-                ) +
-                btn(
+              ? 'data-alchemy-sort-card="' + key + '" draggable="true"'
+              : "") +
+            '><div class="alchemy-sort-tools">' +
+            (editable
+              ? '<button type="button" class="alchemy-drag-handle" draggable="true" data-alchemy-handle="' +
+                key +
+                '" aria-label="Move ' +
+                e(m.name) +
+                '">⠿</button>'
+              : "") +
+            "<strong>#" +
+            (index + 1) +
+            "</strong>" +
+            (m.lucky
+              ? '<span class="alchemy-lucky-label">✦ Lucky</span>'
+              : "") +
+            (editable
+              ? btn(
                   "×",
                   "alchemy-remove",
                   'data-index="' +
                     index +
                     '" aria-label="Remove ' +
                     e(m.name) +
-                    ' from selection"',
-                  "secondary",
-                ) +
-                "</div>"
+                    '"',
+                  "text-button",
+                )
               : "") +
-            "</li>",
-        )
+            "</div>" +
+            cardHTML(m, null, { preview: true, level: m.level }) +
+            "<small>Refinement #" +
+            m.next +
+            " · " +
+            (m.variant === "extra" ? "Extra Copy" : levelLabel(m.level)) +
+            "<br>" +
+            n(m.baseXP) +
+            " Base XP</small></li>"
+          );
+        })
         .join("") +
       "</ol></section>"
     );
   }
+
   function request() {
     const m = material();
     if (!data) throw Error("Wait for alchemy progress to load.");
@@ -567,7 +605,13 @@ export function createAlchemyUI(h) {
               (!grade || i.c.rarity === grade) &&
               matches(cardSearchText(i.c)),
           )
-          .sort((a, b) => cardComparator("rarity")(a.c, b.c));
+          .sort((a, b) => cardComparator("rarity")(a.c, b.c))
+          .flatMap((i) => [
+            ...(i.copies > 1
+              ? [{ ...i, variant: "extra", displayLevel: 1 }]
+              : []),
+            { ...i, variant: "card", displayLevel: i.level },
+          ]);
     const total = targetMode ? targetData?.total || 0 : items.length,
       max = Math.max(1, Math.ceil(total / (targetMode ? 12 : 24)));
     page = Math.min(page, max);
@@ -583,42 +627,48 @@ export function createAlchemyUI(h) {
             cardHTML(c, null, { preview: true }) +
             "<span>Select Target</span></button>"
           );
-        const choice = (variant, level) => {
-          const queued = selected.filter((entry) => entry.card === c.id);
-          let disabled =
+        const queued = count(c.id, item.variant),
+          disabled =
             !!item.protected ||
-            selected.length >= 100 ||
-            (variant === "card"
-              ? queued.some((entry) => entry.variant === "card")
-              : queued.filter((entry) => entry.variant === "extra").length >=
-                item.copies - 1) ||
+            (!queued && selected.length >= 100) ||
             !ALCHEMY_TIERS.some((t) => t.rarity === c.rarity);
-          return (
-            '<button type="button" class="button secondary" data-action="alchemy-material-select" data-id="' +
-            e(c.id) +
-            '" data-variant="' +
-            variant +
-            '" ' +
-            (disabled ? "disabled" : "") +
-            ">" +
-            (variant === "extra"
-              ? "Add Extra · Lv. 1"
-              : "Add Card · " + levelLabel(level)) +
-            "</button>"
-          );
-        };
         return (
-          '<article class="alchemy-material-choice">' +
-          cardHTML(c, null, { preview: true }) +
-          "<small>" +
-          levelLabel(item.level) +
-          " · " +
-          (item.copies - 1) +
-          " Extra Copies" +
+          '<article class="alchemy-material-choice ' +
+          (queued ? "is-selected" : "") +
+          '"><button type="button" class="alchemy-material-toggle" data-action="alchemy-material-select" data-id="' +
+          e(c.id) +
+          '" data-variant="' +
+          item.variant +
+          '" aria-pressed="' +
+          !!queued +
+          '" ' +
+          (disabled ? "disabled" : "") +
+          ' aria-label="' +
+          (queued ? "Deselect " : "Select ") +
+          e(c.name) +
+          " " +
+          (item.variant === "extra" ? "Extra Copy" : levelLabel(item.level)) +
+          '">' +
+          cardHTML(c, null, { preview: true, level: item.displayLevel }) +
+          '<span class="alchemy-selection-mark">' +
+          (queued ? "✓ Selected" : "Select Card") +
+          "</span></button><small>" +
+          (item.variant === "extra"
+            ? "Extra Copies · Lv. 1"
+            : levelLabel(item.level) + " · Base Card") +
           (item.protected ? " · Protected" : "") +
           "</small>" +
-          (item.copies > 1 ? choice("extra", 1) : "") +
-          choice("card", item.level) +
+          (item.variant === "extra" && queued
+            ? '<label class="alchemy-copy-count">Copies<input type="number" min="0" max="' +
+              Math.min(item.copies - 1, 100 - selected.length + queued) +
+              '" value="' +
+              queued +
+              '" data-alchemy-extras="' +
+              e(c.id) +
+              '" aria-label="Extra Copies of ' +
+              e(c.name) +
+              '"></label>'
+            : "") +
           "</article>"
         );
       })
@@ -711,6 +761,25 @@ export function createAlchemyUI(h) {
     renderPicker,
     add,
     move,
+    toggle,
+    setExtras,
+    orderKeys: () => selected.map((i) => i.key),
+    moveKey: (key, to) =>
+      moveTo(
+        selected.findIndex((i) => i.key === key),
+        to,
+      ),
+    dropKey: (key, target, after) => {
+      const ids = selected.filter((i) => i.key !== key).map((i) => i.key),
+        index = ids.indexOf(target);
+      return (
+        index >= 0 &&
+        moveTo(
+          selected.findIndex((i) => i.key === key),
+          index + (after ? 1 : 0),
+        )
+      );
+    },
     autoSelect: (count, maxRarity) => {
       selected = autoRefinementPlan(
         getState().inventory,
@@ -718,7 +787,7 @@ export function createAlchemyUI(h) {
         count,
         maxRarity,
         data?.refinements || 0,
-      );
+      ).map(keyed);
     },
     autoForm: () =>
       '<section class="fusion-review-form"><h2 id="fusion-review-title">Auto Refine</h2><p>Uses unprotected cards only. Lowest rarities go first on normal attempts; the highest available rarity is saved for each lucky attempt. Review the ordered selection before confirming.</p><form id="alchemy-auto-form" class="stack">' +

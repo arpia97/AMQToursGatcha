@@ -34,7 +34,7 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 - The overview banner samples three distinct SSS/Ubers/AG cards on each page reload, unless an active pick’em occupies the banner. S-and-higher cards share animated rarity glows across cards, avatars, previews and pack effects; reduced-motion preferences disable animation. SS has a brighter silver border.
 - Live second-by-second countdowns show daily claim availability and weekly auction/shop resets. Dailies stay at KST midnight. The current weekly cycle stays intact; rolling auctions and flash openings take over at its saved boundary.
 - Shop purchases reveal the acquired card. Auction wins remain in server state until their notification is displayed, so offline winners see a reveal on their next sign-in; the winner can claim immediately or later. Claim delivery preserves enhancement and remains idempotent.
-- Daily, normal and premium pack results have Protect and Showcase toggles on every pulled card. Saved states update in place without closing the results or replaying the reveal; duplicate pulls share the same card's protection and showcase state. Showcases hold at most 20 cards. Existing occupied slots are grandfathered free once; each additional slot costs 100 credits, persists when cards are removed, and does not increase earned credits.
+- Daily, normal and premium pack results have Protect and Showcase toggles on every pulled card. Saved states update in place without closing the results or replaying the reveal; duplicate pulls share the same card's protection and showcase state. Players start with 30 free showcase slots and can buy extras for 100 credits each, up to 100 total. Previously purchased slots carry forward above the free base, using recorded purchases rather than the legacy occupied-slot total. Capacity persists when cards are removed and purchases do not increase earned credits.
 - New marketplace sales, auction seller payments, outbid refunds and buyout wins have a private, persistent notification inbox. Popups appear only for unseen events, including after login or refresh; historical sales are not backfilled. Existing auction-win reveals remain available. Overview shows separate character and seiyuu auction rows.
 - Cumulative earned-credit, current balance, net gambling results in both descending and ascending order. Spending, refunds, trading proceeds, and gambling payouts do not inflate Cumulative earnings.
 - Searchable public profiles with current username, all previous usernames, AMQ aliases, available credits, tour participation/counting/reporting counts, and pick’em winner accuracy. Players lists every Tours identity, 50 per page, with page input and selection; Rankings stays last in the navigation.
@@ -101,7 +101,6 @@ pnpm build
 `pnpm check` discovers JavaScript modules in `src`, `public`, `tools`, and `tests` automatically. Generated `public/vendor` files are checked separately by rebuilding them in CI. The test suite uses real SQLite transactions for the shared economy, weighted draws, aliases, profiles, and reset operations. `pnpm build` performs a Cloudflare deployment dry run. With the local dev server running, `node tools/smoke.mjs` checks the actual API, auth, and concurrent mutations using synthetic players. It creates local test data only. Do not point it at production.
 
 Test maintenance: keep coverage for live economic behavior, permissions, ownership, imports, and migrations. Prefer one cohesive interaction test over repeated markup/wording checks. Retired features retain only compatibility, restoration, and rejection coverage where existing data or callable endpoints still need it; do not retain a complete obsolete gameplay/UI suite. Avoid fixed catalogue/portrait counts that force unrelated test edits whenever content is added.
-
 
 ## Initial data and remaining setup
 
@@ -175,9 +174,9 @@ Quiz controls autofocus the answer field once per song, center Next Song (Enter)
 
 The quiz header shows completed published quizzes in the active category as Played / Total and a percentage; a completed zero-score run counts, unfinished attempts and host previews do not. Quiz tiles can be sorted by your personal-best performance, highest or lowest first, or by their most recent update. Sorting runs locally without additional API calls.
 
-Card Alchemy supports an ordered queue of up to 100 physical cards. The material picker stays open while adding copies; arrows change the order and × removes a selection. Each sixth refinement is highlighted, including future lucky slots. The confirmation lists the exact order; one atomic, idempotent request rolls each card separately and consumes the whole reviewed queue. Enhanced cards retain their invested-copy XP.
+Card Alchemy supports an ordered queue of up to 100 physical cards. Click a material card to select it and click again to deselect it. Base cards and spare copies have separate previews; selected spare copies expose a quantity control. Enhanced base cards require confirmation before queuing. Full card previews show order numbers and lucky markers; drag or use arrow/Home/End keys on a handle to reorder. × also removes a selection. Each sixth refinement is highlighted, including future lucky slots. The confirmation lists the exact order; one atomic, idempotent request rolls each card separately and consumes the whole reviewed queue. Enhanced cards retain their invested-copy XP.
 
-Collectors can save up to 500 cards with the Wishlist button, even before owning them. Every profile has Overview, Wishlist and Listed views. Wishlist and current listings are public and paginated; listings show their venue and enhancement level. Completed, cancelled and expired listings disappear from the active view. Wishlist changes do not affect credits or ownership. Owners can use Arrange Wishlist to set positions or sort by rarity/name; stale saves are rejected. Catalogue cards have one Collectors button opening paginated Owned By / Wanted By tabs with profile links. Owners include cards held in active listings/offers and unclaimed auction wins; duplicates count once. No balances, account-access data or private activity are exposed.
+Collectors can save up to 500 cards with the Wishlist button, even before owning them. Every profile has Overview, Wishlist and Listed views. Wishlist and current listings are public and paginated; listings show their venue and enhancement level. Completed, cancelled and expired listings disappear from the active view. Wishlist changes do not affect credits or ownership. Owners can toggle Arrange Wishlist on the profile, drag cards into order, move across pages, use keyboard handles or position fields, then save or cancel. Stale saves are rejected. Card browsing offers Characters, Seiyuus and Both; packs retain separate pools. Collectors buttons appear above Wishlist and replace the owned-card Alchemy shortcut, including public wishlist cards. Buttons show (wishlisted/owned) counts using batched requests; the popup shows rarity and horizontal paginated Owned By / Wanted By tabs with profile links. Owners include cards held in active listings/offers and unclaimed auction wins; duplicates count once. No balances, account-access data or private activity are exposed.
 
 Enhancement is capped at Level 6, displayed as MAX. Upgrades consume 1, 2, 3, 4 and 5 additional copies respectively (16 invested copies total at MAX). Selling and Alchemy XP use investments of 1, 2, 4, 7, 11 and 16 copies. A one-time revision-2 migration converts old levels by their original invested-copy totals, returns any remainder as spare copies, and records an audit receipt. Active auction, marketplace and trade escrow keeps its surplus copies with the held card until transfer or withdrawal. Merging enhanced cards preserves all invested copies. Revision 3 preserves existing levels and refunds the reduced upgrade cost as spare copies, without consuming existing spares. Revision-2 receipts stay immutable; revision-3 before/after records are separate. Older enhancement and Alchemy clients must refresh before consuming a card.
 
@@ -209,11 +208,9 @@ Card Size (Small/Medium/Large) is a browser preference on card-grid pages. Dense
 
 Tour-winner pick’ems use the vote-distribution rows as native radio choices. A checkmark appears on the right of the selected team; the latest selection saves automatically, with a saved/error status and the existing server deadline guard. Settled winners receive a visible label and green glow, independent of which team led the votes. Alchemy target odds remain exactly 50% when more than one card is available; the other half excludes the target, and singleton pools are guaranteed.
 
-
 ### Host Credit Audit
 
 Every authorized host can open Credit Audit to filter spending, positive wallet inflows, and host activity rewards by period, player, or current-host status. Spending and received totals describe wallet movements, including refunds and payouts, rather than cumulative earned rankings. New manual and batch awards record the issuing host in the same transaction; older awards without issuer metadata display Not recorded. The Activity and Credit Audit CSV buttons export every available wallet movement in the last 12 hours, with UTC/KST timestamps and issuer details, independently of the 100-row screen. Existing-account recovery remains available; the unused issue-access-code option is removed. Closed pick’ems rely on the graph’s selected and winning-team indicators without duplicate summaries.
-
 
 ### Profile Cropping, Listing Sorts and Import Progress
 
@@ -223,7 +220,6 @@ Player auctions and marketplace pages sort before pagination by age, rarity, nam
 
 Catalogue Import shows the saved anime-cast scan percentage (scanned titles / latest known upstream title total). This measures discovery coverage rather than an unknowable final card count. Unknown totals stay unestimated; completed initial discovery shows 100%. The display does not issue upstream requests or change the existing importer cadence.
 
-
 ### Listing Search, Quiz Speed and Quantity Controls
 
 Player auctions and marketplace searches cover card names, anime titles and seller display names. Commas are optional and name parts can be entered in either order. Search combines with sorting and the personal wishlist filter before pagination, and keeps the current caret position across debounced results. Only listed card IDs are resolved; an unfiltered page still uses bounded SQL. Player-auction cards show a compact live countdown in their front state and action state.
@@ -231,7 +227,6 @@ Player auctions and marketplace searches cover card names, anime titles and sell
 New quiz runs persist a server start timestamp. Completion time stops when the twentieth answer is locked, so reading the final reveal before clicking Finish does not add time. Earlier loading, pauses and reloads count. Time appears beside each leaderboard score and on the finished run. Faster equal-score replays replace the saved duration; slower or lower-score attempts leave it alone, with no repeat reward payments. Existing untimed scores and in-progress legacy runs are preserved without invented timing; restarting records a new timed run. Exact score-and-duration ties use the first time that record was set.
 
 The connected minus/value/plus quantity input supports direct typing, keyboard input and bounded stepping. It is used for pack counts, Auto Refine counts, auction duration and horse-ticket stakes (100-credit increments), without changing their limits or costs. Design attribution is in THIRD-PARTY-NOTICES.md.
-
 
 ### MAX Titles, Anime Checklists and Quiz Clocks
 
@@ -243,7 +238,6 @@ Active quizzes show an elapsed clock beside volume controls, in addition to the 
 
 Bulk-pack Next/Previous actions now pass the application's event filter. Turning a reveal page scrolls to the top of that page and never purchases again or grants additional cards.
 
-
 ### Title Award Instances and Approved Badge Colours
 
 Title badges display the name alone. Character/seiyuu badges follow the card rarity palette; quiz badges use luminous aqua with a violet-pink edge. Host remains rainbow, mandatory and above other titles. My Titles retains source descriptions and numbers repeated card awards so each can be selected independently. Different cards or quizzes sharing the same title text remain separate rewards.
@@ -251,6 +245,5 @@ Title badges display the name alone. Character/seiyuu badges follow the card rar
 Each successful MAX enhancement creates a card_title_awards row with an independent award ID; mutation receipts prevent retry duplicates. The card-title-awards-v2 migration preserves original card_titles rows and hidden states, and recovers additional MAX events only when retained enhancement receipts at/after the original award verify them. It excludes the first already-covered receipt and does not rebuild deleted/reset awards. The original table remains migration evidence; neither this migration nor restarts repeat max-card-titles-v1. Both title tables follow canonical identity changes and gameplay resets.
 
 The equipment API accepts quizzes plus individual awards. Legacy cards selections apply to all awards of those card IDs; omitting both leaves current card-award visibility intact. Quiz score resets still affect only quiz titles. These cosmetic changes never consume cards or change credit balances.
-
 
 Desktop sidebars scroll vertically when the viewport cannot fit their logo, navigation and footer. Browser scrollbars are hidden without disabling wheel, touchpad, touch or focus navigation; sidebar children retain their natural height. The mobile bottom navigation keeps its existing horizontal overflow.

@@ -1,3 +1,4 @@
+import { MAX_SPOTLIGHTS, FREE_SPOTLIGHTS } from "./site-defaults.js";
 import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
 
@@ -23,7 +24,7 @@ export function createFeatures(h, ui) {
   function profileExtras(p, own) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots || 0) + " Slots</span>" + ((p.showcase_slots || 0) < 20 ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="#collection">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card) })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Unlock showcase slots, then choose favourites from your collection." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="#collection">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card) })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]
@@ -66,7 +67,8 @@ export function createFeatures(h, ui) {
   function userAuctions() {
     const data = ui.marketData || { items: [] };
     const own = (getState().myListings || []).filter(
-      (x) => x.venue === "auction" && x.kind === ui.tab(),
+      (x) =>
+        x.venue === "auction" && (ui.tab() === "both" || x.kind === ui.tab()),
     );
     return `${own.length ? `<section class="own-listings"><div class="section-head"><h2>Your Auctions</h2></div><p class="form-hint">Withdraw before the first bid; once bidding starts, the auction runs to completion.</p><div class="card-grid market-card-grid">${own.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div></section>` : ""}<div class="section-head"><h2>User Auctions</h2><a href="#collection" class="text-button">Auction one of your cards ↗</a></div><p class="subtext">Credits are held when bidding. Sellers receive payment when the timer ends; winners claim their card here. Unsold cards return automatically.</p>${marketSortControl(ui.marketSort, ui.marketWishlistOnly, !!getState().me, true, ui.marketQuery, !data.items.length)}${data.items.length ? `<div class="card-grid market-card-grid space-top">${data.items.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty(ui.marketQuery ? "No Matching Auctions." : ui.marketWishlistOnly ? "No Wishlisted Cards at Auction." : "Your Collection Could Be Someone’s Favourite.", ui.marketQuery || ui.marketWishlistOnly ? "Try another search, card type, or wishlist filter." : "List a card from My collection for up to seven days, with an optional buyout.")}${pager("market", ui.marketPage, data.hasMore)}`;
   }

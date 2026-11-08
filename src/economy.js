@@ -2,7 +2,11 @@ import { searchMatcher, cardSearchText } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
-import { DAILY_CREDITS, MAX_SPOTLIGHTS } from "../public/site-defaults.js";
+import {
+  DAILY_CREDITS,
+  MAX_SPOTLIGHTS,
+  FREE_SPOTLIGHTS,
+} from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium } from "../public/pack-odds.js";
@@ -36,6 +40,16 @@ export class Economy {
           "INSERT OR IGNORE INTO showcase_slots(player,slots) SELECT player,count(*) FROM profile_showcase GROUP BY player",
         );
         e.run("INSERT INTO settings VALUES('showcase_slots_v1',1)");
+      });
+    if (!e.one("SELECT value FROM settings WHERE key='showcase_capacity_v2'"))
+      e.tx(() => {
+        // The legacy total mixes free occupied slots and purchased slots. Only
+        // recorded purchases carry forward as extras above the new free base.
+        e.run(
+          "INSERT OR IGNORE INTO showcase_capacity(player,slots) SELECT p.id,?+COALESCE(paid.slots,0) FROM players p LEFT JOIN (SELECT player,CAST(-SUM(delta)/100 AS INTEGER) AS slots FROM ledger WHERE delta<0 AND reason GLOB 'Showcase slots: [0-9]*' GROUP BY player) paid ON paid.player=p.id",
+          FREE_SPOTLIGHTS,
+        );
+        e.run("INSERT INTO settings VALUES('showcase_capacity_v2',1)");
       });
     for (const [column, definition] of [
       ["seller", "TEXT"],
@@ -562,10 +576,10 @@ export class Economy {
       if (b.expectedSlots !== slots)
         fail("Your showcase slots changed. Review the purchase again.", 409);
       if (slots + quantity > MAX_SPOTLIGHTS)
-        fail("Your showcase can hold up to 20 slots.");
+        fail("Your showcase can hold up to " + MAX_SPOTLIGHTS + " slots.");
       e.wallet(player, -quantity * 100, "Showcase slots: " + quantity);
       e.run(
-        "INSERT INTO showcase_slots VALUES(?,?) ON CONFLICT(player) DO UPDATE SET slots=excluded.slots",
+        "INSERT INTO showcase_capacity VALUES(?,?) ON CONFLICT(player) DO UPDATE SET slots=excluded.slots",
         player,
         slots + quantity,
       );
@@ -605,7 +619,7 @@ export class Economy {
         b.cards.length > MAX_SPOTLIGHTS ||
         new Set(b.cards).size !== b.cards.length
       )
-        fail("Choose up to 20 different owned cards.");
+        fail("Choose up to " + MAX_SPOTLIGHTS + " different owned cards.");
       for (const id of b.cards)
         if (
           !e.one(
@@ -780,7 +794,7 @@ export class Economy {
         .slice(0, 100);
     if (
       !["shop", "auction"].includes(venue) ||
-      !["character", "seiyuu"].includes(kind) ||
+      !["character", "seiyuu", "both"].includes(kind) ||
       !MARKET_SORTS.some(([v]) => v === sort) ||
       (venue === "shop" && sort === "ending")
     )
@@ -790,7 +804,11 @@ export class Economy {
     const e = this.e,
       auction = venue === "auction",
       alias = auction ? "a" : "l";
-    const args = [player || "", ...(auction ? [e.now()] : []), kind];
+    const args = [
+      player || "",
+      ...(auction ? [e.now()] : []),
+      ...(kind === "both" ? [] : [kind]),
+    ];
     const select = auction
       ? "SELECT a.*,COALESCE(p.display_name,p.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name"
       : "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name";
@@ -806,9 +824,7 @@ export class Economy {
       (auction ? " LEFT JOIN players w ON w.id=a.winner" : "") +
       " WHERE " +
       (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
-      " AND " +
-      alias +
-      ".kind=?" +
+      (kind === "both" ? "" : " AND " + alias + ".kind=?") +
       (wishlistOnly ? " AND is_wishlisted=1" : "");
     const price = auction
       ? "CASE WHEN a.bid>0 THEN a.bid ELSE a.reserve END"
@@ -957,6 +973,7 @@ export class Economy {
     e.run("DELETE FROM player_notices WHERE player=?", player);
     e.run("DELETE FROM profile_showcase WHERE player=?", player);
     e.run("DELETE FROM showcase_slots WHERE player=?", player);
+    e.run("DELETE FROM showcase_capacity WHERE player=?", player);
     e.run("DELETE FROM profile_anime WHERE player=?", player);
   }
 }
@@ -970,5 +987,6 @@ CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL
 CREATE TABLE IF NOT EXISTS gambling_rounds(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,game TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL,net INTEGER NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS gambling_player ON gambling_rounds(player,id);
 CREATE TABLE IF NOT EXISTS showcase_slots(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 0 AND 20));
+CREATE TABLE IF NOT EXISTS showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 100));
 CREATE TABLE IF NOT EXISTS profile_showcase(player TEXT NOT NULL,card TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(player,card));
 `;

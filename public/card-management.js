@@ -17,7 +17,7 @@ export function batchSaleQuote(inventory, cardBy, filters) {
     upgradable = false,
   } = filters;
   if (
-    !["character", "seiyuu"].includes(kind) ||
+    !["character", "seiyuu", "both"].includes(kind) ||
     !["extras", "all"].includes(mode)
   )
     throw invalid("Choose a card type and sale mode.");
@@ -28,7 +28,7 @@ export function batchSaleQuote(inventory, cardBy, filters) {
     .filter(
       ({ c }) =>
         c &&
-        c.kind === kind &&
+        (kind === "both" || c.kind === kind) &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&
         matches(cardSearchText(c)),
