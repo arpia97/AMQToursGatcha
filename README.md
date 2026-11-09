@@ -2,6 +2,8 @@
 
 A collection game for the AMQ Tours community: earn credits, collect characters and seiyuus, bid on community auctions, and predict tour results.
 
+For coding collaborators: start with [AGENTS.md](AGENTS.md), the [shared project context](docs/collaboration/PROJECT.md), and [current handoff](docs/collaboration/STATUS.md). [Gemini CLI setup](docs/collaboration/GEMINI-QUICKSTART.md) is included; `GEMINI.md` loads the shared agent entry point.
+
 UI copy uses book-style title case for page and section headings, navigation, game names, table headings and dialog titles (for example, “Gem Faceting” and “Rules & Scoring”). Short articles, conjunctions and prepositions stay lowercase within titles. Preserve the spelling of player names, anime titles and card names supplied by their sources; descriptions and action sentences use sentence case.
 
 **[Open the shared Cloudflare game](https://play.amqtours-gatcha.workers.dev/)** · [GitHub Pages demo](https://arpia97.github.io/AMQToursGatcha/) · [Deploy the shared game](DEPLOY.md) · [Host tool / API](HOST-TOOLS.md)

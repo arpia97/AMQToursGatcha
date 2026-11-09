@@ -1,0 +1,15 @@
+# Reduce accidental context ingestion. Shell commands can still access these:
+# this file is not a security boundary or a substitute for careful tool use.
+.git/
+node_modules/
+.wrangler/
+dist/
+coverage/
+__pycache__/
+.dev.vars
+.production.vars
+.env*
+*.sqlite*
+*.log
+*.pem
+*.key
