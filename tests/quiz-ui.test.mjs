@@ -455,12 +455,40 @@ test("answer reveals distinguish correct and incorrect glow states and escape th
   assert.ok(!html.includes("<My & Guess>"));
 });
 
-test("quiz performance sorting uses personal best, keeps ties stable and preserves source order", async () => {
+test("quiz sorting covers performance, names, unplayed runs and pool size without mutating source order", async () => {
   const quizzes = [
-    { id: "mid", name: "Middle Quiz", best: 10, songs: 20, published: true },
-    { id: "low", name: "Low Quiz", best: 0, songs: 20, published: true },
-    { id: "high", name: "High Quiz", best: 20, songs: 20, published: true },
-    { id: "tie", name: "Tied Quiz", best: 10, songs: 20, published: false },
+    {
+      id: "mid",
+      name: "Middle Quiz",
+      best: 10,
+      songs: 20,
+      played: true,
+      published: true,
+    },
+    {
+      id: "low",
+      name: "Low Quiz",
+      best: 0,
+      songs: 50,
+      played: true,
+      published: true,
+    },
+    {
+      id: "high",
+      name: "High Quiz",
+      best: 20,
+      songs: 30,
+      played: true,
+      published: true,
+    },
+    {
+      id: "tie",
+      name: "Tied Quiz",
+      best: 10,
+      songs: 20,
+      played: false,
+      published: false,
+    },
   ];
   let requests = 0,
     renders = 0;
@@ -484,12 +512,21 @@ test("quiz performance sorting uses personal best, keeps ties stable and preserv
   assert.match(ui.render(), /value="best-desc" selected/);
   ui.setSort("best-asc");
   assert.deepEqual(order(), ["low", "mid", "tie", "high"]);
+  ui.setSort("name");
+  assert.deepEqual(order(), ["high", "low", "mid", "tie"]);
+  ui.setSort("unplayed");
+  assert.deepEqual(order(), ["tie", "mid", "low", "high"]);
+  ui.setSort("pool-desc");
+  assert.deepEqual(order(), ["low", "high", "mid", "tie"]);
+  ui.setSort("pool-asc");
+  assert.deepEqual(order(), ["mid", "tie", "high", "low"]);
+  ui.setSort("best-asc");
   ui.setSort("invalid");
   assert.deepEqual(order(), ["low", "mid", "tie", "high"]);
   ui.setSort("recent");
   assert.deepEqual(order(), ["mid", "low", "high", "tie"]);
   assert.equal(requests, 1);
-  assert.equal(renders, 3);
+  assert.equal(renders, 8);
   assert.deepEqual(
     quizzes.map((q) => q.id),
     ["mid", "low", "high", "tie"],

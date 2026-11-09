@@ -4,12 +4,12 @@ Updated November 9, 2026, Asia/Seoul. This file is a coordination record; Git an
 
 ## Current Task
 
-- Task: prepare Gemini CLI/editor collaboration context.
-- Owner: Codex; documentation-only setup complete. No feature edit is claimed.
-- Scope: agent entry points, curated context, setup instructions, shared workflow and README link.
-- Validation: local document links/import paths, source constants, secret-pattern review and Git whitespace check. No runtime code/configuration changed; gameplay tests and deployment are not needed for this documentation change.
-- No feature implementation is pending from the preceding tasks. Do not replay the historical request list.
-- No automatic direct Codex–Gemini conversation is configured. Collaborators communicate through Git, this file and explicit user task assignments.
+- Task: add quiz alphabetical/unplayed/song-pool sorting and public player collection browsing.
+- Owner / integration / deployment: Codex, main checkout.
+- Base: 2c79f43bfa236e5cc6a9c07009609f84efdb2ddb.
+- Scope: public/quiz-ui.js, public/profile-cards-ui.js, public/app.js, public/demo-features.js, src/wishlist.js, relevant existing tests and docs.
+- Implementation complete. Validation: 426 Node tests, 206 syntax checks, Wrangler dry run and diff check passed; desktop/390px browser sorts and 54-card three-page collection passed using disposable local fixtures.
+- Push/deployment/live checks remain. No production mutations performed or planned.
 
 ## Last Verified Application Release
 

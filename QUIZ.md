@@ -42,3 +42,7 @@ Audio autoplays, with an Enable Audio fallback if the browser requires a gesture
 My Profile → My Titles lets players choose which earned quiz titles appear on their public profile. Existing and newly earned titles are equipped by default. Visibility does not change quiz scores, rewards or ownership. Host is supplied by the effective administrator role, always equipped above earned titles and styled as AG; it cannot be hidden or forged through title preferences.
 
 GET `/api/my-titles` and POST `/api/equip-titles` require a player session. The POST body is `{quizzes:[QUIZ_ID,...]}` containing only earned titles. Visibility survives canonical-ID migration and clears with player gameplay resets. No existing player was reset for this change.
+
+## Browse Sorting
+
+The compact Sort By control includes Recently Updated, Alphabetical (A–Z), Unplayed First, Song Pool (largest or smallest first), and both Performance directions. Unplayed uses recorded completion status, so a completed zero-score quiz is still played. Sorting stays within the selected Singers/Composers category, preserves the server order for ties, and makes no additional API requests.

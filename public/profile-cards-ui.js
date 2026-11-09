@@ -18,6 +18,7 @@ export function profileCardTabs(view) {
     '<nav class="tabs profile-card-tabs" aria-label="Player Profile Views">' +
     [
       ["overview", "Overview"],
+      ["collection", "Collection"],
       ["wishlist", "Wishlist"],
       ["listings", "Listed"],
     ]
@@ -79,7 +80,11 @@ export function profileCardPanel(
     .join("");
   return (
     '<section class="profile-card-panel"><div class="section-head"><h2>' +
-    (data.view === "wishlist" ? "Wishlist" : "Active Listings") +
+    (data.view === "collection"
+      ? "Collection"
+      : data.view === "wishlist"
+        ? "Wishlist"
+        : "Active Listings") +
     "</h2>" +
     (own && data.view === "wishlist" && wishlist.length > 1
       ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'

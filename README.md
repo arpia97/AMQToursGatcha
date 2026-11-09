@@ -12,6 +12,9 @@ The GitHub Pages site is an explicitly labelled **browser-only demo** with ficti
 
 ## Included
 
+- Quiz sorting includes Alphabetical, Unplayed First and Song Pool size (largest/smallest), alongside the existing performance and recent-update sorts. Sorts apply within Singers or Composers without extra API requests.
+- Player profiles include a read-only Collection tab and View Full Collection shortcut, with 24 cards per page, enhancement levels, Collectors and personal Wishlist actions. Listed cards remain accessible in the Listed tab.
+
 - Catalogue → New Cards (24h) is a temporary mixed character/seiyuu view with newest-first paging. It uses first-import timestamps recorded from this update onward; older entries have no invented import times, and metadata/role/favorites refreshes never re-date cards. The indexed arrival journal survives gameplay resets.
 
 - Shop → Trades supports offers of 1–10 card copies for one listed card. Offers can mix characters and seiyuus, include spare copies and enhanced bases, and are reviewed as a complete bundle. Each copy is held while a listing or offer is open; the lister can accept or decline, and either side can withdraw their own listing/offer. Acceptance transfers both cards atomically and returns all unchosen offers. Protected cards are excluded. Enhanced cards preserve their level using the same duplicate merge rules as marketplace purchases. Up to 20 listings and 20 offers per player, and 20 active offers per listing. Browse, Your Trade Listings and Your Offers are paginated; offer details are visible only to their maker and the lister. Trade-held cards still count toward collection completion.

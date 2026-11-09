@@ -138,6 +138,27 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
   assert.equal((await response.json()).rows.length, 0);
 
   response = await mf.dispatchFetch(
+    "http://game/api/player-cards?id=1&view=collection",
+  );
+  assert.equal(response.status, 200);
+  const publicCollection = await response.json();
+  assert.ok(
+    publicCollection.rows.length > 0 && publicCollection.rows.length <= 24,
+  );
+  assert.equal(publicCollection.cards.length, publicCollection.rows.length);
+  assert.ok(
+    publicCollection.rows.every((row) =>
+      Object.keys(row).every((key) =>
+        ["card", "level", "copies", "protected", "wishlisted"].includes(key),
+      ),
+    ),
+  );
+  response = await mf.dispatchFetch(
+    "http://game/api/player-cards?id=missing&view=collection",
+  );
+  assert.equal(response.status, 404);
+
+  response = await mf.dispatchFetch(
     "http://game/api/alchemy-targets?rarity=D&wishlist=1",
   );
   assert.equal(response.status, 401);

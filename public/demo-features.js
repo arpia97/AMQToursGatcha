@@ -120,7 +120,9 @@ export function demoFeatures(d, path, b) {
     const rows =
       id === me.id && view === "wishlist"
         ? s.wishlist.map((card) => ({ card }))
-        : [];
+        : id === me.id && view === "collection"
+          ? s.inventory
+          : [];
     return {
       player: id,
       view,

@@ -318,6 +318,10 @@ export function createQuizUI({
         ? '<label class="quiz-sort-control">Sort By<select id="quiz-sort">' +
           [
             ["recent", "Recently Updated"],
+            ["name", "Alphabetical · A–Z"],
+            ["unplayed", "Unplayed First"],
+            ["pool-desc", "Song Pool · Largest First"],
+            ["pool-asc", "Song Pool · Smallest First"],
             ["best-desc", "Performance · Highest First"],
             ["best-asc", "Performance · Lowest First"],
           ]
@@ -346,13 +350,27 @@ export function createQuizUI({
         (visibleQuizzes.length
           ? '<div class="quiz-grid">' +
             [...visibleQuizzes]
-              .sort((a, b) =>
-                quizSort === "best-desc"
-                  ? b.best - a.best
-                  : quizSort === "best-asc"
-                    ? a.best - b.best
-                    : 0,
-              )
+              .sort((a, b) => {
+                switch (quizSort) {
+                  case "name":
+                    return a.name.localeCompare(b.name, "en", {
+                      sensitivity: "base",
+                      numeric: true,
+                    });
+                  case "unplayed":
+                    return Number(!!a.played) - Number(!!b.played);
+                  case "pool-desc":
+                    return b.songs - a.songs;
+                  case "pool-asc":
+                    return a.songs - b.songs;
+                  case "best-desc":
+                    return b.best - a.best;
+                  case "best-asc":
+                    return a.best - b.best;
+                  default:
+                    return 0;
+                }
+              })
               .map(
                 (q) =>
                   '<article class="collect-card quiz-tile tier-' +
@@ -897,7 +915,18 @@ export function createQuizUI({
       }
     },
     setSort(value) {
-      if (!["recent", "best-desc", "best-asc"].includes(value)) return;
+      if (
+        ![
+          "recent",
+          "name",
+          "unplayed",
+          "pool-desc",
+          "pool-asc",
+          "best-desc",
+          "best-asc",
+        ].includes(value)
+      )
+        return;
       quizSort = value;
       onRender();
     },

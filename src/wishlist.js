@@ -193,6 +193,12 @@ export class Wishlist {
         id,
         (page - 1) * 24,
       );
+    else if (view === "collection")
+      rows = e.all(
+        "SELECT card,level,copies,protected FROM inventory WHERE player=? AND copies>0 ORDER BY acquired_at DESC,card LIMIT 25 OFFSET ?",
+        id,
+        (page - 1) * 24,
+      );
     else if (view === "listings")
       rows = e.all(
         `SELECT * FROM (
@@ -206,7 +212,7 @@ export class Wishlist {
         id,
         (page - 1) * 24,
       );
-    else fail("Choose wishlist or listings.");
+    else fail("Choose collection, wishlist or listings.");
     const visible = rows.slice(0, 24);
     const wanted =
       view === "wishlist"

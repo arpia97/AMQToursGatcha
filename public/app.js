@@ -1268,7 +1268,7 @@ function profile() {
             })
             .join(
               "",
-            )}</div><p class="form-hint space-top">Showing up to 20 owned cards.</p>`
+            )}</div><div class="section-head space-top"><p class="form-hint">Showing up to 20 owned cards.</p><button type="button" class="button secondary" data-action="profile-cards-view" data-view="collection">View Full Collection →</button></div>`
         : empty(
             "A Fresh Deck, Ready for Favourites.",
             "This collector has not collected a card yet.",
