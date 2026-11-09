@@ -1,7 +1,7 @@
 export const CARD_SIZES = ["small", "medium", "large"];
 export function cardSizeControl(size = "medium") {
   return (
-    '<label class="card-size-control">Card Size<select class="card-size-select" aria-label="Card Size">' +
+    '<label class="card-size-control"><span>Card Size</span><select class="card-size-select" aria-label="Card Size">' +
     CARD_SIZES.map(
       (value) =>
         '<option value="' +

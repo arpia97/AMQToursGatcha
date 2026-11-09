@@ -1483,21 +1483,6 @@ function render() {
         ? profileTabs("profile") + profile()
         : profile(),
   }[route]();
-  if (
-    ["collection", "catalog", "shop", "auctions", "profile", "player"].includes(
-      route,
-    )
-  ) {
-    const sizeLocation =
-      $("#main .collection-toolbar .catalog-pager") ||
-      $("#main .collection-toolbar") ||
-      $("#main .page-intro") ||
-      $("#main .profile-heading");
-    sizeLocation?.insertAdjacentHTML(
-      "beforeend",
-      cardSizeControl(currentCardSize()),
-    );
-  }
   $("#main").dataset.cardPage = route;
   cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI.mount();
@@ -2426,6 +2411,9 @@ for (const event of ["input", "change"])
     if (form) ui.rouletteDraft = Object.fromEntries(new FormData(form));
   });
 const titleSelect = $("#title-mode");
+titleSelect
+  .closest("label")
+  .insertAdjacentHTML("beforebegin", cardSizeControl(currentCardSize()));
 titleSelect.value = titleMode;
 titleSelect.addEventListener("change", () => {
   titleMode = titleSelect.value;

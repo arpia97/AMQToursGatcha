@@ -456,3 +456,42 @@ html[data-card-size="large"]
   top: auto;
   bottom: 9px;
 }
+
+/* Card size stays with the other compact header preferences. */
+.top-actions .card-size-control {
+  gap: 7px;
+  flex-shrink: 0;
+}
+.top-actions .card-size-select {
+  min-width: 84px;
+  padding: 8px 9px;
+  font-size: 10px;
+  background: #202129;
+}
+@media (max-width: 600px) {
+  .top-actions .card-size-control > span {
+    display: none;
+  }
+  .top-actions .card-size-select {
+    min-width: 0;
+    width: 74px;
+    padding: 7px 5px;
+  }
+  .topbar > div:first-child {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .topbar .top-actions {
+    flex-shrink: 0;
+  }
+  .topbar .wallet > span:last-child {
+    display: none;
+  }
+}
+
+.top-actions .title-mode {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
