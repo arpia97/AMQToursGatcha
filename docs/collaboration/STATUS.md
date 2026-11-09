@@ -4,25 +4,23 @@ Updated November 9, 2026, Asia/Seoul. This file is a coordination record; Git an
 
 ## Current Task
 
-- Task: diagnose and optimize intermittent Quiz Locking Answer latency.
-- Owner / integration / deployment: Codex, main checkout, base72a5f659ca7ea65c6f8298810bc34944d84e2277.
-- Scope: src/worker.js, src/quiz.js, public/quiz-ui.js, public/app.js, focused existing tests and docs.
-- Implemented compact quiz routing, 15→8 SQL calls in the local runtime comparison, stable retry keys, bounded quiz requests, authoritative saved-answer recovery, and nonblocking completion metadata.
-- Browser delayed-response recovery and normal next submission passed on a disposable local fixture. 427 Node tests,206 syntax checks,final dry-run bundle and diff checks passed. Push/deployment/live verification pending; no production quiz attempts or rewards for QA.
-- Preserve all existing player activity, account access, catalogue/import checkpoints and original economy identity.
+- Completed: intermittent Quiz Locking Answer latency investigation and optimization.
+- Owner / integration / deployment: Codex; no feature work remains claimed.
+- Runtime source commit: `23624ec9fbbf959ff1efd7856bf0b3878842db86`, pushed to main.
+- No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
 
 ## Last Verified Application Release
 
-- Original Worker version: `eb023ba0-2d67-4288-8c52-f64a0989e96e`.
+- Original Worker version: `0a17cc58-d630-4b11-a2aa-14cc80b739a3`.
 - Live: https://play.amqtours-gatcha.workers.dev/ .
-- Quiz Sort By adds Alphabetical A–Z, Unplayed First and Song Pool largest/smallest. Existing recent/performance options remain. Sorting stays inside Singers/Composers and does not fetch again. A completed zero-score quiz remains played.
-- Player profiles add a Collection subtab and View Full Collection shortcut. The existing public player-cards endpoint returns 24 inventory cards per page with bounded metadata and read-only card actions. Listed cards remain separate. Levels, protection and profile-owner wishlist indicators are retained.
-- Checks: 426 Node tests, 206 JavaScript syntax checks, dry-run bundle and diff checks passed. Both application verification and demo publication CI passed for the runtime source SHA.
-- Browser QA: disposable 54-card fixture over three pages, desktop/390px layout, alphabetical/unplayed/pool sorts; live alphabetical/pool sorting and another collector's Collection page 1 → 2 → 1 passed.
-- Live read-only verification: health 200; four changed assets match source bytes; anonymous collection pages 1/2 each return 24 cards without overlap and only approved public row fields.
-- The original active Durable Object served old validation until Cloudflare's default deferred-update window elapsed, then succeeded without redeployment/reset. See WORKFLOW.md.
-- Local evidence: `work/QUIZ-SORT-COLLECTION.md`, `work/quiz-collection-live-proof.json`; live screenshot `outputs/AMQTours-public-collection-live.png` in the surrounding workspace, not this repository.
-- Later documentation-only commits do not change this runtime source/version.
+- Quiz moves and saved-run recovery bypass starter scans, market maintenance and alarm scheduling. Responses reuse validated run data after persistence, preserving authoritative timing/scoring/rewards and durable receipts. No schema/binding changes.
+- Local Workers comparison: answer15→8SQL calls;market2→0,schedule1→0,starter1→0. This measures work per request, not a guaranteed network-latency improvement.
+- Client pauses audio on lock, uses12-second request deadlines and stable keys for unchanged retries, and checks the saved answer after ambiguous failures. It reveals only server-confirmed results. Completion metadata refresh no longer blocks the result screen.
+- Checks:427Node tests,206syntax checks,final dry-run and diff checks passed. Exact runtime-source application and demo CI passed. Only one new cohesive frontend regression;existing Workers integration test extended.
+- Browser: disposable local fixture delayed a committed response14seconds;the saved correct answer was recovered and the next normal answer succeeded. Lost/unsaved response retries and completion-read failures also covered. Local screenshot outputs/AMQTours-quiz-submission-recovery.png in the surrounding workspace.
+- Live:app.js/quiz-ui.js200and exact release bytes;health200;anonymous quiz-run401with new fast-path rejection. Existing data preserved through the default deferred update.
+- Natural traffic after adoption:71successful new-version Durable Object answer log events in a2-minute window;mean136ms,p95340ms,max508ms,meanCPU2.21ms. Short workload-dependent sample;not unique-answer counts or a controlled latency guarantee. No production quiz submitted by QA.
+- Local evidence:work/QUIZ-ANSWER-LATENCY.md,work/quiz-latency-proof.json. Later documentation commits do not change the runtime source/version above.
 
 ## Work Ownership
 
