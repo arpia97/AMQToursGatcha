@@ -644,6 +644,23 @@ test("leaderboards paginate completed attempts without omissions and respect hid
   );
   assert.equal(new Set(pages.flatMap((p) => p.rows.map((r) => r.id))).size, 45);
   assert.equal(pages[2].hasMore, false);
+  assert.deepEqual(f.e.quiz.leaderboard("test", "rank0", 1).me, {
+    id: "rank0",
+    name: "rank0",
+    best: 10,
+    bestAt: 1,
+    durationMs: null,
+    rank: 1,
+  });
+  assert.deepEqual(f.e.quiz.leaderboard("test", "rank24", 1).me, {
+    id: "rank24",
+    name: "rank24",
+    best: 10,
+    bestAt: 25,
+    durationMs: null,
+    rank: 25,
+  });
+  assert.equal(f.e.quiz.leaderboard("test", "p", 1).me, null);
   f.save({ published: false });
   assert.throws(() => f.e.quiz.leaderboard("test"), /not available/);
 });

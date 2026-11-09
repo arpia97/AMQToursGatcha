@@ -291,31 +291,65 @@ export function createQuizUI({
     "%</output></label>";
   const guide =
     '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
+  function leaderboardRowHTML(
+    p,
+    rank,
+    { isMe = false, outsideTop = false } = {},
+  ) {
+    const achieved =
+      new Date(p.bestAt).toLocaleString("en-GB", {
+        timeZone: "Asia/Seoul",
+      }) + " KST";
+    const classes = [isMe ? "is-me" : "", outsideTop ? "is-outside-top" : ""]
+      .filter(Boolean)
+      .join(" ");
+    return (
+      "<tr" +
+      (classes ? ' class="' + classes + '"' : "") +
+      (isMe ? ' aria-current="true"' : "") +
+      "><td>" +
+      rank +
+      '</td><td><a href="#player/' +
+      encodeURIComponent(p.id) +
+      '">' +
+      e(p.name) +
+      '</a></td><td title="Time Set: ' +
+      e(achieved) +
+      '"><strong>' +
+      p.best +
+      ' / 20</strong></td><td class="quiz-duration">' +
+      e(quizDuration(p.durationMs)) +
+      "</td></tr>"
+    );
+  }
   function leaderboardHTML() {
-    const rows = (leaderboardData?.rows || [])
-      .slice(0, 20)
-      .map((p, i) => {
-        const achieved =
-          new Date(p.bestAt).toLocaleString("en-GB", {
-            timeZone: "Asia/Seoul",
-          }) + " KST";
-        return (
-          "<tr><td>" +
-          (i + 1) +
-          '</td><td><a href="#player/' +
-          encodeURIComponent(p.id) +
-          '">' +
-          e(p.name) +
-          '</a></td><td title="Time Set: ' +
-          e(achieved) +
-          '"><strong>' +
-          p.best +
-          ' / 20</strong></td><td class="quiz-duration">' +
-          e(quizDuration(p.durationMs)) +
-          "</td></tr>"
-        );
-      })
-      .join("");
+    const allRows = leaderboardData?.rows || [],
+      topRows = allRows.slice(0, 20),
+      meId = getState()?.me?.id || leaderboardData?.me?.id || null;
+    let extraMe = null;
+    if (meId && !topRows.some((p) => p.id === meId)) {
+      if (leaderboardData?.me && leaderboardData.me.id === meId) {
+        extraMe = {
+          ...leaderboardData.me,
+          rank: leaderboardData.me.rank ?? 21,
+        };
+      } else {
+        const idx = allRows.findIndex((p) => p.id === meId);
+        if (idx >= 20) extraMe = { ...allRows[idx], rank: idx + 1 };
+      }
+    }
+    const rows =
+      topRows
+        .map((p, i) =>
+          leaderboardRowHTML(p, i + 1, { isMe: !!meId && p.id === meId }),
+        )
+        .join("") +
+      (extraMe
+        ? leaderboardRowHTML(extraMe, extraMe.rank, {
+            isMe: true,
+            outsideTop: true,
+          })
+        : "");
     return (
       '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
       (rows

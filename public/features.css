@@ -3594,6 +3594,21 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   white-space: nowrap;
   text-align: right;
 }
+.quiz-leaderboard tr.is-me td {
+  background: #9ad6b41a;
+  color: var(--mint, #9ad6b4);
+  font-weight: 600;
+}
+.quiz-leaderboard tr.is-me td:first-child {
+  box-shadow: inset 3px 0 0 var(--mint, #9ad6b4);
+}
+.quiz-leaderboard tr.is-me a,
+.quiz-leaderboard tr.is-me strong {
+  color: inherit;
+}
+.quiz-leaderboard tr.is-outside-top td {
+  border-top: 2px solid #9ad6b455;
+}
 .quiz-top-controls .button {
   padding: 10px 14px;
   font-size: 12px;

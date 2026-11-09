@@ -95,8 +95,41 @@ export class Quiz {
       id,
       (page - 1) * 20,
     );
+    const pageRows = rows.slice(0, 20);
+    let me = null;
+    if (player) {
+      const idx = pageRows.findIndex((r) => r.id === player);
+      if (idx >= 0) {
+        me = { ...pageRows[idx], rank: (page - 1) * 20 + idx + 1 };
+      } else {
+        const own = this.e.one(
+          "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? AND p.player=?",
+          id,
+          player,
+        );
+        if (own) {
+          const ownDuration = own.durationMs ?? 9007199254740991;
+          const rank =
+            1 +
+            this.e.one(
+              "SELECT count(*) AS n FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? AND (p.best>? OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)<?) OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)=? AND (p.best_at<? OR (p.best_at=? AND p.player<?))))",
+              id,
+              own.best,
+              own.best,
+              ownDuration,
+              own.best,
+              ownDuration,
+              own.bestAt,
+              own.bestAt,
+              own.id,
+            ).n;
+          me = { ...own, rank };
+        }
+      }
+    }
     return {
-      rows: rows.slice(0, 20),
+      rows: pageRows,
+      me,
       page,
       hasMore: rows.length > 20,
       total: this.e.one(

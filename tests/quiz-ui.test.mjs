@@ -16,6 +16,7 @@ function fixture(
     blocked = false,
     saved = null,
     leaderboardRows = [],
+    leaderboardMe = null,
     audioCache,
     transitions = false,
   } = {},
@@ -94,6 +95,7 @@ function fixture(
     if (path.startsWith("quiz-leaderboard"))
       return {
         rows: leaderboardRows,
+        me: leaderboardMe,
         page: 1,
         total: leaderboardRows.length,
         hasMore: leaderboardRows.length > 20,
@@ -841,4 +843,48 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   });
   assert.equal(prevented, 1);
   assert.doesNotMatch(f.ui.render(), /quiz-songs-dialog/);
+});
+
+test("quiz leaderboard highlights the viewer when in Top 20 and appends a highlighted 21st row with placement, score and time when outside Top 20", async (t) => {
+  const top20WithMe = fixture(t, {
+    leaderboardRows: [
+      { id: "p1", name: "Leader", best: 20, bestAt: 1000, durationMs: 35000 },
+      { id: "host", name: "Me", best: 18, bestAt: 2000, durationMs: 42500 },
+    ],
+  });
+  await top20WithMe.ui.click(top20WithMe.button("data-quiz-leaderboard", "q"));
+  const inTopHtml = top20WithMe.ui.render();
+  assert.match(
+    inTopHtml,
+    /<tr class="is-me" aria-current="true"><td>2<\/td><td><a href="#player\/host">Me<\/a><\/td><td title="Time Set: [^"]+"><strong>18 \/ 20<\/strong><\/td><td class="quiz-duration">0:42\.500<\/td><\/tr>/,
+  );
+  assert.doesNotMatch(inTopHtml, /is-outside-top/);
+
+  const topRows = Array.from({ length: 20 }, (_, i) => ({
+    id: "p" + (i + 1),
+    name: "Player " + (i + 1),
+    best: 20 - Math.floor(i / 5),
+    bestAt: (i + 1) * 1000,
+    durationMs: 30000 + i * 1000,
+  }));
+  const outsideTop20 = fixture(t, {
+    leaderboardRows: topRows,
+    leaderboardMe: {
+      id: "host",
+      name: "Me <Outside>",
+      best: 14,
+      bestAt: 50000,
+      durationMs: 61250,
+      rank: 24,
+    },
+  });
+  await outsideTop20.ui.click(
+    outsideTop20.button("data-quiz-leaderboard", "q"),
+  );
+  const outsideHtml = outsideTop20.ui.render();
+  assert.equal((outsideHtml.match(/<tr/g) || []).length, 22);
+  assert.match(
+    outsideHtml,
+    /<tr class="is-me is-outside-top" aria-current="true"><td>24<\/td><td><a href="#player\/host">Me &lt;Outside><\/a><\/td><td title="Time Set: [^"]+"><strong>14 \/ 20<\/strong><\/td><td class="quiz-duration">1:01\.250<\/td><\/tr>/,
+  );
 });
