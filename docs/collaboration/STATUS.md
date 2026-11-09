@@ -4,21 +4,23 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- In progress: Make pinned anime tiles more compact.
+- Completed (committed, pushed, and deployed to live Worker): Make pinned anime tiles more compact.
 - Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `833ef69` / `public/features.css`, `docs/collaboration/STATUS.md`
+- Base SHA / runtime SHA / changed files: `833ef69` → runtime `e44367d` / `public/features.css`, `docs/collaboration/STATUS.md`
 - Other collaborator's work to preserve: All title-ordering, collection-ordering, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
 - Completed behavior / decisions:
   - Adjusted `.pinned-anime .anime-progress-grid` to use a more compact column layout (`minmax(180px, 1fr)` with 12px gap instead of 240px with 16px gap).
   - Reduced padding from 22px to 14px 16px, reduced title font size from 19px to 14px and min-height to 38px, reduced margins around title, label, progress bar (height 6px), and compact unpin button.
 - Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/economy.test.mjs tests/profile-runtime.test.mjs` (32/32 passed), `git diff --check` (clean).
-- Commit / push / CI status: Working tree modified, preparing commit.
-- Runtime deployment version / live verification (or not deployed): Not deployed yet.
-- Data operations performed / idempotency evidence (or none): None.
-- Remaining work / blocker / exact next action: Commit and push, then deploy when requested.
+- Commit / push / CI status: Committed and pushed to `origin/main`.
+- Runtime deployment version / live verification (or not deployed): Deployed to Cloudflare Worker `amqtours-gatcha` version **8e8f5649-0596-4fd4-b878-f5402c1512a9**. Verified live read-only: `/api/health` (200), `/features.css` (200 with `minmax(180px, 1fr)`).
+- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
+- Remaining work / blocker / exact next action: None.
 - Integration owner / deployment owner: Gemini.
 
 ## Last Verified Application Release
+
+- Original Worker **8e8f5649-0596-4fd4-b878-f5402c1512a9**, deployed from runtime commit **e44367d** (`Make pinned anime cards more compact`), on top of `60f8541`. Compacts pinned anime tiles (180px grid, tighter padding, smaller fonts and margins). Live read-only checks: health 200, features.css 200. No data operations.
 
 - Original Worker **efcb71fc-56d5-46fe-8138-89c6b8d7ba6c**, deployed from runtime commit **60f8541** (`Add profile collection filter/sort/arrange and unify rounded tab toggles`), on top of `44893a9` and `1335f2e`. Adds `Characters | Seiyuus | Both` toggle, search, rarity/role filters, sorting, and owner-only drag-and-drop `Arrange Collection` (`collection-order` saving `inventory.position`) to `My Profile -> Collection`, and unifies rounded `.tab` pill styling across `<a class="tab">` and `<button class="tab">`. 434 Node tests, 207 syntax checks and diff check passed. Live read-only checks: health 200; `styles.css`, `profile-cards-ui.js` 200. No data operations.
 
