@@ -110,6 +110,28 @@ function fixture(
       };
     if (path.startsWith("quiz-audio?"))
       return { version: 1, audio: ["https://example.com/a.mp3"] };
+    if (path.startsWith("quiz-songs?"))
+      return {
+        id: "q",
+        name: "Draft Quiz",
+        updated: 1,
+        songs: [
+          {
+            id: 0,
+            title: "Seishun <Complex>",
+            artist: "Kessoku Band",
+            anime: "Bocchi the Rock!",
+            answers: ["Bocchi the Rock!"],
+          },
+          {
+            id: 1,
+            title: "Guitar, Loneliness and Blue Planet",
+            artist: "",
+            anime: "Bocchi the Rock!",
+            answers: ["Bocchi the Rock!"],
+          },
+        ],
+      };
     if (path.startsWith("quiz-run")) return { now, run };
     if (path === "quiz-start")
       run = {
@@ -227,6 +249,7 @@ function fixture(
       quizAction: value,
       quizAnswerOption: value,
       quizLeaderboard: value,
+      quizSongs: value,
       quizRankPage: value,
     },
   });
@@ -777,4 +800,45 @@ test("Stop Quiz pauses audio immediately, never submits an answer, stays stopped
   assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, answers);
   await f.ui.click(f.button("data-quiz-open", "q"));
   assert.match(f.ui.render(), /Start Preview/);
+});
+
+test("Song List button next to Play Quiz opens a cached song-list popup and closes via button or Escape", async (t) => {
+  const f = fixture(t);
+  await f.ui.load();
+  const grid = f.ui.render();
+  assert.match(
+    grid,
+    /<div class="quiz-tile-actions"><button class="button mint" data-quiz-open="q">Preview Quiz →<\/button><button type="button" class="button secondary" data-quiz-songs="q">Song List<\/button><\/div>/,
+  );
+  await f.ui.click(f.button("data-quiz-songs", "q"));
+  const popup = f.ui.render();
+  assert.match(popup, /Draft Quiz · Song List/);
+  assert.match(popup, /Seishun &lt;Complex>/);
+  assert.doesNotMatch(popup, /Seishun <Complex>/);
+  assert.match(popup, /Kessoku Band/);
+  assert.match(popup, /Bocchi the Rock!/);
+  assert.equal(
+    f.calls.filter((c) => c.path === "quiz-songs?quiz=q").length,
+    1,
+  );
+  await f.ui.click(f.button("data-quiz-songs-close"));
+  assert.doesNotMatch(f.ui.render(), /quiz-songs-dialog/);
+  await f.ui.click(f.button("data-quiz-leaderboard", "q"));
+  assert.match(f.ui.render(), /data-quiz-songs="q">Song List<\/button>/);
+  await f.ui.click(f.button("data-quiz-songs", "q"));
+  assert.match(f.ui.render(), /quiz-songs-dialog/);
+  assert.equal(
+    f.calls.filter((c) => c.path === "quiz-songs?quiz=q").length,
+    1,
+    "reuses cached song list for unchanged quiz version",
+  );
+  let prevented = 0;
+  f.ui.key({
+    key: "Escape",
+    preventDefault() {
+      prevented++;
+    },
+  });
+  assert.equal(prevented, 1);
+  assert.doesNotMatch(f.ui.render(), /quiz-songs-dialog/);
 });

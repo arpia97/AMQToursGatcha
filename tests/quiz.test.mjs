@@ -952,3 +952,87 @@ test("Stop Quiz removes only the current unfinished attempt, preserves earned pr
   );
   assert.equal(f.e.quiz.view("p", "test").run.index, 19);
 });
+
+test("quiz song list returns public song metadata in pool order without audio URLs and respects draft visibility", (t) => {
+  const f = fixture(t);
+  f.save({
+    songs: f.songs.map((s, i) => ({
+      ...s,
+      artist: i === 0 ? "Kessoku Band" : "",
+    })),
+  });
+  const list = f.e.quiz.songs("test");
+  assert.equal(list.id, "test");
+  assert.equal(list.name, "Quiz");
+  assert.equal(list.songs.length, 25);
+  assert.deepEqual(list.songs[0], {
+    id: 0,
+    title: "Song 0",
+    artist: "Kessoku Band",
+    anime: "Anime 0",
+    answers: ["Anime 0", "Alternative 0"],
+  });
+  assert.equal("audio" in list.songs[0], false);
+  f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.save({ published: false });
+  assert.throws(() => f.e.quiz.songs("test"), /not available/);
+  assert.throws(() => f.e.quiz.songs("test", "p"), /not available/);
+  assert.equal(f.e.quiz.songs("test", "368").songs.length, 25);
+});
+
+test("displacing the #1 quiz leader notifies the previous #1 player on score or speed tiebreak, while self-improvements, non-leading runs and previews stay silent", (t) => {
+  const f = fixture(t);
+  timedPlay(f, 18, "p", 1000);
+  assert.deepEqual(f.e.gameState("p").notices, []);
+  timedPlay(f, 19, "p", 1000);
+  assert.deepEqual(f.e.gameState("p").notices, []);
+  timedPlay(f, 18, "q", 500);
+  timedPlay(f, 19, "q", 1500);
+  timedPlay(f, 19, "q", 1000);
+  assert.deepEqual(f.e.gameState("p").notices, []);
+  assert.deepEqual(f.e.gameState("q").notices, []);
+
+  timedPlay(f, 20, "q", 1000);
+  const pNotices = f.e.gameState("p").notices;
+  assert.equal(pNotices.length, 1);
+  assert.equal(pNotices[0].kind, "quiz-leader-beaten");
+  assert.equal(pNotices[0].card, "");
+  assert.equal(pNotices[0].credits, 0);
+  assert.deepEqual(pNotices[0].metadata, {
+    quiz: "test",
+    quizName: "Quiz",
+    cover: "",
+    byId: "q",
+    byName: "Other",
+    score: 20,
+    durationMs: 22000,
+    previousScore: 19,
+    previousDurationMs: 22000,
+  });
+  assert.deepEqual(f.e.gameState("q").notices, []);
+
+  timedPlay(f, 20, "p", 500);
+  const qNotices = f.e.gameState("q").notices;
+  assert.equal(qNotices.length, 1);
+  assert.equal(qNotices[0].kind, "quiz-leader-beaten");
+  assert.equal(qNotices[0].metadata.byId, "p");
+  assert.equal(qNotices[0].metadata.byName, "Player");
+  assert.equal(qNotices[0].metadata.score, 20);
+  assert.equal(qNotices[0].metadata.durationMs, 12000);
+  assert.equal(qNotices[0].metadata.previousScore, 20);
+  assert.equal(qNotices[0].metadata.previousDurationMs, 22000);
+
+  f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.save({ published: false });
+  timedPlay(f, 20, "368", 100);
+  assert.equal(f.e.gameState("p").notices.length, 1);
+
+  f.e.quiz.resetScores({
+    quiz: "test",
+    confirmation: "RESET QUIZ SCORES AND TITLES",
+  });
+  assert.deepEqual(f.e.gameState("p").notices, []);
+  assert.deepEqual(f.e.gameState("q").notices, []);
+});

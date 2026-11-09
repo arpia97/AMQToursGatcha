@@ -247,4 +247,37 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
   assert.match(html, /Lv. 3/);
   assert.equal(noticeCopy({ kind: "outbid" }).credit, "Refunded");
   assert.equal(noticeCopy({ kind: "auction-buyout" }).sign, "−");
+  const quizHtml = noticePanel(
+    [
+      {
+        kind: "quiz-leader-beaten",
+        card: "",
+        level: 1,
+        credits: 0,
+        metadata: {
+          quiz: "op-quiz",
+          quizName: "<Opening Quiz>",
+          cover: "",
+          byId: "r",
+          byName: "<Rival>",
+          score: 20,
+          durationMs: 41250,
+          previousScore: 19,
+          previousDurationMs: 45000,
+        },
+      },
+    ],
+    options,
+  );
+  assert.match(quizHtml, /Your Quiz Updates/);
+  assert.match(quizHtml, /Your #1 Quiz Score Was Beaten/);
+  assert.match(quizHtml, /&lt;Opening Quiz>/);
+  assert.match(
+    quizHtml,
+    /&lt;Rival> took #1 with 20 \/ 20 \(0:41\.250\), beating your #1 score of 19 \/ 20 \(0:45\.000\)\./,
+  );
+  assert.match(
+    quizHtml,
+    /data-action="quiz-notice-open" data-quiz="op-quiz">View Quiz Leaderboard →/,
+  );
 });

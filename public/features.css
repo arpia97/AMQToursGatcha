@@ -2045,7 +2045,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   border-radius: 8px;
   box-shadow: 0 0 10px var(--tier-glow, transparent);
 }
-.trade-notice-portrait img {
+.trade-notice-portrait img,
+.trade-notice-portrait .fallback-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3443,6 +3444,49 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-leaderboard-link {
   display: block;
   margin: 12px auto 0;
+}
+.quiz-tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.quiz-tile .quiz-tile-actions > .button {
+  flex: 1 1 auto;
+  padding: 10px 12px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.quiz-songs-dialog {
+  width: min(760px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.quiz-songs-dialog > .section-head {
+  margin: 0;
+  gap: 12px;
+}
+.quiz-songs-dialog > .section-head p {
+  margin-top: 4px;
+}
+.quiz-songs-dialog .quiz-song-list {
+  max-height: min(62dvh, 520px);
+  overflow: auto;
+}
+.quiz-songs-dialog .quiz-song-list thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.quiz-songs-dialog .quiz-song-list th,
+.quiz-songs-dialog .quiz-song-list td {
+  padding: 11px 14px;
+}
+.quiz-songs-dialog .quiz-song-list td:first-child {
+  width: 44px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 :is(.alchemy-tier, .alchemy-draw-popup).tier-d {

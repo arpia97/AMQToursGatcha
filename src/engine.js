@@ -1052,7 +1052,7 @@ export class Engine {
       me?.avatar_card,
     ]);
     const notices = this.economy.notices.pending(id);
-    for (const notice of notices) references.add(notice.card);
+    for (const notice of notices) if (notice.card) references.add(notice.card);
     const myListings = id
       ? [
           ...this.all(

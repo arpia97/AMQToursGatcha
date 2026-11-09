@@ -57,23 +57,37 @@ export class Quiz {
       )?.first || fallback
     );
   }
-  leaderboard(id, player = null, page = 1) {
-    this.definition(id, player);
-    integer(page, 1, 10000);
+  ensureBestAt(id, inTx = false) {
     const missing = this.e.all(
       "SELECT player,best,at FROM quiz_progress WHERE quiz=? AND best_at IS NULL",
       id,
     );
-    if (missing.length)
-      this.e.tx(() => {
-        for (const row of missing)
-          this.e.run(
-            "UPDATE quiz_progress SET best_at=? WHERE player=? AND quiz=? AND best_at IS NULL",
-            this.bestTime(row.player, id, row.best, row.at),
-            row.player,
-            id,
-          );
-      });
+    if (!missing.length) return;
+    const apply = () => {
+      for (const row of missing)
+        this.e.run(
+          "UPDATE quiz_progress SET best_at=? WHERE player=? AND quiz=? AND best_at IS NULL",
+          this.bestTime(row.player, id, row.best, row.at),
+          row.player,
+          id,
+        );
+    };
+    if (inTx) apply();
+    else this.e.tx(apply);
+  }
+  topLeader(id, inTx = false) {
+    this.ensureBestAt(id, inTx);
+    return (
+      this.e.one(
+        "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 1",
+        id,
+      ) || null
+    );
+  }
+  leaderboard(id, player = null, page = 1) {
+    this.definition(id, player);
+    integer(page, 1, 10000);
+    this.ensureBestAt(id);
     const rows = this.e.all(
       "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 21 OFFSET ?",
       id,
@@ -115,6 +129,10 @@ export class Quiz {
       "profile_title_preferences",
     ])
       this.e.run("DELETE FROM " + table + " WHERE quiz=?", id);
+    this.e.run(
+      "DELETE FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')=?",
+      id,
+    );
     return {
       message:
         "Quiz scores, active runs and completion titles reset. Existing credits and claimed rewards retained.",
@@ -419,6 +437,26 @@ export class Quiz {
       },
     };
   }
+  songs(id, player = null) {
+    const q = this.definition(id, player);
+    return {
+      id: q.id,
+      name: q.name,
+      updated: q.updated,
+      songs: this.e
+        .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", q.id)
+        .map((row) => {
+          const s = JSON.parse(row.data);
+          return {
+            id: s.id,
+            title: s.title || "Unknown Song",
+            artist: s.artist || "",
+            anime: s.answers?.[0] || "",
+            answers: s.answers || [],
+          };
+        }),
+    };
+  }
   audioManifest(id, player) {
     const q = this.definition(id, player);
     return {
@@ -593,6 +631,7 @@ export class Quiz {
             (previous.best_duration_ms === null ||
               run.durationMs < previous.best_duration_ms);
           const improved = !previous || score > previous.best || faster;
+          const previousLeader = improved ? this.topLeader(q.id, true) : null;
           const bestAt = improved
             ? (run.completedAt ?? e.now())
             : (previous.best_at ??
@@ -609,6 +648,39 @@ export class Quiz {
             bestAt,
             duration,
           );
+          if (improved && previousLeader && previousLeader.id !== player) {
+            const newLeader = this.topLeader(q.id, true);
+            if (newLeader?.id === player) {
+              const hasCover = !!e.one(
+                "SELECT length(cover)>0 AS has_cover FROM quizzes WHERE id=?",
+                q.id,
+              )?.has_cover;
+              e.economy.notices.add(
+                previousLeader.id,
+                `quiz-leader-beaten:${q.id}:${run.id}`,
+                "quiz-leader-beaten",
+                "",
+                1,
+                0,
+                {
+                  quiz: q.id,
+                  quizName: q.name,
+                  cover: hasCover
+                    ? "api/quiz-cover?quiz=" +
+                      encodeURIComponent(q.id) +
+                      "&v=" +
+                      q.updated
+                    : "",
+                  byId: newLeader.id,
+                  byName: newLeader.name,
+                  score: newLeader.best,
+                  durationMs: newLeader.durationMs ?? null,
+                  previousScore: previousLeader.best,
+                  previousDurationMs: previousLeader.durationMs ?? null,
+                },
+              );
+            }
+          }
           e.run(
             "INSERT INTO quiz_reward_history VALUES(?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=MAX(best,excluded.best)",
             player,

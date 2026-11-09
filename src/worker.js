@@ -1179,7 +1179,7 @@ export class Game extends DurableObject {
       const notices = e.economy.notices.pending(session.player);
       return json({
         notices,
-        cards: e.catalogStore.cards(notices.map((n) => n.card)),
+        cards: e.catalogStore.cards(notices.map((n) => n.card).filter(Boolean)),
       });
     }
     if (path === "trades" && !post) {
@@ -1209,6 +1209,12 @@ export class Game extends DurableObject {
       );
     if (path === "quizzes" && !post)
       return json({ quizzes: e.quiz.list(session?.player) });
+    if (path === "quiz-songs" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.quiz.songs(url.searchParams.get("quiz"), session?.player),
+      );
+    }
     if (path === "quiz-leaderboard" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

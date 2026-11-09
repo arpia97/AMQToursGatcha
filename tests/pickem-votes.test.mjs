@@ -294,10 +294,9 @@ test("tour cards show total voters when collapsed and the chart for open, locked
       '>Participated</span><span class="pill ">Settled',
     ),
   );
-  assert.ok(
-    forPlayer("private-player-4").includes(
-      '>Did Not Participate</span><span class="pill ">Settled',
-    ),
+  assert.doesNotMatch(
+    forPlayer("private-player-4"),
+    /pickem-participation|Did Not Participate/,
   );
   assert.doesNotMatch(forPlayer(null), /pickem-participation/);
 });

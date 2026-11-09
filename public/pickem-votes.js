@@ -1,8 +1,8 @@
 import { pickemTeams } from "./tour-winner.js";
 
 export function pickemParticipationTag(participated, { signedIn, settled }) {
-  if (!signedIn || !settled || typeof participated !== "boolean") return "";
-  return `<span class="pill pickem-participation ${participated ? "has-participated" : "not-participated"}">${participated ? "Participated" : "Did Not Participate"}</span>`;
+  if (!signedIn || !settled || participated !== true) return "";
+  return `<span class="pill pickem-participation has-participated">Participated</span>`;
 }
 
 export function pickemVoteSummary(p, tallies = []) {

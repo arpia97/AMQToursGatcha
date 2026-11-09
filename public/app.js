@@ -412,7 +412,8 @@ function showTradeNotices() {
     busy ||
     document.hidden ||
     $("#modal").open ||
-    fusionOverlayOpen()
+    fusionOverlayOpen() ||
+    quizUI.active()
   )
     return;
   const notices = (state.notices || []).filter(
@@ -2451,6 +2452,16 @@ async function handleFeatureClick(a, t) {
       render();
       return true;
     }
+    if (a === "quiz-notice-open") {
+      $("#modal").close();
+      quizUI.openLeaderboard(t.dataset.quiz);
+      if (page() !== "quiz") location.hash = "quiz";
+      else {
+        await loadDynamic();
+        render();
+      }
+      return true;
+    }
     if (a?.startsWith("trade-")) {
       if (a === "trade-notice-open") {
         $("#modal").close();
@@ -3596,7 +3607,9 @@ document.addEventListener("change", (ev) => {
 });
 
 document.addEventListener("click", async (ev) => {
-  const button = ev.target.closest("button, [data-quiz-answer-option]");
+  const button =
+    ev.target.closest("button, [data-quiz-answer-option]") ||
+    (ev.target.hasAttribute?.("data-quiz-songs-close") ? ev.target : null);
   if (!button || page() !== "quiz") return;
   try {
     await quizUI.click(button);

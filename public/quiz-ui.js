@@ -26,6 +26,7 @@ export function createQuizUI({
   };
   const makeAudio = audioFactory || ((src) => new Audio(src));
   const banks = new Map();
+  const songLists = new Map();
   const cache = audioCache || createQuizAudioCache();
   let server = "EU",
     competitive = false,
@@ -43,6 +44,10 @@ export function createQuizUI({
     generation = 0,
     leaderboardOnly = false,
     leaderboardData = null,
+    songListQuiz = null,
+    songListData = null,
+    songListLoading = false,
+    songListError = "",
     quizSort = "recent",
     category = "singers";
   let sampleStart = 0,
@@ -321,6 +326,55 @@ export function createQuizUI({
       "</aside>"
     );
   }
+  function closeSongList() {
+    songListQuiz = null;
+    songListData = null;
+    songListLoading = false;
+    songListError = "";
+  }
+  function songListModalHTML() {
+    if (!songListQuiz) return "";
+    const q = quizzes.find((x) => x.id === songListQuiz);
+    const name = songListData?.name || q?.name || "Quiz";
+    const songs = songListData?.songs || [];
+    const count = songs.length || q?.songs || 0;
+    const rows = songs
+      .map(
+        (s, i) =>
+          "<tr><td>" +
+          (i + 1) +
+          "</td><td>" +
+          e(s.title || "Unknown Song") +
+          "</td><td>" +
+          e(s.artist || "—") +
+          "</td><td>" +
+          e(s.anime || s.answers?.[0] || "—") +
+          "</td></tr>",
+      )
+      .join("");
+    return (
+      '<div class="fusion-picker-backdrop quiz-songs-backdrop" data-quiz-songs-close>' +
+      '<section class="fusion-picker-dialog quiz-songs-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-songs-title">' +
+      '<div class="section-head"><div><h2 id="quiz-songs-title">' +
+      e(name) +
+      ' · Song List</h2><p class="subtext">' +
+      count +
+      " " +
+      (count === 1 ? "Song" : "Songs") +
+      " in Pool</p></div>" +
+      '<button type="button" class="button secondary" data-quiz-songs-close>Close</button></div>' +
+      (songListLoading
+        ? '<p class="notice" role="status">Loading Song List…</p>'
+        : songListError
+          ? '<p class="notice warm" role="alert">' + e(songListError) + "</p>"
+          : rows
+            ? '<div class="table-wrap quiz-song-list"><table><thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Anime</th></tr></thead><tbody>' +
+              rows +
+              "</tbody></table></div>"
+            : '<p class="notice">No songs in this quiz pool yet.</p>') +
+      "</section></div>"
+    );
+  }
   function render() {
     if (!selected) {
       stop();
@@ -410,7 +464,7 @@ export function createQuizUI({
                   "/20</p><p>" +
                   q.songs +
                   " Songs in Pool</p>" +
-                  '<button class="button mint" data-quiz-open="' +
+                  '<div class="quiz-tile-actions"><button class="button mint" data-quiz-open="' +
                   e(q.id) +
                   '">' +
                   (!getState().me
@@ -418,14 +472,17 @@ export function createQuizUI({
                     : q.published
                       ? "Play Quiz →"
                       : "Preview Quiz →") +
-                  '</button><button class="text-button quiz-leaderboard-link" data-quiz-leaderboard="' +
+                  '</button><button type="button" class="button secondary" data-quiz-songs="' +
+                  e(q.id) +
+                  '">Song List</button></div><button class="text-button quiz-leaderboard-link" data-quiz-leaderboard="' +
                   e(q.id) +
                   '">Leaderboard ↗</button></div></article>',
               )
               .join("") +
             "</div>"
           : '<section class="quiz-coming-soon"><span aria-hidden="true">♫</span><h2>Coming Soon</h2><p>Anime music quizzes are on the way.</p></section>') +
-        guide
+        guide +
+        songListModalHTML()
       );
     }
     const q = quizzes.find((q) => q.id === selected);
@@ -451,7 +508,10 @@ export function createQuizUI({
       return (
         top +
         leaderboardHTML() +
-        '<button class="button mint space-top" data-quiz-enter>Play Quiz →</button>'
+        '<div class="quiz-tile-actions space-top"><button class="button mint" data-quiz-enter>Play Quiz →</button><button type="button" class="button secondary" data-quiz-songs="' +
+        e(q.id) +
+        '">Song List</button></div>' +
+        songListModalHTML()
       );
     const withLeaderboard = (content) =>
       top +
@@ -958,10 +1018,19 @@ export function createQuizUI({
     stop,
     leave() {
       preparing?.abort();
+      closeSongList();
       stop();
     },
     setVolume,
     active: () => !!preparing || !!(selected && run && !run.finished),
+    openLeaderboard(id) {
+      if (!id || working || preparing) return;
+      closeSongList();
+      selected = id;
+      leaderboardOnly = true;
+      useRun(null);
+      stop();
+    },
     setServer(value) {
       if (!QUIZ_SERVERS.includes(value) || working || preparing) return;
       server = value;
@@ -1007,8 +1076,48 @@ export function createQuizUI({
         onRender();
         return true;
       }
+      if (button.hasAttribute("data-quiz-songs-close")) {
+        closeSongList();
+        onRender();
+        return true;
+      }
+      if (button.hasAttribute("data-quiz-songs")) {
+        if (working) return true;
+        const id = button.dataset.quizSongs;
+        if (!id) return true;
+        const q = quizzes.find((x) => x.id === id);
+        const cacheKey = q ? q.id + ":" + q.updated : null;
+        songListQuiz = id;
+        songListError = "";
+        if (cacheKey && songLists.has(cacheKey)) {
+          songListData = songLists.get(cacheKey);
+          songListLoading = false;
+          onRender();
+          return true;
+        }
+        songListData = null;
+        songListLoading = true;
+        onRender();
+        try {
+          const data = await call("quiz-songs?quiz=" + encodeURIComponent(id));
+          if (songListQuiz !== id) return true;
+          songLists.set(data.id + ":" + data.updated, data);
+          songListData = data;
+        } catch (err) {
+          if (songListQuiz === id)
+            songListError = err.message || String(err);
+          throw err;
+        } finally {
+          if (songListQuiz === id) {
+            songListLoading = false;
+            onRender();
+          }
+        }
+        return true;
+      }
       if (button.hasAttribute("data-quiz-leaderboard")) {
         if (working) return true;
+        closeSongList();
         selected = button.dataset.quizLeaderboard;
         leaderboardOnly = true;
         useRun(null);
@@ -1018,6 +1127,7 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-enter")) {
+        closeSongList();
         leaderboardOnly = false;
         await load();
         onRender();
@@ -1030,6 +1140,7 @@ export function createQuizUI({
       )
         throw Error("Wait for the current answer to finish saving.");
       if (button.hasAttribute("data-quiz-open")) {
+        closeSongList();
         selected = button.dataset.quizOpen;
         leaderboardOnly = false;
         useRun(null);
@@ -1038,6 +1149,7 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-back")) {
+        closeSongList();
         selected = null;
         useRun(null);
         stop();
@@ -1086,6 +1198,12 @@ export function createQuizUI({
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if (songListQuiz && event.key === "Escape") {
+        event.preventDefault?.();
+        closeSongList();
+        onRender();
+        return;
+      }
       if (locallyStopped) return;
       if (event.key === "Enter" && (event.repeat || event.isComposing)) {
         event.preventDefault();
