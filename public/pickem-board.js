@@ -1,4 +1,4 @@
-import { pickemVoteChart } from "./pickem-votes.js";
+import { pickemVoteChart, pickemParticipationTag } from "./pickem-votes.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
 import { winnerCard } from "./tour-winner-ui.js";
@@ -21,9 +21,11 @@ export function tourSummaries(matches, now) {
           nextEnds: null,
           newest: 0,
           format: p.mode === "tour" ? "winner" : null,
+          participated: false,
         }),
       );
     g.matches++;
+    if (p.prediction) g.participated = true;
     if (p.mode === "pair") g.pairs++;
     g.rounds.add(p.round || 1);
     g.newest = Math.max(g.newest, p.id);
@@ -337,11 +339,17 @@ export function pickemBoard(
           t.open +
           " open · " +
           t.settled +
-          ' settled</p></div><span class="pill ' +
+          ' settled</p></div><span class="pickem-status-tags">' +
+          pickemParticipationTag(
+            t.participated ??
+              (expanded ? detail.matches.some((p) => !!p.prediction) : null),
+            { signedIn, settled: t.settled === t.matches },
+          ) +
+          '<span class="pill ' +
           (t.open ? "live" : "") +
           '">' +
           label +
-          '</span><button class="button secondary" data-action="pickem-tour" data-id="' +
+          '</span></span><button class="button secondary" data-action="pickem-tour" data-id="' +
           t.key +
           '" aria-expanded="' +
           expanded +

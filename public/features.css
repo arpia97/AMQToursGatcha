@@ -4801,3 +4801,24 @@ dialog.avatar-editor-modal {
     grid-column: 2;
   }
 }
+
+.pickem-status-tags {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pickem-participation {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.pickem-participation.has-participated {
+  color: var(--mint);
+  background: #b6e2c510;
+  border-color: #b6e2c53d;
+}
+.pickem-participation.not-participated {
+  color: var(--muted);
+  background: #ffffff04;
+  border-color: var(--border);
+}

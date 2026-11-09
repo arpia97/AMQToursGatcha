@@ -89,6 +89,27 @@ test("team totals include zero-vote teams, update instead of duplicating voters,
     3,
   );
   assert.doesNotMatch(JSON.stringify(detail), /private-player/);
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-0")
+      .tours.find((t) => t.key === p.event_id).participated,
+    true,
+  );
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-4")
+      .tours.find((t) => t.key === p.event_id).participated,
+    false,
+  );
+  assert.equal(
+    f.e.pickemEvents.page().tours.find((t) => t.key === p.event_id)
+      .participated,
+    null,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(f.e.pickemEvents.page(1, "private-player-0")),
+    /private-player|prediction|Alpha/,
+  );
   f.vote(0, p, "Gamma");
   f.vote(0, p, "Gamma");
   detail = f.e.pickemEvents.detail(p.event_id, "private-player-0");
@@ -125,6 +146,18 @@ test("older combined matchups aggregate draw and both teams independently, with 
   f.vote(2, p, "b", { scoreA: 0, scoreB: 2 });
   f.vote(3, matches[1], "a", { scoreA: 2, scoreB: 0 });
   const detail = f.e.pickemEvents.detail(event);
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-3")
+      .tours.find((t) => t.key === event).participated,
+    true,
+  );
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-4")
+      .tours.find((t) => t.key === event).participated,
+    false,
+  );
   assert.deepEqual(detail.matches[0].voteSummary, {
     total: 3,
     choices: [
@@ -143,6 +176,18 @@ test("older combined matchups aggregate draw and both teams independently, with 
   });
   const single = f.e.one("SELECT * FROM pickems WHERE event_id IS NULL");
   f.vote(4, single, "b", { scoreA: 1, scoreB: 2 });
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-4")
+      .tours.find((t) => t.key === -single.id).participated,
+    true,
+  );
+  assert.equal(
+    f.e.pickemEvents
+      .page(1, "private-player-0")
+      .tours.find((t) => t.key === -single.id).participated,
+    false,
+  );
   assert.deepEqual(
     f.e.pickemEvents
       .detail(-single.id)
@@ -216,6 +261,15 @@ test("tour cards show total voters when collapsed and the chart for open, locked
       signedIn: false,
     });
   assert.match(render(null), /1 voter/);
+  assert.doesNotMatch(
+    pickemBoard(f.e.pickemEvents.page(1, "private-player-0").tours, null, {
+      escape,
+      number: String,
+      now: f.e.now(),
+      signedIn: true,
+    }),
+    /pickem-participation/,
+  );
   assert.doesNotMatch(render(null), /pickem-vote-chart/);
   assert.match(
     render(f.e.pickemEvents.detail(p.event_id)),
@@ -228,6 +282,24 @@ test("tour cards show total voters when collapsed and the chart for open, locked
   );
   f.host("settle", { pickem: p.id, winner: "Alpha", expectedTeams: p.teams });
   assert.match(render(f.e.pickemEvents.detail(p.event_id)), /1 vote · 100%/);
+  const forPlayer = (id) =>
+    pickemBoard(f.e.pickemEvents.page(1, id).tours, null, {
+      escape,
+      number: String,
+      now: f.e.now(),
+      signedIn: !!id,
+    });
+  assert.ok(
+    forPlayer("private-player-0").includes(
+      '>Participated</span><span class="pill ">Settled',
+    ),
+  );
+  assert.ok(
+    forPlayer("private-player-4").includes(
+      '>Did Not Participate</span><span class="pill ">Settled',
+    ),
+  );
+  assert.doesNotMatch(forPlayer(null), /pickem-participation/);
 });
 
 test("graph choices preserve form values and drafts, and settled winner styling follows the result rather than the vote leader", () => {

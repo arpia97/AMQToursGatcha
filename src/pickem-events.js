@@ -131,7 +131,7 @@ export class PickemEvents {
       ),
     };
   }
-  page(page = 1) {
+  page(page = 1, player = null) {
     const e = this.e;
     integer(page, 1, 10000);
     const rows = e.all(
@@ -140,14 +140,26 @@ export class PickemEvents {
       COUNT(DISTINCT COALESCE(p.round,1)) AS rounds,SUM(p.settled) AS settled,
       SUM(CASE WHEN p.settled=0 AND p.ends>? THEN 1 ELSE 0 END) AS open,
       MIN(CASE WHEN p.settled=0 AND p.ends>? THEN p.ends END) AS nextEnds,
-      MAX(p.id) AS newest,CASE WHEN ev.format='winner' THEN (SELECT count(*) FROM predictions v WHERE v.pickem=p.id) ELSE NULL END AS voters FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
+      MAX(p.id) AS newest,MAX(CASE WHEN viewer.player IS NOT NULL THEN 1 ELSE 0 END) AS participated,
+      CASE WHEN ev.format='winner' THEN (SELECT count(*) FROM predictions v WHERE v.pickem=p.id) ELSE NULL END AS voters FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
+      LEFT JOIN predictions viewer ON viewer.pickem=p.id AND viewer.player=?
       GROUP BY CASE WHEN p.event_id IS NULL THEN -p.id ELSE p.event_id END
       ORDER BY newest DESC LIMIT 21 OFFSET ?`,
       e.now(),
       e.now(),
+      player || "",
       (page - 1) * 20,
     );
-    return { tours: rows.slice(0, 20), page, hasMore: rows.length > 20 };
+    return {
+      tours: rows
+        .slice(0, 20)
+        .map((row) => ({
+          ...row,
+          participated: player ? !!row.participated : null,
+        })),
+      page,
+      hasMore: rows.length > 20,
+    };
   }
   detail(key, player) {
     const e = this.e;

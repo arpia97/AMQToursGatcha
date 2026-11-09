@@ -1,5 +1,10 @@
 import { pickemTeams } from "./tour-winner.js";
 
+export function pickemParticipationTag(participated, { signedIn, settled }) {
+  if (!signedIn || !settled || typeof participated !== "boolean") return "";
+  return `<span class="pill pickem-participation ${participated ? "has-participated" : "not-participated"}">${participated ? "Participated" : "Did Not Participate"}</span>`;
+}
+
 export function pickemVoteSummary(p, tallies = []) {
   const teams =
     p.mode === "tour"

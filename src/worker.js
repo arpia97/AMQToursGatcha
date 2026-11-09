@@ -1128,7 +1128,10 @@ export class Game extends DurableObject {
     }
     if (path === "pickem-tours" && !post)
       return json(
-        e.pickemEvents.page(Number(url.searchParams.get("page") || 1)),
+        e.pickemEvents.page(
+          Number(url.searchParams.get("page") || 1),
+          session?.player,
+        ),
       );
     if (path === "pickem-tour" && !post)
       return json(
