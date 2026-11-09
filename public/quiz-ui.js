@@ -453,26 +453,36 @@ export function createQuizUI({
             .join("") +
           "</select></label>"
         : "";
-      const searchControl = quizzes.length
-        ? '<label class="quiz-search-control"><input type="search" id="quiz-search" aria-label="Search Quizzes" placeholder="Search Quizzes…" autocomplete="off" spellcheck="false" maxlength="100" value="' +
-          e(quizSearch) +
-          '"></label>'
-        : "";
       const needle = searchKey(quizSearch);
       const matchingQuizzes = needle
         ? visibleQuizzes.filter((q) => searchKey(q.name).includes(needle))
         : visibleQuizzes;
+      const searchState = !needle
+        ? ""
+        : matchingQuizzes.length
+          ? " is-match"
+          : " is-no-match";
+      const searchControl = quizzes.length
+        ? '<label class="quiz-search-control"><input type="search" id="quiz-search" class="quiz-search-input' +
+          searchState +
+          '" aria-label="Search Quizzes" placeholder="Search Quizzes…" autocomplete="off" spellcheck="false" maxlength="100" value="' +
+          e(quizSearch) +
+          '"></label>'
+        : "";
       return (
-        '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
-        '<div class="quiz-list-controls">' +
+        '<div class="page-intro quiz-list-header"><div class="quiz-list-title"><h1>Quiz</h1>' +
         completion +
+        "</div>" +
+        '<div class="quiz-list-controls">' +
         serverControl() +
+        "</div>" +
+        "</div>" +
+        '<div class="quiz-toolbar">' +
+        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
+        '<div class="quiz-toolbar-filters">' +
+        searchControl +
         sortControl +
         "</div>" +
-        "</div>" +
-        '<div class="quiz-filter-row">' +
-        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
-        searchControl +
         "</div>" +
         (visibleQuizzes.length && !matchingQuizzes.length
           ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +

@@ -3673,33 +3673,61 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px 24px;
+  margin-bottom: 18px;
+}
+.quiz-list-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 16px;
 }
 .quiz-list-header h1 {
   margin: 0;
 }
+.quiz-list-title .quiz-completion-status {
+  font-size: 13px;
+}
 .quiz-sort-control {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .quiz-sort-control select {
   width: auto;
   max-width: 100%;
   margin: 0;
 }
-.quiz-filter-row {
+/* One toolbar row: category tabs left, search + sort right, divider below. */
+.quiz-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 16px;
+  gap: 12px 16px;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
 }
-.quiz-filter-row .quiz-categories {
-  margin-bottom: 0;
+.quiz-toolbar .quiz-categories {
+  margin: 0;
+}
+.quiz-toolbar-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+  flex: 1 1 420px;
+  min-width: 0;
 }
 .quiz-search-control {
-  flex: 0 1 280px;
+  display: flex;
+  align-self: stretch;
+  flex: 0 1 300px;
   min-width: 180px;
   margin: 0;
 }
@@ -3707,8 +3735,33 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   width: 100%;
   margin: 0;
 }
+.quiz-search-control input.is-match,
+.quiz-search-control input.is-match:focus {
+  border-color: #4cc77f;
+  box-shadow: 0 0 0 1px rgba(76, 199, 127, 0.35);
+}
+.quiz-search-control input.is-no-match,
+.quiz-search-control input.is-no-match:focus {
+  border-color: #ff4d5e;
+  box-shadow: 0 0 0 1px rgba(255, 77, 94, 0.35);
+}
 .quiz-search-empty {
-  margin-top: 16px;
+  margin-top: 0;
+}
+@media (max-width: 600px) {
+  .quiz-toolbar-filters {
+    flex-basis: 100%;
+    justify-content: stretch;
+  }
+  .quiz-search-control {
+    flex: 1 1 100%;
+  }
+  .quiz-sort-control {
+    flex: 1 1 100%;
+  }
+  .quiz-sort-control select {
+    flex: 1;
+  }
 }
 
 .alchemy-queue {

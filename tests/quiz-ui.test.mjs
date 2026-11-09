@@ -611,15 +611,17 @@ test("quiz search filters tiles by name case- and accent-insensitively within th
   await ui.load();
   const ids = () =>
     [...ui.render().matchAll(/data-quiz-open="([^"]+)"/g)].map((m) => m[1]);
-  assert.match(ui.render(), /<input type="search" id="quiz-search"/);
+  assert.match(ui.render(), /<input type="search" id="quiz-search" class="quiz-search-input"/);
   assert.deepEqual(ids(), ["a", "b", "c"]);
   ui.setSearch("AIMER");
   assert.deepEqual(ids(), ["a"]);
+  assert.match(ui.render(), /class="quiz-search-input is-match"/);
   assert.match(ui.render(), /id="quiz-search"[^>]*value="AIMER"/);
   ui.setSearch("romaji");
   assert.deepEqual(ids(), ["b"]);
   ui.setSearch("nothing here");
   assert.deepEqual(ids(), []);
+  assert.match(ui.render(), /class="quiz-search-input is-no-match"/);
   assert.match(ui.render(), /No Quizzes Match “nothing here”\./);
   ui.setSearch('<x>"');
   assert.ok(!ui.render().includes('<x>"'));
