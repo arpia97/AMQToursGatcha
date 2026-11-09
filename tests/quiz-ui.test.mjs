@@ -582,6 +582,61 @@ test("quiz sorting covers performance, names, unplayed runs and pool size withou
   );
 });
 
+test("quiz search filters tiles by name case- and accent-insensitively within the active category", async () => {
+  const list = [
+    { id: "a", name: "Aimer Classics", songs: 20, best: 4, published: 1 },
+    { id: "b", name: "Rōmaji Hits", songs: 20, best: 4, published: 1 },
+    { id: "c", name: "LiSA", songs: 20, best: 4, published: 1 },
+    {
+      id: "k",
+      name: "Kajiura Aimer Works",
+      category: "composers",
+      songs: 20,
+      best: 1,
+      published: 1,
+    },
+  ];
+  let calls = 0,
+    renders = 0;
+  const ui = createQuizUI({
+    api: async () => {
+      calls++;
+      return { quizzes: list };
+    },
+    escape,
+    getState: () => ({ me: { id: "player" } }),
+    onRender: () => renders++,
+    storage: { getItem: () => null },
+  });
+  await ui.load();
+  const ids = () =>
+    [...ui.render().matchAll(/data-quiz-open="([^"]+)"/g)].map((m) => m[1]);
+  assert.match(ui.render(), /<input type="search" id="quiz-search"/);
+  assert.deepEqual(ids(), ["a", "b", "c"]);
+  ui.setSearch("AIMER");
+  assert.deepEqual(ids(), ["a"]);
+  assert.match(ui.render(), /id="quiz-search"[^>]*value="AIMER"/);
+  ui.setSearch("romaji");
+  assert.deepEqual(ids(), ["b"]);
+  ui.setSearch("nothing here");
+  assert.deepEqual(ids(), []);
+  assert.match(ui.render(), /No Quizzes Match “nothing here”\./);
+  ui.setSearch('<x>"');
+  assert.ok(!ui.render().includes('<x>"'));
+  ui.setSearch("aimer");
+  await ui.click({
+    hasAttribute: (name) => name === "data-quiz-category",
+    dataset: { quizCategory: "composers" },
+  });
+  assert.deepEqual(ids(), ["k"]);
+  const before = renders;
+  ui.setSearch("aimer");
+  assert.equal(renders, before);
+  ui.setSearch("");
+  assert.deepEqual(ids(), ["k"]);
+  assert.equal(calls, 1);
+});
+
 test("Singers and Composers tabs filter identical-format quiz tiles without extra requests", async () => {
   const list = [
     { id: "s", name: "Singer Tile", songs: 20, best: 4, published: 1 },

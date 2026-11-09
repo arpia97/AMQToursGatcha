@@ -3688,6 +3688,28 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   max-width: 100%;
   margin: 0;
 }
+.quiz-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.quiz-filter-row .quiz-categories {
+  margin-bottom: 0;
+}
+.quiz-search-control {
+  flex: 0 1 280px;
+  min-width: 180px;
+  margin: 0;
+}
+.quiz-search-control input {
+  width: 100%;
+  margin: 0;
+}
+.quiz-search-empty {
+  margin-top: 16px;
+}
 
 .alchemy-queue {
   margin: 16px 0;

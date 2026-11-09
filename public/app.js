@@ -3679,6 +3679,15 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("input", (ev) => {
   if (ev.target.id === "quiz-volume") quizUI.setVolume(ev.target.value);
+  if (ev.target.id === "quiz-search") {
+    const position = ev.target.selectionStart;
+    quizUI.setSearch(ev.target.value);
+    const input = $("#quiz-search");
+    if (input && input !== ev.target) {
+      input.focus();
+      input.setSelectionRange(position, position);
+    }
+  }
   if (ev.target.id === "quiz-answer")
     quizUI.input(ev.target).catch((err) => toast(err.message, true));
 });

@@ -8,6 +8,16 @@ import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
 
+// Case-, accent- and punctuation-insensitive key for quiz name search.
+function searchKey(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
 export function createQuizUI({
   api,
   escape: e,
@@ -49,6 +59,7 @@ export function createQuizUI({
     songListLoading = false,
     songListError = "",
     quizSort = "recent",
+    quizSearch = "",
     category = "singers";
   let sampleStart = 0,
     audioState = "loading",
@@ -442,6 +453,15 @@ export function createQuizUI({
             .join("") +
           "</select></label>"
         : "";
+      const searchControl = quizzes.length
+        ? '<label class="quiz-search-control"><input type="search" id="quiz-search" aria-label="Search Quizzes" placeholder="Search Quizzes…" autocomplete="off" spellcheck="false" maxlength="100" value="' +
+          e(quizSearch) +
+          '"></label>'
+        : "";
+      const needle = searchKey(quizSearch);
+      const matchingQuizzes = needle
+        ? visibleQuizzes.filter((q) => searchKey(q.name).includes(needle))
+        : visibleQuizzes;
       return (
         '<div class="page-intro quiz-list-header"><h1>Quiz</h1>' +
         '<div class="quiz-list-controls">' +
@@ -450,10 +470,17 @@ export function createQuizUI({
         sortControl +
         "</div>" +
         "</div>" +
+        '<div class="quiz-filter-row">' +
         `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
-        (visibleQuizzes.length
+        searchControl +
+        "</div>" +
+        (visibleQuizzes.length && !matchingQuizzes.length
+          ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +
+            e(quizSearch.trim()) +
+            "”.</p>"
+          : matchingQuizzes.length
           ? '<div class="quiz-grid">' +
-            [...visibleQuizzes]
+            [...matchingQuizzes]
               .sort((a, b) => {
                 switch (quizSort) {
                   case "name":
@@ -1094,6 +1121,12 @@ export function createQuizUI({
       )
         return;
       quizSort = value;
+      onRender();
+    },
+    setSearch(value) {
+      const next = String(value ?? "").slice(0, 100);
+      if (next === quizSearch) return;
+      quizSearch = next;
       onRender();
     },
     closeSuggestions,
