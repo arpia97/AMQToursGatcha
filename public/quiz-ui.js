@@ -36,6 +36,7 @@ export function createQuizUI({
     run = null,
     working = false,
     pendingAction = "",
+    pendingMove = null,
     locallyStopped = false,
     audio = null,
     audioKey = "",
@@ -79,13 +80,28 @@ export function createQuizUI({
         quizDuration(elapsed(), false) +
         "</strong></span>"
       : "";
-  async function call(path, body) {
+  async function call(path, body, key) {
     const sent = time.now(),
-      result = await api(path, body),
-      received = time.now();
-    if (Number.isFinite(result.now))
-      serverOffset = result.now - (sent + received) / 2;
-    return result;
+      controller = new AbortController(),
+      deadline = setTimeout(() => controller.abort(), 12000);
+    try {
+      const result = await api(path, body, key, { signal: controller.signal }),
+        received = time.now();
+      if (Number.isFinite(result.now))
+        serverOffset = result.now - (sent + received) / 2;
+      return result;
+    } catch (error) {
+      if (controller.signal.aborted)
+        throw Object.assign(
+          new Error(
+            "The quiz server took too long to respond. Retry to check your saved progress.",
+          ),
+          { retryable: true },
+        );
+      throw error;
+    } finally {
+      clearTimeout(deadline);
+    }
   }
   function useRun(value) {
     run = value;
@@ -619,6 +635,18 @@ export function createQuizUI({
     if (working) return;
     working = true;
     pendingAction = action;
+    errorMessage = "";
+    const body = {
+      quiz: selected,
+      ...(run ? { run: run.id, index: run.index } : {}),
+      ...(answer !== undefined ? { answer } : {}),
+      ...(skip ? { skip: true } : {}),
+    };
+    const signature = JSON.stringify([action, body]);
+    if (pendingMove?.signature !== signature)
+      pendingMove = { signature, key: crypto.randomUUID() };
+    const move = pendingMove;
+    if (action === "quiz-answer") audio?.pause();
     if (action === "quiz-stop") {
       locallyStopped = true;
       stop();
@@ -626,12 +654,30 @@ export function createQuizUI({
     closeSuggestions();
     tick();
     try {
-      const result = await call(action, {
-        quiz: selected,
-        ...(run ? { run: run.id, index: run.index } : {}),
-        ...(answer !== undefined ? { answer } : {}),
-        ...(skip ? { skip: true } : {}),
-      });
+      let result;
+      try {
+        result = await call(action, body, move.key);
+      } catch (error) {
+        // A lost response does not mean the answer failed to save. Read the
+        // authoritative reveal instead of posting another answer or guessing.
+        if (
+          action !== "quiz-answer" ||
+          (error.status && !error.retryable && error.status !== 409)
+        )
+          throw error;
+        const saved = await call(
+          "quiz-run?quiz=" + encodeURIComponent(body.quiz),
+        ).catch(() => null);
+        if (
+          !saved?.run?.answered ||
+          saved.run.id !== body.run ||
+          saved.run.index !== body.index
+        )
+          throw error;
+        result = saved;
+      }
+      if (pendingMove === move) pendingMove = null;
+      if (selected !== body.quiz) return;
       useRun(result.run);
       if (action === "quiz-stop") {
         selected = null;
@@ -639,15 +685,32 @@ export function createQuizUI({
       }
       if (result.me) onWallet(result.me);
       if (run?.finished) {
-        quizzes = (await call("quizzes")).quizzes;
-        leaderboardData = await call(
-          "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1",
-        );
+        const quiz = selected,
+          completed = run.id;
+        if (!run.preview)
+          quizzes = quizzes.map((q) =>
+            q.id === quiz ? { ...q, best: run.reward.best, played: true } : q,
+          );
+        // The scored result is already durable. Optional list/ranking refreshes
+        // must not keep the result screen locked or hide it on a read failure.
+        Promise.allSettled([
+          call("quizzes"),
+          call("quiz-leaderboard?quiz=" + encodeURIComponent(quiz) + "&page=1"),
+        ])
+          .then(([list, ranks]) => {
+            if (selected !== quiz || run?.id !== completed || !run.finished)
+              return;
+            if (list.status === "fulfilled") quizzes = list.value.quizzes;
+            if (ranks.status === "fulfilled") leaderboardData = ranks.value;
+            onRender();
+          })
+          .catch(() => {});
       }
       onRender({
         questionOnly: action === "quiz-answer" || action === "quiz-next",
       });
     } catch (error) {
+      if (action === "quiz-answer" && !run?.answered) playAttempted = false;
       if (action === "quiz-stop") {
         error.message =
           "Audio stopped, but the attempt could not be ended: " +

@@ -71,6 +71,8 @@ function fixture(
   let now = 10000,
     interval = null,
     run = null,
+    loseAnswerResponse = false,
+    finishOnNext = false,
     ui;
   const calls = [],
     audios = [],
@@ -85,8 +87,8 @@ function fixture(
     best: 0,
     songs: 20,
   };
-  const api = async (path, b) => {
-    calls.push({ path, b });
+  const api = async (path, b, key) => {
+    calls.push({ path, b, key });
     if (gates.has(path)) await gates.get(path);
     if (path === "quizzes") return { quizzes: [quiz] };
     if (path.startsWith("quiz-leaderboard"))
@@ -129,6 +131,18 @@ function fixture(
         answered: false,
         startsAt: null,
         endsAt: null,
+        ...(finishOnNext
+          ? {
+              finished: true,
+              reward: {
+                best: 1,
+                improvement: 50,
+                milestones: 0,
+                total: 50,
+                title: "",
+              },
+            }
+          : {}),
       };
     if (path === "quiz-restart")
       run = {
@@ -152,6 +166,10 @@ function fixture(
         correct: b.answer === "Bocchi the Rock!",
         score: b.answer === "Bocchi the Rock!" ? 1 : 0,
       };
+    if (path === "quiz-answer" && loseAnswerResponse) {
+      loseAnswerResponse = false;
+      throw Object.assign(Error("The response was lost"), { retryable: true });
+    }
     return { now, run };
   };
   ui = createQuizUI({
@@ -216,6 +234,12 @@ function fixture(
     ui,
     calls,
     renders,
+    loseAnswerResponse() {
+      loseAnswerResponse = true;
+    },
+    finishNext() {
+      finishOnNext = true;
+    },
     hold(path) {
       let release, reject;
       gates.set(
@@ -684,6 +708,47 @@ test("Quiz transitions patch only the question; readiness keeps the existing for
   assert.equal(f.node("next").disabled, false);
   assert.equal(f.node("next").textContent, "Next Song (Enter)");
   assert.match(f.node("question").outerHTML, /Incorrect/);
+});
+
+test("answer response loss recovers the saved reveal and unsaved retries retain the request key", async (t) => {
+  const f = fixture(t, { transitions: true });
+  await f.start();
+  await f.advance(2000);
+  f.loseAnswerResponse();
+  const answer = { elements: { answer: { value: "Bocchi the Rock!" } } };
+  await f.ui.submit(answer);
+  assert.match(f.node("question").outerHTML, /Correct!/);
+  assert.equal(f.calls.filter((c) => c.path === "quiz-answer").length, 1);
+  assert.equal(f.node("next").disabled, false);
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  await f.audios.at(-1).emit("loadedmetadata");
+  await f.audios.at(-1).emit("canplay");
+  await f.advance(2000);
+  const audio = f.audios.at(-1),
+    plays = audio.plays;
+  const gate = f.hold("quiz-answer");
+  const pending = f.ui.submit(answer);
+  assert.ok(audio.paused > 0, "audio stops when the player locks an answer");
+  gate.reject(Error("Network unavailable"));
+  await assert.rejects(pending, /Network unavailable/);
+  assert.equal(f.node("quiz-lock-answer").disabled, false);
+  assert.equal(f.node("quiz-lock-answer").textContent, "Lock Answer →");
+  assert.ok(audio.plays > plays, "an unsaved answer resumes guessing audio");
+  await f.ui.submit(answer);
+  const attempts = f.calls.filter((c) => c.path === "quiz-answer");
+  assert.equal(attempts.length, 3);
+  assert.equal(attempts[1].key, attempts[2].key);
+  assert.notEqual(attempts[0].key, attempts[1].key);
+  assert.match(f.node("question").outerHTML, /Correct!/);
+  f.finishNext();
+  const list = f.hold("quizzes"),
+    ranks = f.hold("quiz-leaderboard?quiz=q&page=1");
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  assert.match(f.ui.render(), /quiz-complete/);
+  list.reject(Error("List temporarily unavailable"));
+  ranks.reject(Error("Leaderboard temporarily unavailable"));
+  await flush();
+  assert.match(f.ui.render(), /quiz-complete/);
 });
 
 test("Stop Quiz pauses audio immediately, never submits an answer, stays stopped through failure, and retries back to the list", async (t) => {

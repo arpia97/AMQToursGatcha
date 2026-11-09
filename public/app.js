@@ -1582,10 +1582,10 @@ function ensureCollectorCounts() {
     });
 }
 const pendingReads = new Map();
-async function api(path, body, key) {
+async function api(path, body, key, { signal } = {}) {
   if (demo && path === "quizzes") return { quizzes: [] };
   if (demo) return demo.request(path, body);
-  if (!body && pendingReads.has(path)) return pendingReads.get(path);
+  if (!body && !signal && pendingReads.has(path)) return pendingReads.get(path);
   const request = (async () => {
     const res = await fetch("api/" + path, {
       method: body ? "POST" : "GET",
@@ -1597,10 +1597,11 @@ async function api(path, body, key) {
         : {},
       body: body ? JSON.stringify(body) : undefined,
       credentials: "same-origin",
+      signal,
     });
     return readApiResponse(res);
   })();
-  if (body) return request;
+  if (body || signal) return request;
   pendingReads.set(path, request);
   try {
     return await request;

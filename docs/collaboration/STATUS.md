@@ -4,10 +4,12 @@ Updated November 9, 2026, Asia/Seoul. This file is a coordination record; Git an
 
 ## Current Task
 
-- Completed: quiz alphabetical, unplayed-first and song-pool-size sorts; public player collection browsing.
-- Owner / integration / deployment: Codex. No feature task remains claimed.
-- Runtime source commit: `79775d2979ea250c9b445d626cf04a6f052eb585`, pushed to main.
-- No production account, gameplay, reward or inventory mutation was performed for testing. Original economy, catalogue/import checkpoints and subsequent player activity are preserved.
+- Task: diagnose and optimize intermittent Quiz Locking Answer latency.
+- Owner / integration / deployment: Codex, main checkout, base72a5f659ca7ea65c6f8298810bc34944d84e2277.
+- Scope: src/worker.js, src/quiz.js, public/quiz-ui.js, public/app.js, focused existing tests and docs.
+- Implemented compact quiz routing, 15→8 SQL calls in the local runtime comparison, stable retry keys, bounded quiz requests, authoritative saved-answer recovery, and nonblocking completion metadata.
+- Browser delayed-response recovery and normal next submission passed on a disposable local fixture. 427 Node tests,206 syntax checks,final dry-run bundle and diff checks passed. Push/deployment/live verification pending; no production quiz attempts or rewards for QA.
+- Preserve all existing player activity, account access, catalogue/import checkpoints and original economy identity.
 
 ## Last Verified Application Release
 

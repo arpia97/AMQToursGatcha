@@ -9,7 +9,31 @@ const require = createRequire(import.meta.url),
   )("miniflare");
 test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer keys and award once", async (t) => {
   const bundle = await build({
-    entryPoints: [fileURLToPath(new URL("../src/worker.js", import.meta.url))],
+    stdin: {
+      resolveDir: fileURLToPath(new URL("../", import.meta.url)),
+      contents: `
+        import worker, { Game as OriginalGame } from './src/worker.js';
+        export class Game extends OriginalGame {
+          constructor(ctx,env) {
+            super(ctx,env);
+            this.probe = { sql: 0, market: 0, schedule: 0, starters: 0 };
+            const db=this.engine.db, fund=this.engine.economy.fundStarters.bind(this.engine.economy);
+            this.engine.db=(...args)=>{this.probe.sql++;return db(...args);};
+            this.engine.economy.fundStarters=(...args)=>{this.probe.starters++;return fund(...args);};
+          }
+          maintainMarket(...args) { this.probe.market++; return super.maintainMarket(...args); }
+          scheduleAlarm(...args) { this.probe.schedule++; return super.scheduleAlarm(...args); }
+          async handle(request) {
+            if(new URL(request.url).pathname==='/api/__quiz-probe') {
+              if(request.method==='POST') this.probe={sql:0,market:0,schedule:0,starters:0};
+              return Response.json(this.probe);
+            }
+            return super.handle(request);
+          }
+        }
+        export default worker;
+      `,
+    },
     bundle: true,
     write: false,
     format: "esm",
@@ -138,6 +162,12 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     name: "Test",
     input,
     published: true,
+  });
+  assert.equal(response.status, 401);
+  response = await post("quiz-answer", {
+    quiz: "test",
+    run: "unknown",
+    index: 0,
   });
   assert.equal(response.status, 401);
   response = await post("host/quiz-preview", { input });
@@ -494,22 +524,48 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       await new Promise((resolve) =>
         setTimeout(resolve, ready.startsAt - Date.now() + 10),
       );
-    response = await post(
-      "quiz-answer",
-      {
-        quiz: "test",
-        run: run.id,
-        index: i,
-        answer: "Alternative Test",
-        score: 0,
-      },
-      auth,
-    );
+    await mf.dispatchFetch("http://game/api/__quiz-probe", { method: "POST" });
+    const answerKey = crypto.randomUUID();
+    const answerBody = {
+      quiz: "test",
+      run: run.id,
+      index: i,
+      answer: "Alternative Test",
+      score: 0,
+    };
+    response = await post("quiz-answer", answerBody, {
+      ...auth,
+      "Idempotency-Key": answerKey,
+    });
     assert.equal(response.status, 200, await response.clone().text());
     const answered = (await response.json()).run;
     assert.equal(answered.submittedAnswer, "Alternative Test");
     assert.equal(answered.answer, "Anime Test");
     assert.equal(answered.correct, true);
+    if (i === 0) {
+      const probe = await (
+        await mf.dispatchFetch("http://game/api/__quiz-probe")
+      ).json();
+      assert.equal(probe.market, 0);
+      assert.equal(probe.schedule, 0);
+      assert.equal(probe.starters, 0);
+      assert.ok(probe.sql <= 12, JSON.stringify(probe));
+      t.diagnostic("Quiz answer hot path: " + JSON.stringify(probe));
+      const retry = await post("quiz-answer", answerBody, {
+        ...auth,
+        "Idempotency-Key": answerKey,
+      });
+      assert.deepEqual((await retry.json()).run, answered);
+      const lostResponse = await mf.dispatchFetch(
+        "http://game/api/quiz-run?quiz=test",
+        { headers: auth },
+      );
+      const recovered = (await lostResponse.json()).run;
+      assert.ok(recovered.elapsedMs >= answered.elapsedMs);
+      const { elapsedMs: recoveredMs, ...savedAnswer } = recovered;
+      const { elapsedMs: answeredMs, ...originalAnswer } = answered;
+      assert.deepEqual(savedAnswer, originalAnswer);
+    }
     const b = { quiz: "test", run: run.id, index: i },
       key = crypto.randomUUID(),
       headers = { ...auth, "Idempotency-Key": key };

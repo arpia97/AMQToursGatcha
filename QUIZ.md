@@ -46,3 +46,9 @@ GET `/api/my-titles` and POST `/api/equip-titles` require a player session. The 
 ## Browse Sorting
 
 The compact Sort By control includes Recently Updated, Alphabetical (A–Z), Unplayed First, Song Pool (largest or smallest first), and both Performance directions. Unplayed uses recorded completion status, so a completed zero-score quiz is still played. Sorting stays within the selected Singers/Composers category, preserves the server order for ties, and makes no additional API requests.
+
+## Answer Submission and Recovery
+
+Quiz start/restart/stop/readiness/answer/next actions and quiz-run recovery use a compact authenticated path that skips global starter scans, market maintenance and alarm rescheduling. The existing shared alarm continues handling markets/imports; quiz timing, scoring, rewards and durable receipts are unchanged. Responses reuse the validated in-memory run after persistence instead of reading and parsing it again.
+
+The browser pauses audio on answer lock, bounds quiz requests to 12 seconds, retains the same idempotency key for an unchanged retry, and checks the authoritative run after an ambiguous answer failure. An already-saved answer reveals its recorded result; an unsaved failure re-enables retry. It never invents a correct answer locally. Quiz completion displays its saved score/rewards immediately, while optional list/leaderboard refreshes run separately and cannot hide a completed result if they fail. Network and shared-object contention can still cause variable response times.

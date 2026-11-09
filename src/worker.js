@@ -233,7 +233,18 @@ export class Game extends DurableObject {
       url = new URL(request.url),
       path = url.pathname.slice(5),
       post = request.method === "POST";
-    e.tx(() => e.economy.fundStarters());
+    // Timed quiz moves do not award starters or alter market/import alarms.
+    // Leave shared housekeeping to normal requests and the existing alarm.
+    const quizMove = [
+      "quiz-start",
+      "quiz-restart",
+      "quiz-stop",
+      "quiz-ready",
+      "quiz-answer",
+      "quiz-next",
+    ].includes(path);
+    const quizRun = path === "quiz-run" && !post;
+    if (!quizMove && !quizRun) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -978,6 +989,22 @@ export class Game extends DurableObject {
         },
       );
     }
+    if (quizMove || quizRun) {
+      if (!session) fail("Sign in to play quizzes.", 401);
+      if (!post) {
+        if (path !== "quiz-run") fail("Unknown endpoint.", 404);
+        this.bursts.take("read:" + session.player, 60, 5);
+        return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
+      }
+      this.bursts.take("play:" + session.player);
+      const result = e.mutate(
+        session.player + ":" + path,
+        request.headers.get("Idempotency-Key"),
+        b,
+        () => e.action(session.player, path, b),
+      );
+      return json(result);
+    }
     // Paid game moves never need catalogue, inventory, auction settlement or
     // global rankings. Keep their authoritative wallet/state response small.
     if (
@@ -1264,8 +1291,6 @@ export class Game extends DurableObject {
         e.quiz.audioManifest(url.searchParams.get("quiz"), session.player),
       );
     }
-    if (path === "quiz-run" && !post)
-      return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
     if (path === "wishlist-order" && !post) {
       const wishlist = e.economy.wishlist.read(session.player);
       return json({ wishlist, cards: e.catalogStore.cards(wishlist) });

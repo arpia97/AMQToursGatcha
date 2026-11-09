@@ -369,7 +369,9 @@ export class Quiz {
   }
   view(player, id) {
     const q = this.definition(id, player);
-    const run = this.run(player, id);
+    return this.runView(q, this.run(player, q.id));
+  }
+  runView(q, run) {
     const now = this.e.now();
     if (!run) return { now, run: null };
     const score = run.answers.filter((a) => a.correct).length;
@@ -488,7 +490,7 @@ export class Quiz {
         !run.finished &&
         !!run.preview === !q.published
       )
-        return { ...this.view(player, q.id), message: "Quiz Resumed" };
+        return { ...this.runView(q, run), message: "Quiz Resumed" };
       const pool = e
         .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", q.id)
         .map((r) => JSON.parse(r.data));
@@ -510,7 +512,7 @@ export class Quiz {
         timing: null,
       };
       this.persist(player, q.id, run);
-      return { ...this.view(player, q.id), message: "Quiz Started" };
+      return { ...this.runView(q, run), message: "Quiz Started" };
     }
     if (!run || run.finished || run.id !== b.run || run.index !== b.index)
       fail("The question changed. Refresh the quiz.", 409);
@@ -527,7 +529,7 @@ export class Quiz {
         };
         this.persist(player, q.id, run);
       }
-      return { ...this.view(player, q.id), message: "Song Ready" };
+      return { ...this.runView(q, run), message: "Song Ready" };
     }
     if (action === "quiz-answer") {
       if (run.answers[run.index]) fail("This answer is already locked.", 409);
@@ -638,7 +640,7 @@ export class Quiz {
     } else fail("Unknown quiz action.", 404);
     this.persist(player, q.id, run);
     return {
-      ...this.view(player, q.id),
+      ...this.runView(q, run),
       message: run.finished ? "Quiz Complete" : "Answer Updated",
       me: e.player(player),
     };
