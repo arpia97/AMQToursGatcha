@@ -4,13 +4,19 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Task: deploy requested main runtime06417ac04c02218dec3e8d287aba63926236a9f7, then include drag-to-order titles.
-- Owner/integration/deployment: Codex, main checkout, baseac82521086afeb4a8044f17a3d1074cbef3cd49c (requested runtime is an ancestor;only docs follow it). Fetch/pull --ff-only confirmed up to date.
-- Scope: title settings UI/state,shared drag integration,persisted mixed-source title order,reset/identity support,existing tests and handoff. Preserve Gemini song-list/leader-notice/pickem changes.
-- Gemini addition (verified in non-overlapping regions of `src/quiz.js`, `public/quiz-ui.js`, `public/features.css`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`): Quiz leaderboard now returns `me` (`{ id, name, best, bestAt, durationMs, rank }`) for the signed-in viewer, highlights the viewer's row (`tr.is-me`), and appends a highlighted 21st row (`tr.is-me.is-outside-top`) showing placement, score, and time when the viewer is outside the Top 20.
-- No production quiz attempts, accounts, credits or inventory mutations for QA.
-- Browser QA: mouse pointer drag, keyboard movement, checkbox state, save and reload verified against disposable local fixtures; narrow layout has no horizontal overflow.
-- Concurrent uncommitted quiz viewer-row highlighting edits appeared during this task (`public/quiz-ui.js`, leaderboard sections of `src/quiz.js`/`features.css`, related tests/context). These belong to the other collaborator and are excluded from this release. Codex will deploy a clean committed snapshot, preserving those working edits.
+Completed: pull/deploy requested main runtime06417ac04c02218dec3e8d287aba63926236a9f7 and add drag-to-order titles. Requested runtime was already an ancestor of ac82521; only handoff docs followed it. Runtime source commit **f4482ad9daacac132976cc7a372d768d8994c5c3**, pushed to main.
+
+- Original Worker **17f19215-de64-4ed4-a940-e5eea39ecf83**, deployed from a clean Git archive of the exact runtime commit. Same GAME/Game/amqtours-economy-v1, configuration and import state; no live resets, grants, votes, refinements or title saves.
+- My Profile → My Titles: mouse/touch drag handles, keyboard arrows/Home/End, Reset Changes and Save. Host is fixed above earned titles. Mixed quiz/card order persists independently of visibility; duplicate card awards remain distinct. Ownership, exact earned set and stale-order validation precede writes; old visibility-only clients preserve order. New awards append. The additive order table follows canonical identity migration and existing gameplay reset behavior; no reset was executed.
+- Included requested06417ac behavior: Song List pop-up/metadata endpoint, displaced quiz #1 notice, and participated-only pick'em tag.
+- Clean release: **431 Node tests**, **207 syntax checks**, Wrangler dry-run and diff checks passed. Exact runtime-source application CI and demo CI both passed.
+- Browser disposable local fixtures: actual pointer drag, keyboard movement, hidden-selection preservation, saving/reload, duplicate awards, Host pinned, narrow layout without horizontal overflow. Local screenshot: outputs/AMQTours-title-order-preview.png in surrounding workspace.
+- Live: eight changed assets200 and exact release bytes; health200; guest My Titles401. After default deferred code adoption, published quiz-songs200 with27 metadata-only entries/no raw audio. Existing signed-in browser My Titles showed enabled Save,2 handles and no rollout notice; read-only verification only. Live screenshot: outputs/AMQTours-title-order-live.png.
+- Evidence: work/TITLE-ORDER.md, title-order-live-assets.json, title-order-runtime-proof.json, title-order-ci.json and clean release test/deploy logs in the surrounding workspace. No further title-order task remains.
+
+## Concurrent Working Edits — Not Deployed
+
+Uncommitted quiz viewer-row highlighting edits appeared during Codex's title task. Preserved untouched and excluded from this deployment: public/quiz-ui.js; leaderboard sections of src/quiz.js and public/features.css; tests/quiz-ui.test.mjs and tests/quiz.test.mjs; docs/collaboration/PROJECT.md. Their working-tree presence does **not** indicate production release. Other collaborator must inspect/test/commit them separately. Codex owns no further feature or deployment task.
 
 ## Last Verified Application Release
 
