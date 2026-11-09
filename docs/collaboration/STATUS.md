@@ -4,20 +4,19 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Completed (committed, pushed, and deployed to live Worker): Add `Characters | Seiyuus | Both` filter toggle, search, rarity/role filters, sorting, and drag-and-drop `Arrange Collection` (`collection-order`) to `My Profile -> Collection`, and unify rounded `.tab` / `.tabs` toggle styling across anchor and button tabs.
-- Agent / branch / checkout path: Gemini (Antigravity) / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `44893a9` → runtime `60f8541` / `public/styles.css`, `public/features.css`, `public/app.js`, `public/card-display.js`, `public/profile-cards-ui.js`, `public/showcase-order.js`, `public/wishlist-order.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/economy.js`, `src/economy-repair.js`, `src/wishlist.js`, `src/worker.js`, `tests/wishlist.test.mjs`, `tests/showcase-order.test.mjs`, `docs/collaboration/PROJECT.md`, `docs/collaboration/STATUS.md`
-- Other collaborator's work to preserve: All title-ordering, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
+- In progress: Make pinned anime tiles more compact.
+- Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
+- Base SHA / runtime SHA / changed files: `833ef69` / `public/features.css`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering, collection-ordering, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
 - Completed behavior / decisions:
-  - Added `Characters | Seiyuus | Both` toggle, search input, `Sort By` (`Custom Order`, `Collection Date · Newest`, `Rarity · Highest First`, `Enhancement · Highest First`, `Most Copies`, `Alphabetical · A–Z`, `Alphabetical · Z–A`, `Role · Main First`), Rarity filter, and Character Role filter to `My Profile -> Collection` (`player-cards?view=collection`).
-  - Added owner-only `Arrange Collection` toggle (`GET /api/collection-order` + `POST /api/collection-order` saving `inventory.position` with `expectedCards` 409 conflict validation) using the same drag-and-drop / position-input / quick-sort card grid editor as Showcase and Wishlist, plus inline Character/Seiyuu/Rarity/Role filters while arranging.
-  - Added `border-radius: 7px` and flex alignment directly to `.tab` in `public/styles.css` (and `.tabs` container on `.listing-venues`) so `<a class="tab">` (`My Profile | My Collection | My Titles`) and `<button class="tab">` render with consistent rounded pill corners.
-- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (434/434 passed), `git diff --check` (clean).
-- Commit / push / CI status: Runtime changes committed at `60f8541` and pushed to `origin/main`.
-- Runtime deployment version / live verification (or not deployed): Deployed to Cloudflare Worker `amqtours-gatcha` version **efcb71fc-56d5-46fe-8138-89c6b8d7ba6c**. Verified read-only live `/api/health` (200), `/styles.css` (200 with `.tab` `border-radius: 7px`), and `/profile-cards-ui.js` (200 with `profile-collection-sort` and `collection-arrange`).
-- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
-- Remaining work / blocker / exact next action: None.
-- Integration owner / deployment owner: Gemini (Antigravity).
+  - Adjusted `.pinned-anime .anime-progress-grid` to use a more compact column layout (`minmax(180px, 1fr)` with 12px gap instead of 240px with 16px gap).
+  - Reduced padding from 22px to 14px 16px, reduced title font size from 19px to 14px and min-height to 38px, reduced margins around title, label, progress bar (height 6px), and compact unpin button.
+- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/economy.test.mjs tests/profile-runtime.test.mjs` (32/32 passed), `git diff --check` (clean).
+- Commit / push / CI status: Working tree modified, preparing commit.
+- Runtime deployment version / live verification (or not deployed): Not deployed yet.
+- Data operations performed / idempotency evidence (or none): None.
+- Remaining work / blocker / exact next action: Commit and push, then deploy when requested.
+- Integration owner / deployment owner: Gemini.
 
 ## Last Verified Application Release
 
