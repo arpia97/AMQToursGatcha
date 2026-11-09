@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { createShowcaseEditor } from "../public/showcase-order.js";
 import { createWishlistEditor } from "../public/wishlist-order.js";
 import { createFeatures } from "../public/features.js";
+import {
+  createTitleOrderEditor,
+  titleOrderKey,
+} from "../public/title-order.js";
+import { titleSettingsPanel } from "../public/title-ui.js";
 const cards = [
   { id: "a", name: "Zeta", kind: "character", rarity: "D", series: "One" },
   { id: "b", name: "Voice 10", kind: "seiyuu", rarity: "AG", series: "Two" },
@@ -169,4 +174,56 @@ test("Inline Showcase and Wishlist editors preserve all pages, support drops/glo
       assert.match(editor.render(), /Lv. 2/);
     }
   }
+  const titles = {
+      player: "p",
+      orderRevision: 1,
+      role: "Host",
+      titles: [
+        { quiz: "same", title: "Same", equipped: true },
+        {
+          award: "one",
+          card: "a",
+          source: "card",
+          rarity: "AG",
+          title: "Same",
+          equipped: true,
+        },
+        {
+          award: "two",
+          card: "a",
+          source: "card",
+          rarity: "AG",
+          title: "Same",
+          equipped: false,
+        },
+      ],
+    },
+    saved = structuredClone(titles),
+    editor = createTitleOrderEditor();
+  assert.throws(() => editor.open(titles, "q"), /own titles/);
+  editor.open(titles, "p");
+  assert.equal(editor.dirty(), false);
+  assert.equal(editor.move("Host", 0), false);
+  editor.drop("award:two", "quiz:same");
+  editor.setEquipped("award:two", true);
+  editor.setEquipped("award:one", false);
+  assert.deepEqual(editor.cards(), ["award:two", "quiz:same", "award:one"]);
+  assert.deepEqual(editor.payload("p").awards, ["two"]);
+  assert.deepEqual(
+    editor.payload("p").expectedOrder,
+    saved.titles.map(titleOrderKey),
+  );
+  assert.equal(editor.dirty(), true);
+  const html = titleSettingsPanel(editor.data(), escape);
+  assert.match(html, /data-title-handle="award:two"/);
+  assert.match(html, /Host Is Always Equipped/);
+  assert.doesNotMatch(html, /data-title-sort-card="Host"/);
+  assert.ok(
+    html.indexOf("host-title-option") < html.indexOf("title-sort-grid"),
+  );
+  assert.throws(() => editor.payload("q"), /same account/);
+  assert.deepEqual(titles, saved);
+  editor.close();
+  editor.open(titles, "p");
+  assert.deepEqual(editor.cards(), saved.titles.map(titleOrderKey));
 });

@@ -879,6 +879,7 @@ export class Engine {
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
       this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
+      this.run("DELETE FROM profile_title_order WHERE player=?", id);
       this.run("DELETE FROM card_titles WHERE player=?", id);
       this.run("DELETE FROM card_title_awards WHERE player=?", id);
       this.run(
@@ -943,6 +944,7 @@ export class Engine {
         "quiz_progress",
         "quiz_reward_history",
         "profile_title_preferences",
+        "profile_title_order",
         "card_titles",
         "card_title_awards",
         "card_alchemy",

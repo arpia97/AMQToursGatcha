@@ -3024,6 +3024,37 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   gap: 12px;
   max-width: 760px;
 }
+.title-sort-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.title-sort-card {
+  position: relative;
+  padding: 12px 16px;
+}
+.title-option-content {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.title-drag-handle {
+  flex: 0 0 auto;
+}
+.title-sort-card.title-dragging {
+  opacity: 0.4;
+}
+.title-sort-card.title-drop-before {
+  box-shadow: 0 -3px 0 var(--mint, #b4e2c9);
+}
+.title-sort-card.title-drop-after {
+  box-shadow: 0 3px 0 var(--mint, #b4e2c9);
+}
+.title-drag-ghost {
+  position: fixed;
+  z-index: 12000;
+  pointer-events: none;
+  opacity: 0.9;
+  box-shadow: 0 12px 40px #0008;
+}
 .title-option {
   display: flex;
   align-items: center;

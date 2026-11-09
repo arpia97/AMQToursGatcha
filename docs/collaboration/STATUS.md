@@ -4,21 +4,13 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Completed: Add a `"Song List"` button next to the `"Play Quiz"` button for quizzes that produces a pop-up showing the song list for the quiz, send a notification pop-up to the user if their `#1` score in a quiz they were `#1` on was beaten by another player like we do for outbids, and remove the `"Did Not Participate"` tag on settled Pick'ems while keeping `"Participated"`.
-- Agent / branch / checkout path: Gemini (Antigravity) / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `c802ccdefa5a4e9a628d0092670fa95a8f6cf973` → runtime `06417ac04c02218dec3e8d287aba63926236a9f7` / `src/quiz.js`, `src/engine.js`, `src/worker.js`, `public/player-notices.js`, `public/pickem-votes.js`, `public/quiz-ui.js`, `public/app.js`, `public/features.css`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`, `tests/notices.test.mjs`, `tests/pickem-votes.test.mjs`, `docs/collaboration/PROJECT.md`, `docs/collaboration/STATUS.md`
-- Other collaborator's work to preserve: All prior quiz latency/sort/collection work at `c802ccdefa5a4e9a628d0092670fa95a8f6cf973`.
-- Completed behavior / decisions:
-  - Added `Quiz.prototype.songs(id, player)` in `src/quiz.js` and `GET /api/quiz-songs?quiz=<id>` in `src/worker.js` returning `{ id, name, updated, songs }` (`id`, `title`, `artist`, `anime`, `answers`) in pool order without raw audio URLs, enforcing draft visibility for non-hosts.
-  - Added `"Song List"` button (`data-quiz-songs="<id>"`) beside the Play/Preview Quiz button on quiz tiles and the leaderboard view in `public/quiz-ui.js`, opening a cached modal dialog (`.quiz-songs-dialog`) showing `#`, `Song`, `Artist`, and `Anime` that closes via `Close`, backdrop click, or `Escape`.
-  - Added `#1` quiz score beaten notification (`kind: "quiz-leader-beaten"`) via `PlayerNotices`: when a player completes a published (non-preview) quiz run and displaces another player from `#1` on that quiz (by higher score or faster tiebreak duration), the previous `#1` player receives a persistent notification pop-up (`"Your #1 Quiz Score Was Beaten"`) showing the quiz cover/title, the new `#1` player and score/time vs. their beaten score/time, and a `"View Quiz Leaderboard →"` button (`data-action="quiz-notice-open"`).
-  - Updated `pickemParticipationTag` in `public/pickem-votes.js` so settled Pick'em cards render only the `"Participated"` pill (`participated === true`) and never render `"Did Not Participate"`.
-- Checks run and results: `node tools/check.mjs` (206 files), `node --test tests/*.test.mjs` (430/430 passed), `wrangler deploy --dry-run --outdir dist` (passed), `git diff --check` (clean).
-- Commit / push / CI status: Runtime changes committed at `06417ac04c02218dec3e8d287aba63926236a9f7` and pushed to `origin/main` with handoff documentation.
-- Runtime deployment version / live verification (or not deployed): Not deployed to Cloudflare Worker from this Windows session because Wrangler is not logged in (`wrangler whoami` reports unauthenticated; `0a17cc58-d630-4b11-a2aa-14cc80b739a3` remains live). Ready for deployment of `06417ac04c02218dec3e8d287aba63926236a9f7` via `pnpm deploy` (or by Codex / after `wrangler login`).
-- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
-- Remaining work / blocker / exact next action: Run `pnpm deploy` with an authenticated Cloudflare Wrangler session (either via Codex or after running `wrangler login` locally) to deploy runtime commit `06417ac04c02218dec3e8d287aba63926236a9f7`, then record the new Worker version ID.
-- Integration owner / deployment owner: Gemini (Antigravity) / Codex.
+- Task: deploy requested main runtime06417ac04c02218dec3e8d287aba63926236a9f7, then include drag-to-order titles.
+- Owner/integration/deployment: Codex, main checkout, baseac82521086afeb4a8044f17a3d1074cbef3cd49c (requested runtime is an ancestor;only docs follow it). Fetch/pull --ff-only confirmed up to date.
+- Scope: title settings UI/state,shared drag integration,persisted mixed-source title order,reset/identity support,existing tests and handoff. Preserve Gemini song-list/leader-notice/pickem changes.
+- Gemini addition (verified in non-overlapping regions of `src/quiz.js`, `public/quiz-ui.js`, `public/features.css`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`): Quiz leaderboard now returns `me` (`{ id, name, best, bestAt, durationMs, rank }`) for the signed-in viewer, highlights the viewer's row (`tr.is-me`), and appends a highlighted 21st row (`tr.is-me.is-outside-top`) showing placement, score, and time when the viewer is outside the Top 20.
+- No production quiz attempts, accounts, credits or inventory mutations for QA.
+- Browser QA: mouse pointer drag, keyboard movement, checkbox state, save and reload verified against disposable local fixtures; narrow layout has no horizontal overflow.
+- Concurrent uncommitted quiz viewer-row highlighting edits appeared during this task (`public/quiz-ui.js`, leaderboard sections of `src/quiz.js`/`features.css`, related tests/context). These belong to the other collaborator and are excluded from this release. Codex will deploy a clean committed snapshot, preserving those working edits.
 
 ## Last Verified Application Release
 

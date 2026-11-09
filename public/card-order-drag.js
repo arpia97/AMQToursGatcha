@@ -10,6 +10,7 @@ export function installCardOrderDrag(
     capture = "#main",
     scrollSelector = null,
     pageSize = 24,
+    pointerMouse = false,
   },
 ) {
   const win = root.defaultView;
@@ -96,6 +97,10 @@ export function installCardOrderDrag(
     changed(current.card);
   }
   root.addEventListener("dragstart", (event) => {
+    if (drag?.ghost) {
+      event.preventDefault();
+      return;
+    }
     const card = event.target.closest?.(selector("sort-card"));
     if (!card || !enabled() || event.target.closest("input")) return;
     drag = { card: value(card, "sort-card") };
@@ -118,7 +123,7 @@ export function installCardOrderDrag(
   });
   root.addEventListener("dragend", clean);
   root.addEventListener("pointerdown", (event) => {
-    if (event.pointerType === "mouse" || !enabled()) return;
+    if ((!pointerMouse && event.pointerType === "mouse") || !enabled()) return;
     const handle = event.target.closest?.(selector("handle"));
     if (!handle) return;
     event.preventDefault();

@@ -6,6 +6,7 @@ import { AliasSync } from "../src/aliases.js";
 import { cardTitleName } from "../src/card-titles.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { titleBadges, titleSettingsPanel } from "../public/title-ui.js";
+import { titleOrderKey } from "../public/title-order.js";
 import { animeChecklist } from "../public/anime-checklist-ui.js";
 const escape = (s) =>
   String(s)
@@ -324,6 +325,74 @@ test("each separate MAX enhancement earns a distinct title, retries do not, and 
     6,
   );
 });
+test("mixed title ordering preserves duplicate awards, rejects stale/foreign orders, and follows identity/reset", (t) => {
+  const { e, act, make } = fixture(t);
+  for (const award of ["one", "two"])
+    e.cardTitles.insert("p", "community-00", "Shared Name", "AG", 1, 0, award);
+  e.run(
+    "INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES('same','Quiz','','Shared Name',1,'',1)",
+  );
+  e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','same',20,1)",
+  );
+  const before = e.player("p"),
+    original = e.quiz.titleOptions("p").map(titleOrderKey);
+  const order = ["award:two", "quiz:same", "award:one"];
+  const body = {
+    quizzes: ["same"],
+    awards: ["two"],
+    order,
+    expectedOrder: original,
+  };
+  const result = act("equip-titles", body, "ordered");
+  assert.deepEqual(act("equip-titles", body, "ordered"), result);
+  assert.deepEqual(result.titles.map(titleOrderKey), order);
+  assert.deepEqual(e.profile("p").titles.map(titleOrderKey), order.slice(0, 2));
+  assert.deepEqual(make().quiz.titleOptions("p").map(titleOrderKey), order);
+  for (const invalid of [
+    ["Host", "quiz:same", "award:one"],
+    ["award:one", "award:one", "quiz:same"],
+    order.slice(1),
+  ])
+    assert.throws(
+      () =>
+        act("equip-titles", { ...body, order: invalid, expectedOrder: order }),
+      /earned/,
+    );
+  assert.throws(
+    () => act("equip-titles", body),
+    (error) => error.status === 409,
+  );
+  assert.throws(
+    () =>
+      e.tx(() => e.action("q", "equip-titles", { ...body, expectedOrder: [] })),
+    /earned/,
+  );
+  assert.deepEqual(e.quiz.titleOptions("p").map(titleOrderKey), order);
+  assert.deepEqual(e.player("p"), before);
+  // Visibility-only older clients preserve the custom order.
+  act("equip-titles", { quizzes: ["same"], awards: ["one", "two"] });
+  assert.deepEqual(e.quiz.titles("p").map(titleOrderKey), order);
+  e.cardTitles.insert("p", "community-01", "New Award", "SSS", 2, 0, "new");
+  assert.deepEqual(e.quiz.titleOptions("p").map(titleOrderKey), [
+    ...order,
+    "award:new",
+  ]);
+  e.tx(() => new AliasSync(e).renamePlayer("p", "90123"));
+  assert.deepEqual(e.quiz.titleOptions("90123").map(titleOrderKey), [
+    ...order,
+    "award:new",
+  ]);
+  e.tx(() =>
+    e.host("reset-player", {
+      player: "90123",
+      confirmation: "RESET PLAYER 90123",
+    }),
+  );
+  assert.equal(e.one("SELECT count(*) AS n FROM profile_title_order").n, 0);
+  assert.equal(e.quiz.titleOptions("90123").length, 0);
+});
+
 test("title-award migration preserves visibility, recovers only evidenced repeats, and runs once across reset/restart", (t) => {
   const { e, make } = fixture(t);
   e.run(

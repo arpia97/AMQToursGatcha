@@ -600,6 +600,29 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response = await post("equip-titles", { quizzes: ["test"] }, auth);
   assert.equal(response.status, 200);
   response = await post(
+    "equip-titles",
+    {
+      quizzes: ["test"],
+      awards: [],
+      order: ["quiz:test"],
+      expectedOrder: ["quiz:test"],
+    },
+    auth,
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).titles[0].quiz, "test");
+  response = await post(
+    "equip-titles",
+    {
+      quizzes: ["test"],
+      awards: [],
+      order: ["quiz:test"],
+      expectedOrder: [],
+    },
+    auth,
+  );
+  assert.equal(response.status, 409);
+  response = await post(
     "host/quiz-save",
     { id: "test", name: "Test", title: "Renamed Title", published: true },
     host,

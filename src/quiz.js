@@ -1,4 +1,5 @@
 import { quizElapsed } from "../public/quiz-time.js";
+import { titleOrderKey } from "../public/title-order.js";
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
@@ -22,6 +23,7 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_reward_history(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
+      "CREATE TABLE IF NOT EXISTS profile_title_order(player TEXT PRIMARY KEY,data TEXT NOT NULL)",
     ])
       e.run(sql);
     if (!e.all("PRAGMA table_info(quizzes)").some((c) => c.name === "category"))
@@ -718,7 +720,7 @@ export class Quiz {
     };
   }
   titleOptions(player) {
-    return [
+    const titles = [
       ...this.e
         .all(
           "SELECT q.id AS quiz,q.title,q.name AS quizName,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
@@ -727,9 +729,22 @@ export class Quiz {
         .map(({ hidden, ...title }) => ({ ...title, equipped: !hidden })),
       ...this.e.cardTitles.options(player),
     ];
+    const row = this.e.one(
+      "SELECT data FROM profile_title_order WHERE player=?",
+      player,
+    );
+    if (!row) return titles;
+    const positions = new Map(JSON.parse(row.data).map((id, i) => [id, i]));
+    return titles.sort(
+      (a, b) =>
+        (positions.get(titleOrderKey(a)) ?? Number.MAX_SAFE_INTEGER) -
+        (positions.get(titleOrderKey(b)) ?? Number.MAX_SAFE_INTEGER),
+    );
   }
   titleSettings(player) {
     return {
+      player,
+      orderRevision: 1,
       role: this.e.player(player).role,
       titles: this.titleOptions(player),
     };
@@ -738,6 +753,22 @@ export class Quiz {
     const earned = this.titleOptions(player),
       quizTitles = earned.filter((t) => t.source !== "card"),
       cardTitles = earned.filter((t) => t.source === "card");
+    if (b.order !== undefined) {
+      const current = earned.map(titleOrderKey),
+        keys = new Set(current);
+      if (
+        !Array.isArray(b.order) ||
+        b.order.length !== current.length ||
+        new Set(b.order).size !== current.length ||
+        b.order.some((id) => !keys.has(id))
+      )
+        fail("Arrange only the titles you have earned.");
+      if (JSON.stringify(b.expectedOrder) !== JSON.stringify(current))
+        fail(
+          "Your titles changed. Reload My Titles and review the order before saving.",
+          409,
+        );
+    }
     // Older clients select card IDs; new clients select each award independently.
     const awards =
       b.awards !== undefined
@@ -787,6 +818,12 @@ export class Quiz {
         awards.includes(title.award) ? 0 : 1,
         player,
         title.award,
+      );
+    if (b.order !== undefined)
+      this.e.run(
+        "INSERT INTO profile_title_order VALUES(?,?) ON CONFLICT(player) DO UPDATE SET data=excluded.data",
+        player,
+        JSON.stringify(b.order),
       );
     return {
       ...this.titleSettings(player),

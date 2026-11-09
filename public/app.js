@@ -24,6 +24,7 @@ import {
   profileCardPanel,
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
+import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
@@ -701,6 +702,49 @@ document.addEventListener("input", (event) => {
       Number(event.target.value) * 100,
     );
 });
+const titleEditor = createTitleOrderEditor();
+const titleDrag = installCardOrderDrag(document, titleEditor, {
+  prefix: "title",
+  pointerMouse: true,
+  panel: ".title-arrange-panel",
+  canEdit: () =>
+    !busy && page() === "titles" && titleEditor.activeFor(state.me?.id),
+  changed(id) {
+    const scroll = window.scrollY;
+    render();
+    window.scrollTo(0, scroll);
+    if (id) {
+      document
+        .querySelector('[data-title-handle="' + CSS.escape(id) + '"]')
+        ?.focus({ preventScroll: true });
+      const status = document.getElementById("title-arrange-status");
+      if (status)
+        status.textContent =
+          "Title moved to position " +
+          (titleEditor.cards().indexOf(id) + 1) +
+          ".";
+    }
+  },
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-title-choice]") && !busy)
+    titleEditor.setEquipped(
+      event.target.dataset.titleChoice,
+      event.target.checked,
+    );
+});
+document.addEventListener("click", (event) => {
+  if (
+    !event.target.closest('[data-action="title-order-reset"]') ||
+    busy ||
+    !ui.titleData ||
+    !state.me
+  )
+    return;
+  titleDrag.cancel();
+  titleEditor.open(ui.titleData, state.me.id);
+  render();
+});
 const wishlistDrag = installWishlistDrag(document, wishlistEditor, {
   canEdit: () => !busy,
   changed(card) {
@@ -1213,7 +1257,13 @@ function profileTabs(active) {
 }
 function myTitles() {
   if (!state.me) return myProfile();
-  return profileTabs("titles") + titleSettingsPanel(ui.titleData, escape);
+  return (
+    profileTabs("titles") +
+    titleSettingsPanel(
+      titleEditor.activeFor(state.me.id) ? titleEditor.data() : ui.titleData,
+      escape,
+    )
+  );
 }
 function myProfile() {
   if (!state.me)
@@ -1397,7 +1447,11 @@ async function loadDynamic() {
   if (data) {
     rememberCards(data.cards);
     if (current === "collection") ui.animeData = data;
-    if (current === "titles") ui.titleData = data;
+    if (current === "titles") {
+      ui.titleData = data;
+      if (!titleEditor.activeFor(state.me?.id) || !titleEditor.dirty())
+        titleEditor.open(data, state.me.id);
+    }
     if (current === "catalog") {
       catalogPageData = data;
       catalogPageNumber = data.page;
@@ -1626,6 +1680,8 @@ async function refresh() {
     }
   }
   if (previousPlayer && previousPlayer !== state.me?.id) {
+    titleDrag.cancel();
+    titleEditor.close();
     wishlistDrag.cancel();
     wishlistEditor.close();
     showcaseDrag.cancel();
@@ -1948,11 +2004,13 @@ document.addEventListener("submit", async (ev) => {
   if (formIdentifier(f) === "titles-form") {
     await execute(
       "equip-titles",
-      {
-        quizzes: new FormData(f).getAll("quiz"),
-        awards: new FormData(f).getAll("award"),
+      titleEditor.payload(state.me?.id),
+      (result) => {
+        ui.titleData = result;
+        titleEditor.open(result, state.me.id);
+        render();
+        toast(result.message);
       },
-      null,
       f,
     );
     return;
@@ -2335,6 +2393,8 @@ document.addEventListener("click", (e) => {
     $("#modal").close();
 });
 window.addEventListener("hashchange", async () => {
+  titleDrag.cancel();
+  titleEditor.close();
   wishlistDrag.cancel();
   wishlistEditor.close();
   showcaseDrag.cancel();
