@@ -4,21 +4,23 @@ Updated November 9, 2026, Asia/Seoul. This file is a coordination record; Git an
 
 ## Current Task
 
-- Task: add quiz alphabetical/unplayed/song-pool sorting and public player collection browsing.
-- Owner / integration / deployment: Codex, main checkout.
-- Base: 2c79f43bfa236e5cc6a9c07009609f84efdb2ddb.
-- Scope: public/quiz-ui.js, public/profile-cards-ui.js, public/app.js, public/demo-features.js, src/wishlist.js, relevant existing tests and docs.
-- Implementation complete. Validation: 426 Node tests, 206 syntax checks, Wrangler dry run and diff check passed; desktop/390px browser sorts and 54-card three-page collection passed using disposable local fixtures.
-- Push/deployment/live checks remain. No production mutations performed or planned.
+- Completed: quiz alphabetical, unplayed-first and song-pool-size sorts; public player collection browsing.
+- Owner / integration / deployment: Codex. No feature task remains claimed.
+- Runtime source commit: `79775d2979ea250c9b445d626cf04a6f052eb585`, pushed to main.
+- No production account, gameplay, reward or inventory mutation was performed for testing. Original economy, catalogue/import checkpoints and subsequent player activity are preserved.
 
 ## Last Verified Application Release
 
-- Runtime source commit: `13deba34c91e94a3dcfea781a830c8cb2aa6a27d`.
-- Original Worker version: `0fc1b6ac-5901-4f95-83f6-154c61f55159`.
-- Change: settled Pick'em participation badges, private to the signed-in viewer; guest summaries have `participated: null`.
-- Recorded checks: 425 Node tests, 206 JavaScript syntax checks, dry-run bundle, diff check and application/demo CI passed. Local viewer/guest/mobile UI and live changed-asset bytes were verified. No production vote or reward was created for testing.
-- Earlier completed work includes compact top-bar Card Size, source-sheet display-link update, round-based tour reward review, refinement-result layout and Stop Quiz.
-- This context setup does not require a Worker deployment. A later documentation commit does not change the runtime release listed above.
+- Original Worker version: `eb023ba0-2d67-4288-8c52-f64a0989e96e`.
+- Live: https://play.amqtours-gatcha.workers.dev/ .
+- Quiz Sort By adds Alphabetical A–Z, Unplayed First and Song Pool largest/smallest. Existing recent/performance options remain. Sorting stays inside Singers/Composers and does not fetch again. A completed zero-score quiz remains played.
+- Player profiles add a Collection subtab and View Full Collection shortcut. The existing public player-cards endpoint returns 24 inventory cards per page with bounded metadata and read-only card actions. Listed cards remain separate. Levels, protection and profile-owner wishlist indicators are retained.
+- Checks: 426 Node tests, 206 JavaScript syntax checks, dry-run bundle and diff checks passed. Both application verification and demo publication CI passed for the runtime source SHA.
+- Browser QA: disposable 54-card fixture over three pages, desktop/390px layout, alphabetical/unplayed/pool sorts; live alphabetical/pool sorting and another collector's Collection page 1 → 2 → 1 passed.
+- Live read-only verification: health 200; four changed assets match source bytes; anonymous collection pages 1/2 each return 24 cards without overlap and only approved public row fields.
+- The original active Durable Object served old validation until Cloudflare's default deferred-update window elapsed, then succeeded without redeployment/reset. See WORKFLOW.md.
+- Local evidence: `work/QUIZ-SORT-COLLECTION.md`, `work/quiz-collection-live-proof.json`; live screenshot `outputs/AMQTours-public-collection-live.png` in the surrounding workspace, not this repository.
+- Later documentation-only commits do not change this runtime source/version.
 
 ## Work Ownership
 

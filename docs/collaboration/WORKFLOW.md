@@ -46,7 +46,7 @@ The repository CI verifies the app and publishes the GitHub Pages **demo**. It d
 
 For an authorized Gatcha deployment, use the existing authenticated Wrangler profile and unchanged production configuration. `pnpm deploy` updates the original game. Deploy `pnpm deploy:short-url` only when the proxy itself needs updating. If credentials are unavailable, finish the reviewable change and hand the exact commit to the deployment owner; do not copy another tool's token/configuration or create a new economy.
 
-After deployment, record the Worker version and verify the actual changed assets/endpoints at the live address. Read-only health/asset checks and authorization rejection checks are preferable to invented production activity. A successful upload alone is not live verification. Roll forward a focused fix rather than restoring an old database.
+After deployment, record the Worker version and verify the actual changed assets/endpoints at the live address. Read-only health/asset checks and authorization rejection checks are preferable to invented production activity. A successful upload alone is not live verification. Active Durable Objects can retain the previous code for up to five minutes under Cloudflare's default deferred update strategy. Allow that window when a newly added endpoint/view still returns an old validation error; do not redeploy unchanged code or reset the object to force propagation. See [Cloudflare's code-update announcement](https://developers.cloudflare.com/changelog/post/2026-10-30-durable-objects-deferred-code-updates/). Roll forward a focused fix rather than restoring an old database.
 
 ## Ending a Session
 
