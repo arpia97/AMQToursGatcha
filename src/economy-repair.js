@@ -16,7 +16,15 @@ const TABLES = {
   },
   inventory: {
     keys: ["player", "card"],
-    columns: ["player", "card", "copies", "level", "acquired_at", "protected"],
+    columns: [
+      "player",
+      "card",
+      "copies",
+      "level",
+      "acquired_at",
+      "protected",
+      "position",
+    ],
   },
   gambling_rounds: {
     keys: ["id"],

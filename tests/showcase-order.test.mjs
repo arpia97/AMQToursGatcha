@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createShowcaseEditor } from "../public/showcase-order.js";
-import { createWishlistEditor } from "../public/wishlist-order.js";
+import {
+  createWishlistEditor,
+  createCollectionEditor,
+} from "../public/wishlist-order.js";
 import { createFeatures } from "../public/features.js";
 import {
   createTitleOrderEditor,
@@ -226,4 +229,30 @@ test("Inline Showcase and Wishlist editors preserve all pages, support drops/glo
   editor.close();
   editor.open(titles, "p");
   assert.deepEqual(editor.cards(), saved.titles.map(titleOrderKey));
+
+  const collectionEditor = createCollectionEditor(helpers);
+  const collectionProfile = {
+    id: "p",
+    collection: [
+      { card: "a", level: 2, copies: 4, acquired_at: 100 },
+      { card: "b", level: 1, copies: 1, acquired_at: 400 },
+      { card: "c", level: 5, copies: 2, acquired_at: 300 },
+      { card: "d", level: 1, copies: 3, acquired_at: 200 },
+    ],
+  };
+  collectionEditor.open(collectionProfile, "p");
+  assert.match(collectionEditor.render(), /data-action="collection-arrange-kind"/);
+  assert.match(collectionEditor.render(), /id="collection-arrange-rarity"/);
+  collectionEditor.setFilter("kind", "seiyuu");
+  assert.equal(
+    (collectionEditor.render().match(/data-collection-sort-card=/g) || []).length,
+    2,
+  );
+  collectionEditor.drop("c", "b", false);
+  assert.deepEqual(collectionEditor.cards(), ["a", "c", "b", "d"]);
+  collectionEditor.clearFilters();
+  collectionEditor.sortBy("copies");
+  assert.deepEqual(collectionEditor.cards(), ["a", "d", "c", "b"]);
+  collectionEditor.sortBy("collected");
+  assert.deepEqual(collectionEditor.cards(), ["b", "c", "d", "a"]);
 });

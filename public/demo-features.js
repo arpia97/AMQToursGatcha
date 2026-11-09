@@ -1,5 +1,6 @@
 import { sortMarketItems } from "./market-sort.js";
 import { searchMatcher, cardSearchText } from "./search.js";
+import { collectionView } from "./card-display.js";
 import { demoAlchemy } from "./demo-alchemy.js";
 import { pickemVoteSummary } from "./pickem-votes.js";
 import { tourSummaries } from "./pickem-board.js";
@@ -60,6 +61,31 @@ export function demoFeatures(d, path, b) {
       wishlist: [...s.wishlist],
       cards: d.cards.filter((c) => s.wishlist.includes(c.id)),
     };
+  if (path === "collection-order" && !b)
+    return {
+      collection: s.inventory.map((i) => ({ ...i })),
+      cards: d.cards.filter((c) => s.inventory.some((i) => i.card === c.id)),
+    };
+  if (path === "collection-order" && b) {
+    const current = s.inventory.map((i) => i.card);
+    if (JSON.stringify(current) !== JSON.stringify(b.expectedCards))
+      throw Error("Your collection changed.");
+    if (
+      b.cards.length !== current.length ||
+      new Set(b.cards).size !== current.length ||
+      b.cards.some((id) => !current.includes(id))
+    )
+      throw Error("Arrange your current collection.");
+    const byId = new Map(s.inventory.map((i) => [i.card, i]));
+    s.inventory = b.cards.map((id, position) => ({
+      ...byId.get(id),
+      position,
+    }));
+    return {
+      message: "Demo collection order saved.",
+      inventory: s.inventory,
+    };
+  }
   if (path === "wishlist") {
     if (!d.cards.some((c) => c.id === b.card) || typeof b.wanted !== "boolean")
       throw Error("Choose a catalogue card.");
@@ -121,12 +147,23 @@ export function demoFeatures(d, path, b) {
       id === me.id && view === "wishlist"
         ? s.wishlist.map((card) => ({ card }))
         : id === me.id && view === "collection"
-          ? s.inventory
+          ? collectionView(
+              s.inventory,
+              (cid) => d.cards.find((c) => c.id === cid),
+              {
+                kind: params.get("kind") || "both",
+                query: params.get("q") || "",
+                rarity: params.get("rarity") || "",
+                role: params.get("role") || "",
+                sort: params.get("sort") || "custom",
+              },
+            ).map(({ c: _c, ...row }) => row)
           : [];
     return {
       player: id,
       view,
       page,
+      total: id === me.id && view === "collection" ? s.inventory.length : rows.length,
       rows: rows.slice((page - 1) * 24, page * 24),
       hasMore: rows.length > page * 24,
       cards: d.cards,

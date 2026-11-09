@@ -30,7 +30,11 @@ import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
 import { createTradesUI } from "./trades-ui.js";
 import { createShowcaseEditor } from "./showcase-order.js";
-import { createWishlistEditor, installWishlistDrag } from "./wishlist-order.js";
+import {
+  createWishlistEditor,
+  createCollectionEditor,
+  installWishlistDrag,
+} from "./wishlist-order.js";
 import { collectorsPanel, collectorsButton } from "./card-collectors.js";
 import { authFormHTML } from "./auth-form.js";
 import {
@@ -189,6 +193,13 @@ const ui = {
   profileView: "overview",
   profileCardsPage: 1,
   profileCardsData: null,
+  profileCollection: {
+    kind: "both",
+    query: "",
+    rarity: "",
+    role: "",
+    sort: "custom",
+  },
   rouletteMotion: readRouletteMotion({
     getItem: (key) => localStorage.getItem(key),
   }),
@@ -660,6 +671,13 @@ const wishlistEditor = createWishlistEditor({
   gradeBadge,
   series,
 });
+const collectionEditor = createCollectionEditor({
+  escape,
+  cardBy,
+  image,
+  gradeBadge,
+  series,
+});
 const showcaseEditor = createShowcaseEditor({
   escape,
   cardBy,
@@ -788,6 +806,36 @@ const showcaseDrag = installCardOrderDrag(document, showcaseEditor, {
           ".";
     } else
       document.getElementById("showcase-sort")?.focus({ preventScroll: true });
+  },
+});
+const collectionDrag = installCardOrderDrag(document, collectionEditor, {
+  prefix: "collection",
+  visualPrefix: "wishlist",
+  panel: ".collection-arrange-panel",
+  capture: "#main",
+  canEdit: () => !busy,
+  changed(card) {
+    if (page() === "collection")
+      ui.collectionPage = collectionEditor.currentPage();
+    else ui.profileCardsPage = collectionEditor.currentPage();
+    const scroll = window.scrollY;
+    render();
+    window.scrollTo(0, scroll);
+    if (card) {
+      document
+        .querySelector('[data-collection-handle="' + CSS.escape(card) + '"]')
+        ?.focus({ preventScroll: true });
+      const status = document.getElementById("collection-arrange-status");
+      if (status)
+        status.textContent =
+          cardBy(card).name +
+          " moved to position " +
+          (collectionEditor.cards().indexOf(card) + 1) +
+          ".";
+    } else
+      document
+        .getElementById("collection-sort")
+        ?.focus({ preventScroll: true });
   },
 });
 
@@ -1101,6 +1149,16 @@ function home() {
   );
 }
 function collection() {
+  if (state.me && collectionEditor.activeFor(state.me.id))
+    return (
+      profileTabs("collection") +
+      intro(
+        "Your Collection. Your Favourites.",
+        "Every card has a story.",
+        btn("Close Arrange", "collection-cancel", "", "secondary"),
+      ) +
+      collectionEditor.render()
+    );
   const items = collectionView(state.inventory, cardBy, {
     kind: tab,
     query: search,
@@ -1111,7 +1169,13 @@ function collection() {
   ui.collectionPage = collectionData.page;
   return (
     profileTabs("collection") +
-    intro("Your Collection. Your Favourites.", "Every card has a story.") +
+    intro(
+      "Your Collection. Your Favourites.",
+      "Every card has a story.",
+      state.me && state.inventory.length > 1
+        ? btn("Arrange Collection", "collection-arrange", "", "secondary")
+        : "",
+    ) +
     (state.me ? features.pinnedAnime() : "") +
     `<section class="collection-toolbar" aria-label="Collection controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}">${features.filters("collection")}</div>${state.me ? features.catalogPager(collectionData, ui.collectionPage, "collection-top") : ""}</section>` +
     (state.me
@@ -1291,14 +1355,19 @@ function profile() {
       heading +
       (own && ui.profileView === "wishlist" && wishlistEditor.activeFor(p.id)
         ? wishlistEditor.render()
-        : profileCardPanel(ui.profileCardsData, {
-            cardBy,
-            cardHTML,
-            escape,
-            number,
-            own,
-            wishlist: state.wishlist || [],
-          }))
+        : own &&
+            ui.profileView === "collection" &&
+            collectionEditor.activeFor(p.id)
+          ? collectionEditor.render()
+          : profileCardPanel(ui.profileCardsData, {
+              cardBy,
+              cardHTML,
+              escape,
+              number,
+              own,
+              wishlist: state.wishlist || [],
+              collectionFilters: ui.profileCollection,
+            }))
     );
   return (
     heading +
@@ -1429,7 +1498,8 @@ async function loadDynamic() {
     (current === "player" || current === "profile") &&
     data &&
     ui.profileView !== "overview" &&
-    !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id))
+    !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id)) &&
+    !(ui.profileView === "collection" && collectionEditor.activeFor(data.id))
   )
     profileCardsResult = await api(
       "player-cards?id=" +
@@ -1437,12 +1507,29 @@ async function loadDynamic() {
         "&view=" +
         ui.profileView +
         "&page=" +
-        ui.profileCardsPage,
+        ui.profileCardsPage +
+        (ui.profileView === "collection"
+          ? "&kind=" +
+            encodeURIComponent(ui.profileCollection.kind) +
+            "&q=" +
+            encodeURIComponent(ui.profileCollection.query) +
+            "&rarity=" +
+            encodeURIComponent(ui.profileCollection.rarity) +
+            "&role=" +
+            encodeURIComponent(
+              ui.profileCollection.kind === "seiyuu"
+                ? ""
+                : ui.profileCollection.role,
+            ) +
+            "&sort=" +
+            encodeURIComponent(ui.profileCollection.sort)
+          : ""),
     );
   if (version !== loadVersion || location.hash !== hash) return;
   if (profileCardsResult) {
     rememberCards(profileCardsResult.cards);
     ui.profileCardsData = profileCardsResult;
+    ui.profileCardsPage = profileCardsResult.page;
   }
   if (data) {
     rememberCards(data.cards);
@@ -1576,6 +1663,16 @@ function render() {
     queryInput.classList.toggle("no-results", none);
     queryInput.setAttribute("aria-invalid", String(none));
   }
+  const profileCollectionInput = $("#profile-collection-search");
+  if (
+    profileCollectionInput &&
+    ui.profileCollection.query.trim() &&
+    ui.profileCardsData
+  ) {
+    const none = !ui.profileCardsData.rows?.length;
+    profileCollectionInput.classList.toggle("no-results", none);
+    profileCollectionInput.setAttribute("aria-invalid", String(none));
+  }
   tickCountdowns();
   ensureCollectorCounts();
   horseUI.mount();
@@ -1686,6 +1783,8 @@ async function refresh() {
     wishlistEditor.close();
     showcaseDrag.cancel();
     showcaseEditor.close();
+    collectionDrag.cancel();
+    collectionEditor.close();
     ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
@@ -2058,6 +2157,24 @@ document.addEventListener("submit", async (ev) => {
     }
     return;
   }
+  if (formIdentifier(f) === "collection-order-form") {
+    const result = await execute(
+      "collection-order",
+      collectionEditor.payload(state.me?.id),
+      () => {},
+      f,
+    );
+    if (result) {
+      collectionDrag.cancel();
+      collectionEditor.close();
+      ui.collectionSort = "custom";
+      ui.profileCollection.sort = "custom";
+      await loadDynamic();
+      render();
+      toast(result.message);
+    }
+    return;
+  }
 
   if (formIdentifier(f) === "blackjack-bet") {
     ui.blackjackStake = Number(b.stake);
@@ -2225,6 +2342,35 @@ document.addEventListener("input", (ev) => {
           render();
       } catch (err) {
         if (query === ui.tradeQuery) toast(err.message, true);
+      }
+    }, 350);
+    return;
+  }
+  if (ev.target.id === "profile-collection-search") {
+    ev.target.classList.remove("no-results");
+    ev.target.setAttribute("aria-invalid", "false");
+    ui.profileCollection.query = ev.target.value;
+    ui.profileCardsPage = 1;
+    ++loadVersion;
+    clearTimeout(searchTimer);
+    const query = ui.profileCollection.query;
+    searchTimer = setTimeout(async () => {
+      if (
+        !(page() === "profile" || page() === "player") ||
+        ui.profileView !== "collection" ||
+        query !== ui.profileCollection.query
+      )
+        return;
+      try {
+        await loadDynamic();
+        if (
+          (page() === "profile" || page() === "player") &&
+          ui.profileView === "collection" &&
+          query === ui.profileCollection.query
+        )
+          render();
+      } catch (err) {
+        if (query === ui.profileCollection.query) toast(err.message, true);
       }
     }, 350);
     return;
@@ -3047,6 +3193,76 @@ async function handleFeatureClick(a, t) {
       render();
       return true;
     }
+    if (a === "collection-arrange" || a === "collection-cancel") {
+      if (!state.me) {
+        auth();
+        return true;
+      }
+      if (busy) return true;
+      if (a === "collection-cancel" || collectionEditor.activeFor(state.me.id)) {
+        collectionDrag.cancel();
+        collectionEditor.close();
+        await loadDynamic();
+        render();
+        return true;
+      }
+      wishlistDrag.cancel();
+      wishlistEditor.close();
+      showcaseDrag.cancel();
+      showcaseEditor.close();
+      const data = await api("collection-order");
+      rememberCards(data.cards);
+      collectionEditor.open(
+        { id: state.me.id, collection: data.collection },
+        state.me.id,
+        page() === "collection" ? ui.collectionPage : ui.profileCardsPage,
+      );
+      render();
+      return true;
+    }
+    if (a === "collection-page") {
+      collectionEditor.setPage(Number(t.dataset.page));
+      if (page() === "collection")
+        ui.collectionPage = collectionEditor.currentPage();
+      else ui.profileCardsPage = collectionEditor.currentPage();
+      render();
+      return true;
+    }
+    if (a === "collection-arrange-kind") {
+      collectionEditor.setFilter("kind", t.dataset.kind || "both");
+      render();
+      return true;
+    }
+    if (a === "clear-collection-arrange-filters") {
+      collectionEditor.clearFilters();
+      render();
+      return true;
+    }
+    if (a === "profile-collection-kind") {
+      ui.profileCollection.kind = t.dataset.kind || "both";
+      if (ui.profileCollection.kind === "seiyuu") {
+        ui.profileCollection.role = "";
+        if (ui.profileCollection.sort === "role")
+          ui.profileCollection.sort = "custom";
+      }
+      ui.profileCardsPage = 1;
+      await loadDynamic();
+      render();
+      return true;
+    }
+    if (a === "clear-profile-collection-filters") {
+      ui.profileCollection = {
+        ...ui.profileCollection,
+        kind: "both",
+        query: "",
+        rarity: "",
+        role: "",
+      };
+      ui.profileCardsPage = 1;
+      await loadDynamic();
+      render();
+      return true;
+    }
     if (a === "rank-metric") {
       ui.metric = t.dataset.metric;
       ui.rankPage = 1;
@@ -3190,6 +3406,8 @@ async function handleFeatureClick(a, t) {
       } else {
         wishlistDrag.cancel();
         wishlistEditor.close();
+        collectionDrag.cancel();
+        collectionEditor.close();
         showcaseEditor.open(profileData, state.me.id);
       }
       render();
@@ -3288,7 +3506,7 @@ function listingForm(id, venue, variant) {
     item = state.inventory.find((i) => i.card === id),
     auction = venue === "auction";
   modal(
-    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields">' + quantityInput({ id: "auction-hours", name: "hours", label: "Duration in Hours (Max 7 Days)", min: 1, max: 168, value: 72 }) + '<label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
+    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="tabs listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields">' + quantityInput({ id: "auction-hours", name: "hours", label: "Duration in Hours (Max 7 Days)", min: 1, max: 168, value: 72 }) + '<label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
   );
 }
 function openInstantSale(id, variant) {
@@ -3543,7 +3761,10 @@ document.addEventListener("change", async (ev) => {
     render();
     return;
   }
-  if (["catalog-sort", "collection-sort"].includes(ev.target.id)) {
+  if (
+    ["catalog-sort", "collection-sort"].includes(ev.target.id) &&
+    !ev.target.closest(".collection-arrange-panel")
+  ) {
     if (ev.target.id === "catalog-sort") {
       ui.catalogSort = ev.target.value;
       catalogPageNumber = 1;
@@ -3557,6 +3778,36 @@ document.addEventListener("change", async (ev) => {
     } catch (err) {
       toast(err.message, true);
     }
+  }
+  if (
+    [
+      "profile-collection-sort",
+      "profile-collection-rarity",
+      "profile-collection-role",
+    ].includes(ev.target.id)
+  ) {
+    const field = ev.target.id.replace("profile-collection-", "");
+    ui.profileCollection[field] = ev.target.value;
+    ui.profileCardsPage = 1;
+    try {
+      await loadDynamic();
+      render();
+    } catch (err) {
+      toast(err.message, true);
+    }
+    return;
+  }
+  if (
+    ["collection-arrange-rarity", "collection-arrange-role"].includes(
+      ev.target.id,
+    )
+  ) {
+    collectionEditor.setFilter(
+      ev.target.id.endsWith("rarity") ? "rarity" : "role",
+      ev.target.value,
+    );
+    render();
+    return;
   }
   if (["players-page-input", "players-page-select"].includes(ev.target.id)) {
     const p = Number(ev.target.value),

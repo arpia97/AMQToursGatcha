@@ -1246,6 +1246,13 @@ export class Game extends DurableObject {
         url.searchParams.get("id"),
         url.searchParams.get("view"),
         Number(url.searchParams.get("page") || 1),
+        {
+          kind: url.searchParams.get("kind") || "both",
+          query: url.searchParams.get("q") || "",
+          rarity: url.searchParams.get("rarity") || "",
+          role: url.searchParams.get("role") || "",
+          sort: url.searchParams.get("sort") || "custom",
+        },
       );
       return json({
         ...result,
@@ -1300,6 +1307,13 @@ export class Game extends DurableObject {
     if (path === "wishlist-order" && !post) {
       const wishlist = e.economy.wishlist.read(session.player);
       return json({ wishlist, cards: e.catalogStore.cards(wishlist) });
+    }
+    if (path === "collection-order" && !post) {
+      const collection = e.economy.wishlist.readCollection(session.player);
+      return json({
+        collection,
+        cards: e.catalogStore.cards(collection.map((r) => r.card)),
+      });
     }
     if (path === "my-titles" && !post)
       return json(e.quiz.titleSettings(session.player));

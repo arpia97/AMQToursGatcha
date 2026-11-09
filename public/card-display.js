@@ -74,7 +74,7 @@ export function collectionView(
   inventory,
   cardBy,
   {
-    kind,
+    kind = "both",
     query = "",
     rarity = "",
     role = "",
@@ -88,14 +88,25 @@ export function collectionView(
     .map((i) => ({ ...i, c: cardBy(i.card) }))
     .filter(
       ({ c, ...item }) =>
+        c &&
         (!upgradable || canUpgrade(item)) &&
         (!hideProtected || !item.protected) &&
-        (kind === "both" || c.kind === kind) &&
+        (!kind || kind === "both" || c.kind === kind) &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&
         matches(cardSearchText(c)),
     )
     .sort((a, b) => {
+      if (sort === "custom") {
+        const aHas = a.position != null,
+          bHas = b.position != null;
+        if (aHas !== bHas) return aHas ? -1 : 1;
+        if (aHas && a.position !== b.position) return a.position - b.position;
+        return (
+          (b.acquired_at || 0) - (a.acquired_at || 0) ||
+          String(a.card).localeCompare(String(b.card))
+        );
+      }
       const order =
         sort === "collected"
           ? (b.acquired_at || 0) - (a.acquired_at || 0)

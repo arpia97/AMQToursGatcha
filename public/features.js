@@ -47,6 +47,7 @@ export function createFeatures(h, ui) {
     if (ui.tab() === "character") choices.push(["role", "Role · Main first"]);
     if (collection)
       choices.push(
+        ["custom", "Custom order"],
         ["collected", "Collection date · newest"],
         ["level", "Enhancement level"],
         ["copies", "Most copies"],

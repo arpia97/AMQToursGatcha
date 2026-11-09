@@ -277,3 +277,105 @@ test("public profile and wishlist card flags belong to that profile's player", (
   assert.deepEqual(e.profile("q").wishlist, []);
   assert.equal(e.profile("q").inventory[0].protected, 0);
 });
+
+test("collection custom order persists, filters and sorts in profile collection view", (t) => {
+  const { e, act } = fixture(t);
+  e.host("catalog", {
+    cards: [
+      { id: "community-0", name: "Card 0", kind: "character", fixedRarity: "AG", role: "main", series: "Series" },
+      { id: "community-1", name: "Card 1", kind: "seiyuu", fixedRarity: "S", series: "Series" },
+      { id: "community-2", name: "Card 2", kind: "character", fixedRarity: "B", role: "supporting", series: "Series" },
+    ],
+  });
+  e.addCard("p", "community-0");
+  e.addCard("p", "community-1");
+  e.addCard("p", "community-2");
+  e.run("UPDATE inventory SET level=4,copies=3,acquired_at=100 WHERE player='p' AND card='community-0'");
+  e.run("UPDATE inventory SET level=2,copies=5,acquired_at=300 WHERE player='p' AND card='community-1'");
+  e.run("UPDATE inventory SET level=1,copies=1,acquired_at=200 WHERE player='p' AND card='community-2'");
+
+  const initial = e.economy.wishlist.readCollection("p").map((r) => r.card);
+  assert.deepEqual(initial, ["community-1", "community-2", "community-0"]);
+
+  const customOrder = ["community-2", "community-0", "community-1"];
+  const saved = act(
+    "p",
+    "collection-order",
+    { cards: customOrder, expectedCards: initial },
+    "col-order-1",
+  );
+  assert.deepEqual(
+    saved.inventory.map((r) => r.card),
+    customOrder,
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { sort: "custom" }).rows.map((r) => r.card),
+    customOrder,
+  );
+  assert.deepEqual(
+    e.state("p").inventory.map((r) => r.card),
+    customOrder,
+  );
+  assert.deepEqual(
+    e.profile("p").inventory.map((r) => r.card),
+    customOrder,
+  );
+  assert.throws(
+    () =>
+      act("p", "collection-order", {
+        cards: customOrder,
+        expectedCards: initial,
+      }),
+    /changed/,
+  );
+
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { kind: "seiyuu" }).rows.map((r) => r.card),
+    ["community-1"],
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { kind: "character", role: "main" }).rows.map((r) => r.card),
+    ["community-0"],
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { rarity: "B" }).rows.map((r) => r.card),
+    ["community-2"],
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { query: "Card 1" }).rows.map((r) => r.card),
+    ["community-1"],
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { sort: "copies" }).rows.map((r) => r.card),
+    ["community-1", "community-0", "community-2"],
+  );
+  assert.deepEqual(
+    e.economy.wishlist.page("p", "collection", 1, { sort: "rarity" }).rows.map((r) => r.card),
+    ["community-0", "community-1", "community-2"],
+  );
+
+  const ownHtml = profileCardPanel(
+    e.economy.wishlist.page("p", "collection", 1),
+    {
+      cardBy: (id) => e.catalogStore.card(id),
+      cardHTML: () => "<article></article>",
+      escape: String,
+      number: String,
+      own: true,
+      wishlist: [],
+      collectionFilters: {
+        kind: "character",
+        query: "Card",
+        rarity: "AG",
+        role: "Main",
+        sort: "custom",
+      },
+    },
+  );
+  assert.match(ownHtml, /data-action="collection-arrange"/);
+  assert.match(ownHtml, /data-action="profile-collection-kind"/);
+  assert.match(ownHtml, /id="profile-collection-search"/);
+  assert.match(ownHtml, /id="profile-collection-sort"/);
+  assert.match(ownHtml, /id="profile-collection-rarity"/);
+  assert.match(ownHtml, /id="profile-collection-role"/);
+});

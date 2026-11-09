@@ -1,4 +1,5 @@
 import { collectorsButton } from "./card-collectors.js";
+import { RARITIES } from "./card-values.js";
 export function wishlistButton(card, wishlist, e) {
   const wanted = wishlist.includes(card.id);
   return (
@@ -36,9 +37,86 @@ export function profileCardTabs(view) {
     "</nav>"
   );
 }
+function profileCollectionControls(filters = {}, e) {
+  const kind = ["character", "seiyuu", "both"].includes(filters.kind)
+      ? filters.kind
+      : "both",
+    query = filters.query || "",
+    rarity = filters.rarity || "",
+    role = kind === "character" ? filters.role || "" : "",
+    sort = filters.sort || "custom";
+  const sorts = [
+    ["custom", "Custom Order"],
+    ["collected", "Collection Date · Newest"],
+    ["rarity", "Rarity · Highest First"],
+    ["level", "Enhancement · Highest First"],
+    ["copies", "Most Copies"],
+    ["name", "Alphabetical · A–Z"],
+    ["name-desc", "Alphabetical · Z–A"],
+    ...(kind === "character" ? [["role", "Role · Main First"]] : []),
+  ];
+  return (
+    '<div class="filters collection-toolbar-main profile-collection-toolbar"><div class="tabs profile-collection-tabs" role="group" aria-label="Collection Card Type">' +
+    [
+      ["character", "Characters"],
+      ["seiyuu", "Seiyuus"],
+      ["both", "Both"],
+    ]
+      .map(
+        ([id, label]) =>
+          '<button type="button" class="tab ' +
+          (kind === id ? "active" : "") +
+          '" data-action="profile-collection-kind" data-kind="' +
+          id +
+          '" aria-pressed="' +
+          (kind === id) +
+          '">' +
+          label +
+          "</button>",
+      )
+      .join("") +
+    '</div><input type="search" class="search" id="profile-collection-search" aria-label="Search Collection" placeholder="Search Collection…" value="' +
+    e(query) +
+    '"><div class="catalog-refinements sort-control"><label>Sort By<select id="profile-collection-sort">' +
+    sorts
+      .map(
+        ([id, label]) =>
+          '<option value="' +
+          id +
+          '" ' +
+          (sort === id ? "selected" : "") +
+          ">" +
+          label +
+          "</option>",
+      )
+      .join("") +
+    '</select></label></div><div class="catalog-refinements"><label>Rarity<select id="profile-collection-rarity"><option value="">All Rarities</option>' +
+    [...RARITIES, "Pending"]
+      .map(
+        (r) =>
+          '<option value="' +
+          r +
+          '" ' +
+          (rarity === r ? "selected" : "") +
+          ">" +
+          r +
+          "</option>",
+      )
+      .join("") +
+    "</select></label>" +
+    (kind === "character"
+      ? '<label>Character Role<select id="profile-collection-role"><option value="">All Roles</option><option value="main" ' +
+        (role === "main" ? "selected" : "") +
+        '>Main</option><option value="supporting" ' +
+        (role === "supporting" ? "selected" : "") +
+        ">Supporting</option></select></label>"
+      : "") +
+    '<button type="button" class="text-button" data-action="clear-profile-collection-filters">Clear Filters</button></div></div>'
+  );
+}
 export function profileCardPanel(
   data,
-  { cardBy, cardHTML, escape: e, number: n, own, wishlist },
+  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters },
 ) {
   if (!data) return '<p class="notice">Loading Cards…</p>';
   const tiles = data.rows
@@ -78,6 +156,7 @@ export function profileCardPanel(
       );
     })
     .join("");
+  const totalOwned = data.total ?? data.rows.length;
   return (
     '<section class="profile-card-panel"><div class="section-head"><h2>' +
     (data.view === "collection"
@@ -86,16 +165,25 @@ export function profileCardPanel(
         ? "Wishlist"
         : "Active Listings") +
     "</h2>" +
-    (own && data.view === "wishlist" && wishlist.length > 1
-      ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
-      : "") +
+    (own && data.view === "collection" && totalOwned > 1
+      ? '<button type="button" class="text-button" data-action="collection-arrange" aria-pressed="false">Arrange Collection</button>'
+      : own && data.view === "wishlist" && wishlist.length > 1
+        ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
+        : "") +
     "</div>" +
+    (data.view === "collection"
+      ? profileCollectionControls(collectionFilters, e)
+      : "") +
     (tiles
       ? '<div class="card-grid">' + tiles + "</div>"
       : '<p class="notice">' +
         (data.view === "wishlist"
           ? "No wishlisted cards yet."
-          : "No active shop, auction or trade listings.") +
+          : data.view === "collection"
+            ? totalOwned > 0
+              ? "No matching cards in this collection."
+              : "No cards in this collection yet."
+            : "No active shop, auction or trade listings.") +
         "</p>") +
     '<div class="toolbar space-top"><button class="button secondary" data-action="profile-cards-page" data-page="' +
     (data.page - 1) +

@@ -68,6 +68,7 @@ export class Engine {
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
+      ["inventory", "position", "INTEGER"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
       ["catalog", "series_romaji", "TEXT NOT NULL DEFAULT ''"],
@@ -97,6 +98,7 @@ export class Engine {
       "CREATE INDEX IF NOT EXISTS throttle_expiry ON throttle(expires)",
       "CREATE INDEX IF NOT EXISTS players_invite_expiry ON players(invite_expires)",
       "CREATE INDEX IF NOT EXISTS player_earned ON players(earned DESC,id)",
+      "CREATE INDEX IF NOT EXISTS inventory_order ON inventory(player,position IS NULL,position,acquired_at DESC,card)",
     ])
       this.run(sql);
     this.catalogStore = new Catalog(this);
@@ -1042,7 +1044,10 @@ export class Engine {
       id || "",
     );
     const inventory = id
-      ? this.all("SELECT * FROM inventory WHERE player=?", id)
+      ? this.all(
+          "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
+          id,
+        )
       : [];
     const ranks = this.all(
       "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
@@ -1217,11 +1222,14 @@ export class Engine {
       wishlist: this.economy.wishlist.read(id),
       pinnedAnime: this.economy.anime.pinned(id),
       completion: this.economy.completion(id),
-      inventory: this.all("SELECT * FROM inventory WHERE player=?", id),
+      inventory: this.all(
+        "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
+        id,
+      ),
       cards: this.catalogStore.cards([
         ...new Set([
           ...this.all(
-            "SELECT card FROM inventory WHERE player=? LIMIT 20",
+            "SELECT card FROM inventory WHERE player=? ORDER BY position IS NULL,position LIMIT 20",
             id,
           ).map((i) => i.card),
           p.avatar_card,

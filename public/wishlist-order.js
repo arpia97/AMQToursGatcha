@@ -23,6 +23,9 @@ export function createWishlistEditor(helpers) {
     },
   };
 }
+export function createCollectionEditor(helpers) {
+  return createShowcaseEditor(helpers, { mode: "collection" });
+}
 export function installWishlistDrag(root, editor, options) {
   return installCardOrderDrag(root, editor, options);
 }

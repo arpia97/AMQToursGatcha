@@ -537,6 +537,8 @@ export class Economy {
         : this.alchemy.refine(player, b);
     if (action === "wishlist") return this.wishlist.change(player, b);
     if (action === "wishlist-order") return this.wishlist.reorder(player, b);
+    if (action === "collection-order")
+      return this.wishlist.reorderCollection(player, b);
     if (action === "alchemy-draw") return this.alchemy.draw(player, b);
     if (action === "sell-instant") {
       const id = text(b.card, 100),

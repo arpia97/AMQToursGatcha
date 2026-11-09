@@ -388,6 +388,7 @@ main {
   background: transparent;
   font-size: 11px;
   padding: 6px;
+  border-radius: 8px;
 }
 .text-button:hover {
   color: white;
@@ -733,10 +734,15 @@ main {
   flex-wrap: wrap;
 }
 .tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   color: var(--muted);
   padding: 10px 16px;
   font-size: 12px;
+  border-radius: 7px;
+  text-decoration: none;
 }
 .tab.active {
   background: #30313d;

@@ -4987,3 +4987,30 @@ dialog.avatar-editor-modal {
   background: #ffffff04;
   border-color: var(--border);
 }
+
+.profile-collection-toolbar {
+  margin: 0 0 22px;
+}
+.profile-collection-toolbar .collection-toolbar-main {
+  margin-bottom: 14px;
+}
+.profile-collection-toolbar .catalog-refinements {
+  margin: 0;
+}
+.collection-arrange-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.collection-arrange-filters .tabs {
+  margin: 0;
+}
+.collection-arrange-filters .catalog-refinements {
+  margin: 0;
+}
+.collection-arrange-panel .wishlist-inline-sort {
+  flex-wrap: wrap;
+}

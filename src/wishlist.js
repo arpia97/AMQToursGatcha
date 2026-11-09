@@ -1,4 +1,5 @@
 import { fail, integer, text } from "./engine.js";
+import { collectionView } from "../public/card-display.js";
 export class Wishlist {
   constructor(e) {
     this.e = e;
@@ -93,6 +94,41 @@ export class Wishlist {
     );
     return { message: "Wishlist order saved.", wishlist: this.read(player) };
   }
+  readCollection(player) {
+    return this.e.all(
+      "SELECT card,level,copies,protected,acquired_at,position FROM inventory WHERE player=? AND copies>0 ORDER BY position IS NULL,position,acquired_at DESC,card",
+      player,
+    );
+  }
+  reorderCollection(player, b) {
+    const rows = this.readCollection(player),
+      current = rows.map((r) => r.card);
+    if (
+      !Array.isArray(b.cards) ||
+      !Array.isArray(b.expectedCards) ||
+      b.cards.length !== current.length ||
+      new Set(b.cards).size !== current.length ||
+      b.cards.some((id) => !current.includes(id))
+    )
+      fail("Arrange the cards already in your collection.");
+    if (JSON.stringify(current) !== JSON.stringify(b.expectedCards))
+      fail(
+        "Your collection changed. Close this window and reopen it before arranging again.",
+        409,
+      );
+    b.cards.forEach((card, position) =>
+      this.e.run(
+        "UPDATE inventory SET position=? WHERE player=? AND card=?",
+        position,
+        player,
+        card,
+      ),
+    );
+    return {
+      message: "Collection order saved.",
+      inventory: this.readCollection(player),
+    };
+  }
   withCounts(cards) {
     if (!cards.length) return cards;
     const e = this.e,
@@ -181,25 +217,65 @@ export class Wishlist {
       ),
     };
   }
-  page(id, view, page = 1) {
+  page(id, view, page = 1, options = {}) {
     const e = this.e;
     id = e.resolvePlayer(text(id, 100));
     e.player(id);
     integer(page, 1, 10000);
-    let rows;
+    let rows, total;
     if (view === "wishlist")
       rows = e.all(
         "SELECT w.card,w.created,COALESCE(i.protected,0) AS protected FROM card_wishlist w LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?",
         id,
         (page - 1) * 24,
       );
-    else if (view === "collection")
-      rows = e.all(
-        "SELECT card,level,copies,protected FROM inventory WHERE player=? AND copies>0 ORDER BY acquired_at DESC,card LIMIT 25 OFFSET ?",
-        id,
-        (page - 1) * 24,
-      );
-    else if (view === "listings")
+    else if (view === "collection") {
+      const kind = ["both", "character", "seiyuu"].includes(options.kind)
+          ? options.kind
+          : "both",
+        query = String(options.query || "").slice(0, 100),
+        rarity = String(options.rarity || ""),
+        role = kind === "character" ? String(options.role || "") : "",
+        sort = [
+          "custom",
+          "collected",
+          "rarity",
+          "level",
+          "copies",
+          "name",
+          "name-desc",
+          "role",
+        ].includes(options.sort)
+          ? options.sort
+          : "custom";
+      const allRows = this.readCollection(id);
+      total = allRows.length;
+      const sourceRows =
+        kind === "both" && !query.trim() && !rarity && !role && sort === "custom"
+          ? allRows
+          : (() => {
+              const byId = new Map(
+                e.catalogStore
+                  .cards(allRows.map((r) => r.card))
+                  .map((c) => [c.id, c]),
+              );
+              return collectionView(allRows, (cid) => byId.get(cid), {
+                kind,
+                query,
+                rarity,
+                role,
+                sort,
+              });
+            })();
+      rows = sourceRows
+        .slice((page - 1) * 24, page * 24 + 1)
+        .map((row) => ({
+          card: row.card,
+          level: row.level,
+          copies: row.copies,
+          protected: row.protected,
+        }));
+    } else if (view === "listings")
       rows = e.all(
         `SELECT * FROM (
  SELECT id,card,level,extra_copies,price,'sale' AS venue,created AS at FROM market_listings WHERE seller=? AND status='open'
@@ -234,6 +310,7 @@ export class Wishlist {
       player: id,
       view,
       page,
+      ...(total !== undefined ? { total } : {}),
       hasMore: rows.length > 24,
       rows: visible.map((row) => ({
         ...row,

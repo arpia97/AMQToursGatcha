@@ -4,18 +4,19 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Completed (committed, pushed, and deployed to live Worker): Organize top quiz toolbar layout (tabs left, search + sort right, proper spacing/divider above quiz cards) and dynamic match-state coloring (green on match, red on no match).
+- Completed (committed and pushed; awaiting explicit deploy instruction): Add `Characters | Seiyuus | Both` filter toggle, search, rarity/role filters, sorting, and drag-and-drop `Arrange Collection` (`collection-order`) to `My Profile -> Collection`, and unify rounded `.tab` / `.tabs` toggle styling across anchor and button tabs.
 - Agent / branch / checkout path: Gemini (Antigravity) / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `59f1b96` → runtime `1335f2e` / `public/quiz-ui.js`, `public/features.css`, `tests/quiz-ui.test.mjs`, `docs/collaboration/STATUS.md`
-- Other collaborator's work to preserve: All title-ordering, quiz search, quiz leaderboard, notices, and pick'em features.
+- Base SHA / runtime SHA / changed files: `44893a9` / `public/styles.css`, `public/features.css`, `public/app.js`, `public/card-display.js`, `public/profile-cards-ui.js`, `public/showcase-order.js`, `public/wishlist-order.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/economy.js`, `src/economy-repair.js`, `src/wishlist.js`, `src/worker.js`, `tests/wishlist.test.mjs`, `tests/showcase-order.test.mjs`, `docs/collaboration/PROJECT.md`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
 - Completed behavior / decisions:
-  - Reorganized quiz list header into a top row (`Quiz` heading + completion stats on the left, Server picker on the right) and a dedicated toolbar row with bottom border and margin (`.quiz-toolbar`: category tabs on the left; search box and sort dropdown aligned on the right), preventing tabs from touching artist cards.
-  - Added match-state styling to search input: `.is-match` displays green border/subtle glow on results found, `.is-no-match` displays red border/subtle glow on zero results found. Empty input retains default styling.
-- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (433/433 passed), `git diff --check` (clean).
-- Commit / push / CI status: Runtime changes committed at `1335f2e` and pushed to `origin/main`.
-- Runtime deployment version / live verification (or not deployed): Deployed to Cloudflare Worker `amqtours-gatcha` version **f46ebd11-ce00-4865-a327-ae0b1602d9b4**. Verified read-only live `/api/health` (200), `/quiz-ui.js` (200 with `quiz-toolbar` and `is-match`), and `/features.css` (200 with `quiz-toolbar` and `is-match`).
-- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
-- Remaining work / blocker / exact next action: None.
+  - Added `Characters | Seiyuus | Both` toggle, search input, `Sort By` (`Custom Order`, `Collection Date · Newest`, `Rarity · Highest First`, `Enhancement · Highest First`, `Most Copies`, `Alphabetical · A–Z`, `Alphabetical · Z–A`, `Role · Main First`), Rarity filter, and Character Role filter to `My Profile -> Collection` (`player-cards?view=collection`).
+  - Added owner-only `Arrange Collection` toggle (`GET /api/collection-order` + `POST /api/collection-order` saving `inventory.position` with `expectedCards` 409 conflict validation) using the same drag-and-drop / position-input / quick-sort card grid editor as Showcase and Wishlist, plus inline Character/Seiyuu/Rarity/Role filters while arranging.
+  - Added `border-radius: 7px` and flex alignment directly to `.tab` in `public/styles.css` (and `.tabs` container on `.listing-venues`) so `<a class="tab">` (`My Profile | My Collection | My Titles`) and `<button class="tab">` render with consistent rounded pill corners.
+- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (434/434 passed), `git diff --check` (clean).
+- Commit / push / CI status: Committed and pushed to `origin/main`.
+- Runtime deployment version / live verification (or not deployed): Not deployed yet (awaiting explicit deploy instruction).
+- Data operations performed / idempotency evidence (or none): None.
+- Remaining work / blocker / exact next action: Deploy when requested by the user.
 - Integration owner / deployment owner: Gemini (Antigravity).
 
 ## Last Verified Application Release
