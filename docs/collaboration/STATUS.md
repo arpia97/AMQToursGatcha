@@ -4,32 +4,29 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-Completed: pull/deploy requested main runtime06417ac04c02218dec3e8d287aba63926236a9f7 and add drag-to-order titles. Requested runtime was already an ancestor of ac82521; only handoff docs followed it. Runtime source commit **f4482ad9daacac132976cc7a372d768d8994c5c3**, pushed to main.
-
-- Original Worker **17f19215-de64-4ed4-a940-e5eea39ecf83**, deployed from a clean Git archive of the exact runtime commit. Same GAME/Game/amqtours-economy-v1, configuration and import state; no live resets, grants, votes, refinements or title saves.
-- My Profile → My Titles: mouse/touch drag handles, keyboard arrows/Home/End, Reset Changes and Save. Host is fixed above earned titles. Mixed quiz/card order persists independently of visibility; duplicate card awards remain distinct. Ownership, exact earned set and stale-order validation precede writes; old visibility-only clients preserve order. New awards append. The additive order table follows canonical identity migration and existing gameplay reset behavior; no reset was executed.
-- Included requested06417ac behavior: Song List pop-up/metadata endpoint, displaced quiz #1 notice, and participated-only pick'em tag.
-- Clean release: **431 Node tests**, **207 syntax checks**, Wrangler dry-run and diff checks passed. Exact runtime-source application CI and demo CI both passed.
-- Browser disposable local fixtures: actual pointer drag, keyboard movement, hidden-selection preservation, saving/reload, duplicate awards, Host pinned, narrow layout without horizontal overflow. Local screenshot: outputs/AMQTours-title-order-preview.png in surrounding workspace.
-- Live: eight changed assets200 and exact release bytes; health200; guest My Titles401. After default deferred code adoption, published quiz-songs200 with27 metadata-only entries/no raw audio. Existing signed-in browser My Titles showed enabled Save,2 handles and no rollout notice; read-only verification only. Live screenshot: outputs/AMQTours-title-order-live.png.
-- Evidence: work/TITLE-ORDER.md, title-order-live-assets.json, title-order-runtime-proof.json, title-order-ci.json and clean release test/deploy logs in the surrounding workspace. No further title-order task remains.
-
-## Concurrent Working Edits — Not Deployed
-
-Uncommitted quiz viewer-row highlighting edits appeared during Codex's title task. Preserved untouched and excluded from this deployment: public/quiz-ui.js; leaderboard sections of src/quiz.js and public/features.css; tests/quiz-ui.test.mjs and tests/quiz.test.mjs; docs/collaboration/PROJECT.md. Their working-tree presence does **not** indicate production release. Other collaborator must inspect/test/commit them separately. Codex owns no further feature or deployment task.
+- Completed (committed & pushed, ready for Worker deploy): Always show the viewer's score in a highlighted state in the quiz leaderboard, and if the viewer is not in the Top 20, render a highlighted 21st row with their placement, score, and time.
+- Agent / branch / checkout path: Gemini (Antigravity) / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
+- Base SHA / runtime SHA / changed files: `36ed37af5b1c5d63c48554958be76857690ef144` → runtime `7cfc2c281321b4f752e562779dcdc8446872500f` / `src/quiz.js`, `public/quiz-ui.js`, `public/features.css`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`, `docs/collaboration/PROJECT.md`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering (`f4482ad9daacac132976cc7a372d768d8994c5c3`) and prior quiz/notice/pickem (`06417ac04c02218dec3e8d287aba63926236a9f7`) changes.
+- Completed behavior / decisions:
+  - Updated `Quiz.prototype.leaderboard(id, player, page)` in `src/quiz.js` to return `me: { id, name, best, bestAt, durationMs, rank }` for the signed-in viewer (`null` when signed out or unplayed), computing the exact 1-based placement (`rank`) using the leaderboard's score/speed/timestamp ordering when outside the first 20 rows.
+  - Updated `leaderboardHTML` in `public/quiz-ui.js` and `.quiz-leaderboard` in `public/features.css` to highlight the viewer's row (`tr.is-me` with `aria-current="true"`) when in the Top 20, and to append a highlighted 21st row (`tr.is-me.is-outside-top` with `aria-current="true"`) showing their placement (`#`), name, best score (`best / 20`), and time taken when outside the Top 20.
+- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (432/432 passed), `wrangler deploy --dry-run --outdir dist` (passed), `git diff --check` (clean).
+- Commit / push / CI status: Runtime changes committed at `7cfc2c281321b4f752e562779dcdc8446872500f` and pushed to `origin/main` with handoff documentation.
+- Runtime deployment version / live verification (or not deployed): Previous features (`06417ac` + `f4482ad`) are live on Worker version `17f19215-de64-4ed4-a940-e5eea39ecf83`. New runtime commit `7cfc2c281321b4f752e562779dcdc8446872500f` is not yet deployed from this session because Wrangler is not authenticated here (`wrangler whoami` reports unauthenticated). Ready for `pnpm deploy` of `7cfc2c281321b4f752e562779dcdc8446872500f`.
+- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
+- Remaining work / blocker / exact next action: Deploy runtime commit `7cfc2c281321b4f752e562779dcdc8446872500f` via Codex (`pnpm deploy`) or after running `wrangler login` locally.
+- Integration owner / deployment owner: Gemini (Antigravity) / Codex.
 
 ## Last Verified Application Release
 
-- Original Worker version: `0a17cc58-d630-4b11-a2aa-14cc80b739a3`.
-- Live: https://play.amqtours-gatcha.workers.dev/ .
-- Quiz moves and saved-run recovery bypass starter scans, market maintenance and alarm scheduling. Responses reuse validated run data after persistence, preserving authoritative timing/scoring/rewards and durable receipts. No schema/binding changes.
-- Local Workers comparison: answer15→8SQL calls;market2→0,schedule1→0,starter1→0. This measures work per request, not a guaranteed network-latency improvement.
-- Client pauses audio on lock, uses12-second request deadlines and stable keys for unchanged retries, and checks the saved answer after ambiguous failures. It reveals only server-confirmed results. Completion metadata refresh no longer blocks the result screen.
-- Checks:427Node tests,206syntax checks,final dry-run and diff checks passed. Exact runtime-source application and demo CI passed. Only one new cohesive frontend regression;existing Workers integration test extended.
-- Browser: disposable local fixture delayed a committed response14seconds;the saved correct answer was recovered and the next normal answer succeeded. Lost/unsaved response retries and completion-read failures also covered. Local screenshot outputs/AMQTours-quiz-submission-recovery.png in the surrounding workspace.
-- Live:app.js/quiz-ui.js200and exact release bytes;health200;anonymous quiz-run401with new fast-path rejection. Existing data preserved through the default deferred update.
-- Natural traffic after adoption:71successful new-version Durable Object answer log events in a2-minute window;mean136ms,p95340ms,max508ms,meanCPU2.21ms. Short workload-dependent sample;not unique-answer counts or a controlled latency guarantee. No production quiz submitted by QA.
-- Local evidence:work/QUIZ-ANSWER-LATENCY.md,work/quiz-latency-proof.json. Later documentation commits do not change the runtime source/version above.
+- Original Worker **17f19215-de64-4ed4-a940-e5eea39ecf83**, deployed from a clean Git archive of runtime commit **f4482ad9daacac132976cc7a372d768d8994c5c3** (including **06417ac04c02218dec3e8d287aba63926236a9f7**). Same GAME/Game/amqtours-economy-v1, configuration and import state; no live resets, grants, votes, refinements or title saves.
+- My Profile → My Titles: mouse/touch drag handles, keyboard arrows/Home/End, Reset Changes and Save. Host is fixed above earned titles. Mixed quiz/card order persists independently of visibility; duplicate card awards remain distinct. Ownership, exact earned set and stale-order validation precede writes; old visibility-only clients preserve order. New awards append. The additive order table follows canonical identity migration and existing gameplay reset behavior; no reset was executed.
+- Included 06417ac behavior: Song List pop-up/metadata endpoint, displaced quiz #1 notice, and participated-only pick'em tag.
+- Clean release: **431 Node tests**, **207 syntax checks**, Wrangler dry-run and diff checks passed. Exact runtime-source application CI and demo CI both passed.
+- Browser disposable local fixtures: actual pointer drag, keyboard movement, hidden-selection preservation, saving/reload, duplicate awards, Host pinned, narrow layout without horizontal overflow. Local screenshot: outputs/AMQTours-title-order-preview.png in surrounding workspace.
+- Live: eight changed assets 200 and exact release bytes; health 200; guest My Titles 401. After default deferred code adoption, published quiz-songs 200 with 27 metadata-only entries/no raw audio. Existing signed-in browser My Titles showed enabled Save, 2 handles and no rollout notice; read-only verification only. Live screenshot: outputs/AMQTours-title-order-live.png.
+- Evidence: work/TITLE-ORDER.md, title-order-live-assets.json, title-order-runtime-proof.json, title-order-ci.json and clean release test/deploy logs in the surrounding workspace.
 
 ## Work Ownership
 
