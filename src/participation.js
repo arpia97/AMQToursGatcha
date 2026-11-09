@@ -1,6 +1,6 @@
-import { TOUR_REWARDS, defaultReward } from "../public/site-defaults.js";
 import { participationNames } from "../public/participation.js";
-import { fail, integer, text } from "./engine.js";
+import { tourRewardQuote, tourRewardDefaults } from "../public/tour-rewards.js";
+import { fail, text } from "./engine.js";
 export class Participation {
   constructor(e) {
     this.e = e;
@@ -21,94 +21,76 @@ export class Participation {
       fail(
         "Unknown AMQ Tours aliases: " +
           unknown.join(", ") +
-          ". Sync or import aliases, then review again.",
+          ". Scan aliases, then review again.",
       );
-    return {
-      players: [...players.values()].sort((a, b) => a.id.localeCompare(b.id)),
-    };
-  }
-  staff(rows = [], event) {
-    if (!Array.isArray(rows) || rows.length > 100)
-      fail("Choose at most 100 staff rewards.");
-    const grouped = new Map();
-    for (const row of rows) {
-      if (!["counting", "reporting"].includes(row.reason))
-        fail("Choose counting or reporting.");
-      const player = text(row.player, 100),
-        games = integer(row.games, 1, 2000);
-      this.e.player(player);
-      const key = player + ":" + row.reason,
-        previous = grouped.get(key);
-      const total = integer((previous?.games || 0) + games, 1, 2000);
-      grouped.set(key, {
-        player,
-        reason: row.reason,
-        games: total,
-        amount: defaultReward(row.reason, total),
-      });
-    }
-    const staff = [...grouped.values()];
-    for (const row of staff)
-      if (
-        this.e.one(
-          "SELECT player FROM tour_events WHERE player=? AND category=? AND event=?",
-          row.player,
-          row.reason,
-          event,
-        )
-      )
-        fail(
-          "Staff credits already awarded for this tour. No rewards were added.",
-          409,
-        );
-    return staff;
+    const resolved = [...players.values()].sort((a, b) =>
+      a.id.localeCompare(b.id),
+    );
+    return { players: resolved, ...tourRewardDefaults(resolved.length) };
   }
   grant(b) {
     const e = this.e,
       { players } = this.preview(b.text),
       event = text(b.event, 240),
-      note = text(b.note?.trim() || "Tour participation", 240),
-      amount = integer(b.amount ?? TOUR_REWARDS.participation, 1, 1000000);
+      note = text(b.note?.trim() || "Tour participation", 240);
     if (
       JSON.stringify(players.map((p) => p.id)) !==
       JSON.stringify(b.expectedPlayers)
     )
       fail("The resolved participants changed. Review the batch again.", 409);
-    const paid = players.filter((p) =>
-      e.one(
-        "SELECT player FROM tour_events WHERE player=? AND category='participation' AND event=?",
-        p.id,
-        event,
-      ),
-    );
-    if (paid.length)
-      fail(
-        "Participation has already been awarded for this tour to: " +
-          paid.map((p) => p.name).join(", ") +
-          ". No credits were added.",
-        409,
-      );
-    const staff = this.staff(b.staff, event);
-    for (const p of players)
-      e.host("grant", {
-        player: p.id,
-        amount,
-        reason: "participation",
-        event,
-        note,
-      });
-    for (const s of staff)
-      e.host("grant", {
-        ...s,
-        event,
-        note: note + " · " + s.reason + " · " + s.games + " rounds",
-      });
+    const quote = tourRewardQuote(players, b),
+      awards = [];
+    for (const row of quote.rows) {
+      const p = e.player(row.player);
+      for (const category of ["participation", "counting", "reporting"]) {
+        if (!row[category]) continue;
+        if (
+          e.one(
+            "SELECT player FROM tour_events WHERE player=? AND category=? AND event=?",
+            row.player,
+            category,
+            event,
+          )
+        )
+          fail(
+            (category === "participation" ? "Participation" : "Staff credits") +
+              " already awarded for this tour to " +
+              p.name +
+              ". No credits were added.",
+            409,
+          );
+        const detail =
+          category === "participation"
+            ? " · " +
+              row.rounds +
+              "/" +
+              quote.maxRounds +
+              " rounds · " +
+              quote.tourSize +
+              " players" +
+              (row.replaces ? " · Sub" : "")
+            : " · " + category + " · Flat reward";
+        awards.push({
+          player: row.player,
+          reason: category,
+          amount: row[category],
+          event,
+          note: note.slice(0, 240 - detail.length) + detail,
+        });
+      }
+    }
+    for (const award of awards) e.host("grant", award);
     return {
-      staff,
-      message: `Participation awarded to ${players.length} players: ${amount.toLocaleString("en-US")} each, ${(amount * players.length).toLocaleString("en-US")} credits total. Staff rewards: ${staff.reduce((sum, s) => sum + s.amount, 0).toLocaleString("en-US")} credits.`,
-      players: players.map((p) => p.id),
-      total:
-        amount * players.length + staff.reduce((sum, s) => sum + s.amount, 0),
+      ...quote,
+      players: quote.rows.map((row) => row.player),
+      message:
+        "Tour rewards awarded: " +
+        quote.participation.toLocaleString("en-US") +
+        " participation credits and " +
+        quote.staff.toLocaleString("en-US") +
+        " staff credits; " +
+        quote.total.toLocaleString("en-US") +
+        " credits total.",
     };
   }
 }

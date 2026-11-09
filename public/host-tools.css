@@ -1,41 +1,8 @@
-.tour-staff-dialog {
-  width: min(900px, 94vw);
-  max-height: 85dvh;
-  overflow: auto;
-  background: var(--surface, #191a23);
-  color: var(--text, #fff);
-  border: 1px solid #4d4259;
-  border-radius: 16px;
-  padding: 24px;
-}
-.tour-staff-dialog::backdrop {
-  background: #000b;
-}
-.tour-staff-dialog .form-grid {
-  grid-template-columns: 1fr 2fr 1fr auto;
-  align-items: end;
-  margin-bottom: 14px;
-}
-@media (max-width: 650px) {
-  .tour-staff-dialog .form-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 .quiz-cover-preview {
   width: 160px;
   max-height: 180px;
   object-fit: cover;
   border-radius: 10px;
-}
-
-.tour-staff-dialog {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 2000;
-  box-shadow: 0 0 0 100vmax #000b;
 }
 
 .pickem-reopen {
@@ -175,4 +142,107 @@
   .audit-filters label {
     flex-basis: calc(50% - 12px);
   }
+}
+
+#participation-batch.tour-reward-editor {
+  max-width: none;
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.tour-reward-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+.tour-reward-player {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff03;
+}
+.tour-reward-player-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.tour-reward-player-head strong {
+  overflow-wrap: anywhere;
+}
+.tour-reward-player-head small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+  font-size: 10px;
+}
+.tour-reward-rounds {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+.tour-reward-rounds label {
+  flex: 1;
+  min-width: 0;
+}
+.tour-reward-rounds input {
+  width: 100%;
+}
+.tour-reward-rounds button {
+  flex-shrink: 0;
+  padding: 11px 14px;
+}
+.tour-reward-work {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 15px 0;
+}
+.tour-reward-work label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.tour-reward-work input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--mint);
+}
+.tour-reward-work small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.tour-reward-row-total {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  color: var(--mint);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.tour-reward-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2000;
+  width: min(600px, 94vw);
+  max-height: 85dvh;
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid #4d4259;
+  border-radius: 16px;
+  background: var(--surface, #191a23);
+  color: var(--text, #fff);
+  box-shadow: 0 0 0 100vmax #000b;
+}
+.tour-reward-dialog .stack {
+  max-width: none;
+}
+
+.reward-tour-size[hidden] {
+  display: none !important;
 }

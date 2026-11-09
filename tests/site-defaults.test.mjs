@@ -72,7 +72,7 @@ test("thirty free showcase slots accept owned cards and paid extras preserve cap
   );
 });
 
-test("host reward defaults use 1000 participation, 500 per counted game and 500 per reported game, while explicit amounts stay editable", (t) => {
+test("host reward defaults use per-round participation and flat 750 staff credits while explicit amounts stay editable", (t) => {
   const { e, host } = fixture(t);
   host("grant", {
     player: "p",
@@ -94,7 +94,7 @@ test("host reward defaults use 1000 participation, 500 per counted game and 500 
     note: "Tour",
     event: "t1",
   });
-  assert.equal(e.player("p").balance, 4000);
+  assert.equal(e.player("p").balance, 1700);
   host("grant", {
     player: "p",
     reason: "reporting",
@@ -103,12 +103,12 @@ test("host reward defaults use 1000 participation, 500 per counted game and 500 
     note: "Custom",
     event: "t2",
   });
-  assert.equal(e.player("p").balance, 4042);
+  assert.equal(e.player("p").balance, 1742);
   assert.throws(
     () =>
       host("grant", {
         player: "p",
-        reason: "reporting",
+        reason: "participation",
         games: 0,
         note: "Bad",
       }),
@@ -120,8 +120,17 @@ test("host reward defaults use 1000 participation, 500 per counted game and 500 
     event: "t3",
     note: "Default batch",
     expectedPlayers: preview.players.map((p) => p.id),
+    rewardVersion: 2,
+    tourSize: 8,
+    maxRounds: 3,
+    participants: preview.players.map((p) => ({
+      player: p.id,
+      rounds: 3,
+      count: false,
+      report: false,
+    })),
   });
-  assert.equal(e.player("p").balance, 5042);
+  assert.equal(e.player("p").balance, 2342);
 });
 
 test("Host titles follow effective owner/delegated roles and disappear immediately on revocation; names and rogue flags cannot confer titles", (t) => {
@@ -139,7 +148,7 @@ test("Host titles follow effective owner/delegated roles and disappear immediate
   assert.equal(e.profile("p").role, null);
   assert.equal(roleBadge("<script>"), "");
 });
-test("host reward form switches defaults and multiplies reporting games without disabling custom amount edits", () => {
+test("host reward form hides staff rounds and calculates participation by tour size", () => {
   const fields = {
       reason: { value: "reporting" },
       games: { value: "4", disabled: false },
@@ -151,13 +160,13 @@ test("host reward form switches defaults and multiplies reporting games without 
     querySelector: () => label,
   };
   updateRewardDefaults(form);
-  assert.equal(fields.amount.value, 2000);
+  assert.equal(fields.amount.value, 750);
   fields.reason.value = "counting";
   updateRewardDefaults(form);
-  assert.equal(fields.amount.value, 2000);
-  assert.equal(fields.games.disabled, false);
-  assert.equal(label.hidden, false);
+  assert.equal(fields.amount.value, 750);
+  assert.equal(fields.games.disabled, true);
+  assert.equal(label.hidden, true);
   fields.reason.value = "participation";
   updateRewardDefaults(form);
-  assert.equal(fields.amount.value, 1000);
+  assert.equal(fields.amount.value, 800);
 });

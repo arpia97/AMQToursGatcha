@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { swissRound } from "../public/pickem-formats.js";
+import {
+  initialTourRewards,
+  tourRewardQuote,
+  participationRate,
+} from "../public/tour-rewards.js";
 import { participationNames } from "../public/participation.js";
 
 const teams = (n) => Array.from({ length: n }, (_, i) => "Team " + (i + 1));
@@ -123,14 +128,32 @@ test("participation accepts scored results and ranked signup lists, resolves ali
   assert.deepEqual(participationNames(raw), ["Player", "oldname", "Other"]);
   const ranked = "Player (A), oldname (B-), Other (S+)";
   assert.deepEqual(participationNames(ranked), ["Player", "oldname", "Other"]);
-  const signup = "HaruUrara (A), xeyz (B-), LordGrond (C), Beokros (S-), lily (S+), Progenitor (S), Ilffam (D+), Mikuu_ (D), Wolbachia (D), UwUKingPikachu (C-), dking20 (A-), ONAI (C+), RyoutaVN (B-), hmsuis (S-), chemist (A+), Dovixx (D+), Bommie (B+), claydoll1091 (S)";
+  const signup =
+    "HaruUrara (A), xeyz (B-), LordGrond (C), Beokros (S-), lily (S+), Progenitor (S), Ilffam (D+), Mikuu_ (D), Wolbachia (D), UwUKingPikachu (C-), dking20 (A-), ONAI (C+), RyoutaVN (B-), hmsuis (S-), chemist (A+), Dovixx (D+), Bommie (B+), claydoll1091 (S)";
   const signupNames = [
-    "HaruUrara", "xeyz", "LordGrond", "Beokros", "lily", "Progenitor",
-    "Ilffam", "Mikuu_", "Wolbachia", "UwUKingPikachu", "dking20", "ONAI",
-    "RyoutaVN", "hmsuis", "chemist", "Dovixx", "Bommie", "claydoll1091",
+    "HaruUrara",
+    "xeyz",
+    "LordGrond",
+    "Beokros",
+    "lily",
+    "Progenitor",
+    "Ilffam",
+    "Mikuu_",
+    "Wolbachia",
+    "UwUKingPikachu",
+    "dking20",
+    "ONAI",
+    "RyoutaVN",
+    "hmsuis",
+    "chemist",
+    "Dovixx",
+    "Bommie",
+    "claydoll1091",
   ];
   assert.deepEqual(participationNames(signup), signupNames);
-  host("players", { players: signupNames.map((name, i) => ({ id: "signup-" + i, name })) });
+  host("players", {
+    players: signupNames.map((name, i) => ({ id: "signup-" + i, name })),
+  });
   assert.equal(e.participation.preview(signup).players.length, 18);
   assert.deepEqual(
     participationNames("Player (AG), oldname (Anything Goes)\nOther (None)"),
@@ -144,7 +167,7 @@ test("participation accepts scored results and ranked signup lists, resolves ali
   );
   const b = {
     text: ranked,
-    amount: 500,
+    ...initialTourRewards(preview.players),
     event: "tour-1",
     note: "Beta tour",
     expectedPlayers: ["p", "q"],
@@ -155,19 +178,23 @@ test("participation accepts scored results and ranked signup lists, resolves ali
     );
   run();
   run();
-  assert.equal(e.player("p").balance, 500);
-  assert.equal(e.player("q").earned, 500);
+  assert.equal(e.player("p").balance, 600);
+  assert.equal(e.player("q").earned, 600);
   assert.equal(e.profile("p").stats.participation, 1);
   assert.throws(
     () => host("participation-batch", { ...b, text: raw }),
-    /already been awarded/,
+    /already awarded/,
   );
-  assert.equal(e.player("p").balance, 500);
+  assert.equal(e.player("p").balance, 600);
   assert.throws(
     () => e.participation.preview(ranked + ", missing (A)"),
     /Unknown.*missing/,
   );
-  for (const bad of ["Player (100) garbage", "Player (A),", "Player (A++), Other (S)"])
+  for (const bad of [
+    "Player (100) garbage",
+    "Player (A),",
+    "Player (A++), Other (S)",
+  ])
     assert.throws(() => participationNames(bad), /Cannot read/);
   assert.throws(
     () =>
@@ -387,38 +414,102 @@ test("tour names update the public summary without changing match outcomes or pr
   );
 });
 
-test("whole-tour staff rewards validate before any grants, merge duplicate helpers and cannot repeat a tour", (t) => {
-  const f = fixture(t);
-  const text =
-    "Player (1) Other (2) Player (3) Other (4) | Total = 10 | Guesses = [1234]";
+test("whole-tour rewards price rounds by size, split substitutes and pay flat staff credits atomically once per tour", (t) => {
+  const f = fixture(t),
+    text = "Player (A), Other (B)",
+    preview = f.e.participation.preview(text);
+  for (const [size, rate] of [
+    [8, 200],
+    [16, 200],
+    [24, 300],
+    [32, 400],
+  ]) {
+    assert.equal(participationRate(size), rate);
+    const plan = initialTourRewards(preview.players, {
+      tourSize: size,
+      maxRounds: 6,
+    });
+    assert.equal(
+      tourRewardQuote(preview.players, plan).participation,
+      12 * rate,
+    );
+  }
   const body = {
     text,
     event: "staff-tour",
     note: "",
     expectedPlayers: ["p", "q"],
-    staff: [
-      { player: "p", reason: "counting", games: 2 },
-      { player: "p", reason: "counting", games: 1 },
-      { player: "q", reason: "reporting", games: 4 },
-    ],
+    ...initialTourRewards(preview.players, { tourSize: 16, maxRounds: 6 }),
   };
-  const result = f.host("participation-batch", body);
-  assert.equal(result.total, 5500);
-  assert.equal(f.e.player("p").balance, 2500);
-  assert.equal(f.e.player("q").balance, 3000);
-  assert.equal(f.e.profile("p").stats.counting, 1);
-  assert.throws(() => f.host("participation-batch", body), /already/);
-  assert.equal(f.e.player("p").balance, 2500);
-  const bad = {
+  body.participants[0] = { player: "p", rounds: 2, count: true, report: true };
+  body.participants.push({
+    player: "368",
+    rounds: 4,
+    count: false,
+    report: false,
+    replaces: "p",
+  });
+  const invalid = {
     ...body,
-    event: "invalid-staff",
-    staff: [{ player: "missing", reason: "reporting", games: 2 }],
+    participants: body.participants.map((r) =>
+      r.player === "368" ? { ...r, rounds: 5 } : r,
+    ),
   };
-  assert.throws(() => f.host("participation-batch", bad));
-  assert.equal(f.e.player("p").balance, 2500);
+  assert.throws(() => f.host("participation-batch", invalid), /maximum rounds/);
+  assert.equal(f.e.player("p").balance, 0);
+  const unknown = {
+    ...body,
+    participants: body.participants.map((r) =>
+      r.player === "368" ? { ...r, player: "missing" } : r,
+    ),
+  };
+  assert.throws(() => f.host("participation-batch", unknown));
+  assert.equal(f.e.player("p").balance, 0);
+  const result = f.host("participation-batch", body);
+  assert.equal(result.total, 3900);
+  assert.equal(result.participation, 2400);
+  assert.equal(result.staff, 1500);
+  assert.equal(f.e.player("p").balance, 1900);
+  assert.equal(f.e.player("q").balance, 1200);
+  assert.equal(f.e.player("368").balance, 800);
+  assert.equal(f.e.profile("p").stats.counting, 1);
+  assert.equal(f.e.profile("p").stats.reporting, 1);
+  assert.throws(() => f.host("participation-batch", body), /already/);
+  assert.equal(f.e.player("p").balance, 1900);
+  assert.throws(
+    () =>
+      f.host("participation-batch", {
+        ...body,
+        event: "old-client",
+        rewardVersion: undefined,
+      }),
+    /rules changed/,
+  );
   assert.equal(
-    f.e.one("SELECT count(*) n FROM tour_events WHERE event='invalid-staff'").n,
+    f.e.one("SELECT count(*) n FROM tour_events WHERE event='old-client'").n,
     0,
+  );
+  const helper = {
+    ...initialTourRewards(preview.players),
+    text,
+    event: "outside-staff",
+    expectedPlayers: ["p", "q"],
+  };
+  helper.participants.push({
+    player: "368",
+    rounds: 0,
+    staffOnly: true,
+    count: true,
+    report: false,
+  });
+  assert.equal(f.host("participation-batch", helper).staff, 750);
+  assert.throws(
+    () =>
+      tourRewardQuote(preview.players, {
+        ...body,
+        participants: [...body.participants, body.participants[0]],
+      }),
+    /only once/,
   );
   f.host("grant", { player: "p", reason: "reporting", amount: 1, note: "" });
   assert.equal(

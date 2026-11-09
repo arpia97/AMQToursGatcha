@@ -64,9 +64,14 @@ test("host attribution is tied to the exact ledger movement, inherited by batche
       e.participation.grant({
         text: "Player (1) Host (2) Player (3) Host (4) | Total = 10 | Guesses = [1111]",
         event: "Batch",
-        amount: 1000,
+        rewardVersion: 2,
+        tourSize: 16,
+        maxRounds: 6,
         expectedPlayers: ["h", "p"],
-        staff: [{ player: "h", reason: "counting", games: 2 }],
+        participants: [
+          { player: "h", rounds: 6, count: true, report: false },
+          { player: "p", rounds: 6, count: false, report: false },
+        ],
       }),
     ),
   );

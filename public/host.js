@@ -8,7 +8,7 @@ import {
   handleQuizAudioReview,
   quizPoolEditor,
 } from "./quiz-host-ui.js";
-import { chooseTourStaff } from "./tour-staff-ui.js";
+import { createTourRewardEditor } from "./tour-rewards-ui.js";
 import {
   matchingCreditPlayers,
   creditPlayerOptions,
@@ -123,7 +123,7 @@ function render() {
   if (tab === "quiz")
     html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool);
   if (tab === "rewards")
-    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="500"')}</div><label class="reporting-games"><span class="reward-games-label">Games reported</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><p class="form-hint">Defaults: participation 1,000 · counting 500 per round · reporting 500 per game. Credit amounts can be edited.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize"><option value="8">8 Players</option><option value="16" selected>16 Players</option><option value="24">24 Players</option><option value="32">32 Players</option></select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
     html = `<section class="host-panel"><h2>Recover Account Access</h2><p>Reset an existing account’s access while preserving its credits and cards. Existing sessions are revoked. The replacement recovery code can be used once and expires in seven days.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><button class="button secondary" type="submit">Reset Account Access →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
@@ -203,6 +203,7 @@ function render() {
   matchDraft = null;
   managedTour = null;
   $("#host-content").innerHTML = html;
+  if (tab === "rewards") updateRewardDefaults($("#grant"));
 }
 async function load() {
   state = await api("state");
@@ -418,23 +419,32 @@ document.addEventListener("submit", async (ev) => {
     }
     if (formIdentifier(form) === "participation-preview") {
       const preview = await api("participation-preview", { text: b.text });
-      const staff = await chooseTourStaff(state, esc);
-      if (staff === null) return;
-      b.staff = staff;
-      b.note = b.note.trim() || "Tour participation";
-      participationDraft = {
-        ...b,
-        amount: Number(b.amount),
-        expectedPlayers: preview.players.map((p) => p.id),
-      };
-      $("#participation-preview-result").innerHTML =
-        `<h3 class="space-top">Review Participation Rewards</h3><p>${preview.players.length} players · ${Number(b.amount).toLocaleString()} each · <strong>${(preview.players.length * Number(b.amount)).toLocaleString()} participation credits</strong><br>Tour: ${esc(b.event)} · ${esc(b.note)}</p><p>${staff.map((s) => esc(state.players.find((p) => p.id === s.player)?.name || s.player) + " · " + esc(s.reason) + " · " + s.games + " rounds · " + s.amount.toLocaleString() + " credits").join("<br>") || "No counter or reporter rewards added."}</p><p><strong>Combined Award: ${(preview.players.length * Number(b.amount) + staff.reduce((sum, s) => sum + s.amount, 0)).toLocaleString()} Credits</strong></p><div class="host-round">${preview.players.map((p) => esc(p.name) + " (" + esc(p.id) + ")").join(" · ")}</div><form id="participation-batch" class="space-top"><button class="button" type="submit">Award reviewed participation credits →</button></form>`;
-      report("Review the resolved players and total before awarding.");
+      const oldRoot = $("#participation-preview-result"),
+        root = oldRoot.cloneNode(false);
+      oldRoot.replaceWith(root);
+      participationDraft = createTourRewardEditor(
+        root,
+        preview,
+        {
+          text: b.text,
+          event: b.event.trim(),
+          note: b.note.trim() || "Tour participation",
+        },
+        state,
+        esc,
+      );
+      report(
+        "Review rounds, substitutes, Count / Report and the total before awarding.",
+      );
       return;
     }
     if (formIdentifier(form) === "participation-batch") {
       if (!participationDraft) throw Error("Review participants first.");
-      result = await api("participation-batch", participationDraft, key);
+      result = await api(
+        "participation-batch",
+        participationDraft.payload(),
+        key,
+      );
     }
     if (formIdentifier(form) === "host-permissions") {
       result = await api(
@@ -487,6 +497,7 @@ document.addEventListener("submit", async (ev) => {
     if (formIdentifier(form) === "grant") {
       b.amount = Number(b.amount);
       if (b.games) b.games = Number(b.games);
+      if (b.tourSize) b.tourSize = Number(b.tourSize);
       result = await api("grant", b, key);
     }
     if (formIdentifier(form) === "access") {
@@ -650,6 +661,14 @@ document.addEventListener("input", (ev) => {
   }
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
+  if (
+    form?.getAttribute("id") === "participation-preview" &&
+    participationDraft
+  ) {
+    participationDraft = null;
+    $("#participation-preview-result").textContent =
+      "Tour details changed. Review the pasted roster again.";
+  }
   if (form?.getAttribute("id") === "grant" && ev.target.name === "games")
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;
@@ -684,7 +703,7 @@ document.addEventListener("change", (ev) => {
   }
   if (
     form?.getAttribute("id") === "grant" &&
-    ["reason", "games"].includes(ev.target.name)
+    ["reason", "games", "tourSize"].includes(ev.target.name)
   )
     updateRewardDefaults(form);
   if (form) delete form.dataset.requestKey;

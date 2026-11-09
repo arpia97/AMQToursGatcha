@@ -21,15 +21,21 @@ export function updateRewardDefaults(form) {
       other: "Host credit reward",
     }[category];
   const games = form.elements.namedItem("games");
-  const perGame = ["reporting", "counting"].includes(category);
+  const perGame = category === "participation";
   games.disabled = !perGame;
+  const size = form.elements.namedItem("tourSize");
+  if (size) size.disabled = !perGame;
+  const sizeLabel = form.querySelector(".reward-tour-size");
+  if (sizeLabel) sizeLabel.hidden = !perGame;
   form.querySelector(".reporting-games").hidden = !perGame;
   const caption = form.querySelector(".reward-games-label");
-  if (caption)
-    caption.textContent =
-      category === "counting" ? "Rounds counted" : "Games reported";
+  if (caption) caption.textContent = "Rounds played";
   form.elements.namedItem("amount").value =
-    defaultReward(category, Number(games.value) || 1) ?? 500;
+    defaultReward(
+      category,
+      Number(games.value) || 1,
+      Number(form.elements.namedItem("tourSize")?.value) || 16,
+    ) ?? 500;
 }
 
 export function reopenPickemForm(p, now = Date.now()) {

@@ -5,12 +5,13 @@ export const MAX_SPOTLIGHTS = 100;
 export const PICKEM_WINNER_REWARD = 1000;
 export const PICKEM_WINDOW = 15 * 60 * 1000;
 export const PICKEM_REOPEN_WINDOW = 5 * 60 * 1000;
+import { participationRate, STAFF_REWARD } from "./tour-rewards.js";
 export const TOUR_REWARDS = Object.freeze({
-  participation: 1000,
-  counting: 500,
-  reporting: 500,
+  participation: 200,
+  counting: STAFF_REWARD,
+  reporting: STAFF_REWARD,
 });
-export const defaultReward = (category, games = 1) =>
-  ["reporting", "counting"].includes(category)
-    ? TOUR_REWARDS[category] * games
+export const defaultReward = (category, rounds = 1, tourSize = 16) =>
+  category === "participation"
+    ? participationRate(tourSize) * rounds
     : TOUR_REWARDS[category];
