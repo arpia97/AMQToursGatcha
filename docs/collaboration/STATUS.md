@@ -2,20 +2,6 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Trade Usability (Picker Sizing, Protected Toggle & Hide Completed Offers)
-
-- Gemini owns implementation/commit for trade usability: `public/app.js`, `public/demo-features.js`, `public/features.css`, `public/trades-ui.js`, `src/trades.js`, `tests/trades-ui.test.mjs`, `tests/trades.test.mjs`.
-- Base SHA: `7426256`
-- Other collaborator's work to preserve: Codex's anime appearance metadata task (`src/collection.js`, `src/tenrai-catalog.js`, `src/jikan.js`, `src/jikan-import.js`, `src/engine.js`, `src/worker.js`, `public/host.js`). No overlapping catalog enrichment code edited.
-- Completed behavior / decisions:
-  - Fixed squished search bar in the trade card picker modal (`.trade-picker-filters`): gave `.search` flexible sizing (`flex: 1 1 200px; min-width: 180px`), constrained `<select>` width from 100% to `flex: 0 0 auto; width: auto; min-width: 140px`, and allowed responsive wrapping.
-  - Added "Show Protected Cards" checkbox toggle to `.trade-picker-filters` (`#trade-picker-show-protected`), persisted in `localStorage` under `amqtours-trade-show-protected`.
-  - When checked, protected cards are included in the picker grid with clear `🔒 Protected` tags and `.is-protected` styling.
-  - Added "Unprotect & Offer" (or "Unprotect & Trade" when creating a listing) and "Unprotect Only" buttons to each protected card in the trade picker, which automatically unprotect the card via `/api/protect-card` and add it directly to the active offer bundle or listing draft without closing the modal.
-  - Added "Hide Completed Trades" checkbox to the "Your Offers" (`view === "offers"`) view alongside "Your Trade Listings", persisting the choice across views in `localStorage` (`amqtours-trade-hide-completed`). In `view === "offers"`, checking it filters for active, non-completed/non-cancelled trades (`l.status='open' AND mine.status='open'`).
-- Checks run and results: `node tools/check.mjs` (208 files passed), `node --test tests/trades-ui.test.mjs tests/trades.test.mjs` (24/24 passed), `node --test tests/*.test.mjs` (439/439 passed), `git diff --check` (clean).
-- Deployment note: Ready for review and deploy when requested.
-
 ## Active Task — Anime Appearance Metadata
 
 - Codex owns implementation/integration/deployment from base ac7e2ca: src/collection.js, src/tenrai-catalog.js, src/jikan.js, src/jikan-import.js, related existing tests and documentation. Store all character/anime appearances and choose representative anime deterministically; preserve card IDs/ownership, manual cards, favorites/checkpoints and the original economy.
@@ -23,6 +9,27 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 - Research: upstream offers anime cast lists; no explicit representative-work field. A slow checkpointed relationship enrichment pass is needed because previous importer discarded nonprimary associations.
 
 ## Previous Task
+
+- Completed (committed, pushed, and deployed to live Worker): Trade Usability (Picker Sizing, Protected Toggle & Hide Completed Offers).
+- Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
+- Base SHA / runtime SHA / changed files: `7426256` → runtime `b0a2ce2` / `public/app.js`, `public/demo-features.js`, `public/features.css`, `public/trades-ui.js`, `src/trades.js`, `tests/trades-ui.test.mjs`, `tests/trades.test.mjs`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, trade filters, pick'em features, and Codex's anime appearance metadata work.
+- Completed behavior / decisions:
+  - Fixed squished search bar in the trade card picker modal (`.trade-picker-filters`): gave `.search` flexible sizing (`flex: 1 1 200px; min-width: 180px`), constrained `<select>` width from 100% to `flex: 0 0 auto; width: auto; min-width: 140px`, and allowed responsive wrapping.
+  - Added "Show Protected Cards" checkbox toggle to `.trade-picker-filters` (`#trade-picker-show-protected`), persisted in `localStorage` under `amqtours-trade-show-protected`.
+  - When checked, protected cards are included in the picker grid with clear `🔒 Protected` tags and `.is-protected` styling.
+  - Added "Unprotect & Offer" (or "Unprotect & Trade" when creating a listing) and "Unprotect Only" buttons to each protected card in the trade picker, which automatically unprotect the card via `/api/protect-card` and add it directly to the active offer bundle or listing draft without closing the modal.
+  - Added "Hide Completed Trades" checkbox to the "Your Offers" (`view === "offers"`) view alongside "Your Trade Listings", persisting the choice across views in `localStorage` (`amqtours-trade-hide-completed`). In `view === "offers"`, checking it filters for active, non-completed/non-cancelled trades (`l.status='open' AND mine.status='open'`).
+- Checks run and results: `node tools/check.mjs` (208 files passed), `node --test tests/trades-ui.test.mjs tests/trades.test.mjs` (24/24 passed), `node --test tests/*.test.mjs` (439/439 passed), `git diff --check` (clean).
+- Commit / push / CI status: Committed (`b0a2ce2`) and pushed to `origin/main`.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **a38abb31-b42f-4670-a081-0aa64e14e605**. Verified live read-only: `/api/health` (200, `{"ok":true}`), `/trades-ui.js` (200 with `trade-unprotect-offer` and `view === "offers"` check), `/features.css` (200 with `trade-picker-protected-label`), `/app.js` (200 with `trade-unprotect-offer`).
+- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
+- Remaining work / blocker / exact next action: None. Handed off cleanly.
+- Integration owner / deployment owner: Gemini.
+
+## Last Verified Application Release
+
+- Original Worker **a38abb31-b42f-4670-a081-0aa64e14e605**, deployed from runtime commit **b0a2ce2** (`Add Hide Completed Trades toggle to Your Offers in Card Trades`), on top of `7426256` and `4d66c29`. Fixes squished trade picker search bar, adds Show Protected Cards toggle and Unprotect & Offer actions in the trade picker, and adds Hide Completed Trades checkbox to Your Offers. Live read-only checks: health 200, trades-ui.js 200, features.css 200, app.js 200. No data operations.
 
 - Completed (committed, pushed, and deployed to live Worker): Hide catalogue scraping progress bar when import has reached 100% or is complete.
 - Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
