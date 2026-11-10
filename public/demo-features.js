@@ -312,6 +312,49 @@ export function demoFeatures(d, path, b) {
   }
 
   s.mahjong = publicMahjong(s._mahjong);
+  if (path.startsWith("gambling-history")) {
+    const params = new URLSearchParams(path.split("?")[1]);
+    const page = Number(params.get("page") || 1);
+    const game = params.get("game") || "";
+    if (!Number.isSafeInteger(page) || page < 1 || page > 10000)
+      throw Error("Choose a valid history page.");
+    const gameMap = {
+      mahjong: "mahjong",
+      horse: "horse-racing",
+      "horse-racing": "horse-racing",
+      gem: "faceting",
+      faceting: "faceting",
+      roulette: "roulette",
+      blackjack: "blackjack67",
+      blackjack67: "blackjack67",
+      climb: "climb",
+    };
+    const targetGame = gameMap[game] || (game === "all" ? "" : game);
+    const rows = (s.gambling || [])
+      .filter((r) => !targetGame || r.game === targetGame)
+      .filter((r) => {
+        const status = r.outcome?.status || r.status;
+        return ["complete", "won", "ended", "exhausted", "archived"].includes(
+          status,
+        );
+      })
+      .map((r) => ({
+        id: r.id,
+        game: r.game,
+        stake: r.stake,
+        payout: r.payout,
+        net: r.payout - r.stake,
+        at: r.at || now,
+        outcome: r.outcome || (typeof r === "object" ? r : null),
+      }))
+      .sort((a, b) => b.id - a.id);
+    return {
+      page,
+      game: game || "all",
+      items: rows.slice((page - 1) * 10, page * 10),
+      hasMore: rows.length > page * 10,
+    };
+  }
   if (path.startsWith("mahjong-history")) {
     const page = Number(
       new URLSearchParams(path.split("?")[1]).get("page") || 1,

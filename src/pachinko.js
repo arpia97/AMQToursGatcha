@@ -180,4 +180,53 @@ export class Pachinko {
           : "Your next three routes are ready.",
     };
   }
+  history(player, game = "", page = 1) {
+    integer(page, 1, 10000);
+    this.settleDue(player);
+    this.e.economy?.horseRacing?.settleDue(player);
+    const map = {
+      mahjong: "mahjong",
+      horse: "horse-racing",
+      "horse-racing": "horse-racing",
+      gem: "faceting",
+      faceting: "faceting",
+      roulette: "roulette",
+      blackjack: "blackjack67",
+      blackjack67: "blackjack67",
+      climb: "climb",
+    };
+    const targetGame = map[game] || (game === "all" ? "" : game);
+    const rows = targetGame
+      ? this.e.all(
+          "SELECT id,game,stake,payout,at,outcome FROM gambling_rounds WHERE player=? AND game=? AND game NOT LIKE '%-reverted' AND outcome!='{}' AND json_extract(outcome,'$.status') IN ('complete','won','ended','exhausted','archived') ORDER BY id DESC LIMIT 11 OFFSET ?",
+          player,
+          targetGame,
+          (page - 1) * 10,
+        )
+      : this.e.all(
+          "SELECT id,game,stake,payout,at,outcome FROM gambling_rounds WHERE player=? AND game NOT LIKE '%-reverted' AND outcome!='{}' AND json_extract(outcome,'$.status') IN ('complete','won','ended','exhausted','archived') ORDER BY id DESC LIMIT 11 OFFSET ?",
+          player,
+          (page - 1) * 10,
+        );
+    return {
+      page,
+      game: game || "all",
+      hasMore: rows.length > 10,
+      items: rows.slice(0, 10).map((row) => {
+        let outcome = null;
+        try {
+          outcome = JSON.parse(row.outcome);
+        } catch {}
+        return {
+          id: row.id,
+          game: row.game,
+          stake: row.stake,
+          payout: row.payout,
+          net: row.payout - row.stake,
+          at: row.at,
+          outcome,
+        };
+      }),
+    };
+  }
 }

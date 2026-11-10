@@ -58,7 +58,7 @@ export function blackjackUI(s, ui, { escape: e, number: n }) {
     ? 'data-game="' + g.id + '" data-version="' + g.version + '"'
     : "";
   return (
-    '<section class="blackjack-panel"><div class="section-head"><div><h2>67 Blackjack</h2><p>Get closer to 67 than the dealer without going over.</p></div><span class="pill">Dealer Stands on 52</span></div><div class="blackjack-table"><div class="blackjack-seat"><h3>Dealer <span>' +
+    '<section class="blackjack-panel"><div class="section-head"><div><h2>67 Blackjack</h2><p>Get closer to 67 than the dealer without going over.</p></div><div class="toolbar"><span class="pill">Dealer Stands on 52</span><button class="button secondary" data-action="gambling-history" data-game="blackjack">History</button></div></div><div class="blackjack-table"><div class="blackjack-seat"><h3>Dealer <span>' +
     (g ? (active ? "One Card Hidden" : blackjackTotal(g.dealer).total) : "—") +
     "</span></h3>" +
     (g ? hand(g.dealer) : '<div class="blackjack-table-empty">67</div>') +

@@ -71,11 +71,11 @@ export function createMahjongUI({
         )
         .join("");
     return (
-      '<section class="mj-history" aria-label="Your Mahjong hand history"><div class="section-head"><div><h2>Your Hand History</h2><p>Latest 50 hands, including the current hand. Older details are archived; lifetime credit totals remain. Visible only to you.</p></div><button class="button secondary" data-action="mahjong-history" aria-expanded="' +
+      '<section class="mj-history" aria-label="Your Mahjong hand history"><div class="section-head"><div><h2>Your Hand History</h2><p>Latest 50 hands, including the current hand. Older details are archived; lifetime credit totals remain. Visible only to you.</p></div><div class="toolbar"><button class="button secondary" data-action="gambling-history" data-game="mahjong">Gambling History</button><button class="button secondary" data-action="mahjong-history" aria-expanded="' +
       !!h.open +
       '">' +
-      (h.open ? "Hide history" : "View history") +
-      "</button></div>" +
+      (h.open ? "Hide history" : "View hand tiles") +
+      "</button></div></div>" +
       (h.open
         ? (!data
             ? "<p>Loading your hands…</p>"

@@ -28,6 +28,7 @@ import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
+import { gamblingHistoryModalHTML } from "./gambling-history-ui.js";
 import { createTradesUI } from "./trades-ui.js";
 import { createShowcaseEditor } from "./showcase-order.js";
 import {
@@ -265,6 +266,12 @@ const ui = {
   mahjongHistoryOpen: false,
   mahjongHistoryPage: 1,
   mahjongHistoryData: null,
+  gamblingHistory: {
+    game: "all",
+    page: 1,
+    data: null,
+    loading: false,
+  },
 };
 document.documentElement.dataset.rouletteMotion = ui.rouletteMotion;
 document.addEventListener("change", (ev) => {
@@ -346,6 +353,55 @@ async function openAnimeChecklist(seriesKey, pageNumber = 1) {
     "anime-checklist-dialog",
   );
   $("#modal").scrollTop = 0;
+}
+async function openGamblingHistory(game = "all", page = 1) {
+  if (!state.me) {
+    auth();
+    return;
+  }
+  ui.gamblingHistory = {
+    game,
+    page,
+    loading: true,
+    data: ui.gamblingHistory?.game === game ? ui.gamblingHistory.data : null,
+  };
+  modal(
+    gamblingHistoryModalHTML(ui.gamblingHistory.data, true, game, {
+      escape,
+      number,
+    }),
+    true,
+    "gambling-history-dialog",
+  );
+  try {
+    const data = await api(
+      "gambling-history?game=" +
+        encodeURIComponent(game === "all" ? "" : game) +
+        "&page=" +
+        page,
+    );
+    ui.gamblingHistory = {
+      game,
+      page,
+      loading: false,
+      data,
+    };
+    modal(
+      gamblingHistoryModalHTML(data, false, game, { escape, number }),
+      true,
+      "gambling-history-dialog",
+    );
+  } catch (err) {
+    ui.gamblingHistory.loading = false;
+    modal(
+      gamblingHistoryModalHTML(null, false, game, { escape, number }) +
+        '<p class="form-error" role="alert">' +
+        escape(err.message || "Failed to load history.") +
+        "</p>",
+      true,
+      "gambling-history-dialog",
+    );
+  }
 }
 function empty(title, description, button = "") {
   return `<div class="empty"><div class="empty-icon">✦</div><h3>${title}</h3><p>${description}</p>${button}</div>`;
@@ -2921,6 +2977,25 @@ async function handleFeatureClick(a, t) {
               row: t.dataset.row,
             },
       );
+      return true;
+    }
+    if (
+      a === "gambling-history" ||
+      a === "gambling-history-filter" ||
+      a === "gambling-history-prev" ||
+      a === "gambling-history-next"
+    ) {
+      let game = ui.gamblingHistory?.game || "all";
+      let page = ui.gamblingHistory?.page || 1;
+      if (a === "gambling-history" || a === "gambling-history-filter") {
+        game = t.dataset.game || "all";
+        page = 1;
+      } else if (a === "gambling-history-prev") {
+        page = Math.max(1, page - 1);
+      } else if (a === "gambling-history-next") {
+        page = page + 1;
+      }
+      await openGamblingHistory(game, page);
       return true;
     }
     if (a?.startsWith("mahjong-")) {

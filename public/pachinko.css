@@ -413,3 +413,105 @@
     font-size: 25px;
   }
 }
+
+.gambling-history-tabs {
+  margin: 16px 0 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gambling-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.gambling-history-entry {
+  background: #181d28;
+  border: 1px solid #2d3646;
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gambling-history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gambling-history-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gambling-history-date {
+  font-size: 11px;
+  color: #8893a7;
+}
+.gambling-game-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #2b3344;
+  color: #cdd5e4;
+}
+.gambling-game-badge.game-mahjong {
+  background: #1e3a35;
+  color: #84e4bf;
+  border: 1px solid #2d5a52;
+}
+.gambling-game-badge.game-horse-racing,
+.gambling-game-badge.game-horse {
+  background: #3e321e;
+  color: #f7ca72;
+  border: 1px solid #634f2d;
+}
+.gambling-game-badge.game-faceting,
+.gambling-game-badge.game-gem {
+  background: #25284b;
+  color: #afb8f9;
+  border: 1px solid #43497c;
+}
+.gambling-game-badge.game-roulette {
+  background: #44222a;
+  color: #f99cb0;
+  border: 1px solid #6c3743;
+}
+.gambling-game-badge.game-blackjack67,
+.gambling-game-badge.game-blackjack {
+  background: #223744;
+  color: #9cd4f9;
+  border: 1px solid #37596c;
+}
+.gambling-game-badge.game-climb {
+  background: #26382b;
+  color: #9fe2a8;
+  border: 1px solid #3d5d44;
+}
+.gambling-net {
+  font-weight: 700;
+  font-size: 13px;
+}
+.gambling-history-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #222938;
+}
+.gambling-summary {
+  font-size: 13px;
+  color: #d1d8e5;
+}

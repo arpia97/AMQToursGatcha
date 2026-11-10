@@ -1334,6 +1334,16 @@ export class Game extends DurableObject {
       return json(e.quiz.titleSettings(session.player));
     if (path === "alchemy" && !post)
       return json({ alchemyState: e.economy.alchemy.state(session.player) });
+    if (path === "gambling-history" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(
+        e.economy.pachinko.history(
+          session.player,
+          url.searchParams.get("game") || "",
+          Number(url.searchParams.get("page") || 1),
+        ),
+      );
+    }
     if (path === "mahjong-history" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(

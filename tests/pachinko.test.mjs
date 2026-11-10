@@ -4,6 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { blackjackTotal, blackjackShoe } from "../public/blackjack-rules.js";
 import { gemValue, nextFacetChance } from "../public/gem-rules.js";
+import {
+  gamblingHistoryModalHTML,
+  formatOutcomeSummary,
+  gameDisplayName,
+} from "../public/gambling-history-ui.js";
 import { AliasSync } from "../src/aliases.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
@@ -248,4 +253,44 @@ test("67 Blackjack floors natural payouts, recognizes dealer naturals and rolls 
     assert.throws(() => act("blackjack-start", { stake, previousGame: g.id }));
   assert.equal(e.player("p").balance, 10051);
   assert.equal(e.gameState("p").blackjack.id, g.id);
+});
+test("pachinko history queries completed rounds across games, respects filters, and formats modal HTML", (t) => {
+  const { e, act } = fixture(t);
+  let shuffled = 0;
+  e.rand = (n) => (shuffled++ === 0 ? 195 : n - 1);
+  act("blackjack-start", { stake: 100, previousGame: null });
+  const bj = e.gameState("p").blackjack;
+  assert.equal(bj.status, "complete");
+
+  const allHistory = e.economy.pachinko.history("p");
+  assert.equal(allHistory.items.length, 1);
+  assert.equal(allHistory.items[0].game, "blackjack67");
+  assert.equal(allHistory.items[0].stake, 100);
+  assert.equal(allHistory.items[0].payout, 250);
+  assert.equal(allHistory.items[0].net, 150);
+  assert.equal(allHistory.hasMore, false);
+
+  const bjFiltered = e.economy.pachinko.history("p", "blackjack");
+  assert.equal(bjFiltered.items.length, 1);
+
+  const mahjongFiltered = e.economy.pachinko.history("p", "mahjong");
+  assert.equal(mahjongFiltered.items.length, 0);
+
+  // Formatting tests
+  assert.equal(gameDisplayName("blackjack67"), "67 Blackjack");
+  assert.equal(gameDisplayName("horse-racing"), "Horse Racing");
+  assert.equal(gameDisplayName("faceting"), "Gem Faceting");
+
+  const summary = formatOutcomeSummary("blackjack67", bj);
+  assert.match(summary, /Natural Blackjack/);
+
+  const html = gamblingHistoryModalHTML(allHistory, false, "blackjack");
+  assert.match(html, /Gambling History/);
+  assert.match(html, /data-action="gambling-history-filter"/);
+  assert.match(html, /Round #/);
+  assert.match(html, /67 Blackjack/);
+  assert.match(html, /Stake ✦ 100/);
+
+  const loadingHTML = gamblingHistoryModalHTML(null, true, "all");
+  assert.match(loadingHTML, /Loading gambling history/);
 });

@@ -2,7 +2,28 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Remove New Cards (24h) Tab in Card Catalogue
+## Active Task — Gambling History Pop-Up Across Pachinko Games
+
+- Gemini owns implementation/commit: `public/gambling-history-ui.js`, `public/pachinko-ui.js`, `public/adventure-ui.js`, `public/blackjack-ui.js`, `public/horse-ui.js`, `public/mahjong-ui.js`, `public/app.js`, `public/pachinko.css`, `public/demo-features.js`, `src/pachinko.js`, `src/worker.js`, `tests/pachinko.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `4e7da75`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass and all economy/catalog state. No unowned or background files touched.
+- Completed behavior / decisions:
+  - Added "Gambling History" button to top-level Pachinko navigation (`.page-intro`), pre-selecting the active game tab.
+  - Added "History" buttons to each of the six Pachinko mini-games:
+    - Mahjong: Section header toolbar in `public/mahjong-ui.js`.
+    - Horse Racing: Welcome screens, Ticket Desk section header, and Official Results podium in `public/horse-ui.js`.
+    - Gem Faceting: Section header toolbar in `public/pachinko-ui.js`.
+    - Roulette: Section controls toolbar in `public/adventure-ui.js`.
+    - 67 Blackjack: Section header toolbar in `public/blackjack-ui.js`.
+    - Mountain Climbing: Section header toolbar in `public/adventure-ui.js`.
+  - Added `gambling-history` modal popup with game filter tabs (`All Games`, `Mahjong`, `Horse Racing`, `Gem Faceting`, `Roulette`, `67 Blackjack`, `Mountain Climbing`), pre-selecting whichever game the user launched it from.
+  - Formatted completed round cards with game badge, round ID, timestamp, outcome summary (Tsumo/han/points, Roulette bet/pocket, Climb height/moves, Blackjack result/hands, Gem brilliance/fractures, Horse race winner/tickets), stake, payout, and net credits profit/loss.
+  - Implemented pagination controls (`← Previous`, `Page X`, `Next →`).
+  - Added `Pachinko.prototype.history(player, game, page)` in `src/pachinko.js` querying `gambling_rounds` for completed rounds, with endpoint `GET /api/gambling-history` in `src/worker.js` and demo fallback in `public/demo-features.js`.
+- Checks run and results: `node tools/check.mjs` (209 files passed), `node --test tests/pachinko.test.mjs` (8/8 passed), `node --test tests/*.test.mjs` (440/440 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+
+## Previous Task — Remove New Cards (24h) Tab in Card Catalogue
 
 - Gemini owns implementation/commit: `public/recent-cards-ui.js`, `tests/recent-cards.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `25e9f93`
