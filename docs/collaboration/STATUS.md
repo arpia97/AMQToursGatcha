@@ -2,6 +2,19 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Trade Picker Search Sizing, Protected Toggle & Unprotect-to-Offer
+
+- Gemini owns implementation/commit for trade picker usability: `public/app.js`, `public/features.css`, `public/trades-ui.js`, `tests/trades-ui.test.mjs`.
+- Base SHA: `4d66c29`
+- Other collaborator's work to preserve: Codex's anime appearance metadata task (`src/collection.js`, `src/tenrai-catalog.js`, `src/jikan.js`, `src/jikan-import.js`, `src/engine.js`, `src/worker.js`, `public/host.js`). No overlapping backend files edited.
+- Completed behavior / decisions:
+  - Fixed squished search bar in the trade card picker modal (`.trade-picker-filters`): gave `.search` flexible sizing (`flex: 1 1 200px; min-width: 180px`), constrained `<select>` width from 100% to `flex: 0 0 auto; width: auto; min-width: 140px`, and allowed responsive wrapping.
+  - Added "Show Protected Cards" checkbox toggle to `.trade-picker-filters` (`#trade-picker-show-protected`), persisted in `localStorage` under `amqtours-trade-show-protected`.
+  - When checked, protected cards are included in the picker grid with clear `🔒 Protected` tags and `.is-protected` styling.
+  - Added "Unprotect & Offer" (or "Unprotect & Trade" when creating a listing) and "Unprotect Only" buttons to each protected card in the trade picker, which automatically unprotect the card via `/api/protect-card` and add it directly to the active offer bundle or listing draft without closing the modal.
+- Checks run and results: `node tools/check.mjs` (208 files passed), `node --test tests/*.test.mjs` (439/439 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+
 ## Active Task — Anime Appearance Metadata
 
 - Codex owns implementation/integration/deployment from base ac7e2ca: src/collection.js, src/tenrai-catalog.js, src/jikan.js, src/jikan-import.js, related existing tests and documentation. Store all character/anime appearances and choose representative anime deterministically; preserve card IDs/ownership, manual cards, favorites/checkpoints and the original economy.

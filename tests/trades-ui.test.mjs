@@ -181,3 +181,37 @@ test("Hide Completed Trades checkbox renders in Your Trade Listings and respects
   assert.match(c.render(), /id="trade-hide-completed" type="checkbox" checked/);
   assert.match(c.render(), /Hide Completed Trades/);
 });
+
+test("Show Protected Cards toggle in trade picker reveals protected cards with unprotect actions", () => {
+  const { component: c, ui } = fixture();
+  c.openPicker();
+  assert.match(c.renderPicker(), /id="trade-picker-show-protected" type="checkbox"/);
+  assert.doesNotMatch(c.renderPicker(), /id="trade-picker-show-protected" type="checkbox" checked/);
+  assert.doesNotMatch(c.renderPicker(), />Protected</);
+  assert.doesNotMatch(c.renderPicker(), /trade-unprotect-offer/);
+  assert.match(c.renderPicker(), /Protected cards are excluded/);
+
+  c.filter("showProtected", true);
+  assert.equal(ui.tradePickerShowProtected, true);
+  const html = c.renderPicker();
+  assert.match(html, /id="trade-picker-show-protected" type="checkbox" checked/);
+  assert.match(html, />Protected</);
+  assert.match(html, /data-action="trade-unprotect-offer"/);
+  assert.match(html, /data-action="trade-unprotect-only"/);
+  assert.match(html, /Unprotect &amp; Trade/);
+  assert.match(html, /🔒 Protected/);
+
+  c.filter("showProtected", false);
+  assert.equal(ui.tradePickerShowProtected, false);
+  assert.doesNotMatch(c.renderPicker(), />Protected</);
+  assert.doesNotMatch(c.renderPicker(), /trade-unprotect-offer/);
+});
+
+test("trade picker offer mode shows Unprotect & Offer for protected cards when showProtected is active", () => {
+  const { component: c } = fixture();
+  c.openPicker({ id: 10, card: "a", level: 1 });
+  c.filter("showProtected", true);
+  const html = c.renderPicker();
+  assert.match(html, /data-action="trade-unprotect-offer"/);
+  assert.match(html, /Unprotect &amp; Offer/);
+});

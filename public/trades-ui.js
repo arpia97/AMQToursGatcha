@@ -106,6 +106,7 @@ export function createTradesUI(h, ui) {
       listing,
       query: "",
       kind: "",
+      showProtected: ui.tradePickerShowProtected || false,
       page: 1,
       selected: null,
       bundle: [],
@@ -175,8 +176,12 @@ export function createTradesUI(h, ui) {
     };
   }
   function filter(key, value) {
-    if (picker && ["query", "kind", "page"].includes(key)) {
+    if (
+      picker &&
+      ["query", "kind", "showProtected", "page"].includes(key)
+    ) {
       picker[key] = value;
+      if (key === "showProtected") ui.tradePickerShowProtected = !!value;
       if (key !== "page") picker.page = 1;
     }
   }
@@ -277,7 +282,9 @@ export function createTradesUI(h, ui) {
     const items = (picker.kind ? [picker.kind] : ["character", "seiyuu"])
       .flatMap((kind) =>
         collectionView(
-          s.inventory.filter((i) => !i.protected && available(i) > 0),
+          s.inventory.filter(
+            (i) => (picker.showProtected || !i.protected) && available(i) > 0,
+          ),
           cardBy,
           { query: picker.query, kind, sort: "rarity" },
         ),
@@ -288,7 +295,7 @@ export function createTradesUI(h, ui) {
     return (
       intro +
       basket +
-      `<p class="form-hint">Protected cards are excluded.</p><div class="trade-picker-filters"><input id="trade-picker-query" class="search" aria-label="Search Trade Cards" placeholder="Search your cards…" value="${e(picker.query)}"><select id="trade-picker-kind" aria-label="Card Type">${[
+      `<div class="trade-picker-filters"><input id="trade-picker-query" class="search" aria-label="Search Trade Cards" placeholder="Search your cards…" value="${e(picker.query)}"><select id="trade-picker-kind" aria-label="Card Type">${[
         ["", "All Cards"],
         ["character", "Characters"],
         ["seiyuu", "Seiyuus"],
@@ -299,7 +306,14 @@ export function createTradesUI(h, ui) {
         )
         .join(
           "",
-        )}</select></div><div class="trade-picker-grid">${data.items.map((i) => `<button type="button" class="trade-picker-card" data-action="trade-card" data-id="${e(i.card)}" ${picker.listing && bundle.length >= 10 ? "disabled" : ""}>${card(i.card, i.level)}<span>${n(available(i))} ${available(i) === 1 ? "copy" : "copies"} available</span></button>`).join("") || "<p>No Available Cards Match.</p>"}</div><div class="toolbar">${btn("← Previous", "trade-picker-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page}</span>${btn("Next →", "trade-picker-next", data.hasMore ? "" : "disabled", "secondary")}</div>`
+        )}</select><label class="trade-picker-protected-label check-label"><input id="trade-picker-show-protected" type="checkbox" ${picker.showProtected ? "checked" : ""}> Show Protected Cards</label></div><p class="form-hint">${picker.showProtected ? "Protected cards are included. Unprotect a card to offer it for trade." : "Protected cards are excluded."}</p><div class="trade-picker-grid">${data.items.map((i) => {
+          const avail = available(i);
+          const disabled = picker.listing && bundle.length >= 10;
+          if (i.protected) {
+            return `<div class="trade-picker-card is-protected" data-action="trade-unprotect-offer" data-id="${e(i.card)}" ${disabled ? 'aria-disabled="true"' : ""}>${card(i.card, i.level)}<div class="trade-picker-card-info"><span class="trade-picker-protected-badge">🔒 Protected</span><span>${n(avail)} ${avail === 1 ? "copy" : "copies"} available</span></div><div class="trade-picker-actions"><button type="button" class="button mint small" data-action="trade-unprotect-offer" data-id="${e(i.card)}" ${disabled ? "disabled" : ""}>🔓 Unprotect &amp; ${picker.listing ? "Offer" : "Trade"}</button><button type="button" class="button secondary small" data-action="trade-unprotect-only" data-id="${e(i.card)}">Unprotect Only</button></div></div>`;
+          }
+          return `<button type="button" class="trade-picker-card" data-action="trade-card" data-id="${e(i.card)}" ${disabled ? "disabled" : ""}>${card(i.card, i.level)}<span>${n(avail)} ${avail === 1 ? "copy" : "copies"} available</span></button>`;
+        }).join("") || "<p>No Available Cards Match.</p>"}</div><div class="toolbar">${btn("← Previous", "trade-picker-prev", data.page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${data.page}</span>${btn("Next →", "trade-picker-next", data.hasMore ? "" : "disabled", "secondary")}</div>`
     );
   }
   const back = () => {

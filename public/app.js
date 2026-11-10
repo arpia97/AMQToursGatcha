@@ -241,6 +241,13 @@ const ui = {
       return false;
     }
   })(),
+  tradePickerShowProtected: (() => {
+    try {
+      return localStorage.getItem("amqtours-trade-show-protected") === "1";
+    } catch {
+      return false;
+    }
+  })(),
   tradePage: 1,
   tradeData: null,
   shopSell: {
@@ -859,6 +866,15 @@ document.addEventListener("change", (event) => {
   if (busy) return;
   if (event.target.id === "trade-picker-kind") {
     tradesUI.filter("kind", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-picker-show-protected") {
+    tradesUI.filter("showProtected", event.target.checked);
+    try {
+      if (event.target.checked)
+        localStorage.setItem("amqtours-trade-show-protected", "1");
+      else localStorage.removeItem("amqtours-trade-show-protected");
+    } catch {}
     $("#modal-body").innerHTML = tradesUI.renderPicker();
   }
   if (event.target.dataset.tradeCopyIndex !== undefined) {
@@ -2750,6 +2766,31 @@ async function handleFeatureClick(a, t) {
         else if (a === "trade-picker-back") tradesUI.back();
         else tradesUI.turn(a === "trade-picker-next" ? 1 : -1);
         $("#modal-body").innerHTML = tradesUI.renderPicker();
+        return true;
+      }
+      if (a === "trade-unprotect-offer" || a === "trade-unprotect-only") {
+        if (busy) return true;
+        const id = t.dataset.id;
+        const item = state.inventory?.find((i) => i.card === id);
+        if (!item) {
+          toast("Refresh to load this card from your collection.", true);
+          return true;
+        }
+        await execute(
+          "protect-card",
+          { card: id, protected: false },
+          async (result) => {
+            toast(result.message || "Card unprotected.");
+            if (a === "trade-unprotect-offer") {
+              try {
+                tradesUI.choose(id);
+              } catch (err) {
+                toast(err.message, true);
+              }
+            }
+            $("#modal-body").innerHTML = tradesUI.renderPicker();
+          },
+        );
         return true;
       }
       if (
