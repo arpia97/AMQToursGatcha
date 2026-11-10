@@ -775,12 +775,13 @@ export function demoFeatures(d, path, b) {
       view = q.get("view") || "browse",
       query = (q.get("q") || "").trim().slice(0, 100),
       matches = searchMatcher(query),
+      hideCompleted = q.get("hide_completed") === "1",
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
       .filter((l) => q.get("wishlist") !== "1" || s.wishlist.includes(l.card))
       .filter((l) =>
         view === "listings"
-          ? l.seller === me.id
+          ? l.seller === me.id && (!hideCompleted || l.status === "open")
           : view === "offers"
             ? s.tradeOffers.some(
                 (o) => o.listing === l.id && o.proposer === me.id,

@@ -1190,6 +1190,7 @@ export class Game extends DurableObject {
           page: Number(url.searchParams.get("page") || 1),
           query: url.searchParams.get("q") || "",
           wishlistOnly: url.searchParams.get("wishlist") === "1",
+          hideCompleted: url.searchParams.get("hide_completed") === "1",
         }),
       );
     }

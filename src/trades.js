@@ -293,7 +293,13 @@ export class Trades {
   }
   page(
     player,
-    { view = "browse", page = 1, query = "", wishlistOnly = false } = {},
+    {
+      view = "browse",
+      page = 1,
+      query = "",
+      wishlistOnly = false,
+      hideCompleted = false,
+    } = {},
   ) {
     integer(page, 1, 10000);
     if (!["browse", "listings", "offers"].includes(view))
@@ -302,7 +308,9 @@ export class Trades {
     if (wishlistOnly && !player) fail("Sign in to use your wishlist.", 401);
     let where =
       view === "listings"
-        ? "l.seller=?"
+        ? hideCompleted
+          ? "l.seller=? AND l.status='open'"
+          : "l.seller=?"
         : view === "offers"
           ? "EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=?)"
           : "l.status='open'";
@@ -371,6 +379,7 @@ export class Trades {
       page,
       query,
       wishlistOnly,
+      hideCompleted,
       hasMore: rows.length > 12,
       cards: this.e.catalogStore.cards([
         ...new Set(

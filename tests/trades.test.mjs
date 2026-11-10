@@ -543,6 +543,37 @@ test("trade search keeps account scopes and private offers intact and never chan
       .status,
     "cancelled",
   );
+  assert.equal(
+    e.economy.trades.page("a", {
+      view: "listings",
+      query: "One",
+      hideCompleted: true,
+    }).items.length,
+    0,
+  );
+  e.run("UPDATE trade_listings SET status='completed' WHERE id=?", id);
+  assert.equal(
+    e.economy.trades.page("a", { view: "listings", query: "One" }).items[0]
+      .status,
+    "completed",
+  );
+  assert.equal(
+    e.economy.trades.page("a", {
+      view: "listings",
+      query: "One",
+      hideCompleted: true,
+    }).items.length,
+    0,
+  );
+  e.run("UPDATE trade_listings SET status='open' WHERE id=?", id);
+  assert.equal(
+    e.economy.trades.page("a", {
+      view: "listings",
+      query: "One",
+      hideCompleted: true,
+    }).items.length,
+    1,
+  );
 });
 
 test("trade requests create exactly one persistent owner notification and seen notices remain private", (t) => {

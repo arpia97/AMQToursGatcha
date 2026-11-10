@@ -234,6 +234,13 @@ const ui = {
   tradeView: "browse",
   tradeQuery: "",
   tradeWishlistOnly: false,
+  tradeHideCompleted: (() => {
+    try {
+      return localStorage.getItem("amqtours-trade-hide-completed") === "1";
+    } catch {
+      return false;
+    }
+  })(),
   tradePage: 1,
   tradeData: null,
   shopSell: {
@@ -1479,7 +1486,10 @@ async function loadDynamic() {
         "&q=" +
         encodeURIComponent(ui.tradeQuery) +
         "&wishlist=" +
-        (ui.tradeWishlistOnly ? "1" : "0"),
+        (ui.tradeWishlistOnly ? "1" : "0") +
+        (ui.tradeView === "listings" && ui.tradeHideCompleted
+          ? "&hide_completed=1"
+          : ""),
     );
   if (current === "players")
     data = await api(
@@ -3945,6 +3955,19 @@ document.addEventListener("input", (ev) => {
 document.addEventListener("change", (ev) => {
   if (ev.target.id === "trade-wishlist-only") {
     ui.tradeWishlistOnly = ev.target.checked;
+    ui.tradePage = 1;
+    loadDynamic()
+      .then(render)
+      .catch((err) => toast(err.message, true));
+  }
+  if (ev.target.id === "trade-hide-completed") {
+    ui.tradeHideCompleted = ev.target.checked;
+    try {
+      localStorage.setItem(
+        "amqtours-trade-hide-completed",
+        ui.tradeHideCompleted ? "1" : "0",
+      );
+    } catch {}
     ui.tradePage = 1;
     loadDynamic()
       .then(render)

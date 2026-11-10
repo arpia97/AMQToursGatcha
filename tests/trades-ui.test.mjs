@@ -166,3 +166,18 @@ test("trade search stays visible across views, escapes queries, and distinguishe
   assert.match(c.render(), /Sign In to See Your Trades/);
   assert.match(c.render(), /id="trade-search"/);
 });
+
+test("Hide Completed Trades checkbox renders in Your Trade Listings and respects checked state", () => {
+  const { component: c, ui } = fixture();
+  ui.tradeData = { query: "", items: [], page: 1, hasMore: false };
+  ui.tradeView = "browse";
+  assert.doesNotMatch(c.render(), /id="trade-hide-completed"/);
+  ui.tradeView = "offers";
+  assert.doesNotMatch(c.render(), /id="trade-hide-completed"/);
+  ui.tradeView = "listings";
+  assert.match(c.render(), /id="trade-hide-completed" type="checkbox"/);
+  assert.doesNotMatch(c.render(), /id="trade-hide-completed" type="checkbox" checked/);
+  ui.tradeHideCompleted = true;
+  assert.match(c.render(), /id="trade-hide-completed" type="checkbox" checked/);
+  assert.match(c.render(), /Hide Completed Trades/);
+});
