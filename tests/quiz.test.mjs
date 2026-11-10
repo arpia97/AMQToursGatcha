@@ -1053,3 +1053,78 @@ test("displacing the #1 quiz leader notifies the previous #1 player on score or 
   assert.deepEqual(f.e.gameState("p").notices, []);
   assert.deepEqual(f.e.gameState("q").notices, []);
 });
+
+test("revealed songs expose nextAudio and nextSample without upcoming answers, quiz-next with ready:true arms the clock immediately, and intermediate moves skip wallet SQL", (t) => {
+  const f = fixture(t);
+  const start = f.action("p", "quiz-start", { quiz: "test" });
+  assert.equal("nextAudio" in start.run, false);
+  assert.equal("nextSample" in start.run, false);
+  assert.equal("me" in start, false);
+
+  const ready = f.action("p", "quiz-ready", {
+    quiz: "test",
+    run: start.run.id,
+    index: 0,
+  });
+  assert.equal("nextAudio" in ready.run, false);
+  assert.equal("me" in ready, false);
+  f.advance(2000);
+
+  const stored = f.e.quiz.run("p", "test");
+  const answer = f.action("p", "quiz-answer", {
+    quiz: "test",
+    run: start.run.id,
+    index: 0,
+    answer: stored.songs[0].answers[0],
+  });
+  assert.equal(answer.run.nextAudio, stored.songs[1].audio);
+  assert.equal(answer.run.nextSample, stored.songs[1].sample);
+  assert.equal("nextAnswer" in answer.run, false);
+  assert.equal("me" in answer, false);
+
+  f.advance(500);
+  const nextReady = f.action("p", "quiz-next", {
+    quiz: "test",
+    run: start.run.id,
+    index: 0,
+    ready: true,
+  });
+  assert.equal(nextReady.run.index, 1);
+  assert.equal(nextReady.run.startsAt, f.e.now());
+  assert.equal(nextReady.run.endsAt, f.e.now() + 20000);
+  assert.equal("nextAudio" in nextReady.run, false);
+  assert.equal("me" in nextReady, false);
+
+  for (let i = 1; i < 20; i++) {
+    if (!f.e.quiz.view("p", "test").run.startsAt) {
+      f.action("p", "quiz-ready", {
+        quiz: "test",
+        run: start.run.id,
+        index: i,
+      });
+    }
+    const ans = f.action("p", "quiz-answer", {
+      quiz: "test",
+      run: start.run.id,
+      index: i,
+      answer: stored.songs[i].answers[0],
+    });
+    if (i === 19) {
+      assert.equal("nextAudio" in ans.run, false);
+      assert.equal("nextSample" in ans.run, false);
+    }
+    const step = f.action("p", "quiz-next", {
+      quiz: "test",
+      run: start.run.id,
+      index: i,
+      ready: i < 19,
+    });
+    if (i < 19) {
+      assert.equal("me" in step, false);
+    } else {
+      assert.equal(step.run.finished, true);
+      assert.equal(step.me.id, "p");
+      assert.equal(step.me.earned, 2900);
+    }
+  }
+});

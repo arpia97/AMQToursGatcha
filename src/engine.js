@@ -340,18 +340,13 @@ export class Engine {
   }
   action(player, action, b) {
     const now = this.now();
+    if (
+      ["quiz-ready", "quiz-answer", "quiz-next"].includes(action)
+    )
+      return this.quiz.action(player, action, b);
     this.player(player);
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
-    if (
-      [
-        "quiz-start",
-        "quiz-restart",
-        "quiz-stop",
-        "quiz-ready",
-        "quiz-answer",
-        "quiz-next",
-      ].includes(action)
-    )
+    if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))
       return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
     if (additional) return additional;

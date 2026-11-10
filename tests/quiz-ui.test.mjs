@@ -19,6 +19,7 @@ function fixture(
     leaderboardMe = null,
     audioCache,
     transitions = false,
+    prefetch = false,
   } = {},
 ) {
   const old = globalThis.document,
@@ -153,8 +154,14 @@ function fixture(
         ...run,
         index: run.index + 1,
         answered: false,
-        startsAt: null,
-        endsAt: null,
+        startsAt: b.ready ? now : null,
+        endsAt: b.ready ? now + 20000 : null,
+        audio: prefetch
+          ? "https://example.com/song-" + (run.index + 1) + ".mp3"
+          : run.audio,
+        sample: prefetch ? 0.25 : run.sample,
+        nextAudio: undefined,
+        nextSample: undefined,
         ...(finishOnNext
           ? {
               finished: true,
@@ -180,7 +187,11 @@ function fixture(
         endsAt: null,
       };
     if (path === "quiz-ready")
-      run = { ...run, startsAt: now + 2000, endsAt: now + 22000 };
+      run = {
+        ...run,
+        startsAt: now + (run.index === 0 ? 2000 : 0),
+        endsAt: now + (run.index === 0 ? 22000 : 20000),
+      };
     if (path === "quiz-answer")
       run = {
         ...run,
@@ -189,6 +200,12 @@ function fixture(
         submittedAnswer: b.skip ? "" : b.answer || "",
         correct: b.answer === "Bocchi the Rock!",
         score: b.answer === "Bocchi the Rock!" ? 1 : 0,
+        ...(prefetch && run.index < 19
+          ? {
+              nextAudio: "https://example.com/song-" + (run.index + 1) + ".mp3",
+              nextSample: 0.25,
+            }
+          : {}),
       };
     if (path === "quiz-answer" && loseAnswerResponse) {
       loseAnswerResponse = false;
@@ -944,4 +961,70 @@ test("quiz leaderboard highlights the viewer when in Top 20 and appends a highli
     outsideHtml,
     /<tr class="is-me is-outside-top" aria-current="true"><td>24<\/td><td><a href="#player\/host">Me &lt;Outside><\/a><\/td><td title="Time Set: [^"]+"><strong>14 \/ 20<\/strong><\/td><td class="quiz-duration">1:01\.250<\/td><\/tr>/,
   );
+});
+
+test("answer reveal prebuffers and seeks the next song so Next Song plays immediately without a second quiz-ready round trip, while unbuffered transitions reuse the in-flight audio element", async (t) => {
+  const f = fixture(t, { transitions: true, prefetch: true });
+  await f.start();
+  await f.advance(2000);
+  assert.equal(f.audios.length, 1);
+
+  await f.ui.submit({
+    elements: { answer: { value: "Bocchi the Rock!" } },
+  });
+  assert.equal(
+    f.audios.length,
+    2,
+    "reveal screen immediately creates the next song audio element",
+  );
+  const prefetched = f.audios[1];
+  assert.equal(prefetched.src, "https://example.com/song-1.mp3");
+  f.ui.setVolume(65);
+  assert.equal(prefetched.volume, 0.65);
+
+  await prefetched.emit("loadedmetadata");
+  assert.equal(prefetched.currentTime, 25);
+  await prefetched.emit("canplay");
+
+  const readyCallsBefore = f.calls.filter((c) => c.path === "quiz-ready").length;
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  await flush();
+  const nextCall = f.calls.filter((c) => c.path === "quiz-next").at(-1);
+  assert.equal(nextCall.b.ready, true);
+  assert.equal(
+    f.calls.filter((c) => c.path === "quiz-ready").length,
+    readyCallsBefore,
+    "skips extra quiz-ready round trip when prefetched audio is ready",
+  );
+  assert.equal(
+    f.audios.length,
+    2,
+    "reuses the prefetched audio element instead of creating a duplicate",
+  );
+  assert.equal(prefetched.plays, 1);
+
+  // Now answer song 2 and click Next BEFORE the prefetched song 3 finishes buffering.
+  await f.ui.submit({
+    elements: { answer: { value: "Bocchi the Rock!" } },
+  });
+  assert.equal(f.audios.length, 3);
+  const inFlight = f.audios[2];
+  assert.equal(inFlight.src, "https://example.com/song-2.mp3");
+
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  const secondNextCall = f.calls.filter((c) => c.path === "quiz-next").at(-1);
+  assert.equal(secondNextCall.b.ready, undefined);
+  assert.equal(
+    f.audios.length,
+    3,
+    "still reuses the in-flight audio element rather than restarting download",
+  );
+  await inFlight.emit("loadedmetadata");
+  await inFlight.emit("canplay");
+  await flush();
+  assert.equal(
+    f.calls.filter((c) => c.path === "quiz-ready").length,
+    readyCallsBefore + 1,
+  );
+  assert.equal(inFlight.plays, 1);
 });

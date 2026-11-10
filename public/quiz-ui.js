@@ -133,14 +133,79 @@ export function createQuizUI({
       locallyStopped = false;
     }
   }
-  function stop() {
+  // The next song is buffered (and seeked to its sample) while the reveal is
+  // shown, so pressing Next reuses a ready element instead of downloading.
+  let upcoming = null;
+  function dropPrefetch() {
+    if (upcoming && !upcoming.claimed) upcoming.element.pause?.();
+    upcoming = null;
+  }
+  function stop({ keepPrefetch = false } = {}) {
     generation++;
     audio?.pause();
     audio = null;
     audioKey = "";
     arming = false;
+    if (!keepPrefetch) dropPrefetch();
     if (timer !== null) time.cancel(timer);
     timer = null;
+  }
+  function prefetchNext() {
+    if (!run?.answered || run.finished || !run.nextAudio || run.index >= 19)
+      return;
+    const key = run.id + ":" + (run.index + 1);
+    if (upcoming?.key === key) return;
+    dropPrefetch();
+    let src;
+    try {
+      src =
+        cache.url(run.nextAudio, server) ||
+        quizAudioUrl(run.nextAudio, server);
+    } catch {
+      return;
+    }
+    const element = makeAudio(src),
+      entry = {
+        key,
+        element,
+        sample: run.nextSample,
+        sampleStart: 0,
+        ready: false,
+        failed: false,
+        claimed: false,
+      };
+    upcoming = entry;
+    element.preload = "auto";
+    element.volume = volume / 100;
+    const settle = () => {
+      if (
+        entry.claimed ||
+        entry.failed ||
+        element.seeking ||
+        (element.readyState !== undefined && element.readyState < 2)
+      )
+        return;
+      entry.ready = true;
+    };
+    element.addEventListener("loadedmetadata", () => {
+      if (entry.claimed) return;
+      entry.sampleStart = Number.isFinite(element.duration)
+        ? Math.max(
+            0,
+            (element.duration - QUIZ_SONG_MS / 1000) * (entry.sample || 0),
+          )
+        : 0;
+      element.currentTime = entry.sampleStart;
+    });
+    element.addEventListener("canplay", settle);
+    element.addEventListener("canplaythrough", settle);
+    element.addEventListener("seeked", settle);
+    element.addEventListener("error", () => {
+      if (entry.claimed) return;
+      entry.failed = true;
+      entry.ready = false;
+    });
+    element.load?.();
   }
   async function loadBank(q) {
     const key = q.id + ":" + q.updated;
@@ -751,6 +816,7 @@ export function createQuizUI({
   function setVolume(value) {
     volume = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
     if (audio) audio.volume = volume / 100;
+    if (upcoming?.element) upcoming.element.volume = volume / 100;
     const label = document.getElementById("quiz-volume-value");
     if (label) label.textContent = volume + "%";
     try {
@@ -772,6 +838,13 @@ export function createQuizUI({
       ...(run ? { run: run.id, index: run.index } : {}),
       ...(answer !== undefined ? { answer } : {}),
       ...(skip ? { skip: true } : {}),
+      ...(action === "quiz-next" &&
+      run &&
+      upcoming?.key === run.id + ":" + (run.index + 1) &&
+      upcoming.ready &&
+      !upcoming.failed
+        ? { ready: true }
+        : {}),
     };
     const signature = JSON.stringify([action, body]);
     if (pendingMove?.signature !== signature)
@@ -781,6 +854,7 @@ export function createQuizUI({
     if (action === "quiz-stop") {
       locallyStopped = true;
       stop();
+      dropPrefetch();
     }
     closeSuggestions();
     tick();
@@ -1001,7 +1075,8 @@ export function createQuizUI({
       return;
     }
     if (run.answered) {
-      stop();
+      stop({ keepPrefetch: true });
+      prefetchNext();
       tick();
       if (run.index < 19) timer = time.every(tick, 200);
       return;
@@ -1010,6 +1085,12 @@ export function createQuizUI({
     if (key === audioKey) {
       tick();
       return;
+    }
+    const prefetched =
+      upcoming?.key === key && !upcoming.failed ? upcoming : null;
+    if (prefetched) {
+      prefetched.claimed = true;
+      upcoming = null;
     }
     stop();
     audioKey = key;
@@ -1022,10 +1103,15 @@ export function createQuizUI({
       tick();
       return;
     }
-    audio = makeAudio(
-      cache.url(run.audio, server) || quizAudioUrl(run.audio, server),
-    );
-    audio.preload = "auto";
+    if (prefetched) {
+      audio = prefetched.element;
+      sampleStart = prefetched.sampleStart;
+    } else {
+      audio = makeAudio(
+        cache.url(run.audio, server) || quizAudioUrl(run.audio, server),
+      );
+      audio.preload = "auto";
+    }
     audio.volume = volume / 100;
     const current = audio;
     const ready = async () => {
@@ -1079,7 +1165,8 @@ export function createQuizUI({
         tick();
       }
     });
-    tick();
+    if (prefetched?.ready) ready();
+    else tick();
   }
   return {
     load,

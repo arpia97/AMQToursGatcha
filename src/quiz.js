@@ -443,7 +443,11 @@ export class Quiz {
         },
       };
     const song = run.songs[run.index],
-      answer = run.answers[run.index];
+      answer = run.answers[run.index],
+      // Once the current song is revealed, the client may buffer the next
+      // song's audio so moving on does not wait for a fresh download. The
+      // scored clock still starts only when the server records readiness.
+      upcoming = answer ? run.songs[run.index + 1] : null;
     return {
       now,
       run: {
@@ -468,6 +472,9 @@ export class Quiz {
               songTitle: song.title,
               artist: song.artist,
             }
+          : {}),
+        ...(upcoming
+          ? { nextAudio: upcoming.audio, nextSample: upcoming.sample }
           : {}),
       },
     };
@@ -743,13 +750,23 @@ export class Quiz {
       } else {
         run.index++;
         run.timing = null;
+        // A client that already buffered this song can start it in the same
+        // request, saving the separate quiz-ready round trip.
+        if (b.ready === true) {
+          const startsAt = e.now();
+          run.timing = {
+            index: run.index,
+            startsAt,
+            endsAt: startsAt + QUIZ_SONG_MS,
+          };
+        }
       }
     } else fail("Unknown quiz action.", 404);
     this.persist(player, q.id, run);
     return {
       ...this.runView(q, run),
       message: run.finished ? "Quiz Complete" : "Answer Updated",
-      me: e.player(player),
+      ...(run.finished ? { me: e.player(player) } : {}),
     };
   }
   titleOptions(player) {

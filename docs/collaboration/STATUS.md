@@ -1,11 +1,31 @@
 # Shared Status and Handoff
 
-Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
+Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — One-Time 5-Card Special Pack (1 AG, 4 S-and-Up, 50% Character / 50% Seiyuu)
+## Active Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization
+
+- Gemini owns implementation/commit: `src/engine.js`, `src/quiz.js`, `public/quiz-ui.js`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`, `tests/quiz-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `08c5298`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - In `src/quiz.js`:
+    - `runView(q, run)` now exposes `nextAudio` and `nextSample` once the current song is answered (`run.answers[run.index]` is locked) and `run.index < 19`, allowing the client to prebuffer and seek the upcoming song while the answer reveal screen is displayed without exposing upcoming titles or answers.
+    - `action(player, "quiz-next", b)` accepts `b.ready === true` on intermediate song transitions (`run.index < 19`) to arm the new song's 20-second clock (`startsAt: now, endsAt: now + QUIZ_SONG_MS`) in the same request, eliminating the extra `POST /api/quiz-ready` network round trip after pressing Next Song.
+    - Omitted redundant `me: e.player(player)` lookup on intermediate quiz moves (`!run.finished`), querying and returning `me` only when `run.finished` is true (the only step that can award credits/titles).
+  - In `src/engine.js`:
+    - Skipped the upfront `this.player(player)` SQL query (which ran correlated subqueries on `showcase_capacity` and `host_delegations`) for `quiz-ready`, `quiz-answer`, and `quiz-next`, cutting per-move Durable Object SQL statements on `quiz-answer` and intermediate `quiz-next` down to 6 lightweight primary-key queries.
+  - In `public/quiz-ui.js`:
+    - Added `prefetchNext()` and `dropPrefetch()` so that as soon as a song is answered, the client creates the next song's `Audio` element in the background, seeks to its sample offset on `loadedmetadata`, and marks it ready on `canplay`/`canplaythrough`/`seeked`.
+    - When the player clicks `Next Song` (or presses `Enter` on the reveal screen) and the prefetched audio is ready, `mutate("quiz-next")` passes `ready: true` and `mount()` claims the prebuffered `Audio` element and starts playback immediately. If the player advances before prebuffering completes, `mount()` still reuses the in-flight `Audio` element rather than restarting the download.
+  - Unit tests: added coverage in `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`, and tightened SQL hot-path probe in `tests/quiz-runtime.test.mjs` (`probe.sql <= 6`).
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (448/448 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — One-Time 5-Card Special Pack (1 AG, 4 S-and-Up, 50% Character / 50% Seiyuu)
 
 - Gemini owns implementation/commit: `src/special-pack.js`, `src/economy.js`, `src/engine.js`, `src/worker.js`, `src/aliases.js`, `src/economy-repair.js`, `public/pack-reveal.js`, `public/app.js`, `public/demo-features.js`, `tests/special-pack.test.mjs`, `docs/collaboration/STATUS.md`.
-- Base SHA: `ff73f77`
+- Base SHA: `ff73f77` (with follow-up fix `08c5298` for `POST /api/special-pack-seen` and newly registered accounts)
 - Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
 - Completed behavior / decisions:
   - Created `src/special-pack.js`:
@@ -13,18 +33,18 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
     - `drawFive()` draws 1 AG card guaranteed and 4 cards S-and-up (`["S", "SS", "SSS", "Ubers", "AG"]`).
     - Every card drawn rolls 50% Character / 50% Seiyuu first (`rand(2) === 0 ? "character" : "seiyuu"`), then uniformly selects among qualifying cards in that pool.
     - Avoids duplicate cards within the same pack when pool permits.
-    - `ensureGranted(player)` grants the pack to registered players exactly once, immediately inserting the 5 cards into inventory.
+    - `ensureGranted(player)` grants the pack to registered players (`password IS NOT NULL`) or players with prior activity (`earned > 5000` or existing inventory) exactly once, immediately inserting the 5 cards into inventory.
     - `pendingPopup(player)` returns `{ cards }` while `seen === 0`.
     - `markSeen(player)` updates `seen = 1`.
   - Added `special_packs` to `src/economy.js`, `src/aliases.js` (identity migration), `src/economy-repair.js`, and `src/engine.js` (reset-player/reset-all).
-  - In `src/worker.js`: executes `e.economy.specialPack.ensureGranted(session.player)` inside `e.tx()` when authenticated players request `state`.
+  - In `src/worker.js`: executes `e.economy.specialPack.ensureGranted(session.player)` inside `e.tx()` when authenticated players request `state`, and handles `special-pack-seen` on both GET and POST.
   - In `src/engine.js`: returns `specialPack: { cards }` on `state(id)` if `seen === 0`, and includes all 5 card references in `catalog`.
   - Added action `special-pack-seen` in `src/economy.js` and demo fallback in `public/demo-features.js`.
   - In `public/pack-reveal.js`: updated sealed cinematic pack to render `SPECIAL BONUS PACK` eyebrow, AG aura glow, and results actions (`My Collection ↗` and `Continue`).
-  - In `public/app.js`: automatically displays the special pack pop-up modal on site refresh or after login when `state.specialPack` is present, and acknowledges via `api("special-pack-seen")`.
+  - In `public/app.js`: automatically displays the special pack pop-up modal on site refresh or after login when `state.specialPack` is present, and acknowledges via `api("special-pack-seen", {})`.
   - Unit tests: `tests/special-pack.test.mjs` verifying draw distribution, 50/50 kind split, single-grant idempotency, inventory updates, state responses, and reset handling.
 - Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (446/446 passed), `git diff --check` (clean).
-- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **c157927c-e089-4f34-aa60-e47ee16c0f53**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/pack-reveal.js` (200, contains `SPECIAL BONUS PACK`). No manual data mutations.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` versions **c157927c-e089-4f34-aa60-e47ee16c0f53** and **e6e5237c-ad09-4bb1-ba12-e33c1bd90bb8**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/pack-reveal.js` (200, contains `SPECIAL BONUS PACK`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Arrange Pinned Anime in Collection Arrange Mode
