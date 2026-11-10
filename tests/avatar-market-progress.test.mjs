@@ -305,6 +305,10 @@ test("catalogue progress uses only persisted scan counters, handles unknown tota
   assert.match(catalogProgressHTML(p), /73.09%/);
   assert.match(catalogProgressHTML(p), /cast pages, not the final number/);
   assert.doesNotMatch(catalogProgressHTML(p), /private/);
+  assert.equal(
+    catalogProgressHTML({ ...p, complete: true, percent: 100 }),
+    "",
+  );
   assert.match(marketSortControl("wishlist", true, true, true), /Ending Soon/);
   assert.doesNotMatch(marketSortControl(), /Ending Soon/);
 });

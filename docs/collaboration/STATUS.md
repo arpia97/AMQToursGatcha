@@ -4,19 +4,19 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Completed (committed, pushed, and deployed to live Worker): Add "Hide Completed Trades" checkbox in Your Trade Listings, filtering completed and cancelled listings, persisted across visits in localStorage.
+- Completed: Hide catalogue scraping progress bar when import has reached 100% or is complete.
 - Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `21f0ea1` → runtime `c5626be` / `public/app.js`, `public/demo-features.js`, `public/trades-ui.js`, `src/trades.js`, `src/worker.js`, `tests/trades-ui.test.mjs`, `tests/trades.test.mjs`, `docs/collaboration/STATUS.md`
-- Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
+- Base SHA / runtime SHA / changed files: `ac7e2ca` / `public/catalog-progress.js`, `tests/avatar-market-progress.test.mjs`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, trade filters, and pick'em features.
 - Completed behavior / decisions:
-  - Added `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox">Hide Completed Trades</label>` next to "My Wishlist Only" when viewing "Your Trade Listings" (`ui.tradeView === "listings"`).
-  - Checking it passes `hide_completed=1` to `/api/trades` (`hideCompleted: true` in `Trades.page`), which filters `l.status='open'`, hiding both completed and cancelled trade listings.
-  - Persisted user's preference in `localStorage` under `amqtours-trade-hide-completed` so it is remembered across page reloads and screen visits.
-- Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (435/435 passed), `git diff --check` (clean).
-- Commit / push / CI status: Committed and pushed to `origin/main`.
-- Runtime deployment version / live verification (or not deployed): Deployed to Cloudflare Worker `amqtours-gatcha` version **7d637bc3-2fcc-4df3-a660-6520f2e2f104**. Verified live read-only: `/api/health` (200), `/trades-ui.js` (200 with `trade-hide-completed`), `/app.js` (200 with `hide_completed`).
+  - Updated `catalogProgressHTML(p, escape, number)` in `public/catalog-progress.js` to return `""` when `!p || p.complete || p.percent >= 100`.
+  - When the catalogue scraping reaches 100% completion, the progress bar section is omitted across all catalogue surfaces (`catalogue()` and `ui.catalogRecent`), avoiding empty containers or visual clutter.
+  - Scan state tracking, server counters, host tools diagnostics, and import state are preserved unchanged.
+- Checks run and results: `node tools/check.mjs` (207 files passed), `node --test tests/avatar-market-progress.test.mjs` (7/7 passed), `git diff --check` (clean).
+- Commit / push / CI status: Ready to commit and push to `origin/main`.
+- Runtime deployment version / live verification (or not deployed): Not deployed yet.
 - Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
-- Remaining work / blocker / exact next action: None.
+- Remaining work / blocker / exact next action: Ready to deploy if requested.
 - Integration owner / deployment owner: Gemini.
 
 ## Last Verified Application Release

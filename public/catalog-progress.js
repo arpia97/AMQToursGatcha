@@ -25,7 +25,7 @@ export function catalogProgressHTML(
   escape = String,
   number = (v) => Number(v).toLocaleString("en-US"),
 ) {
-  if (!p) return "";
+  if (!p || p.complete || p.percent >= 100) return "";
   const percent =
     p.percent === null ? "Awaiting Scan Total" : p.percent.toFixed(2) + "%";
   return (
