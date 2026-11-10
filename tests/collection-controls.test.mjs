@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { collectionView, collectionPage } from "../public/card-display.js";
+import { createPinnedAnimeEditor } from "../public/pinned-anime-order.js";
 
 test("collection combines rarity, character role, bilingual search and independent inventory sorts", () => {
   const cards = [
@@ -72,4 +73,53 @@ test("collection pages are bounded without omissions, and clamp after filtering 
   assert.equal(collectionPage(items.slice(0, 2), 4).page, 1);
   assert.equal(collectionPage([], 500).page, 1);
   assert.deepEqual(collectionPage([], 1).items, []);
+});
+
+test("pinned anime editor manages ordering, drag handles, rank inputs, dirty states and reset", () => {
+  const pins = [
+    { series_key: "s1", series_romaji: "Alpha Anime", owned: 2, total: 5 },
+    { series_key: "s2", series_romaji: "Beta Anime", owned: 5, total: 5 },
+    { series_key: "s3", series_romaji: "Gamma Anime", owned: 0, total: 3 },
+  ];
+  const editor = createPinnedAnimeEditor({
+    series: (c) => c.series_romaji,
+    escape: String,
+  });
+  editor.open(pins, "player-1");
+  assert.equal(editor.activeFor("player-1"), true);
+  assert.equal(editor.activeFor("player-2"), false);
+  assert.equal(editor.dirty(), false);
+  assert.deepEqual(editor.keys(), ["s1", "s2", "s3"]);
+
+  // Move s3 to position 0
+  assert.equal(editor.move("s3", 0), true);
+  assert.equal(editor.dirty(), true);
+  assert.deepEqual(editor.keys(), ["s3", "s1", "s2"]);
+
+  // Drop s2 before s3
+  assert.equal(editor.drop("s2", "s3", false), true);
+  assert.deepEqual(editor.keys(), ["s2", "s3", "s1"]);
+
+  // Reset
+  editor.reset();
+  assert.equal(editor.dirty(), false);
+  assert.deepEqual(editor.keys(), ["s1", "s2", "s3"]);
+
+  // Move again and check render
+  editor.move("s1", 2);
+  const html = editor.render();
+  assert.match(html, /pinned-anime-arrange-panel/);
+  assert.match(html, /Save Pinned Order/);
+  assert.match(html, /data-pinned-anime-handle="s1"/);
+  assert.match(html, /data-pinned-anime-rank="s1"/);
+  assert.match(html, /data-pinned-anime-sort-card="s1"/);
+  assert.match(html, /value="3"/);
+
+  const payload = editor.payload("player-1");
+  assert.deepEqual(payload.order, ["s2", "s3", "s1"]);
+  assert.deepEqual(payload.expectedOrder, ["s1", "s2", "s3"]);
+
+  editor.close();
+  assert.equal(editor.activeFor("player-1"), false);
+  assert.equal(editor.render(), "");
 });

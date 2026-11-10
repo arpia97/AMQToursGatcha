@@ -8,7 +8,16 @@ export class AnimeCollection {
   constructor(e) {
     this.e = e;
     e.run(
-      "CREATE TABLE IF NOT EXISTS profile_anime(player TEXT NOT NULL,series_key TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(player,series_key))",
+      "CREATE TABLE IF NOT EXISTS profile_anime(player TEXT NOT NULL,series_key TEXT NOT NULL,at INTEGER NOT NULL,position INTEGER,PRIMARY KEY(player,series_key))",
+    );
+    if (
+      !e
+        .all("PRAGMA table_info(profile_anime)")
+        .some((c) => c.name === "position")
+    )
+      e.run("ALTER TABLE profile_anime ADD COLUMN position INTEGER");
+    e.run(
+      "CREATE INDEX IF NOT EXISTS profile_anime_order ON profile_anime(player,position IS NULL,position,at,series_key)",
     );
     e.run(
       "CREATE TABLE IF NOT EXISTS character_series(card TEXT PRIMARY KEY,series_key TEXT NOT NULL,romaji TEXT NOT NULL,english TEXT NOT NULL)",
@@ -174,17 +183,53 @@ export class AnimeCollection {
         ).n >= MAX_PINNED_ANIME
       )
         fail("You can pin up to 20 anime. Unpin one first.");
+      const maxPos = this.e.one(
+        "SELECT max(position) AS maxPos FROM profile_anime WHERE player=?",
+        player,
+      )?.maxPos;
+      const nextPos = maxPos != null ? maxPos + 1 : null;
       this.e.run(
-        "INSERT OR IGNORE INTO profile_anime VALUES(?,?,?)",
+        "INSERT OR IGNORE INTO profile_anime(player,series_key,at,position) VALUES(?,?,?,?)",
         player,
         key,
         this.e.now(),
+        nextPos,
       );
     }
     return {
       message: b.pinned
         ? "Anime pinned to your profile and progress board."
         : "Anime unpinned.",
+    };
+  }
+  reorderPinned(player, b) {
+    if (!Array.isArray(b.order)) fail("Provide the ordered pinned anime.");
+    const current = this.e
+      .all("SELECT series_key FROM profile_anime WHERE player=?", player)
+      .map((r) => r.series_key);
+    if (
+      b.order.length !== current.length ||
+      new Set(b.order).size !== current.length ||
+      b.order.some((key) => !current.includes(key))
+    )
+      fail("Arrange the anime already pinned to your profile.");
+    if (
+      b.expectedOrder &&
+      JSON.stringify(this.pinned(player).map((a) => a.series_key)) !==
+        JSON.stringify(b.expectedOrder)
+    )
+      fail("Your pinned anime changed. Refresh before arranging.", 409);
+    b.order.forEach((key, position) => {
+      this.e.run(
+        "UPDATE profile_anime SET position=? WHERE player=? AND series_key=?",
+        position,
+        player,
+        key,
+      );
+    });
+    return {
+      message: "Pinned anime order saved.",
+      pinned: this.pinned(player),
     };
   }
   progress(player, key) {
@@ -196,14 +241,25 @@ export class AnimeCollection {
     );
   }
   pinned(player) {
-    return this.e
-      .all(
-        "SELECT series_key FROM profile_anime WHERE player=? ORDER BY at,series_key",
-        player,
-      )
+    const rows = this.e.all(
+      "SELECT series_key,position FROM profile_anime WHERE player=? ORDER BY position IS NULL,position,at,series_key",
+      player,
+    );
+    const hasCustomOrder = rows.some((r) => r.position != null);
+    const list = rows
       .map(({ series_key }) => this.progress(player, series_key))
-      .filter(Boolean)
-      .sort(animeProgressComparator);
+      .filter(Boolean);
+    if (!hasCustomOrder) {
+      return list.sort(animeProgressComparator);
+    }
+    const posMap = new Map(
+      rows.map((r, idx) => [r.series_key, r.position ?? 1000 + idx]),
+    );
+    return list.sort(
+      (a, b) =>
+        (posMap.get(a.series_key) ?? 1000) -
+        (posMap.get(b.series_key) ?? 1000),
+    );
   }
   search(query, player) {
     const q = String(query || "")

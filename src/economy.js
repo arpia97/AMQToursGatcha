@@ -579,6 +579,8 @@ export class Economy {
     }
     if (action === "daily-pack") return this.dailyPack(player, b.kind);
     if (action === "pin-anime") return this.anime.pin(player, b);
+    if (action === "pinned-anime-order")
+      return this.anime.reorderPinned(player, b);
     if (action === "buyout") return this.buyout(player, b.auction);
     if (action === "showcase-slots") {
       const slots = e.player(player).showcase_slots,

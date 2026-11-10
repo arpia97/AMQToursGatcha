@@ -916,6 +916,24 @@
   padding: 4px 0;
   font-size: 11px;
 }
+.pinned-anime-arrange-panel {
+  border: 1px solid #3a4551;
+  border-radius: 16px;
+  padding: 22px 24px;
+  background: radial-gradient(ellipse at top, #1e2433, #151821 70%);
+  margin: 24px 0 32px;
+}
+.pinned-anime-sort-card {
+  position: relative;
+  cursor: grab;
+  user-select: none;
+}
+.pinned-anime-sort-card:active {
+  cursor: grabbing;
+}
+.pinned-anime-sort-card .wishlist-sort-tools {
+  margin-bottom: 8px;
+}
 .sort-control {
   margin: 0 0 20px;
 }

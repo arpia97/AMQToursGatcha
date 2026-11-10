@@ -88,7 +88,7 @@ const TABLES = {
   },
   profile_anime: {
     keys: ["player", "series_key"],
-    columns: ["player", "series_key", "at"],
+    columns: ["player", "series_key", "at", "position"],
   },
   player_notices: {
     keys: ["id"],

@@ -2,7 +2,32 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Gambling History Pop-Up Across Pachinko Games
+## Active Task — Arrange Pinned Anime in Collection Arrange Mode
+
+- Gemini owns implementation/commit: `src/collection.js`, `src/economy.js`, `src/economy-repair.js`, `public/pinned-anime-order.js`, `public/app.js`, `public/demo-features.js`, `public/features.css`, `tests/collection-controls.test.mjs`, `tests/economy.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `a040b6c`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Added custom order persistence for pinned anime in `src/collection.js`:
+    - Added `position INTEGER` column to `profile_anime` and index `profile_anime_order ON profile_anime(player, position IS NULL, position, at, series_key)`.
+    - `pinned(player)` orders by `position IS NULL, position, at, series_key` when custom order is set, falling back to `animeProgressComparator`.
+    - `pin(player, b)` appends newly pinned anime to `nextPos = maxPos != null ? maxPos + 1 : null`.
+    - Added `reorderPinned(player, b)` action handler validating input array, preventing duplicate/foreign keys, checking concurrency (`expectedOrder`), and updating `profile_anime.position`.
+  - Added `pinned-anime-order` routing in `src/economy.js` and column definition in `src/economy-repair.js`.
+  - Created `public/pinned-anime-order.js` module exporting `createPinnedAnimeEditor`:
+    - Drag handles (`⠿`), direct position rank inputs (`#`), keyboard up/down arrows, dirty-state tracking, and reset-to-progress buttons.
+  - Linked to `#collection` page in `public/app.js`:
+    - Clicking "Arrange Collection" enters arrange mode for both cards and pinned anime (rendered above collection cards if > 1 anime are pinned).
+    - Drag-and-drop integrated via `installCardOrderDrag`.
+    - Added "Save Pinned Order" button, and auto-saves dirty pinned anime order when submitting the collection arrangement form.
+    - "Close Arrange" / "Cancel" or page switching (`hashchange`) safely cancels drag handles and closes the editor.
+  - Added mock support in `public/demo-features.js`.
+  - Styled arrange panel in `public/features.css`.
+  - Tests: `tests/collection-controls.test.mjs` (pinned anime editor unit tests) and `tests/economy.test.mjs` (persistence and concurrency tests).
+- Checks run and results: `node tools/check.mjs` (210 files passed), `node --test tests/*.test.mjs` (442/442 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+
+## Previous Task — Gambling History Pop-Up Across Pachinko Games
 
 - Gemini owns implementation/commit: `public/gambling-history-ui.js`, `public/pachinko-ui.js`, `public/adventure-ui.js`, `public/blackjack-ui.js`, `public/horse-ui.js`, `public/mahjong-ui.js`, `public/app.js`, `public/pachinko.css`, `public/demo-features.js`, `src/pachinko.js`, `src/worker.js`, `tests/pachinko.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `4e7da75`

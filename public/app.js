@@ -36,6 +36,7 @@ import {
   createCollectionEditor,
   installWishlistDrag,
 } from "./wishlist-order.js";
+import { createPinnedAnimeEditor } from "./pinned-anime-order.js";
 import { collectorsPanel, collectorsButton } from "./card-collectors.js";
 import { authFormHTML } from "./auth-form.js";
 import {
@@ -908,6 +909,43 @@ const collectionDrag = installCardOrderDrag(document, collectionEditor, {
         ?.focus({ preventScroll: true });
   },
 });
+const pinnedAnimeEditor = createPinnedAnimeEditor({ series, escape });
+const pinnedAnimeDrag = installCardOrderDrag(document, pinnedAnimeEditor, {
+  prefix: "pinned-anime",
+  visualPrefix: "wishlist",
+  panel: ".pinned-anime-arrange-panel",
+  pointerMouse: true,
+  canEdit: () =>
+    !busy &&
+    page() === "collection" &&
+    pinnedAnimeEditor.activeFor(state.me?.id),
+  changed(seriesKey) {
+    const scroll = window.scrollY;
+    render();
+    window.scrollTo(0, scroll);
+    if (seriesKey) {
+      document
+        .querySelector(
+          '[data-pinned-anime-handle="' + CSS.escape(seriesKey) + '"]',
+        )
+        ?.focus({ preventScroll: true });
+      const status = document.getElementById("pinned-anime-arrange-status");
+      if (status) {
+        const item = pinnedAnimeEditor
+          .items()
+          .find((a) => a.series_key === seriesKey);
+        const name = item
+          ? series({ ...item, series: item.series_romaji })
+          : seriesKey;
+        status.textContent =
+          name +
+          " moved to position " +
+          (pinnedAnimeEditor.keys().indexOf(seriesKey) + 1) +
+          ".";
+      }
+    }
+  },
+});
 
 document.addEventListener("input", (event) => {
   if (event.target.id !== "trade-picker-query" || busy) return;
@@ -1228,7 +1266,11 @@ function home() {
   );
 }
 function collection() {
-  if (state.me && collectionEditor.activeFor(state.me.id))
+  if (
+    state.me &&
+    (collectionEditor.activeFor(state.me.id) ||
+      pinnedAnimeEditor.activeFor(state.me.id))
+  )
     return (
       profileTabs("collection") +
       intro(
@@ -1236,6 +1278,9 @@ function collection() {
         "Every card has a story.",
         btn("Close Arrange", "collection-cancel", "", "secondary"),
       ) +
+      (pinnedAnimeEditor.activeFor(state.me.id)
+        ? pinnedAnimeEditor.render(number)
+        : features.pinnedAnime()) +
       collectionEditor.render()
     );
   const items = collectionView(state.inventory, cardBy, {
@@ -1251,7 +1296,8 @@ function collection() {
     intro(
       "Your Collection. Your Favourites.",
       "Every card has a story.",
-      state.me && state.inventory.length > 1
+      state.me &&
+      (state.inventory.length > 1 || (ui.animeData?.pinned?.length || 0) > 1)
         ? btn("Arrange Collection", "collection-arrange", "", "secondary")
         : "",
     ) +
@@ -1868,6 +1914,8 @@ async function refresh() {
     showcaseEditor.close();
     collectionDrag.cancel();
     collectionEditor.close();
+    pinnedAnimeDrag.cancel();
+    pinnedAnimeEditor.close();
     ui.pickemDrafts = {};
     ui.shopBatchReview = null;
     pendingBatchSale = null;
@@ -2241,6 +2289,9 @@ document.addEventListener("submit", async (ev) => {
     return;
   }
   if (formIdentifier(f) === "collection-order-form") {
+    if (pinnedAnimeEditor.activeFor(state.me?.id) && pinnedAnimeEditor.dirty()) {
+      await execute("pinned-anime-order", pinnedAnimeEditor.payload(state.me.id));
+    }
     const result = await execute(
       "collection-order",
       collectionEditor.payload(state.me?.id),
@@ -2250,6 +2301,8 @@ document.addEventListener("submit", async (ev) => {
     if (result) {
       collectionDrag.cancel();
       collectionEditor.close();
+      pinnedAnimeDrag.cancel();
+      pinnedAnimeEditor.close();
       ui.collectionSort = "custom";
       ui.profileCollection.sort = "custom";
       await loadDynamic();
@@ -2628,6 +2681,8 @@ window.addEventListener("hashchange", async () => {
   wishlistEditor.close();
   showcaseDrag.cancel();
   showcaseEditor.close();
+  pinnedAnimeDrag.cancel();
+  pinnedAnimeEditor.close();
   if (fusionOverlayOpen()) closeFusionPicker();
   search = "";
   catalogPageNumber = 1;
@@ -3326,9 +3381,17 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       if (busy) return true;
-      if (a === "collection-cancel" || collectionEditor.activeFor(state.me.id)) {
+      if (
+        a === "collection-cancel" ||
+        collectionEditor.activeFor(state.me.id) ||
+        pinnedAnimeEditor.activeFor(state.me.id)
+      ) {
         collectionDrag.cancel();
         collectionEditor.close();
+        pinnedAnimeDrag.cancel();
+        pinnedAnimeEditor.close();
+        pinnedAnimeDrag.cancel();
+        pinnedAnimeEditor.close();
         await loadDynamic();
         render();
         return true;
@@ -3344,6 +3407,38 @@ async function handleFeatureClick(a, t) {
         state.me.id,
         page() === "collection" ? ui.collectionPage : ui.profileCardsPage,
       );
+      if (page() === "collection") {
+        if (!ui.animeData) {
+          try {
+            ui.animeData = await api(
+              "anime-collection?page=" + (ui.animePage || 1),
+            );
+          } catch {}
+        }
+        if (ui.animeData?.pinned?.length > 1) {
+          pinnedAnimeEditor.open(ui.animeData.pinned, state.me.id);
+        }
+      }
+      render();
+      return true;
+    }
+    if (a === "pinned-anime-save") {
+      if (!state.me) return true;
+      const payload = pinnedAnimeEditor.payload(state.me.id);
+      const res = await execute("pinned-anime-order", payload);
+      if (res) {
+        pinnedAnimeEditor.open(pinnedAnimeEditor.items(), state.me.id);
+        if (ui.animeData) {
+          ui.animeData.pinned = pinnedAnimeEditor.items();
+        }
+        await loadDynamic();
+        render();
+        toast(res.message);
+      }
+      return true;
+    }
+    if (a === "pinned-anime-reset") {
+      pinnedAnimeEditor.reset();
       render();
       return true;
     }
@@ -3535,6 +3630,8 @@ async function handleFeatureClick(a, t) {
         wishlistEditor.close();
         collectionDrag.cancel();
         collectionEditor.close();
+        pinnedAnimeDrag.cancel();
+        pinnedAnimeEditor.close();
         showcaseEditor.open(profileData, state.me.id);
       }
       render();

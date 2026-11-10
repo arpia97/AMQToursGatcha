@@ -726,6 +726,17 @@ export function demoFeatures(d, path, b) {
     } else s.pinnedAnime = s.pinnedAnime.filter((k) => k !== b.series);
     return { message: b.pinned ? "Anime pinned." : "Anime unpinned." };
   }
+  if (path === "pinned-anime-order") {
+    if (!Array.isArray(b.order)) throw Error("Invalid order.");
+    s.pinnedAnime = [...b.order];
+    const groups = animeGroups();
+    return {
+      message: "Pinned anime order saved.",
+      pinned: (s.pinnedAnime || [])
+        .map((key) => groups.find((g) => g.series_key === key))
+        .filter(Boolean),
+    };
+  }
   if (path.startsWith("anime-search?")) {
     const matches = searchMatcher(
       new URLSearchParams(path.split("?")[1]).get("q"),
@@ -747,9 +758,9 @@ export function demoFeatures(d, path, b) {
               Number(s.pinnedAnime.includes(a.series_key)) ||
             animeProgressComparator(a, b),
         ),
-      pinned: groups
-        .filter((g) => s.pinnedAnime.includes(g.series_key))
-        .sort(animeProgressComparator),
+      pinned: (s.pinnedAnime || [])
+        .map((key) => groups.find((g) => g.series_key === key))
+        .filter(Boolean),
       page: 1,
       hasMore: false,
       indexing: false,

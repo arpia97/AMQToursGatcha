@@ -165,6 +165,68 @@ test("anime pins track unowned series, escrow progress, public profiles, limits,
   assert.equal(e.profile("seller").pinnedAnime.length, 0);
   assert.ok(e.economy.anime.search("English 0").series.length);
 });
+test("pinned anime order persists custom position and validates input", () => {
+  const f = fixture(),
+    { e } = f;
+  e.host("catalog", {
+    cards: Array.from({ length: 5 }, (_, i) => ({
+      id: "mal-character-" + (4000 + i),
+      kind: "character",
+      name: "Hero " + i,
+      series: "Anime " + i,
+      series_english: "English " + i,
+    })),
+  });
+  f.act("seller", "pin-anime", { series: "anime 0", pinned: true });
+  f.act("seller", "pin-anime", { series: "anime 1", pinned: true });
+  f.act("seller", "pin-anime", { series: "anime 2", pinned: true });
+  const initial = e.economy.anime.pinned("seller").map((a) => a.series_key);
+  assert.equal(initial.length, 3);
+
+  // Custom reordering
+  const custom = [initial[2], initial[0], initial[1]];
+  const res = f.act("seller", "pinned-anime-order", {
+    order: custom,
+    expectedOrder: initial,
+  });
+  assert.equal(res.message, "Pinned anime order saved.");
+  assert.deepEqual(
+    e.economy.anime.pinned("seller").map((a) => a.series_key),
+    custom,
+  );
+  assert.deepEqual(
+    e.profile("seller").pinnedAnime.map((a) => a.series_key),
+    custom,
+  );
+
+  // Pin a 4th anime, verify it appends
+  f.act("seller", "pin-anime", { series: "anime 3", pinned: true });
+  assert.deepEqual(
+    e.economy.anime.pinned("seller").map((a) => a.series_key),
+    [...custom, "anime 3"],
+  );
+
+  // Invalid attempts
+  assert.throws(
+    () => f.act("seller", "pinned-anime-order", { order: ["anime 0"] }),
+    /already pinned/,
+  );
+  assert.throws(
+    () =>
+      f.act("seller", "pinned-anime-order", {
+        order: [initial[0], initial[0], initial[1]],
+      }),
+    /already pinned/,
+  );
+  assert.throws(
+    () =>
+      f.act("seller", "pinned-anime-order", {
+        order: [...custom, "anime 3"],
+        expectedOrder: ["wrong"],
+      }),
+    /changed/,
+  );
+});
 test("collection dates preserve first ownership across duplicate pulls and stamp transfers", () => {
   const f = fixture(),
     { e } = f;
