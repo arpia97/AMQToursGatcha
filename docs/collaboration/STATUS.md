@@ -21,7 +21,8 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Implemented pagination controls (`← Previous`, `Page X`, `Next →`).
   - Added `Pachinko.prototype.history(player, game, page)` in `src/pachinko.js` querying `gambling_rounds` for completed rounds, with endpoint `GET /api/gambling-history` in `src/worker.js` and demo fallback in `public/demo-features.js`.
 - Checks run and results: `node tools/check.mjs` (209 files passed), `node --test tests/pachinko.test.mjs` (8/8 passed), `node --test tests/*.test.mjs` (440/440 passed), `git diff --check` (clean).
-- Deployment note: Ready for review and deploy when requested.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **00824c08-6137-4a6e-a5aa-520ae0d7fba1**. Verified live read-only: `/api/health` (200, `{"ok":true}`), `/gambling-history-ui.js` (200), `/api/gambling-history` (401 unauthorized for guest). No data operations.
+- Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Remove New Cards (24h) Tab in Card Catalogue
 
