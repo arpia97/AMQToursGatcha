@@ -3,8 +3,7 @@ import { searchMatcher } from "../public/search.js";
 import { searchSql } from "./search.js";
 
 export const characterSearch = (c) =>
-  c.searchText ||
-  [c.name, c.series, c.series_romaji, c.series_english]
+  [c.name, c.series, c.series_romaji, c.series_english, c.searchText]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -67,20 +66,31 @@ export class TenraiCatalog {
       if (!buckets.has(b)) buckets.set(b, this.read(b));
       const data = buckets.get(b),
         old = data[c.id];
+      const representative = this.e.economy?.anime.appearance(c, old);
+      const incoming = { ...c };
+      delete incoming.appearance;
+      const merged = representative
+        ? { ...(old || incoming), ...representative }
+        : incoming;
+      if (representative) changed.set(c.id, merged);
       if (!old) {
-        data[c.id] = c;
+        data[c.id] = merged;
         dirty.add(b);
-        changed.set(c.id, c);
+        changed.set(c.id, merged);
         added++;
         if (!this.e.one("SELECT id FROM catalog WHERE id=?", c.id))
           this.e.catalogStore.recordArrivals([c]);
       }
-      // Prefer a Main appearance as the primary series; later Supporting credits
-      // cannot demote a character or replace the chosen series unpredictably.
-      else if (old.role !== "main" && c.role === "main") {
-        data[c.id] = c;
+      // Main roles precede Supporting roles; MAL member count picks the representative.
+      // Identity, portrait and host edits survive metadata enrichment.
+      else if (
+        representative
+          ? JSON.stringify(old) !== JSON.stringify(merged)
+          : old.role !== "main" && c.role === "main"
+      ) {
+        data[c.id] = merged;
         dirty.add(b);
-        changed.set(c.id, c);
+        changed.set(c.id, merged);
       }
     }
     for (const b of dirty) {
@@ -110,11 +120,27 @@ export class TenraiCatalog {
         );
     }
     for (const c of changed.values()) {
-      const role = buckets.get(this.bucket(c.id))[c.id].role;
+      const current = buckets.get(this.bucket(c.id))[c.id],
+        role = current.role;
       const override = this.e.one(
-        "SELECT bulk_role FROM catalog WHERE id=?",
+        "SELECT bulk_role,series_romaji,series_english,searchText FROM catalog WHERE id=?",
         c.id,
       );
+      if (
+        override &&
+        c.primaryAnimeId &&
+        (override.series_romaji !== c.series_romaji ||
+          override.series_english !== c.series_english ||
+          override.searchText !== c.searchText)
+      )
+        this.e.run(
+          "UPDATE catalog SET series=?,series_romaji=?,series_english=?,searchText=? WHERE id=?",
+          c.series,
+          c.series_romaji,
+          c.series_english,
+          c.searchText,
+          c.id,
+        );
       if (override && override.bulk_role !== role)
         this.e.run("UPDATE catalog SET bulk_role=? WHERE id=?", role, c.id);
     }

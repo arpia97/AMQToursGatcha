@@ -29,3 +29,13 @@ On November 2 KST a Server Key was installed as a Worker secret. The subsequent 
 ## One-off MAL cards
 
 Host catalogue imports accept optional non-negative integer favorite counts on MAL cards and synchronize their normal popularity rarity in the same transaction. Null or absent counts preserve existing popularity data. One-off imports do not change the background importer checkpoint or pacing state. They still follow the upstream service’s own limits. Reuse the same idempotency key for retries.
+
+## Anime Appearance Enrichment
+
+Completed discovery used to discard nonprimary cast links. The protected host action `POST /api/host/anime-appearances-start` starts one separate resumable pass after discovery completes, optionally accepting up to50 priority anime IDs in `{priority:[...] }` and requiring the usual Idempotency-Key. Starting it again never rewinds an existing or completed pass. It preserves discovery/favorites checkpoints, card identities and player progress. Normal pause/resume controls apply to all background tasks. `GET /api/host/jikan-status` exposes appearanceRevision1 and nested appearances counters/checkpoints.
+
+One entire anime cast is fetched per request. Completed anime IDs are recorded; retries and priority entries are deduplicated during the normal pass. It shares the existing single-request lease, minimum30seconds between completed upstream requests, Retry-After/backoff and resource budget. Favorites may take one in five slots when active. At30,759anime, the full pass needs roughly11days before downtime/favorites overhead; it is background work, not a synchronous deployment migration.
+
+All valid credited character/anime pairs are stored in character_appearances. Legacy primary associations remain readable without a mass startup copy. Representative work is Main first, then highest anime MAL member count, then lowest MAL anime ID as a stable tie-breaker. Supporting appearances are the fallback. Unknown legacy member counts retain their former role until real cast metadata is fetched. Cards keep their identity, portrait, favorites, rarity, inventory and enhancement. Host-edited names/images/roles and community fixed-rarity cards remain intact. Secondary titles are searchable; anime checklists/completion count every explicit appearance once. No franchise-wide appearances are inferred. Coverage is limited by upstream cast data and valid portrait/role requirements.
+
+Tenrai documents no multi-anime cast batch endpoint. Its character search may filter by multiple anime but does not return per-anime links, so it cannot replace cast endpoints for this pass. Reference: https://api.tenrai.org/llms.txt .

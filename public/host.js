@@ -157,6 +157,20 @@ function render() {
     html += `<section class="host-panel"><h2>Characters &amp; Seiyuus · Tenrai</h2><p>Imports MAL characters with documented Main/Supporting roles, bilingual anime titles, and Japanese voice actors. One request every 30 seconds, shared with favorite scans. Duplicate MAL IDs and host edits are preserved. Importing runs on Cloudflare while this page is closed.</p><p><strong>Status: ${esc(j.status)}</strong> · Source: ${esc(j.provider || "Tenrai")} · ${j.importedCharacters || 0} new characters · ${j.importedActors || 0} new actors · ${j.scannedTitles || 0}${j.totalTitles ? " / " + j.totalTitles : ""} anime checked</p><p>Access: <strong>${j.accessMode === "server-key" ? "Server Key" : "Public · Shared IP Quota"}</strong>${j.lastSuccessAt ? " · Last Successful Request " + esc(new Date(j.lastSuccessAt).toLocaleString()) : ""}</p>${j.lastStatus === 429 && j.accessMode !== "server-key" ? `<p class="host-warning">Tenrai is limiting this public connection. Add a <code>TENRAI_SERVER_KEY</code> secret to the amqtours-gatcha Worker for the official per-key quota. <a href="https://api.tenrai.org/documentation" target="_blank" rel="noopener noreferrer">Tenrai Server Key Instructions ↗</a></p>` : ""}${j.lastUpstreamMessage ? `<p class="form-hint">Upstream: ${esc(j.lastUpstreamMessage)}</p>` : ""}${j.lastRequestPath ? `<p class="form-hint">Last Request: <code>${esc(j.lastRequestPath)}</code></p>` : ""}${j.lastError ? `<p class="host-warning">${esc(j.lastError)} ${j.status === "waiting" ? "Automatic retry after " + esc(new Date(j.nextAt).toLocaleString()) + "." : ""}</p>` : ""}<form id="jikan-control" class="stack"><button class="button secondary" type="submit" name="operation" value="${importActive(j) ? "jikan-pause" : "jikan-start"}" >${importActive(j) ? "Pause import" : "Start / resume import"}</button></form><p class="form-hint space-top">Retries temporary outages with increasing delays and honors Retry-After. An upstream access refusal pauses the job. Missing portraits are skipped; actors have no Main/Supporting classification.</p></section>`;
   }
   if (tab === "catalog") {
+    const a = state.seiyuuImport?.appearances;
+    html +=
+      '<section class="host-panel"><h2>Anime Appearances</h2><p>Characters count toward every credited anime. Their primary anime uses Main roles first, then the highest MAL member count. This enrichment shares the 30-second upstream scheduler.</p>' +
+      (a
+        ? "<p><strong>" +
+          esc(a.status) +
+          "</strong> · " +
+          a.scannedTitles +
+          (a.totalTitles ? " / " + a.totalTitles : "") +
+          " anime enriched · " +
+          a.skippedTitles +
+          " unavailable</p>"
+        : '<form id="appearance-control"><button class="button secondary" name="operation" value="anime-appearances-start" type="submit">Enrich Anime Appearances</button></form>') +
+      "</section>";
     const f = state.seiyuuImport?.favorites;
     html += `<section class="host-panel"><h2>MAL Favorites &amp; Rarity</h2><p>Separate character and seiyuu percentiles. AG top 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D remainder. Equal counts share a tier. Normal packs are uniform; premium doubles S-and-higher chances by reducing D. Enhancement levels are independent.</p><p>Scan: ${esc(f?.status || "Not started")} · ${f?.scannedEntries || 0} profiles checked${f?.lastCompletedAt ? " · Last completed " + esc(new Date(f.lastCompletedAt).toLocaleString()) : ""}${f?.nextRefreshAt ? " · Next refresh " + esc(new Date(f.nextRefreshAt).toLocaleString()) : ""}</p><form id="favorites-refresh" class="stack"><label>Days between completed scans<input name="intervalDays" type="number" min="1" max="90" value="${f?.intervalDays || 15}" required></label><button class="button secondary" type="submit">Refresh favorites / save interval →</button></form><p class="form-hint">Scans up to 100 profiles per request, saves progress, and retries outages. Catalogue data cannot be cleared by any host reset.</p></section>`;
     if (state.catalogSummary?.source?.provider === "ACDB")
@@ -167,7 +181,7 @@ function render() {
   if (tab === "activity")
     html = `<section class="host-panel"><h2>Every Credit Leaves a Trail.</h2><p>Latest 100 wallet movements. The CSV includes all available activity from the last 12 hours, including grants, purchases, holds, refunds and payouts.</p><button class="button secondary" id="export-ledger">Download Last 12 Hours CSV</button></section><div class="table-wrap"><table><thead><tr><th>Time</th><th>Player ID</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
-    html += `<section class="host-panel"><h2>Character Main / Supporting Roles</h2><p>The first Main appearance is preferred as the series shown on the card; later Supporting credits do not demote it. Host corrections take precedence. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role-search" class="stack"><label>Find a character by name or series<input name="query" maxlength="100" placeholder="Frieren"></label><button class="button secondary" type="submit">Search catalog →</button></form><form id="role" class="stack space-top"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
+    html += `<section class="host-panel"><h2>Character Main / Supporting Roles</h2><p>The most popular Main appearance by MAL member count is the primary series; Supporting appearances are the fallback. Host corrections take precedence. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role-search" class="stack"><label>Find a character by name or series<input name="query" maxlength="100" placeholder="Frieren"></label><button class="button secondary" type="submit">Search catalog →</button></form><form id="role" class="stack space-top"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
       .filter((c) => c.kind === "character")
       .map(
         (c) =>
@@ -187,7 +201,7 @@ function render() {
       )
       .join("");
     html =
-      `<section class="host-panel"><h2>Background Import Usage</h2><p>${b.mode === "continuous" ? "Continuous import enabled. The daily free-plan pause is disabled; saved progress and upstream backoff are retained." : b.backgroundPaused ? "Automatic scans are resting until " + esc(new Date(b.nextResumeAt).toLocaleString()) + " to leave capacity for players." : "Automatic scans are within today’s reserved budget."}</p><p class="form-hint">App-local SQL estimate since tracking began: ${b.rowsRead.toLocaleString()} rows read · ${b.rowsWritten.toLocaleString()} rows written (${esc(b.day)}, UTC). ${b.mode === "continuous" ? "The importer makes one source request at a time, at least 10 seconds apart. No daily app-level row limit is applied." : "Background work rests at 2 million reads or 30,000 writes and resumes the next UTC day."} Account-wide usage and platform overhead can differ.</p>${sources ? `<table><thead><tr><th>Source</th><th>Rows Read</th><th>Rows Written</th></tr></thead><tbody>${sources}</tbody></table><p class="form-hint">Source breakdown started ${esc(new Date(b.breakdownSince).toLocaleString())}. Earlier totals remain unattributed. Counts exclude platform storage operations and checkpoint overhead.</p>` : ""}</section>` +
+      `<section class="host-panel"><h2>Background Import Usage</h2><p>${b.mode === "continuous" ? "Continuous import enabled. The daily free-plan pause is disabled; saved progress and upstream backoff are retained." : b.backgroundPaused ? "Automatic scans are resting until " + esc(new Date(b.nextResumeAt).toLocaleString()) + " to leave capacity for players." : "Automatic scans are within today’s reserved budget."}</p><p class="form-hint">App-local SQL estimate since tracking began: ${b.rowsRead.toLocaleString()} rows read · ${b.rowsWritten.toLocaleString()} rows written (${esc(b.day)}, UTC). ${b.mode === "continuous" ? "The importer makes one source request at a time, at least 30 seconds apart. No daily app-level row limit is applied." : "Background work rests at 2 million reads or 30,000 writes and resumes the next UTC day."} Account-wide usage and platform overhead can differ.</p>${sources ? `<table><thead><tr><th>Source</th><th>Rows Read</th><th>Rows Written</th></tr></thead><tbody>${sources}</tbody></table><p class="form-hint">Source breakdown started ${esc(new Date(b.breakdownSince).toLocaleString())}. Earlier totals remain unattributed. Counts exclude platform storage operations and checkpoint overhead.</p>` : ""}</section>` +
       html;
   }
   if (tab === "rewards")
@@ -474,7 +488,7 @@ document.addEventListener("submit", async (ev) => {
       );
     if (formIdentifier(form) === "replace-acdb")
       result = await api("replace-acdb", b, key);
-    if (formIdentifier(form) === "jikan-control")
+    if (["jikan-control", "appearance-control"].includes(formIdentifier(form)))
       result = await api(ev.submitter.value, {}, key);
     if (formIdentifier(form) === "deduct") {
       deductionDraft = await api("deduction-preview", {

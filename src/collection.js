@@ -3,7 +3,7 @@ import { MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { integer, text, fail } from "./engine.js";
 import { animeProgressComparator } from "../public/card-display.js";
 
-// Only primary anime associations are stored by the catalogue importer.
+// Primary titles remain compatible with old cards; explicit cast links add every appearance.
 export class AnimeCollection {
   constructor(e) {
     this.e = e;
@@ -15,6 +15,12 @@ export class AnimeCollection {
     );
     e.run(
       "CREATE INDEX IF NOT EXISTS character_series_key ON character_series(series_key)",
+    );
+    e.run(
+      "CREATE TABLE IF NOT EXISTS character_appearances(card TEXT NOT NULL,series_key TEXT NOT NULL,romaji TEXT NOT NULL,english TEXT NOT NULL,anime_id INTEGER NOT NULL,role TEXT NOT NULL,members INTEGER NOT NULL,PRIMARY KEY(card,series_key))",
+    );
+    e.run(
+      "CREATE INDEX IF NOT EXISTS character_appearances_series ON character_appearances(series_key,card)",
     );
     if (!e.one("SELECT key FROM catalog_meta WHERE key='series-backfill'"))
       this.save({ bucket: -1, local: 0, phase: "buckets" });
@@ -60,6 +66,52 @@ export class AnimeCollection {
       );
     }
   }
+  appearance(card, old) {
+    const a = card.appearance;
+    if (!a || !Number.isSafeInteger(a.id) || a.id < 1) return null;
+    const romaji = a.series_romaji || a.series || "",
+      english = a.series_english || "";
+    if (!romaji && !english) return null;
+    const key = (romaji || english).trim().toLowerCase();
+    if (old?.series || old?.series_romaji) {
+      const title = old.series_romaji || old.series;
+      this.e.run(
+        "INSERT OR IGNORE INTO character_appearances VALUES(?,?,?,?,?,?,?)",
+        card.id,
+        title.trim().toLowerCase(),
+        title,
+        old.series_english || "",
+        0,
+        old.role,
+        0,
+      );
+    }
+    this.e.run(
+      "INSERT INTO character_appearances VALUES(?,?,?,?,?,?,?) ON CONFLICT(card,series_key) DO UPDATE SET romaji=excluded.romaji,english=excluded.english,role=excluded.role,members=excluded.members,anime_id=excluded.anime_id",
+      card.id,
+      key,
+      romaji,
+      english,
+      a.id,
+      card.role,
+      Number.isSafeInteger(a.members) && a.members >= 0 ? a.members : 0,
+    );
+    const rows = this.e.all(
+      "SELECT * FROM character_appearances WHERE card=? ORDER BY CASE role WHEN 'main' THEN 0 ELSE 1 END,members DESC,CASE anime_id WHEN 0 THEN 1 ELSE 0 END,anime_id,series_key",
+      card.id,
+    );
+    const primary = rows[0];
+    return {
+      series: primary.romaji || primary.english,
+      series_romaji: primary.romaji,
+      series_english: primary.english,
+      primaryAnimeId: primary.anime_id,
+      role: primary.role,
+      searchText: [card.name, ...rows.flatMap((r) => [r.romaji, r.english])]
+        .join(" ")
+        .toLowerCase(),
+    };
+  }
   step() {
     const e = this.e,
       s = this.read();
@@ -104,7 +156,8 @@ export class AnimeCollection {
     else {
       if (
         !this.e.one(
-          "SELECT card FROM character_series WHERE series_key=? LIMIT 1",
+          "SELECT card FROM character_appearances WHERE series_key=? UNION ALL SELECT card FROM character_series WHERE series_key=? LIMIT 1",
+          key,
           key,
         )
       )
@@ -136,14 +189,10 @@ export class AnimeCollection {
   }
   progress(player, key) {
     return this.e.one(
-      `SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,(SELECT count(*) FROM character_series s WHERE s.series_key=? AND s.card IN (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open')) AS owned FROM character_series WHERE series_key=? GROUP BY series_key`,
+      `WITH associated AS (${animeLinks("s.series_key=?")}), owned AS (${ownedCards}) SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,sum(card IN (SELECT card FROM owned)) AS owned FROM associated GROUP BY series_key`,
       key,
-      player,
-      player,
-      player,
-      player,
-      player,
       key,
+      ...Array(5).fill(player),
     );
   }
   pinned(player) {
@@ -162,9 +211,10 @@ export class AnimeCollection {
       .toLowerCase()
       .slice(0, 100);
     if (q.length < 2) return { series: [] };
-    const search = searchSql("romaji||' '||english", q);
+    const search = searchSql("s.romaji||' '||s.english", q);
     const rows = this.e.all(
-      `SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total FROM character_series WHERE ${search.where} GROUP BY series_key ORDER BY series_romaji LIMIT 20`,
+      `WITH matched AS (${animeLinks(search.where)}) SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total FROM matched GROUP BY series_key ORDER BY series_romaji LIMIT 20`,
+      ...search.args,
       ...search.args,
     );
     return {
@@ -179,13 +229,10 @@ export class AnimeCollection {
     const progress = this.progress(player, key);
     if (!progress) fail("This anime is not in the catalogue yet.", 404);
     const rows = this.e.all(
-      "WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open') SELECT s.card,EXISTS(SELECT 1 FROM owned o WHERE o.card=s.card) AS owned FROM character_series s WHERE s.series_key=? ORDER BY s.card LIMIT 25 OFFSET ?",
-      player,
-      player,
-      player,
-      player,
-      player,
+      `WITH associated AS (${animeLinks("s.series_key=?")}), owned AS (${ownedCards}) SELECT card,card IN(SELECT card FROM owned) AS owned FROM associated ORDER BY card LIMIT 25 OFFSET ?`,
       key,
+      key,
+      ...Array(5).fill(player),
       (page - 1) * 24,
     );
     const states = new Map(rows.slice(0, 24).map((r) => [r.card, !!r.owned]));
@@ -200,14 +247,9 @@ export class AnimeCollection {
   }
   page(player, page = 1) {
     integer(page, 1, 10000);
-    const e = this.e;
-    const rows = e.all(
-      `WITH owned AS (SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'), progress AS (SELECT s.series_key,min(s.romaji) AS series_romaji,max(s.english) AS series_english,count(*) AS owned FROM owned o JOIN character_series s ON s.card=o.card GROUP BY s.series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_series c WHERE c.series_key=p.series_key) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
-      player,
-      player,
-      player,
-      player,
-      player,
+    const rows = this.e.all(
+      `WITH owned AS (${ownedCards}), associated AS (${animeLinks("s.card IN(SELECT card FROM owned)")}), progress AS (SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS owned FROM associated GROUP BY series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_appearances a WHERE a.series_key=p.series_key)+(SELECT count(*) FROM character_series s WHERE s.series_key=p.series_key AND NOT EXISTS(SELECT 1 FROM character_appearances a WHERE a.card=s.card AND a.series_key=s.series_key)) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
+      ...Array(5).fill(player),
       player,
       (page - 1) * 24,
     );
@@ -220,3 +262,17 @@ export class AnimeCollection {
     };
   }
 }
+
+// Push card/series filters inside each branch: materializing a whole union on
+// every profile request would scan the complete catalogue for one collector.
+function animeLinks(where) {
+  return (
+    "SELECT s.card,s.series_key,s.romaji,s.english FROM character_appearances s WHERE (" +
+    where +
+    ") UNION ALL SELECT s.card,s.series_key,s.romaji,s.english FROM character_series s WHERE (" +
+    where +
+    ") AND NOT EXISTS(SELECT 1 FROM character_appearances a WHERE a.card=s.card AND a.series_key=s.series_key)"
+  );
+}
+const ownedCards =
+  "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'";

@@ -298,3 +298,104 @@ test("all host reset scopes preserve character and seiyuu catalogues, rarity, an
     );
   }
 });
+
+test("all anime appearances share one card, select Main then members, and preserve pins, escrow ownership and host edits", () => {
+  const { e, db } = fixture(),
+    c = e.catalogStore,
+    id = "mal-character-7626";
+  const cast = (anime, role = "Main") =>
+    characterCards(
+      [
+        {
+          character: {
+            mal_id: 7626,
+            name: "Miyafuji, Yoshika",
+            images: { jpg: { image_url: card(1).image } },
+          },
+          role,
+        },
+      ],
+      anime,
+    );
+  const ova = { mal_id: 1862, title: "Strike Witches OVA", members: 10000 },
+    tv = {
+      mal_id: 3667,
+      title: "Strike Witches",
+      title_english: "Strike Witches",
+      members: 250000,
+    },
+    sequel = { mal_id: 6381, title: "Strike Witches 2", members: 150000 };
+  c.tenrai.upsert(cast(ova));
+  e.host("players", { players: [{ id: "p", name: "Player" }] });
+  e.run(
+    "INSERT INTO inventory(player,card,copies,level) VALUES(?,?,?,?)",
+    "p",
+    id,
+    2,
+    3,
+  );
+  e.economy.anime.pin("p", { series: "strike witches ova", pinned: true });
+  c.popularity.sync("character", [[id, 269]]);
+  const before = c.card(id);
+  c.tenrai.upsert(cast(tv));
+  c.tenrai.upsert(cast(sequel));
+  c.tenrai.upsert(
+    cast(
+      { mal_id: 99999, title: "Popular Cameo", members: 9999999 },
+      "Supporting",
+    ),
+  );
+  assert.equal(c.card(id).series, "Strike Witches");
+  assert.equal(c.card(id).favorites, before.favorites);
+  assert.equal(c.card(id).rarity, before.rarity);
+  assert.equal(c.summary().character, 1);
+  for (const series of [
+    "strike witches ova",
+    "strike witches",
+    "strike witches 2",
+    "popular cameo",
+  ]) {
+    const page = e.economy.anime.checklist("p", series);
+    assert.equal(page.total, 1);
+    assert.equal(page.owned, 1);
+    assert.equal(page.cards[0].id, id);
+    assert.equal(
+      c.page("character", series, 1, 40, { sort: "name" }).cards[0].id,
+      id,
+    );
+  }
+  assert.equal(e.economy.anime.pinned("p")[0].series_key, "strike witches ova");
+  e.host("catalog", { cards: [{ ...c.rawCard(id), name: "Host Name" }] });
+  c.tenrai.upsert(cast({ ...tv, members: 300000 }));
+  assert.equal(c.card(id).name, "Host Name");
+  assert.equal(c.page("character", "Popular Cameo").cards[0].id, id);
+  assert.deepEqual(
+    {
+      ...e.one(
+        "SELECT copies,level FROM inventory WHERE player='p' AND card=?",
+        id,
+      ),
+    },
+    { copies: 2, level: 3 },
+  );
+  assert.equal(
+    e.one("SELECT count(*) n FROM character_appearances WHERE card=?", id).n,
+    4,
+  );
+  // Older single-primary cards remain visible without a mass startup migration.
+  e.host("catalog", {
+    cards: [
+      {
+        ...card(8),
+        id: "manual-anime",
+        series: "Manual Anime",
+        series_romaji: "Manual Anime",
+      },
+    ],
+  });
+  assert.equal(e.economy.anime.search("Manual Anime").series[0].total, 1);
+  assert.equal(
+    e.economy.anime.page("p").series.filter((s) => s.owned === 1).length,
+    4,
+  );
+});

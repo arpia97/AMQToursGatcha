@@ -741,6 +741,20 @@ export class Game extends DurableObject {
         await this.scheduleAlarm();
         return json(result);
       }
+      if (path === "host/anime-appearances-start") {
+        const status = e.mutate(
+          "host:anime-appearances-start",
+          request.headers.get("Idempotency-Key"),
+          b,
+          () => this.jikan.startAppearances(b.priority || []),
+        );
+        await this.scheduleAlarm();
+        return json({
+          message:
+            "Anime appearance enrichment scheduled. Existing cards and discovery checkpoints are preserved.",
+          import: status,
+        });
+      }
       if (path === "host/favorites-refresh") {
         const status = e.tx(() =>
           this.jikan.refreshFavorites(b.intervalDays ?? 15),

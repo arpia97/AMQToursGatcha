@@ -401,3 +401,101 @@ test("redirect compatibility repair recovers only the known local failure once w
     9999999,
   );
 });
+
+test("appearance enrichment preserves completed discovery, shares cooldown/retries, resumes safely and never replays a completed pass", async () => {
+  const calls = [];
+  const f = fixture(async (path) => {
+    calls.push(path);
+    if (path === "/anime/3667")
+      return {
+        data: { mal_id: 3667, title: "Strike Witches", members: 250000 },
+      };
+    if (path === "/anime/3667/characters")
+      return {
+        data: [
+          {
+            role: "Main",
+            character: {
+              mal_id: 7626,
+              name: "Miyafuji, Yoshika",
+              images: {
+                jpg: {
+                  image_url:
+                    "https://cdn.myanimelist.net/images/characters/1/1.jpg",
+                },
+              },
+            },
+          },
+        ],
+      };
+    if (path.startsWith("/anime?"))
+      return {
+        data: [{ mal_id: 3667, title: "Strike Witches", members: 250000 }],
+        pagination: { has_next_page: false, items: { total: 1 } },
+      };
+    throw Error(path);
+  });
+  f.job.save({
+    provider: "Tenrai",
+    status: "completed",
+    includeCharacters: true,
+    discoveryComplete: true,
+    page: 999,
+    queue: [],
+    scannedTitles: 30759,
+    requests: 42,
+    completedRequests: 42,
+    favorites: { status: "idle", nextRefreshAt: 999999999 },
+    nextAt: 999999999,
+  });
+  const body = { priority: [3667] };
+  const start = () =>
+    f.e.mutate("host:anime-appearances-start", "appearance-start", body, () =>
+      f.job.startAppearances(body.priority),
+    );
+  start();
+  const initial = f.job.read();
+  start();
+  assert.equal(f.job.read().generation, initial.generation);
+  assert.equal(initial.page, 999);
+  assert.equal(initial.scannedTitles, 30759);
+  f.advance(1000);
+  await f.job.step();
+  await f.job.step();
+  assert.equal(calls.length, 1);
+  const saved = f.job.read();
+  const resumed = new JikanImport(f.e, f.job.get);
+  assert.equal(resumed.read().appearances.queue[0].id, 3667);
+  const get = resumed.get;
+  resumed.get = async () => {
+    throw Object.assign(Error("Limited"), {
+      upstreamStatus: 429,
+      retryMs: 900000,
+    });
+  };
+  f.advance(30000);
+  await resumed.step();
+  assert.equal(resumed.status().appearances.scannedTitles, 0);
+  const until = resumed.read().nextAt;
+  assert.equal(resumed.read().pendingTask, "appearances");
+  await resumed.step();
+  assert.equal(resumed.read().nextAt, until);
+  resumed.get = get;
+  f.advance(900000);
+  await resumed.step();
+  assert.equal(resumed.read().appearances.scannedTitles, 1);
+  f.advance(30000);
+  await resumed.step();
+  assert.equal(resumed.read().appearances.status, "completed");
+  assert.equal(resumed.read().page, 999);
+  assert.equal(resumed.read().scannedTitles, 30759);
+  assert.equal(
+    f.e.catalogStore.card("mal-character-7626").series,
+    "Strike Witches",
+  );
+  assert.equal(calls.filter((p) => p === "/anime/3667/characters").length, 1);
+  f.e.tx(() => resumed.startAppearances([3667]));
+  assert.equal(resumed.read().appearances.status, "completed");
+  assert.equal(resumed.read().favorites.nextRefreshAt, 999999999);
+  assert.equal(saved.appearances.queue[0].id, 3667);
+});

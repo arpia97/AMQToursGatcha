@@ -215,6 +215,11 @@ export function characterCards(data, title) {
       kind: "character",
       name: c.name.trim(),
       ...animeTitles(title),
+      appearance: {
+        id: title.mal_id || title.id,
+        members: title.members,
+        ...animeTitles(title),
+      },
       role: credit.role.toLowerCase(),
       image,
       source: "https://myanimelist.net/character/" + c.mal_id,

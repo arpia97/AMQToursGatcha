@@ -1,3 +1,4 @@
+import { AnimeEnrichment } from "./anime-enrichment.js";
 import {
   fetchJikan,
   voiceCards,
@@ -12,7 +13,8 @@ const KEY = "jikan-import",
 const active = (s) =>
   s &&
   (["running", "waiting"].includes(s.status) ||
-    (s.status === "completed" && s.favorites));
+    (s.status === "completed" &&
+      (s.favorites || s.appearances?.status === "running")));
 
 // One persisted request per alarm. A lease prevents overlapping fetches; a
 // generation/lease check discards results after pause, reset or replacement.
@@ -21,6 +23,7 @@ export class JikanImport {
     this.e = engine;
     this.get = get;
     this.accessMode = accessMode;
+    this.enrichment = new AnimeEnrichment(engine);
     // A legitimately configured Server Key uses Tenrai's independent per-key
     // quota. Preserve all cursors, but fence an old public-access request.
     const old = this.read();
@@ -82,12 +85,19 @@ export class JikanImport {
   }
   status() {
     const s = this.read();
-    if (!s) return { status: "idle", importedActors: 0, scannedTitles: 0 };
+    if (!s)
+      return {
+        status: "idle",
+        importedActors: 0,
+        scannedTitles: 0,
+        appearanceRevision: 1,
+      };
     const { queue, generation, leaseId, leaseUntil, ...publicState } = s;
     return {
       ...publicState,
       accessMode: this.accessMode,
       requestIntervalMs: INTERVAL,
+      appearanceRevision: 1,
     };
   }
   nextAlarm() {
@@ -134,6 +144,47 @@ export class JikanImport {
       status: "running",
       updatedAt: now,
     });
+    return this.status();
+  }
+  startAppearances(priority = []) {
+    const s = this.read();
+    if (!s?.includeCharacters || !s.discoveryComplete)
+      throw Object.assign(
+        Error(
+          "Complete character discovery before enriching anime appearances.",
+        ),
+        { status: 409 },
+      );
+    if (
+      !Array.isArray(priority) ||
+      priority.length > 50 ||
+      priority.some((id) => !Number.isSafeInteger(id) || id < 1)
+    )
+      throw Object.assign(Error("Choose valid priority anime IDs."), {
+        status: 400,
+      });
+    if (s.appearances) return this.status();
+    s.appearances = {
+      status: "running",
+      page: 1,
+      queue: [],
+      priority: [...new Set(priority)],
+      scannedTitles: 0,
+      skippedTitles: 0,
+      requests: 0,
+      startedAt: this.e.now(),
+    };
+    s.generation = crypto.randomUUID();
+    s.nextAt = Math.max(
+      this.e.now() + 1000,
+      s.retryUntil || 0,
+      s.leaseUntil || 0,
+      (s.lastSuccessAt || 0) + INTERVAL,
+    );
+    s.leaseId = null;
+    s.leaseUntil = 0;
+    s.status = s.nextAt > this.e.now() + 1000 ? "waiting" : "running";
+    this.save(s);
     return this.status();
   }
   refreshFavorites(days = 15) {
@@ -202,7 +253,10 @@ export class JikanImport {
       s.generation = crypto.randomUUID();
       s.leaseId = null;
       s.leaseUntil = 0;
-      const sleeping = s.discoveryComplete && s.favorites?.status === "idle";
+      const sleeping =
+        s.discoveryComplete &&
+        s.favorites?.status === "idle" &&
+        s.appearances?.status !== "running";
       s.nextAt = Math.max(
         now + 1000,
         s.retryUntil || 0,
@@ -252,22 +306,30 @@ export class JikanImport {
       s.task =
         s.pendingTask ||
         (s.favorites?.status === "running" &&
-        (s.discoveryComplete || (s.completedRequests ?? s.requests) % 5 === 4)
+        ((s.discoveryComplete && s.appearances?.status !== "running") ||
+          (s.completedRequests ?? s.requests) % 5 === 4)
           ? "favorites"
-          : "discovery");
+          : s.discoveryComplete && s.appearances?.status === "running"
+            ? "appearances"
+            : "discovery");
       s.pendingTask = s.task;
       s.lastRequestPath =
-        s.task === "favorites"
-          ? `/${s.favorites.kind === "character" ? "characters" : "people"}?order_by=mal_id&sort=asc&limit=100&page=${s.favorites.page}`
-          : s.queue[0]
-            ? `/anime/${s.queue[0].id}/characters`
-            : `/anime?order_by=mal_id&sort=asc&limit=25&page=${s.page}`;
+        s.task === "appearances"
+          ? this.enrichment.path(s)
+          : s.task === "favorites"
+            ? `/${s.favorites.kind === "character" ? "characters" : "people"}?order_by=mal_id&sort=asc&limit=100&page=${s.favorites.page}`
+            : s.queue[0]
+              ? `/anime/${s.queue[0].id}/characters`
+              : `/anime?order_by=mal_id&sort=asc&limit=25&page=${s.page}`;
       s.requests++;
       this.save(s);
       return s;
     });
     if (!claimed) return this.status();
-    const title = claimed.queue[0];
+    const title =
+      claimed.task === "appearances"
+        ? claimed.appearances.queue[0]
+        : claimed.queue[0];
     let data, error;
     try {
       data = await this.get(claimed.lastRequestPath);
@@ -291,12 +353,14 @@ export class JikanImport {
           error &&
           !(
             claimed.task !== "favorites" &&
-            title &&
+            (title || claimed.task === "appearances") &&
             error.upstreamStatus === 404
           )
         )
           throw error;
-        if (claimed.task === "favorites") {
+        if (claimed.task === "appearances") {
+          this.enrichment.apply(s, data, !!error);
+        } else if (claimed.task === "favorites") {
           if (
             !Array.isArray(data?.data) ||
             data.data.length > 100 ||
@@ -373,6 +437,7 @@ export class JikanImport {
               id: t.mal_id,
               title: t.title,
               title_english: animeTitles(t).series_english,
+              members: t.members,
             }))
             .filter((t) => Number.isSafeInteger(t.id) && t.id > 0);
           s.hasMore = data.pagination.has_next_page;
@@ -398,10 +463,18 @@ export class JikanImport {
         s.lastStatus = null;
         s.retryUntil = 0;
         s.nextAt = now + INTERVAL;
-        if (s.discoveryComplete && s.favorites?.status === "idle") {
+        if (
+          s.discoveryComplete &&
+          s.favorites?.status === "idle" &&
+          s.appearances?.status !== "running"
+        ) {
           s.status = "completed";
           s.nextAt = s.favorites.nextRefreshAt;
-        } else if (s.discoveryComplete && s.favorites?.status === "running")
+        } else if (
+          s.discoveryComplete &&
+          (s.favorites?.status === "running" ||
+            s.appearances?.status === "running")
+        )
           s.status = "running";
         else if (s.status !== "completed") s.status = "running";
       } catch (err) {

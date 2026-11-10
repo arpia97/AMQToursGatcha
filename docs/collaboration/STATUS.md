@@ -5,7 +5,7 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 ## Active Task — Anime Appearance Metadata
 
 - Codex owns implementation/integration/deployment from base ac7e2ca: src/collection.js, src/tenrai-catalog.js, src/jikan.js, src/jikan-import.js, related existing tests and documentation. Store all character/anime appearances and choose representative anime deterministically; preserve card IDs/ownership, manual cards, favorites/checkpoints and the original economy.
-- Existing uncommitted public/catalog-progress.js and tests/avatar-market-progress.test.mjs belong to another collaborator; preserve and exclude unless coordinated. No concurrent deployment authorized by this ownership note.
+- Scope also includes src/engine.js/schema, src/worker.js protected startup route and public/host.js enrichment controls. The catalogue-progress change is now committed by Gemini at0a0486f/4d66c29 and will be preserved. New uncommitted public/app.js, public/features.css and public/trades-ui.js edits are outside this task; exclude from commit/deploy. Codex will deploy a clean committed snapshot. No overlapping deploys, please.
 - Research: upstream offers anime cast lists; no explicit representative-work field. A slow checkpointed relationship enrichment pass is needed because previous importer discarded nonprimary associations.
 
 ## Previous Task

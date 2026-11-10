@@ -67,6 +67,10 @@ Registration no longer requires a code. Preserve the separate recovery protectio
 
 Participation is per round: up to 16 players = 200; 24 = 300; 32 = 400. Pasted result/signup lists resolve aliases to canonical IDs. Review infers the smallest supported 8/16/24/32 capacity containing the roster. Default maximum rounds: 8 players → 3; 16 → 6; 24/32 → 5. Hosts can edit the maximum and reduce individuals' played rounds. Subs come from the whole registry and split the original slot's rounds. Count and Report checkboxes each pay a flat 750 once per player/category/tour; outside helpers can have zero participation. The server recomputes and awards atomically with duplicate/retry protection. Do not recalculate past awards on deployment.
 
+## Anime Appearance Metadata
+
+Character cards have one representative anime, chosen from Main-role appearances by highest MAL member count (Supporting only as fallback; MAL ID breaks ties). Collection checklists/progress include all explicitly credited anime appearances, not just the representative. Secondary titles are searchable, one card identity counts once per anime, existing pins/ownership are preserved, and manual community cards retain their source. A separate resumable appearance pass repairs links discarded by the old importer; it does not restart discovery. See IMPORTER.md.
+
 ## Importer and Sheet Sources
 
 Tenrai serves cached MAL data; this app does not directly HTML-scrape MAL. Current source has one upstream request at a time, at least **30 seconds between completed requests**. Discovery and favorites share that scheduler, persisted leases/checkpoints and conservative retry/backoff. `TENRAI_SERVER_KEY` is a runtime secret on the original Worker; never read or reproduce its value in context. Paid deployment uses `BACKGROUND_IMPORT_MODE=continuous`; this does not bypass upstream rate limits. Favorites refresh every 15 days after the preceding scan completes. Browser/PC shutdown does not stop Durable Object alarms.
