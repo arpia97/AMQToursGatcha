@@ -2,6 +2,18 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Remove New Cards (24h) Tab in Card Catalogue
+
+- Gemini owns implementation/commit: `public/recent-cards-ui.js`, `tests/recent-cards.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `25e9f93`
+- Other collaborator's work to preserve: Codex's anime appearance metadata task (`src/collection.js`, `src/tenrai-catalog.js`, `src/jikan.js`, `src/jikan-import.js`, `src/engine.js`, `src/worker.js`, `public/host.js`). No overlapping backend files edited.
+- Completed behavior / decisions:
+  - Removed `<button class="tab" data-action="catalog-recent">New Cards (24h)</button>` from `catalogueTabs` in `public/recent-cards-ui.js`.
+  - The Card Catalogue navigation now renders only `Characters | Seiyuus | Both` tabs without the temporary scraping progress tab.
+  - Underlying scan and recent import store methods remain intact for historical queries and diagnostics.
+- Checks run and results: `node tools/check.mjs` (208 files passed), `node --test tests/recent-cards.test.mjs` (4/4 passed), `node --test tests/*.test.mjs` (439/439 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+
 ## Completed Task — Anime Appearance Metadata; Background Pass Running
 
 - Codex runtime source **be1a5dec48f20f6518b4149033c428a3e3b822f0**, pushed and deployed from a clean Git archive to original Worker **343dc5b5-0475-413c-aeec-d89b1ea44786**. Later Gemini trade UI commits/deployment below are descendants and retain this implementation. No overlapping code was discarded or bundled into Codex's release.

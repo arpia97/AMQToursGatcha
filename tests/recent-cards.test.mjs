@@ -171,13 +171,13 @@ test("recent cards page newest-first deterministically, clamp expired pages and 
   );
   assert.equal(e.catalogStore.recentPage().total, 45);
 });
-test("New Cards is a mixed catalogue subtab with normal pagination and no additional main navigation item", () => {
+test("Catalogue tabs exclude New Cards tab now that scraping has completed", () => {
   assert.ok(SITE_ROUTES.every(([, label]) => !label.includes("New Cards")));
-  assert.match(
-    catalogueTabs("seiyuu", true),
-    /data-action="catalog-recent" aria-pressed="true">New Cards \(24h\)/,
-  );
+  assert.doesNotMatch(catalogueTabs("seiyuu"), /New Cards/);
+  assert.doesNotMatch(catalogueTabs("character"), /catalog-recent/);
   assert.match(catalogueTabs("character"), /Characters/);
+  assert.match(catalogueTabs("seiyuu"), /Seiyuus/);
+  assert.match(catalogueTabs("both"), /Both/);
   const html = recentCardsView(
     {
       cards: [{ id: "character" }, { id: "voice" }],

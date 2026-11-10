@@ -8,9 +8,7 @@ export function catalogueTabs(kind, recent = false) {
       ([id, label]) =>
         `<button class="tab ${!recent && kind === id ? "active" : ""}" data-tab="${id}" aria-pressed="${!recent && kind === id}">${label}</button>`,
     )
-    .join(
-      "",
-    )}<button class="tab ${recent ? "active" : ""}" data-action="catalog-recent" aria-pressed="${recent}">New Cards (24h)</button></div>`;
+    .join("")}</div>`;
 }
 export function recentCardsView(data, { cardHTML, pager, number, empty }) {
   const list = data?.cards || [];
