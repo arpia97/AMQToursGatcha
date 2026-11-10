@@ -43,6 +43,10 @@ const TABLES = {
   gem_games: { keys: ["player"], columns: ["player", "data"] },
   horse_games: { keys: ["player"], columns: ["player", "data"] },
   pachinko_games: { keys: ["player"], columns: ["player", "data"] },
+  special_packs: {
+    keys: ["player"],
+    columns: ["player", "granted_at", "cards", "seen"],
+  },
   tour_events: {
     keys: ["player", "category", "event"],
     columns: ["player", "category", "event"],

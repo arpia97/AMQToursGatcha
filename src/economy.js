@@ -25,6 +25,7 @@ import { PlayerNotices } from "./notices.js";
 import { Trades } from "./trades.js";
 import { Pachinko } from "./pachinko.js";
 import { CommunityMarket } from "./community-market.js";
+import { SpecialPack } from "./special-pack.js";
 export { PREMIUM_RULE } from "../public/pack-odds.js";
 export { SHOP_PRICES } from "../public/card-values.js";
 const MONDAY = Date.UTC(2026, 0, 5);
@@ -110,6 +111,7 @@ export class Economy {
       e.run(sql);
     this.pachinko = new Pachinko(e);
     this.community = new CommunityMarket(e);
+    this.specialPack = new SpecialPack(e);
   }
   applyShopPriceRevision() {
     const e = this.e;
@@ -511,6 +513,10 @@ export class Economy {
     const managed = this.cards.action(player, action, b);
     if (managed) return managed;
     if (action === "notice-seen") return this.notices.seen(player, b.ids);
+    if (action === "special-pack-seen") {
+      this.specialPack.markSeen(player);
+      return { ok: true, message: "Special pack marked seen." };
+    }
     const pachinko = this.pachinko.action(player, action, b);
     if (pachinko) return pachinko;
     const gem = this.gem.action(player, action, b);

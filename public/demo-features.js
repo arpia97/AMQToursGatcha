@@ -56,6 +56,7 @@ export function demoFeatures(d, path, b) {
   s.wishlist ||= [];
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;
+  if (path === "special-pack-seen") return { ok: true };
   if (path === "wishlist-order" && !b)
     return {
       wishlist: [...s.wishlist],

@@ -474,6 +474,7 @@ setInterval(() => {
   tickCountdowns();
   showTradeNotices();
   showAuctionWin();
+  showSpecialPack();
 }, 1000);
 const shownTradeNotices = new Set();
 function markTradeNoticesSeen(ids) {
@@ -585,6 +586,30 @@ function showAuctionWin() {
       () => {},
     );
   }
+}
+let showingSpecialPack = false;
+function showSpecialPack() {
+  if (
+    showingSpecialPack ||
+    !state?.me ||
+    !state?.specialPack ||
+    busy ||
+    document.hidden ||
+    $("#modal").open ||
+    fusionOverlayOpen() ||
+    (typeof quizUI !== "undefined" && quizUI.active && quizUI.active())
+  )
+    return;
+  showingSpecialPack = true;
+  const pack = state.specialPack;
+  delete state.specialPack;
+  rememberCards(pack.cards);
+  packReveal.show({ cards: pack.cards }, { special: true });
+  api("special-pack-seen")
+    .catch(() => {})
+    .finally(() => {
+      showingSpecialPack = false;
+    });
 }
 function cardFlags(c) {
   return {
@@ -1928,6 +1953,7 @@ async function refresh() {
   rememberCards(state.catalog);
   await loadDynamic();
   render();
+  showSpecialPack();
 }
 async function refreshCurrent() {
   if (demo || page() !== "arcade" || !state?.me) return refresh();
@@ -2018,6 +2044,7 @@ async function execute(path, b, after, form = null) {
     busy = false;
     buttons.forEach((x) => (x.disabled = false));
     showAuctionWin();
+    showSpecialPack();
   }
 }
 function auth(register = false, recovery = false) {

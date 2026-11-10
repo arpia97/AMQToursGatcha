@@ -1297,6 +1297,7 @@ export class Game extends DurableObject {
         e.tx(() => {
           e.economy.horse.settleDue(session.player);
           e.economy.pachinko.settleDue(session.player);
+          e.economy.specialPack.ensureGranted(session.player);
         });
       return json({
         ...e.state(session?.player),

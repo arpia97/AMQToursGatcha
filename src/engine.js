@@ -896,6 +896,7 @@ export class Engine {
         "predictions",
         "tour_events",
         "sessions",
+        "special_packs",
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
@@ -954,6 +955,7 @@ export class Engine {
         "card_alchemy",
         "alchemy_targets",
         "card_wishlist",
+        "special_packs",
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
@@ -1045,6 +1047,7 @@ export class Engine {
       "SELECT p.*,v.winner AS prediction,v.score_a AS prediction_a,v.score_b AS prediction_b FROM pickems p LEFT JOIN predictions v ON v.pickem=p.id AND v.player=? ORDER BY p.id DESC LIMIT 100",
       id || "",
     );
+    const specialPack = id ? this.economy.specialPack.pendingPopup(id) : null;
     const inventory = id
       ? this.all(
           "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
@@ -1088,6 +1091,9 @@ export class Engine {
       : [];
     for (const s of shop) references.add(s.card);
     for (const c of showcase) references.add(c);
+    if (specialPack) {
+      for (const c of specialPack.cards) references.add(c.id);
+    }
     if (summary.source?.provider === "ACDB")
       for (const id of [
         "acdb-character-76951",
@@ -1108,6 +1114,7 @@ export class Engine {
       ...this.economy.pachinko.view(id),
       notices,
       catalog,
+      specialPack,
       auctions,
       auctionWins: auctions.filter(
         (a) => a.winner === id && a.ends <= now && !a.claimed && !a.notified,

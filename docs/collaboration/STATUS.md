@@ -2,7 +2,31 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Arrange Pinned Anime in Collection Arrange Mode
+## Active Task — One-Time 5-Card Special Pack (1 AG, 4 S-and-Up, 50% Character / 50% Seiyuu)
+
+- Gemini owns implementation/commit: `src/special-pack.js`, `src/economy.js`, `src/engine.js`, `src/worker.js`, `src/aliases.js`, `src/economy-repair.js`, `public/pack-reveal.js`, `public/app.js`, `public/demo-features.js`, `tests/special-pack.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `ff73f77`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Created `src/special-pack.js`:
+    - `SpecialPack` class backed by `special_packs(player TEXT PRIMARY KEY, granted_at INTEGER NOT NULL, cards TEXT NOT NULL, seen INTEGER NOT NULL DEFAULT 0)`.
+    - `drawFive()` draws 1 AG card guaranteed and 4 cards S-and-up (`["S", "SS", "SSS", "Ubers", "AG"]`).
+    - Every card drawn rolls 50% Character / 50% Seiyuu first (`rand(2) === 0 ? "character" : "seiyuu"`), then uniformly selects among qualifying cards in that pool.
+    - Avoids duplicate cards within the same pack when pool permits.
+    - `ensureGranted(player)` grants the pack to registered players exactly once, immediately inserting the 5 cards into inventory.
+    - `pendingPopup(player)` returns `{ cards }` while `seen === 0`.
+    - `markSeen(player)` updates `seen = 1`.
+  - Added `special_packs` to `src/economy.js`, `src/aliases.js` (identity migration), `src/economy-repair.js`, and `src/engine.js` (reset-player/reset-all).
+  - In `src/worker.js`: executes `e.economy.specialPack.ensureGranted(session.player)` inside `e.tx()` when authenticated players request `state`.
+  - In `src/engine.js`: returns `specialPack: { cards }` on `state(id)` if `seen === 0`, and includes all 5 card references in `catalog`.
+  - Added action `special-pack-seen` in `src/economy.js` and demo fallback in `public/demo-features.js`.
+  - In `public/pack-reveal.js`: updated sealed cinematic pack to render `SPECIAL BONUS PACK` eyebrow, AG aura glow, and results actions (`My Collection ↗` and `Continue`).
+  - In `public/app.js`: automatically displays the special pack pop-up modal on site refresh or after login when `state.specialPack` is present, and acknowledges via `api("special-pack-seen")`.
+  - Unit tests: `tests/special-pack.test.mjs` verifying draw distribution, 50/50 kind split, single-grant idempotency, inventory updates, state responses, and reset handling.
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (446/446 passed), `git diff --check` (clean).
+- Deployment note: Ready for deploy when requested by the user.
+
+## Previous Task — Arrange Pinned Anime in Collection Arrange Mode
 
 - Gemini owns implementation/commit: `src/collection.js`, `src/economy.js`, `src/economy-repair.js`, `public/pinned-anime-order.js`, `public/app.js`, `public/demo-features.js`, `public/features.css`, `tests/collection-controls.test.mjs`, `tests/economy.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `a040b6c`
