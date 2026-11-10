@@ -4,9 +4,9 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Current Task
 
-- Completed (committed and pushed; awaiting explicit deploy instruction): Add "Hide Completed Trades" checkbox in Your Trade Listings, filtering completed and cancelled listings, persisted across visits in localStorage.
+- Completed (committed, pushed, and deployed to live Worker): Add "Hide Completed Trades" checkbox in Your Trade Listings, filtering completed and cancelled listings, persisted across visits in localStorage.
 - Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `21f0ea1` / `public/app.js`, `public/demo-features.js`, `public/trades-ui.js`, `src/trades.js`, `src/worker.js`, `tests/trades-ui.test.mjs`, `tests/trades.test.mjs`, `docs/collaboration/STATUS.md`
+- Base SHA / runtime SHA / changed files: `21f0ea1` → runtime `c5626be` / `public/app.js`, `public/demo-features.js`, `public/trades-ui.js`, `src/trades.js`, `src/worker.js`, `tests/trades-ui.test.mjs`, `tests/trades.test.mjs`, `docs/collaboration/STATUS.md`
 - Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, and pick'em features.
 - Completed behavior / decisions:
   - Added `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox">Hide Completed Trades</label>` next to "My Wishlist Only" when viewing "Your Trade Listings" (`ui.tradeView === "listings"`).
@@ -14,12 +14,14 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Persisted user's preference in `localStorage` under `amqtours-trade-hide-completed` so it is remembered across page reloads and screen visits.
 - Checks run and results: `node tools/check.mjs` (207 files), `node --test tests/*.test.mjs` (435/435 passed), `git diff --check` (clean).
 - Commit / push / CI status: Committed and pushed to `origin/main`.
-- Runtime deployment version / live verification (or not deployed): Not deployed yet.
-- Data operations performed / idempotency evidence (or none): None.
-- Remaining work / blocker / exact next action: Deploy when requested by the user.
+- Runtime deployment version / live verification (or not deployed): Deployed to Cloudflare Worker `amqtours-gatcha` version **7d637bc3-2fcc-4df3-a660-6520f2e2f104**. Verified live read-only: `/api/health` (200), `/trades-ui.js` (200 with `trade-hide-completed`), `/app.js` (200 with `hide_completed`).
+- Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
+- Remaining work / blocker / exact next action: None.
 - Integration owner / deployment owner: Gemini.
 
 ## Last Verified Application Release
+
+- Original Worker **7d637bc3-2fcc-4df3-a660-6520f2e2f104**, deployed from runtime commit **c5626be** (`Add Hide Completed Trades filter in Your Trade Listings`), on top of `21f0ea1`. Adds "Hide Completed Trades" checkbox to Your Trade Listings, filtering out completed/cancelled trades and persisting preference in localStorage. Live read-only checks: health 200, trades-ui.js 200, app.js 200. No data operations.
 
 - Original Worker **8e8f5649-0596-4fd4-b878-f5402c1512a9**, deployed from runtime commit **e44367d** (`Make pinned anime cards more compact`), on top of `60f8541`. Compacts pinned anime tiles (180px grid, tighter padding, smaller fonts and margins). Live read-only checks: health 200, features.css 200. No data operations.
 
