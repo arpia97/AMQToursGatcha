@@ -25,7 +25,8 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Styled arrange panel in `public/features.css`.
   - Tests: `tests/collection-controls.test.mjs` (pinned anime editor unit tests) and `tests/economy.test.mjs` (persistence and concurrency tests).
 - Checks run and results: `node tools/check.mjs` (210 files passed), `node --test tests/*.test.mjs` (442/442 passed), `git diff --check` (clean).
-- Deployment note: Ready for review and deploy when requested.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **b205b1a5-915b-40ea-86eb-f1a945ab51fd**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/pinned-anime-order.js` (200, 4832 bytes). No data mutations.
+- Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Gambling History Pop-Up Across Pachinko Games
 
