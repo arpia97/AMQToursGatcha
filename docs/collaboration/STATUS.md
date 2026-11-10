@@ -2,11 +2,17 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Anime Appearance Metadata
+## Completed Task — Anime Appearance Metadata; Background Pass Running
 
-- Codex owns implementation/integration/deployment from base ac7e2ca: src/collection.js, src/tenrai-catalog.js, src/jikan.js, src/jikan-import.js, related existing tests and documentation. Store all character/anime appearances and choose representative anime deterministically; preserve card IDs/ownership, manual cards, favorites/checkpoints and the original economy.
-- Scope also includes src/engine.js/schema, src/worker.js protected startup route and public/host.js enrichment controls. The catalogue-progress change is now committed by Gemini at0a0486f/4d66c29 and will be preserved. New uncommitted public/app.js, public/features.css and public/trades-ui.js edits are outside this task; exclude from commit/deploy. Codex will deploy a clean committed snapshot. No overlapping deploys, please.
-- Research: upstream offers anime cast lists; no explicit representative-work field. A slow checkpointed relationship enrichment pass is needed because previous importer discarded nonprimary associations.
+- Codex runtime source **be1a5dec48f20f6518b4149033c428a3e3b822f0**, pushed and deployed from a clean Git archive to original Worker **343dc5b5-0475-413c-aeec-d89b1ea44786**. Later Gemini trade UI commits/deployment below are descendants and retain this implementation. No overlapping code was discarded or bundled into Codex's release.
+- User-approved representative rule: Main-role appearances first, then highest MAL anime member count; Supporting fallback and stable MAL ID tie-breaker. All explicit anime appearances now count toward anime search/checklists/completion. Same card identity across seasons; no added inventory copies. Community cards and host name/image/role edits retained.
+- Additive appearance/scan tables and catalogue search metadata; legacy primary fallback avoids a mass startup migration. Collection queries push card/series filters into indexed branches. Local250,000-row benchmark: about3ms/page, no full association scans; not a live guarantee.
+- Checks:437 Node tests in the exact committed snapshot,208 syntax checks,Wrangler dry-run,diffchecks; exact-source application and demo CI passed. Hostasset200 exactbytes,health200,anonymous start401.
+- After deferred runtime adoption, started the authorized enrichment once using scoped Idempotency-Key (saved privately in work/anime-enrichment-live-proof.json). It shares the existing single-request lease,30-second completion spacing,Retry-After/backoff/budget and pause/resume controls. Original discovery remains completed at30,759anime; favorites checkpoints preserved. Do not restart/replay this pass.
+- Live verified Yoshika remains mal-character-7626, now primary StrikeWitches, with unchanged portrait/favorites/rarity; existing MAX/protection/wishlist/pins visible. Existing owned card counts in TV,TV2,Movie,OVA collections. Roster totals26,33,29,12 respectively after cast enrichment. Eight of ten reported priority appearances processed at last checkpoint, including RoadtoBerlin; the rest and full catalogue continue automatically. No economic/player QA mutations.
+- Full catalogue metadata backfill is **not complete**: approximately11days at current cadence before outages/favorites overhead. It runs on Cloudflare with the PC off. Host Catalogue panel shows separate Anime Appearances progress. Tenrai documents no multi-anime cast batch; each cast request already returns all characters.
+- Evidence:work/ANIME-APPEARANCES.md,anime-enrichment-live-proof.json,anime-enrichment-live-checks.json,clean test/deploy logs. Screenshots outputs/AMQTours-representative-anime-live.png and AMQTours-anime-appearances-live.png. Native checklist popup visual QA could not be confirmed in IAB; its response content and progress were verified, and engine checklist tests pass.
+- No further code/deployment task is pending for Codex; let the running checkpointed pass continue. Preserve all subsequent player activity and original GAME/Game/amqtours-economy-v1.
 
 ## Previous Task
 
