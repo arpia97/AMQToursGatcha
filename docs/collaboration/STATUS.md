@@ -24,7 +24,8 @@ Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git a
   - In `public/app.js`: automatically displays the special pack pop-up modal on site refresh or after login when `state.specialPack` is present, and acknowledges via `api("special-pack-seen")`.
   - Unit tests: `tests/special-pack.test.mjs` verifying draw distribution, 50/50 kind split, single-grant idempotency, inventory updates, state responses, and reset handling.
 - Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (446/446 passed), `git diff --check` (clean).
-- Deployment note: Ready for deploy when requested by the user.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **c157927c-e089-4f34-aa60-e47ee16c0f53**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/pack-reveal.js` (200, contains `SPECIAL BONUS PACK`). No manual data mutations.
+- Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Arrange Pinned Anime in Collection Arrange Mode
 
