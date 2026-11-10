@@ -1503,7 +1503,8 @@ async function loadDynamic() {
         encodeURIComponent(ui.tradeQuery) +
         "&wishlist=" +
         (ui.tradeWishlistOnly ? "1" : "0") +
-        (ui.tradeView === "listings" && ui.tradeHideCompleted
+        ((ui.tradeView === "listings" || ui.tradeView === "offers") &&
+        ui.tradeHideCompleted
           ? "&hide_completed=1"
           : ""),
     );

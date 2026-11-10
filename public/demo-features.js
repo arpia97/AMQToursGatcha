@@ -784,7 +784,11 @@ export function demoFeatures(d, path, b) {
           ? l.seller === me.id && (!hideCompleted || l.status === "open")
           : view === "offers"
             ? s.tradeOffers.some(
-                (o) => o.listing === l.id && o.proposer === me.id,
+                (o) =>
+                  o.listing === l.id &&
+                  o.proposer === me.id &&
+                  (!hideCompleted ||
+                    (o.status === "open" && l.status === "open")),
               )
             : l.status === "open",
       )

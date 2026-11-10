@@ -58,7 +58,7 @@ export function createTradesUI(h, ui) {
       )
       .join(
         "",
-      )}${btn("Refresh", "trade-refresh", "", "secondary")}</div><div class="trade-search"><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<label class="trade-wishlist-filter"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label>${view === "listings" ? `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div>`;
+      )}${btn("Refresh", "trade-refresh", "", "secondary")}</div><div class="trade-search"><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<label class="trade-wishlist-filter"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label>${view === "listings" || view === "offers" ? `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div>`;
     if (!s.me && view !== "browse")
       return (
         head +

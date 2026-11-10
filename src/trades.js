@@ -312,7 +312,9 @@ export class Trades {
           ? "l.seller=? AND l.status='open'"
           : "l.seller=?"
         : view === "offers"
-          ? "EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=?)"
+          ? hideCompleted
+            ? "l.status='open' AND EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=? AND mine.status='open')"
+            : "EXISTS(SELECT 1 FROM trade_offers mine WHERE mine.listing=l.id AND mine.proposer=?)"
           : "l.status='open'";
     const args = view === "browse" ? [] : [player];
     if (wishlistOnly) {
