@@ -1354,6 +1354,10 @@ export class Game extends DurableObject {
         ),
       );
     }
+    if (path === "special-pack-seen") {
+      e.economy.specialPack.markSeen(session.player);
+      return json({ ok: true });
+    }
     if (!post) fail("Unknown endpoint.", 404);
     if (path === "fusion")
       fail(

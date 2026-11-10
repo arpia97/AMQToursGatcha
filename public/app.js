@@ -605,7 +605,7 @@ function showSpecialPack() {
   delete state.specialPack;
   rememberCards(pack.cards);
   packReveal.show({ cards: pack.cards }, { special: true });
-  api("special-pack-seen")
+  api("special-pack-seen", {})
     .catch(() => {})
     .finally(() => {
       showingSpecialPack = false;
