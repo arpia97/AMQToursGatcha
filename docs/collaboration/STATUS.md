@@ -2,24 +2,32 @@
 
 Updated November 10, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Current Task
+## Active Task — Anime Appearance Metadata
 
-- Completed: Hide catalogue scraping progress bar when import has reached 100% or is complete.
+- Codex owns implementation/integration/deployment from base ac7e2ca: src/collection.js, src/tenrai-catalog.js, src/jikan.js, src/jikan-import.js, related existing tests and documentation. Store all character/anime appearances and choose representative anime deterministically; preserve card IDs/ownership, manual cards, favorites/checkpoints and the original economy.
+- Existing uncommitted public/catalog-progress.js and tests/avatar-market-progress.test.mjs belong to another collaborator; preserve and exclude unless coordinated. No concurrent deployment authorized by this ownership note.
+- Research: upstream offers anime cast lists; no explicit representative-work field. A slow checkpointed relationship enrichment pass is needed because previous importer discarded nonprimary associations.
+
+## Previous Task
+
+- Completed (committed, pushed, and deployed to live Worker): Hide catalogue scraping progress bar when import has reached 100% or is complete.
 - Agent / branch / checkout path: Gemini / `main` / `c:\Users\USER\Documents\Codex\2026-10-24\tldr-i-want-to-make-a-3\outputs\AMQToursGatcha`
-- Base SHA / runtime SHA / changed files: `ac7e2ca` / `public/catalog-progress.js`, `tests/avatar-market-progress.test.mjs`, `docs/collaboration/STATUS.md`
-- Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, trade filters, and pick'em features.
+- Base SHA / runtime SHA / changed files: `ac7e2ca` → runtime `0a0486f` / `public/catalog-progress.js`, `tests/avatar-market-progress.test.mjs`, `docs/collaboration/STATUS.md`
+- Other collaborator's work to preserve: All title-ordering, collection-ordering, compact pinned anime, quiz search/toolbar, quiz leaderboard, notices, trade filters, pick'em features, and Codex's anime appearance metadata work.
 - Completed behavior / decisions:
   - Updated `catalogProgressHTML(p, escape, number)` in `public/catalog-progress.js` to return `""` when `!p || p.complete || p.percent >= 100`.
   - When the catalogue scraping reaches 100% completion, the progress bar section is omitted across all catalogue surfaces (`catalogue()` and `ui.catalogRecent`), avoiding empty containers or visual clutter.
   - Scan state tracking, server counters, host tools diagnostics, and import state are preserved unchanged.
 - Checks run and results: `node tools/check.mjs` (207 files passed), `node --test tests/avatar-market-progress.test.mjs` (7/7 passed), `git diff --check` (clean).
-- Commit / push / CI status: Ready to commit and push to `origin/main`.
-- Runtime deployment version / live verification (or not deployed): Not deployed yet.
+- Commit / push / CI status: Committed (`0a0486f`) and pushed to `origin/main`.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **2944c8be-cce3-43af-ab84-05cc62ddbe62**. Verified live read-only: `/api/health` (200, `{"ok":true}`), `/catalog-progress.js` (200 with `p.percent >= 100`).
 - Data operations performed / idempotency evidence (or none): None. No production test accounts, quiz attempts, bets, grants, refunds or resets. Original economy, player activity and catalogue/import checkpoints preserved.
-- Remaining work / blocker / exact next action: Ready to deploy if requested.
+- Remaining work / blocker / exact next action: None. Handed off cleanly.
 - Integration owner / deployment owner: Gemini.
 
 ## Last Verified Application Release
+
+- Original Worker **2944c8be-cce3-43af-ab84-05cc62ddbe62**, deployed from runtime commit **0a0486f** (`Hide catalogue scraping progress bar when import is complete`), on top of `ac7e2ca`. Hides catalogue scraping progress bar across Catalogue views when scraping reaches 100% or is marked complete. Live read-only checks: health 200, catalog-progress.js 200 with `p.percent >= 100`. No data operations.
 
 - Original Worker **7d637bc3-2fcc-4df3-a660-6520f2e2f104**, deployed from runtime commit **c5626be** (`Add Hide Completed Trades filter in Your Trade Listings`), on top of `21f0ea1`. Adds "Hide Completed Trades" checkbox to Your Trade Listings, filtering out completed/cancelled trades and persisting preference in localStorage. Live read-only checks: health 200, trades-ui.js 200, app.js 200. No data operations.
 
