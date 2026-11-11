@@ -664,7 +664,7 @@ export class Engine {
             defaultReward(
               b.reason,
               b.reason === "participation" ? integer(b.games ?? 1, 1, 2000) : 1,
-              b.tourSize === undefined ? 16 : integer(b.tourSize, 1, 32),
+              b.tourSize === undefined ? 16 : integer(b.tourSize, 1, 500),
             ),
           1,
           1000000,

@@ -136,6 +136,15 @@ test("host reward defaults use per-round participation and flat 750 staff credit
     })),
   });
   assert.equal(e.player("p").balance, 2342);
+  host("grant", {
+    player: "p",
+    reason: "participation",
+    games: 2,
+    tourSize: 64,
+    note: "Big Tour",
+    event: "t4",
+  });
+  assert.equal(e.player("p").balance, 3142);
 });
 
 test("Host titles follow effective owner/delegated roles and disappear immediately on revocation; names and rogue flags cannot confer titles", (t) => {
@@ -174,4 +183,7 @@ test("host reward form hides staff rounds and calculates participation by tour s
   fields.reason.value = "participation";
   updateRewardDefaults(form);
   assert.equal(fields.amount.value, 800);
+  fields.tourSize = { value: "64" };
+  updateRewardDefaults(form);
+  assert.equal(fields.amount.value, 1600);
 });

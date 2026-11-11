@@ -423,6 +423,11 @@ test("whole-tour rewards price rounds by size, split substitutes and pay flat st
     [16, 200],
     [24, 300],
     [32, 400],
+    [40, 400],
+    [48, 400],
+    [64, 400],
+    [128, 400],
+    [500, 400],
   ]) {
     assert.equal(participationRate(size), rate);
     const plan = initialTourRewards(preview.players, {
@@ -516,4 +521,36 @@ test("whole-tour rewards price rounds by size, split substitutes and pay flat st
     f.e.one("SELECT reason FROM ledger ORDER BY id DESC LIMIT 1").reason,
     "reporting: Tour reporting",
   );
+});
+
+test("participation batch accepts more than 32 players with rate capped at 32-player default", (t) => {
+  const f = fixture(t);
+  const playerList = Array.from({ length: 36 }, (_, i) => ({
+    id: `bigp${i + 1}`,
+    name: `BigPlayer${i + 1}`,
+  }));
+  f.e.host("players", { players: playerList });
+
+  const rosterText = playerList.map((p) => `${p.name} (100.0)`).join("\n");
+  const preview = f.e.participation.preview(rosterText);
+  assert.equal(preview.players.length, 36);
+  assert.equal(preview.tourSize, 40);
+  assert.equal(preview.maxRounds, 5);
+
+  const plan = initialTourRewards(preview.players, preview);
+  const quote = tourRewardQuote(preview.players, plan);
+  assert.equal(quote.rate, 400);
+  assert.equal(quote.participation, 36 * 5 * 400);
+
+  const result = f.host("participation-batch", {
+    text: rosterText,
+    event: "big-tour-2026",
+    note: "Big Tour",
+    expectedPlayers: preview.players.map((p) => p.id),
+    ...plan,
+  });
+  assert.equal(result.participation, 36 * 5 * 400);
+  assert.equal(result.tourSize, 40);
+  assert.equal(f.e.player("bigp1").balance, 2000);
+  assert.equal(f.e.player("bigp36").balance, 2000);
 });

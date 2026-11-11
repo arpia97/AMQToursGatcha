@@ -1,6 +1,6 @@
 export const TOUR_REWARD_VERSION = 2;
 export const STAFF_REWARD = 750;
-export const TOUR_SIZES = [8, 16, 24, 32];
+export const TOUR_SIZES = [8, 16, 24, 32, 40, 48, 64, 80, 96, 128, 256, 500];
 const invalid = (message) => Object.assign(new Error(message), { status: 400 });
 const whole = (value, min, max, label) => {
   if (!Number.isSafeInteger(value) || value < min || value > max)
@@ -8,15 +8,14 @@ const whole = (value, min, max, label) => {
   return value;
 };
 export function participationRate(size) {
-  whole(size, 1, 32, "Tour size");
+  whole(size, 1, 500, "Tour size");
   if (size <= 16) return 200;
-  if (size === 24) return 300;
-  if (size === 32) return 400;
-  throw invalid("Choose a tour size of 16 or fewer, 24, or 32 players.");
+  if (size <= 24) return 300;
+  return 400;
 }
 export function tourRewardDefaults(count) {
-  whole(count, 1, 32, "Pasted player count");
-  const tourSize = TOUR_SIZES.find((size) => size >= count);
+  whole(count, 1, 500, "Pasted player count");
+  const tourSize = TOUR_SIZES.find((size) => size >= count) || count;
   return { tourSize, maxRounds: tourSize === 8 ? 3 : tourSize === 16 ? 6 : 5 };
 }
 export function initialTourRewards(
@@ -41,7 +40,7 @@ export function tourRewardQuote(players, plan) {
     throw invalid(
       "Tour reward rules changed. Refresh the host console and review the tour again.",
     );
-  const size = whole(plan.tourSize, 1, 32, "Tour size"),
+  const size = whole(plan.tourSize, 1, 500, "Tour size"),
     rate = participationRate(size),
     maxRounds = whole(plan.maxRounds, 1, 2000, "Maximum rounds");
   const originals = new Set(players.map((p) => p.id));

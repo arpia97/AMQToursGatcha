@@ -1,8 +1,32 @@
 # Shared Status and Handoff
 
-Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
+Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Increase Wishlist Capacity to 1,000 Cards
+## Active Task — Support > 32 Players for Participation Credit Rewards with Rate Capped at 32-Player Default
+
+- Gemini owns implementation/commit: `public/tour-rewards.js`, `public/tour-rewards-ui.js`, `public/host.js`, `src/engine.js`, `tests/host-workflows.test.mjs`, `tests/site-defaults.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `5a0bdef`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Allowed pasting rosters with > 32 players (up to 500) for participation credit rewards without error:
+    - In `public/tour-rewards.js`:
+      - Expanded `TOUR_SIZES` to `[8, 16, 24, 32, 40, 48, 64, 80, 96, 128, 256, 500]`.
+      - Updated `tourRewardDefaults(count)` to accept `count` up to 500 and infer the smallest capacity >= count, returning default `maxRounds = 5` for any tour size > 16 (other than 16 which defaults to 6, and 8 which defaults to 3).
+      - Updated `participationRate(size)`: accepts `size` up to 500, returns 200 for <= 16, 300 for <= 24, and 400 for >= 25 (including 32 and any size > 32). This guarantees default participation rewards do not increase past 32 players (capped at 400 credits/round).
+      - In `tourRewardQuote(players, plan)`: updated tour size validation to accept `plan.tourSize` up to 500.
+    - In `src/engine.js`:
+      - Updated `b.tourSize` bounds in `grant` action from `integer(b.tourSize, 1, 32)` to `integer(b.tourSize, 1, 500)`.
+    - In `public/tour-rewards-ui.js`:
+      - Ensured `availableSizes` in review modal includes `plan.tourSize` even if non-standard, dynamically rendering options and selecting the current size.
+    - In `public/host.js`:
+      - Imported `TOUR_SIZES` and rendered options dynamically up to 500 players, updating hint text to reflect "400 for 32 or more".
+  - Unit tests:
+    - In `tests/host-workflows.test.mjs`: Added rates testing for [40, 48, 64, 128, 500] all returning 400 credits/round, and added dedicated test `participation batch accepts more than 32 players with rate capped at 32-player default` verifying 36-player batch previews with tour size 40 / 5 rounds, quotes at 400/round, and awards 2,000 credits each atomically.
+    - In `tests/site-defaults.test.mjs`: Verified `grant` with `tourSize: 64` awards 400/round, and `updateRewardDefaults` with `tourSize: 64` calculates 400 * games.
+- Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (461/461 passed), `git diff --check` (clean).
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Increase Wishlist Capacity to 1,000 Cards
 
 - Gemini owns implementation/commit: `public/site-defaults.js`, `src/wishlist.js`, `public/demo-features.js`, `tests/site-defaults.test.mjs`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `56dca26`
