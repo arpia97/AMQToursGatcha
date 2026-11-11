@@ -852,11 +852,75 @@
     flex: 1;
   }
 }
-.listing-venues {
+dialog.listing-modal {
+  width: 620px;
+  height: min(700px, 90dvh);
+  overflow: hidden;
+}
+.listing-modal #modal-body,
+.listing-panel {
+  height: 100%;
+  min-height: 0;
+}
+.listing-panel {
   display: flex;
-  gap: 8px;
-  margin: 22px 0;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+}
+.listing-heading {
+  flex: none;
+  min-height: 82px;
+  padding-right: 12px;
+}
+.listing-heading p {
+  margin-bottom: 0;
+}
+.listing-panel .listing-venues {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex: none;
+  width: 100%;
+  gap: 4px;
+  margin: 0;
+}
+.listing-venues .tab {
+  min-width: 0;
+  padding: 10px 6px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.listing-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+.listing-content form {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  margin-top: 0;
+  gap: 14px;
+}
+.listing-content .form-hint {
+  margin: 0;
+}
+.listing-content button[type="submit"] {
+  margin-top: auto;
+}
+.listing-content .auction-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+}
+@media (max-width: 600px) {
+  .listing-venues .tab {
+    padding: 10px 2px;
+    font-size: 10px;
+  }
+  .listing-content .auction-fields {
+    grid-template-columns: 1fr;
+  }
 }
 .auction-fields {
   display: grid;

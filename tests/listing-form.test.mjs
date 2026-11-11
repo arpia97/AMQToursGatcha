@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import vm from "node:vm";
+import { readFileSync } from "node:fs";
 import { listingModalHTML } from "../public/listing-form.js";
 
 const cardS = {
@@ -27,10 +29,60 @@ test("listingModalHTML renders all 4 tabs across all venues", () => {
   });
 
   assert.match(html, /class="tabs listing-venues"/);
-  assert.match(html, /data-venue="shop">Fixed-price marketplace<\/button>/);
-  assert.match(html, /data-venue="auction">Timed auction<\/button>/);
-  assert.match(html, /data-venue="trade">List for trade<\/button>/);
-  assert.match(html, /data-venue="store">Sell to store<\/button>/);
+  assert.match(html, /class="listing-panel"/);
+  assert.match(html, /class="listing-content"/);
+  assert.match(html, /data-venue="shop">Marketplace<\/button>/);
+  assert.match(html, /data-venue="auction">Auction<\/button>/);
+  assert.match(html, /data-venue="trade">Trade<\/button>/);
+  assert.match(html, /data-venue="store">Sell to Store<\/button>/);
+});
+
+test("Trade marker clicks reach the inventory toggle instead of the trade-board menu", async () => {
+  const source = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const handler = source.slice(
+    source.indexOf("async function handleFeatureClick("),
+    source.indexOf("function listingForm("),
+  );
+  const item = { card: "card-s", copies: 1, level: 1, for_trade: 0 };
+  const calls = [], flags = [], pressed = [];
+  const surface = {};
+  const button = {
+    dataset: { id: item.card },
+    setAttribute: (name, value) => pressed.push([name, value]),
+    classList: { toggle() {} },
+    closest: () => surface,
+  };
+  const context = vm.createContext({
+    busy: false,
+    state: { me: { id: "p" }, inventory: [item] },
+    ui: {},
+    saveCardAction: async (path, body) => calls.push({ path, ...body }),
+    cardFlags: () => ({ forTrade: !!item.for_trade }),
+    syncCardFlags: (root, getFlags) => flags.push(getFlags()),
+    toast: (message) => assert.fail(message),
+  });
+  vm.runInContext(handler, context);
+  assert.equal(await context.handleFeatureClick("trade-toggle", button), true);
+  assert.equal(item.for_trade, 1);
+  assert.equal(button.textContent, "⚖️ For Trade");
+  assert.equal(flags[0].forTrade, true);
+  assert.equal(calls[0].path, "trade-card");
+  assert.equal(calls[0].forTrade, true);
+  await context.handleFeatureClick("trade-toggle", button);
+  assert.equal(item.for_trade, 0);
+  assert.equal(flags[1].forTrade, false);
+  assert.equal(calls[1].forTrade, false);
+  assert.equal(button.textContent, "⚖️ Trade");
+  assert.deepEqual(pressed, [["aria-pressed", "true"], ["aria-pressed", "false"]]);
+  context.busy = true;
+  await context.handleFeatureClick("trade-toggle", button);
+  assert.equal(item.for_trade, 0);
+  assert.equal(calls.length, 2);
+  context.busy = false;
+  context.saveCardAction = async () => undefined;
+  await context.handleFeatureClick("trade-toggle", button);
+  assert.equal(item.for_trade, 0, "failed saves restore the previous marker");
+  assert.equal(button.textContent, "⚖️ Trade");
 });
 
 test("listingModalHTML defaults to shop venue (marketplace)", () => {

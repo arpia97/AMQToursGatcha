@@ -23,10 +23,10 @@ export function listingModalHTML({
 
   const tabs =
     `<div class="tabs listing-venues" role="group" aria-label="Listing type">` +
-    `<button class="tab ${currentVenue === "shop" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="shop">Fixed-price marketplace</button>` +
-    `<button class="tab ${currentVenue === "auction" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="auction">Timed auction</button>` +
-    `<button class="tab ${currentVenue === "trade" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="trade">List for trade</button>` +
-    `<button class="tab ${currentVenue === "store" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="store">Sell to store</button>` +
+    `<button class="tab ${currentVenue === "shop" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="shop">Marketplace</button>` +
+    `<button class="tab ${currentVenue === "auction" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="auction">Auction</button>` +
+    `<button class="tab ${currentVenue === "trade" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="trade">Trade</button>` +
+    `<button class="tab ${currentVenue === "store" ? "active" : ""}" data-action="listing-venue" data-id="${escape(c.id)}" data-venue="store">Sell to Store</button>` +
     `</div>`;
 
   const copySelect = (label) =>
@@ -105,5 +105,5 @@ export function listingModalHTML({
       `</form>`;
   }
 
-  return heading + tabs + form;
+  return `<section class="listing-panel"><header class="listing-heading">${heading}</header>${tabs}<div class="listing-content">${form}</div></section>`;
 }

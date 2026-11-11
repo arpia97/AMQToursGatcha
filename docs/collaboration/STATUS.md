@@ -2,7 +2,16 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Add Sell to Store & List for Trade to List Card Interface
+## Active Task — Stable List Card Dialog and Working Trade Marker
+
+- Codex owns `public/app.js`, `public/listing-form.js`, `public/features.css`, focused listing/card-action tests, and this status entry. Base: `8c87ddf` (clean checkout, matches origin/main).
+- Scope: one-line listing venue choices, consistent dialog dimensions, fix the trade-menu routing that swallows `trade-toggle`, verify local interactions and deploy the existing Worker. No production data operations or proxy changes.
+- Fixed `trade-toggle` being swallowed by the generic trade-board click handler. Trade/Protect ignore clicks during an existing mutation and roll back optimistic UI if saving fails.
+- Listing choices now read Marketplace / Auction / Trade / Sell to Store in a single four-column row. A dedicated, viewport-bounded dialog frame keeps its dimensions across venue changes; the inner form scrolls on short screens.
+- Checks: 20 focused listing/card-surface/wishlist tests passed (includes real click-handler regression, toggle off, busy guard, failed-save rollback); 214 JavaScript syntax checks; Wrangler dry-run; diff check. Isolated in-memory browser QA confirmed Trade selected state and visible For Trade marker after saving. Native dialog screenshot/mobile geometry QA unavailable: IAB does not render `showModal()` and Windows browser use was stopped by the tool's URL-policy limitation. No production test mutations.
+- Preserve Gemini's completed listing/trade features and all existing economy/catalogue state. Push/deployment verification pending.
+
+## Previous Task — Add Sell to Store & List for Trade to List Card Interface
 
 - Gemini owns implementation/commit: `public/listing-form.js`, `public/app.js`, `tests/listing-form.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `0f7cd6c`

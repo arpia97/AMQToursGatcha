@@ -2847,7 +2847,7 @@ async function handleFeatureClick(a, t) {
       }
       return true;
     }
-    if (a?.startsWith("trade-")) {
+    if (a?.startsWith("trade-") && a !== "trade-toggle") {
       if (a === "trade-notice-open") {
         $("#modal").close();
         ui.shopSection = "trades";
@@ -3614,6 +3614,7 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "protect-toggle") {
+      if (busy) return true;
       const item = state.inventory.find((i) => i.card === t.dataset.id);
       if (!item) {
         toast("Refresh to load this card from your collection.", true);
@@ -3628,7 +3629,7 @@ async function handleFeatureClick(a, t) {
       const surface = t.closest(".card-surface");
       if (surface) syncCardFlags(surface, cardFlags);
       try {
-        await saveCardAction(
+        const result = await saveCardAction(
           "protect-card",
           {
             card: item.card,
@@ -3636,6 +3637,7 @@ async function handleFeatureClick(a, t) {
           },
           t,
         );
+        if (!result) throw Error("Card update was not saved.");
       } catch (err) {
         item.protected = nextProtected ? 0 : 1;
         t.setAttribute("aria-pressed", String(!nextProtected));
@@ -3647,6 +3649,7 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "trade-toggle") {
+      if (busy) return true;
       const item = state.inventory.find((i) => i.card === t.dataset.id);
       if (!item) {
         toast("Refresh to load this card from your collection.", true);
@@ -3663,7 +3666,7 @@ async function handleFeatureClick(a, t) {
       const surface = t.closest(".card-surface");
       if (surface) syncCardFlags(surface, cardFlags);
       try {
-        await saveCardAction(
+        const result = await saveCardAction(
           "trade-card",
           {
             card: item.card,
@@ -3671,6 +3674,7 @@ async function handleFeatureClick(a, t) {
           },
           t,
         );
+        if (!result) throw Error("Card update was not saved.");
       } catch (err) {
         item.for_trade = nextForTrade ? 0 : 1;
         t.setAttribute("aria-pressed", String(!nextForTrade));
@@ -3853,6 +3857,8 @@ function listingForm(id, venue = "shop", variant) {
       number,
       quantityInput,
     }),
+    false,
+    "listing-modal",
   );
 }
 function openInstantSale(id, variant) {
