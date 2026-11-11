@@ -24,6 +24,7 @@ Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git a
     - In `tests/host-workflows.test.mjs`: Added rates testing for [40, 48, 64, 128, 500] all returning 400 credits/round, and added dedicated test `participation batch accepts more than 32 players with rate capped at 32-player default` verifying 36-player batch previews with tour size 40 / 5 rounds, quotes at 400/round, and awards 2,000 credits each atomically.
     - In `tests/site-defaults.test.mjs`: Verified `grant` with `tourSize: 64` awards 400/round, and `updateRewardDefaults` with `tourSize: 64` calculates 400 * games.
 - Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (461/461 passed), `git diff --check` (clean).
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **a43da2a1-5ae7-447d-9a57-cabb5e7bbf31** and `play` proxy version **c75902bc-5fb2-46da-9bdb-64e69ece5cc0**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/tour-rewards.js` (contains `TOUR_SIZES` and `whole(size, 1, 500, "Tour size")`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Increase Wishlist Capacity to 1,000 Cards
