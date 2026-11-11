@@ -25,6 +25,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Unit tests:
     - In `tests/listing-form.test.mjs`: Added 7 test cases covering all 4 tabs, venue rendering, variant selection, flat store price calculation, and single vs multi-copy forms.
 - Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (457/457 passed), `git diff --check` (clean).
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **8b13c10b-7066-43c9-9782-6c5a7a5d9ddd** and `play` proxy version **84765bfb-f382-44c1-b70d-4c9ee1b50cf4**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/listing-form.js` (contains `Sell to store` and `List for trade`), `/app.js` (contains `listingModalHTML`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Tradeable Only Filter in Other Players' Collection
