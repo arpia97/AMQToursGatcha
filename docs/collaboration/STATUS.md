@@ -24,6 +24,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Unit tests:
     - In `tests/wishlist.test.mjs`: Added tests verifying `tradeable: true` returns cards marked with `for_trade === 1`, combining `tradeable: true` and `wishlist: true` returns the intersection, `#profile-collection-tradeable` renders next to `#profile-collection-wishlist` on `own: false`, and neither appears on `own: true`.
 - Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (450/450 passed), `git diff --check` (clean).
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **f54c72f8-0337-4a4b-b539-fa0909680d14** and `play` proxy version **46fe9d7d-ff1b-4633-af1e-5df2a07a0331**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/profile-cards-ui.js` (contains `profile-collection-tradeable`), `/app.js` (contains `&tradeable=1`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Trade Button Immediate Highlight & ⚖️ Marker, Collection Button Rename
