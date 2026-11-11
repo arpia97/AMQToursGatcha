@@ -20,7 +20,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
     - In `tests/site-defaults.test.mjs`: Added assertion `MAX_WISHLIST === 1000`.
     - In `tests/wishlist.test.mjs`: Added comprehensive test verifying `MAX_WISHLIST === 1000`, successfully storing 1,000 wishlist cards, rejecting the 1,001st unique card with `Your wishlist can hold up to 1000 cards.`, allowing re-save of an existing card at capacity, removing a card and re-adding, 42-page wishlist pagination, 1,000-card reorder payload, and demo mock limit enforcement.
 - Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (459/459 passed), `git diff --check` (clean).
-- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` and `play` proxy. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`). No manual data mutations.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **85841088-2516-45dd-abe6-9f24b2db4729** and `play` proxy version **639dd1d3-5498-450c-9dce-68c504bfda9e**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/site-defaults.js` (contains `MAX_WISHLIST = 1000`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Align Profile Collection Checkbox Filters with Select Controls
