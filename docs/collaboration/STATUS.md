@@ -2,7 +2,32 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Tradeable Only Filter in Other Players' Collection
+## Active Task — Add Sell to Store & List for Trade to List Card Interface
+
+- Gemini owns implementation/commit: `public/listing-form.js`, `public/app.js`, `tests/listing-form.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `0f7cd6c`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Created `public/listing-form.js`:
+    - Exported `listingModalHTML({ card, item, venue, variant, escape, number, quantityInput })` providing unified modal content for all 4 listing venues:
+      - `Fixed-price marketplace` (`data-venue="shop"`): custom price listing on player marketplace.
+      - `Timed auction` (`data-venue="auction"`): opening bid, duration, and buyout options.
+      - `List for trade` (`data-venue="trade"`): list card for trade offers without currency price fields.
+      - `Sell to store` (`data-venue="store"`): flat-price instant sale for 50% rarity price × invested card units, consuming the card copy permanently.
+    - Preserves variant choice (`extra` vs `card`) and calculates instant store credits dynamically for the active variant.
+  - In `public/app.js`:
+    - Updated `listingForm` to use `listingModalHTML` with full 4-tab bar and protect checks.
+    - Re-routed `openInstantSale(id, variant)` to `listingForm(id, "store", variant)`.
+    - Handled tab switching across all 4 venues in `handleFeatureClick` for `listing-venue`, reading variant from either `#listing-form` or `#instant-sell-form`.
+    - Handled `trade-list` in `handleFeatureSubmit` for `listing-form` when `b.venue === "trade"`, creating the trade listing and switching to the trades section if on the shop page.
+    - Attached error rendering to `execute` for `instant-sell-form` and `listing-form`.
+    - Updated card button title attribute on `List Card ↗` to reflect all options.
+  - Unit tests:
+    - In `tests/listing-form.test.mjs`: Added 7 test cases covering all 4 tabs, venue rendering, variant selection, flat store price calculation, and single vs multi-copy forms.
+- Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (457/457 passed), `git diff --check` (clean).
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Tradeable Only Filter in Other Players' Collection
 
 - Gemini owns implementation/commit: `public/app.js`, `public/profile-cards-ui.js`, `public/demo-features.js`, `src/worker.js`, `src/wishlist.js`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `3c8ca31`

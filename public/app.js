@@ -67,6 +67,7 @@ import {
 import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { instantSalePrice, cardInvestment } from "./card-values.js";
+import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
 import { createMahjongUI } from "./mahjong-ui.js";
@@ -630,7 +631,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on marketplace, auction, trade, or sell to store">List Card ↗</button></div>`
       : "";
   const actions =
     (page() === "catalog" ? collectorsButton(c, escape) : "") +
@@ -3781,7 +3782,9 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "listing-venue") {
-      const variant = $("#listing-form [name=variant]")?.value;
+      const variant =
+        $("#listing-form [name=variant]")?.value ||
+        $("#instant-sell-form [name=variant]")?.value;
       listingForm(t.dataset.id, t.dataset.venue, variant);
       return true;
     }
@@ -3826,27 +3829,34 @@ async function handleFeatureClick(a, t) {
   }
   return false;
 }
-function listingForm(id, venue, variant) {
-  const c = cardBy(id),
-    item = state.inventory.find((i) => i.card === id),
-    auction = venue === "auction";
-  modal(
-    `<h2>${auction ? "Start an Auction" : "List on the Marketplace"}</h2><p>${escape(c.name)} · your enhanced card keeps its level.</p><div class="tabs listing-venues" role="group" aria-label="Listing type"><button class="tab ${!auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="shop">Fixed-price marketplace</button><button class="tab ${auction ? "active" : ""}" data-action="listing-venue" data-id="${escape(id)}" data-venue="auction">Timed auction</button></div><form id="listing-form" class="stack"><input name="card" type="hidden" value="${escape(id)}"><input name="venue" type="hidden" value="${venue}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><label>${auction ? "Minimum opening bid" : "Selling price"}<input name="price" type="number" min="1" max="1000000" step="1" value="500" required></label>${auction ? '<div class="auction-fields">' + quantityInput({ id: "auction-hours", name: "hours", label: "Duration in Hours (Max 7 Days)", min: 1, max: 168, value: 72 }) + '<label>Optional buyout price<input name="buyout" type="number" min="1" max="1000000" step="1" placeholder="No buyout"></label></div><p class="form-hint">Buyout must be at least the opening bid. You can withdraw until the first bid.</p>' : '<p class="form-hint">One fixed price, no timer. Withdraw any time before it sells.</p>'}<p class="form-hint">The listed copy is held securely. Extra copies left behind become Lv. 1 if you list your enhanced card.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">${auction ? "Start auction" : "List at fixed price"} →</button></form>`,
-  );
-}
-function openInstantSale(id, variant) {
+function listingForm(id, venue = "shop", variant) {
   const c = cardBy(id),
     item = state.inventory.find((i) => i.card === id);
   if (!item) {
     toast("You no longer own that card.", true);
     return;
   }
-  variant ||= item.copies > 1 ? "extra" : "card";
-  const level = variant === "extra" ? 1 : item.level,
-    price = instantSalePrice(c, level);
+  if (item.protected) {
+    toast(
+      "This card is protected. Unprotect it before listing or selling.",
+      true,
+    );
+    return;
+  }
   modal(
-    `<h2>Sell ${escape(c.name)} Now?</h2><p>Receive <strong class="money">✦ ${number(price)} credits</strong> immediately. This consumes the selected copy permanently.</p><form id="instant-sell-form" class="stack"><input type="hidden" name="card" value="${escape(id)}"><input type="hidden" name="expectedPrice" value="${price}"><input type="hidden" name="expectedRarity" value="${escape(c.rarity || "Pending")}"><input type="hidden" name="expectedLevel" value="${level}"><label>Copy to sell<select name="variant">${item.copies > 1 ? '<option value="extra" ' + (variant === "extra" ? "selected" : "") + ">Extra copy · Lv. 1</option>" : ""}<option value="card" ${variant === "card" ? "selected" : ""}>Your card · ${levelLabel(item.level)}</option></select></label><p class="form-hint">50% of the shop rarity price for ${escape(c.rarity || "Pending")} × ${number(cardInvestment(level))} invested card${level === 1 ? "" : "s"}. ${variant === "card" && item.copies > 1 ? "Any remaining extra copies become Lv. 1." : ""} Pending uses the D price. Sale proceeds do not increase Cumulative earned credits.</p><div class="form-error" role="alert"></div><button class="button full" type="submit">Sell permanently for ✦ ${number(price)}</button></form>`,
+    listingModalHTML({
+      card: c,
+      item,
+      venue,
+      variant,
+      escape,
+      number,
+      quantityInput,
+    }),
   );
+}
+function openInstantSale(id, variant) {
+  listingForm(id, "store", variant);
 }
 async function handleFeatureSubmit(f, b) {
   if (formIdentifier(f) === "alchemy-auto-form") {
@@ -3933,11 +3943,16 @@ async function handleFeatureSubmit(f, b) {
     return true;
   }
   if (formIdentifier(f) === "instant-sell-form") {
-    await execute("sell-instant", {
-      ...b,
-      expectedPrice: Number(b.expectedPrice),
-      expectedLevel: Number(b.expectedLevel),
-    });
+    await execute(
+      "sell-instant",
+      {
+        ...b,
+        expectedPrice: Number(b.expectedPrice),
+        expectedLevel: Number(b.expectedLevel),
+      },
+      null,
+      f,
+    );
     return true;
   }
 
@@ -3959,14 +3974,38 @@ async function handleFeatureSubmit(f, b) {
     return true;
   }
   if (formIdentifier(f) === "listing-form") {
-    const result = await execute("list-card", {
-      card: b.card,
-      variant: b.variant,
-      venue: b.venue,
-      price: Number(b.price),
-      ...(b.venue === "auction" ? { hours: Number(b.hours) } : {}),
-      buyout: b.buyout ? Number(b.buyout) : null,
-    });
+    if (b.venue === "trade") {
+      const item = state.inventory.find((i) => i.card === b.card);
+      const level = b.variant === "extra" ? 1 : item?.level || 1;
+      const result = await execute(
+        "trade-list",
+        {
+          card: b.card,
+          variant: b.variant,
+          expectedLevel: level,
+        },
+        null,
+        f,
+      );
+      if (result && page() === "shop") {
+        ui.shopSection = "trades";
+        render();
+      }
+      return true;
+    }
+    const result = await execute(
+      "list-card",
+      {
+        card: b.card,
+        variant: b.variant,
+        venue: b.venue,
+        price: Number(b.price),
+        ...(b.venue === "auction" ? { hours: Number(b.hours) } : {}),
+        buyout: b.buyout ? Number(b.buyout) : null,
+      },
+      null,
+      f,
+    );
     if (result && page() === "shop" && b.venue === "shop") {
       ui.shopSection = "listings";
       render();
