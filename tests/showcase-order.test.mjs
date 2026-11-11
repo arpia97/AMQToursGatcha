@@ -72,7 +72,8 @@ test("rarity, natural alphabetical and enhancement sorts include both card types
 test("editor escapes card names, labels keyboard controls and enables saving only after an order change; editing controls are owner-only", () => {
   const editor = createShowcaseEditor(helpers);
   editor.open(profile, "p");
-  assert.match(editor.render(), /Save Order<\/button>/);
+  assert.match(editor.render(), />Save<\/button>/);
+  assert.doesNotMatch(editor.render(), /aria-pressed="true">Arrange/);
   assert.match(editor.render(), /type="submit" class="button mint" disabled/);
   assert.match(editor.render(), /Position for &lt;Unknown&gt;/);
   assert.doesNotMatch(editor.render(), /<Unknown>/);

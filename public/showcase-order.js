@@ -235,15 +235,11 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
       mode +
       '-order-form"><div class="section-head"><h2>' +
       title +
-      '</h2><div class="wishlist-arrange-actions"><button type="button" class="button mint" data-action="' +
-      mode +
-      '-arrange" aria-pressed="true">Arrange ' +
-      title +
-      '</button><button type="button" class="button secondary" data-action="' +
+      '</h2><div class="wishlist-arrange-actions"><button type="button" class="button secondary" data-action="' +
       mode +
       '-cancel">Cancel</button><button type="submit" class="button mint" ' +
       (!changed ? "disabled" : "") +
-      '>Save Order</button></div></div><p class="form-hint" id="' +
+      '>Save</button></div></div><p class="form-hint" id="' +
       mode +
       '-drag-help">Drag cards into place. Drop on Previous or Next to move between pages. Use arrow keys on a handle, or set a position directly.</p>' +
       filterControls +

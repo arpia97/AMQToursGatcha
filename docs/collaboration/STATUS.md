@@ -31,6 +31,9 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
     - In `public/app.js`: added `<a class="button secondary" href="#collection">See my collection <span>↗</span></a>` right next to `<a class="button" href="#packs">Find your next favourite <span>↗</span></a>` within `.hero-actions`.
     - In `public/styles.css`: added `.hero-actions` flexbox styling (`display: flex; gap: 10px; align-items: center; flex-wrap: wrap;`) for responsive layout alongside `.button.secondary`.
     - Unit tests: in `tests/site-navigation.test.mjs`, verified rendering of both hero buttons and the `.hero-actions` container.
+  - 5. Arrange Editor Actions Simplification:
+    - In `public/showcase-order.js`: removed the redundant `Arrange ${title}` button in the arrange panel actions bar (`.wishlist-arrange-actions`) since the editor is already in active arrange mode, and renamed the submit button from `Save Order` to `Save`.
+    - Unit tests: in `tests/showcase-order.test.mjs`, verified `>Save</button>` rendering and confirmed absence of pressed arrange button.
   - Unit tests:
     - Updated `tests/wishlist.test.mjs` with assertions for `Owned/Wishlist (owned/wanted) ↗` button format, `trade-card` action toggling `for_trade`, public profile collection rows exposing `for_trade`, and `&wishlist=1` viewer wishlist filtering.
     - Updated `tests/card-surface.test.mjs` verifying `forTrade` and `⚖️` badge rendering.
