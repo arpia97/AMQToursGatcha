@@ -40,7 +40,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
     - Updated `tests/alchemy-runtime.test.mjs` to include `for_trade` in public collection row schema assertions.
     - Updated `tests/site-navigation.test.mjs` verifying overview hero collection button navigation.
 - Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (449/449 passed), `git diff --check` (clean).
-- Deployment note: Ready for review and deploy when requested.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **8aff9654-084c-4699-a9c7-5e78f9139826** and `play` proxy version **ec4055f4-89f9-4979-87e7-bc0bfe4ac674**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/showcase-order.js` (contains `>Save</button>`), `/app.js` (contains `See my collection`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization
