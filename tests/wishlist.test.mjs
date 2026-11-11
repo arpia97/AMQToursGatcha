@@ -502,7 +502,7 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
     /My Wishlist Only<\/label>[\s\S]*?Tradeable Only<\/label>/,
   );
 
-  // Own collection should NOT have "My Wishlist Only" or "Tradeable Only"
+  // Own collection also has Tradeable Only; the viewer wishlist filter stays separate.
   const ownHtml = profileCardPanel(
     e.economy.wishlist.page("p", "collection", 1),
     {
@@ -516,5 +516,6 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
     },
   );
   assert.doesNotMatch(ownHtml, /id="profile-collection-wishlist"/);
-  assert.doesNotMatch(ownHtml, /id="profile-collection-tradeable"/);
+  assert.match(ownHtml, /id="profile-collection-tradeable"/);
+  assert.match(ownHtml, /class="collection-checkboxes"/);
 });

@@ -218,6 +218,7 @@ const ui = {
     role: "",
     upgradable: false,
     hideProtected: false,
+    tradeable: false,
   },
   playerPage: 1,
   playerData: null,
@@ -3558,6 +3559,7 @@ async function handleFeatureClick(a, t) {
         role: "",
         upgradable: false,
         hideProtected: false,
+        tradeable: false,
       };
       render();
       return true;
@@ -4120,12 +4122,16 @@ document.addEventListener("change", async (ev) => {
 
 document.addEventListener("change", async (ev) => {
   if (
-    ["collection-upgradable", "collection-hide-protected"].includes(
+    ["collection-upgradable", "collection-hide-protected", "collection-tradeable"].includes(
       ev.target.id,
     )
   ) {
     ui.collectionFilters[
-      ev.target.id === "collection-upgradable" ? "upgradable" : "hideProtected"
+      {
+        "collection-upgradable": "upgradable",
+        "collection-hide-protected": "hideProtected",
+        "collection-tradeable": "tradeable",
+      }[ev.target.id]
     ] = ev.target.checked;
     ui.collectionPage = 1;
     render();

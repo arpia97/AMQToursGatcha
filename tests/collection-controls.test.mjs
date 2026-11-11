@@ -50,6 +50,13 @@ test("collection combines rarity, character role, bilingual search and independe
   assert.deepEqual(view({ hideProtected: true }), ["b", "c"]);
   assert.deepEqual(view({ hideProtected: true, kind: "seiyuu" }), []);
   assert.deepEqual(view({ hideProtected: false, kind: "seiyuu" }), ["v"]);
+  inventory[0].for_trade = 1;
+  inventory[3].for_trade = 1;
+  assert.deepEqual(view({ tradeable: true }), ["a"]);
+  assert.deepEqual(view({ tradeable: true, kind: "both" }), ["a", "v"]);
+  assert.deepEqual(view({ tradeable: true, hideProtected: true }), []);
+  assert.deepEqual(view({ tradeable: true, kind: "seiyuu", rarity: "SS" }), ["v"]);
+  assert.deepEqual(view({ tradeable: false }), ["a", "b", "c"]);
   assert.deepEqual(
     inventory.map((i) => i.card),
     ["a", "b", "c", "v"],

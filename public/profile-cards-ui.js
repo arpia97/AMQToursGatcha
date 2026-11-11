@@ -115,16 +115,15 @@ function profileCollectionControls(
         (role === "supporting" ? "selected" : "") +
         ">Supporting</option></select></label>"
       : "") +
+    '<div class="collection-checkboxes" role="group" aria-label="Collection Filters">' +
     (!own && canWishlist
       ? '<label class="check-label profile-collection-wishlist-toggle"><input type="checkbox" id="profile-collection-wishlist" ' +
         (filters.wishlist ? "checked" : "") +
         "> My Wishlist Only</label>"
       : "") +
-    (!own
-      ? '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" ' +
-        (filters.tradeable ? "checked" : "") +
-        "> Tradeable Only</label>"
-      : "") +
+    '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" ' +
+    (filters.tradeable ? "checked" : "") +
+    "> Tradeable Only</label></div>" +
     '<button type="button" class="text-button" data-action="clear-profile-collection-filters">Clear Filters</button></div></div>'
   );
 }

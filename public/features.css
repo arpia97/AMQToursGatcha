@@ -1777,6 +1777,46 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   padding: 8px 3px;
   font-size: 10px;
 }
+.catalog-refinements .collection-checkboxes {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.catalog-refinements .collection-checkboxes .check-label {
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  min-height: 32px;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #1c1e27;
+  font-size: 10px;
+  cursor: pointer;
+}
+.collection-checkboxes .check-label:has(input:checked) {
+  border-color: #9bddbd88;
+  background: #9bddbd14;
+  color: var(--mint);
+}
+.collection-checkboxes .check-label input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  margin: 0;
+  padding: 0;
+}
+.collection-checkboxes .check-label:focus-within {
+  outline: 2px solid var(--mint);
+  outline-offset: 2px;
+}
 .collection-toolbar .catalog-pager,
 .collection-footer-pager .catalog-pager {
   gap: 8px;

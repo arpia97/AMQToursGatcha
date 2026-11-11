@@ -2,6 +2,13 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Own Collection Tradeable Filter and Compact Checkboxes
+
+- Codex owns `public/app.js`, `public/features.js`, `public/card-display.js`, `public/profile-cards-ui.js`, `public/features.css`, existing collection/wishlist tests, and this status entry. Base `c2c8fbe`, clean and synchronized with main.
+- Added Tradeable Only to My Collection and the owner's profile Collection view, combining with existing filters and resetting via Clear Filters. Own collection filtering is local and adds no API polling.
+- Grouped collection checkboxes into 32px inline controls with active/focus highlights; labels wrap as a group on narrow screens. Applied to own and public profile collections without changing unrelated checkboxes.
+- Checks: 10 focused existing collection/wishlist tests passed; 214 syntax checks; Wrangler dry-run; isolated in-memory browser QA verified 5 cards → 1 marked tradeable card, Clear Filters restores all 5, and desktop/390px layout. Screenshot in local work evidence. No production test mutations. Push/deployment pending.
+
 ## Completed Task — Stable List Card Dialog and Working Trade Marker
 
 - Codex owns `public/app.js`, `public/listing-form.js`, `public/features.css`, focused listing/card-action tests, and this status entry. Base: `8c87ddf` (clean checkout, matches origin/main).
