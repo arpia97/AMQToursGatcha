@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
-import { MAX_SPOTLIGHTS, MAX_PINNED_ANIME } from "../public/site-defaults.js";
+import {
+  MAX_SPOTLIGHTS,
+  MAX_PINNED_ANIME,
+  MAX_WISHLIST,
+} from "../public/site-defaults.js";
 import { roleBadge } from "../public/role-label.js";
 import { updateRewardDefaults } from "../public/host-defaults.js";
 function fixture(t) {
@@ -48,6 +52,7 @@ test("thirty free showcase slots accept owned cards and paid extras preserve cap
     }));
   assert.equal(MAX_SPOTLIGHTS, 100);
   assert.equal(MAX_PINNED_ANIME, 20);
+  assert.equal(MAX_WISHLIST, 1000);
   e.host("catalog", { cards });
   for (const c of cards) e.addCard("p", c.id);
   const chosen = cards.slice(0, 30).map((c) => c.id);

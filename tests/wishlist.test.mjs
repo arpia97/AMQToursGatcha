@@ -4,6 +4,8 @@ import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
+import { MAX_WISHLIST } from "../src/wishlist.js";
+import { demoFeatures } from "../public/demo-features.js";
 import {
   profileCardPanel,
   profileCardTabs,
@@ -536,4 +538,89 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
     featuresCss,
     /\.collection-checkboxes \.check-label[\s\S]*?height:\s*34px;/,
   );
+});
+
+test("wishlist capacity supports 1000 cards across engine, reordering, pagination and demo mock", (t) => {
+  assert.equal(MAX_WISHLIST, 1000);
+  const { e, act } = fixture(t);
+
+  // Insert 1001 catalog cards: w0..w1000
+  for (let i = 0; i <= 1000; i++) {
+    e.run(
+      "INSERT OR IGNORE INTO catalog(id,kind,name,series) VALUES(?,?,?,?)",
+      "w" + i,
+      "character",
+      "Wish Card " + i,
+      "Series",
+    );
+  }
+
+  // Prepopulate 1000 cards in wishlist for player p (w0 .. w999)
+  for (let i = 0; i < 1000; i++) {
+    e.run(
+      "INSERT INTO card_wishlist(player,card,created,position) VALUES('p',?,?,?)",
+      "w" + i,
+      1000 + i,
+      i,
+    );
+  }
+
+  assert.equal(e.economy.wishlist.read("p").length, 1000);
+
+  // Re-saving an already wishlisted card at capacity succeeds (idempotent)
+  const resExisting = act("p", "wishlist", { card: "w0", wanted: true });
+  assert.equal(resExisting.message, "Card saved to wishlist.");
+  assert.equal(e.economy.wishlist.read("p").length, 1000);
+
+  // Adding the 1001st unique card rejects with limit error
+  assert.throws(
+    () => act("p", "wishlist", { card: "w1000", wanted: true }),
+    /Your wishlist can hold up to 1000 cards\./,
+  );
+
+  // Removing one card reduces length to 999
+  const resRemove = act("p", "wishlist", { card: "w0", wanted: false });
+  assert.equal(resRemove.message, "Card removed from wishlist.");
+  assert.equal(e.economy.wishlist.read("p").length, 999);
+
+  // Now adding the 1001st card succeeds, bringing total back to 1000
+  const resAdd = act("p", "wishlist", { card: "w1000", wanted: true });
+  assert.equal(resAdd.message, "Card saved to wishlist.");
+  assert.equal(e.economy.wishlist.read("p").length, 1000);
+
+  // Wishlist pagination works with 1000 items (42 pages: 41 * 24 + 16 = 1000)
+  const page1 = e.economy.wishlist.page("p", "wishlist", 1);
+  assert.equal(page1.rows.length, 24);
+  assert.equal(page1.hasMore, true);
+
+  const page42 = e.economy.wishlist.page("p", "wishlist", 42);
+  assert.equal(page42.rows.length, 16);
+  assert.equal(page42.hasMore, false);
+
+  // Reorder 1000 items
+  const current = e.economy.wishlist.read("p");
+  const reversed = [...current].reverse();
+  const reorderRes = act("p", "wishlist-order", {
+    cards: reversed,
+    expectedCards: current,
+  });
+  assert.equal(reorderRes.message, "Wishlist order saved.");
+  assert.deepEqual(e.economy.wishlist.read("p"), reversed);
+
+  // Demo features mock enforces MAX_WISHLIST
+  const mockCards = Array.from({ length: 1001 }, (_, i) => ({ id: "d" + i }));
+  const mockState = {
+    s: { wishlist: mockCards.slice(0, 1000).map((c) => c.id) },
+    cards: mockCards,
+  };
+  assert.throws(
+    () => demoFeatures(mockState, "wishlist", { card: "d1000", wanted: true }),
+    /Your wishlist can hold up to 1000 cards\./,
+  );
+  // Re-saving existing card in demo succeeds
+  const mockResExisting = demoFeatures(mockState, "wishlist", {
+    card: "d0",
+    wanted: true,
+  });
+  assert.equal(mockResExisting.wishlist.length, 1000);
 });

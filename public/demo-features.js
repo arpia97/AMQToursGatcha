@@ -20,6 +20,7 @@ import {
   MAX_PINNED_ANIME,
   MAX_SPOTLIGHTS,
   FREE_SPOTLIGHTS,
+  MAX_WISHLIST,
 } from "./site-defaults.js";
 import { batchSaleQuote } from "./card-management.js";
 import {
@@ -90,6 +91,12 @@ export function demoFeatures(d, path, b) {
   if (path === "wishlist") {
     if (!d.cards.some((c) => c.id === b.card) || typeof b.wanted !== "boolean")
       throw Error("Choose a catalogue card.");
+    if (
+      b.wanted &&
+      !s.wishlist.includes(b.card) &&
+      s.wishlist.length >= MAX_WISHLIST
+    )
+      throw Error(`Your wishlist can hold up to ${MAX_WISHLIST} cards.`);
     s.wishlist = s.wishlist.filter((id) => id !== b.card);
     if (b.wanted) s.wishlist.unshift(b.card);
     return { message: "Demo wishlist updated.", wishlist: s.wishlist };

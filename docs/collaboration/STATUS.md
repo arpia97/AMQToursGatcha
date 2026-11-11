@@ -2,7 +2,28 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Align Profile Collection Checkbox Filters with Select Controls
+## Active Task — Increase Wishlist Capacity to 1,000 Cards
+
+- Gemini owns implementation/commit: `public/site-defaults.js`, `src/wishlist.js`, `public/demo-features.js`, `tests/site-defaults.test.mjs`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `56dca26`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Centralized wishlist limit in `public/site-defaults.js`: added `export const MAX_WISHLIST = 1000;`.
+  - In `src/wishlist.js`:
+    - Imported and re-exported `MAX_WISHLIST`.
+    - Updated limit check in `change(player, b)` from `500` to `MAX_WISHLIST`, throwing `Your wishlist can hold up to 1000 cards.`.
+    - Existing cards on wishlist can still be re-saved idempotently at capacity without throwing.
+  - In `public/demo-features.js`:
+    - Imported `MAX_WISHLIST` from `./site-defaults.js`.
+    - Enforced matching limit check for demo mock wishlist additions.
+  - Unit tests:
+    - In `tests/site-defaults.test.mjs`: Added assertion `MAX_WISHLIST === 1000`.
+    - In `tests/wishlist.test.mjs`: Added comprehensive test verifying `MAX_WISHLIST === 1000`, successfully storing 1,000 wishlist cards, rejecting the 1,001st unique card with `Your wishlist can hold up to 1000 cards.`, allowing re-save of an existing card at capacity, removing a card and re-adding, 42-page wishlist pagination, 1,000-card reorder payload, and demo mock limit enforcement.
+- Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (459/459 passed), `git diff --check` (clean).
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` and `play` proxy. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`). No manual data mutations.
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Align Profile Collection Checkbox Filters with Select Controls
 
 - Gemini owns implementation/commit: `public/features.css`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `830bfd1`

@@ -1,5 +1,7 @@
 import { fail, integer, text } from "./engine.js";
 import { collectionView } from "../public/card-display.js";
+import { MAX_WISHLIST } from "../public/site-defaults.js";
+export { MAX_WISHLIST };
 export class Wishlist {
   constructor(e) {
     this.e = e;
@@ -43,9 +45,9 @@ export class Wishlist {
           player,
           card,
         ) &&
-        this.read(player).length >= 500
+        this.read(player).length >= MAX_WISHLIST
       )
-        fail("Your wishlist can hold up to 500 cards.");
+        fail(`Your wishlist can hold up to ${MAX_WISHLIST} cards.`);
       e.run(
         "INSERT OR IGNORE INTO card_wishlist(player,card,created,position) VALUES(?,?,?,?)",
         player,
