@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cardSurface, installCardSurfaces } from "../public/card-surface.js";
+import fs from "node:fs";
+import {
+  cardSurface,
+  installCardSurfaces,
+  syncCardFlags,
+} from "../public/card-surface.js";
 import {
   installCardSize,
   cardSizeControl,
@@ -168,4 +173,38 @@ test("card size is a saved local preference, rejects invalid values and synchron
   assert.equal(get(), "large");
   assert.equal(saved.length, 1);
   assert.match(cardSizeControl(get()), /value="large" selected/);
+});
+
+test("syncCardFlags updates icons on single card and container roots, and css highlights selected actions", () => {
+  const css = fs.readFileSync(
+    new URL("../public/card-surface.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    css,
+    /\.card-action-grid :is\(\[aria-pressed="true"\], \.is-selected\)/,
+  );
+  assert.match(css, /\.card-state-trade/);
+
+  let insertedHtml = "";
+  const stage = {
+    querySelector: () => ({ remove() {} }),
+    insertAdjacentHTML: (pos, html) => {
+      insertedHtml = html;
+    },
+  };
+  const cardElem = {
+    dataset: { cardSurface: "c1" },
+    matches: (sel) => sel === ".card-surface",
+    querySelector: (sel) => (sel === ".card-surface-stage" ? stage : null),
+  };
+
+  syncCardFlags(cardElem, (c) => ({
+    protectedCard: false,
+    wishlisted: false,
+    forTrade: true,
+  }));
+  assert.match(insertedHtml, /card-state-trade/);
+  assert.match(insertedHtml, /aria-label="For Trade"/);
+  assert.match(insertedHtml, /⚖️/);
 });

@@ -2,45 +2,25 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Profile Collection 'My Wishlist Only' Filter, Owned/Wishlist Button, Trade Marker & Overview Collection Button
+## Active Task — Trade Button Immediate Highlight & ⚖️ Marker, Collection Button Rename
 
-- Gemini owns implementation/commit: `public/app.js`, `public/styles.css`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `public/profile-cards-ui.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/wishlist.js`, `src/card-management.js`, `src/trades.js`, `src/economy-repair.js`, `src/worker.js`, `tests/site-navigation.test.mjs`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `tests/alchemy-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
-- Base SHA: `bcebaef`
+- Gemini owns implementation/commit: `public/app.js`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `b718ccc`
 - Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
 - Completed behavior / decisions:
-  - 1. Profile Collection 'My Wishlist Only' option:
-    - In `public/profile-cards-ui.js`: rendered `<label class="check-label profile-collection-wishlist-toggle"><input type="checkbox" id="profile-collection-wishlist"> My Wishlist Only</label>` in `profileCollectionControls` when viewing another player's profile (`!own`) and authenticated with a wishlist.
-    - In `public/app.js`: tracked `ui.profileCollection.wishlist`, attached change listener to reset page and pass `&wishlist=1` in `player-cards` queries, and reset filter on profile navigation / tab changes.
-    - In `src/worker.js`: passed `wishlist: url.searchParams.get("wishlist") === "1"` and `viewer: session?.player` to `e.economy.wishlist.page(...)`.
-    - In `src/wishlist.js`: filtered collection rows by viewer's `card_wishlist` when `options.wishlist` and `options.viewer` are set, integrating cleanly with pagination and custom/standard sorting.
-    - In `public/demo-features.js`: handled `wishlist=1` parameter by filtering collection rows against demo user's wishlist.
-  - 2. Owned/Wishlist button rename:
-    - In `public/card-collectors.js`: updated `collectorsButton` label from `Collectors (wanted/owned)` to `Owned/Wishlist (owned/wanted) ↗` with tooltip `Owned by X · Wishlisted by Y` and aria-label `Owned/Wishlist: X owned, Y wishlisted`.
-    - In `public/app.js`: updated dynamic collector count hydration in `ensureCollectorCounts`.
-  - 3. Trade button & ⚖️ Willing to Trade marker:
-    - In `src/engine.js`: added `["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"]` to `SCHEMA_PATCHES`, updated `showcase` query with `COALESCE(i.for_trade,0) AS for_trade`.
-    - In `src/economy-repair.js`: registered `for_trade` in `inventory.columns`.
-    - In `src/card-management.js`: added action handler `trade-card` to toggle `inventory.for_trade` (0 or 1) for owned cards with confirmation toasts.
-    - In `src/trades.js`: passed `trade-card` through to `CardManagement` without trade intercept.
-    - In `src/wishlist.js`: exposed `for_trade` on `readCollection` and `page("collection")` rows.
-    - In `public/card-surface.js` & `public/card-surface.css`: rendered `<span class="card-state-trade" role="img" aria-label="For Trade" title="For Trade">⚖️</span>` within `.card-state-icons`, and supported dynamic updates in `syncCardFlags`.
-    - In `public/app.js`: replaced the collection card `instant-sell` button with `<button class="text-button" data-action="trade-toggle">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button>`, updated `cardFlags` and `ownerFlags`.
-    - In `public/features.js`: passed `forTrade: !!c.for_trade` in showcase `readCard`.
-    - In `public/demo-features.js`: implemented `trade-card` action handler and state update.
-  - 4. "See my collection" button in Overview tab:
-    - In `public/app.js`: added `<a class="button secondary" href="#collection">See my collection <span>↗</span></a>` right next to `<a class="button" href="#packs">Find your next favourite <span>↗</span></a>` within `.hero-actions`.
-    - In `public/styles.css`: added `.hero-actions` flexbox styling (`display: flex; gap: 10px; align-items: center; flex-wrap: wrap;`) for responsive layout alongside `.button.secondary`.
-    - Unit tests: in `tests/site-navigation.test.mjs`, verified rendering of both hero buttons and the `.hero-actions` container.
-  - 5. Arrange Editor Actions Simplification:
-    - In `public/showcase-order.js`: removed the redundant `Arrange ${title}` button in the arrange panel actions bar (`.wishlist-arrange-actions`) since the editor is already in active arrange mode, and renamed the submit button from `Save Order` to `Save`.
-    - Unit tests: in `tests/showcase-order.test.mjs`, verified `>Save</button>` rendering and confirmed absence of pressed arrange button.
+  - 1. Collection button label rename:
+    - In `public/card-collectors.js`: renamed button text from `Owned/Wishlist (owned/wanted) ↗` to `Collection (owned/wanted) ↗` (or `Collection ↗` when counts unhydrated), with aria-label `Collection: X owned, Y wishlisted`.
+    - In `public/app.js`: updated dynamic count hydration in `ensureCollectorCounts` to set `Collection (owned/wanted) ↗`.
+  - 2. Trade button immediate toggle, highlight & ⚖️ icon on card:
+    - In `public/app.js`: in `handleFeatureClick` for `trade-toggle`, added immediate optimistic in-memory inventory state toggle, updated button `is-selected` class, `aria-pressed="true"/"false"`, text `⚖️ For Trade` / `⚖️ Trade`, and called `syncCardFlags` immediately so the ⚖️ icon appears on the card surface right away. Added clean error rollback on failure. Added identical optimistic handling to `protect-toggle`.
+    - In `public/app.js` (`cardHTML`): added `class="text-button ${item.for_trade ? "is-selected" : ""}"` and `forTrade: !!(item?.ownerFlags?.forTrade ?? item?.for_trade ?? cardFlags(c).forTrade)` directly so card surfaces and buttons retain their selected state across re-renders.
+    - In `public/card-surface.js`: enhanced `syncCardFlags` to support both single `.card-surface` roots and container elements.
+    - In `public/card-surface.css`: added `.card-action-grid :is([aria-pressed="true"], .is-selected)` styling and hover/focus styles so Trade and Protect buttons highlight with mint background and border just like Wishlist.
   - Unit tests:
-    - Updated `tests/wishlist.test.mjs` with assertions for `Owned/Wishlist (owned/wanted) ↗` button format, `trade-card` action toggling `for_trade`, public profile collection rows exposing `for_trade`, and `&wishlist=1` viewer wishlist filtering.
-    - Updated `tests/card-surface.test.mjs` verifying `forTrade` and `⚖️` badge rendering.
-    - Updated `tests/alchemy-runtime.test.mjs` to include `for_trade` in public collection row schema assertions.
-    - Updated `tests/site-navigation.test.mjs` verifying overview hero collection button navigation.
-- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (449/449 passed), `git diff --check` (clean).
-- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **8aff9654-084c-4699-a9c7-5e78f9139826** and `play` proxy version **ec4055f4-89f9-4979-87e7-bc0bfe4ac674**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/showcase-order.js` (contains `>Save</button>`), `/app.js` (contains `See my collection`). No manual data mutations.
+    - In `tests/wishlist.test.mjs`: updated assertions to verify `Collection (2/1) ↗` format and aria-label.
+    - In `tests/card-surface.test.mjs`: added test verifying `syncCardFlags` updates flags on single card roots and container elements, and CSS contains `.card-action-grid :is([aria-pressed="true"], .is-selected)`.
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (450/450 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deployment when requested.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization

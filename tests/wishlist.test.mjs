@@ -260,7 +260,11 @@ test("public profile and wishlist card flags belong to that profile's player", (
     e.catalogStore.cards(["c0"]),
   )[0];
   assert.deepEqual(counted.collectors, { wanted: 1, owned: 2 });
-  assert.match(collectorsButton(counted, String), /Owned\/Wishlist \(2\/1\) ↗/);
+  assert.match(collectorsButton(counted, String), /Collection \(2\/1\) ↗/);
+  assert.match(
+    collectorsButton(counted, String),
+    /aria-label="Collection: 2 owned, 1 wishlisted"/,
+  );
   assert.match(
     collectorsButton(counted, String),
     /title="Owned by 2 · Wishlisted by 1"/,

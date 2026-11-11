@@ -629,7 +629,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button>${collectorsButton(c, escape)}<button class="text-button" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
       : "";
   const actions =
     (page() === "catalog" ? collectorsButton(c, escape) : "") +
@@ -648,6 +648,9 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
       level: level || 1,
       showLevel: !!level,
       ...(item?.ownerFlags || cardFlags(c)),
+      forTrade: !!(item?.ownerFlags?.forTrade ?? item?.for_trade ?? cardFlags(c).forTrade),
+      protectedCard: !!(item?.ownerFlags?.protectedCard ?? item?.protected ?? cardFlags(c).protectedCard),
+      wishlisted: !!(item?.ownerFlags?.wishlisted ?? cardFlags(c).wishlisted),
       tag:
         c.kind === "seiyuu"
           ? "SEIYUU"
@@ -1217,7 +1220,8 @@ const packReveal = createPackReveal({
   getState: () => state,
 });
 async function saveCardAction(path, body, t) {
-  if (!t.closest("[data-pack-card]")) return execute(path, body);
+  if (!t.closest("[data-pack-card]"))
+    return execute(path, body, (result) => toast(result.message));
   if (busy) return;
   const root = $("#modal");
   root.querySelectorAll("[data-pack-card] button").forEach((button) => {
@@ -1845,12 +1849,12 @@ function ensureCollectorCounts() {
       const value = collectorCounts.get(button.dataset.collectorCard)?.counts;
       if (!value || !button.isConnected) return;
       button.textContent =
-        "Owned/Wishlist (" + value.owned + "/" + value.wanted + ") ↗";
+        "Collection (" + value.owned + "/" + value.wanted + ") ↗";
       button.title =
         "Owned by " + value.owned + " · Wishlisted by " + value.wanted;
       button.setAttribute(
         "aria-label",
-        "Owned/Wishlist: " +
+        "Collection: " +
           value.owned +
           " owned, " +
           value.wanted +
@@ -3607,14 +3611,31 @@ async function handleFeatureClick(a, t) {
         toast("Refresh to load this card from your collection.", true);
         return true;
       }
-      await saveCardAction(
-        "protect-card",
-        {
-          card: item.card,
-          protected: !item.protected,
-        },
-        t,
-      );
+      const nextProtected = !item.protected;
+      item.protected = nextProtected ? 1 : 0;
+      t.setAttribute("aria-pressed", String(nextProtected));
+      t.classList.toggle("is-selected", nextProtected);
+      t.textContent = nextProtected ? "🔒 Protected" : "🔓 Protect";
+      t.title = nextProtected ? "Unprotect this card" : "Protect this card";
+      const surface = t.closest(".card-surface");
+      if (surface) syncCardFlags(surface, cardFlags);
+      try {
+        await saveCardAction(
+          "protect-card",
+          {
+            card: item.card,
+            protected: nextProtected,
+          },
+          t,
+        );
+      } catch (err) {
+        item.protected = nextProtected ? 0 : 1;
+        t.setAttribute("aria-pressed", String(!nextProtected));
+        t.classList.toggle("is-selected", !nextProtected);
+        t.textContent = !nextProtected ? "🔒 Protected" : "🔓 Protect";
+        t.title = !nextProtected ? "Unprotect this card" : "Protect this card";
+        if (surface) syncCardFlags(surface, cardFlags);
+      }
       return true;
     }
     if (a === "trade-toggle") {
@@ -3623,14 +3644,35 @@ async function handleFeatureClick(a, t) {
         toast("Refresh to load this card from your collection.", true);
         return true;
       }
-      await saveCardAction(
-        "trade-card",
-        {
-          card: item.card,
-          forTrade: !item.for_trade,
-        },
-        t,
-      );
+      const nextForTrade = !item.for_trade;
+      item.for_trade = nextForTrade ? 1 : 0;
+      t.setAttribute("aria-pressed", String(nextForTrade));
+      t.classList.toggle("is-selected", nextForTrade);
+      t.textContent = nextForTrade ? "⚖️ For Trade" : "⚖️ Trade";
+      t.title = nextForTrade
+        ? "Remove trade marker"
+        : "Mark willing to trade or sell";
+      const surface = t.closest(".card-surface");
+      if (surface) syncCardFlags(surface, cardFlags);
+      try {
+        await saveCardAction(
+          "trade-card",
+          {
+            card: item.card,
+            forTrade: nextForTrade,
+          },
+          t,
+        );
+      } catch (err) {
+        item.for_trade = nextForTrade ? 0 : 1;
+        t.setAttribute("aria-pressed", String(!nextForTrade));
+        t.classList.toggle("is-selected", !nextForTrade);
+        t.textContent = !nextForTrade ? "⚖️ For Trade" : "⚖️ Trade";
+        t.title = !nextForTrade
+          ? "Remove trade marker"
+          : "Mark willing to trade or sell";
+        if (surface) syncCardFlags(surface, cardFlags);
+      }
       return true;
     }
     if (a === "batch-cancel") {

@@ -180,9 +180,13 @@ export function installCardSurfaces(root) {
 }
 
 export function syncCardFlags(root, flagsBy) {
-  for (const card of root.querySelectorAll(".card-surface")) {
+  const cards = root?.matches?.(".card-surface")
+    ? [root]
+    : root?.querySelectorAll?.(".card-surface") || [];
+  for (const card of cards) {
     const flags = flagsBy({ id: card.dataset.cardSurface });
     const stage = card.querySelector(".card-surface-stage");
+    if (!stage) continue;
     stage.querySelector(".card-state-icons")?.remove();
     if (flags.protectedCard || flags.wishlisted || flags.forTrade)
       stage.insertAdjacentHTML(

@@ -153,10 +153,17 @@
   background: #345a4bea;
   color: #fff;
 }
-.card-action-content :is([aria-pressed="true"], .is-selected) {
+.card-action-content :is([aria-pressed="true"], .is-selected),
+.card-action-grid :is([aria-pressed="true"], .is-selected) {
   color: var(--mint);
   border-color: #b7e4ca80;
   background: #24493bcc;
+}
+.card-action-content :is([aria-pressed="true"], .is-selected):is(:hover, :focus-visible),
+.card-action-grid :is([aria-pressed="true"], .is-selected):is(:hover, :focus-visible) {
+  color: #fff;
+  border-color: var(--mint);
+  background: #2d5d4bec;
 }
 .card-action-content button:disabled {
   cursor: not-allowed;
