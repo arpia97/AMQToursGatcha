@@ -2,7 +2,24 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Completed Task — Own Collection Tradeable Filter and Compact Checkboxes
+## Active Task — Align Profile Collection Checkbox Filters with Select Controls
+
+- Gemini owns implementation/commit: `public/features.css`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `830bfd1`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - Fixed alignment mismatch between select dropdowns (`Sort By`, `Rarity`) and checkbox pills (`My Wishlist Only`, `Tradeable Only`) in collection toolbars:
+    - In `public/features.css`:
+      - Added `.collection-toolbar-main, .profile-collection-toolbar` alongside `.collection-toolbar .collection-toolbar-main` with `align-items: end;` so toolbar controls always sit on the bottom baseline instead of vertically centering.
+      - Added `align-self: end;` to `.collection-checkboxes`.
+      - Set `height: 34px; min-height: 34px; box-sizing: border-box;` on `.collection-checkboxes .check-label` to exactly match the 34px height of `.collection-toolbar-main select`.
+      - Added `display: contents;` to `.profile-collection-toolbar .catalog-refinements`.
+  - Unit tests:
+    - In `tests/wishlist.test.mjs`: Added assertions verifying `.profile-collection-toolbar` aligns to `end`, `.collection-checkboxes` aligns to `end`, and `.check-label` matches `height: 34px`.
+- Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (458/458 passed), `git diff --check` (clean).
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Own Collection Tradeable Filter and Compact Checkboxes
 
 - Codex owns `public/app.js`, `public/features.js`, `public/card-display.js`, `public/profile-cards-ui.js`, `public/features.css`, existing collection/wishlist tests, and this status entry. Base `c2c8fbe`, clean and synchronized with main.
 - Added Tradeable Only to My Collection and the owner's profile Collection view, combining with existing filters and resetting via Clear Filters. Own collection filtering is local and adds no API polling.

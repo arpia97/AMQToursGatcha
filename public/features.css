@@ -1736,7 +1736,9 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   border-radius: 12px;
   background: #15161c;
 }
-.collection-toolbar .collection-toolbar-main {
+.collection-toolbar .collection-toolbar-main,
+.collection-toolbar-main,
+.profile-collection-toolbar {
   margin: 0;
   display: flex;
   flex-flow: row wrap;
@@ -1777,21 +1779,26 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   padding: 8px 3px;
   font-size: 10px;
 }
-.catalog-refinements .collection-checkboxes {
+.catalog-refinements .collection-checkboxes,
+.collection-checkboxes {
   display: flex;
   flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
+  align-self: end;
   gap: 6px;
   max-width: 100%;
 }
-.catalog-refinements .collection-checkboxes .check-label {
+.catalog-refinements .collection-checkboxes .check-label,
+.collection-checkboxes .check-label {
   display: inline-flex;
   flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
   min-width: 0;
-  min-height: 32px;
+  min-height: 34px;
+  height: 34px;
+  box-sizing: border-box;
   gap: 6px;
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -5213,11 +5220,17 @@ dialog.avatar-editor-modal {
 
 .profile-collection-toolbar {
   margin: 0 0 22px;
+  display: flex;
+  flex-flow: row wrap;
+  align-items: end;
+  justify-content: flex-start;
+  gap: 10px;
 }
-.profile-collection-toolbar .collection-toolbar-main {
-  margin-bottom: 14px;
+.profile-collection-toolbar.collection-toolbar-main {
+  margin-bottom: 22px;
 }
 .profile-collection-toolbar .catalog-refinements {
+  display: contents;
   margin: 0;
 }
 .collection-arrange-filters {

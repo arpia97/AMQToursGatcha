@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
@@ -518,4 +519,21 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
   assert.doesNotMatch(ownHtml, /id="profile-collection-wishlist"/);
   assert.match(ownHtml, /id="profile-collection-tradeable"/);
   assert.match(ownHtml, /class="collection-checkboxes"/);
+
+  const featuresCss = fs.readFileSync(
+    new URL("../public/features.css", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    featuresCss,
+    /\.profile-collection-toolbar[\s\S]*?align-items:\s*end;/,
+  );
+  assert.match(
+    featuresCss,
+    /\.collection-checkboxes[\s\S]*?align-self:\s*end;/,
+  );
+  assert.match(
+    featuresCss,
+    /\.collection-checkboxes \.check-label[\s\S]*?height:\s*34px;/,
+  );
 });
