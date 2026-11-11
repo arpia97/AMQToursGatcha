@@ -1268,6 +1268,7 @@ export class Game extends DurableObject {
           role: url.searchParams.get("role") || "",
           sort: url.searchParams.get("sort") || "custom",
           wishlist: url.searchParams.get("wishlist") === "1",
+          tradeable: url.searchParams.get("tradeable") === "1",
           viewer: session?.player,
         },
       );

@@ -2,7 +2,31 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Trade Button Immediate Highlight & ⚖️ Marker, Collection Button Rename
+## Active Task — Tradeable Only Filter in Other Players' Collection
+
+- Gemini owns implementation/commit: `public/app.js`, `public/profile-cards-ui.js`, `public/demo-features.js`, `src/worker.js`, `src/wishlist.js`, `tests/wishlist.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `3c8ca31`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - In `public/profile-cards-ui.js`:
+    - Added `<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" ${filters.tradeable ? "checked" : ""}> Tradeable Only</label>` immediately following "My Wishlist Only" in the collection filters toolbar when viewing another player's profile collection (`!own`).
+  - In `public/app.js`:
+    - Added `tradeable: false` to `ui.profileCollection` state.
+    - Included `(ui.profileCollection.tradeable ? "&tradeable=1" : "")` in `/api/player-cards` queries in `loadDynamic`.
+    - Reset `ui.profileCollection.tradeable = false` on hash navigation, profile view tab changes, and clear filters.
+    - Added `profile-collection-tradeable` to the global change listener to update state and reload the dynamic collection view.
+  - In `src/worker.js`:
+    - Extracted `tradeable: url.searchParams.get("tradeable") === "1"` from `/api/player-cards` and passed to `e.economy.wishlist.page(...)`.
+  - In `src/wishlist.js`:
+    - Filtered collection rows by `!!r.for_trade` before calculating total and slicing pages when `options.tradeable` is true, enabling smooth combination with wishlist filter, search query, role/rarity filters, and custom or date/stat sorting.
+  - In `public/demo-features.js`:
+    - Added mock demo support for `tradeable` query param filtering by `!!r.for_trade`.
+  - Unit tests:
+    - In `tests/wishlist.test.mjs`: Added tests verifying `tradeable: true` returns cards marked with `for_trade === 1`, combining `tradeable: true` and `wishlist: true` returns the intersection, `#profile-collection-tradeable` renders next to `#profile-collection-wishlist` on `own: false`, and neither appears on `own: true`.
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (450/450 passed), `git diff --check` (clean).
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Trade Button Immediate Highlight & ⚖️ Marker, Collection Button Rename
 
 - Gemini owns implementation/commit: `public/app.js`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `b718ccc`

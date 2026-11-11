@@ -144,7 +144,8 @@ export function demoFeatures(d, path, b) {
       id = params.get("id"),
       view = params.get("view"),
       page = Number(params.get("page") || 1),
-      wishlistOnly = params.get("wishlist") === "1";
+      wishlistOnly = params.get("wishlist") === "1",
+      tradeableOnly = params.get("tradeable") === "1";
     let rows =
       id === me.id && view === "wishlist"
         ? s.wishlist.map((card) => ({ card }))
@@ -164,6 +165,9 @@ export function demoFeatures(d, path, b) {
     if (wishlistOnly) {
       const wishSet = new Set(s.wishlist || []);
       rows = rows.filter((r) => wishSet.has(r.card));
+    }
+    if (tradeableOnly) {
+      rows = rows.filter((r) => !!r.for_trade);
     }
     return {
       player: id,

@@ -453,7 +453,26 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
   });
   assert.equal(allRows.rows.length, 3);
 
-  // UI tests for "My Wishlist Only" checkbox
+  // When viewing p's collection with tradeable: true
+  const tradeableOnly = e.economy.wishlist.page("p", "collection", 1, {
+    tradeable: true,
+  });
+  assert.deepEqual(
+    tradeableOnly.rows.map((r) => r.card),
+    ["community-trade-1"],
+  );
+  assert.equal(tradeableOnly.total, 1);
+
+  // When viewing p's collection with both wishlist and tradeable
+  const bothFilter = e.economy.wishlist.page("p", "collection", 1, {
+    wishlist: true,
+    tradeable: true,
+    viewer: "q",
+  });
+  // q wishlisted community-trade-2, but only community-trade-1 is for trade
+  assert.equal(bothFilter.total, 0);
+
+  // UI tests for "My Wishlist Only" and "Tradeable Only" checkbox
   const viewerHtml = profileCardPanel(
     e.economy.wishlist.page("p", "collection", 1),
     {
@@ -470,14 +489,20 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
         role: "",
         sort: "custom",
         wishlist: true,
+        tradeable: true,
       },
     },
   );
   assert.match(viewerHtml, /id="profile-collection-wishlist"/);
   assert.match(viewerHtml, /My Wishlist Only/);
-  assert.match(viewerHtml, /checked/);
+  assert.match(viewerHtml, /id="profile-collection-tradeable"/);
+  assert.match(viewerHtml, /Tradeable Only/);
+  assert.match(
+    viewerHtml,
+    /My Wishlist Only<\/label>[\s\S]*?Tradeable Only<\/label>/,
+  );
 
-  // Own collection should NOT have "My Wishlist Only"
+  // Own collection should NOT have "My Wishlist Only" or "Tradeable Only"
   const ownHtml = profileCardPanel(
     e.economy.wishlist.page("p", "collection", 1),
     {
@@ -491,4 +516,5 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
     },
   );
   assert.doesNotMatch(ownHtml, /id="profile-collection-wishlist"/);
+  assert.doesNotMatch(ownHtml, /id="profile-collection-tradeable"/);
 });

@@ -260,6 +260,9 @@ export class Wishlist {
         );
         allRows = allRows.filter((r) => wanted.has(r.card));
       }
+      if (options.tradeable) {
+        allRows = allRows.filter((r) => !!r.for_trade);
+      }
       total = allRows.length;
       const sourceRows =
         kind === "both" && !query.trim() && !rarity && !role && sort === "custom"

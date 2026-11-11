@@ -120,6 +120,11 @@ function profileCollectionControls(
         (filters.wishlist ? "checked" : "") +
         "> My Wishlist Only</label>"
       : "") +
+    (!own
+      ? '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" ' +
+        (filters.tradeable ? "checked" : "") +
+        "> Tradeable Only</label>"
+      : "") +
     '<button type="button" class="text-button" data-action="clear-profile-collection-filters">Clear Filters</button></div></div>'
   );
 }

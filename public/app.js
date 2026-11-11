@@ -202,6 +202,7 @@ const ui = {
     role: "",
     sort: "custom",
     wishlist: false,
+    tradeable: false,
   },
   rouletteMotion: readRouletteMotion({
     getItem: (key) => localStorage.getItem(key),
@@ -1685,7 +1686,8 @@ async function loadDynamic() {
             ) +
             "&sort=" +
             encodeURIComponent(ui.profileCollection.sort) +
-            (ui.profileCollection.wishlist ? "&wishlist=1" : "")
+            (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
+            (ui.profileCollection.tradeable ? "&tradeable=1" : "")
           : ""),
     );
   if (version !== loadVersion || location.hash !== hash) return;
@@ -2731,6 +2733,7 @@ window.addEventListener("hashchange", async () => {
   ui.profileCardsPage = 1;
   ui.profileCardsData = null;
   ui.profileCollection.wishlist = false;
+  ui.profileCollection.tradeable = false;
   try {
     if (sharedRefreshNeeded && page() !== "arcade") await refresh();
     else {
@@ -3344,7 +3347,10 @@ async function handleFeatureClick(a, t) {
       if (a === "profile-cards-view") {
         ui.profileView = t.dataset.view;
         ui.profileCardsPage = 1;
-        if (ui.profileView !== "collection") ui.profileCollection.wishlist = false;
+        if (ui.profileView !== "collection") {
+          ui.profileCollection.wishlist = false;
+          ui.profileCollection.tradeable = false;
+        }
       } else ui.profileCardsPage = Number(t.dataset.page);
       ui.profileCardsData = null;
       await loadDynamic();
@@ -3518,6 +3524,7 @@ async function handleFeatureClick(a, t) {
         rarity: "",
         role: "",
         wishlist: false,
+        tradeable: false,
       };
       ui.profileCardsPage = 1;
       await loadDynamic();
@@ -4103,6 +4110,7 @@ document.addEventListener("change", async (ev) => {
       "profile-collection-rarity",
       "profile-collection-role",
       "profile-collection-wishlist",
+      "profile-collection-tradeable",
     ].includes(ev.target.id)
   ) {
     const field = ev.target.id.replace("profile-collection-", "");
