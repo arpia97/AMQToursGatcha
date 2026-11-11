@@ -17,6 +17,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
   - Unit tests:
     - In `tests/wishlist.test.mjs`: Added assertions verifying `.profile-collection-toolbar` aligns to `end`, `.collection-checkboxes` aligns to `end`, and `.check-label` matches `height: 34px`.
 - Checks run and results: `node tools/check.mjs` (214 files passed), `node --test tests/*.test.mjs` (458/458 passed), `git diff --check` (clean).
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **4a36afd3-d572-4123-abf4-02ff68e5410a** and `play` proxy version **247f80cd-6e54-4ef8-b73a-93b3d96c64f7**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/features.css` (contains `.collection-checkboxes align-self: end` and `height: 34px`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Own Collection Tradeable Filter and Compact Checkboxes
