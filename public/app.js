@@ -201,6 +201,7 @@ const ui = {
     rarity: "",
     role: "",
     sort: "custom",
+    wishlist: false,
   },
   rouletteMotion: readRouletteMotion({
     getItem: (key) => localStorage.getItem(key),
@@ -612,8 +613,10 @@ function showSpecialPack() {
     });
 }
 function cardFlags(c) {
+  const item = state?.inventory?.find((i) => i.card === c.id);
   return {
-    protectedCard: !!state?.inventory?.find((i) => i.card === c.id)?.protected,
+    protectedCard: !!item?.protected,
+    forTrade: !!item?.for_trade,
     wishlisted: (state?.wishlist || []).includes(c.id),
   };
 }
@@ -626,7 +629,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button>${collectorsButton(c, escape)}<button class="text-button" ${item.protected ? "disabled" : ""} data-action="instant-sell" data-id="${escape(c.id)}" title="Sell now for ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))} credits">Sell · ✦ ${number(instantSalePrice(c, item.copies > 1 ? 1 : item.level))}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "♧ Protect"}</button>${collectorsButton(c, escape)}<button class="text-button" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on the marketplace or auction">List Card ↗</button></div>`
       : "";
   const actions =
     (page() === "catalog" ? collectorsButton(c, escape) : "") +
@@ -1533,6 +1536,7 @@ function profile() {
                 ownerFlags: {
                   protectedCard: !!item.protected,
                   wishlisted: (p.wishlist || []).includes(item.card),
+                  forTrade: !!item.for_trade,
                 },
               });
             })
@@ -1676,7 +1680,8 @@ async function loadDynamic() {
                 : ui.profileCollection.role,
             ) +
             "&sort=" +
-            encodeURIComponent(ui.profileCollection.sort)
+            encodeURIComponent(ui.profileCollection.sort) +
+            (ui.profileCollection.wishlist ? "&wishlist=1" : "")
           : ""),
     );
   if (version !== loadVersion || location.hash !== hash) return;
@@ -1840,16 +1845,16 @@ function ensureCollectorCounts() {
       const value = collectorCounts.get(button.dataset.collectorCard)?.counts;
       if (!value || !button.isConnected) return;
       button.textContent =
-        "Collectors (" + value.wanted + "/" + value.owned + ") ↗";
+        "Owned/Wishlist (" + value.owned + "/" + value.wanted + ") ↗";
       button.title =
-        "Wishlisted by " + value.wanted + " · Owned by " + value.owned;
+        "Owned by " + value.owned + " · Wishlisted by " + value.wanted;
       button.setAttribute(
         "aria-label",
-        "Collectors: " +
-          value.wanted +
-          " wishlisted, " +
+        "Owned/Wishlist: " +
           value.owned +
-          " owned",
+          " owned, " +
+          value.wanted +
+          " wishlisted",
       );
     });
   paint();
@@ -2721,6 +2726,7 @@ window.addEventListener("hashchange", async () => {
   ui.profileView = "overview";
   ui.profileCardsPage = 1;
   ui.profileCardsData = null;
+  ui.profileCollection.wishlist = false;
   try {
     if (sharedRefreshNeeded && page() !== "arcade") await refresh();
     else {
@@ -3334,6 +3340,7 @@ async function handleFeatureClick(a, t) {
       if (a === "profile-cards-view") {
         ui.profileView = t.dataset.view;
         ui.profileCardsPage = 1;
+        if (ui.profileView !== "collection") ui.profileCollection.wishlist = false;
       } else ui.profileCardsPage = Number(t.dataset.page);
       ui.profileCardsData = null;
       await loadDynamic();
@@ -3506,6 +3513,7 @@ async function handleFeatureClick(a, t) {
         query: "",
         rarity: "",
         role: "",
+        wishlist: false,
       };
       ui.profileCardsPage = 1;
       await loadDynamic();
@@ -3559,6 +3567,7 @@ async function handleFeatureClick(a, t) {
         "showcase-cancel",
         "showcase-page",
         "protect-toggle",
+        "trade-toggle",
         "batch-sell",
         "batch-cancel",
         "sell-card",
@@ -3603,6 +3612,22 @@ async function handleFeatureClick(a, t) {
         {
           card: item.card,
           protected: !item.protected,
+        },
+        t,
+      );
+      return true;
+    }
+    if (a === "trade-toggle") {
+      const item = state.inventory.find((i) => i.card === t.dataset.id);
+      if (!item) {
+        toast("Refresh to load this card from your collection.", true);
+        return true;
+      }
+      await saveCardAction(
+        "trade-card",
+        {
+          card: item.card,
+          forTrade: !item.for_trade,
         },
         t,
       );
@@ -4035,10 +4060,12 @@ document.addEventListener("change", async (ev) => {
       "profile-collection-sort",
       "profile-collection-rarity",
       "profile-collection-role",
+      "profile-collection-wishlist",
     ].includes(ev.target.id)
   ) {
     const field = ev.target.id.replace("profile-collection-", "");
-    ui.profileCollection[field] = ev.target.value;
+    ui.profileCollection[field] =
+      ev.target.type === "checkbox" ? ev.target.checked : ev.target.value;
     ui.profileCardsPage = 1;
     try {
       await loadDynamic();

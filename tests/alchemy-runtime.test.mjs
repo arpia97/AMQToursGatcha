@@ -149,7 +149,14 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
   assert.ok(
     publicCollection.rows.every((row) =>
       Object.keys(row).every((key) =>
-        ["card", "level", "copies", "protected", "wishlisted"].includes(key),
+        [
+          "card",
+          "level",
+          "copies",
+          "protected",
+          "wishlisted",
+          "for_trade",
+        ].includes(key),
       ),
     ),
   );

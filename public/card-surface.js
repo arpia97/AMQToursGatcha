@@ -17,17 +17,21 @@ export function cardSurface(c, options, h) {
     className = "",
     protectedCard = flags.protectedCard || false,
     wishlisted = flags.wishlisted || false,
+    forTrade = flags.forTrade || false,
   } = options;
   const interactive = !!actions;
   const identity = `<div class="card-name" title="${e(c.name)}">${e(c.name)}</div><div class="card-series" title="${e(series(c))}">${e(series(c))}</div>`;
   const icons =
-    protectedCard || wishlisted
+    protectedCard || wishlisted || forTrade
       ? '<div class="card-state-icons">' +
         (wishlisted
           ? '<span class="card-state-heart" role="img" aria-label="Wishlisted" title="Wishlisted">♥</span>'
           : "") +
         (protectedCard
           ? '<span class="card-state-lock" role="img" aria-label="Protected" title="Protected">🔒</span>'
+          : "") +
+        (forTrade
+          ? '<span class="card-state-trade" role="img" aria-label="For Trade" title="For Trade">⚖️</span>'
           : "") +
         "</div>"
       : "";
@@ -180,7 +184,7 @@ export function syncCardFlags(root, flagsBy) {
     const flags = flagsBy({ id: card.dataset.cardSurface });
     const stage = card.querySelector(".card-surface-stage");
     stage.querySelector(".card-state-icons")?.remove();
-    if (flags.protectedCard || flags.wishlisted)
+    if (flags.protectedCard || flags.wishlisted || flags.forTrade)
       stage.insertAdjacentHTML(
         "beforeend",
         '<div class="card-state-icons">' +
@@ -189,6 +193,9 @@ export function syncCardFlags(root, flagsBy) {
             : "") +
           (flags.protectedCard
             ? '<span class="card-state-lock" role="img" aria-label="Protected" title="Protected">🔒</span>'
+            : "") +
+          (flags.forTrade
+            ? '<span class="card-state-trade" role="img" aria-label="For Trade" title="For Trade">⚖️</span>'
             : "") +
           "</div>",
       );

@@ -1,7 +1,7 @@
 import { rarityClass } from "./card-display.js";
 export function collectorsButton(card, e) {
   const counts = card.collectors;
-  return `<button type="button" class="text-button collector-button" data-collector-card="${e(card.id)}" data-action="card-collectors" data-id="${e(card.id)}" ${counts ? `title="Wishlisted by ${counts.wanted} · Owned by ${counts.owned}" aria-label="Collectors: ${counts.wanted} wishlisted, ${counts.owned} owned"` : ""}>Collectors${counts ? " (" + counts.wanted + "/" + counts.owned + ")" : ""} ↗</button>`;
+  return `<button type="button" class="text-button collector-button" data-collector-card="${e(card.id)}" data-action="card-collectors" data-id="${e(card.id)}" ${counts ? `title="Owned by ${counts.owned} · Wishlisted by ${counts.wanted}" aria-label="Owned/Wishlist: ${counts.owned} owned, ${counts.wanted} wishlisted"` : ""}>Owned/Wishlist${counts ? " (" + counts.owned + "/" + counts.wanted + ")" : ""} ↗</button>`;
 }
 export function collectorsPanel(
   data,

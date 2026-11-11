@@ -14,11 +14,11 @@ test("full-art cards have no actions toggle, escape identities and show independ
     image: () => '<img alt="">',
     gradeBadge: () => "AG",
     series: () => "Source",
-    cardFlags: () => ({ protectedCard: true, wishlisted: true }),
+    cardFlags: () => ({ protectedCard: true, wishlisted: true, forTrade: true }),
   };
   const preview = cardSurface(
     c,
-    { level: 6, showLevel: true, protectedCard: false, wishlisted: false },
+    { level: 6, showLevel: true, protectedCard: false, wishlisted: false, forTrade: false },
     h,
   );
   assert.match(preview, /enhancement-level-6/);
@@ -39,6 +39,8 @@ test("full-art cards have no actions toggle, escape identities and show independ
   assert.match(owned, /card-back" inert/);
   assert.match(owned, /aria-label="Protected"/);
   assert.match(owned, /aria-label="Wishlisted"/);
+  assert.match(owned, /aria-label="For Trade"/);
+  assert.match(owned, /⚖️/);
   assert.equal((owned.match(/data-action=/g) || []).length, 1);
   assert.doesNotMatch(
     owned,

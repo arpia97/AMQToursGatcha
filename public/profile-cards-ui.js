@@ -37,7 +37,11 @@ export function profileCardTabs(view) {
     "</nav>"
   );
 }
-function profileCollectionControls(filters = {}, e) {
+function profileCollectionControls(
+  filters = {},
+  e,
+  { own = false, canWishlist = false } = {},
+) {
   const kind = ["character", "seiyuu", "both"].includes(filters.kind)
       ? filters.kind
       : "both",
@@ -111,6 +115,11 @@ function profileCollectionControls(filters = {}, e) {
         (role === "supporting" ? "selected" : "") +
         ">Supporting</option></select></label>"
       : "") +
+    (!own && canWishlist
+      ? '<label class="check-label profile-collection-wishlist-toggle"><input type="checkbox" id="profile-collection-wishlist" ' +
+        (filters.wishlist ? "checked" : "") +
+        "> My Wishlist Only</label>"
+      : "") +
     '<button type="button" class="text-button" data-action="clear-profile-collection-filters">Clear Filters</button></div></div>'
   );
 }
@@ -150,6 +159,7 @@ export function profileCardPanel(
           ownerFlags: {
             protectedCard: !!row.protected,
             wishlisted: data.view === "wishlist" || !!row.wishlisted,
+            forTrade: !!row.for_trade,
           },
         },
         actions,
@@ -172,7 +182,10 @@ export function profileCardPanel(
         : "") +
     "</div>" +
     (data.view === "collection"
-      ? profileCollectionControls(collectionFilters, e)
+      ? profileCollectionControls(collectionFilters, e, {
+          own,
+          canWishlist: !own && Boolean(wishlist),
+        })
       : "") +
     (tiles
       ? '<div class="card-grid">' + tiles + "</div>"

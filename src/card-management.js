@@ -30,6 +30,32 @@ export class CardManagement {
           : "Card unprotected.",
       };
     }
+    if (action === "trade-card") {
+      const card = text(b.card, 100);
+      if (typeof b.forTrade !== "boolean" && typeof b.for_trade !== "boolean")
+        fail("Choose trade status.");
+      const forTrade =
+        typeof b.forTrade === "boolean" ? b.forTrade : b.for_trade;
+      if (
+        !e.one(
+          "SELECT card FROM inventory WHERE player=? AND card=?",
+          player,
+          card,
+        )
+      )
+        fail("You do not own that card.", 409);
+      e.run(
+        "UPDATE inventory SET for_trade=? WHERE player=? AND card=?",
+        forTrade ? 1 : 0,
+        player,
+        card,
+      );
+      return {
+        message: forTrade
+          ? "Card marked for trade. Other players can see you are willing to trade or sell this card."
+          : "Card trade marker removed.",
+      };
+    }
     if (action !== "sell-batch") return null;
     const f = b.filters;
     if (

@@ -23,6 +23,7 @@ const TABLES = {
       "level",
       "acquired_at",
       "protected",
+      "for_trade",
       "position",
     ],
   },

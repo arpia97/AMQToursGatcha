@@ -154,7 +154,7 @@ export class Trades {
     );
   }
   action(player, action, b) {
-    if (!action.startsWith("trade-")) return null;
+    if (!action.startsWith("trade-") || action === "trade-card") return null;
     const e = this.e;
     if (action === "trade-list") {
       if (

@@ -96,7 +96,7 @@ export class Wishlist {
   }
   readCollection(player) {
     return this.e.all(
-      "SELECT card,level,copies,protected,acquired_at,position FROM inventory WHERE player=? AND copies>0 ORDER BY position IS NULL,position,acquired_at DESC,card",
+      "SELECT card,level,copies,COALESCE(protected,0) AS protected,COALESCE(for_trade,0) AS for_trade,acquired_at,position FROM inventory WHERE player=? AND copies>0 ORDER BY position IS NULL,position,acquired_at DESC,card",
       player,
     );
   }
@@ -248,7 +248,18 @@ export class Wishlist {
         ].includes(options.sort)
           ? options.sort
           : "custom";
-      const allRows = this.readCollection(id);
+      let allRows = this.readCollection(id);
+      if (options.wishlist && options.viewer) {
+        const wanted = new Set(
+          e
+            .all(
+              "SELECT card FROM card_wishlist WHERE player=?",
+              options.viewer,
+            )
+            .map((r) => r.card),
+        );
+        allRows = allRows.filter((r) => wanted.has(r.card));
+      }
       total = allRows.length;
       const sourceRows =
         kind === "both" && !query.trim() && !rarity && !role && sort === "custom"
@@ -274,6 +285,7 @@ export class Wishlist {
           level: row.level,
           copies: row.copies,
           protected: row.protected,
+          for_trade: row.for_trade,
         }));
     } else if (view === "listings")
       rows = e.all(

@@ -2,7 +2,40 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization
+## Active Task — Profile Collection 'My Wishlist Only' Filter, Owned/Wishlist Button & Willing to Trade Marker (⚖️)
+
+- Gemini owns implementation/commit: `public/app.js`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `public/profile-cards-ui.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/wishlist.js`, `src/card-management.js`, `src/trades.js`, `src/economy-repair.js`, `src/worker.js`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `tests/alchemy-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
+- Base SHA: `bcebaef`
+- Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
+- Completed behavior / decisions:
+  - 1. Profile Collection 'My Wishlist Only' option:
+    - In `public/profile-cards-ui.js`: rendered `<label class="check-label profile-collection-wishlist-toggle"><input type="checkbox" id="profile-collection-wishlist"> My Wishlist Only</label>` in `profileCollectionControls` when viewing another player's profile (`!own`) and authenticated with a wishlist.
+    - In `public/app.js`: tracked `ui.profileCollection.wishlist`, attached change listener to reset page and pass `&wishlist=1` in `player-cards` queries, and reset filter on profile navigation / tab changes.
+    - In `src/worker.js`: passed `wishlist: url.searchParams.get("wishlist") === "1"` and `viewer: session?.player` to `e.economy.wishlist.page(...)`.
+    - In `src/wishlist.js`: filtered collection rows by viewer's `card_wishlist` when `options.wishlist` and `options.viewer` are set, integrating cleanly with pagination and custom/standard sorting.
+    - In `public/demo-features.js`: handled `wishlist=1` parameter by filtering collection rows against demo user's wishlist.
+  - 2. Owned/Wishlist button rename:
+    - In `public/card-collectors.js`: updated `collectorsButton` label from `Collectors (wanted/owned)` to `Owned/Wishlist (owned/wanted) ↗` with tooltip `Owned by X · Wishlisted by Y` and aria-label `Owned/Wishlist: X owned, Y wishlisted`.
+    - In `public/app.js`: updated dynamic collector count hydration in `ensureCollectorCounts`.
+  - 3. Trade button & ⚖️ Willing to Trade marker:
+    - In `src/engine.js`: added `["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"]` to `SCHEMA_PATCHES`, updated `showcase` query with `COALESCE(i.for_trade,0) AS for_trade`.
+    - In `src/economy-repair.js`: registered `for_trade` in `inventory.columns`.
+    - In `src/card-management.js`: added action handler `trade-card` to toggle `inventory.for_trade` (0 or 1) for owned cards with confirmation toasts.
+    - In `src/trades.js`: passed `trade-card` through to `CardManagement` without trade intercept.
+    - In `src/wishlist.js`: exposed `for_trade` on `readCollection` and `page("collection")` rows.
+    - In `public/card-surface.js` & `public/card-surface.css`: rendered `<span class="card-state-trade" role="img" aria-label="For Trade" title="For Trade">⚖️</span>` within `.card-state-icons`, and supported dynamic updates in `syncCardFlags`.
+    - In `public/app.js`: replaced the collection card `instant-sell` button with `<button class="text-button" data-action="trade-toggle">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button>`, updated `cardFlags` and `ownerFlags`.
+    - In `public/features.js`: passed `forTrade: !!c.for_trade` in showcase `readCard`.
+    - In `public/demo-features.js`: implemented `trade-card` action handler and state update.
+  - Unit tests:
+    - Updated `tests/wishlist.test.mjs` with assertions for `Owned/Wishlist (owned/wanted) ↗` button format, `trade-card` action toggling `for_trade`, public profile collection rows exposing `for_trade`, and `&wishlist=1` viewer wishlist filtering.
+    - Updated `tests/card-surface.test.mjs` verifying `forTrade` and `⚖️` badge rendering.
+    - Updated `tests/alchemy-runtime.test.mjs` to include `for_trade` in public collection row schema assertions.
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (448/448 passed), `git diff --check` (clean).
+- Deployment note: Ready for review and deploy when requested.
+- Integration owner / deployment owner: Gemini.
+
+## Previous Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization
 
 - Gemini owns implementation/commit: `src/engine.js`, `src/quiz.js`, `public/quiz-ui.js`, `tests/quiz.test.mjs`, `tests/quiz-ui.test.mjs`, `tests/quiz-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `08c5298`

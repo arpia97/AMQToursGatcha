@@ -1267,6 +1267,8 @@ export class Game extends DurableObject {
           rarity: url.searchParams.get("rarity") || "",
           role: url.searchParams.get("role") || "",
           sort: url.searchParams.get("sort") || "custom",
+          wishlist: url.searchParams.get("wishlist") === "1",
+          viewer: session?.player,
         },
       );
       return json({

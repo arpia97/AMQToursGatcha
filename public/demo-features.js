@@ -143,8 +143,9 @@ export function demoFeatures(d, path, b) {
     const params = new URLSearchParams(path.split("?")[1]),
       id = params.get("id"),
       view = params.get("view"),
-      page = Number(params.get("page") || 1);
-    const rows =
+      page = Number(params.get("page") || 1),
+      wishlistOnly = params.get("wishlist") === "1";
+    let rows =
       id === me.id && view === "wishlist"
         ? s.wishlist.map((card) => ({ card }))
         : id === me.id && view === "collection"
@@ -160,11 +161,15 @@ export function demoFeatures(d, path, b) {
               },
             ).map(({ c: _c, ...row }) => row)
           : [];
+    if (wishlistOnly) {
+      const wishSet = new Set(s.wishlist || []);
+      rows = rows.filter((r) => wishSet.has(r.card));
+    }
     return {
       player: id,
       view,
       page,
-      total: id === me.id && view === "collection" ? s.inventory.length : rows.length,
+      total: rows.length,
       rows: rows.slice((page - 1) * 24, page * 24),
       hasMore: rows.length > page * 24,
       cards: d.cards,
@@ -1170,6 +1175,18 @@ export function demoFeatures(d, path, b) {
     item.protected = b.protected ? 1 : 0;
     return {
       message: item.protected ? "Card protected." : "Card unprotected.",
+    };
+  }
+  if (path === "trade-card") {
+    const item = s.inventory.find((i) => i.card === b.card);
+    const forTrade = typeof b.forTrade === "boolean" ? b.forTrade : b.for_trade;
+    if (!item || typeof forTrade !== "boolean")
+      throw Error("Choose an owned card.");
+    item.for_trade = forTrade ? 1 : 0;
+    return {
+      message: item.for_trade
+        ? "Card marked for trade. Other players can see you are willing to trade or sell this card."
+        : "Card trade marker removed.",
     };
   }
   if (path === "sell-batch") {

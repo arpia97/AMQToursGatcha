@@ -68,6 +68,7 @@ export class Engine {
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
+      ["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "position", "INTEGER"],
       ["catalog", "role", "TEXT NOT NULL DEFAULT 'supporting'"],
       ["catalog", "bulk_role", "TEXT"],
@@ -1202,7 +1203,7 @@ export class Engine {
       id,
     );
     const showcase = this.all(
-      "SELECT s.card,i.level,i.copies,i.protected FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
+      "SELECT s.card,i.level,i.copies,i.protected,COALESCE(i.for_trade,0) AS for_trade FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
       id,
     );
     return {

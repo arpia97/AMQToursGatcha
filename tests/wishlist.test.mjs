@@ -260,7 +260,11 @@ test("public profile and wishlist card flags belong to that profile's player", (
     e.catalogStore.cards(["c0"]),
   )[0];
   assert.deepEqual(counted.collectors, { wanted: 1, owned: 2 });
-  assert.match(collectorsButton(counted, String), /Collectors \(1\/2\)/);
+  assert.match(collectorsButton(counted, String), /Owned\/Wishlist \(2\/1\) ↗/);
+  assert.match(
+    collectorsButton(counted, String),
+    /title="Owned by 2 · Wishlisted by 1"/,
+  );
   const panel = collectorsPanel(
     { ...e.economy.wishlist.collectors("c0"), rarity: "SSS" },
     {
@@ -378,4 +382,109 @@ test("collection custom order persists, filters and sorts in profile collection 
   assert.match(ownHtml, /id="profile-collection-sort"/);
   assert.match(ownHtml, /id="profile-collection-rarity"/);
   assert.match(ownHtml, /id="profile-collection-role"/);
+});
+
+test("trade-card toggles willing-to-trade marker, and viewer wishlist filters public collection", (t) => {
+  const { e, act } = fixture(t);
+  e.host("catalog", {
+    cards: [
+      { id: "community-trade-1", name: "Trade 1", kind: "character", fixedRarity: "AG", series: "Series" },
+      { id: "community-trade-2", name: "Trade 2", kind: "character", fixedRarity: "S", series: "Series" },
+      { id: "community-trade-3", name: "Trade 3", kind: "seiyuu", fixedRarity: "A", series: "Series" },
+    ],
+  });
+  e.addCard("p", "community-trade-1");
+  e.addCard("p", "community-trade-2");
+  e.addCard("p", "community-trade-3");
+
+  // Initial for_trade is 0
+  assert.equal(e.economy.wishlist.readCollection("p")[0].for_trade, 0);
+
+  // Toggle forTrade on
+  const resOn = act("p", "trade-card", { card: "community-trade-1", forTrade: true });
+  assert.match(resOn.message, /marked for trade/i);
+  assert.equal(
+    e.one("SELECT for_trade FROM inventory WHERE player='p' AND card='community-trade-1'").for_trade,
+    1,
+  );
+  assert.equal(
+    e.economy.wishlist.page("p", "collection", 1).rows.find((r) => r.card === "community-trade-1").for_trade,
+    1,
+  );
+
+  // Toggle forTrade off
+  const resOff = act("p", "trade-card", { card: "community-trade-1", forTrade: false });
+  assert.match(resOff.message, /trade marker removed/i);
+  assert.equal(
+    e.one("SELECT for_trade FROM inventory WHERE player='p' AND card='community-trade-1'").for_trade,
+    0,
+  );
+
+  // Re-enable for trade on community-trade-1
+  act("p", "trade-card", { card: "community-trade-1", forTrade: true });
+
+  // Cannot mark unowned card
+  assert.throws(
+    () => act("p", "trade-card", { card: "community-trade-unowned", forTrade: true }),
+    /own that card/,
+  );
+
+  // Viewer q has wishlisted community-trade-2
+  act("q", "wishlist", { card: "community-trade-2", wanted: true });
+
+  // When viewer q views p's collection with wishlist: true
+  const filtered = e.economy.wishlist.page("p", "collection", 1, {
+    wishlist: true,
+    viewer: "q",
+  });
+  assert.deepEqual(
+    filtered.rows.map((r) => r.card),
+    ["community-trade-2"],
+  );
+  assert.equal(filtered.total, 1);
+
+  // When viewer q views p's collection without wishlist filter
+  const allRows = e.economy.wishlist.page("p", "collection", 1, {
+    viewer: "q",
+  });
+  assert.equal(allRows.rows.length, 3);
+
+  // UI tests for "My Wishlist Only" checkbox
+  const viewerHtml = profileCardPanel(
+    e.economy.wishlist.page("p", "collection", 1),
+    {
+      cardBy: (id) => e.catalogStore.card(id),
+      cardHTML: () => "<article></article>",
+      escape: String,
+      number: String,
+      own: false,
+      wishlist: ["community-trade-2"],
+      collectionFilters: {
+        kind: "both",
+        query: "",
+        rarity: "",
+        role: "",
+        sort: "custom",
+        wishlist: true,
+      },
+    },
+  );
+  assert.match(viewerHtml, /id="profile-collection-wishlist"/);
+  assert.match(viewerHtml, /My Wishlist Only/);
+  assert.match(viewerHtml, /checked/);
+
+  // Own collection should NOT have "My Wishlist Only"
+  const ownHtml = profileCardPanel(
+    e.economy.wishlist.page("p", "collection", 1),
+    {
+      cardBy: (id) => e.catalogStore.card(id),
+      cardHTML: () => "<article></article>",
+      escape: String,
+      number: String,
+      own: true,
+      wishlist: ["community-trade-2"],
+      collectionFilters: {},
+    },
+  );
+  assert.doesNotMatch(ownHtml, /id="profile-collection-wishlist"/);
 });

@@ -273,6 +273,9 @@
 .card-state-heart {
   color: #ff91af;
 }
+.card-state-trade {
+  font-size: 11px;
+}
 .card-surface.is-revealed .card-back {
   transform: none;
 }
