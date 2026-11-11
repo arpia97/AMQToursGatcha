@@ -1267,7 +1267,7 @@ function home() {
     ) +
     (state.activePickem
       ? pickemHero(state.activePickem)
-      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><a class="button" href="#packs">Find your next favourite <span>↗</span></a></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)} ${cardFrameClass()}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
+      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><div class="hero-actions"><a class="button" href="#packs">Find your next favourite <span>↗</span></a><a class="button secondary" href="#collection">See my collection <span>↗</span></a></div></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)} ${cardFrameClass()}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +

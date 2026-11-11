@@ -345,6 +345,12 @@ main {
   margin: 13px 0 23px;
   color: #b5aab8;
 }
+.hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .button {
   display: inline-flex;
   justify-content: center;

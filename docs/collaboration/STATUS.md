@@ -2,9 +2,9 @@
 
 Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Profile Collection 'My Wishlist Only' Filter, Owned/Wishlist Button & Willing to Trade Marker (⚖️)
+## Active Task — Profile Collection 'My Wishlist Only' Filter, Owned/Wishlist Button, Trade Marker & Overview Collection Button
 
-- Gemini owns implementation/commit: `public/app.js`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `public/profile-cards-ui.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/wishlist.js`, `src/card-management.js`, `src/trades.js`, `src/economy-repair.js`, `src/worker.js`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `tests/alchemy-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
+- Gemini owns implementation/commit: `public/app.js`, `public/styles.css`, `public/card-collectors.js`, `public/card-surface.js`, `public/card-surface.css`, `public/profile-cards-ui.js`, `public/features.js`, `public/demo-features.js`, `src/engine.js`, `src/wishlist.js`, `src/card-management.js`, `src/trades.js`, `src/economy-repair.js`, `src/worker.js`, `tests/site-navigation.test.mjs`, `tests/wishlist.test.mjs`, `tests/card-surface.test.mjs`, `tests/alchemy-runtime.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `bcebaef`
 - Other collaborator's work to preserve: Codex's background anime metadata enrichment pass, player accounts, economy/catalog state.
 - Completed behavior / decisions:
@@ -27,11 +27,16 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
     - In `public/app.js`: replaced the collection card `instant-sell` button with `<button class="text-button" data-action="trade-toggle">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button>`, updated `cardFlags` and `ownerFlags`.
     - In `public/features.js`: passed `forTrade: !!c.for_trade` in showcase `readCard`.
     - In `public/demo-features.js`: implemented `trade-card` action handler and state update.
+  - 4. "See my collection" button in Overview tab:
+    - In `public/app.js`: added `<a class="button secondary" href="#collection">See my collection <span>↗</span></a>` right next to `<a class="button" href="#packs">Find your next favourite <span>↗</span></a>` within `.hero-actions`.
+    - In `public/styles.css`: added `.hero-actions` flexbox styling (`display: flex; gap: 10px; align-items: center; flex-wrap: wrap;`) for responsive layout alongside `.button.secondary`.
+    - Unit tests: in `tests/site-navigation.test.mjs`, verified rendering of both hero buttons and the `.hero-actions` container.
   - Unit tests:
     - Updated `tests/wishlist.test.mjs` with assertions for `Owned/Wishlist (owned/wanted) ↗` button format, `trade-card` action toggling `for_trade`, public profile collection rows exposing `for_trade`, and `&wishlist=1` viewer wishlist filtering.
     - Updated `tests/card-surface.test.mjs` verifying `forTrade` and `⚖️` badge rendering.
     - Updated `tests/alchemy-runtime.test.mjs` to include `for_trade` in public collection row schema assertions.
-- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (448/448 passed), `git diff --check` (clean).
+    - Updated `tests/site-navigation.test.mjs` verifying overview hero collection button navigation.
+- Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (449/449 passed), `git diff --check` (clean).
 - Deployment note: Ready for review and deploy when requested.
 - Integration owner / deployment owner: Gemini.
 
