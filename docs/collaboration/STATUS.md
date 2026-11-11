@@ -20,7 +20,7 @@ Updated November 11, 2026, Asia/Seoul. This file is a coordination record; Git a
     - In `tests/wishlist.test.mjs`: updated assertions to verify `Collection (2/1) ↗` format and aria-label.
     - In `tests/card-surface.test.mjs`: added test verifying `syncCardFlags` updates flags on single card roots and container elements, and CSS contains `.card-action-grid :is([aria-pressed="true"], .is-selected)`.
 - Checks run and results: `node tools/check.mjs` (212 files passed), `node --test tests/*.test.mjs` (450/450 passed), `git diff --check` (clean).
-- Deployment note: Ready for review and deployment when requested.
+- Runtime deployment version / live verification: Deployed to Cloudflare Worker `amqtours-gatcha` version **148a63f8-28df-420b-917e-f48514eed9e0** and `play` proxy version **25c9bf09-552d-4e62-b77e-682032d366c5**. Verified live read-only: `/api/health` (200, `{"ok":true,"service":"AMQ Tours Gatcha"}`), `/card-collectors.js` (contains `Collection...`), `/card-surface.css` (contains `.card-action-grid :is([aria-pressed="true"], .is-selected)`), `/app.js` (contains `forTrade: nextForTrade`). No manual data mutations.
 - Integration owner / deployment owner: Gemini.
 
 ## Previous Task — Quiz Song Transition Prebuffering & Server Hot-Path Optimization
