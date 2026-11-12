@@ -11,6 +11,7 @@ import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text, integer } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
 import { inspectEconomyRepair, applyEconomyRepair } from "./economy-repair.js";
+import { inspectAccountRollback, applyAccountRollback } from "./account-rollback.js";
 import {
   registrationForwarding,
   registrationPolicy,
@@ -337,6 +338,9 @@ export class Game extends DurableObject {
           "host/economy-repair-preview",
           "host/economy-repair",
           "host/economy-repair-receipt",
+          "host/account-rollback-preview",
+          "host/account-rollback",
+          "host/account-rollback-receipt",
         ].includes(path) ||
         (path === "host/reset-all" && b.deleteRegistry) ||
         (["host/reset", "host/invite"].includes(path) &&
@@ -391,6 +395,23 @@ export class Game extends DurableObject {
             () => e.setHostAccess("368", b),
           ),
         );
+      }
+      if (["host/account-rollback-preview", "host/account-rollback"].includes(path) && post) {
+        const { digest: expected,...plan } = b;
+        const actual = await digest(JSON.stringify(plan));
+        if (actual !== expected) fail("Rollback manifest digest changed.",409);
+        requireOwner();
+        if (path.endsWith("-preview"))
+          return json(e.tx(() => inspectAccountRollback(e,plan)));
+        const key = text(request.headers.get("Idempotency-Key"),100);
+        if (key !== plan.repairId) fail("Use the rollback ID as the request key.");
+        const bookmark = await this.ctx.storage.getCurrentBookmark();
+        requireOwner();
+        return json(e.mutate("host:account-rollback",key,b,() => applyAccountRollback(e,plan,actual,bookmark)));
+      }
+      if (path === "host/account-rollback-receipt" && !post) {
+        const saved = e.one("SELECT result FROM receipts WHERE scope='host:account-rollback' AND key=?",text(url.searchParams.get("id"),100));
+        return json({result:saved ? JSON.parse(saved.result) : null});
       }
       if (
         ["host/economy-repair-preview", "host/economy-repair"].includes(path) &&

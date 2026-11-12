@@ -144,6 +144,19 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     host,
   );
   assert.equal(response.status, 200);
+  for (const path of ["host/account-rollback-preview", "host/account-rollback"]) {
+    assert.equal((await post(path, {})).status, 401);
+    assert.equal((await post(path, {}, { Cookie: cookie })).status, 401);
+    assert.equal((await post(path, {}, { Cookie: hostCookie })).status, 403);
+    const invalid = await post(path, { digest:"changed" }, host);
+    assert.equal(invalid.status, 409);
+  }
+  assert.equal((await mf.dispatchFetch("http://game/api/host/account-rollback-receipt?id=test", {
+    headers:{Cookie:hostCookie},
+  })).status,403);
+  const missingRollback = await mf.dispatchFetch("http://game/api/host/account-rollback-receipt?id=test", {headers:host});
+  assert.equal(missingRollback.status,200);
+  assert.deepEqual(await missingRollback.json(),{result:null});
   for (const path of ["host/credit-audit", "host/activity-csv"]) {
     assert.equal(
       (await mf.dispatchFetch("http://game/api/" + path)).status,

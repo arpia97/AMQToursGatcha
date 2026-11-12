@@ -2,6 +2,12 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Authorized bop Rollback and Special-Pack Transfer Audit
+
+- Codex owns a focused owner-only rollback helper, `src/worker.js` routing, its tests, and this entry. Read-only private evidence stays in ignored local work files. Preserve all unrelated player activity, source catalogue/import progress, and historical repairs.
+- User authorized resetting bop's gameplay, account access and all transactions, plus checking other special-pack/signup transfer cases. bop access was revoked via existing host/reset before taking the frozen snapshot. Gameplay/foreign inventories have not yet been changed. Rollback must be atomic, snapshot-guarded and idempotent; retain a durable repair receipt and bonus-consumed marker.
+- Scoped helper is ready: owner-only preview/apply/receipt, exact receipt/inventory/transfer guards, invested-copy correction, recovery revocation, consumed-bonus preservation, and a PITR bookmark. 466 tests, 216 syntax checks and dry-run build pass, including real Worker authorization and transaction failure/retry checks. Production correction is still pending; inspect the saved receipt before any retry. Other accounts are audit-only and must not be reset without user authorization.
+
 ## Completed Task — One Score Per Player in Quiz Difficulty
 
 - Codex owns `src/quiz.js`, existing quiz tests, `QUIZ.md`, and this entry. Base `6a5dacf`, clean and synchronized. Uses each player's personal-best submitted score once, from the existing unique player/quiz progress rows; retries carry no extra weight. Kept Score/Scores wording and all rewards/recaps intact. Removed the obsolete derived receipt index, preserved all receipts/player data, invalidated cached difficulty on host quiz-score resets.
