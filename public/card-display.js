@@ -92,7 +92,7 @@ export function collectionView(
         c &&
         (!upgradable || canUpgrade(item)) &&
         (!hideProtected || !item.protected) &&
-        (!tradeable || !!item.for_trade) &&
+        (!tradeable || !!item.for_trade || !item.protected) &&
         (!kind || kind === "both" || c.kind === kind) &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&

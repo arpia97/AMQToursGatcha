@@ -222,7 +222,7 @@ export class Wishlist {
   page(id, view, page = 1, options = {}) {
     const e = this.e;
     id = e.resolvePlayer(text(id, 100));
-    e.player(id);
+    const owner=e.player(id);
     integer(page, 1, 10000);
     let rows, total;
     if (view === "wishlist")
@@ -263,7 +263,7 @@ export class Wishlist {
         allRows = allRows.filter((r) => wanted.has(r.card));
       }
       if (options.tradeable) {
-        allRows = allRows.filter((r) => !!r.for_trade);
+        allRows = owner.account_locked ? [] : allRows.filter((r) => !!r.for_trade || !r.protected);
       }
       total = allRows.length;
       const sourceRows =

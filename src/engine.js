@@ -280,12 +280,11 @@ export class Engine {
   }
   addCard(player, card, count = 1) {
     this.run(
-      "INSERT INTO inventory(player,card,copies,level,acquired_at,for_trade) VALUES(?,?,?,1,?,COALESCE((SELECT CASE WHEN account_locked=0 THEN 1 ELSE 0 END FROM players WHERE id=?),0)) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
       player,
       card,
       count,
       this.now(),
-      player,
     );
   }
   mutate(scope, key, body, fn) {

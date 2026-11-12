@@ -44,9 +44,9 @@ export class Demo {
       this.s = JSON.parse(localStorage.getItem(KEY));
     } catch {}
     if (!this.s) this.reset();
-    if(!this.s.automaticTradeDefaultsRevision){
-      for(const item of this.s.inventory)item.for_trade=item.protected?0:1;
-      this.s.automaticTradeDefaultsRevision=1;
+    if((this.s.automaticTradeDefaultsRevision||0)<2){
+      if(this.s.automaticTradeDefaultsRevision===1)for(const item of this.s.inventory)item.for_trade=0;
+      this.s.automaticTradeDefaultsRevision=2;
       this.save();
     }
     this.s.catalog = cards;
@@ -67,8 +67,8 @@ export class Demo {
       catalog: this.cards,
       settings: { character_price: 500, seiyuu_price: 500, main_weight: 80 },
       inventory: [
-        { player: me.id, card: this.cards[0].id, copies: 3, level: 1, for_trade:1 },
-        { player: me.id, card: this.cards[1].id, copies: 1, level: 2, for_trade:1 },
+        { player: me.id, card: this.cards[0].id, copies: 3, level: 1, for_trade:0 },
+        { player: me.id, card: this.cards[1].id, copies: 1, level: 2, for_trade:0 },
       ],
       ledger: [
         {
@@ -151,7 +151,7 @@ export class Demo {
         copies: 1,
         level: 1,
         acquired_at: Date.now(),
-        for_trade:1,
+        for_trade:0,
       });
   }
   async request(path, b) {

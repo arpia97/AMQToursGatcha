@@ -2,7 +2,12 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Completed Task — Automatic Tradeable Defaults
+## Active Task — Tradeable Filter Without Automatic Labels
+
+- Validation: all 471 tests passed, 222 JavaScript files syntax-checked, dry-run build and diff checks passed. Production repair runs atomically once at revision 2; retained manual choices are restored only for the current inventory lifetime. Deployment/live verification pending.
+- User clarified that unprotected cards should be included by the Tradeable Only checkbox, not automatically assigned a Trade marker. Codex owns the correction: separate filter eligibility from manual labels; stop acquisition/protection/account-unlock auto-labeling; repair only the accidental automatic labels using retained manual Trade receipts and current inventory acquisition times. Preserve manual labels, account locks, assets, wallet state, all prior repairs and the new Shop Owned/Wanted button. Prior automatic-default behavior below is superseded.
+
+## Superseded Task — Automatic Tradeable Defaults
 
 - Codex owns trade defaults, card protection/trade markers, acquisition paths, related UI/demo behavior and focused existing tests. User requests unlocked cards automatically included as tradeable. Existing/new unprotected cards default on; protection clears the marker, unprotection restores it, manual opt-out remains available. Locked accounts stay unavailable. Apply a guarded one-time marker backfill only; preserve card units/levels/protection/order, account locks, wallets, catalogue/imports and all completed correction receipts.
 - Also added the shared Collection / Owned-Wanted button to Shop Sell tiles alongside Sell Now and List for Sale, reusing the existing counts/modal handler. Protection updates Trade controls/icons immediately and prevents marking protected cards for trade. Demo matches the defaults. 471 tests, 222 syntax checks and dry-run build pass; migration regression verifies unchanged assets/wallets, locked-account exclusion, future acquisition defaults and persistent opt-outs.
