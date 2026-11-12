@@ -2,9 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Host-Issued Registration Codes and Persistent Account Lock
+## Completed Task — Host-Issued Registration Codes and Persistent Account Lock
 
-- User explicitly requires individual one-use host-issued codes for all new accounts and a persistent earning/economic-action lock for the specified account. Its current access was revoked successfully once; do not repeat access reset. New implementation adds required code UI and host issuance, rejects code-free/shared-code signup, protects mixed-version deployments, enforces an owner-only persistent lock, skips locked reward recipients without blocking other players, closes open listings and returns escrow/bids. Registration/recovery cannot bypass the lock. Preserve all activity, catalogues/imports and previous repairs. Tests, deployment and the authorized live persistent lock are being finalized.
+- All new registrations require an individual one-use host-issued code, using the existing seven-day password-recovery mechanism. Players & Access → New Account Codes issues codes; supplied codes remain tied to the player and consumed once. Shared beta/code-free signup is rejected, including during mixed-version actor deployments.
+- Owner-only persistent locks block registration/login, player mutations, and credit rewards; bulk reward settlements continue for other players. Locking closes open sale/trade/auction listings and returns held cards/bids, preserving investment and legitimate balances. Unlocking does not restore revoked access. The user-authorized lock was applied and verified once under `lelpop-persistent-lock-2026-11-12-v1`; **do not repeat it or its prior access reset.** Both open trade listings closed, two unrelated offers were returned, and every invested card unit plus unrelated wallets was verified. Private before/result/after/verified evidence stays outside Git.
+- Runtime source **079d7fc474172cc35869048da2c94368b766acb6**, pushed and deployed to original Worker **ddb3d9e6-cf94-4214-be2e-8260876bb736**. 470 tests, 221 syntax checks, dry-run build and exact-source application/demo CI passed. Live health 200; front/actor policies both require individual one-use codes; missing-code signup 401; locked-account signup 403; anonymous lock endpoint 401; changed public assets exactly match release source. No production test accounts, grants, bets or trades. Original object, catalogue/import progress and all earlier repair receipts retained. No pending work.
 
 ## Completed Task — Authorized Three-Account Transaction Rollback
 
