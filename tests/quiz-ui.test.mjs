@@ -246,16 +246,21 @@ function fixture(
         readyState: 4,
         plays: 0,
         paused: 0,
-        addEventListener: (event, fn) => (listeners[event] = fn),
+        addEventListener(event, fn) { (listeners[event] ||= new Set()).add(fn); },
+        removeEventListener(event, fn) { listeners[event]?.delete(fn); },
+        removeAttribute(name) { if (name === "src") this.src = ""; },
+        loads: 0,
+        load() { this.loads++; },
         pause() {
           this.paused++;
         },
         play() {
           this.plays++;
-          return blocked ? Promise.reject(Error("gesture")) : Promise.resolve();
+          if (this.playError) return Promise.reject(this.playError);
+          return blocked ? Promise.reject(Object.assign(Error("gesture"), {name:"NotAllowedError"})) : Promise.resolve();
         },
         emit: async (event) => {
-          await listeners[event]?.();
+          for (const fn of [...(listeners[event] || [])]) await fn();
         },
       };
       audios.push(audio);
@@ -793,6 +798,8 @@ test("Quiz transitions patch only the question; readiness keeps the existing for
   });
   assert.equal(f.node("quiz-lock-answer").textContent, "Locking Answer…");
   assert.equal(f.node("quiz-lock-answer").disabled, true);
+  await f.audios[0].emit("error");
+  assert.equal(f.audios.length,1,"an answer-lock pause/error cannot restart sound while saving");
   await f.ui.submit({ elements: { answer: { value: "duplicate" } } });
   gate.release();
   await answer;
@@ -1067,4 +1074,36 @@ test("answer reveal prebuffers and seeks the next song so Next Song plays immedi
     readyCallsBefore + 1,
   );
   assert.equal(inFlight.plays, 1);
+});
+
+
+test("failed prebuffered/blob playback releases decoders, recovers once using the direct URL and keeps the original deadline; explicit retry replaces the failed player", async t => {
+ const f=fixture(t,{transitions:true,prefetch:true,audioCache:{url:()=>"blob:cached-mp3"}});
+ await f.start();await f.advance(2000);
+ await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
+ assert.equal(f.audios[0].src, "", "finished song releases its source");
+ const buffered=f.audios[1];await buffered.emit("loadedmetadata");await buffered.emit("canplay");
+ const before=f.calls.filter(c=>c.path==="quiz-ready").length;
+ buffered.playError=Object.assign(Error("Decoder failed"),{name:"NotSupportedError"});
+ await f.ui.click(f.button("data-quiz-action","quiz-next"));await flush();
+ assert.equal(buffered.plays,1);await f.advance(4000);
+ const replacement=f.audios[2];
+ assert.equal(buffered.src,"");assert.equal(replacement.src,"https://example.com/song-1.mp3");
+ await replacement.emit("loadedmetadata");assert.equal(replacement.currentTime,29,"retry seeks past the already elapsed sample time");
+ await replacement.emit("canplay");await flush();assert.equal(replacement.plays,1);
+ assert.equal(f.calls.filter(c=>c.path==="quiz-ready").length,before,"no clock reset or extra readiness write");
+ await buffered.emit("error");assert.equal(f.audios.length,3,"retired listeners cannot affect the new player");
+ await replacement.emit("error");assert.equal(f.audios.length,3,"automatic recovery is bounded");assert.equal(f.node("quiz-audio-status").textContent,"Audio Could Not Load");
+ await f.ui.click(f.button("data-quiz-play"));assert.equal(f.audios.length,4);assert.equal(replacement.src,"");
+ await f.audios[3].emit("loadedmetadata");await f.audios[3].emit("canplay");await flush();assert.equal(f.audios[3].plays,1);
+ f.ui.leave();assert.ok(f.audios.every(a=>a.src===""));
+});
+
+test("stale prebuffer readiness never arms the next deadline while Firefox is seeking or has discarded decoded data", async t => {
+ const f=fixture(t,{transitions:true,prefetch:true});await f.start();await f.advance(2000);
+ await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});const buffered=f.audios[1];
+ await buffered.emit("loadedmetadata");await buffered.emit("canplay");buffered.readyState=1;buffered.seeking=true;
+ await f.ui.click(f.button("data-quiz-action","quiz-next"));
+ assert.equal(f.calls.filter(c=>c.path==="quiz-next").at(-1).b.ready,undefined);
+ assert.equal(buffered.plays,0);buffered.seeking=false;buffered.readyState=4;await buffered.emit("seeked");await flush();assert.equal(buffered.plays,1);
 });

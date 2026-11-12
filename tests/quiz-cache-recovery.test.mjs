@@ -30,9 +30,9 @@ test("Quiz preload rewrites only AMQ mirrors, downloads distinct files with boun
       peak = Math.max(peak, active);
       await Promise.resolve();
       active--;
-      return new Response(new Blob(["mp3"], { type: "audio/mpeg" }));
+      return new Response(new Blob(["mp3"], { type: "application/octet-stream" }));
     },
-    createUrl: () => "blob:" + ++created,
+    createUrl: blob => { assert.equal(blob.type,"audio/mpeg"); return "blob:" + ++created; },
     revokeUrl: (u) => revoked.push(u),
   });
   const sources = ["a", "a", "b", "c"].map(

@@ -53,7 +53,10 @@ export function createQuizAudioCache({
                 blob.type)
             )
               throw Error("The server did not return a playable MP3.");
-            files.set(url, { url: createUrl(blob), bytes: blob.size });
+            // These are validated MP3 sources. Generic/legacy MIME headers
+            // must not become an unsupported blob source in Firefox.
+            const mp3 = blob.type === "audio/mpeg" ? blob : new Blob([blob], { type: "audio/mpeg" });
+            files.set(url, { url: createUrl(mp3), bytes: blob.size });
             loaded++;
             bytes += blob.size;
             progress();

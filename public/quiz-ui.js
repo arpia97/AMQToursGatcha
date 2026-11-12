@@ -51,6 +51,8 @@ export function createQuizUI({
     locallyStopped = false,
     audio = null,
     audioKey = "",
+    recoveredAudioKey = "",
+    recoverAudio = null,
     generation = 0,
     leaderboardOnly = false,
     leaderboardData = null,
@@ -137,14 +139,41 @@ export function createQuizUI({
   // The next song is buffered (and seeked to its sample) while the reveal is
   // shown, so pressing Next reuses a ready element instead of downloading.
   let upcoming = null;
+  const audioListeners = new WeakMap();
+  function listen(element, event, listener) {
+    element.addEventListener(event, listener);
+    const listeners = audioListeners.get(element) || [];
+    listeners.push([event, listener]);
+    audioListeners.set(element, listeners);
+  }
+  function detachAudio(element) {
+    for (const [event, listener] of audioListeners.get(element) || [])
+      element.removeEventListener?.(event, listener);
+    audioListeners.delete(element);
+  }
+  function releaseAudio(element) {
+    if (!element) return;
+    detachAudio(element);
+    element.pause?.();
+    // pause() alone keeps the source/decoder alive on mobile browsers.
+    element.removeAttribute?.("src");
+    element.load?.();
+  }
+  const prefetchReady = () => !!(
+    upcoming?.ready && !upcoming.failed &&
+    !upcoming.element.error && !upcoming.element.seeking &&
+    (upcoming.element.readyState === undefined || upcoming.element.readyState >= 3)
+  );
+
   function dropPrefetch() {
-    if (upcoming && !upcoming.claimed) upcoming.element.pause?.();
+    if (upcoming && !upcoming.claimed) releaseAudio(upcoming.element);
     upcoming = null;
   }
   function stop({ keepPrefetch = false } = {}) {
     generation++;
-    audio?.pause();
+    releaseAudio(audio);
     audio = null;
+    recoverAudio = null;
     audioKey = "";
     arming = false;
     if (!keepPrefetch) dropPrefetch();
@@ -183,12 +212,12 @@ export function createQuizUI({
         entry.claimed ||
         entry.failed ||
         element.seeking ||
-        (element.readyState !== undefined && element.readyState < 2)
+        (element.readyState !== undefined && element.readyState < 3)
       )
         return;
       entry.ready = true;
     };
-    element.addEventListener("loadedmetadata", () => {
+    listen(element, "loadedmetadata", () => {
       if (entry.claimed) return;
       entry.sampleStart = Number.isFinite(element.duration)
         ? Math.max(
@@ -196,15 +225,23 @@ export function createQuizUI({
             (element.duration - QUIZ_SONG_MS / 1000) * (entry.sample || 0),
           )
         : 0;
-      element.currentTime = entry.sampleStart;
+      try { element.currentTime = entry.sampleStart; }
+      catch {
+        entry.failed = true;
+        entry.ready = false;
+        releaseAudio(element);
+      }
     });
-    element.addEventListener("canplay", settle);
-    element.addEventListener("canplaythrough", settle);
-    element.addEventListener("seeked", settle);
-    element.addEventListener("error", () => {
+    listen(element, "canplay", settle);
+    listen(element, "canplaythrough", settle);
+    listen(element, "seeked", settle);
+    for (const event of ["seeking", "waiting", "stalled"])
+      listen(element, event, () => { entry.ready = false; });
+    listen(element, "error", () => {
       if (entry.claimed) return;
       entry.failed = true;
       entry.ready = false;
+      releaseAudio(element);
     });
     element.load?.();
   }
@@ -873,8 +910,7 @@ export function createQuizUI({
       ...(action === "quiz-next" &&
       run &&
       upcoming?.key === run.id + ":" + (run.index + 1) &&
-      upcoming.ready &&
-      !upcoming.failed
+      prefetchReady()
         ? { ready: true }
         : {}),
     };
@@ -975,11 +1011,12 @@ export function createQuizUI({
           tick();
         }
       })
-      .catch(() => {
-        if (token === generation) {
+      .catch((error) => {
+        if (token !== generation || pendingAction === "quiz-answer" || run?.answered || locallyStopped) return;
+        if (error?.name === "NotAllowedError") {
           audioState = "blocked";
           tick();
-        }
+        } else recoverAudio?.();
       });
   }
   function text(node, value) {
@@ -1096,7 +1133,7 @@ export function createQuizUI({
     if (started && audio && audioState !== "loading" && audioState !== "error")
       attemptPlay();
   }
-  function mount() {
+  function mount({ direct = false } = {}) {
     if (!selected || !run || run.finished) {
       stop();
       return;
@@ -1119,9 +1156,10 @@ export function createQuizUI({
       return;
     }
     const prefetched =
-      upcoming?.key === key && !upcoming.failed ? upcoming : null;
+      !direct && upcoming?.key === key && !upcoming.failed ? upcoming : null;
     if (prefetched) {
       prefetched.claimed = true;
+      detachAudio(prefetched.element);
       upcoming = null;
     }
     stop();
@@ -1140,15 +1178,28 @@ export function createQuizUI({
       sampleStart = prefetched.sampleStart;
     } else {
       audio = makeAudio(
-        cache.url(run.audio, server) || quizAudioUrl(run.audio, server),
+        (!direct && cache.url(run.audio, server)) || quizAudioUrl(run.audio, server),
       );
       audio.preload = "auto";
     }
     audio.volume = volume / 100;
     const current = audio;
+    recoverAudio = () => {
+      if (token !== generation || pendingAction === "quiz-answer" || run?.answered || locallyStopped) return;
+      if (recoveredAudioKey !== key) {
+        recoveredAudioKey = key;
+        audioKey = "";
+        // Discard a failed prefetched/blob decoder once, without re-arming
+        // or extending an already running server deadline.
+        mount({ direct: true });
+      } else {
+        audioState = "error";
+        tick();
+      }
+    };
     const ready = async () => {
       if (token !== generation || arming || current.seeking) return;
-      if (current.readyState !== undefined && current.readyState < 2) return;
+      if (current.readyState !== undefined && current.readyState < 3) return;
       if (run.startsAt) {
         audioState = "ready";
         tick();
@@ -1175,7 +1226,7 @@ export function createQuizUI({
         if (token === generation) arming = false;
       }
     };
-    current.addEventListener("loadedmetadata", () => {
+    listen(current, "loadedmetadata", () => {
       if (token !== generation) return;
       sampleStart = Number.isFinite(current.duration)
         ? Math.max(0, (current.duration - QUIZ_SONG_MS / 1000) * run.sample)
@@ -1183,21 +1234,21 @@ export function createQuizUI({
       const elapsed = run.startsAt
         ? Math.max(0, Math.min(20, (serverNow() - run.startsAt) / 1000))
         : 0;
-      current.currentTime = sampleStart + elapsed;
+      try {
+        if (Math.abs(current.currentTime - sampleStart - elapsed) > 0.05)
+          current.currentTime = sampleStart + elapsed;
+      } catch { recoverAudio?.(); }
     });
-    current.addEventListener("canplay", ready);
-    current.addEventListener("seeked", ready);
-    current.addEventListener("timeupdate", () => {
+    listen(current, "canplay", ready);
+    listen(current, "seeked", ready);
+    listen(current, "timeupdate", () => {
       if (token === generation && current.currentTime >= sampleStart + 20)
         current.pause();
     });
-    current.addEventListener("error", () => {
-      if (token === generation) {
-        audioState = "error";
-        tick();
-      }
+    listen(current, "error", () => {
+      if (token === generation) recoverAudio?.();
     });
-    if (prefetched?.ready) ready();
+    if (prefetched && !current.seeking && current.readyState >= 3) ready();
     else tick();
   }
   return {
@@ -1380,11 +1431,8 @@ export function createQuizUI({
       }
       if (button.hasAttribute("data-quiz-play")) {
         if (audioState === "error" && audio) {
-          audioState = "loading";
-          playAttempted = false;
-          arming = false;
-          audio.load();
-          tick();
+          audioKey = "";
+          mount({ direct: true });
         } else {
           playAttempted = false;
           attemptPlay();
