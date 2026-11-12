@@ -2,9 +2,9 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Pick’em Rewards by Tour Size
+## Completed Task — Pick’em Rewards by Tour Size
 
-- All 471 tests, 222 syntax checks, dry-run build and diff checks passed. Existing tests now cover 2–64 teams, partial groups, explicit zero/custom overrides, form recalculation and manual override preservation, and omitted edit rewards retaining the saved amount. Deployment/live asset checks pending.
+- Runtime source **0b31a637ede3271648b4f85e97b1b587874f23ce**, pushed/deployed to original Worker **fd07c39d-034b-458b-b1cb-a48c0a880e86**. All 471 tests, 222 syntax checks, dry-run build, diff checks and exact-source application/demo CI passed. Existing tests cover 2–64 teams, partial groups, explicit zero/custom overrides, form recalculation and manual override preservation, and omitted edit rewards retaining the saved amount. All three changed public assets match release source; live health 200. Creation/settlement mutations verified locally, with no production pick’ems/votes/rewards created or changed. No pending work.
 - Codex owns the shared default helper, tour-winner creation form and handler, server creation fallback, existing pick’em tests and documentation. Default correct-winner reward: 500 per eight players, assuming four players per submitted team; 8/16/24/32 players yields 500/1,000/1,500/2,000. Preserve host overrides and all existing pick’em rewards; no data migration or production test votes/settlements.
 
 ## Completed Task — Tradeable Filter Without Automatic Labels
