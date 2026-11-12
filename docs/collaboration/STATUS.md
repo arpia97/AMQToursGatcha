@@ -2,6 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — One Score Per Player in Quiz Difficulty
+
+- Codex owns `src/quiz.js`, existing quiz tests, `QUIZ.md`, and this entry. Base `6a5dacf`, clean and synchronized. Use each player's personal-best submitted score once, from the existing unique player/quiz progress rows; retries carry no extra weight. Keep Score/Scores wording and all rewards/recaps intact. Remove the obsolete derived receipt index, preserve all receipts/player data, invalidate cached difficulty on host quiz-score resets. Checks/deployment pending.
+- Reused the existing covering leaderboard index and 60-second statistics cache. Metadata exposes `scoreCount`; legacy `completedRuns` is an alias for open-client compatibility. Full suite: 463 passed; syntax 214 files; dry-run/diff checks passed. Existing regression now covers repeat/lower attempts carrying no added weight, personal-best replacement, zero scores counting, preview receipts ignored, and host-score-reset invalidation. Deployment pending.
+
 ## Completed Task — Quiz Score Count Wording
 
 - Codex owns `public/quiz-ui.js`, its existing UI test assertion, and this entry. Base `d558690`, clean and synchronized.

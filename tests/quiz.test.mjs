@@ -814,29 +814,47 @@ test("quiz clocks are server-owned, persisted and stop at the last answer rather
   assert.equal(f.e.player("p").earned, 2900);
 });
 
-test("difficulty averages count all completed scored attempts once, use the receipt index and cache, and exclude previews", (t) => {
+test("difficulty averages one personal-best score per player, ignoring retries and preview receipts, and clears on score reset", (t) => {
   const f = fixture(t);
   assert.equal(f.e.quiz.list()[0].averageScore, null);
   play(f, 20, "perfect");
   play(f, 0, "misses");
   play(f, 10, "middle", "q");
   let summary = f.e.quiz.list()[0];
-  assert.equal(summary.completedRuns, 3);
-  assert.equal(summary.averageScore, 10);
+  assert.equal(summary.scoreCount, 2);
+  assert.equal(summary.completedRuns, 2);
+  assert.equal(summary.averageScore, 15);
+  play(f, 0, "retry");
+  summary = f.e.quiz.list()[0];
+  assert.equal(summary.scoreCount, 2);
+  assert.equal(summary.averageScore, 15);
+  play(f, 16, "improved", "q");
+  summary = f.e.quiz.list()[0];
+  assert.equal(summary.scoreCount, 2);
+  assert.equal(summary.averageScore, 18);
+  f.e.host("players", { players: [{ id: "zero", name: "Zero Score" }] });
+  play(f, 0, "zero-score", "zero");
+  summary = f.e.quiz.list()[0];
+  assert.equal(summary.scoreCount, 3);
+  assert.equal(summary.averageScore, 12);
   assert.equal(f.e.quiz.statistics(), f.e.quiz.statistics());
   f.e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", "p:quiz-next", "preview", JSON.stringify({quiz:"test"}), JSON.stringify({run:{finished:true,score:20,preview:true}}), f.e.now());
   f.e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", "p:quiz-next", "unfinished", JSON.stringify({quiz:"test"}), JSON.stringify({run:{finished:false,score:19}}), f.e.now());
   f.advance(60001);
   summary = f.e.quiz.list()[0];
-  assert.equal(summary.completedRuns, 3);
-  assert.equal(summary.averageScore, 10);
-  const query = f.e.all("EXPLAIN QUERY PLAN SELECT AVG(json_extract(result,'$.run.score')) FROM receipts INDEXED BY quiz_completion_scores WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0");
-  assert.ok(query.some((r) => r.detail.includes("quiz_completion_scores")));
+  assert.equal(summary.scoreCount, 3);
+  assert.equal(summary.averageScore, 12);
+  const query = f.e.all("EXPLAIN QUERY PLAN SELECT quiz,COUNT(*),AVG(best) FROM quiz_progress INDEXED BY quiz_leaderboard GROUP BY quiz");
+  assert.ok(query.some((r) => r.detail.includes("quiz_leaderboard")));
   const stored = f.e.quiz.run("q", "test");
   for (const answer of stored.answers) { delete answer.elapsedMs; delete answer.responseMs; }
   f.e.quiz.persist("q", "test", stored);
   const oldHistory = f.e.quiz.view("q", "test").run.history;
   assert.ok(oldHistory.every((s) => s.elapsedMs === null && s.responseMs === null));
+  f.e.tx(() => f.e.quiz.resetScores({quiz:"test",confirmation:"RESET QUIZ SCORES AND TITLES"}));
+  summary = f.e.quiz.list()[0];
+  assert.equal(summary.scoreCount, 0);
+  assert.equal(summary.averageScore, null);
 });
 test("leaderboard ties use fastest matching score, then first set; slower/lower repeats cannot replace it or award credits", (t) => {
   const f = fixture(t);

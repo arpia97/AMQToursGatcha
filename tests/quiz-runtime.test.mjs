@@ -584,6 +584,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const quizStatsResponse = await mf.dispatchFetch("http://game/api/quizzes", { headers: auth });
   const quizStats = (await quizStatsResponse.json()).quizzes.find((q) => q.id === "test");
   assert.ok(quizStats.completedRuns >= 1);
+  assert.equal(quizStats.scoreCount, quizStats.completedRuns);
   assert.equal(quizStats.averageScore, 20);
   response = await mf.dispatchFetch("http://game/api/player?id=1");
   const profile = await response.json();

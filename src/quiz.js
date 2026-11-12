@@ -24,7 +24,7 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS quiz_reward_history(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_order(player TEXT PRIMARY KEY,data TEXT NOT NULL)",
-      "CREATE INDEX IF NOT EXISTS quiz_completion_scores ON receipts(json_extract(input,'$.quiz'),json_extract(result,'$.run.score')) WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0",
+      "DROP INDEX IF EXISTS quiz_completion_scores",
     ])
       e.run(sql);
     if (!e.all("PRAGMA table_info(quizzes)").some((c) => c.name === "category"))
@@ -169,6 +169,7 @@ export class Quiz {
       "DELETE FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')=?",
       id,
     );
+    this.statisticsCache = null;
     return {
       message:
         "Quiz scores, active runs and completion titles reset. Existing credits and claimed rewards retained.",
@@ -179,13 +180,13 @@ export class Quiz {
     return !!player && !!this.e.player(player).is_admin;
   }
   statistics() {
-    // Retry receipts are already unique and retain historical completed scores.
-    // Scan only the small covering index, never every answer/ledger JSON body.
+    // Progress has one personal-best row per player/quiz, so retries cannot
+    // give a player extra weight. The existing leaderboard index covers this.
     const now = this.e.now();
     if (this.statisticsCache?.until > now) return this.statisticsCache.rows;
     const rows = new Map(
       this.e.all(
-        "SELECT json_extract(input,'$.quiz') AS quiz,COUNT(*) AS completedRuns,AVG(json_extract(result,'$.run.score')) AS averageScore FROM receipts INDEXED BY quiz_completion_scores WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0 GROUP BY json_extract(input,'$.quiz')",
+        "SELECT quiz,COUNT(*) AS scoreCount,AVG(best) AS averageScore FROM quiz_progress INDEXED BY quiz_leaderboard GROUP BY quiz",
       ).map(({ quiz, ...stats }) => [quiz, stats]),
     );
     this.statisticsCache = { until: now + 60000, rows };
@@ -205,10 +206,15 @@ export class Quiz {
       player || "",
     );
     const statistics = this.statistics();
-    const enriched = rows.map((row) => ({
-      ...row,
-      ...(statistics.get(row.id) || { completedRuns: 0, averageScore: null }),
-    }));
+    const enriched = rows.map((row) => {
+      const stats = statistics.get(row.id) || { scoreCount: 0, averageScore: null };
+      return {
+        ...row,
+        ...stats,
+        // Retain the old wire field for clients already open during rollout.
+        completedRuns: stats.scoreCount,
+      };
+    });
     return includeCoverData
       ? enriched
       : enriched.map(({ has_cover, ...row }) => ({
