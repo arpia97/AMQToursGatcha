@@ -2,13 +2,14 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Firefox Quiz Audio Reliability
+## Completed Task — Firefox Quiz Audio Reliability
 
 - Codex owns `public/quiz-ui.js`, `public/quiz-audio-cache.js` as needed, focused quiz UI/cache tests and quiz/collaboration documentation. Investigating mobile Firefox failures reported after next-song preloading, affecting both normal and competitive runs. Preserve deadlines, answer/reward authority, session cache behavior and current production data. No production quiz attempts or rewards; local fixtures only.
 - Base `6dae674`, clean and synchronized with main. No other uncommitted work at start.
 - Implemented explicit listener/source/decoder release, current future-data readiness checks, one fresh direct-source recovery per song, proper autoplay-error classification, fresh Retry Audio and MP3 blob MIME normalization. Existing server deadlines, quick next-song path, rewards and competitive session caching retained. Answer-lock errors cannot replay sound while saving.
 - Automated validation: 80 quiz tests pass (26 focused UI/cache), 222 syntax checks, dry-run build and diff checks. Two new regression cases fail against the previous UI. Existing fixtures now support real multiple-listener removal instead of silently overwriting handlers.
 - Browser limitation: native Firefox automation was blocked by this environment's unsupported URL-policy enforcement. Stopped Computer Use; no browser/audio success is claimed and no production quiz attempt was created. A disposable local MP3/harness exists privately under work/ for manual follow-up.
+- Runtime source **3e5aafeba220e2a13f4ba483c4fa45bf7af18155**, pushed/deployed to original Worker **36f97859-7a9b-471a-be50-c29e84e2a135**. Exact-source application and demo CI passed; both changed public modules are byte-identical live and health is 200. Local QA server stopped. Original Game/amqtours-economy-v1, all player activity and catalogue/import checkpoints retained. No pending implementation work; exact Firefox/mobile playback still requires device verification.
 
 ## Completed Task — Align Header Preferences
 
