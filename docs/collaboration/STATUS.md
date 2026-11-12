@@ -2,9 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Tradeable Filter Without Automatic Labels
+## Completed Task — Tradeable Filter Without Automatic Labels
 
-- Validation: all 471 tests passed, 222 JavaScript files syntax-checked, dry-run build and diff checks passed. Production repair runs atomically once at revision 2; retained manual choices are restored only for the current inventory lifetime. Deployment/live verification pending.
+- Runtime source **c673114bfca8b3b2f5fef304802c5dc66b858667**, pushed/deployed to original Worker **df9bfb4d-fba2-44eb-a5bd-327b6003f68e**. All 471 tests, 222 syntax checks, dry-run build, diff checks and exact-source application/demo CI passed. All six checked public assets match source; health 200.
+- Live repair revision 2 verified: 888 manual labels restored across 38,247 inventory rows, zero mismatches against retained manual actions/current inventory lifetimes. Public Tradeable collection returned unprotected, unmarked cards correctly (21 on the first 24-card page). Existing locked account state/assets/balances and all previous correction receipts retained. No financial or gameplay reset, no production test transactions. Private before/after/release evidence stays in work/. Never reset this revision or replay the repair. No pending work.
 - User clarified that unprotected cards should be included by the Tradeable Only checkbox, not automatically assigned a Trade marker. Codex owns the correction: separate filter eligibility from manual labels; stop acquisition/protection/account-unlock auto-labeling; repair only the accidental automatic labels using retained manual Trade receipts and current inventory acquisition times. Preserve manual labels, account locks, assets, wallet state, all prior repairs and the new Shop Owned/Wanted button. Prior automatic-default behavior below is superseded.
 
 ## Superseded Task — Automatic Tradeable Defaults
