@@ -630,7 +630,7 @@ export function createQuizUI({
                   "/20</p><p>" +
                   q.songs +
                   " Songs in Pool</p>" +
-                  (Number.isFinite(q.averageScore) ? '<p class="quiz-average">Average ' + q.averageScore.toFixed(1) + '/20 · ' + q.completedRuns + (q.completedRuns === 1 ? ' Run</p>' : ' Runs</p>') : '') +
+                  (Number.isFinite(q.averageScore) ? '<p class="quiz-average">Average ' + q.averageScore.toFixed(1) + '/20 · ' + q.completedRuns + (q.completedRuns === 1 ? ' Score</p>' : ' Scores</p>') : '') +
                   '<div class="quiz-tile-actions"><button class="button mint" data-quiz-open="' +
                   e(q.id) +
                   '">' +

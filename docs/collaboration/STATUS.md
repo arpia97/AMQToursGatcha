@@ -2,6 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Quiz Score Count Wording
+
+- Codex owns `public/quiz-ui.js`, its existing UI test assertion, and this entry. Base `d558690`, clean and synchronized.
+- Difficulty already sorts by average submitted score, not attempt count. Rename tile count Run/Runs to Score/Scores; keep calculation and sorting unchanged. Checks/deployment pending. No production data operations.
+
 ## Completed Task — Completed Quiz Song Recap and Difficulty Sorting
 
 - Codex owns `src/quiz.js`, `public/quiz-ui.js`, `public/features.css`, focused quiz tests, `QUIZ.md`, and this entry. Base `6fdcfb3`, clean and synchronized with main. Preserve Gemini's completed participation-reward changes and existing economy/importer data.

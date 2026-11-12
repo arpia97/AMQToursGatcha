@@ -580,7 +580,7 @@ test("quiz sorting covers performance, names, unplayed runs and pool size withou
   Object.assign(quizzes[2], { averageScore: 18, completedRuns: 3 });
   ui.setSort("average-desc");
   assert.deepEqual(order(), ["high", "mid", "low", "tie"]);
-  assert.match(ui.render(), /Average 18.0\/20 · 3 Runs/);
+  assert.match(ui.render(), /Average 18.0\/20 · 3 Scores/);
   ui.setSort("average-asc");
   assert.deepEqual(order(), ["low", "mid", "high", "tie"]);
   ui.setSort("best-desc");
