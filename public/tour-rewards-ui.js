@@ -10,10 +10,47 @@ const number = (value) => value.toLocaleString("en-US");
 export function createTourRewardEditor(root, preview, meta, state, escape) {
   let plan = initialTourRewards(preview.players, preview);
   let validMaximum = plan.maxRounds;
-  const people = new Map(
-    [...state.players, ...preview.players].map((p) => [p.id, p]),
-  );
+  let searchQuery = "";
+  const people = new Map();
+  for (const p of preview.players) people.set(p.id, { ...p });
+  for (const p of state.players) people.set(p.id, { ...people.get(p.id), ...p });
   const name = (id) => people.get(id)?.name || id;
+  function playerMatches(row, query) {
+    if (!query) return true;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const p = people.get(row.player);
+    if (row.player.toLowerCase().includes(q)) return true;
+    if (name(row.player).toLowerCase().includes(q)) return true;
+    if (p?.aliases?.some((a) => String(a).toLowerCase().includes(q))) return true;
+    if (row.replaces) {
+      if (row.replaces.toLowerCase().includes(q)) return true;
+      if (name(row.replaces).toLowerCase().includes(q)) return true;
+      const rep = people.get(row.replaces);
+      if (rep?.aliases?.some((a) => String(a).toLowerCase().includes(q))) return true;
+    }
+    return false;
+  }
+  function applyFilter(query = searchQuery) {
+    searchQuery = query;
+    const cards = root.querySelectorAll("[data-reward-player]");
+    let visibleCount = 0;
+    for (const el of cards) {
+      const playerId = el.dataset.rewardPlayer;
+      const row = plan.participants.find((r) => r.player === playerId);
+      const matches = row ? playerMatches(row, query) : true;
+      el.hidden = !matches;
+      if (matches) visibleCount++;
+    }
+    const emptyHint = root.querySelector("[data-reward-filter-empty]");
+    if (emptyHint) {
+      emptyHint.hidden = visibleCount > 0 || !query.trim();
+    }
+    const clearBtn = root.querySelector("[data-clear-reward-filter]");
+    if (clearBtn) {
+      clearBtn.hidden = !query.trim();
+    }
+  }
   function rowMarkup(row) {
     return `<article class="tour-reward-player" data-reward-player="${escape(row.player)}"><div class="tour-reward-player-head"><div><strong>${escape(name(row.player))}</strong><small>${escape(row.player)}${row.replaces ? " · Sub for " + escape(name(row.replaces)) : row.staffOnly ? " · Staff Only" : ""}</small></div>${row.replaces || row.staffOnly ? '<button type="button" class="text-button" data-remove-reward="' + escape(row.player) + '" aria-label="Remove ' + escape(name(row.player)) + '">×</button>' : ""}</div><div class="tour-reward-rounds"><label>Rounds Played<input type="number" name="rounds" min="0" max="${plan.maxRounds}" value="${row.rounds}" step="1" required ${row.staffOnly ? "disabled" : ""} aria-label="Rounds Played by ${escape(name(row.player))}"></label>${!row.staffOnly ? '<button type="button" class="button secondary" data-add-sub="' + escape(row.player) + '" aria-label="Sub for ' + escape(name(row.player)) + '">Sub ＋</button>' : ""}</div><div class="tour-reward-work"><label><input type="checkbox" name="count" ${row.count ? "checked" : ""}> Count <small>+750</small></label><label><input type="checkbox" name="report" ${row.report ? "checked" : ""}> Report <small>+750</small></label></div><div class="tour-reward-row-total" data-reward-total></div></article>`;
   }
@@ -21,8 +58,9 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     const availableSizes = TOUR_SIZES.includes(plan.tourSize)
       ? TOUR_SIZES
       : [...TOUR_SIZES, plan.tourSize].sort((a, b) => a - b);
-    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label></div><p class="form-hint" data-reward-rate></p><div class="tour-reward-grid">${plan.participants.map(rowMarkup).join("")}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
+    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label></div><p class="form-hint" data-reward-rate></p><div class="tour-reward-search-bar"><div class="search-input-wrap"><input type="search" data-reward-filter class="search" placeholder="Search participants by name, alias or ID…" value="${escape(searchQuery)}" aria-label="Search participants"><button type="button" class="button secondary small" data-clear-reward-filter ${searchQuery.trim() ? "" : "hidden"}>Clear Search</button></div></div><p class="form-hint" data-reward-filter-empty hidden>No participants match your search.</p><div class="tour-reward-grid">${plan.participants.map(rowMarkup).join("")}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
     updateTotals();
+    applyFilter(searchQuery);
   }
   function collect() {
     plan.tourSize = Number(root.querySelector("[name=tourSize]").value);
@@ -82,6 +120,9 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     updateTotals();
   }
   root.addEventListener("input", (event) => {
+    if (event.target.matches("[data-reward-filter]")) {
+      return applyFilter(event.target.value);
+    }
     if (event.target.name === "maxRounds")
       return changeMaximum(Number(event.target.value));
     updateTotals();
@@ -98,6 +139,13 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
   root.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.hasAttribute("data-clear-reward-filter")) {
+      const input = root.querySelector("[data-reward-filter]");
+      if (input) input.value = "";
+      applyFilter("");
+      input?.focus?.();
+      return;
+    }
     if (button.dataset.removeReward) {
       collect();
       plan.participants = plan.participants.filter(
@@ -111,6 +159,20 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     ) {
       collect();
       pickPlayer(button.dataset.addSub || null, button);
+    }
+  });
+  root.addEventListener("keydown", (event) => {
+    if (event.target.matches("[data-reward-filter]")) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.target.value = "";
+        applyFilter("");
+        return;
+      }
     }
   });
   function pickPlayer(outgoingId, previousFocus) {
