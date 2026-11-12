@@ -76,8 +76,8 @@ export class SpecialPack {
     );
     if (existing) return existing;
 
-    const p = this.e.one("SELECT id FROM players WHERE id=?", player);
-    if (!p) return null;
+    const p = this.e.one("SELECT id,account_locked FROM players WHERE id=?", player);
+    if (!p || p.account_locked) return null;
 
     const totalCards =
       (this.e.catalogStore.pool("character")?.cards?.length || 0) +

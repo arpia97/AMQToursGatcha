@@ -52,6 +52,7 @@ export class HorseRacing {
   settleDue(player) {
     const g = this.read(player);
     if (!g || g.status !== "running" || this.e.now() < g.endsAt) return false;
+    if(this.e.player(player).account_locked) return false;
     if (g.payout)
       this.e.wallet(player, g.payout, "Horse racing: winning tickets");
     g.status = "complete";

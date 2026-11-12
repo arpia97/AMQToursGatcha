@@ -1,3 +1,4 @@
+import { registerWithHostCode } from "./host-registered-account.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -83,7 +84,9 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     host,
   );
   assert.equal(response.status, 200, await response.clone().text());
-  response = await post("register", {
+  const missingCode = await post("register",{player:"1",password:"local-only-password"});
+  assert.equal(missingCode.status,401);
+  response = await registerWithHostCode(post, host, {
     player: "1",
     password: "local-only-password",
   });
@@ -133,7 +136,7 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     { players: [{ id: "2", name: "Delegated Host" }] },
     host,
   );
-  const registeredHost = await post("register", {
+  const registeredHost = await registerWithHostCode(post, host, {
     player: "2",
     password: "local-host-password",
   });
@@ -319,4 +322,17 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
       typeof publicState.catalogSummary.importProgress === "object",
     true,
   );
+  await post("host/players",{players:[{id:"3",name:"Code Test"},{id:"4",name:"Other Identity"}]},host);
+  const issued=await post("host/invite",{player:"3"},host),oneUse=(await issued.json()).code;
+  assert.equal((await post("register",{player:"3",password:"local-test-password",code:"wrong-code"})).status,401);
+  const joined=await post("register",{player:"3",password:"local-test-password",code:oneUse});
+  assert.equal(joined.status,200);
+  assert.equal((await post("register",{player:"3",password:"new-local-password",code:oneUse})).status,401);
+  assert.equal((await post("register",{player:"4",password:"local-test-password",code:oneUse})).status,401);
+  assert.equal((await post("host/account-lock",{player:"3",locked:true},{Cookie:hostCookie})).status,403);
+  const locked=await post("host/account-lock",{player:"3",locked:true},host);
+  assert.equal(locked.status,200,await locked.clone().text());
+  assert.equal((await post("login",{player:"3",password:"local-test-password"})).status,403);
+  assert.equal((await post("daily",{},{Cookie:joined.headers.get("set-cookie").split(";")[0]})).status,401);
+  assert.equal((await post("host/grant",{player:"3",amount:100,reason:"other"},host)).status,403);
 });

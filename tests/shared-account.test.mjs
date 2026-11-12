@@ -20,7 +20,8 @@ test("shared account identity uses existing IDs and current aliases/permissions 
   assert.ok(account.aliases.includes("new_alias"));
   assert.equal(account.host, false); // An old stray admin flag is insufficient.
   assert.equal(account.owner, false);
-  assert.deepEqual(Object.keys(account).sort(), ["aliases", "host", "id", "name", "owner"]);
+  assert.deepEqual(Object.keys(account).sort(), ["aliases", "host", "id", "locked", "name", "owner"]);
+  assert.equal(account.locked,false);
   e.setHostAccess("368", { player: "462", enabled: true });
   assert.equal(e.account("462").host, true);
   e.setHostAccess("368", { player: "462", enabled: false });

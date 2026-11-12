@@ -1,3 +1,4 @@
+import { registerWithHostCode } from "./host-registered-account.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
@@ -146,7 +147,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     host,
   );
   assert.equal(response.status, 200, await response.clone().text());
-  response = await post("register", {
+  response = await registerWithHostCode(post, host, {
     player: "1",
     password: "local-only-password",
   });
@@ -549,7 +550,8 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       assert.equal(probe.market, 0);
       assert.equal(probe.schedule, 0);
       assert.equal(probe.starters, 0);
-      assert.ok(probe.sql <= 6, JSON.stringify(probe));
+      // One indexed player read enforces the persistent account lock.
+      assert.ok(probe.sql <= 7, JSON.stringify(probe));
       t.diagnostic("Quiz answer hot path: " + JSON.stringify(probe));
       const retry = await post("quiz-answer", answerBody, {
         ...auth,

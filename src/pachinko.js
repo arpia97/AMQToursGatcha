@@ -67,6 +67,7 @@ export class Pachinko {
     const g = data.roulette,
       e = this.e;
     if (!g || g.status !== "spinning" || g.endsAt > e.now()) return false;
+    if(e.player(player).account_locked) return false;
     g.status = "complete";
     g.version++;
     g.colour = ROULETTE_POCKETS[g.pocket];

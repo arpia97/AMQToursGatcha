@@ -13,16 +13,11 @@ const request = (body) =>
     },
     body: JSON.stringify(body),
   });
-test("mixed-version signup forwards the legacy code only inside the server without changing identity or recovery", async () => {
+test("signup never substitutes a shared code and requires an individual code at the Worker", async () => {
   const env = { BETA_REGISTRATION_CODE: "test-legacy-value" },
     original = request({ player: "123", password: "example-password" }),
     forward = await registrationForwarding(original, env);
-  assert.deepEqual(await forward.json(), {
-    player: "123",
-    password: "example-password",
-    code: env.BETA_REGISTRATION_CODE,
-  });
-  assert.equal(forward.headers.get("Idempotency-Key"), "example-key");
+  assert.equal(forward.status,401);
   assert.deepEqual(await original.json(), {
     player: "123",
     password: "example-password",
@@ -34,8 +29,8 @@ test("mixed-version signup forwards the legacy code only inside the server witho
   });
   assert.equal(await registrationForwarding(recovery, env), recovery);
   const noSecret = request({ player: "123", password: "example-password" });
-  assert.equal(await registrationForwarding(noSecret, {}), noSecret);
-  assert.equal(registrationPolicy.registrationCodeRequired, false);
+  assert.equal((await registrationForwarding(noSecret, {})).status,401);
+  assert.equal(registrationPolicy.registrationCodeRequired, true);
   assert(
     !JSON.stringify(registrationPolicy).includes(env.BETA_REGISTRATION_CODE),
   );

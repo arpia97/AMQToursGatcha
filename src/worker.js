@@ -246,6 +246,7 @@ export class Game extends DurableObject {
       "quiz-next",
     ].includes(path);
     const quizRun = path === "quiz-run" && !post;
+    if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     if (!quizMove && !quizRun) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
@@ -329,6 +330,7 @@ export class Game extends DurableObject {
       if (
         [
           "host/permissions",
+          "host/account-lock",
           "host/fusion-revert-preview",
           "host/fusion-revert",
           "host/fusion-revert-receipt",
@@ -706,7 +708,7 @@ export class Game extends DurableObject {
           canManageHosts:
             hostTokenValid || e.hostIdentity(sessionHash) === "368",
           players: e.all(
-            "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,password IS NOT NULL AS registered FROM players ORDER BY name",
+            "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,account_locked,password IS NOT NULL AS registered FROM players ORDER BY name",
           ),
           aliases: e.all("SELECT * FROM aliases ORDER BY alias"),
           usernames: e.all(
@@ -867,6 +869,7 @@ export class Game extends DurableObject {
       if (path === "host/invite") {
         const id = text(b.player, 100),
           p = e.player(id);
+        e.assertAccountUnlocked(id);
         if (e.one("SELECT password FROM players WHERE id=?", id).password)
           fail("This player already registered. Use account reset instead.");
         const code = token(),
@@ -936,6 +939,7 @@ export class Game extends DurableObject {
           ? e.one("SELECT * FROM players WHERE id=?", owner.player)
           : null);
       let expectedPassword;
+      if(p?.account_locked) fail("This account is locked. Contact the host.",403);
       if (path === "register") {
         const invite = await digest(String(b.code || "").trim()),
           hash = await passwordHash(b.password);
@@ -983,7 +987,8 @@ export class Game extends DurableObject {
       const session = token(),
         hash = await digest(session);
       // Registration and token hashing can yield; a host reset in between must revoke this login too.
-      const valid = e.one("SELECT password FROM players WHERE id=?", p.id);
+      const valid = e.one("SELECT password,account_locked FROM players WHERE id=?", p.id);
+      if(valid?.account_locked) fail("This account is locked. Contact the host.",403);
       if (!valid?.password || valid.password !== expectedPassword)
         fail("Account access changed. Please try again.", 401);
       e.run(
@@ -1442,6 +1447,13 @@ export default {
       const forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
       try {
+        // Do not permit registrations through an older, still-updating actor
+        // whose policy allowed code-free signup during the deployment window.
+        if(url.pathname==="/api/register" && request.method==="POST") {
+          const policyResponse=await durableRead(env.GAME,new Request(url.origin+"/api/registration-policy-actor"));
+          if(!policyResponse.ok || !(await policyResponse.json()).hostIssuedSingleUse)
+            return json({error:"Registration is updating. Please try again shortly."},503);
+        }
         if (url.pathname === "/api/quiz-cover")
           return await cachedQuizCover(
             forwarded,

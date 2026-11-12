@@ -1,3 +1,4 @@
+import { registerWithHostCode } from "./host-registered-account.mjs";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -103,7 +104,7 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
   );
   response = await post("host/catalog", { cards }, host);
   assert.equal(response.status, 200, await response.clone().text());
-  response = await post("register", {
+  response = await registerWithHostCode(post, host, {
     player: "1",
     password: "local-only-password",
   });

@@ -1,12 +1,8 @@
-// Workers and Durable Objects can briefly run different deployed versions.
-// Older game actors accept the shared beta code for fresh ordinary accounts;
-// inject it server-side while they adopt code-free registration. Never expose
-// the code to the client or substitute a supplied individual recovery code.
+// Never substitute a shared beta code for an individual host-issued code.
 export async function registrationForwarding(request, env) {
   if (
     request.method !== "POST" ||
-    new URL(request.url).pathname !== "/api/register" ||
-    !env.BETA_REGISTRATION_CODE
+    new URL(request.url).pathname !== "/api/register"
   )
     return request;
   const reader = request.clone().body?.getReader();
@@ -48,16 +44,11 @@ export async function registrationForwarding(request, env) {
     String(body.code || "").trim()
   )
     return request;
-  const headers = new Headers(request.headers);
-  headers.delete("Content-Length");
-  headers.set("Content-Type", "application/json");
-  return new Request(request, {
-    headers,
-    body: JSON.stringify({ ...body, code: env.BETA_REGISTRATION_CODE }),
-  });
+  return new Response(JSON.stringify({error:"Ask a host for your one-use registration code."}),{status:401,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
 }
 export const registrationPolicy = Object.freeze({
-  registrationCodeRequired: false,
+  registrationCodeRequired: true,
+  hostIssuedSingleUse: true,
   registeredAMQIdentityRequired: true,
   minimumPasswordLength: 12,
   recoveryCodeRequired: true,

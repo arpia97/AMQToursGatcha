@@ -140,7 +140,7 @@ export class Economy {
   }
   fundStarters() {
     for (const p of this.e.all(
-      "SELECT id,starter_granted,starter_amount FROM players WHERE starter_amount<5000",
+      "SELECT id,starter_granted,starter_amount FROM players WHERE starter_amount<5000 AND account_locked=0",
     )) {
       // Old funded identities received 1,000 before the amount marker existed.
       const received = p.starter_amount || (p.starter_granted ? 1000 : 0);
@@ -208,6 +208,7 @@ export class Economy {
     if (!a?.seller || !a.buyout || a.closed || a.ends <= e.now() || a.paid)
       fail("This auction is not available for buyout.", 409);
     if (a.seller === player) fail("You cannot buy your own auction.");
+    e.assertAccountUnlocked(a.seller);
     e.wallet(
       player,
       -(a.buyout - (a.winner === player ? a.bid : 0)),
@@ -746,6 +747,7 @@ export class Economy {
       );
       if (!l) fail("This card has already sold or been withdrawn.", 409);
       if (l.seller === player) fail("You cannot buy your own listing.");
+      e.assertAccountUnlocked(l.seller);
       e.wallet(player, -l.price, "Marketplace purchase: " + l.card);
       e.wallet(l.seller, l.price, "Marketplace sale: " + l.card);
       this.notices.add(

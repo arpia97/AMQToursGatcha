@@ -181,6 +181,7 @@ export class Trades {
     if (action === "trade-offer") {
       const l = this.open(b.listing);
       if (l.seller === player) fail("You cannot offer on your own trade.");
+      e.assertAccountUnlocked(l.seller);
       if (
         e.one(
           "SELECT id FROM trade_offers WHERE listing=? AND proposer=? AND status='open'",
@@ -266,6 +267,8 @@ export class Trades {
         this.returnOffer(o, "declined");
         return { message: "Offer declined. The offered card was returned." };
       }
+      // Acceptance must also respect a locked proposer, including old offers.
+      e.assertAccountUnlocked(o.proposer);
       for (const c of this.offerCards(o))
         e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
       e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);

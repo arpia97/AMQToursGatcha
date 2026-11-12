@@ -2,10 +2,14 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Authorized Three-Account Transaction Rollback
+## Active Task — Host-Issued Registration Codes and Persistent Account Lock
+
+- User explicitly requires individual one-use host-issued codes for all new accounts and a persistent earning/economic-action lock for the specified account. Its current access was revoked successfully once; do not repeat access reset. New implementation adds required code UI and host issuance, rejects code-free/shared-code signup, protects mixed-version deployments, enforces an owner-only persistent lock, skips locked reward recipients without blocking other players, closes open listings and returns escrow/bids. Registration/recovery cannot bypass the lock. Preserve all activity, catalogues/imports and previous repairs. Tests, deployment and the authorized live persistent lock are being finalized.
+
+## Completed Task — Authorized Three-Account Transaction Rollback
 
 - Codex owns the scoped rollback module, Worker routes, tests and this entry. User authorized reversing all transactions/credit transfers and account access for the three newly identified accounts, following the bop scope. Freeze access before the full dependency audit; preserve unrelated activity and all previous repair receipts. Private evidence stays outside Git. Do not replay bop or historical corrections.
-- Access revocation succeeded once for all three; do not repeat it. User chose the recommended counterparty-value recovery, preserving the uninvolved onward recipient's trade/activity. Financial/inventory correction is NOT yet applied. Implementation now routes through the existing owner-only preview/apply/receipt endpoints, seals the approved private scope with SHA-256, and rejects stale accounts, transactions, escrow, inventory or wallet state. Case identities/transactions/amounts stay in the private manifest; tests use synthetic fixtures. 469 tests / 218 syntax checks, dry-run build, and disposable SQLite proof from the fresh snapshot pass. Deployment and production preview/apply/verification are next. Evidence prefix: `specialpack-three-account-rollback-2026-11-12-v1` in private work/.
+- Correction completed atomically once under `specialpack-three-account-rollback-2026-11-12-v1`, with the user-approved counterparty-value recovery. **NEVER repeat it.** Live receipt and every affected card, wallet, trade, sale, bonus marker, baseline reset and retained alias were verified. Three accounts have 5,000 balance/earned, no inventory/sessions/credentials/recovery invites, and consumed bonus markers. Three trades and four sales reversed; two tainted escrow listings closed and an unrelated held offer returned. Uninvolved onward trade/activity and prior bop receipt preserved. Runtime source `4a06c4b5fc3c8388b1c52b5c87ca64c01608f611`, original Worker **b5a48592-0c60-4b4b-bb88-ee7e3b8d6ffd**. 469 tests / 218 syntax checks, dry-run/fresh-snapshot proof and exact-source CI passed. Case evidence stays outside Git; only a sealed scope fingerprint is in source. Read saved verified-receipt/after evidence before any future related work.
 
 ## Completed Task — Authorized bop Rollback and Special-Pack Transfer Audit
 

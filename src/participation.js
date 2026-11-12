@@ -39,9 +39,10 @@ export class Participation {
     )
       fail("The resolved participants changed. Review the batch again.", 409);
     const quote = tourRewardQuote(players, b),
-      awards = [];
+      awards = [], skipped = [];
     for (const row of quote.rows) {
       const p = e.player(row.player);
+      if(p.account_locked){skipped.push(row.player);continue;}
       for (const category of ["participation", "counting", "reporting"]) {
         if (!row[category]) continue;
         if (
@@ -80,17 +81,20 @@ export class Participation {
       }
     }
     for (const award of awards) e.host("grant", award);
+    const participation=awards.filter(a=>a.reason==="participation").reduce((n,a)=>n+a.amount,0);
+    const staff=awards.filter(a=>a.reason!=="participation").reduce((n,a)=>n+a.amount,0);
     return {
       ...quote,
-      players: quote.rows.map((row) => row.player),
+      participation,staff,total:participation+staff,skipped,
+      players: quote.rows.filter(row=>!skipped.includes(row.player)).map((row) => row.player),
       message:
         "Tour rewards awarded: " +
-        quote.participation.toLocaleString("en-US") +
+        participation.toLocaleString("en-US") +
         " participation credits and " +
-        quote.staff.toLocaleString("en-US") +
+        staff.toLocaleString("en-US") +
         " staff credits; " +
-        quote.total.toLocaleString("en-US") +
-        " credits total.",
+        (participation+staff).toLocaleString("en-US") +
+        " credits total." + (skipped.length?" Skipped "+skipped.length+" locked account(s).":""),
     };
   }
 }

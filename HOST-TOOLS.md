@@ -14,7 +14,7 @@ Add new players and aliases to the linked IDs worksheet, then use **Players & ac
 
 IDs are strings: leading zeros are preserved. A player is identified by the stable AMQ Tours ID, never by a mutable username. Imports preserve wallets, cards, account access, username history, and previously imported aliases. Any conflict with another player's alias or username history rejects the entire import. A new authoritative AMQ alias that collides with a username needs explicit identity resolution; the importer does not reassign it silently.
 
-New players register with an imported AMQ Tours ID or alias and a password; no registration code is required. Players & access retains one-use recovery codes for password resets and reserved privileged identities. Host account-access reset revokes sessions while preserving gameplay; the player uses Recover account access to set a new password. This differs from the destructive **Reset tools** tab.
+New players register with an imported AMQ Tours ID or alias, a password, and an individual one-use code. Hosts issue codes under Players & Access → New Account Codes. Registration and password recovery use the same code mechanism: each code is tied to one identity, expires after seven days, and is consumed once. Host account-access reset revokes sessions while preserving gameplay; the player uses Recover account access to set a new password. This differs from the destructive **Reset tools** tab.
 
 ## Activity counts and pick’ems
 

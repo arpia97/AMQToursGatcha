@@ -1,5 +1,6 @@
 import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
+import { setAccountLock } from "./account-lock.js";
 import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
@@ -66,6 +67,7 @@ export class Engine {
       ["players", "avatar_crop", "TEXT"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "account_locked", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"],
@@ -169,11 +171,16 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
     return { ...p, role: p.is_admin ? "Host" : null };
+  }
+  assertAccountUnlocked(id) {
+    const p=this.one("SELECT account_locked FROM players WHERE id=?",id);
+    if(!p) fail("Unknown AMQ player ID.",404);
+    if(p.account_locked) fail("This account is locked. Contact the host.",403);
   }
   account(id) {
     if (!id) return null;
@@ -183,6 +190,7 @@ export class Engine {
       name: player.name,
       host: !!player.is_admin,
       owner: player.id === "368",
+      locked: !!player.account_locked,
       aliases: this.all(
         "SELECT alias FROM aliases WHERE player=? ORDER BY alias",
         id,
@@ -248,6 +256,8 @@ export class Engine {
   }
   wallet(id, delta, reason, earned = false) {
     const p = this.player(id);
+    // Bulk settlements must continue paying other players when one is locked.
+    if(p.account_locked && earned && delta>0) return false;
     const balance = p.balance + delta;
     if (balance < 0) fail("Not enough available credits.");
     if (!Number.isSafeInteger(balance) || balance > 1000000000000)
@@ -341,6 +351,7 @@ export class Engine {
   }
   action(player, action, b) {
     const now = this.now();
+    this.assertAccountUnlocked(player);
     if (
       ["quiz-ready", "quiz-answer", "quiz-next"].includes(action)
     )
@@ -437,6 +448,7 @@ export class Engine {
       );
       if (!a || a.closed || now >= a.ends) fail("This auction has ended.", 409);
       if (a.seller === player) fail("You cannot bid on your own auction.");
+      if(a.seller) this.assertAccountUnlocked(a.seller);
       const amount = integer(b.amount, 1);
       if (a.buyout && amount >= a.buyout)
         return this.economy.buyout(player, a.id);
@@ -582,6 +594,7 @@ export class Engine {
     fail("Unknown action.", 404);
   }
   host(action, b) {
+    if(action === "account-lock") return setAccountLock(this,b);
     if (action === "participation-batch") return this.participation.grant(b);
     const pickemEvent = this.pickemEvents.action(action, b);
     if (pickemEvent) return pickemEvent;
@@ -679,6 +692,7 @@ export class Engine {
             }[b.reason],
           240,
         );
+      this.assertAccountUnlocked(id);
       this.wallet(id, amount, `${b.reason}: ${note}`, true);
       this.creditAudit.record(b.reason, b.event || note);
       if (["participation", "reporting", "counting"].includes(b.reason))
@@ -1265,6 +1279,7 @@ export class Engine {
 }
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS players(id TEXT PRIMARY KEY,name TEXT NOT NULL,balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0),earned INTEGER NOT NULL DEFAULT 0,daily TEXT,password TEXT,invite TEXT,invite_expires INTEGER);
+CREATE TABLE IF NOT EXISTS account_lock_log(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,locked INTEGER NOT NULL,at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS aliases(alias TEXT PRIMARY KEY,player TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS usernames(username TEXT PRIMARY KEY,player TEXT NOT NULL,label TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS usernames_player ON usernames(player);

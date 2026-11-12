@@ -45,7 +45,7 @@ The original database contains real accounts, passwords, sessions, wallets, ledg
 
 Only owner `arpia97`, canonical Tours ID `368`, grants/revokes host roles or performs owner-only actions. Explicitly appointed hosts can use delegated console functions. Matching a username or an imported admin flag does not grant authority. Old “owner only for every host action” notes are superseded.
 
-Registration no longer requires a code. Preserve the separate recovery protections for existing or privileged identities. Never include secret values or credentials from past conversations in this handoff.
+Registration requires an individual one-use host-issued code, using the same expiring, consumed-once mechanism as account recovery. Preserve existing credentials and recovery protections. Owner-only persistent account locks block registration/login, credit rewards and economic actions; locking closes open listings and returns holds, while unlocking does not restore revoked access. Never include secret values or credentials from past conversations in this handoff.
 
 ## Current Product Rules
 
@@ -81,4 +81,4 @@ The host's displayed source-sheet link changed to spreadsheet `1xsBfuz1v-gYgv5KE
 
 ## Reading Older Documentation
 
-`README.md`, `HOST-TOOLS.md`, `QUIZ.md`, `IMPORTER.md`, `CATALOG.md`, `DEPLOY.md` and game docs contain useful feature detail, but some onboarding passages are historical. In particular, free-plan setup, registration codes, all-actions-owner-only access and ten-second importer pacing are not current deployment instructions. Consult current source/tests and the latest explicit user decision. Explain an unresolved discrepancy instead of silently reviving an old rule.
+`README.md`, `HOST-TOOLS.md`, `QUIZ.md`, `IMPORTER.md`, `CATALOG.md`, `DEPLOY.md` and game docs contain useful feature detail, but some onboarding passages are historical. In particular, free-plan setup, shared beta registration codes, all-actions-owner-only access and ten-second importer pacing are not current deployment instructions. Consult current source/tests and the latest explicit user decision. Explain an unresolved discrepancy instead of silently reviving an old rule.

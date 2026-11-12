@@ -106,8 +106,9 @@ async function api(path, body, key) {
   });
   return readApiResponse(r);
 }
-const players = () =>
+const players = (filter = () => true) =>
   state.players
+    .filter(filter)
     .map(
       (p) =>
         `<option value="${esc(p.id)}">${esc(p.name)} (${esc(p.id)}) · ${p.balance} credits</option>`,
@@ -126,19 +127,20 @@ function render() {
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize">${TOUR_SIZES.map((size) => `<option value="${size}" ${size === 16 ? "selected" : ""}>${size} Players</option>`).join("")}</select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32 or more. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
-    html = `<section class="host-panel"><h2>Recover Account Access</h2><p>Reset an existing account’s access while preserving its credits and cards. Existing sessions are revoked. The replacement recovery code can be used once and expires in seven days.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><button class="button secondary" type="submit">Reset Account Access →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
+    html = `<section class="host-panel"><h2>New Account Codes</h2><p>Issue an individual one-use code for a new player. It expires in seven days and is consumed when they set their password.</p><form id="registration-code" class="stack"><label>Player<select name="player" required><option value="">Choose an unregistered player</option>${players(p => !p.registered && !p.account_locked)}</select></label><button class="button secondary" type="submit">Issue One-Use Code →</button></form></section><section class="host-panel"><h2>Recover Account Access</h2><p>Reset an existing account’s access while preserving its credits and cards. Existing sessions are revoked. The replacement recovery code can be used once and expires in seven days.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><button class="button secondary" type="submit">Reset Account Access →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
         (p) =>
-          `<tr><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${p.registered ? "Registered" : "Awaiting registration"}</td><td>${state.aliases
+          `<tr><td>${esc(p.id)}</td><td>${esc(p.name)}</td><td>${p.account_locked ? "Locked" : p.registered ? "Registered" : "Awaiting registration"}</td><td>${state.aliases
             .filter((a) => a.player === p.id)
             .map((a) => esc(a.alias))
             .join(", ")}</td></tr>`,
       )
       .join("")}</tbody></table></div>`;
   if (tab === "players") {
+    if(state.canManageHosts) html += `<section class="host-panel"><h2>Account Lock</h2><p>Locked accounts cannot register, sign in, earn rewards or perform economic actions. Locking closes open listings and returns held cards and bids. Unlocking does not restore revoked access.</p><form id="account-lock" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players(p=>p.id!=="368")}</select></label><label>Action<select name="locked"><option value="true">Lock Account</option><option value="false">Unlock Account</option></select></label><button class="button secondary" type="submit">Apply Account Lock →</button></form></section>`;
     const a = state.aliasSync || {};
     html =
-      `<section class="host-panel"><h2>AMQ Tours Alias Sheet</h2><p>Add new players or aliases to the linked AMQ Tours IDs sheet, then scan to make them available for registration. Automatic scans also run every six hours. New accounts do not need a registration code.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Scan Aliases →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1xsBfuz1v-gYgv5KEbEFlyQBoz_R5aJ84W6gscUF0-Hc/edit?gid=2012584445#gid=2012584445" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
+      `<section class="host-panel"><h2>AMQ Tours Alias Sheet</h2><p>Add new players or aliases to the linked AMQ Tours IDs sheet, then scan to make them available for registration. Automatic scans also run every six hours. Every new account needs an individual one-use code issued by a host.</p><p>Status: <strong>${esc(a.status || "pending")}</strong> · ${a.players || 0} player IDs · ${a.aliases || 0} aliases${a.lastAt ? " · Last synchronized " + esc(new Date(a.lastAt).toLocaleString()) : ""}</p>${a.error ? '<p class="host-warning">' + esc(a.error) + "</p>" : ""}<form id="aliases-sync"><button class="button secondary" type="submit">Scan Aliases →</button></form><a class="text-button" href="https://docs.google.com/spreadsheets/d/1xsBfuz1v-gYgv5KEbEFlyQBoz_R5aJ84W6gscUF0-Hc/edit?gid=2012584445#gid=2012584445" target="_blank" rel="noopener">Open source sheet ↗</a><p class="form-hint space-top">Numeric usernames can overlap player IDs. Sign-in prioritizes an exact ID; use alias:NAME to explicitly sign in by alias. Existing accounts and collections are preserved during canonical-ID migration.</p></section>` +
       html;
   }
   if (tab === "pickems") {
@@ -515,6 +517,8 @@ document.addEventListener("submit", async (ev) => {
       if (b.tourSize) b.tourSize = Number(b.tourSize);
       result = await api("grant", b, key);
     }
+    if (formIdentifier(form) === "registration-code") result = await api("invite", {player:b.player});
+    if (formIdentifier(form) === "account-lock") result = await api("account-lock", {player:b.player,locked:b.locked === "true"},key);
     if (formIdentifier(form) === "access") {
       if (
         !confirm(
@@ -575,7 +579,7 @@ document.addEventListener("submit", async (ev) => {
         result.aliasSync.players +
         " players · " +
         result.aliasSync.aliases +
-        " aliases. New players can register now.";
+        " aliases. Issue a one-use code before a new player registers.";
     }
     if (formIdentifier(form) === "settings") {
       b.premium_character = Number(b.premium_character);
