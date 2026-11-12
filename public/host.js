@@ -17,7 +17,7 @@ import {
   deductionPanel,
   deductionReview,
 } from "./host-credit-ui.js";
-import { winnerCreatePanel } from "./tour-winner-ui.js";
+import { winnerCreatePanel, syncWinnerRewardDefault } from "./tour-winner-ui.js";
 import {
   settlementPanel,
   settlementDraft,
@@ -680,6 +680,7 @@ document.addEventListener("input", (ev) => {
   }
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
+  syncWinnerRewardDefault(form, ev.target);
   if (
     form?.getAttribute("id") === "participation-preview" &&
     participationDraft

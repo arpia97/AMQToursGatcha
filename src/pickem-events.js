@@ -3,6 +3,7 @@ import {
   PICKEM_WINNER_REWARD,
   PICKEM_WINDOW,
   PICKEM_REOPEN_WINDOW,
+  tourWinnerRewardDefault,
 } from "../public/site-defaults.js";
 import { winnerTeams, pickemTeams } from "../public/tour-winner.js";
 import { fail, integer, text } from "./engine.js";
@@ -276,7 +277,7 @@ export class PickemEvents {
           e.now() + 60000,
           e.now() + 90 * 86400000,
         ),
-        reward = integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000);
+        reward = integer(b.winnerReward ?? tourWinnerRewardDefault(teams.length), 0, 100000);
       e.run(
         "INSERT INTO pickem_events(name,format,teams,created) VALUES(?,'winner',?,?)",
         name,
@@ -307,7 +308,7 @@ export class PickemEvents {
           b.ends === p.ends
             ? p.ends
             : integer(b.ends, e.now() + 60000, e.now() + 90 * 86400000),
-        reward = integer(b.winnerReward ?? PICKEM_WINNER_REWARD, 0, 100000);
+        reward = integer(b.winnerReward ?? p.winner_reward, 0, 100000);
       const changed =
         JSON.stringify([...teams].sort()) !==
         JSON.stringify([...pickemTeams(p)].sort());

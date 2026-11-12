@@ -36,7 +36,7 @@ POST `participation-preview` with `{text}` returns `{players:[{id,name}]}` witho
 
 ### Tour winner pick’ems
 
-**Pick’ems → Create a tour pick’em** takes a tour name and **one team per line** (2–64 unique names). Keep or change the default 1,000-credit correct-winner reward and fifteen-minute deadline, then click **Publish tour pick’em**. It creates one pick’em for the whole tour. There are no schedule, match-score or exact-score reward fields.
+**Pick’ems → Create a tour pick’em** takes a tour name and **one team per line** (2–64 unique names). The correct-winner reward defaults to 500 credits per eight players, assuming four players per team (8: 500; 16: 1,000; 24: 1,500; 32: 2,000; partial groups round up). Editing the team list updates the default until the host manually changes the reward. Existing pick’ems keep their rewards. Keep or change this reward and the fifteen-minute deadline, then click **Publish tour pick’em**. It creates one pick’em for the whole tour. There are no schedule, match-score or exact-score reward fields.
 
 In the public Pick’ems tab, **View teams** opens a compact team selector. Players choose the overall winning team and click **Confirm pick**. They can change their choice until voting closes. Draft selections survive collapsing the tour or refreshing the view. Only the signed-in player's choice is returned; other players' choices remain private.
 

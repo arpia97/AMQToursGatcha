@@ -1,4 +1,4 @@
-import { PICKEM_WINNER_REWARD } from "./site-defaults.js";
+import { tourWinnerRewardDefault } from "./site-defaults.js";
 import { pickemVoteChart, pickemParticipationTag } from "./pickem-votes.js";
 import { pickemTeams } from "./tour-winner.js";
 import { deadlineFields, reopenPickemForm } from "./host-defaults.js";
@@ -32,7 +32,15 @@ export function winnerCard(
 }
 
 export function winnerCreatePanel() {
-  return `<section class="host-panel"><h2>Create a Tour Pick’em</h2><p>Enter the tour name and teams, or paste scored team results. Ratings and totals are removed, and registered names use their main AMQ Tours aliases.</p><form id="tour-winner-create" class="stack"><label>Tour name<input name="name" required></label><label>Teams · one per line<textarea name="teams" rows="4" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D" required></textarea></label><label>Correct winner reward<input name="winnerReward" type="number" min="0" max="100000" value="${PICKEM_WINNER_REWARD}" required></label>${deadlineFields("ends", "Voting closes")}<button class="button" type="submit">Publish tour pick’em →</button></form></section>`;
+  return `<section class="host-panel"><h2>Create a Tour Pick’em</h2><p>Enter the tour name and teams, or paste scored team results. Ratings and totals are removed, and registered names use their main AMQ Tours aliases.</p><form id="tour-winner-create" class="stack"><label>Tour name<input name="name" required></label><label>Teams · one per line<textarea name="teams" rows="4" placeholder="Team A&#10;Team B&#10;Team C&#10;Team D" required></textarea></label><label>Correct winner reward<input name="winnerReward" type="number" min="0" max="100000" value="${tourWinnerRewardDefault()}" required></label><p class="form-hint">Defaults to 500 credits per 8 players · 4 players per team. Editable.</p>${deadlineFields("ends", "Voting closes")}<button class="button" type="submit">Publish tour pick’em →</button></form></section>`;
+}
+
+export function syncWinnerRewardDefault(form, input) {
+  if (form?.getAttribute("id") !== "tour-winner-create") return;
+  if (input.name === "winnerReward") form.dataset.manualWinnerReward = "1";
+  if (input.name !== "teams" || form.dataset.manualWinnerReward) return;
+  const count = input.value.split(/\r?\n/).filter((line) => line.trim()).length;
+  form.elements.namedItem("winnerReward").value = String(tourWinnerRewardDefault(count || 4));
 }
 
 export function winnerEditor(p, e, now = Date.now()) {

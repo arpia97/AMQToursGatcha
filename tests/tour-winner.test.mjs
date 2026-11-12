@@ -12,7 +12,7 @@ import {
   settlementBody,
   settlementTable,
 } from "../public/pickem-settlement.js";
-import { winnerCreatePanel, winnerEditor } from "../public/tour-winner-ui.js";
+import { winnerCreatePanel, winnerEditor, syncWinnerRewardDefault } from "../public/tour-winner-ui.js";
 
 const teams = ["Alpha", "Beta", "Gamma", "Delta"];
 function fixture(t) {
@@ -57,21 +57,23 @@ function fixture(t) {
     advance: (n) => (now += n),
   };
 }
-test("winner-only creation publishes one choice per tour with1000 winner reward and fifteen-minute default, for2 through64 teams", (t) => {
+test("winner-only creation scales default rewards by four-player teams and keeps the fifteen-minute deadline", (t) => {
   const f = fixture(t);
-  for (const n of [2, 4, 6, 8, 64]) {
+  for (const [n, reward] of [[2,500],[3,1000],[4,1000],[6,1500],[8,2000],[64,16000]]) {
     const p = f.create({
       teams: Array.from({ length: n }, (_, i) => "Team " + i),
     });
     assert.equal(p.mode, "tour");
     assert.equal(p.ends, f.now() + 900000);
-    assert.equal(p.winner_reward, 1000);
+    assert.equal(p.winner_reward, reward);
     assert.equal(p.score_reward, 0);
     assert.equal(JSON.parse(p.teams).length, n);
     const event = f.e.pickemEvents.read(p.event_id);
     assert.equal(event.format, "winner");
     assert.equal(event.matches.length, 1);
   }
+  assert.equal(f.create({teams:["A","B"],winnerReward:750}).winner_reward,750);
+  assert.equal(f.create({teams:["A","B"],winnerReward:0}).winner_reward,0);
   assert.throws(() => f.create({ teams: ["A", "a"] }), /different/);
   assert.throws(() => f.create({ teams: ["Only"] }), /between/);
   assert.throws(() => f.create({ teams: ["A", null, "B"] }), /valid/);
@@ -160,6 +162,8 @@ test("winner roster edits require reviewed snapshots and clearing consent, prese
       ...extra,
     });
   f.host("pickem-winner-edit", edit({ winnerReward: 900 }));
+  f.host("pickem-winner-edit", edit({ winnerReward: undefined }));
+  assert.equal(current().winner_reward,900);
   assert.equal(f.e.one("SELECT count(*) AS n FROM predictions").n, 1);
   const reviewed = edit({ teams: ["A", "B"] });
   assert.throws(
@@ -237,6 +241,15 @@ test("public and host winner forms contain no score controls, retain team-keyed 
   assert.match(html, /value="Delta" required checked/);
   assert.doesNotMatch(html, /name="score[AB]"|Two-game result/);
   assert.match(winnerCreatePanel(), /name="winnerReward"[^>]*value="1000"/);
+  const rewardInput={value:"1000"}, form={getAttribute:()=>"tour-winner-create",dataset:{},elements:{namedItem:()=>rewardInput}};
+  for(const [roster,reward] of [["A\nB", "500"],["A\nB\nC\nD\nE\nF\n", "1500"],["A\nB\nC\nD\nE\nF\nG\nH", "2000"],["\n\n", "1000"]]) {
+    syncWinnerRewardDefault(form,{name:"teams",value:roster});
+    assert.equal(rewardInput.value,reward);
+  }
+  rewardInput.value="750";
+  syncWinnerRewardDefault(form,{name:"winnerReward",value:"750"});
+  syncWinnerRewardDefault(form,{name:"teams",value:"A\nB"});
+  assert.equal(rewardInput.value,"750");
   assert.doesNotMatch(winnerCreatePanel(), /name="format"|name="scoreReward"/);
   assert.doesNotMatch(
     winnerEditor(f.e.pickemEvents.match(p.id), esc),
