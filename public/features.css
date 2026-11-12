@@ -3749,6 +3749,42 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.quiz-recap-dialog {
+  width: min(1100px, 100%);
+}
+.quiz-recap-dialog td {
+  vertical-align: top;
+}
+.quiz-recap-dialog table {
+  min-width: 900px;
+}
+.quiz-recap-dialog td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.quiz-recap-correct {
+  background: #9bddbd0b;
+}
+.quiz-recap-incorrect {
+  background: #f4798b0b;
+}
+.quiz-recap-correct .quiz-recap-result {
+  color: var(--mint);
+}
+.quiz-recap-incorrect .quiz-recap-result {
+  color: #f4798b;
+}
+.quiz-recap-result,
+.quiz-recap-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.quiz-tile .quiz-average {
+  margin: -6px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
 
 :is(.alchemy-tier, .alchemy-draw-popup).tier-d {
   --tier-color: #797985;

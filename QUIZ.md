@@ -8,6 +8,12 @@ Upload an AnisongDB array (or an object containing `songs`). Recognized audio fi
 
 Covers support PNG/JPEG/WebP up to 300 KB. Song files up to 4.5 MB / 2,000 entries. Host requests have a 5 MB ceiling. Retry receipts store a SHA-256 digest instead of duplicating the imported pool, and retries avoid fetching AMQ again. AMQ master data is cached in memory for 24 hours; only anime/title metadata is retained.
 
+## Completed Run Recap and Difficulty
+
+The finished result screen has a **Songs Played** popup for that attempt's 20 songs, in play order: correct/incorrect (green/red), song/artist, anime, submitted answer, elapsed timestamp from quiz start, and time taken to answer that song. Timing is server-recorded on answer lock and includes network arrival; the elapsed clock includes loading and review pauses. Skips and expired answers are marked explicitly. Older retained runs without per-song timing display **Not Recorded**. The recap survives refresh of the finished attempt and is replaced when the player starts a new attempt. Upcoming song metadata is never exposed by this feature during play.
+
+Difficulty sorting uses highest/lowest **average score across retained completed, non-preview attempts**, including repeats rather than personal bests. Quizzes with no completed attempts sort last in both directions. Tiles show the average out of 20 and completed-run count. Existing retry receipts supply historical scores; a partial expression index and 60-second in-memory cache avoid repeatedly parsing the full receipt ledger. New completions invalidate the cache. Historical attempts remain included after host score resets or pool edits; stopped and unfinished runs and draft previews do not count.
+
 ## Rewards
 
 Personal best and milestone payments are committed in the same transaction as the final answer advancement. One progress row per player/quiz prevents repeated awards, even with different request keys. Runs store only the latest attempt for each player/quiz. Perfect-score titles are derived from saved best scores and the host's configured title.

@@ -2,7 +2,15 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Support > 32 Players for Participation Credit Rewards with Rate Capped at 32-Player Default
+## Active Task — Completed Quiz Song Recap and Difficulty Sorting
+
+- Codex owns `src/quiz.js`, `public/quiz-ui.js`, `public/features.css`, focused quiz tests, `QUIZ.md`, and this entry. Base `6fdcfb3`, clean and synchronized with main. Preserve Gemini's completed participation-reward changes and existing economy/importer data.
+- Add finished-run-only song recap with correct/incorrect markers and per-song elapsed timestamps. Add easiest/hardest sorting by average score across retained completed non-preview attempts; keep unplayed quizzes last. Use indexed receipt statistics with a short cache instead of repeatedly parsing the receipt ledger. No production test attempts or reward changes.
+- Implemented: Songs Played popup on finished quiz screen, showing 20 songs in play order, artist/anime, submitted answer, correct/incorrect/skip/timeout result, elapsed-from-start timestamp and per-song answer time. Server records timings at lock; legacy missing timings are explicit. No upcoming answer exposure. Mobile table scrolls horizontally; recap uses the saved finished snapshot and no extra request when opened.
+- Added averageScore/completedRuns using partial expression index over unique completed non-preview `:quiz-next` receipts, 60-second cache invalidated on completion. Includes historical/repeat attempts; no stopped/unfinished runs. Both sort directions put unplayed quizzes last; averages/counts are shown on tiles.
+- Checks: 463 tests passed across the full suite; enhanced Worker runtime test passed, verifies recap/average fields and six-SQL answer hot path. 214 syntax checks, dry-run build, diff check. In-memory browser QA: both difficulty directions, popup results/timings, finished-run refresh, close, desktop and 390px mobile overflow. Synthetic SQLite: 100,000 unrelated receipts + 2,000 completions → index creation ~9.69ms, cached-source aggregation ~0.15ms (local measurement, not a production guarantee). Push/deployment pending.
+
+## Previous Task — Support > 32 Players for Participation Credit Rewards with Rate Capped at 32-Player Default
 
 - Gemini owns implementation/commit: `public/tour-rewards.js`, `public/tour-rewards-ui.js`, `public/host.js`, `src/engine.js`, `tests/host-workflows.test.mjs`, `tests/site-defaults.test.mjs`, `docs/collaboration/STATUS.md`.
 - Base SHA: `5a0bdef`

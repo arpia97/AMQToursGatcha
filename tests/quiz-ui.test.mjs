@@ -20,6 +20,7 @@ function fixture(
     audioCache,
     transitions = false,
     prefetch = false,
+    history = [],
   } = {},
 ) {
   const old = globalThis.document,
@@ -165,6 +166,7 @@ function fixture(
         ...(finishOnNext
           ? {
               finished: true,
+              history,
               reward: {
                 best: 1,
                 improvement: 50,
@@ -573,6 +575,14 @@ test("quiz sorting covers performance, names, unplayed runs and pool size withou
     [...ui.render().matchAll(/data-quiz-open="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(order(), ["mid", "low", "high", "tie"]);
   assert.match(ui.render(), /Sort By<select id="quiz-sort">/);
+  Object.assign(quizzes[0], { averageScore: 12, completedRuns: 4 });
+  Object.assign(quizzes[1], { averageScore: 4, completedRuns: 8 });
+  Object.assign(quizzes[2], { averageScore: 18, completedRuns: 3 });
+  ui.setSort("average-desc");
+  assert.deepEqual(order(), ["high", "mid", "low", "tie"]);
+  assert.match(ui.render(), /Average 18.0\/20 · 3 Runs/);
+  ui.setSort("average-asc");
+  assert.deepEqual(order(), ["low", "mid", "high", "tie"]);
   ui.setSort("best-desc");
   assert.deepEqual(order(), ["high", "mid", "tie", "low"]);
   assert.match(ui.render(), /value="best-desc" selected/);
@@ -592,7 +602,7 @@ test("quiz sorting covers performance, names, unplayed runs and pool size withou
   ui.setSort("recent");
   assert.deepEqual(order(), ["mid", "low", "high", "tie"]);
   assert.equal(requests, 1);
-  assert.equal(renders, 8);
+  assert.equal(renders, 10);
   assert.deepEqual(
     quizzes.map((q) => q.id),
     ["mid", "low", "high", "tie"],
@@ -917,6 +927,36 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   });
   assert.equal(prevented, 1);
   assert.doesNotMatch(f.ui.render(), /quiz-songs-dialog/);
+});
+
+test("finished quiz recap shows escaped songs, right/wrong results and recorded times without another request", async (t) => {
+  const f = fixture(t, { history: [
+    {title:"Song <One>",artist:"Artist",anime:"Anime",submittedAnswer:"Anime",correct:true,elapsedMs:4500,responseMs:2500},
+    {title:"Song Two",anime:"Anime 2",submittedAnswer:"<Wrong>",correct:false,elapsedMs:null,responseMs:null},
+  ] });
+  await f.ui.load();
+  await f.ui.click(f.button("data-quiz-open", "q"));
+  await f.ui.click(f.button("data-quiz-recap"));
+  assert.doesNotMatch(f.ui.render(), /quiz-recap-dialog/);
+  await f.ui.click(f.button("data-quiz-action", "quiz-start"));
+  await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
+  f.finishNext();
+  await f.ui.click(f.button("data-quiz-action", "quiz-next"));
+  assert.match(f.ui.render(), /data-quiz-recap>Songs Played/);
+  const count = f.calls.length;
+  await f.ui.click(f.button("data-quiz-recap"));
+  const html = f.ui.render();
+  assert.match(html, /quiz-recap-dialog/);
+  assert.match(html, /quiz-recap-correct/);
+  assert.match(html, /quiz-recap-incorrect/);
+  assert.match(html, /Song &lt;One>/);
+  assert.match(html, /&lt;Wrong>/);
+  assert.match(html, /0:04.500/);
+  assert.match(html, /0:02.500/);
+  assert.match(html, /Not Recorded/);
+  assert.equal(f.calls.length, count);
+  await f.ui.click(f.button("data-quiz-songs-close"));
+  assert.doesNotMatch(f.ui.render(), /quiz-recap-dialog/);
 });
 
 test("quiz leaderboard highlights the viewer when in Top 20 and appends a highlighted 21st row with placement, score and time when outside Top 20", async (t) => {

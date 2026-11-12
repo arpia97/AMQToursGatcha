@@ -578,6 +578,13 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   }
   assert.equal(run.score, 20);
   assert.equal(run.reward.total, 2900);
+  assert.equal(run.history.length, 20);
+  assert.ok(run.history.every((s) => s.correct && Number.isSafeInteger(s.elapsedMs)));
+  assert.ok(run.history.every((s) => !("audio" in s) && !("answers" in s)));
+  const quizStatsResponse = await mf.dispatchFetch("http://game/api/quizzes", { headers: auth });
+  const quizStats = (await quizStatsResponse.json()).quizzes.find((q) => q.id === "test");
+  assert.ok(quizStats.completedRuns >= 1);
+  assert.equal(quizStats.averageScore, 20);
   response = await mf.dispatchFetch("http://game/api/player?id=1");
   const profile = await response.json();
   assert.equal(profile.titles[0].title, "Perfect");

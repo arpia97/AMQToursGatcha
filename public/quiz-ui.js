@@ -58,6 +58,7 @@ export function createQuizUI({
     songListData = null,
     songListLoading = false,
     songListError = "",
+    songListIsRecap = false,
     quizSort = "recent",
     quizSearch = "",
     category = "singers";
@@ -441,6 +442,22 @@ export function createQuizUI({
     songListData = null;
     songListLoading = false;
     songListError = "";
+    songListIsRecap = false;
+  }
+  function recapRows(songs) {
+    return songs.map((s, i) => {
+      const result = s.correct
+        ? "Correct"
+        : s.timedOut ? "Timed Out" : s.skipped ? "Skipped" : "Incorrect";
+      return '<tr class="quiz-recap-' + (s.correct ? "correct" : "incorrect") + '"><td>' +
+        (i + 1) + '</td><td><span class="quiz-recap-result">' +
+        (s.correct ? "✓ " : "✕ ") + result + '</span></td><td><strong>' +
+        e(s.title || "Unknown Song") + '</strong><small>' + e(s.artist || "—") +
+        '</small></td><td>' + e(s.anime || "—") + '</td><td>' +
+        e(s.submittedAnswer || "—") + '</td><td class="quiz-recap-time">' +
+        e(quizDuration(s.elapsedMs)) + '</td><td class="quiz-recap-time">' +
+        e(quizDuration(s.responseMs)) + '</td></tr>';
+    }).join("");
   }
   function songListModalHTML() {
     if (!songListQuiz) return "";
@@ -448,7 +465,7 @@ export function createQuizUI({
     const name = songListData?.name || q?.name || "Quiz";
     const songs = songListData?.songs || [];
     const count = songs.length || q?.songs || 0;
-    const rows = songs
+    const rows = songListIsRecap ? recapRows(songs) : songs
       .map(
         (s, i) =>
           "<tr><td>" +
@@ -464,21 +481,22 @@ export function createQuizUI({
       .join("");
     return (
       '<div class="fusion-picker-backdrop quiz-songs-backdrop" data-quiz-songs-close>' +
-      '<section class="fusion-picker-dialog quiz-songs-dialog" role="dialog" aria-modal="true" aria-labelledby="quiz-songs-title">' +
+      '<section class="fusion-picker-dialog quiz-songs-dialog' + (songListIsRecap ? ' quiz-recap-dialog' : '') + '" role="dialog" aria-modal="true" aria-labelledby="quiz-songs-title">' +
       '<div class="section-head"><div><h2 id="quiz-songs-title">' +
       e(name) +
-      ' · Song List</h2><p class="subtext">' +
+      (songListIsRecap ? ' · Songs Played' : ' · Song List') + '</h2><p class="subtext">' +
       count +
       " " +
       (count === 1 ? "Song" : "Songs") +
-      " in Pool</p></div>" +
+      (songListIsRecap ? ' · Elapsed from Quiz Start</p></div>' : " in Pool</p></div>") +
       '<button type="button" class="button secondary" data-quiz-songs-close>Close</button></div>' +
       (songListLoading
         ? '<p class="notice" role="status">Loading Song List…</p>'
         : songListError
           ? '<p class="notice warm" role="alert">' + e(songListError) + "</p>"
           : rows
-            ? '<div class="table-wrap quiz-song-list"><table><thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Anime</th></tr></thead><tbody>' +
+            ? '<div class="table-wrap quiz-song-list"><table><thead><tr><th>#</th>' +
+              (songListIsRecap ? '<th>Result</th><th>Song / Artist</th><th>Anime</th><th>Your Answer</th><th>Elapsed</th><th>Answer Time</th>' : '<th>Song</th><th>Artist</th><th>Anime</th>') + '</tr></thead><tbody>' +
               rows +
               "</tbody></table></div>"
             : '<p class="notice">No songs in this quiz pool yet.</p>') +
@@ -504,6 +522,8 @@ export function createQuizUI({
             ["pool-asc", "Song Pool · Smallest First"],
             ["best-desc", "Performance · Highest First"],
             ["best-asc", "Performance · Lowest First"],
+            ["average-desc", "Difficulty · Highest Average First"],
+            ["average-asc", "Difficulty · Lowest Average First"],
           ]
             .map(
               ([value, label]) =>
@@ -573,6 +593,16 @@ export function createQuizUI({
                     return b.best - a.best;
                   case "best-asc":
                     return a.best - b.best;
+                  case "average-desc":
+                  case "average-asc": {
+                    const aHas = Number.isFinite(a.averageScore),
+                      bHas = Number.isFinite(b.averageScore);
+                    if (aHas !== bHas) return aHas ? -1 : 1;
+                    if (!aHas) return 0;
+                    return quizSort === "average-desc"
+                      ? b.averageScore - a.averageScore
+                      : a.averageScore - b.averageScore;
+                  }
                   default:
                     return 0;
                 }
@@ -600,6 +630,7 @@ export function createQuizUI({
                   "/20</p><p>" +
                   q.songs +
                   " Songs in Pool</p>" +
+                  (Number.isFinite(q.averageScore) ? '<p class="quiz-average">Average ' + q.averageScore.toFixed(1) + '/20 · ' + q.completedRuns + (q.completedRuns === 1 ? ' Run</p>' : ' Runs</p>') : '') +
                   '<div class="quiz-tile-actions"><button class="button mint" data-quiz-open="' +
                   e(q.id) +
                   '">' +
@@ -655,7 +686,7 @@ export function createQuizUI({
       content +
       "</div>" +
       leaderboardHTML() +
-      "</div>";
+      "</div>" + songListModalHTML();
     if (!getState().me)
       return withLeaderboard(
         '<p>Sign in to play quizzes and keep your progress.</p><button class="button" data-action="account">Sign In →</button>',
@@ -696,6 +727,7 @@ export function createQuizUI({
             ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
             : "") +
           '<div class="quiz-complete-actions">' +
+          (run.history?.length ? '<button type="button" class="button secondary" data-quiz-recap>Songs Played →</button>' : '') +
           startControls("Play Again →") +
           "</div></section>",
       );
@@ -1214,6 +1246,8 @@ export function createQuizUI({
           "pool-asc",
           "best-desc",
           "best-asc",
+          "average-desc",
+          "average-asc",
         ].includes(value)
       )
         return;
@@ -1245,8 +1279,21 @@ export function createQuizUI({
         onRender();
         return true;
       }
+      if (button.hasAttribute("data-quiz-recap")) {
+        if (!run?.finished || !run.history?.length) return true;
+        closeSongList();
+        songListQuiz = selected;
+        songListIsRecap = true;
+        songListData = {
+          name: quizzes.find((q) => q.id === selected)?.name,
+          songs: run.history,
+        };
+        onRender();
+        return true;
+      }
       if (button.hasAttribute("data-quiz-songs")) {
         if (working) return true;
+        songListIsRecap = false;
         const id = button.dataset.quizSongs;
         if (!id) return true;
         const q = quizzes.find((x) => x.id === id);

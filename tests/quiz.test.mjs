@@ -179,6 +179,7 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
   const first = f.action("p", "quiz-start", { quiz: "test" });
   assert.equal(first.run.index, 0);
   assert.equal(first.run.answer, undefined);
+  assert.equal(first.run.history, undefined);
   assert.equal(
     f.action("p", "quiz-start", { quiz: "test" }).run.id,
     first.run.id,
@@ -186,6 +187,12 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
   const state = f.e.quiz.run("p", "test");
   const result = play(f, 10);
   assert.equal(result.run.reward.total, 900);
+  assert.equal(result.run.history.length, 20);
+  assert.equal(result.run.history.filter((s) => s.correct).length, 10);
+  assert.equal(result.run.history[0].title, state.songs[0].title);
+  assert.equal(result.run.history[0].submittedAnswer, state.songs[0].answers[1]);
+  assert.equal(result.run.history[10].submittedAnswer, "Wrong");
+  assert.ok(result.run.history.every((s) => !("audio" in s) && !("answers" in s)));
   assert.equal(f.e.player("p").earned, 900);
   const next = play(f, 13);
   assert.equal(next.run.reward.total, 150);
@@ -792,6 +799,9 @@ test("quiz clocks are server-owned, persisted and stop at the last answer rather
     { result, startedAt } = timedPlay(f, 20, "p", 1234, 90000);
   assert.equal(result.run.durationMs, 2000 + 20 * 1234);
   assert.equal(result.run.startedAt, startedAt);
+  assert.equal(result.run.history[0].elapsedMs, 2000 + 1234);
+  assert.equal(result.run.history[0].responseMs, 1234);
+  assert.equal(result.run.history[19].elapsedMs, result.run.durationMs);
   assert.equal(
     f.e.quiz.leaderboard("test").rows[0].durationMs,
     result.run.durationMs,
@@ -802,6 +812,31 @@ test("quiz clocks are server-owned, persisted and stop at the last answer rather
     result.run.durationMs,
   );
   assert.equal(f.e.player("p").earned, 2900);
+});
+
+test("difficulty averages count all completed scored attempts once, use the receipt index and cache, and exclude previews", (t) => {
+  const f = fixture(t);
+  assert.equal(f.e.quiz.list()[0].averageScore, null);
+  play(f, 20, "perfect");
+  play(f, 0, "misses");
+  play(f, 10, "middle", "q");
+  let summary = f.e.quiz.list()[0];
+  assert.equal(summary.completedRuns, 3);
+  assert.equal(summary.averageScore, 10);
+  assert.equal(f.e.quiz.statistics(), f.e.quiz.statistics());
+  f.e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", "p:quiz-next", "preview", JSON.stringify({quiz:"test"}), JSON.stringify({run:{finished:true,score:20,preview:true}}), f.e.now());
+  f.e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", "p:quiz-next", "unfinished", JSON.stringify({quiz:"test"}), JSON.stringify({run:{finished:false,score:19}}), f.e.now());
+  f.advance(60001);
+  summary = f.e.quiz.list()[0];
+  assert.equal(summary.completedRuns, 3);
+  assert.equal(summary.averageScore, 10);
+  const query = f.e.all("EXPLAIN QUERY PLAN SELECT AVG(json_extract(result,'$.run.score')) FROM receipts INDEXED BY quiz_completion_scores WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0");
+  assert.ok(query.some((r) => r.detail.includes("quiz_completion_scores")));
+  const stored = f.e.quiz.run("q", "test");
+  for (const answer of stored.answers) { delete answer.elapsedMs; delete answer.responseMs; }
+  f.e.quiz.persist("q", "test", stored);
+  const oldHistory = f.e.quiz.view("q", "test").run.history;
+  assert.ok(oldHistory.every((s) => s.elapsedMs === null && s.responseMs === null));
 });
 test("leaderboard ties use fastest matching score, then first set; slower/lower repeats cannot replace it or award credits", (t) => {
   const f = fixture(t);

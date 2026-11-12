@@ -24,6 +24,7 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS quiz_reward_history(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_order(player TEXT PRIMARY KEY,data TEXT NOT NULL)",
+      "CREATE INDEX IF NOT EXISTS quiz_completion_scores ON receipts(json_extract(input,'$.quiz'),json_extract(result,'$.run.score')) WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0",
     ])
       e.run(sql);
     if (!e.all("PRAGMA table_info(quizzes)").some((c) => c.name === "category"))
@@ -177,6 +178,19 @@ export class Quiz {
   isHost(player) {
     return !!player && !!this.e.player(player).is_admin;
   }
+  statistics() {
+    // Retry receipts are already unique and retain historical completed scores.
+    // Scan only the small covering index, never every answer/ledger JSON body.
+    const now = this.e.now();
+    if (this.statisticsCache?.until > now) return this.statisticsCache.rows;
+    const rows = new Map(
+      this.e.all(
+        "SELECT json_extract(input,'$.quiz') AS quiz,COUNT(*) AS completedRuns,AVG(json_extract(result,'$.run.score')) AS averageScore FROM receipts INDEXED BY quiz_completion_scores WHERE substr(scope,-10)=':quiz-next' AND json_extract(result,'$.run.finished')=1 AND COALESCE(json_extract(result,'$.run.preview'),0)=0 GROUP BY json_extract(input,'$.quiz')",
+      ).map(({ quiz, ...stats }) => [quiz, stats]),
+    );
+    this.statisticsCache = { until: now + 60000, rows };
+    return rows;
+  }
   list(player = null, host = false) {
     const includeCoverData = host;
     host = host || this.isHost(player);
@@ -190,9 +204,14 @@ export class Quiz {
         "ORDER BY q.updated DESC,q.id",
       player || "",
     );
+    const statistics = this.statistics();
+    const enriched = rows.map((row) => ({
+      ...row,
+      ...(statistics.get(row.id) || { completedRuns: 0, averageScore: null }),
+    }));
     return includeCoverData
-      ? rows
-      : rows.map(({ has_cover, ...row }) => ({
+      ? enriched
+      : enriched.map(({ has_cover, ...row }) => ({
           ...row,
           cover: has_cover
             ? "api/quiz-cover?quiz=" +
@@ -440,6 +459,21 @@ export class Quiz {
           durationMs: run.durationMs ?? null,
           reward: run.reward,
           preview: !!run.preview || !q.published,
+          history: run.songs.map((song, index) => {
+            const answer = run.answers[index] || {};
+            return {
+              index,
+              title: song.title || "Unknown Song",
+              artist: song.artist || "",
+              anime: song.answers?.[0] || "",
+              submittedAnswer: answer.submittedAnswer ?? answer.answer ?? "",
+              correct: !!answer.correct,
+              timedOut: !!answer.timedOut,
+              skipped: !!answer.skipped,
+              elapsedMs: answer.elapsedMs ?? null,
+              responseMs: answer.responseMs ?? null,
+            };
+          }),
         },
       };
     const song = run.songs[run.index],
@@ -628,6 +662,9 @@ export class Quiz {
         answer,
         submittedAnswer,
         timedOut,
+        skipped: !!b.skip,
+        elapsedMs: quizElapsed(run.startedAt, e.now()),
+        responseMs: quizElapsed(run.timing?.startsAt, e.now()),
         correct:
           !!answer &&
           run.songs[run.index].answers.some(
@@ -731,6 +768,7 @@ export class Quiz {
           );
         }
         run.finished = true;
+        this.statisticsCache = null;
         run.preview = preview;
         run.reward = preview
           ? {
