@@ -218,3 +218,42 @@ test("trade picker offer mode shows Unprotect & Offer for protected cards when s
   assert.match(html, /data-action="trade-unprotect-offer"/);
   assert.match(html, /Unprotect &amp; Offer/);
 });
+
+test("trade offer builder allows offering credits alongside cards, validates balance, and displays credits in offers", () => {
+  const { component: c, s } = fixture();
+  s.me.balance = 1000;
+  c.openPicker({ id: 10, card: "a", level: 1 });
+  c.choose("a");
+
+  // Input renders
+  const pickerHtml = c.renderPicker();
+  assert.match(pickerHtml, /id="trade-offer-credits"/);
+  assert.match(pickerHtml, /Offer Credits \(Optional\)/);
+  assert.match(pickerHtml, /Available: ✦ 1000/);
+
+  // Set credits
+  c.setCredits(250);
+  assert.equal(c.submitLabel(), "Send Offer · 1 Card + ✦ 250");
+  const payload = c.payload();
+  assert.equal(payload.action, "trade-offer");
+  assert.equal(payload.body.credits, 250);
+  assert.deepEqual(payload.body.cards, [
+    { card: "a", variant: "extra", expectedLevel: 1 },
+  ]);
+
+  // Balance limit validation
+  c.setCredits(1500);
+  assert.throws(() => c.payload(), /enough credits/);
+
+  // Negative credit validation
+  c.setCredits(-100);
+  assert.equal(c.submitLabel(), "Send Offer · 1 Card");
+
+  // Offer card display renders offered credits
+  const offerHtml = c.offer({
+    cards: [{ card: "a", level: 1 }],
+    credits: 250,
+  });
+  assert.match(offerHtml, /\+ ✦ 250 Credits/);
+  assert.match(offerHtml, /Credits Offered/);
+});

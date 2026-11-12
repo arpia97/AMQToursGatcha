@@ -32,10 +32,16 @@ export function createTradesUI(h, ui) {
     offerCards(o).length +
     " " +
     (offerCards(o).length === 1 ? "Card" : "Cards") +
+    (Number(o.credits) > 0 ? " + ✦ " + n(o.credits) + " Credits" : "") +
     "</p>" +
     offerCards(o)
       .map((c) => card(c.card, c.level, c.extra_copies))
       .join("") +
+    (Number(o.credits) > 0
+      ? '<div class="trade-offer-credits"><span class="money">+✦ ' +
+        n(o.credits) +
+        " Credits Offered</span></div>"
+      : "") +
     "</div>";
   function render() {
     const s = getState(),
@@ -43,7 +49,7 @@ export function createTradesUI(h, ui) {
       view = ui.tradeView || "browse";
     const query = ui.tradeQuery || "",
       noResults = !!query && data?.query === query.trim() && !data.items.length;
-    const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer up to 10 card copies for one listed card. The lister chooses an offer. All cards are held until the trade ends; withdrawing returns your cards. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
+    const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer up to 10 card copies alongside optional credits for one listed card. The lister chooses an offer. All cards and offered credits are held until the trade ends; withdrawing returns them. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
       ["browse", "Browse Trades"],
       ["listings", "Your Trade Listings"],
       ["offers", "Your Offers"],
@@ -110,6 +116,7 @@ export function createTradesUI(h, ui) {
       page: 1,
       selected: null,
       bundle: [],
+      credits: 0,
     };
   }
   function choose(id) {
@@ -185,6 +192,17 @@ export function createTradesUI(h, ui) {
       if (key !== "page") picker.page = 1;
     }
   }
+  function setCredits(value) {
+    if (!picker) return;
+    const num = parseInt(value, 10);
+    picker.credits = Number.isInteger(num) && num > 0 ? num : 0;
+  }
+  const submitLabel = () =>
+    "Send Offer · " +
+    (picker?.bundle?.length || 0) +
+    " " +
+    (picker?.bundle?.length === 1 ? "Card" : "Cards") +
+    (picker?.credits > 0 ? " + ✦ " + n(picker.credits) : "");
   function payload() {
     if (
       !picker ||
@@ -192,12 +210,26 @@ export function createTradesUI(h, ui) {
       (picker.listing ? !picker.bundle.length : !picker.selected)
     )
       throw Error("Choose a card from your current account.");
+    let credits = picker.credits || 0;
+    if (typeof document !== "undefined") {
+      const input = document.getElementById("trade-offer-credits");
+      if (input && input.value !== "") {
+        const val = parseInt(input.value, 10);
+        if (Number.isInteger(val)) credits = val;
+      }
+    }
+    if (credits < 0) throw Error("Credit offer cannot be negative.");
+    const balance = getState().me?.balance || 0;
+    if (credits > balance)
+      throw Error("You do not have enough credits to offer.");
+    picker.credits = credits;
     return {
       action: picker.listing ? "trade-offer" : "trade-list",
       body: picker.listing
         ? {
             listing: picker.listing.id,
             cards: picker.bundle.map((c) => ({ ...c })),
+            ...(credits > 0 ? { credits } : {}),
           }
         : { ...picker.selected },
     };
@@ -268,12 +300,24 @@ export function createTradesUI(h, ui) {
         (bundle.length
           ? ""
           : '<p class="subtext">Choose cards below. Click the same card again to add another available copy.</p>') +
-        '<form id="trade-card-form"><p class="form-hint">The full bundle is held until accepted, declined or withdrawn. Enhanced cards retain their levels; duplicate arrivals keep the higher level and preserve invested copies as spares.</p><div class="form-error" role="alert"></div><button type="submit" class="button mint" ' +
+        '<form id="trade-card-form">' +
+        '<div class="trade-credit-field">' +
+        '<label for="trade-offer-credits"><strong>Offer Credits (Optional)</strong><span class="subtext">Available: ✦ ' +
+        n(s.me?.balance || 0) +
+        "</span></label>" +
+        '<div class="trade-credit-input-wrap">' +
+        '<span class="trade-credit-prefix">✦</span>' +
+        '<input type="number" id="trade-offer-credits" min="0" max="' +
+        Math.max(0, s.me?.balance || 0) +
+        '" step="1" value="' +
+        (picker.credits ? picker.credits : "") +
+        '" placeholder="0" aria-label="Offer Credits">' +
+        "</div>" +
+        "</div>" +
+        '<p class="form-hint">The full bundle and any offered credits are held until accepted, declined or withdrawn. Enhanced cards retain their levels; duplicate arrivals keep the higher level and preserve invested copies as spares.</p><div class="form-error" role="alert"></div><button type="submit" class="button mint" ' +
         (bundle.length ? "" : "disabled") +
-        ">Send Offer · " +
-        bundle.length +
-        " " +
-        (bundle.length === 1 ? "Card" : "Cards") +
+        ">" +
+        submitLabel() +
         "</button></form></section>"
       : "";
     const available = (i) =>
@@ -329,6 +373,8 @@ export function createTradesUI(h, ui) {
     choose,
     variant,
     filter,
+    setCredits,
+    submitLabel,
     payload,
     back,
     turn,

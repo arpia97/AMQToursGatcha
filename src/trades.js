@@ -6,6 +6,15 @@ export class Trades {
   constructor(e) {
     this.e = e;
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
+    if (
+      !e
+        .all("PRAGMA table_info(trade_offers)")
+        .some((c) => c.name === "credits")
+    ) {
+      e.run(
+        "ALTER TABLE trade_offers ADD COLUMN credits INTEGER NOT NULL DEFAULT 0",
+      );
+    }
   }
   listing(id) {
     const row = this.e.one(
@@ -112,6 +121,8 @@ export class Trades {
   returnOffer(o, status = "returned") {
     for (const c of this.offerCards(o))
       this.e.economy.acquire(o.proposer, c.card, c.level, c.extra_copies);
+    if (Number(o.credits) > 0)
+      this.e.wallet(o.proposer, Number(o.credits), "Trade offer return");
     this.e.run(
       "UPDATE trade_offers SET status=?,updated_at=? WHERE id=?",
       status,
@@ -204,14 +215,20 @@ export class Trades {
         ).n >= 20
       )
         fail("This listing already has 20 offers.", 409);
+      const credits =
+        b.credits !== undefined && b.credits !== null && b.credits !== ""
+          ? integer(b.credits, 0, 1000000000)
+          : 0;
+      if (credits > 0) e.wallet(player, -credits, "Trade offer escrow");
       const cards = this.takeBundle(player, b),
         c = cards[0];
       e.run(
-        "INSERT INTO trade_offers(listing,proposer,card,level,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO trade_offers(listing,proposer,card,level,credits,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
         l.id,
         player,
         c.card,
         c.level,
+        credits,
         e.now(),
         e.now(),
       );
@@ -231,18 +248,21 @@ export class Trades {
         "trade-request",
         l.card,
         l.level,
-        0,
+        credits,
         {
           listing: l.id,
           offer,
           proposer: player,
           name: e.player(player).name,
           count: cards.length,
+          credits,
         },
       );
       return {
         message:
-          "Trade offer sent. Your cards are held until accepted, declined or withdrawn.",
+          "Trade offer sent. Your cards" +
+          (credits > 0 ? " and credits are" : " are") +
+          " held until accepted, declined or withdrawn.",
       };
     }
     if (action === "trade-cancel") {
@@ -272,6 +292,8 @@ export class Trades {
       for (const c of this.offerCards(o))
         e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
       e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);
+      if (Number(o.credits) > 0)
+        e.wallet(l.seller, Number(o.credits), "Trade accepted: " + l.card);
       e.run(
         "UPDATE trade_offers SET status='accepted',updated_at=? WHERE id=?",
         e.now(),
@@ -399,7 +421,7 @@ export class Trades {
 }
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS trade_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',accepted_offer INTEGER,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS trade_offers(id INTEGER PRIMARY KEY AUTOINCREMENT,listing INTEGER NOT NULL,proposer TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS trade_offers(id INTEGER PRIMARY KEY AUTOINCREMENT,listing INTEGER NOT NULL,proposer TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,credits INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS trade_offer_cards(offer INTEGER NOT NULL,position INTEGER NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,PRIMARY KEY(offer,position));
 CREATE INDEX IF NOT EXISTS trade_browse ON trade_listings(status,id);
 CREATE INDEX IF NOT EXISTS trade_seller ON trade_listings(seller,id);

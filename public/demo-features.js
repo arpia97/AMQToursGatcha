@@ -924,6 +924,14 @@ export function demoFeatures(d, path, b) {
       if (c.expectedLevel !== (c.variant === "extra" ? 1 : i.level))
         throw Error("The selected card changed.");
     }
+    const credits =
+      l && b.credits !== undefined && b.credits !== null && b.credits !== ""
+        ? Math.max(0, Math.floor(Number(b.credits)))
+        : 0;
+    if (credits > 0) {
+      if ((s.balance || 0) < credits) throw Error("Not enough available credits.");
+      s.balance -= credits;
+    }
     const held = new Array(rows.length);
     for (const variant of ["extra", "card"])
       rows.forEach((c, index) => {
@@ -942,6 +950,7 @@ export function demoFeatures(d, path, b) {
         listing: l.id,
         proposer: me.id,
         proposer_name: me.name,
+        credits,
       });
     else s.trades.push({ ...row, seller: me.id, seller_name: me.name });
     return { message: l ? "Demo offer sent." : "Demo card listed for trade." };
@@ -956,6 +965,7 @@ export function demoFeatures(d, path, b) {
     if (!l) throw Error("Trade unavailable.");
     if (path === "trade-withdraw" && o?.proposer === me.id) {
       for (const c of o.cards || [o]) add(c.card, c.level);
+      if (o.credits) s.balance = (s.balance || 0) + o.credits;
       o.status = "withdrawn";
     } else if (l.seller === me.id && path === "trade-cancel") {
       add(l.card, l.level);
@@ -963,22 +973,31 @@ export function demoFeatures(d, path, b) {
       for (const other of s.tradeOffers.filter(
         (o) => o.listing === l.id && o.status === "open",
       )) {
-        if (other.proposer === me.id)
+        if (other.proposer === me.id) {
           for (const c of other.cards || [other]) add(c.card, c.level);
+          if (other.credits) s.balance = (s.balance || 0) + other.credits;
+        }
         other.status = "returned";
       }
     } else if (l.seller === me.id && o && path === "trade-accept") {
       for (const c of o.cards || [o]) add(c.card, c.level);
+      if (o.credits && l.seller === me.id) s.balance = (s.balance || 0) + o.credits;
       o.status = "accepted";
       l.status = "completed";
       l.accepted_offer = o.id;
       for (const other of s.tradeOffers.filter(
         (o) => o.listing === l.id && o.status === "open",
-      ))
+      )) {
+        if (other.proposer === me.id) {
+          for (const c of other.cards || [other]) add(c.card, c.level);
+          if (other.credits) s.balance = (s.balance || 0) + other.credits;
+        }
         other.status = "returned";
-    } else if (l.seller === me.id && o && path === "trade-decline")
+      }
+    } else if (l.seller === me.id && o && path === "trade-decline") {
+      if (o.credits && o.proposer === me.id) s.balance = (s.balance || 0) + o.credits;
       o.status = "declined";
-    else throw Error("Trade unavailable.");
+    } else throw Error("Trade unavailable.");
     return { message: "Demo trade updated." };
   }
   if (path.startsWith("rankings?")) {

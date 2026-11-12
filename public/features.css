@@ -2632,6 +2632,67 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   cursor: default;
   opacity: 0.45;
 }
+.trade-credit-field {
+  margin: 14px 0 10px;
+  display: grid;
+  gap: 6px;
+}
+.trade-credit-field label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  color: var(--text, #fff);
+}
+.trade-credit-field label .subtext {
+  font-size: 11px;
+  color: var(--muted, #a8afc1);
+}
+.trade-credit-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.trade-credit-prefix {
+  position: absolute;
+  left: 12px;
+  color: #ffd700;
+  font-weight: 700;
+  pointer-events: none;
+  font-size: 14px;
+}
+.trade-credit-input-wrap input {
+  width: 100%;
+  padding: 8px 12px 8px 30px;
+  background: #171820;
+  border: 1px solid var(--border, #333641);
+  border-radius: 8px;
+  color: var(--text, #fff);
+  font: inherit;
+  box-sizing: border-box;
+}
+.trade-credit-input-wrap input:focus {
+  border-color: var(--mint, #aee4c8);
+  outline: none;
+}
+.trade-offer-credits {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.trade-offer-credits .money {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 6px;
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 @media (max-width: 650px) {
   .trade-bundle-item {
     align-items: stretch;

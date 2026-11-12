@@ -630,3 +630,122 @@ test("trade requests create exactly one persistent owner notification and seen n
   f.e.economy.notices.seen("a", [notices[0].id]);
   assert.equal(f.e.economy.notices.pending("a").length, 0);
 });
+
+test("credit offers alongside cards escrow, transfer on accept, refund on decline/withdraw/cancel/out-offered, and enforce limits", (t) => {
+  const f = fixture(t),
+    e = f.e;
+  f.card("a", "one", 3);
+  f.card("b", "two", 1);
+  f.card("c", "three", 1);
+  e.wallet("a", 1000, "Seed");
+  e.wallet("b", 2000, "Seed");
+  e.wallet("c", 1500, "Seed");
+  const listing = f.list();
+
+  // 1. Cannot offer more credits than balance
+  assert.throws(
+    () =>
+      f.act("b", "trade-offer", {
+        listing,
+        cards: [{ card: "two", variant: "card", expectedLevel: 1 }],
+        credits: 5000,
+      }),
+    /credits/,
+  );
+  // Cannot offer negative credits
+  assert.throws(
+    () =>
+      f.act("b", "trade-offer", {
+        listing,
+        cards: [{ card: "two", variant: "card", expectedLevel: 1 }],
+        credits: -10,
+      }),
+    (err) => err.status === 400,
+  );
+
+  // 2. Successful offer with credits: b escrows card "two" and 500 credits
+  f.act("b", "trade-offer", {
+    listing,
+    cards: [{ card: "two", variant: "card", expectedLevel: 1 }],
+    credits: 500,
+  });
+  assert.equal(e.player("b").balance, 1500);
+  assert.equal(f.inv("b", "two"), undefined);
+
+  // Check pending notice for "a" has credits: 500
+  const notices = e.economy.notices.pending("a");
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].credits, 500);
+
+  // 3. Withdraw refunds credits and card
+  const offerB = e.one(
+    "SELECT id FROM trade_offers WHERE proposer='b' AND status='open'",
+  );
+  f.act("b", "trade-withdraw", { offer: offerB.id });
+  assert.equal(e.player("b").balance, 2000);
+  assert.deepEqual(f.inv("b", "two"), { copies: 1, level: 1 });
+
+  // 4. Offer again with 600 credits
+  f.act("b", "trade-offer", {
+    listing,
+    cards: [{ card: "two", variant: "card", expectedLevel: 1 }],
+    credits: 600,
+  });
+  assert.equal(e.player("b").balance, 1400);
+
+  // 5. "c" offers with 300 credits
+  f.act("c", "trade-offer", {
+    listing,
+    cards: [{ card: "three", variant: "card", expectedLevel: 1 }],
+    credits: 300,
+  });
+  assert.equal(e.player("c").balance, 1200);
+
+  // 6. "a" accepts "b"'s offer:
+  // - "a" receives "two" and 600 credits (1000 + 600 = 1600)
+  // - "b" receives "one" (balance remains 1400)
+  // - "c"'s losing offer is refunded (balance restored to 1500, card "three" returned)
+  const acceptedOffer = e.one(
+    "SELECT id FROM trade_offers WHERE proposer='b' AND status='open'",
+  );
+  f.act("a", "trade-accept", { offer: acceptedOffer.id });
+  assert.equal(e.player("a").balance, 1600);
+  assert.equal(e.player("b").balance, 1400);
+  assert.equal(e.player("c").balance, 1500);
+  assert.deepEqual(f.inv("a", "two"), { copies: 1, level: 1 });
+  assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
+  assert.deepEqual(f.inv("c", "three"), { copies: 1, level: 1 });
+
+  // 7. Test decline refunds credits
+  // "b" already owns card "one" (level 3) from the accepted trade above.
+  f.card("a", "three", 1);
+  const listing2 = f.act("a", "trade-list", {
+    card: "three",
+    variant: "card",
+    expectedLevel: 1,
+  }).listing;
+  f.act("b", "trade-offer", {
+    listing: listing2,
+    cards: [{ card: "one", variant: "card", expectedLevel: 3 }],
+    credits: 400,
+  });
+  assert.equal(e.player("b").balance, 1000);
+  const offerB2 = e.one(
+    "SELECT id FROM trade_offers WHERE listing=? AND proposer='b' AND status='open'",
+    listing2,
+  );
+  f.act("a", "trade-decline", { offer: offerB2.id });
+  assert.equal(e.player("b").balance, 1400);
+  assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
+
+  // 8. Test trade-cancel refunds open offers with credits
+  f.act("b", "trade-offer", {
+    listing: listing2,
+    cards: [{ card: "one", variant: "card", expectedLevel: 3 }],
+    credits: 250,
+  });
+  assert.equal(e.player("b").balance, 1150);
+  f.act("a", "trade-cancel", { listing: listing2 });
+  assert.equal(e.player("b").balance, 1400);
+  assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
+});

@@ -982,6 +982,12 @@ const pinnedAnimeDrag = installCardOrderDrag(document, pinnedAnimeEditor, {
 });
 
 document.addEventListener("input", (event) => {
+  if (event.target.id === "trade-offer-credits") {
+    tradesUI.setCredits?.(event.target.value);
+    const btn = document.querySelector("#trade-card-form button[type='submit']");
+    if (btn && tradesUI.submitLabel) btn.textContent = tradesUI.submitLabel();
+    return;
+  }
   if (event.target.id !== "trade-picker-query" || busy) return;
   const position = event.target.selectionStart;
   tradesUI.filter("query", event.target.value);
@@ -992,6 +998,12 @@ document.addEventListener("input", (event) => {
 });
 document.addEventListener("change", (event) => {
   if (busy) return;
+  if (event.target.id === "trade-offer-credits") {
+    tradesUI.setCredits?.(event.target.value);
+    const btn = document.querySelector("#trade-card-form button[type='submit']");
+    if (btn && tradesUI.submitLabel) btn.textContent = tradesUI.submitLabel();
+    return;
+  }
   if (event.target.id === "trade-picker-kind") {
     tradesUI.filter("kind", event.target.value);
     $("#modal-body").innerHTML = tradesUI.renderPicker();
@@ -2975,9 +2987,11 @@ async function handleFeatureClick(a, t) {
               tradesUI.card(listing.card, listing.level) +
               '<p class="subtext">You receive</p>' +
               tradesUI.offer(offer) +
-              "<p>All cards transfer immediately. All other offers are returned. This trade is final.</p>"
-            : "<p>The held card" +
-              (a === "trade-cancel" ? " and all offered cards are" : " is") +
+              "<p>All cards" +
+              (Number(offer?.credits) > 0 ? " and offered credits" : "") +
+              " transfer immediately. All other offers are returned. This trade is final.</p>"
+            : "<p>The held " +
+              (a === "trade-cancel" ? "cards and all offered cards/credits are" : "cards and credits are") +
               " returned to their owners.</p>";
         modal(
           "<h2>" +
