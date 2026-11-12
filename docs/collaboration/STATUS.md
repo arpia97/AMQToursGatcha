@@ -2,6 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Automatic Tradeable Defaults
+
+- Codex owns trade defaults, card protection/trade markers, acquisition paths, related UI/demo behavior and focused existing tests. User requests unlocked cards automatically included as tradeable. Existing/new unprotected cards default on; protection clears the marker, unprotection restores it, manual opt-out remains available. Locked accounts stay unavailable. Apply a guarded one-time marker backfill only; preserve card units/levels/protection/order, account locks, wallets, catalogue/imports and all completed correction receipts.
+- Also added the shared Collection / Owned-Wanted button to Shop Sell tiles alongside Sell Now and List for Sale, reusing the existing counts/modal handler. Protection updates Trade controls/icons immediately and prevents marking protected cards for trade. Demo matches the defaults. 471 tests, 222 syntax checks and dry-run build pass; migration regression verifies unchanged assets/wallets, locked-account exclusion, future acquisition defaults and persistent opt-outs. Deployment/live read-only verification pending.
+
 ## Completed Task — Host-Issued Registration Codes and Persistent Account Lock
 
 - All new registrations require an individual one-use host-issued code, using the existing seven-day password-recovery mechanism. Players & Access → New Account Codes issues codes; supplied codes remain tied to the player and consumed once. Shared beta/code-free signup is rejected, including during mixed-version actor deployments.

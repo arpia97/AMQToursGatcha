@@ -1,6 +1,7 @@
 import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
 import { setAccountLock } from "./account-lock.js";
+import { migrateTradeDefaults } from "./trade-defaults.js";
 import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
@@ -114,6 +115,7 @@ export class Engine {
     this.cardTitles = new CardTitles(this);
     migrateEnhancements(this);
     this.cardTitles.backfill();
+    migrateTradeDefaults(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
@@ -278,11 +280,12 @@ export class Engine {
   }
   addCard(player, card, count = 1) {
     this.run(
-      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at,for_trade) VALUES(?,?,?,1,?,COALESCE((SELECT CASE WHEN account_locked=0 THEN 1 ELSE 0 END FROM players WHERE id=?),0)) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
       player,
       card,
       count,
       this.now(),
+      player,
     );
   }
   mutate(scope, key, body, fn) {

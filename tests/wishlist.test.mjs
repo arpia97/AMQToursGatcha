@@ -5,6 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
 import { MAX_WISHLIST } from "../src/wishlist.js";
+import { migrateTradeDefaults } from "../src/trade-defaults.js";
 import { demoFeatures } from "../public/demo-features.js";
 import {
   profileCardPanel,
@@ -53,6 +54,37 @@ function fixture(t) {
       e.mutate(p + ":" + a, key, b, () => e.action(p, a, b)),
   };
 }
+test("automatic trade defaults migrate once, follow protection, retain opt-outs and exclude locked accounts",t=>{
+  const {e,act}=fixture(t);
+  e.addCard("p","c1",3);e.addCard("p","c2");e.addCard("q","c3");
+  e.run("UPDATE inventory SET for_trade=0 WHERE player='p' AND card='c1'");
+  e.run("UPDATE inventory SET protected=1,for_trade=1 WHERE player='p' AND card='c2'");
+  e.run("UPDATE players SET account_locked=1 WHERE id='q'");
+  e.run("DELETE FROM settings WHERE key='automatic_trade_defaults_revision'");
+  const before=e.all("SELECT player,card,copies,level,protected,position,acquired_at FROM inventory ORDER BY player,card");
+  const balances=e.all("SELECT id,balance,earned FROM players ORDER BY id");
+  assert.equal(migrateTradeDefaults(e),true);
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c1'").for_trade,1);
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c2'").for_trade,0);
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c3'").for_trade,0);
+  assert.deepEqual(e.all("SELECT player,card,copies,level,protected,position,acquired_at FROM inventory ORDER BY player,card"),before);
+  assert.deepEqual(e.all("SELECT id,balance,earned FROM players ORDER BY id"),balances);
+  act("p","trade-card",{card:"c1",forTrade:false});
+  assert.equal(migrateTradeDefaults(e),false);
+  e.addCard("p","c1");
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c1'").for_trade,0);
+  assert.throws(()=>act("p","trade-card",{card:"c2",forTrade:true}),/Unprotect/);
+  act("p","protect-card",{card:"c2",protected:false});
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c2'").for_trade,1);
+  act("p","protect-card",{card:"c2",protected:true});
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c2'").for_trade,0);
+  e.addCard("p","c2");
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c2'").for_trade,0);
+  e.economy.acquire("p","c4",3);e.economy.acquire("q","c5",2);
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c4'").for_trade,1);
+  assert.equal(e.one("SELECT for_trade FROM inventory WHERE card='c5'").for_trade,0);
+});
+
 test("wishlists persist, paginate and deduplicate without requiring ownership or changing credits", (t) => {
   const { e, act } = fixture(t),
     before = e.player("p").balance;
@@ -404,8 +436,10 @@ test("trade-card toggles willing-to-trade marker, and viewer wishlist filters pu
   e.addCard("p", "community-trade-2");
   e.addCard("p", "community-trade-3");
 
-  // Initial for_trade is 0
-  assert.equal(e.economy.wishlist.readCollection("p")[0].for_trade, 0);
+  // Newly acquired unprotected cards start tradeable; opt-outs remain available.
+  assert.equal(e.economy.wishlist.readCollection("p")[0].for_trade, 1);
+  act("p","trade-card",{card:"community-trade-2",forTrade:false});
+  act("p","trade-card",{card:"community-trade-3",forTrade:false});
 
   // Toggle forTrade on
   const resOn = act("p", "trade-card", { card: "community-trade-1", forTrade: true });

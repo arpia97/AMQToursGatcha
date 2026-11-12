@@ -185,6 +185,13 @@ export function syncCardFlags(root, flagsBy) {
     : root?.querySelectorAll?.(".card-surface") || [];
   for (const card of cards) {
     const flags = flagsBy({ id: card.dataset.cardSurface });
+    for(const button of card.querySelectorAll?.('[data-action="trade-toggle"]') || []) {
+      button.disabled=!!flags.protectedCard;
+      button.setAttribute("aria-pressed",String(!!flags.forTrade));
+      button.classList.toggle("is-selected",!!flags.forTrade);
+      button.textContent=flags.forTrade?"⚖️ For Trade":"⚖️ Trade";
+      button.title=flags.protectedCard?"Unprotect this card before trading":flags.forTrade?"Remove trade marker":"Mark willing to trade or sell";
+    }
     const stage = card.querySelector(".card-surface-stage");
     if (!stage) continue;
     stage.querySelector(".card-state-icons")?.remove();

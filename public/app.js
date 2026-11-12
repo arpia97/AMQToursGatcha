@@ -632,7 +632,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
     : "";
   const owned =
     item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on marketplace, auction, trade, or sell to store">List Card ↗</button></div>`
+      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" ${item.protected ? "disabled" : ""} aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on marketplace, auction, trade, or sell to store">List Card ↗</button></div>`
       : "";
   const actions =
     (page() === "catalog" ? collectorsButton(c, escape) : "") +
@@ -3623,7 +3623,9 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       const nextProtected = !item.protected;
+      const previousForTrade = item.for_trade;
       item.protected = nextProtected ? 1 : 0;
+      item.for_trade = nextProtected ? 0 : 1;
       t.setAttribute("aria-pressed", String(nextProtected));
       t.classList.toggle("is-selected", nextProtected);
       t.textContent = nextProtected ? "🔒 Protected" : "🔓 Protect";
@@ -3642,6 +3644,7 @@ async function handleFeatureClick(a, t) {
         if (!result) throw Error("Card update was not saved.");
       } catch (err) {
         item.protected = nextProtected ? 0 : 1;
+        item.for_trade = previousForTrade;
         t.setAttribute("aria-pressed", String(!nextProtected));
         t.classList.toggle("is-selected", !nextProtected);
         t.textContent = !nextProtected ? "🔒 Protected" : "🔓 Protect";
@@ -3657,6 +3660,7 @@ async function handleFeatureClick(a, t) {
         toast("Refresh to load this card from your collection.", true);
         return true;
       }
+      if(item.protected){toast("Unprotect this card before marking it for trade.",true);return true;}
       const nextForTrade = !item.for_trade;
       item.for_trade = nextForTrade ? 1 : 0;
       t.setAttribute("aria-pressed", String(nextForTrade));

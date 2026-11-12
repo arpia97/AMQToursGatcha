@@ -55,6 +55,7 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.wishlist ||= [];
+  for(const item of s.inventory || [])if(item.for_trade===undefined)item.for_trade=item.protected?0:1;
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;
   if (path === "special-pack-seen") return { ok: true };
@@ -1184,6 +1185,7 @@ export function demoFeatures(d, path, b) {
     if (!item || typeof b.protected !== "boolean")
       throw Error("Choose an owned card.");
     item.protected = b.protected ? 1 : 0;
+    item.for_trade = b.protected ? 0 : 1;
     return {
       message: item.protected ? "Card protected." : "Card unprotected.",
     };
@@ -1193,6 +1195,7 @@ export function demoFeatures(d, path, b) {
     const forTrade = typeof b.forTrade === "boolean" ? b.forTrade : b.for_trade;
     if (!item || typeof forTrade !== "boolean")
       throw Error("Choose an owned card.");
+    if(forTrade && item.protected)throw Error("Unprotect this card before marking it for trade.");
     item.for_trade = forTrade ? 1 : 0;
     return {
       message: item.for_trade

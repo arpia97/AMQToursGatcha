@@ -19,15 +19,16 @@ export class CardManagement {
       )
         fail("You do not own that card.", 409);
       e.run(
-        "UPDATE inventory SET protected=? WHERE player=? AND card=?",
+        "UPDATE inventory SET protected=?,for_trade=? WHERE player=? AND card=?",
         b.protected ? 1 : 0,
+        b.protected ? 0 : 1,
         player,
         card,
       );
       return {
         message: b.protected
           ? "Card protected. All copies are kept safe from selling, listing and fusion."
-          : "Card unprotected.",
+          : "Card unprotected and marked for trade.",
       };
     }
     if (action === "trade-card") {
@@ -36,14 +37,9 @@ export class CardManagement {
         fail("Choose trade status.");
       const forTrade =
         typeof b.forTrade === "boolean" ? b.forTrade : b.for_trade;
-      if (
-        !e.one(
-          "SELECT card FROM inventory WHERE player=? AND card=?",
-          player,
-          card,
-        )
-      )
-        fail("You do not own that card.", 409);
+      const item=e.one("SELECT protected FROM inventory WHERE player=? AND card=?",player,card);
+      if(!item)fail("You do not own that card.",409);
+      if(forTrade && item.protected)fail("Unprotect this card before marking it for trade.",409);
       e.run(
         "UPDATE inventory SET for_trade=? WHERE player=? AND card=?",
         forTrade ? 1 : 0,

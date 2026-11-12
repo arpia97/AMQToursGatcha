@@ -1,3 +1,4 @@
+import { collectorsButton } from "./card-collectors.js";
 import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
 import { levelLabel } from "./card-values.js";
@@ -108,7 +109,7 @@ export function createShopUI(h, ui) {
                   level: item.level,
                   showLevel: true,
                   meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}`,
-                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}`,
+                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}`,
                 },
                 h,
               );

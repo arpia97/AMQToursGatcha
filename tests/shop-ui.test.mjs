@@ -114,6 +114,8 @@ test("shop exposes enhanced instant quotes, fixed-price listings, withdrawals, a
   html = shop.render();
   assert.match(html, /Sell now · ✦ 1600/);
   assert.match(html, /data-action="sell-card"/);
+  assert.match(html, /data-action="card-collectors"/);
+  assert.match(html, /data-collector-card="a"/);
   assert.match(html, /Card &lt;A>/);
   ui.shopSection = "market";
   html = shop.render();

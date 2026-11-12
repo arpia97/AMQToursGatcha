@@ -270,12 +270,13 @@ export class Economy {
         (extraCopies || 0),
       copies = total - cardInvestment(highest) + 1;
     this.e.run(
-      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,?,?) ON CONFLICT(player,card) DO UPDATE SET copies=excluded.copies,level=excluded.level",
+      "INSERT INTO inventory(player,card,copies,level,acquired_at,for_trade) VALUES(?,?,?,?,?,COALESCE((SELECT CASE WHEN account_locked=0 THEN 1 ELSE 0 END FROM players WHERE id=?),0)) ON CONFLICT(player,card) DO UPDATE SET copies=excluded.copies,level=excluded.level",
       player,
       card,
       copies,
       highest,
       this.e.now(),
+      player,
     );
   }
   take(player, id, variant) {

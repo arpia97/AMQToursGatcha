@@ -6,6 +6,7 @@ export function setAccountLock(e,b) {
   const p=e.player(id);
   if(!!p.account_locked===b.locked) return {message:b.locked?"Account is already locked.":"Account is already unlocked.",player:id,locked:b.locked};
   e.run("UPDATE players SET account_locked=? WHERE id=?",b.locked?1:0,id);
+  e.run("UPDATE inventory SET for_trade=CASE WHEN protected=0 AND ?=0 THEN 1 ELSE 0 END WHERE player=?",b.locked?1:0,id);
   if(b.locked) {
     e.run("DELETE FROM sessions WHERE player=?",id);
     e.run("UPDATE players SET invite=NULL,invite_expires=NULL WHERE id=?",id);
@@ -25,6 +26,8 @@ export function setAccountLock(e,b) {
       e.run("UPDATE auctions SET winner=NULL,bid=0 WHERE id=?",a.id);
     }
   }
+  // Held assets returned during a lock must not advertise availability either.
+  if(b.locked)e.run("UPDATE inventory SET for_trade=0 WHERE player=?",id);
   e.run("INSERT INTO account_lock_log(player,locked,at) VALUES(?,?,?)",id,b.locked?1:0,e.now());
   return {message:b.locked?"Account locked. Credit rewards and economic actions are blocked; open listings closed and holds returned.":"Account unlocked. Access recovery remains separate.",player:id,locked:b.locked};
 }
