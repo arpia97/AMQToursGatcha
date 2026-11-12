@@ -2,10 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Align Header Preferences
+## Completed Task — Align Header Preferences
 
-- Codex owns the focused header CSS change in public/card-surface.css. Card Size and Anime Titles dropdowns share a 32px height and zero margins; this removes the general form-label select margin that displaced Anime Titles. Preserve responsive label hiding and existing preferences. Visual checks and deployment pending; no backend or data changes.
+- Codex owns the focused header CSS change in public/card-surface.css. Card Size and Anime Titles dropdowns share a 32px height and zero margins; this removes the general form-label select margin that displaced Anime Titles. Responsive label hiding and existing preferences retained; no backend or data changes.
 - Local browser checks passed: desktop dropdown tops both 24.5px/heights 32px, label tops both 33px; at 390px width dropdown tops both 16px/heights 32px with no page overflow. Syntax and dry-run build checked; no new tests for this CSS-only spacing fix.
+- Runtime source **edd47d1dfc4ebb8e58fe721a6e90f3dd6de59f9d**, pushed/deployed to original Worker **fc91e752-cf76-4db8-8d39-6a857d9f9c70**. Exact-source application/demo CI passed; live stylesheet is byte-identical and browser confirmed both dropdowns/labels align at desktop width. Screenshot/evidence saved privately in work/. No pending work.
 
 ## Completed Task — Pick’em Rewards by Tour Size
 
