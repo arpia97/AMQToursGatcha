@@ -1,6 +1,7 @@
 import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
+import {quizLibraryPanel} from './quiz-library-host-ui.js';
 import {
   quizHostPanel,
   quizHostBody,
@@ -34,6 +35,7 @@ import { accessPanel, participationPanel } from "./host-panels.js";
 let deductionDraft = null,
   quizSelection = null,
   quizPool = null;
+let quizLibraryStatus=null,quizLibraryPolling=false;
 let participationDraft = null,
   matchDraft = null,
   managedTour = null,
@@ -123,7 +125,7 @@ function render() {
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
   if (tab === "quiz")
-    html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool);
+    html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool,quizLibraryStatus);
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize">${TOUR_SIZES.map((size) => `<option value="${size}" ${size === 16 ? "selected" : ""}>${size} Players</option>`).join("")}</select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32 or more. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
@@ -225,6 +227,7 @@ function render() {
 async function load() {
   state = await api("state");
   state.quizzes = (await api("quizzes")).quizzes;
+  if(tab==='quiz')quizLibraryStatus=await api('quiz-master').catch(error=>({error:error.message}));
   quizPool = quizSelection
     ? await api("quiz-songs?id=" + encodeURIComponent(quizSelection))
     : null;
@@ -314,6 +317,8 @@ document.addEventListener("submit", async (ev) => {
       return;
     }
     let result;
+    if(form.dataset.libraryAction){const action=form.dataset.libraryAction;if(action==='cancel'&&!confirm('Cancel this refresh? The current masterlist will remain available.'))return;result=await api('quiz-master-refresh',{action},key);quizLibraryStatus=result;const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(result,state.quizzes.find(q=>q.id===quizSelection),esc);delete form.dataset.requestKey;report(result.message);return;}
+    if(formIdentifier(form)==='quiz-master-sync'){result=await api('quiz-master-sync',{quiz:b.quiz},key);if(quizSelection===b.quiz){quizPool=await api('quiz-songs?id='+encodeURIComponent(b.quiz));const region=$('#quiz-current-pool');if(region)region.innerHTML=quizPoolEditor(quizPool,esc);}delete form.dataset.requestKey;report(result.message);return;}
     if (formIdentifier(form) === "quiz-save") {
       result = await api("quiz-save", await quizHostBody(form), key);
       quizSelection = result.id;
@@ -780,6 +785,9 @@ document.addEventListener("click", async (ev) => {
     tab = t.dataset.tab;
     render();
     report("");
+    if(tab==='quiz'){
+      quizLibraryPolling=true;try{quizLibraryStatus=await api('quiz-master');if(tab==='quiz'){const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(quizLibraryStatus,state.quizzes.find(q=>q.id===quizSelection),esc);}}catch(error){report(error.message,true);}finally{quizLibraryPolling=false;}
+    }
     if (tab === "credit-audit") {
       working = true;
       try {
@@ -877,6 +885,10 @@ setInterval(() => {
   )
     load().catch((err) => report(err.message, true));
 }, 30000);
+setInterval(async()=>{
+  if(!state||tab!=='quiz'||working||quizLibraryPolling||document.hidden||quizLibraryStatus?.job?.status!=='running')return;
+  quizLibraryPolling=true;try{quizLibraryStatus=await api('quiz-master');const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(quizLibraryStatus,state.quizzes.find(q=>q.id===quizSelection),esc);}catch(error){report(error.message,true);}finally{quizLibraryPolling=false;}
+},10000);
 
 document.addEventListener("click", (ev) => {
   const edit = ev.target.closest("[data-new-quiz], [data-quiz-review-retry]");

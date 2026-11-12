@@ -1,5 +1,6 @@
 import { quizElapsed } from "../public/quiz-time.js";
 import { titleOrderKey } from "../public/title-order.js";
+import {mergeQuizAnswers} from '../public/quiz-answer-index.js';
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
@@ -326,9 +327,8 @@ export class Quiz {
             ? {
                 ...old,
                 ...song,
-                answers: [
-                  ...new Set([...(old.answers || []), ...(song.answers || [])]),
-                ],
+                answers:mergeQuizAnswers(old,song),
+                answerSource:old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource,
                 workingTitles: [
                   ...new Set([
                     ...(old.workingTitles || []),
@@ -370,6 +370,7 @@ export class Quiz {
           answers,
           ...(s.sourceIds ? { sourceIds: s.sourceIds } : {}),
           ...(s.workingTitles ? { workingTitles: s.workingTitles } : {}),
+          ...(s.answerSource?{answerSource:s.answerSource}:{}),
           title: text(s.title || "Unknown Song", 200),
           artist: String(s.artist || "").slice(0, 200),
         });

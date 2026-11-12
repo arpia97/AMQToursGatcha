@@ -14,6 +14,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       resolveDir: fileURLToPath(new URL("../", import.meta.url)),
       contents: `
         import worker, { Game as OriginalGame } from './src/worker.js';
+        export {QuizLibrary} from './src/worker.js';
         export class Game extends OriginalGame {
           constructor(ctx,env) {
             super(ctx,env);
@@ -59,6 +60,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
             },
           },
           exports: {
+            QuizLibrary:{type:'durable-object',storage:'sqlite',state:'created'},
             Game: {
               type: "durable-object",
               storage: "sqlite",
@@ -66,6 +68,12 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
             },
           },
           env: {
+            QUIZ_LIBRARY:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizLibrary'},
+            ASSETS:{type:'fetcher',handler:async request=>{
+              const manifest={schema:1,version:'runtime-seed',source:'Fixture',generatedAt:'2026-11-01T00:00:00Z',count:1,requested:1,missing:[],shards:[97],amq:{90001:[50001]}};
+              const data=new URL(request.url).pathname.endsWith('manifest.json')?manifest:{50001:{annSongId:50001,amqSongId:90001,annId:1,title:'Cached Song',artist:'Artist',audio:'https://example.com/cached.mp3',titles:['Cached Alternative']}};
+              return new RuntimeResponse(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+            }},
             GAME: {
               type: "durable-object",
               worker: "quiz-runtime-test",
@@ -141,6 +149,11 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       Authorization: "Bearer isolated-host-token-only-for-tests-12345678",
     };
 
+  assert.equal((await mf.dispatchFetch('http://game/api/host/quiz-master')).status,401);
+  assert.equal((await post('host/quiz-master-refresh',{action:'start'})).status,401);
+  const sourceStatus=await mf.dispatchFetch('http://game/api/host/quiz-master',{headers:host});assert.equal(sourceStatus.status,200);assert.equal((await sourceStatus.json()).current.songs,1);
+  let controlled=await post('host/quiz-master-refresh',{action:'start'},host);assert.equal(controlled.status,200);assert.equal((await controlled.json()).job.status,'running');
+  controlled=await post('host/quiz-master-refresh',{action:'pause'},host);assert.equal(controlled.status,200);assert.equal((await controlled.json()).job.status,'paused');
   let response = await post(
     "host/players",
     { players: [{ id: "1", name: "Local User" }] },

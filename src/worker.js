@@ -5,7 +5,11 @@ import { repairQuizAnswers } from "./quiz-answer-repair.js";
 import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
-import { prepareQuizSongs } from "../public/quiz-rules.js";
+import { prepareQuizSongs,quizImportRows } from "../public/quiz-rules.js";
+import {libraryQuery} from '../public/quiz-library-data.js';
+import {quizLibraryRequest} from './quiz-library-actor.js';
+import {syncQuizLibraryAnswers} from './quiz-library-sync.js';
+export {QuizLibrary} from './quiz-library-actor.js';
 import { durableRead, storageUnavailableResponse } from "./durable-recovery.js";
 import { DurableObject } from "cloudflare:workers";
 import { Engine, fail, text, integer } from "./engine.js";
@@ -155,6 +159,12 @@ export class Game extends DurableObject {
     this.budget.flush(true);
     await this.scheduleAlarm(next);
   }
+  async quizAnswersMaster(){
+    if(!this.quizMaster||Date.now()-this.quizMaster.at>86400000){
+      try{this.quizMaster={at:Date.now(),...await loadQuizMaster(fetch,this.env.ASSETS)};}
+      catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
+    }return this.quizMaster;
+  }
   maintainMarket(force = false) {
     const now = this.engine.now();
     if (!force && now < this.marketCheckedAt + 5000 && now < this.marketNext)
@@ -247,7 +257,7 @@ export class Game extends DurableObject {
     ].includes(path);
     const quizRun = path === "quiz-run" && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun) e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !path.startsWith('host/quiz-master')) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -606,6 +616,14 @@ export class Game extends DurableObject {
       }
       if (path === "host/quiz-songs" && !post)
         return json(e.quiz.hostSongs(url.searchParams.get("id")));
+      if(path==='host/quiz-master'&&!post){const result=await quizLibraryRequest(this.env,'/status');requireHost();if(!result)fail('The Song Cache Is Not Configured.',503);return json(result);}
+      if(path==='host/quiz-master-refresh'&&post){const result=await quizLibraryRequest(this.env,'/refresh',b,text(request.headers.get('Idempotency-Key'),100));requireHost();if(!result)fail('The Song Cache Is Not Configured.',503);if(b.action==='start')this.quizMaster=null;return json(result);}
+      if(path==='host/quiz-master-sync'&&post){
+        const id=text(b.quiz,100),key=text(request.headers.get('Idempotency-Key'),100),fingerprint={digest:await digest(JSON.stringify(b))};
+        const before=e.all('SELECT id,data FROM quiz_songs WHERE quiz=? ORDER BY id',id);if(!before.length)fail('Choose a Saved Quiz.');
+        const library=await quizLibraryRequest(this.env,'/lookup',libraryQuery(before.map(row=>JSON.parse(row.data))));if(!library)fail('The Song Cache Is Not Configured.',503);
+        const master=await this.quizAnswersMaster();requireHost();return json(e.mutate('host:quiz-master-sync',key,fingerprint,()=>syncQuizLibraryAnswers(e,id,before,master.data,library)));
+      }
       if (path === "host/quizzes" && !post)
         return json({ quizzes: e.quiz.list(null, true) });
       if (path === "host/quiz-audio-check" && post) {
@@ -636,19 +654,20 @@ export class Game extends DurableObject {
           return json(JSON.parse(saved.result));
         }
         if (b.input !== undefined) {
-          if (!this.quizMaster || Date.now() - this.quizMaster.at > 86400000) {
-            const master = await loadQuizMaster(fetch, this.env.ASSETS);
-            this.quizMaster = { at: Date.now(), ...master };
-          }
+          await this.quizAnswersMaster();
           let prepared;
           try {
+            const importedRows=quizImportRows(b.input);
+            let library={songs:[]};try{library=await quizLibraryRequest(this.env,'/lookup',libraryQuery(importedRows))||library;}catch{ /* AMQ/export matching remains available if the cache is restarting. */ }
             this.quizAudioCache ||= new Map();
             const rows = await resolveQuizImport(
-              b.input,
+              importedRows,
               fetch,
               this.quizAudioCache,
+              Date.now(),
+              library.songs,
             );
-            prepared = prepareQuizSongs(rows, this.quizMaster.data);
+            prepared = prepareQuizSongs(rows, this.quizMaster.data,library);
           } catch (err) {
             fail(err.message, err.status || 400);
           }

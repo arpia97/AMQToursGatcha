@@ -14,7 +14,11 @@ const titles = (a) =>
   ].filter(Boolean);
 // Confirmed by the user's AMQ All Working Titles screenshot, scoped to this song.
 const workingAnimeOverrides = { 75802: [30555, 24085, 27193] };
-export function quizAnswerIndex(master) {
+export function mergeQuizAnswers(old,song){if(old.answerSource==='amq-export'&&song.answerSource!=='amq-export')return [...new Set([...old.answers,...(song.workingTitles||[])])];if(song.answerSource==='amq-export'&&old.answerSource!=='amq-export')return [...new Set([...song.answers,...(old.workingTitles||[])])];return [...new Set([...old.answers,...song.answers])];}
+export function quizAnswerIndex(master, fallbackSongs = []) {
+  master ||= {animeMap:{}};
+  const fallbackAnn=new Map(),fallbackAmq=new Map();
+  for(const song of fallbackSongs){fallbackAnn.set(String(song.annSongId),song);if(song.amqSongId){const key=String(song.amqSongId);if(!fallbackAmq.has(key))fallbackAmq.set(key,[]);fallbackAmq.get(key).push(song);}}
   const bySong = new Map(),
     byAnnSong = new Map(),
     byTitleArtist = new Map();
@@ -85,19 +89,24 @@ export function quizAnswerIndex(master) {
       ...list(row.altAnimeNamesAnswers),
       ...list(info.altAnimeNames),
       ...list(info.altAnimeNamesAnswers),
+      ...list(info.animeNamesAnswers),
     ]
       .filter((n) => typeof n === "string" && n.trim())
       .map((n) => n.trim());
+    const exportNames=info.animeNames&&typeof info.animeNames==='object'?Object.values(info.animeNames).filter(v=>typeof v==='string'&&v.trim()):[];
+    const authoritative=row.answerSource==='amq-export'||!!row.songInfo&&(working.length>0||exportNames.length>0);
+    const exactFallback=[...annSongs].map(id=>fallbackAnn.get(id)).filter(Boolean),fallback=exactFallback.length?exactFallback:[...songs].flatMap(id=>fallbackAmq.get(id)||[]);
+    const amqAnswers=[...anns].flatMap(id=>titles(master.animeMap?.[id]));
     const answers = [
       ...new Set(
-        [...anns]
-          .flatMap((id) => titles(master.animeMap?.[id]))
-          .concat(working),
+        [...working,...exportNames,...amqAnswers,...(authoritative?[]:fallback.flatMap(s=>s.titles||[]))],
       ),
     ];
     return {
       answers,
-      workingTitles: [...new Set(working)],
+      trustedAnswers:[...new Set([...working,...exportNames,...amqAnswers])],
+      workingTitles: [...new Set([...working,...exportNames])],
+      answerSource:authoritative?'amq-export':fallback.length?'amq-plus':'amq',
       sourceIds: {
         amqSongIds: [...songs],
         annSongIds: [...annSongs],

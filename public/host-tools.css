@@ -273,3 +273,14 @@
 .reward-tour-size[hidden] {
   display: none !important;
 }
+
+.quiz-library-panel { margin:16px 0 24px; padding:16px; border:1px solid var(--line,#353642); border-radius:12px; background:#b6e2c505; }
+.quiz-library-panel .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.quiz-library-panel h3 { margin:0; font-size:14px; }
+.quiz-library-panel .form-hint { margin:10px 0; }
+.quiz-library-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.quiz-library-actions form { margin:0; }
+.quiz-library-progress { display:grid; gap:7px; margin-top:12px; font-size:12px; }
+.quiz-library-progress span,.quiz-library-progress small { color:var(--muted); }
+.quiz-library-progress progress { width:100%; height:8px; accent-color:var(--mint,#b6e2c5); }
+@media(max-width:500px) { .quiz-library-panel { padding:12px; } .quiz-library-actions form,.quiz-library-actions button { width:100%; } }

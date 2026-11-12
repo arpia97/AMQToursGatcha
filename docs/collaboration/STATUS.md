@@ -424,3 +424,12 @@ Integration owner / deployment owner:
 ```
 
 Keep private player evidence, tokens and credentials in appropriately protected local records, never in this tracked file.
+
+## Active Task — AMQ Plus Quiz Masterlist
+
+- Codex owns quiz answer/import/source modules, a bounded cached masterlist refresh service, host quiz masterlist controls, compact generated seed data/tooling, focused quiz tests and quiz/collaboration docs. Base025cd06a1c41e816e83a4beeccf765311598edae; clean/synchronized at start. Preserve other collaborators' changes and production economy.
+- User supplied AMQ Plus clone/data under 2026-11-11/cah:38194songrecords/38200requestedIDs, plus per-song working-titles. Six API-missing IDs retained as missing. AMQ JSON working answers take priority; this is fallback integration and refresh, not the future large-pool quiz mode. Do not run historical answer repairs, reward resets or player activity.
+
+- Implementation complete locally:193 bounded seed JSON assets (38194records,6explicitmissing), independent QuizLibrary actor/binding with additive migration, conservative400-ID/30s resumable refresh, AMQ JSON title/audio priority, selected-quiz additive sync, and host controls that preserve unsaved form inputs. Source requests are fixed public endpoints; metadata cache has no player/economy state.
+- Checks:480tests pass,230syntax checks, production dry-run and diff check pass. Workers runtime verifies the new namespace/service binding and anonymous rejection; timed quiz hot path remains7SQL/0market/0schedule/0starter work. Upstream read-only probe:current working map38200IDs HTTP200 and one-song metadata lookup HTTP200. No full re-scrape or production quiz/reward mutation.
+- Browser QA unavailable for this chat; no visual/browser success is claimed. Host interaction logic tested through the actual bundled submit/tab handlers (including preserving unsaved form content). Local preview stopped. Integration/push/deploy/live verification pending.

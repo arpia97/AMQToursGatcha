@@ -102,14 +102,14 @@ export function quizImportRows(input) {
     };
   });
 }
-export function prepareQuizSongs(input, master) {
+export function prepareQuizSongs(input, master, library = {}) {
   const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
-  const indexer = quizAnswerIndex(master);
+  const indexer = quizAnswerIndex(master,library.songs||[]);
   const songs = [],
     rejected = [],
-    seen = new Map();
+    seen = new Map(),trustedByAudio=new Map();
   for (const [index, row] of rows.entries()) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       rejected.push({ row: index + 1, reason: "Invalid song record" });
@@ -137,7 +137,10 @@ export function prepareQuizSongs(input, master) {
     const answers = resolved.answers;
     const previous = seen.get(audio);
     if (previous) {
-      previous.answers = [...new Set([...previous.answers, ...answers])];
+      const trusted=[...new Set([...(trustedByAudio.get(audio)||[]),...resolved.trustedAnswers])];trustedByAudio.set(audio,trusted);
+      const authoritative=previous.answerSource==='amq-export'||resolved.answerSource==='amq-export';
+      previous.answers = authoritative?trusted:[...new Set([...previous.answers, ...answers])];
+      if(authoritative)previous.answerSource='amq-export';
       previous.workingTitles = [
         ...new Set([...previous.workingTitles, ...resolved.workingTitles]),
       ];
@@ -164,6 +167,7 @@ export function prepareQuizSongs(input, master) {
       answers,
       sourceIds: resolved.sourceIds,
       workingTitles: resolved.workingTitles,
+      answerSource:resolved.answerSource,
       title: String(row.songName || row.songTitle || "Unknown Song").slice(
         0,
         200,
@@ -171,6 +175,7 @@ export function prepareQuizSongs(input, master) {
       artist: String(row.songArtist || row.artist || "").slice(0, 200),
     });
     seen.set(audio, songs.at(-1));
+    trustedByAudio.set(audio,resolved.trustedAnswers);
   }
-  return { songs, rejected, masterListId: String(master.masterListId || "") };
+  return { songs, rejected, masterListId: String(master.masterListId || "")+(library.version?' + '+library.version:'') };
 }

@@ -7,7 +7,7 @@ const row = (id, extra = {}) => ({
   songInfo: {
     annId: 1,
     annSongId: id,
-    animeNames: { english: "Untrusted exported alias" },
+    animeNames: { english: "AMQ Export Title" },
     songName: "Song " + id,
     artist: "Artist",
   },
@@ -51,7 +51,8 @@ test("AMQ songInfo exports resolve exact occurrence IDs in one batch and retain 
   assert.ok(ready.songs[0].answers.includes("Shared Anime"));
   assert.ok(ready.songs[0].answers.includes("Accepted Alias"));
   assert.ok(!ready.songs[0].answers.includes("Wrong player answer"));
-  assert.ok(!ready.songs[0].answers.includes("Untrusted exported alias"));
+  assert.ok(ready.songs[0].answers.includes("AMQ Export Title"));
+  assert.equal(ready.songs[0].answerSource,'amq-export');
   await resolveQuizImport(input, fetcher, cache, 2000);
   assert.equal(calls.length, 1);
   await resolveQuizImport(input, fetcher, cache, 86402000);

@@ -82,3 +82,7 @@ The host's displayed source-sheet link changed to spreadsheet `1xsBfuz1v-gYgv5KE
 ## Reading Older Documentation
 
 `README.md`, `HOST-TOOLS.md`, `QUIZ.md`, `IMPORTER.md`, `CATALOG.md`, `DEPLOY.md` and game docs contain useful feature detail, but some onboarding passages are historical. In particular, free-plan setup, shared beta registration codes, all-actions-owner-only access and ten-second importer pacing are not current deployment instructions. Consult current source/tests and the latest explicit user decision. Explain an unresolved discrepancy instead of silently reviving an old rule.
+
+## Secondary Quiz Song Cache
+
+AMQ Plus/AnisongDB supplied seed:38194records/38200IDs. Host-uploaded AMQ JSON names/working answers take priority. New independent `QUIZ_LIBRARY`/`QuizLibrary` actor named `quiz-song-library-v1` stores versioned metadata only, leaving original Game/economy untouched. Host Quiz controls refresh metadata in400-ID batches at least30seconds apart, pause/resume/cancel, and explicitly sync a selected quiz’s fallback answers. Player visits do not trigger upstream refresh. Seed assets are sharded; never copy/parse the raw98.7MiB masterlist in a Worker. Existing exported-answer songs and active-run snapshots are protected by sync. See QUIZ.md; the larger-pool random quiz mode remains future work.

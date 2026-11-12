@@ -45,7 +45,11 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     ledger: [],
   };
   let saved = false;
+  const library={current:{version:'test-seed',songs:38194,requested:38200,missing:[3249,11315,11444,12300,14117,38061],updated:'2026-11-11T00:00:00Z'},job:null};
   const mockFetch = async (path, options = {}) => {
+    if(path==='api/host/quiz-master')return {ok:true,json:async()=>library};
+    if(path==='api/host/quiz-master-refresh'){const body=JSON.parse(options.body);requests.push({path,body});library.job={status:body.action==='pause'?'paused':'running',phase:'songs',percent:1,total:38200,processed:400};return {ok:true,json:async()=>({message:'Masterlist refresh '+body.action,...library})};}
+    if(path==='api/host/quiz-master-sync'){requests.push({path,body:JSON.parse(options.body)});return {ok:true,json:async()=>({message:'Quiz Answers Synced',addedAnswers:2})};}
     if (path === "api/state")
       return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
     if (path === "api/host/state")
@@ -156,6 +160,8 @@ test("the actual host submit handler saves a draft with a hidden id field instea
       closest: () => ({ dataset: { tab: "quiz" }, hasAttribute: () => false }),
     },
   });
+  assert.match(node('#quiz-library-status').innerHTML,/38,194 Songs|38,194/);
+  assert.match(node('#quiz-library-status').innerHTML,/Refresh Masterlist/);
   const input = [{ annId: 1, audio: "dntpj0.mp3", songName: "Example" }];
   const file = { size: 100, text: async () => JSON.stringify(input) },
     submit = { disabled: false };
@@ -203,4 +209,9 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   assert.equal(requests[1].path, "api/host/quiz-scores-reset");
   assert.equal(requests[1].body.quiz, "saved-quiz");
   assert.equal(requests[1].body.confirmation, "RESET QUIZ SCORES AND TITLES");
+  const content=node('#host-content').innerHTML;
+  const refreshForm={getAttribute:()=>null,values:{},dataset:{libraryAction:'start'},isConnected:false,querySelector:()=>submit};
+  await handlers.get('submit')[0]({preventDefault(){},target:refreshForm});assert.equal(requests[2].path,'api/host/quiz-master-refresh');assert.equal(requests[2].body.action,'start');assert.match(node('#quiz-library-status').innerHTML,/Pause Refresh/);assert.equal(node('#host-content').innerHTML,content,'refresh controls do not rerender or discard unsaved quiz fields');
+  const syncForm={getAttribute:key=>key==='id'?'quiz-master-sync':null,values:{quiz:'saved-quiz'},dataset:{},isConnected:false,querySelector:()=>submit};
+  await handlers.get('submit')[0]({preventDefault(){},target:syncForm});assert.equal(requests[3].path,'api/host/quiz-master-sync');assert.equal(requests[3].body.quiz,'saved-quiz');assert.match(node('#result').textContent,/Quiz Answers Synced/);
 });
