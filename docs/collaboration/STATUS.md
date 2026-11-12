@@ -2,10 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — Automatic Tradeable Defaults
+## Completed Task — Automatic Tradeable Defaults
 
 - Codex owns trade defaults, card protection/trade markers, acquisition paths, related UI/demo behavior and focused existing tests. User requests unlocked cards automatically included as tradeable. Existing/new unprotected cards default on; protection clears the marker, unprotection restores it, manual opt-out remains available. Locked accounts stay unavailable. Apply a guarded one-time marker backfill only; preserve card units/levels/protection/order, account locks, wallets, catalogue/imports and all completed correction receipts.
-- Also added the shared Collection / Owned-Wanted button to Shop Sell tiles alongside Sell Now and List for Sale, reusing the existing counts/modal handler. Protection updates Trade controls/icons immediately and prevents marking protected cards for trade. Demo matches the defaults. 471 tests, 222 syntax checks and dry-run build pass; migration regression verifies unchanged assets/wallets, locked-account exclusion, future acquisition defaults and persistent opt-outs. Deployment/live read-only verification pending.
+- Also added the shared Collection / Owned-Wanted button to Shop Sell tiles alongside Sell Now and List for Sale, reusing the existing counts/modal handler. Protection updates Trade controls/icons immediately and prevents marking protected cards for trade. Demo matches the defaults. 471 tests, 222 syntax checks and dry-run build pass; migration regression verifies unchanged assets/wallets, locked-account exclusion, future acquisition defaults and persistent opt-outs.
+- Runtime source **227530d1632974424af9cf3ad4b68a4b7b0f1c4f**, pushed/deployed to original Worker **17abfe2c-dc1a-4865-a639-3e0b08ed75b1**. Exact-source application/demo CI passed. Read-only live checks: migration revision 1; all 30,175 eligible cards marked at verification, zero protected/locked cards advertised; existing locked account balance/assets/lock and prior repair receipts retained. Changed assets exactly match source; health 200. Browser demo verified sell-tile buttons/counts and generated Owned/Wanted panel content; IAB dismissed the overlay immediately, so persistent overlay visibility was not confirmed there. No production cards, wallets, trades or access were reset. No pending implementation work; do not rerun the completed repairs or reset the defaults revision.
 
 ## Completed Task — Host-Issued Registration Codes and Persistent Account Lock
 
