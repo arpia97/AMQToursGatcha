@@ -468,6 +468,10 @@ html[data-card-size="large"]
 }
 
 /* Card size stays with the other compact header preferences. */
+.top-actions :is(.card-size-select, #title-mode) {
+  height: 32px;
+  margin: 0;
+}
 .top-actions .card-size-control {
   gap: 7px;
   flex-shrink: 0;
