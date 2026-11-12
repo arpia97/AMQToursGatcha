@@ -12,6 +12,7 @@ import { Engine, fail, text, integer } from "./engine.js";
 import { registrationAllowed } from "./registration.js";
 import { inspectEconomyRepair, applyEconomyRepair } from "./economy-repair.js";
 import { inspectAccountRollback, applyAccountRollback } from "./account-rollback.js";
+import { SPECIALPACK_ROLLBACK_ID, SPECIALPACK_SCOPE_DIGEST, inspectSpecialPackRollback, applySpecialPackRollback } from "./specialpack-rollback.js";
 import {
   registrationForwarding,
   registrationPolicy,
@@ -401,13 +402,21 @@ export class Game extends DurableObject {
         const actual = await digest(JSON.stringify(plan));
         if (actual !== expected) fail("Rollback manifest digest changed.",409);
         requireOwner();
+        let scopeDigest = null;
+        const group = plan.repairId === SPECIALPACK_ROLLBACK_ID;
+        if (group) {
+          scopeDigest = await digest(JSON.stringify(plan.scope));
+          if (scopeDigest !== SPECIALPACK_SCOPE_DIGEST)
+            fail("The rollback scope is not the reviewed correction.", 409);
+          requireOwner();
+        }
         if (path.endsWith("-preview"))
-          return json(e.tx(() => inspectAccountRollback(e,plan)));
+          return json(e.tx(() => group ? inspectSpecialPackRollback(e,plan,scopeDigest) : inspectAccountRollback(e,plan)));
         const key = text(request.headers.get("Idempotency-Key"),100);
         if (key !== plan.repairId) fail("Use the rollback ID as the request key.");
         const bookmark = await this.ctx.storage.getCurrentBookmark();
         requireOwner();
-        return json(e.mutate("host:account-rollback",key,b,() => applyAccountRollback(e,plan,actual,bookmark)));
+        return json(e.mutate("host:account-rollback",key,b,() => group ? applySpecialPackRollback(e,plan,actual,bookmark,scopeDigest) : applyAccountRollback(e,plan,actual,bookmark)));
       }
       if (path === "host/account-rollback-receipt" && !post) {
         const saved = e.one("SELECT result FROM receipts WHERE scope='host:account-rollback' AND key=?",text(url.searchParams.get("id"),100));

@@ -2,6 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Active Task — Authorized Three-Account Transaction Rollback
+
+- Codex owns the scoped rollback module, Worker routes, tests and this entry. User authorized reversing all transactions/credit transfers and account access for the three newly identified accounts, following the bop scope. Freeze access before the full dependency audit; preserve unrelated activity and all previous repair receipts. Private evidence stays outside Git. Do not replay bop or historical corrections.
+- Access revocation succeeded once for all three; do not repeat it. User chose the recommended counterparty-value recovery, preserving the uninvolved onward recipient's trade/activity. Financial/inventory correction is NOT yet applied. Implementation now routes through the existing owner-only preview/apply/receipt endpoints, seals the approved private scope with SHA-256, and rejects stale accounts, transactions, escrow, inventory or wallet state. Case identities/transactions/amounts stay in the private manifest; tests use synthetic fixtures. 469 tests / 218 syntax checks, dry-run build, and disposable SQLite proof from the fresh snapshot pass. Deployment and production preview/apply/verification are next. Evidence prefix: `specialpack-three-account-rollback-2026-11-12-v1` in private work/.
+
 ## Completed Task — Authorized bop Rollback and Special-Pack Transfer Audit
 
 - Codex owns a focused owner-only rollback helper, `src/worker.js` routing, its tests, and this entry. Read-only private evidence stays in ignored local work files. Preserve all unrelated player activity, source catalogue/import progress, and historical repairs.
