@@ -2,10 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## Active Task — One Score Per Player in Quiz Difficulty
+## Completed Task — One Score Per Player in Quiz Difficulty
 
-- Codex owns `src/quiz.js`, existing quiz tests, `QUIZ.md`, and this entry. Base `6a5dacf`, clean and synchronized. Use each player's personal-best submitted score once, from the existing unique player/quiz progress rows; retries carry no extra weight. Keep Score/Scores wording and all rewards/recaps intact. Remove the obsolete derived receipt index, preserve all receipts/player data, invalidate cached difficulty on host quiz-score resets. Checks/deployment pending.
-- Reused the existing covering leaderboard index and 60-second statistics cache. Metadata exposes `scoreCount`; legacy `completedRuns` is an alias for open-client compatibility. Full suite: 463 passed; syntax 214 files; dry-run/diff checks passed. Existing regression now covers repeat/lower attempts carrying no added weight, personal-best replacement, zero scores counting, preview receipts ignored, and host-score-reset invalidation. Deployment pending.
+- Codex owns `src/quiz.js`, existing quiz tests, `QUIZ.md`, and this entry. Base `6a5dacf`, clean and synchronized. Uses each player's personal-best submitted score once, from the existing unique player/quiz progress rows; retries carry no extra weight. Kept Score/Scores wording and all rewards/recaps intact. Removed the obsolete derived receipt index, preserved all receipts/player data, invalidated cached difficulty on host quiz-score resets.
+- Reused the existing covering leaderboard index and 60-second statistics cache. Metadata exposes `scoreCount`; legacy `completedRuns` is an alias for open-client compatibility. Full suite: 463 passed; syntax 214 files; dry-run/diff checks passed. Existing regression covers repeat/lower attempts carrying no added weight, personal-best replacement, zero scores counting, preview receipts ignored, and host-score-reset invalidation.
+- Runtime source `cffd275054fd73eb88641c19f526d27012467e3a`, pushed and deployed to original Worker **20e32b7b-46c0-4fed-a971-a3d7571ad528**; exact-source application CI passed. Live `/api/quizzes` returned unique-player scoreCount for all 113 published quizzes; a bounded public leaderboard's count and mean matched the difficulty statistics exactly; health 200. No production quiz plays/rewards/resets, no proxy or original economy identity changes.
 
 ## Completed Task — Quiz Score Count Wording
 
