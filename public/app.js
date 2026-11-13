@@ -26,7 +26,6 @@ import {
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
-import { catalogueTabs, recentCardsView } from "./recent-cards-ui.js";
 import { pageErrorHTML } from "./page-error.js";
 import { gamblingHistoryModalHTML } from "./gambling-history-ui.js";
 import { createTradesUI } from "./trades-ui.js";
@@ -66,7 +65,6 @@ import {
 } from "./countdown.js";
 import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
-import { instantSalePrice, cardInvestment } from "./card-values.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
@@ -210,7 +208,6 @@ const ui = {
   }),
   filters: { rarity: "", role: "" },
   catalogSort: "name",
-  catalogRecent: false,
   collectionSort: "rarity",
   collectionPage: 1,
   collectionFilters: {
@@ -1385,21 +1382,6 @@ function packs() {
   );
 }
 function catalogue() {
-  if (ui.catalogRecent)
-    return (
-      intro("Card Catalogue", "Recently imported characters and seiyuus.") +
-      catalogProgressHTML(
-        state.catalogSummary?.importProgress,
-        escape,
-        number,
-      ) +
-      recentCardsView(catalogPageData, {
-        cardHTML,
-        pager: features.catalogPager,
-        number,
-        empty,
-      })
-    );
   const pool = state.catalogSummary || {
     character: state.catalog.filter((c) => c.kind === "character").length,
     seiyuu: state.catalog.filter((c) => c.kind === "seiyuu").length,
@@ -1411,7 +1393,7 @@ function catalogue() {
       "Find your favourites among all imported characters and seiyuus.",
     ) +
     `    <div class="notice">Current pool: ${number(pool.character)} characters and ${number(pool.seiyuu)} voice actors. ${pool.source?.provider === "Tenrai" ? "MAL character roles and portraits, imported gradually." : ""}</div>${catalogProgressHTML(pool.importProgress, escape, number)}<details class="rarity-guide"><summary>MAL Popularity Rarity · AG → D</summary><p>Cumulative top cutoffs: AG 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D 60%. Rarity can change as the catalogue grows or favorites refresh every 15 days.</p></details>
-     <section class="collection-toolbar catalog-toolbar" aria-label="Catalogue controls"><div class="filters collection-toolbar-main">${catalogueTabs(tab)}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}">${features.filters()}</div>${features.catalogPager(catalogPageData, catalogPageNumber, "catalog-top")}</section>
+     <section class="collection-toolbar catalog-toolbar" aria-label="Catalogue controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search catalog" placeholder="Search names or series…" value="${escape(search)}">${features.filters()}</div>${features.catalogPager(catalogPageData, catalogPageNumber, "catalog-top")}</section>
      <div class="card-grid collection-card-grid">${list.map((c) => cardHTML(c)).join("") || empty("No Matching Cards.", "Try another name or series.")}</div>
      <div class="collection-footer-pager">${features.catalogPager(catalogPageData, catalogPageNumber)}</div>`
   );
@@ -1585,20 +1567,14 @@ async function loadDynamic() {
   if (current === "quiz") await quizUI.load();
   if (current === "catalog")
     data = await api(
-      ui.catalogRecent
-        ? "catalog-recent?page=" + catalogPageNumber
-        : "catalog?kind=" +
-            tab +
-            "&q=" +
-            encodeURIComponent(search) +
-            "&page=" +
-            catalogPageNumber +
-            "&rarity=" +
-            encodeURIComponent(ui.filters.rarity) +
-            "&role=" +
-            encodeURIComponent(tab === "character" ? ui.filters.role : "") +
-            "&sort=" +
-            encodeURIComponent(ui.catalogSort),
+      "catalog?" + new URLSearchParams({
+        kind: tab,
+        q: search,
+        page: catalogPageNumber,
+        rarity: ui.filters.rarity,
+        role: tab === "character" ? ui.filters.role : "",
+        sort: ui.catalogSort,
+      }),
     );
   if (current === "fusion" && state.me) data = await alchemyUI.load(api);
   if (current === "collection" && state.me)
@@ -2100,7 +2076,6 @@ document.addEventListener("click", async (ev) => {
   const t = ev.target.closest("[data-action],[data-tab]");
   if (!t || busy) return;
   if (t.dataset.tab) {
-    if (page() === "catalog") ui.catalogRecent = false;
     tab = t.dataset.tab;
     ui.shopSell.page = 1;
     ui.marketPage = 1;
@@ -2825,14 +2800,6 @@ titleSelect.addEventListener("change", () => {
 
 async function handleFeatureClick(a, t) {
   try {
-    if (a === "catalog-recent") {
-      ui.catalogRecent = true;
-      catalogPageNumber = 1;
-      search = "";
-      await loadDynamic();
-      render();
-      return true;
-    }
     if (a === "retry-page") {
       await refresh();
       return true;

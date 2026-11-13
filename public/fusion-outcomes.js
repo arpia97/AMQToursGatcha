@@ -33,31 +33,3 @@ export function fusionOutcomesPage(
     hasMore: matching.length > page * limit,
   };
 }
-
-export function fusionTarget(pool, id) {
-  if (id == null || id === "") return null;
-  const target = typeof id === "string" && pool?.find((c) => c.id === id);
-  if (!target)
-    throw Object.assign(
-      new Error(
-        "The target is no longer an eligible upgrade. Choose a target again.",
-      ),
-      { status: 409 },
-    );
-  if (pool.length < 2)
-    throw Object.assign(
-      new Error(
-        "This tier has only one possible upgrade. Fuse without a target to receive that card on an upgrade.",
-      ),
-      { status: 409 },
-    );
-  return target;
-}
-
-export function drawFusionResult(pool, target, rand) {
-  if (!target) return pool[rand(pool.length)];
-  if (rand(2) === 0) return target;
-  const index = pool.findIndex((c) => c.id === target.id),
-    choice = rand(pool.length - 1);
-  return pool[choice >= index ? choice + 1 : choice];
-}

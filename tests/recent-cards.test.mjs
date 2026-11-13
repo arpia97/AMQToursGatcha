@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { JikanImport } from "../src/jikan-import.js";
-import { catalogueTabs, recentCardsView } from "../public/recent-cards-ui.js";
-import { SITE_ROUTES } from "../public/site-navigation.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -170,30 +168,4 @@ test("recent cards page newest-first deterministically, clamp expired pages and 
     ),
   );
   assert.equal(e.catalogStore.recentPage().total, 45);
-});
-test("Catalogue tabs exclude New Cards tab now that scraping has completed", () => {
-  assert.ok(SITE_ROUTES.every(([, label]) => !label.includes("New Cards")));
-  assert.doesNotMatch(catalogueTabs("seiyuu"), /New Cards/);
-  assert.doesNotMatch(catalogueTabs("character"), /catalog-recent/);
-  assert.match(catalogueTabs("character"), /Characters/);
-  assert.match(catalogueTabs("seiyuu"), /Seiyuus/);
-  assert.match(catalogueTabs("both"), /Both/);
-  const html = recentCardsView(
-    {
-      cards: [{ id: "character" }, { id: "voice" }],
-      total: 2,
-      page: 1,
-      hasMore: false,
-    },
-    {
-      cardHTML: (c) => "<article>" + c.id + "</article>",
-      pager: () => "<nav>Pages</nav>",
-      number: String,
-      empty: (a, b) => a + b,
-    },
-  );
-  assert.match(html, /<article>character/);
-  assert.match(html, /<article>voice/);
-  assert.match(html, /Both Card Types/);
-  assert.doesNotMatch(html, /Character role/);
 });

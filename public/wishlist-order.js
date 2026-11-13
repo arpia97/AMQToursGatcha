@@ -1,9 +1,6 @@
 import { installCardOrderDrag } from "./card-order-drag.js";
-import {
-  createShowcaseEditor,
-  CARD_ORDER_PAGE_SIZE,
-} from "./showcase-order.js";
-export const WISHLIST_PAGE_SIZE = CARD_ORDER_PAGE_SIZE;
+import { createShowcaseEditor } from "./showcase-order.js";
+
 export function createWishlistEditor(helpers) {
   const editor = createShowcaseEditor(helpers, { mode: "wishlist" });
   return {

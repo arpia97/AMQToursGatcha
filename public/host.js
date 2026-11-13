@@ -1,7 +1,7 @@
 import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
-import {quizLibraryPanel} from './quiz-library-host-ui.js';
+import { quizLibraryPanel } from "./quiz-library-host-ui.js";
 import {
   quizHostPanel,
   quizHostBody,
@@ -35,7 +35,8 @@ import { accessPanel, participationPanel } from "./host-panels.js";
 let deductionDraft = null,
   quizSelection = null,
   quizPool = null;
-let quizLibraryStatus=null,quizLibraryPolling=false;
+let quizLibraryStatus = null;
+let quizLibraryPolling = false;
 let participationDraft = null,
   matchDraft = null,
   managedTour = null,
@@ -224,6 +225,27 @@ function render() {
   $("#host-content").innerHTML = html;
   if (tab === "rewards") updateRewardDefaults($("#grant"));
 }
+function updateQuizLibraryPanel(status) {
+  quizLibraryStatus = status;
+  const region = $("#quiz-library-status");
+  if (state && tab === "quiz" && region) {
+    const quiz = state.quizzes.find(q => q.id === quizSelection);
+    region.innerHTML = quizLibraryPanel(status, quiz, esc);
+  }
+}
+
+async function pollQuizLibrary() {
+  if (quizLibraryPolling) return;
+  quizLibraryPolling = true;
+  try {
+    updateQuizLibraryPanel(await api("quiz-master"));
+  } catch (error) {
+    report(error.message, true);
+  } finally {
+    quizLibraryPolling = false;
+  }
+}
+
 async function load() {
   state = await api("state");
   state.quizzes = (await api("quizzes")).quizzes;
@@ -317,8 +339,26 @@ document.addEventListener("submit", async (ev) => {
       return;
     }
     let result;
-    if(form.dataset.libraryAction){const action=form.dataset.libraryAction;if(action==='cancel'&&!confirm('Cancel this refresh? The current masterlist will remain available.'))return;result=await api('quiz-master-refresh',{action},key);quizLibraryStatus=result;const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(result,state.quizzes.find(q=>q.id===quizSelection),esc);delete form.dataset.requestKey;report(result.message);return;}
-    if(formIdentifier(form)==='quiz-master-sync'){result=await api('quiz-master-sync',{quiz:b.quiz},key);if(quizSelection===b.quiz){quizPool=await api('quiz-songs?id='+encodeURIComponent(b.quiz));const region=$('#quiz-current-pool');if(region)region.innerHTML=quizPoolEditor(quizPool,esc);}delete form.dataset.requestKey;report(result.message);return;}
+    if (form.dataset.libraryAction) {
+      const action = form.dataset.libraryAction;
+      if (action === "cancel" && !confirm("Cancel this refresh? The current masterlist will remain available.")) return;
+      result = await api("quiz-master-refresh", { action }, key);
+      updateQuizLibraryPanel(result);
+      delete form.dataset.requestKey;
+      report(result.message);
+      return;
+    }
+    if (formIdentifier(form) === "quiz-master-sync") {
+      result = await api("quiz-master-sync", { quiz: b.quiz }, key);
+      if (quizSelection === b.quiz) {
+        quizPool = await api("quiz-songs?id=" + encodeURIComponent(b.quiz));
+        const region = $("#quiz-current-pool");
+        if (region) region.innerHTML = quizPoolEditor(quizPool, esc);
+      }
+      delete form.dataset.requestKey;
+      report(result.message);
+      return;
+    }
     if (formIdentifier(form) === "quiz-save") {
       result = await api("quiz-save", await quizHostBody(form), key);
       quizSelection = result.id;
@@ -785,9 +825,7 @@ document.addEventListener("click", async (ev) => {
     tab = t.dataset.tab;
     render();
     report("");
-    if(tab==='quiz'){
-      quizLibraryPolling=true;try{quizLibraryStatus=await api('quiz-master');if(tab==='quiz'){const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(quizLibraryStatus,state.quizzes.find(q=>q.id===quizSelection),esc);}}catch(error){report(error.message,true);}finally{quizLibraryPolling=false;}
-    }
+    if (tab === "quiz") await pollQuizLibrary();
     if (tab === "credit-audit") {
       working = true;
       try {
@@ -885,10 +923,11 @@ setInterval(() => {
   )
     load().catch((err) => report(err.message, true));
 }, 30000);
-setInterval(async()=>{
-  if(!state||tab!=='quiz'||working||quizLibraryPolling||document.hidden||quizLibraryStatus?.job?.status!=='running')return;
-  quizLibraryPolling=true;try{quizLibraryStatus=await api('quiz-master');const region=$('#quiz-library-status');if(region)region.innerHTML=quizLibraryPanel(quizLibraryStatus,state.quizzes.find(q=>q.id===quizSelection),esc);}catch(error){report(error.message,true);}finally{quizLibraryPolling=false;}
-},10000);
+setInterval(() => {
+  if (state && tab === "quiz" && !working && !document.hidden && quizLibraryStatus?.job?.status === "running") {
+    void pollQuizLibrary();
+  }
+}, 10000);
 
 document.addEventListener("click", (ev) => {
   const edit = ev.target.closest("[data-new-quiz], [data-quiz-review-retry]");

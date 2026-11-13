@@ -1121,17 +1121,6 @@ export function demoFeatures(d, path, b) {
       page: Number(p.get("page") || 1),
     });
   }
-  if (path.startsWith("catalog-recent?"))
-    return {
-      cards: [],
-      total: 0,
-      page: 1,
-      limit: 40,
-      hasMore: false,
-      now,
-      since: now - 86400000,
-      trackingSince: now,
-    };
   if (path.startsWith("catalog?")) {
     const p = new URLSearchParams(path.split("?")[1]),
       matches = searchMatcher(p.get("q")),

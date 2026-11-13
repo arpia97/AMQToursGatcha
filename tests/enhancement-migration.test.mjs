@@ -4,11 +4,9 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import {
   cardInvestment,
-  convertLegacyLevel,
   enhancementCost,
   levelLabel,
   REVISION_2_INVESTMENTS,
-  ENHANCEMENT_REVISION,
 } from "../public/card-values.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");

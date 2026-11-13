@@ -2116,21 +2116,6 @@ dialog.account-modal {
   margin-left: auto;
   white-space: nowrap;
 }
-.host-schedule {
-  display: grid;
-  gap: 18px;
-  margin: 20px 0;
-}
-.host-round {
-  border: 1px solid var(--line, #353641);
-  border-radius: 12px;
-  padding: 16px;
-}
-.host-round ul {
-  margin: 12px 0;
-  padding-left: 20px;
-  line-height: 1.7;
-}
 .batch-sale-controls {
   display: flex;
   align-items: end;

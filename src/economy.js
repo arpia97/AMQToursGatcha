@@ -536,7 +536,6 @@ export class Economy {
       e.run("UPDATE auctions SET notified=1 WHERE id=?", a.id);
       return { message: "Auction win notification seen." };
     }
-    if (action === "fusion") return this.fusion.fuse(player, b);
     if (action === "alchemy-target") return this.alchemy.target(player, b);
     if (action === "alchemy-feed")
       return b.materials !== undefined
