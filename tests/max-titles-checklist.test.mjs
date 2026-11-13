@@ -57,7 +57,12 @@ function fixture(t) {
 test("MAX enhancement awards a rarity title atomically, once, and keeps it after the card leaves", (t) => {
   const { e, act, make } = fixture(t);
   e.addCard("p", "community-00");
-  e.run("UPDATE inventory SET level=5,copies=6 WHERE player='p'");
+  e.run("UPDATE inventory SET level=4,copies=10 WHERE player='p'");
+  act("enhance", {
+    card: "community-00",
+    expectedLevel: 4,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
   const body = {
     card: "community-00",
     expectedLevel: 5,
@@ -487,4 +492,85 @@ test("same text from distinct card IDs keeps each rarity, and award IDs survive 
     new Set(before.map((t) => t.award)),
   );
   assert.equal(e.cardTitles.options("p").length, 0);
+});
+test("MAX title requires at least 8 cards spent upgrading; traded Lv.5->6 fails while Lv.4->6, backfill, alias and reset behave safely", (t) => {
+  const { e, act, make } = fixture(t);
+  // Enhancing a newly acquired Lv. 5 card to MAX only uses 5 copies (< 8).
+  e.addCard("p", "community-00", 6);
+  e.run("UPDATE inventory SET level=5 WHERE player='p' AND card='community-00'");
+  const first = act("enhance", {
+    card: "community-00",
+    expectedLevel: 5,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.match(first.message, /at least 8 cards.*\(5\/8 used\)/i);
+  assert.equal(e.cardTitles.options("p").length, 0);
+  assert.equal(e.cardTitles.upgradeSpent("p", "community-00"), 0);
+
+  // Even after repeating with a second Lv. 5 card (another 5 copies), reaching MAX resets each run so it still does not unlock.
+  e.action("p", "list-card", {
+    card: "community-00",
+    variant: "card",
+    venue: "shop",
+    price: 100,
+  });
+  e.addCard("p", "community-00", 6);
+  e.run("UPDATE inventory SET level=5 WHERE player='p' AND card='community-00'");
+  const second = act("enhance", {
+    card: "community-00",
+    expectedLevel: 5,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.match(second.message, /\(5\/8 used\)/);
+  assert.equal(e.cardTitles.options("p").length, 0);
+
+  // Acquiring a Lv. 4 card and enhancing Lv. 4->5->MAX uses 4 + 5 = 9 copies (>= 8), unlocking the title.
+  e.addCard("p", "community-01", 10);
+  e.run("UPDATE inventory SET level=4 WHERE player='p' AND card='community-01'");
+  act("enhance", {
+    card: "community-01",
+    expectedLevel: 4,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.equal(e.cardTitles.upgradeSpent("p", "community-01"), 4);
+  const third = act("enhance", {
+    card: "community-01",
+    expectedLevel: 5,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.match(third.message, /Title Unlocked: Character 1\./);
+  assert.equal(e.cardTitles.options("p").length, 1);
+  assert.equal(e.cardTitles.upgradeSpent("p", "community-01"), 0);
+
+  // Partial upgrade progress survives alias migration and is cleared on player reset.
+  e.addCard("p", "community-02", 4);
+  act("enhance", {
+    card: "community-02",
+    expectedLevel: 1,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.equal(e.cardTitles.upgradeSpent("p", "community-02"), 1);
+  e.tx(() => new AliasSync(e).renamePlayer("p", "12345"));
+  assert.equal(e.cardTitles.upgradeSpent("p", "community-02"), 0);
+  assert.equal(e.cardTitles.upgradeSpent("12345", "community-02"), 1);
+  e.tx(() =>
+    e.host("reset-player", {
+      player: "12345",
+      confirmation: "RESET PLAYER 12345",
+    }),
+  );
+  assert.equal(e.cardTitles.upgradeSpent("12345", "community-02"), 0);
+
+  // Pre-feature Lv. 5 cards held before rollout get their prior investment credited once.
+  e.addCard("q", "community-03", 6);
+  e.run("UPDATE inventory SET level=5 WHERE player='q' AND card='community-03'");
+  e.run("DELETE FROM catalog_meta WHERE key='max-card-title-upgrades-v1'");
+  const restored = make();
+  assert.equal(restored.cardTitles.upgradeSpent("q", "community-03"), 10);
+  const fourth = restored.action("q", "enhance", {
+    card: "community-03",
+    expectedLevel: 5,
+    enhancementRevision: ENHANCEMENT_REVISION,
+  });
+  assert.match(fourth.message, /Title Unlocked: Character 3\./);
 });

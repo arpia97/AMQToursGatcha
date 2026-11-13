@@ -6,6 +6,7 @@ export const SHOP_PRICES = Object.freeze({
 });
 
 export const MAX_CARD_LEVEL = 6;
+export const MIN_TITLE_UPGRADE_CARDS = 8;
 export const ENHANCEMENT_REVISION = 3;
 export const LEVEL_INVESTMENTS = Object.freeze([0, 1, 2, 4, 7, 11, 16]);
 export const REVISION_2_INVESTMENTS = Object.freeze([0, 1, 3, 6, 10, 15, 21]);

@@ -1,4 +1,9 @@
-import { MAX_CARD_LEVEL, RARITIES } from "../public/card-values.js";
+import {
+  cardInvestment,
+  MAX_CARD_LEVEL,
+  MIN_TITLE_UPGRADE_CARDS,
+  RARITIES,
+} from "../public/card-values.js";
 
 export function cardTitleName(name) {
   return String(name)
@@ -17,6 +22,9 @@ export class CardTitles {
     );
     e.run(
       "CREATE TABLE IF NOT EXISTS card_title_awards(player TEXT NOT NULL,award TEXT NOT NULL,card TEXT NOT NULL,title TEXT NOT NULL,rarity TEXT NOT NULL,at INTEGER NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,award))",
+    );
+    e.run(
+      "CREATE TABLE IF NOT EXISTS card_upgrade_progress(player TEXT NOT NULL,card TEXT NOT NULL,spent INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(player,card))",
     );
     this.migrate();
   }
@@ -113,27 +121,87 @@ export class CardTitles {
     this.insert(player, id, title, rarity, this.e.now());
     return title;
   }
+  upgradeSpent(player, card) {
+    return (
+      this.e.one(
+        "SELECT spent FROM card_upgrade_progress WHERE player=? AND card=?",
+        player,
+        card,
+      )?.spent || 0
+    );
+  }
+  recordUpgrade(player, card, cost) {
+    this.e.run(
+      "INSERT INTO card_upgrade_progress(player,card,spent) VALUES(?,?,?) ON CONFLICT(player,card) DO UPDATE SET spent=spent+excluded.spent",
+      player,
+      card,
+      cost,
+    );
+    return this.upgradeSpent(player, card);
+  }
+  resetUpgrade(player, card) {
+    this.e.run(
+      "DELETE FROM card_upgrade_progress WHERE player=? AND card=?",
+      player,
+      card,
+    );
+  }
+  // Reaching MAX ends the current upgrade run so another traded Lv. 5 copy cannot reuse old spend.
+  completeEnhance(player, card, cost, nextLevel) {
+    const spent = this.recordUpgrade(player, card, cost);
+    if (nextLevel < MAX_CARD_LEVEL) return { title: null, spent };
+    this.resetUpgrade(player, card);
+    const title =
+      spent >= MIN_TITLE_UPGRADE_CARDS ? this.award(player, card) : null;
+    return { title, spent };
+  }
   // Existing MAX owners were caught up once; never rerun that historical award.
   backfill() {
     if (
-      this.e.one("SELECT key FROM catalog_meta WHERE key='max-card-titles-v1'")
-    )
-      return;
-    this.e.tx(() => {
-      const rows = this.e.all(
-        "SELECT player,card FROM inventory WHERE level>=? UNION SELECT seller AS player,card FROM market_listings WHERE status='open' AND level>=? UNION SELECT seller AS player,card FROM auctions WHERE paid=0 AND seller IS NOT NULL AND level>=? UNION SELECT seller AS player,card FROM trade_listings WHERE status='open' AND level>=? UNION SELECT o.proposer AS player,COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.status='open' AND COALESCE(c.level,o.level)>=?",
-        ...Array(5).fill(MAX_CARD_LEVEL),
-      );
-      const missing = [];
-      for (const r of rows) {
-        if (this.e.catalogStore.card(r.card)) this.award(r.player, r.card);
-        else missing.push(r);
-      }
-      this.e.run(
-        "INSERT INTO catalog_meta VALUES('max-card-titles-v1',?)",
-        JSON.stringify({ at: this.e.now(), owners: rows.length, missing }),
-      );
-    });
+      !this.e.one("SELECT key FROM catalog_meta WHERE key='max-card-titles-v1'")
+    ) {
+      this.e.tx(() => {
+        const rows = this.e.all(
+          "SELECT player,card FROM inventory WHERE level>=? UNION SELECT seller AS player,card FROM market_listings WHERE status='open' AND level>=? UNION SELECT seller AS player,card FROM auctions WHERE paid=0 AND seller IS NOT NULL AND level>=? UNION SELECT seller AS player,card FROM trade_listings WHERE status='open' AND level>=? UNION SELECT o.proposer AS player,COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.status='open' AND COALESCE(c.level,o.level)>=?",
+          ...Array(5).fill(MAX_CARD_LEVEL),
+        );
+        const missing = [];
+        for (const r of rows) {
+          if (this.e.catalogStore.card(r.card)) this.award(r.player, r.card);
+          else missing.push(r);
+        }
+        this.e.run(
+          "INSERT INTO catalog_meta VALUES('max-card-titles-v1',?)",
+          JSON.stringify({ at: this.e.now(), owners: rows.length, missing }),
+        );
+      });
+    }
+    if (
+      !this.e.one(
+        "SELECT key FROM catalog_meta WHERE key='max-card-title-upgrades-v1'",
+      )
+    ) {
+      this.e.tx(() => {
+        // Credit copies already invested into held/escrowed Lv. 2-5 cards before this rule rolled out.
+        const maxPreLevel = MAX_CARD_LEVEL - 1;
+        const rows = this.e.all(
+          "SELECT player,card,MAX(level) AS level FROM (SELECT player,card,level FROM inventory WHERE level BETWEEN 2 AND ? UNION ALL SELECT seller AS player,card,level FROM market_listings WHERE status='open' AND level BETWEEN 2 AND ? UNION ALL SELECT seller AS player,card,level FROM auctions WHERE paid=0 AND seller IS NOT NULL AND level BETWEEN 2 AND ? UNION ALL SELECT seller AS player,card,level FROM trade_listings WHERE status='open' AND level BETWEEN 2 AND ? UNION ALL SELECT o.proposer AS player,COALESCE(c.card,o.card) AS card,COALESCE(c.level,o.level) AS level FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.status='open' AND COALESCE(c.level,o.level) BETWEEN 2 AND ?) GROUP BY player,card",
+          ...Array(5).fill(maxPreLevel),
+        );
+        for (const r of rows) {
+          this.e.run(
+            "INSERT INTO card_upgrade_progress(player,card,spent) VALUES(?,?,?) ON CONFLICT(player,card) DO UPDATE SET spent=MAX(spent,excluded.spent)",
+            r.player,
+            r.card,
+            cardInvestment(r.level) - 1,
+          );
+        }
+        this.e.run(
+          "INSERT INTO catalog_meta VALUES('max-card-title-upgrades-v1',?)",
+          JSON.stringify({ at: this.e.now(), seeded: rows.length }),
+        );
+      });
+    }
   }
   options(player) {
     const rows = this.e.all(

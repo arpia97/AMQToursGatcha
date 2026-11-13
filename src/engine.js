@@ -6,6 +6,7 @@ import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
   MAX_CARD_LEVEL,
+  MIN_TITLE_UPGRADE_CARDS,
   enhancementCost,
   ENHANCEMENT_REVISION,
 } from "../public/card-values.js";
@@ -432,15 +433,20 @@ export class Engine {
         player,
         b.card,
       );
-      const title =
-        item.level + 1 === MAX_CARD_LEVEL
-          ? this.cardTitles.award(player, b.card)
-          : null;
+      const nextLevel = item.level + 1,
+        { title, spent } = this.cardTitles.completeEnhance(
+          player,
+          b.card,
+          cost,
+          nextLevel,
+        );
       return {
         message:
-          item.level + 1 === MAX_CARD_LEVEL
-            ? "Enhanced to MAX. Title Unlocked: " + title + "."
-            : `Enhanced to level ${item.level + 1}.`,
+          nextLevel === MAX_CARD_LEVEL
+            ? title
+              ? "Enhanced to MAX. Title Unlocked: " + title + "."
+              : `Enhanced to MAX. Use at least ${MIN_TITLE_UPGRADE_CARDS} cards upgrading a card to unlock its title (${spent}/${MIN_TITLE_UPGRADE_CARDS} used).`
+            : `Enhanced to level ${nextLevel}.`,
       };
     }
     if (action === "bid") {
@@ -898,6 +904,7 @@ export class Engine {
       this.run("DELETE FROM profile_title_order WHERE player=?", id);
       this.run("DELETE FROM card_titles WHERE player=?", id);
       this.run("DELETE FROM card_title_awards WHERE player=?", id);
+      this.run("DELETE FROM card_upgrade_progress WHERE player=?", id);
       this.run(
         "DELETE FROM host_credit_issues WHERE ledger IN (SELECT id FROM ledger WHERE player=?)",
         id,
@@ -964,6 +971,7 @@ export class Engine {
         "profile_title_order",
         "card_titles",
         "card_title_awards",
+        "card_upgrade_progress",
         "card_alchemy",
         "alchemy_targets",
         "card_wishlist",

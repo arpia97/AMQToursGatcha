@@ -219,6 +219,7 @@ export class AliasSync {
       "profile_title_order",
       "card_titles",
       "card_title_awards",
+      "card_upgrade_progress",
       "card_alchemy",
       "alchemy_targets",
       "card_wishlist",
