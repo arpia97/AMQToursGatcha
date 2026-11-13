@@ -442,3 +442,9 @@ Keep private player evidence, tokens and credentials in appropriately protected 
 Codex removed the retired fusion roll, the unused pick’em schedule builder and the hidden recent-cards screen. Historical receipts, reversal support and the import-history API remain available. The catalogue shares the existing card-type selector. Host quiz status polling now uses a shared handler, and the masterlist modules use readable multiline formatting.
 
 The suite went from 480 to 472 tests. Listing tests exercise venue-specific controls and sale quotes with shared fixtures. Retired-screen assertions, a literal home-page markup check and a form-ID check duplicated by the bundled host form test were removed. All 472 tests passed, along with 227 syntax checks, the Worker dry-run build and diff checks. This is a source cleanup with local verification. Production remains on the previously documented release.
+
+## Host Console Entry Performance
+
+Runtime commit 9bf9fa4 is live on the original Worker, version 664ec1f7-3562-4934-89d9-d69e48c1f1a9. During investigation, the public page, health check and protected data endpoints responded. Previously, startup fetched player state, the full host overview and a 16,046,386-byte quiz list in sequence. Returning hosts now request the Credit Rewards section directly. Other sections load when selected. Host quiz summaries link to the versioned cover endpoint and retain draft access checks.
+
+After rollout the live rewards request returned 70,028 bytes in 351 ms and the quiz index returned 48,421 bytes. Guest requests returned 401. A warm headless Chrome check using read-only host authorization displayed the rewards form in 1.17 seconds and rendered all eight tabs. These are individual samples. All 472 tests, syntax checks, dry-run build and both runtime-commit CI workflows passed.
