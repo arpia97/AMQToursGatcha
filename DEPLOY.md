@@ -10,9 +10,9 @@ As checked on 2026-10-24, Cloudflare documents 100,000 Worker requests/day and f
 
 ## Current deployment
 
-Live game: https://play.amqtours-gatcha.workers.dev/
+Live game: https://amqtours.app/gacha/ (previous address: https://play.amqtours-gatcha.workers.dev/)
 
-Host console: https://play.amqtours-gatcha.workers.dev/host.html
+Host console: https://amqtours.app/gacha/host
 
 The shorter address uses a tiny `play` Worker with a service binding to the existing `amqtours-gatcha` Worker. Both addresses share the original database and catalogue. The original repeated-name URL remains available; sessions are separate per hostname. Deploy the game with `pnpm deploy`, then the address alias with `pnpm deploy:short-url`. `wrangler.play.jsonc` intentionally has no Durable Object migration or database of its own. Do not rename or recreate the original economy Worker to change the public address.
 

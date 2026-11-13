@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Domain Routing
+
+The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtours.app/gacha/` through the original GAME_SITE service binding. Read-only live checks covered the player page, assets, account endpoint and host console. Three proxy tests passed. The Host Platform serves `amqtours.app/tour` from Sites version 36 (`91b10e03`), with its existing sign-in gate. The custom hostname and TLS are active. Verified the built host entry and navigation locally; all 95 host tests passed.
+
 ## Completed Task — Firefox Quiz Audio Reliability
 
 - Codex owns `public/quiz-ui.js`, `public/quiz-audio-cache.js` as needed, focused quiz UI/cache tests and quiz/collaboration documentation. Investigating mobile Firefox failures reported after next-song preloading, affecting both normal and competitive runs. Preserve deadlines, answer/reward authority, session cache behavior and current production data. No production quiz attempts or rewards; local fixtures only.

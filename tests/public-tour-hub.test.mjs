@@ -1,3 +1,4 @@
+import proxy from "../src/short-url.js";
 import test from 'node:test';import assert from 'node:assert/strict';
 import {publicTourHub} from '../src/public-tour-hub.js';
 const env={TOUR_HOST_SERVICE_TOKEN:'test-service-secret'},base='https://play.test';
@@ -21,4 +22,19 @@ test('public hub blocks cross-origin/host writes, oversized bodies and service r
   assert.equal((await publicTourHub(post({action:'pick'}),env,fetcher)).status,200);
   assert.equal((await publicTourHub(new Request(base+'/api/tour-hub'),{},fetcher)).status,503);
   assert.equal((await publicTourHub(new Request(base+'/api/tour-hub'),env,async()=>Response.redirect('https://else.test'))).status,503);
+});
+
+test('custom domain mounts Gacha at its prefix and isolates its session from the Host Platform',async()=>{
+  const base='https://amqtours.app',token='a'.repeat(48);
+  assert.equal((await proxy.fetch(new Request(base+'/gacha?x=1'),{})).headers.get('location'),base+'/gacha/?x=1');
+  const env={GAME_SITE:{async fetch(r){
+    assert.equal(r.url,base+'/api/login?x=1');
+    assert.equal(r.headers.get('origin'),base);
+    assert.equal(r.headers.get('cookie'),'amq_session='+token);
+    assert.equal(await r.text(),'{}');
+    return new Response(null,{status:307,headers:{Location:'/host','Set-Cookie':'amq_session='+token+'; Path=/; HttpOnly; Secure'}});
+  }}};
+  const r=await proxy.fetch(new Request(base+'/gacha/api/login?x=1',{method:'POST',headers:{Origin:base,Cookie:'site_login=private; amq_session='+token},body:'{}'}),env);
+  assert.equal(r.headers.get('location'),'/gacha/host');
+  assert.match(r.headers.get('set-cookie'),/Path=\/gacha;/);
 });
