@@ -142,12 +142,18 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   });
   assert.equal(registeredHost.status, 200);
   const hostCookie = registeredHost.headers.get("set-cookie").split(";")[0];
+  const entryUrl = "http://game/api/host/state?section=rewards";
+  assert.equal((await mf.dispatchFetch(entryUrl)).status, 401);
+  assert.equal((await mf.dispatchFetch(entryUrl, { headers: { Cookie: cookie } })).status, 401);
   response = await post(
     "host/permissions",
     { player: "2", enabled: true },
     host,
   );
   assert.equal(response.status, 200);
+  const entry = await mf.dispatchFetch(entryUrl, { headers: { Cookie: hostCookie } });
+  assert.equal(entry.status, 200);
+  assert.deepEqual(Object.keys(await entry.json()).sort(), ["aliases", "players", "usernames"]);
   for (const path of ["host/account-rollback-preview", "host/account-rollback"]) {
     assert.equal((await post(path, {})).status, 401);
     assert.equal((await post(path, {}, { Cookie: cookie })).status, 401);

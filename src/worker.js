@@ -321,7 +321,10 @@ export class Game extends DurableObject {
         );
       const requireHost = () => {
         if (!hostTokenValid && !e.adminSession(sessionHash)) {
-          this.rate("host:" + ip, 20);
+          // Opening a signed-out console is a normal session check.
+          const checkingSession = path === "host/state" && !post && !provided && !raw &&
+            url.searchParams.get("section") === "rewards";
+          if (!checkingSession) this.rate("host:" + ip, 20);
           fail(
             "Sign in with an administrator account or supply a valid host token.",
             401,
@@ -722,37 +725,37 @@ export class Game extends DurableObject {
             "Cache-Control": "no-store",
           },
         });
-      if (path === "host/state" && !post)
-        return json({
-          canManageHosts:
-            hostTokenValid || e.hostIdentity(sessionHash) === "368",
-          players: e.all(
-            "SELECT id,COALESCE(display_name,name) AS name,balance,earned,is_admin,account_locked,password IS NOT NULL AS registered FROM players ORDER BY name",
-          ),
-          aliases: e.all("SELECT * FROM aliases ORDER BY alias"),
-          usernames: e.all(
-            "SELECT player,label FROM usernames ORDER BY player,at",
-          ),
-          pickems: e.all("SELECT * FROM pickems ORDER BY id DESC LIMIT 100"),
-          pickemEvents: e
-            .all("SELECT * FROM pickem_events ORDER BY id DESC LIMIT 30")
-            .map((event) => ({
-              ...event,
-              teams: JSON.parse(event.teams),
-            })),
-          settings: Object.fromEntries(
-            e.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
-          ),
-          catalog: Object.entries(e.catalogStore.summary())
-            .filter(([kind]) => ["character", "seiyuu"].includes(kind))
-            .map(([kind, count]) => ({ kind, count })),
-          catalogSummary: e.catalogStore.summary(),
-          seiyuuImport: this.jikan.status(),
-          aliasSync: this.aliases.status(),
-          resourceBudget: this.budget.status(),
-          cards: e.catalogStore.page("character", "", 1, 40).cards,
-          ledger: e.all("SELECT * FROM ledger ORDER BY id DESC LIMIT 100"),
-        });
+      if (path === "host/state" && !post) {
+        // Older clients request the full overview. The console requests one section.
+        const section = url.searchParams.get("section");
+        const needs = (...sections) => !section || sections.includes(section);
+        const data = {};
+        if (needs("rewards", "players", "credit-audit", "resets")) {
+          const fields = needs("players") ? ",earned,is_admin,account_locked,password IS NOT NULL AS registered" : "";
+          data.players = e.all("SELECT id,COALESCE(display_name,name) AS name,balance" + fields + " FROM players ORDER BY name");
+        }
+        if (needs("players", "rewards")) data.aliases = e.all("SELECT player,alias FROM aliases ORDER BY alias");
+        if (needs("rewards")) data.usernames = e.all("SELECT player,label FROM usernames ORDER BY player,at");
+        if (needs("players")) {
+          data.canManageHosts = hostTokenValid || e.hostIdentity(sessionHash) === "368";
+          data.aliasSync = this.aliases.status();
+        }
+        if (needs("pickems")) {
+          data.pickems = e.all("SELECT * FROM pickems ORDER BY id DESC LIMIT 100");
+          data.pickemEvents = e.all("SELECT * FROM pickem_events ORDER BY id DESC LIMIT 30")
+            .map(event => ({ ...event, teams: JSON.parse(event.teams) }));
+        }
+        if (needs("catalog")) {
+          data.settings = Object.fromEntries(e.all("SELECT * FROM settings").map(s => [s.key, s.value]));
+          data.catalogSummary = e.catalogStore.summary();
+          data.catalog = ["character", "seiyuu"].map(kind => ({ kind, count: data.catalogSummary[kind] }));
+          data.seiyuuImport = this.jikan.status();
+          data.resourceBudget = this.budget.status();
+          data.cards = e.catalogStore.page("character", "", 1, 40).cards;
+        }
+        if (needs("activity")) data.ledger = e.all("SELECT * FROM ledger ORDER BY id DESC LIMIT 100");
+        return json(data);
+      }
       if (path === "host/jikan-status" && !post)
         return json(this.jikan.status());
       if (path === "host/pickem-event" && !post)

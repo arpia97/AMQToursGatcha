@@ -37,9 +37,7 @@ async function fixture(status = "synced") {
     aliasSync: { status: "synced", players: 1, aliases: 1 },
   };
   const mockFetch = async (path, options = {}) => {
-    if (path === "api/state")
-      return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
-    if (path === "api/host/state") return { ok: true, json: async () => state };
+    if (["api/host/state?section=rewards", "api/host/state?section=players"].includes(path)) return { ok: true, json: async () => state };
     if (path === "api/host/quizzes")
       return { ok: true, json: async () => ({ quizzes: [] }) };
     if (path === "api/host/aliases-sync") {

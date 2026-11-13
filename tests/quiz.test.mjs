@@ -920,7 +920,7 @@ test("quiz metadata excludes embedded covers; versioned published images cache s
   const q = f.e.quiz.list("p")[0];
   assert.match(q.cover, /^api\/quiz-cover\?quiz=test&v=\d+$/);
   assert.equal("cover" in f.e.quiz.definition("test", "p"), false);
-  assert.equal(f.e.quiz.list(null, true)[0].cover, cover);
+  assert.equal(f.e.quiz.list(null, true)[0].cover, q.cover);
   assert.equal(f.e.quiz.cover("test", null, q.updated).type, "image/png");
   assert.throws(() => f.e.quiz.cover("test", null, q.updated - 1), /not found/);
   f.e.host("players", { players: [{ id: "368", name: "Owner" }] });

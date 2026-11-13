@@ -246,19 +246,38 @@ async function pollQuizLibrary() {
   }
 }
 
-async function load() {
-  state = await api("state");
-  state.quizzes = (await api("quizzes")).quizzes;
-  if(tab==='quiz')quizLibraryStatus=await api('quiz-master').catch(error=>({error:error.message}));
-  quizPool = quizSelection
-    ? await api("quiz-songs?id=" + encodeURIComponent(quizSelection))
-    : null;
-  if (settlementTour) {
-    if (state.pickemEvents.some((t) => t.id === settlementTour.id))
-      settlementTour = await api("pickem-event?event=" + settlementTour.id);
-    else settlementTour = null;
+let loadVersion = 0;
+async function load(section = tab) {
+  const version = ++loadVersion;
+  const next = section === "quiz"
+    ? await api("quizzes")
+    : await api("state?section=" + encodeURIComponent(section));
+  if (version !== loadVersion) return false;
+
+  if (section === "quiz") {
+    const [library, pool] = await Promise.all([
+      api("quiz-master").catch(error => ({ error: error.message })),
+      quizSelection ? api("quiz-songs?id=" + encodeURIComponent(quizSelection)) : null,
+    ]);
+    if (version !== loadVersion) return false;
+    quizLibraryStatus = library;
+    quizPool = pool;
   }
+  if (section === "pickems" && settlementTour) {
+    const tour = next.pickemEvents.some(t => t.id === settlementTour.id)
+      ? await api("pickem-event?event=" + settlementTour.id)
+      : null;
+    if (version !== loadVersion) return false;
+    settlementTour = tour;
+  }
+  if (section === "credit-audit") {
+    await loadCreditAudit(true);
+    if (version !== loadVersion) return false;
+  }
+  state = next;
+  tab = section;
   render();
+  return true;
 }
 function settlementMatch(id) {
   return (
@@ -822,21 +841,17 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (t.dataset.tab) {
-    tab = t.dataset.tab;
-    render();
-    report("");
-    if (tab === "quiz") await pollQuizLibrary();
-    if (tab === "credit-audit") {
-      working = true;
-      try {
-        await loadCreditAudit(true);
-        render();
-      } catch (error) {
-        report(error.message, true);
-      } finally {
-        working = false;
-      }
+    working = true;
+    try {
+      report("Loading…");
+      await load(t.dataset.tab);
+      report("");
+    } catch (error) {
+      report(error.message, true);
+    } finally {
+      working = false;
     }
+    return;
   }
   if (t.id === "lock") {
     if (adminSession) {
@@ -853,6 +868,8 @@ document.addEventListener("click", async (ev) => {
       }
       adminSession = false;
     }
+    loadVersion++;
+    tab = "rewards";
     state = null;
     settlementTour = null;
     for (const id of Object.keys(settlementDrafts)) delete settlementDrafts[id];
@@ -901,17 +918,16 @@ document.addEventListener("click", async (ev) => {
 });
 
 // Existing administrator sessions also work when opening this page from the player site.
-fetch("api/state")
-  .then(readApiResponse)
-  .then(async (s) => {
-    if (s.me?.is_admin) {
-      adminSession = true;
-      await load();
-      $("#unlock").hidden = true;
-      $("#console").hidden = false;
-    }
+load("rewards")
+  .then(loaded => {
+    if (!loaded) return;
+    adminSession = true;
+    $("#unlock").hidden = true;
+    $("#console").hidden = false;
   })
-  .catch(() => {});
+  .catch(error => {
+    if (error.status !== 401 && !working) report(error.message, true);
+  });
 
 setInterval(() => {
   if (

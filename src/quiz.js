@@ -194,39 +194,25 @@ export class Quiz {
     return rows;
   }
   list(player = null, host = false) {
-    const includeCoverData = host;
     host = host || this.isHost(player);
     const rows = this.e.all(
-      "SELECT " +
-        (includeCoverData
-          ? "q.*"
-          : "q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover") +
+      "SELECT q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover" +
         ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
       player || "",
     );
     const statistics = this.statistics();
-    const enriched = rows.map((row) => {
+    return rows.map(({ has_cover, ...row }) => {
       const stats = statistics.get(row.id) || { scoreCount: 0, averageScore: null };
       return {
         ...row,
         ...stats,
+        cover: has_cover ? "api/quiz-cover?quiz=" + encodeURIComponent(row.id) + "&v=" + row.updated : "",
         // Retain the old wire field for clients already open during rollout.
         completedRuns: stats.scoreCount,
       };
     });
-    return includeCoverData
-      ? enriched
-      : enriched.map(({ has_cover, ...row }) => ({
-          ...row,
-          cover: has_cover
-            ? "api/quiz-cover?quiz=" +
-              encodeURIComponent(row.id) +
-              "&v=" +
-              row.updated
-            : "",
-        }));
   }
   cover(id, player, version) {
     const quiz = this.e.one(

@@ -45,14 +45,13 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     ledger: [],
   };
   let saved = false;
+  const startupRequests = [];
   const library={current:{version:'test-seed',songs:38194,requested:38200,missing:[3249,11315,11444,12300,14117,38061],updated:'2026-11-11T00:00:00Z'},job:null};
   const mockFetch = async (path, options = {}) => {
     if(path==='api/host/quiz-master')return {ok:true,json:async()=>library};
     if(path==='api/host/quiz-master-refresh'){const body=JSON.parse(options.body);requests.push({path,body});library.job={status:body.action==='pause'?'paused':'running',phase:'songs',percent:1,total:38200,processed:400};return {ok:true,json:async()=>({message:'Masterlist refresh '+body.action,...library})};}
     if(path==='api/host/quiz-master-sync'){requests.push({path,body:JSON.parse(options.body)});return {ok:true,json:async()=>({message:'Quiz Answers Synced',addedAnswers:2})};}
-    if (path === "api/state")
-      return { ok: true, json: async () => ({ me: { is_admin: 1 } }) };
-    if (path === "api/host/state")
+    if (path === "api/host/state?section=rewards")
       return { ok: true, json: async () => hostState };
     if (path === "api/host/quiz-songs?id=saved-quiz")
       return {
@@ -124,6 +123,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     throw Error("Unexpected request " + path);
   };
   const fetch = async (path, options) => {
+    startupRequests.push(path);
     const result = await mockFetch(path, options);
     return Response.json(await result.json(), {
       status: result.ok ? 200 : result.status || 500,
@@ -155,13 +155,14 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   });
   vm.runInContext(bundle.outputFiles[0].text, context);
   await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(startupRequests, ["api/host/state?section=rewards"]);
   await handlers.get("click")[0]({
     target: {
       closest: () => ({ dataset: { tab: "quiz" }, hasAttribute: () => false }),
     },
   });
-  assert.match(node('#quiz-library-status').innerHTML,/38,194 Songs|38,194/);
-  assert.match(node('#quiz-library-status').innerHTML,/Refresh Masterlist/);
+  assert.match(node('#host-content').innerHTML,/38,194 Songs|38,194/);
+  assert.match(node('#host-content').innerHTML,/Refresh Masterlist/);
   const input = [{ annId: 1, audio: "dntpj0.mp3", songName: "Example" }];
   const file = { size: 100, text: async () => JSON.stringify(input) },
     submit = { disabled: false };
