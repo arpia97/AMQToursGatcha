@@ -4,7 +4,7 @@ Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git a
 
 ## Pick’em Links and Gacha Navigation
 
-November 13. Codex updated the player router, Pick’em board and host publication link. The public path is `/gacha/pickems/<pickem ID>`. Bookmarked fragment routes remain supported. No schema or economy changes.
+November 13. Codex updated the player router, Pick’em board and host publication link. The public path is `/gacha/pickems/<pickem ID>`. Bookmarked fragment routes remain supported. No schema or economy changes. Commit `8bbaf9b` was pushed and deployed to the original Worker, version `fcb4cce8-1c9a-44e4-a8a0-cb1da0317f71`. All 473 tests passed. Production desktop and mobile browser checks opened pick’em 114 directly. Copy Link, refresh, history navigation, legacy bookmarks and the missing-ID state were verified.
 
 ## Domain Routing
 
