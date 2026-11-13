@@ -1,5 +1,9 @@
 import { pickemTeams } from "./tour-winner.js";
 
+export function pickemShare(id) {
+  return `<div class="pickem-share"><button type="button" class="text-button" data-action="copy-pickem" data-id="${id}">Copy Link</button></div>`;
+}
+
 export function pickemParticipationTag(participated, { signedIn, settled }) {
   if (!signedIn || !settled || participated !== true) return "";
   return `<span class="pill pickem-participation has-participated">Participated</span>`;

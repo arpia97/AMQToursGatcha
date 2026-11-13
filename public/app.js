@@ -1,3 +1,4 @@
+import { pickemShare } from "./pickem-votes.js";
 import { readApiResponse } from "./api-response.js";
 import { installCardOrderDrag } from "./card-order-drag.js";
 import { animeChecklist } from "./anime-checklist-ui.js";
@@ -1244,6 +1245,7 @@ function pickemHero(p) {
     <div class="pickem-ticket-clocklabel">Voting closes in</div>
     <div class="pickem-ticket-time" data-countdown-end="${Number(p.ends)}" data-countdown-ended="Closed" data-countdown-clock>${clockCountdownText(p.ends, Date.now() + clockOffset)}</div>
     <a class="pickem-ticket-action" href="${routeHref("pickems/" + p.id)}">${winner ? "Pick Your Winner" : "Make Your Prediction"} <span aria-hidden="true">→</span></a>
+    ${pickemShare(p.id)}
   </div></section>`;
 }
 const packReveal = createPackReveal({
@@ -2131,7 +2133,7 @@ document.addEventListener("click", async (ev) => {
       await navigator.clipboard.writeText(new URL(routeHref("pickems/" + t.dataset.id), location.href).href);
       toast("Pick’em link copied.");
     } catch {
-      toast("Use the pick’em title link to copy its address.", true);
+      toast("Copy the address from the link to this Pick’em.", true);
     }
     return;
   }

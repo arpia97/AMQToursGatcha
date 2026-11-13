@@ -2167,6 +2167,14 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   flex: 0 0 auto;
 }
 
+.pickem-share {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.pickem-ticket-side > .pickem-share {
+  grid-column: 1 / -1;
+}
 .tour-rounds {
   margin-top: 14px;
   border-top: 1px solid var(--border);

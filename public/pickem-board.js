@@ -1,5 +1,5 @@
 import { routeHref } from "./site-navigation.js";
-import { pickemVoteChart, pickemParticipationTag } from "./pickem-votes.js";
+import { pickemVoteChart, pickemParticipationTag, pickemShare } from "./pickem-votes.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
 import { winnerCard } from "./tour-winner-ui.js";
@@ -238,6 +238,7 @@ export function pickemBoard(
             : p.prediction
               ? '<span class="form-hint">Submitted</span>'
               : "—") +
+          (!focused && detail.matches.length > 1 ? pickemShare(p.id) : "") +
           "</td></tr>"
         );
       })
@@ -351,7 +352,7 @@ export function pickemBoard(
           (t.open ? "live" : "") +
           '">' +
           label +
-          '</span></span>' + (focused ? `<button class="button secondary" data-action="copy-pickem" data-id="${t.newest}">Copy Link</button>` :
+          '</span></span>' + (focused ? "" :
           '<button class="button secondary" data-action="pickem-tour" data-id="' +
           t.key +
           '" aria-expanded="' +
@@ -362,6 +363,7 @@ export function pickemBoard(
           (expanded ? "Hide rounds ↑" : "View all rounds →") +
           "</button>") + "</div>" +
           table +
+          (t.matches === 1 ? pickemShare(t.newest) : "") +
           "</article>"
         );
       })
