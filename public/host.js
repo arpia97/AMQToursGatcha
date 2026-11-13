@@ -1,3 +1,4 @@
+import { routeHref } from "./site-navigation.js";
 import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
@@ -714,9 +715,9 @@ document.addEventListener("submit", async (ev) => {
     );
     if (formIdentifier(form) === "tour-winner-create") {
       const link = document.createElement("a");
-      link.href = "./#pickems";
+      link.href = routeHref(result.pickem ? "pickems/" + result.pickem : "pickems");
       link.className = "button secondary space-top";
-      link.textContent = "View public pick’ems →";
+      link.textContent = "Open Public Pick’em →";
       $("#result").append(document.createElement("br"), link);
       $("#result").scrollIntoView({ block: "nearest", behavior: "smooth" });
     }

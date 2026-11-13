@@ -1,3 +1,4 @@
+import { routeHref } from "./site-navigation.js";
 import { tourWinnerRewardDefault } from "./site-defaults.js";
 import { pickemVoteChart, pickemParticipationTag } from "./pickem-votes.js";
 import { pickemTeams } from "./tour-winner.js";
@@ -6,7 +7,7 @@ import { deadlineFields, reopenPickemForm } from "./host-defaults.js";
 export function winnerCard(
   t,
   detail,
-  { escape: e, number: n, now, drafts = {}, signedIn },
+  { escape: e, number: n, now, drafts = {}, signedIn, focused },
 ) {
   const expanded = detail?.key === t.key,
     p = expanded ? detail.matches[0] : null;
@@ -20,7 +21,7 @@ export function winnerCard(
       ? drafts[p.id].winner
       : p?.prediction || "";
   const open = p && !p.settled && p.ends > now;
-  return `<article class="pickem tour-card"><div class="tour-summary"><div><span class="eyebrow">TOUR WINNER</span><h3>${e(t.name)}</h3><p class="form-hint">Pick one team to win the tour.${Number.isSafeInteger(t.voters) ? " · " + n(t.voters) + (t.voters === 1 ? " voter" : " voters") : ""}</p></div><span class="pickem-status-tags">${pickemParticipationTag(t.participated ?? (expanded ? !!p?.prediction : null), { signedIn, settled: t.settled === t.matches })}<span class="pill ${t.open ? "live" : ""}">${status}</span></span><button class="button secondary" data-action="pickem-tour" data-id="${t.key}" aria-expanded="${expanded}" aria-controls="tour-rounds-${t.key}">${expanded ? "Hide ↑" : "View teams →"}</button></div>${
+  return `<article class="pickem tour-card"><div class="tour-summary"><div><span class="eyebrow">TOUR WINNER</span><h3><a href="${routeHref("pickems/" + t.newest)}">${e(t.name)}</a></h3><p class="form-hint">Pick one team to win the tour.${Number.isSafeInteger(t.voters) ? " · " + n(t.voters) + (t.voters === 1 ? " voter" : " voters") : ""}</p></div><span class="pickem-status-tags">${pickemParticipationTag(t.participated ?? (expanded ? !!p?.prediction : null), { signedIn, settled: t.settled === t.matches })}<span class="pill ${t.open ? "live" : ""}">${status}</span></span>${focused ? `<button class="button secondary" data-action="copy-pickem" data-id="${p.id}">Copy Link</button>` : `<a class="button secondary" href="${routeHref("pickems/" + t.newest)}">View Teams →</a>`}</div>${
     p
       ? `<div class="tour-winner-choice" id="tour-rounds-${t.key}"><p class="form-hint">✦ ${n(p.winner_reward)} for the correct winner · Voting closes ${e(new Date(p.ends).toLocaleString("en-GB", { timeZone: "Asia/Seoul" }))} KST</p>${
           open

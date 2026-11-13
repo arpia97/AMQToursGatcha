@@ -41,6 +41,10 @@ import { authFormHTML } from "./auth-form.js";
 import {
   SITE_ROUTES,
   resolvePage,
+  routeHref,
+  currentRoute,
+  navigate,
+  installNavigation,
   navigationSection,
 } from "./site-navigation.js";
 import { pickemTeams } from "./tour-winner.js";
@@ -307,8 +311,8 @@ function rememberCards(cards = []) {
 const isDemo =
   new URLSearchParams(location.search).has("demo") ||
   location.hostname.endsWith(".github.io");
-const page = () => resolvePage(location.hash);
-const profileURL = (id) => "#player/" + encodeURIComponent(id);
+const page = () => resolvePage(currentRoute());
+const profileURL = (id) => routeHref("player/" + encodeURIComponent(id));
 const cardBy = (id) =>
   cardCache.get(id) ||
   state.catalog.find((c) => c.id === id) || {
@@ -551,7 +555,7 @@ function revealAcquired(result, title = "A New Favourite Is Yours.") {
         copies: 1,
         preview: true,
       }) +
-      '</div><a class="button mint" href="#collection" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
+      '</div><a class="button mint" href="' + routeHref("collection") + '" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
   );
   if ($("#modal").open) markTradeNoticesSeen(result.noticeIds);
 }
@@ -1216,12 +1220,12 @@ function shop() {
 }
 function pickemHero(p) {
   if (p.mode === "tour")
-    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who Takes<br><span>the Tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="#pickems">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
+    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who Takes<br><span>the Tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="${routeHref("pickems/" + p.id)}">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
   const reward =
     p.mode === "pair"
       ? `✦ ${number(p.winner_reward + 2 * p.score_reward)} for the correct two-game result`
       : `✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score`;
-  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make Your Call.<br><span>Back Your Team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="#pickems">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
+  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make Your Call.<br><span>Back Your Team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="${routeHref("pickems/" + p.id)}">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
 }
 const packReveal = createPackReveal({
   motionControl: packMotionControl,
@@ -1283,11 +1287,11 @@ function home() {
     ) +
     (state.activePickem
       ? pickemHero(state.activePickem)
-      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><div class="hero-actions"><a class="button" href="#packs">Find your next favourite <span>↗</span></a><a class="button secondary" href="#collection">See my collection <span>↗</span></a></div></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)} ${cardFrameClass()}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
+      : `<section class="hero"><div class="hero-copy"><div class="hero-tag">PLAY TOURS. EARN CREDITS. COLLECT.</div><h2>For the Characters<br>You <span>Can’t Forget.</span></h2><p>Play tours, earn credits, gamble big, and collect your favorites!</p><div class="hero-actions"><a class="button" href="${routeHref("packs")}">Find your next favourite <span>↗</span></a><a class="button secondary" href="${routeHref("collection")}">See my collection <span>↗</span></a></div></div><div class="hero-art" aria-hidden="true">${hero.map((c) => `<div class="hero-card tier-${rarityClass(c.rarity)} ${cardFrameClass()}">${image(c)}${gradeBadge(c)}<strong>${escape(c.name)}</strong></div>`).join("")}</div></section>`) +
     (rewards.length
       ? `<div class="daily-rewards ${rewards.length === 2 ? "two-col" : ""}">${rewards.join("")}</div>`
       : "") +
-    `<div class="section-head"><div class="section-title"><h2>${state.communityMarket?.active ? "Community Auctions" : "This Week’s Auction"}</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${state.communityMarket?.active ? "12 Hours · Each Bid Restarts the Clock" : countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="#auctions">View auctions ↗</a></div></div>${
+    `<div class="section-head"><div class="section-title"><h2>${state.communityMarket?.active ? "Community Auctions" : "This Week’s Auction"}</h2><span class="pill live"><span class="dot"></span> ${featured.length ? "BIDDING OPEN" : "COMING SOON"}</span></div><div class="auction-header-actions"><span class="subtext">${state.communityMarket?.active ? "12 Hours · Each Bid Restarts the Clock" : countdown(nextWeeklyReset(state.now), "Auction resets in ", true, "Refreshing auctions…")}</span><a class="text-button" href="${routeHref("auctions")}">View auctions ↗</a></div></div>${
       featured.length
         ? `<div class="overview-auctions">${["character", "seiyuu"]
             .map(
@@ -1306,7 +1310,7 @@ function home() {
             "The Next Lineup Is on Its Way.",
             "Five characters and five voice actors will enter the weekly auction once the host loads the catalog.",
           )
-    }<div class="section-head"><div><h2>Unwrap a Little Luck</h2></div><a class="text-button" href="#packs">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
+    }<div class="section-head"><div><h2>Unwrap a Little Luck</h2></div><a class="text-button" href="${routeHref("packs")}">Explore packs ↗</a></div><div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div><div class="stat-grid"><div class="stat"><span>YOUR COLLECTION</span><strong>${number(state.inventory.length)}</strong><small>unique cards, endless favourites</small></div><div class="stat"><span>LIFETIME CREDITS EARNED</span><strong>${number(state.me?.earned)}</strong><small>every tour effort counts</small></div><div class="stat"><span>COLLECTORS IN THE CLUB</span><strong>${number(state.counts.players)}</strong><small>from the AMQ Tours community</small></div></div>`
   );
 }
 function collection() {
@@ -1353,7 +1357,7 @@ function collection() {
         : empty(
             "No Matching Cards in Your Collection.",
             "Try another search or clear the rarity and role filters.",
-            '<a class="button" href="#packs">Explore card packs ↗</a>',
+            '<a class="button" href="' + routeHref("packs") + '">Explore card packs ↗</a>',
           )
       : empty(
           "Your Collection Is Waiting.",
@@ -1430,15 +1434,16 @@ function pickems() {
             number,
             remaining,
             now: state.now,
+            focused: ui.pickemData?.focused,
             drafts: ui.pickemDrafts,
             signedIn: !!state.me,
           },
         )
-      : empty(
+      : ui.pickemData?.focused ? empty("Pick’em Not Found", "This link may refer to a deleted Pick’em.") : empty(
           "Waiting for the Next Tour.",
           "The host will publish tour pick’ems here.",
         )) +
-    features.pager("pickems", ui.pickemPage, ui.pickemData?.hasMore)
+    (ui.pickemData?.focused ? `<a class="button secondary space-top" href="${routeHref("pickems")}">← All Pick’ems</a>` : features.pager("pickems", ui.pickemPage, ui.pickemData?.hasMore))
   );
 }
 function ranks() {
@@ -1471,7 +1476,7 @@ function players() {
   );
 }
 function profileTabs(active) {
-  return `<nav class="tabs profile-tabs" aria-label="My Profile sections"><a class="tab ${active === "profile" ? "active" : ""}" href="#profile">My Profile</a><a class="tab ${active === "collection" ? "active" : ""}" href="#collection">My Collection</a><a class="tab ${active === "titles" ? "active" : ""}" href="#titles">My Titles</a></nav>`;
+  return `<nav class="tabs profile-tabs" aria-label="My Profile sections"><a class="tab ${active === "profile" ? "active" : ""}" href="${routeHref("profile")}">My Profile</a><a class="tab ${active === "collection" ? "active" : ""}" href="${routeHref("collection")}">My Collection</a><a class="tab ${active === "titles" ? "active" : ""}" href="${routeHref("titles")}">My Titles</a></nav>`;
 }
 function myTitles() {
   if (!state.me) return myProfile();
@@ -1554,7 +1559,7 @@ function profile() {
 async function loadDynamic() {
   const version = ++loadVersion,
     current = page(),
-    hash = location.hash;
+    route = currentRoute();
   if (current === "packs" && tab === "both") tab = "character";
   let data, pickemDetail, profileCardsResult;
   if (current === "shop" && ui.marketSort === "ending")
@@ -1583,8 +1588,18 @@ async function loadDynamic() {
   if (current === "ranks")
     data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage);
   if (current === "pickems") {
-    data = await api("pickem-tours?page=" + ui.pickemPage);
-    if (
+    const id = route.split("/")[1];
+    if (id) {
+      try {
+        pickemDetail = await api("pickem-tour?id=" + id);
+      } catch (err) {
+        if (err.status !== 404) throw err;
+      }
+      const tours = tourSummaries(pickemDetail?.matches || [], state.now);
+      if (tours.length) tours[0].voters = pickemDetail.matches[0].voteSummary.total;
+      data = { tours, focused: true };
+    } else data = await api("pickem-tours?page=" + ui.pickemPage);
+    if (!id &&
       ui.pickemOpen !== null &&
       data.tours.some((t) => t.key === ui.pickemOpen)
     ) {
@@ -1644,7 +1659,7 @@ async function loadDynamic() {
         encodeURIComponent(
           current === "profile"
             ? state.me.id
-            : decodeURIComponent(hash.slice(8)),
+            : decodeURIComponent(route.slice(7)),
         ),
     );
   if (
@@ -1680,7 +1695,7 @@ async function loadDynamic() {
             (ui.profileCollection.tradeable ? "&tradeable=1" : "")
           : ""),
     );
-  if (version !== loadVersion || location.hash !== hash) return;
+  if (version !== loadVersion || currentRoute() !== route) return;
   if (profileCardsResult) {
     rememberCards(profileCardsResult.cards);
     ui.profileCardsData = profileCardsResult;
@@ -1747,7 +1762,7 @@ function render() {
   $("#navigation").innerHTML = routes
     .map(
       ([id, name]) =>
-        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="#${id}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
+        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
     )
     .join("");
   $("#page-name").textContent = title;
@@ -2092,6 +2107,15 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   const a = t.dataset.action;
+  if (a === "copy-pickem") {
+    try {
+      await navigator.clipboard.writeText(new URL(routeHref("pickems/" + t.dataset.id), location.href).href);
+      toast("Pick’em link copied.");
+    } catch {
+      toast("Use the pick’em title link to copy its address.", true);
+    }
+    return;
+  }
   if (a === "pickem-tour") {
     const key = Number(t.dataset.id);
     ui.pickemOpen = ui.pickemOpen === key ? null : key;
@@ -2701,7 +2725,7 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("#view-pulls,#view-profile,[data-close-dialog]"))
     $("#modal").close();
 });
-window.addEventListener("hashchange", async () => {
+installNavigation(async () => {
   titleDrag.cancel();
   titleEditor.close();
   wishlistDrag.cancel();
@@ -2716,6 +2740,9 @@ window.addEventListener("hashchange", async () => {
   ui.marketPage = 1;
   ui.rankPage = 1;
   ui.pickemPage = 1;
+  ui.pickemOpen = null;
+  ui.pickemDetail = null;
+  ui.pickemData = null;
   ui.playerPage = 1;
   profileData = null;
   ui.profileView = "overview";
@@ -2820,7 +2847,7 @@ async function handleFeatureClick(a, t) {
     if (a === "quiz-notice-open") {
       $("#modal").close();
       quizUI.openLeaderboard(t.dataset.quiz);
-      if (page() !== "quiz") location.hash = "quiz";
+      if (page() !== "quiz") navigate("quiz");
       else {
         await loadDynamic();
         render();
@@ -2834,7 +2861,7 @@ async function handleFeatureClick(a, t) {
         ui.tradeView = "listings";
         ui.tradePage = 1;
         ui.tradeQuery = cardBy(t.dataset.card).name;
-        if (page() !== "shop") location.hash = "shop";
+        if (page() !== "shop") navigate("shop");
         else {
           await loadDynamic();
           render();
@@ -3213,7 +3240,7 @@ async function handleFeatureClick(a, t) {
           );
           return true;
         }
-        if (a === "fusion-card") location.hash = "fusion";
+        if (a === "fusion-card") navigate("fusion");
         repaintAlchemyOrder();
         return true;
       }
@@ -3341,11 +3368,11 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "profile-venue") {
-      if (t.dataset.venue === "auction") location.hash = "auctions";
+      if (t.dataset.venue === "auction") navigate("auctions");
       else {
         ui.shopSection = t.dataset.venue === "trade" ? "trades" : "market";
         ui.tradeView = "browse";
-        location.hash = "shop";
+        navigate("shop");
       }
       return true;
     }

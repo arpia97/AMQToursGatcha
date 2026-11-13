@@ -977,7 +977,7 @@ test("quiz leaderboard highlights the viewer when in Top 20 and appends a highli
   const inTopHtml = top20WithMe.ui.render();
   assert.match(
     inTopHtml,
-    /<tr class="is-me" aria-current="true"><td>2<\/td><td><a href="#player\/host">Me<\/a><\/td><td title="Time Set: [^"]+"><strong>18 \/ 20<\/strong><\/td><td class="quiz-duration">0:42\.500<\/td><\/tr>/,
+    /<tr class="is-me" aria-current="true"><td>2<\/td><td><a href="\/player\/host">Me<\/a><\/td><td title="Time Set: [^"]+"><strong>18 \/ 20<\/strong><\/td><td class="quiz-duration">0:42\.500<\/td><\/tr>/,
   );
   assert.doesNotMatch(inTopHtml, /is-outside-top/);
 
@@ -1006,7 +1006,7 @@ test("quiz leaderboard highlights the viewer when in Top 20 and appends a highli
   assert.equal((outsideHtml.match(/<tr/g) || []).length, 22);
   assert.match(
     outsideHtml,
-    /<tr class="is-me is-outside-top" aria-current="true"><td>24<\/td><td><a href="#player\/host">Me &lt;Outside><\/a><\/td><td title="Time Set: [^"]+"><strong>14 \/ 20<\/strong><\/td><td class="quiz-duration">1:01\.250<\/td><\/tr>/,
+    /<tr class="is-me is-outside-top" aria-current="true"><td>24<\/td><td><a href="\/player\/host">Me &lt;Outside><\/a><\/td><td title="Time Set: [^"]+"><strong>14 \/ 20<\/strong><\/td><td class="quiz-duration">1:01\.250<\/td><\/tr>/,
   );
 });
 

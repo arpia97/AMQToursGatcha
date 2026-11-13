@@ -1054,13 +1054,14 @@ export function demoFeatures(d, path, b) {
       hasMore: false,
     };
   if (path.startsWith("pickem-tour?")) {
-    const key = Number(new URLSearchParams(path.split("?")[1]).get("key"));
+    const params = new URLSearchParams(path.split("?")[1]);
+    const key = Number(params.get("key"));
     const matches = s.pickems
-      .filter((p) => (p.event_id || -p.id) === key)
+      .filter((p) => params.has("id") ? p.id === Number(params.get("id")) : (p.event_id || -p.id) === key)
       .sort((a, b) => (a.round || 1) - (b.round || 1) || a.id - b.id);
-    if (!matches.length) throw Error("Pick’em tour not found.");
+    if (!matches.length) throw Object.assign(Error("Pick’em not found."), { status: 404 });
     return {
-      key,
+      key: matches[0].event_id || -matches[0].id,
       name: matches[0].tour,
       matches: matches.map((p) => ({
         ...p,

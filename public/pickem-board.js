@@ -1,3 +1,4 @@
+import { routeHref } from "./site-navigation.js";
 import { pickemVoteChart, pickemParticipationTag } from "./pickem-votes.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
@@ -171,7 +172,7 @@ function predictionCells(p, draft, form, e, open, label) {
 export function pickemBoard(
   tours,
   detail,
-  { escape: e, number: n, now, drafts = {}, signedIn = true },
+  { escape: e, number: n, now, drafts = {}, signedIn = true, focused = false },
 ) {
   const deadline = (p) =>
     new Date(p.ends).toLocaleString("en-US", {
@@ -201,7 +202,7 @@ export function pickemBoard(
           '"><td class="round-number">' +
           (p.round || 1) +
           '</td><th scope="row" class="match-name">' +
-          label +
+          '<a href="' + routeHref("pickems/" + p.id) + '">' + label + "</a>" +
           '<details class="pickem-vote-details"><summary>' +
           n(p.voteSummary?.total || 0) +
           (p.voteSummary?.total === 1 ? " voter" : " voters") +
@@ -252,6 +253,7 @@ export function pickemBoard(
             now,
             drafts,
             signedIn,
+            focused,
           });
         const expanded = detail?.key === t.key;
         const pairMode =
@@ -349,7 +351,8 @@ export function pickemBoard(
           (t.open ? "live" : "") +
           '">' +
           label +
-          '</span></span><button class="button secondary" data-action="pickem-tour" data-id="' +
+          '</span></span>' + (focused ? `<button class="button secondary" data-action="copy-pickem" data-id="${t.newest}">Copy Link</button>` :
+          '<button class="button secondary" data-action="pickem-tour" data-id="' +
           t.key +
           '" aria-expanded="' +
           expanded +
@@ -357,7 +360,7 @@ export function pickemBoard(
           t.key +
           '">' +
           (expanded ? "Hide rounds ↑" : "View all rounds →") +
-          "</button></div>" +
+          "</button>") + "</div>" +
           table +
           "</article>"
         );

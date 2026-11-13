@@ -1,3 +1,4 @@
+import { isPlayerRoute } from "../public/site-navigation.js";
 import { cachedQuizCover } from "./quiz-cover-cache.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { alchemyCompensation } from "./alchemy-compensation.js";
@@ -1253,8 +1254,9 @@ export class Game extends DurableObject {
     if (path === "pickem-tour" && !post)
       return json(
         e.pickemEvents.detail(
-          Number(url.searchParams.get("key")),
+          Number(url.searchParams.get("id") ?? url.searchParams.get("key")),
           session?.player,
+          url.searchParams.has("id"),
         ),
       );
     if (path === "pickems" && !post)
@@ -1518,6 +1520,15 @@ export default {
           500,
         );
       }
+    }
+    const route = url.pathname.slice(1).replace(/\/$/, "");
+    if (["GET", "HEAD"].includes(request.method) && isPlayerRoute(route)) {
+      const shell = await env.ASSETS.fetch(new Request(new URL("/", url), request));
+      // Relative to the requested document, including when served behind /gacha/.
+      const base = "../".repeat(url.pathname.split("/").length - 2) || "./";
+      return new HTMLRewriter().on("head", {
+        element(head) { head.prepend(`<base href="${base}">`, { html: true }); },
+      }).transform(shell);
     }
     const response = await env.ASSETS.fetch(request),
       headers = new Headers(response.headers);

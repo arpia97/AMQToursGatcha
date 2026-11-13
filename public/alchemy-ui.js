@@ -1,3 +1,4 @@
+import { routeHref } from "./site-navigation.js";
 import { quantityInput } from "./quantity-input.js";
 import { searchMatcher, cardSearchText } from "./search.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
@@ -573,7 +574,7 @@ export function createAlchemyUI(h) {
       );
     }).join("");
     return (
-      '<div class="page-intro"><div><h1>Card Alchemy</h1><p>Refine your cards. Build XP. Draw your favourites.</p></div><a href="#collection" class="text-button">My Collection ↗</a></div>' +
+      '<div class="page-intro"><div><h1>Card Alchemy</h1><p>Refine your cards. Build XP. Draw your favourites.</p></div><a href="' + routeHref("collection") + '" class="text-button">My Collection ↗</a></div>' +
       feed +
       '<div class="section-head"><h2>Your Alchemy Targets</h2><span class="subtext">One Shared XP Pool · Unused XP Is Kept</span></div><div class="alchemy-tier-grid">' +
       tiers +

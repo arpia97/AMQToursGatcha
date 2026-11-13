@@ -1,3 +1,4 @@
+import { routeHref } from "./site-navigation.js";
 import {
   QUIZ_SERVERS,
   quizAudioUrl,
@@ -423,8 +424,8 @@ export function createQuizUI({
       (isMe ? ' aria-current="true"' : "") +
       "><td>" +
       rank +
-      '</td><td><a href="#player/' +
-      encodeURIComponent(p.id) +
+      '</td><td><a href="' +
+      routeHref("player/" + encodeURIComponent(p.id)) +
       '">' +
       e(p.name) +
       '</a></td><td title="Time Set: ' +

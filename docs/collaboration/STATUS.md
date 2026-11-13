@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Pick’em Links and Gacha Navigation
+
+November 13. Codex updated the player router, Pick’em board and host publication link. The public path is `/gacha/pickems/<pickem ID>`. Bookmarked fragment routes remain supported. No schema or economy changes.
+
 ## Domain Routing
 
 The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtours.app/gacha/` through the original GAME_SITE service binding. Read-only live checks covered the player page, assets, account endpoint and host console. Three proxy tests passed. The Host Platform serves `amqtours.app/tour` from Sites version 36 (`91b10e03`), with its existing sign-in gate. The custom hostname and TLS are active. Verified the built host entry and navigation locally; all 95 host tests passed.

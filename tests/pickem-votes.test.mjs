@@ -146,6 +146,11 @@ test("older combined matchups aggregate draw and both teams independently, with 
   f.vote(2, p, "b", { scoreA: 0, scoreB: 2 });
   f.vote(3, matches[1], "a", { scoreA: 2, scoreB: 0 });
   const detail = f.e.pickemEvents.detail(event);
+  const linked = f.e.pickemEvents.detail(matches[1].id, "private-player-3", true);
+  assert.deepEqual(linked.matches.map((match) => match.id), [matches[1].id]);
+  assert.equal(linked.key, event);
+  assert.equal(linked.matches[0].prediction, "a");
+  assert.equal(linked.matches[0].voteSummary.total, 1);
   assert.equal(
     f.e.pickemEvents
       .page(1, "private-player-3")

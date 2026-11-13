@@ -200,7 +200,7 @@ test("pack reveal renders special pack cinematic and results with collection but
   // Reveal results
   reveal.reveal();
   assert.match(views.at(-1), /SPECIAL BONUS PACK/);
-  assert.match(views.at(-1), /href="#collection"/);
+  assert.match(views.at(-1), /href="\/collection"/);
   assert.match(views.at(-1), /Continue/);
   assert.equal((views.at(-1).match(/<article id=/g) || []).length, 5);
 });

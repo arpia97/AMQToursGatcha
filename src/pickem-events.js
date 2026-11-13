@@ -162,21 +162,23 @@ export class PickemEvents {
       hasMore: rows.length > 20,
     };
   }
-  detail(key, player) {
+  detail(key, player, single = false) {
     const e = this.e;
-    integer(key, -100000000, 100000000);
+    if (single && (!Number.isSafeInteger(key) || key < 1)) fail("Pick’em not found.", 404);
+    if (!single) integer(key, -100000000, 100000000);
     if (!key) fail("Choose a pick’em tour.");
+    const where = single ? "p.id=?" : key > 0 ? "p.event_id=?" : "p.id=? AND p.event_id IS NULL";
     const matches = e.all(
       `SELECT p.*,v.winner AS prediction,v.score_a AS prediction_a,v.score_b AS prediction_b
       FROM pickems p LEFT JOIN predictions v ON v.pickem=p.id AND v.player=?
-      WHERE ${key > 0 ? "p.event_id=?" : "p.id=? AND p.event_id IS NULL"} ORDER BY p.round,p.id`,
+      WHERE ${where} ORDER BY p.round,p.id`,
       player || "",
       Math.abs(key),
     );
     if (!matches.length) fail("Pick’em tour not found.", 404);
     const tallies = e.all(
       "SELECT v.pickem,v.winner,count(*) AS votes FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE " +
-        (key > 0 ? "p.event_id=?" : "p.id=? AND p.event_id IS NULL") +
+        where +
         " GROUP BY v.pickem,v.winner",
       Math.abs(key),
     );
@@ -185,6 +187,7 @@ export class PickemEvents {
       if (!grouped.has(row.pickem)) grouped.set(row.pickem, []);
       grouped.get(row.pickem).push(row);
     }
+    if (single) key = matches[0].event_id || -matches[0].id;
     const event =
       key > 0
         ? e.one("SELECT name,format FROM pickem_events WHERE id=?", key)
@@ -198,7 +201,7 @@ export class PickemEvents {
         voteSummary: pickemVoteSummary(p, grouped.get(p.id) || []),
       })),
       byes:
-        key > 0
+        !single && key > 0
           ? e.all(
               "SELECT team,round FROM pickem_byes WHERE event_id=? ORDER BY round",
               key,
@@ -296,7 +299,7 @@ export class PickemEvents {
         event,
         JSON.stringify(teams),
       );
-      return { message: "Tour winner pick’em published.", event };
+      return { message: "Tour winner pick’em published.", event, pickem: e.one("SELECT last_insert_rowid() AS id").id };
     }
     if (action === "pickem-winner-edit") {
       const p = this.match(b.pickem);
