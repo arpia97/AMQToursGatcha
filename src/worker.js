@@ -30,6 +30,7 @@ import {
   nextBudgetDay,
   storageQuotaResponse,
 } from "./sql-budget.js";
+import communityCards from "../public/community-cards.json" with { type: "json" };
 
 const enc = new TextEncoder();
 const token = () =>
@@ -139,6 +140,23 @@ export class Game extends DurableObject {
     );
     this.budget.observe(startup.read, startup.written, "startup");
   }
+  syncCommunityCards() {
+    if (this._communitySynced) return;
+    this._communitySynced = true;
+    const hasSeed = this.engine.one(
+      "SELECT id FROM catalog WHERE id='community-ggius-arronchu'",
+    );
+    const missingCards = hasSeed
+      ? communityCards.filter(
+          (c) => !this.engine.one("SELECT id FROM catalog WHERE id=?", c.id),
+        )
+      : [];
+    if (missingCards.length) {
+      this.engine.tx(() => {
+        this.engine.host("catalog", { cards: missingCards });
+      });
+    }
+  }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.
     if (this.jikan.nextAlarm() || this.aliases.nextAlarm())
@@ -241,6 +259,7 @@ export class Game extends DurableObject {
     }
   }
   async handle(request) {
+    this.syncCommunityCards();
     const e = this.engine,
       url = new URL(request.url),
       path = url.pathname.slice(5),
