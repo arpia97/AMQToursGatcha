@@ -92,23 +92,29 @@ test("community cards participate in search, rarity sorting, uniform draw pools,
     4,
   );
   const pool = e.catalogStore.pool("character").cards;
-  assert.equal(pool.length, 24);
+  assert.equal(pool.length, 25);
   assert.equal(
     pool.filter((c) => ["S", "SS", "SSS", "Ubers", "AG"].includes(c.rarity))
       .length,
-    15,
+    16,
   );
+  const fakerCard = e.catalogStore.card("community-faker");
+  assert.equal(fakerCard.name, "Faker");
+  assert.equal(fakerCard.series, "League of Legends");
+  assert.equal(fakerCard.kind, "character");
+  assert.equal(fakerCard.rarity, "AG");
+  assert.equal(fakerCard.raritySource, "community");
   const withDs = [
     ...pool,
     ...Array.from({ length: 100 }, (_, i) => ({ id: "d" + i, rarity: "D" })),
   ];
-  assert.equal(premiumPool(withDs).high.length, 15);
+  assert.equal(premiumPool(withDs).high.length, 16);
   const found = new Set();
-  for (let i = 0; i < 24; i++)
+  for (let i = 0; i < 25; i++)
     found.add(
       e.catalogStore.draw("character", (n) => Math.min(n - 1, i * 100)).id,
     );
-  assert.equal(found.size, 24);
+  assert.equal(found.size, 25);
   e.addCard("p", cards[0].id);
   const progress = e.economy.anime.page("p");
   assert.equal(progress.series[0].series_romaji, "GGius Tours");
@@ -122,7 +128,7 @@ test("fixed rarity accepts only valid community IDs; malformed imports roll back
     e.mutate("host:host/catalog", "ggius-once", b, () => e.host("catalog", b));
   run();
   run();
-  assert.equal(e.catalogStore.summary().character, 24);
+  assert.equal(e.catalogStore.summary().character, 25);
   assert.equal(e.catalogStore.summary().seiyuu, 1);
   for (const c of [
     { ...cards[0], id: "mal-character-1" },

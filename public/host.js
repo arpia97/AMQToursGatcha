@@ -196,6 +196,8 @@ function render() {
       .join(
         "",
       )}</select></label><label>Role<select name="role"><option value="supporting">Supporting</option><option value="main">Main</option><option value="unknown">Unsorted</option></select></label><button class="button secondary" type="submit">Save character role →</button></form></section>`;
+  if (tab === "catalog")
+    html += `<section class="host-panel"><h2>Community Cards</h2><p>Host cards with fixed rarities defined in <code>community-cards.json</code> (including GGius Tours and Faker). Syncing registers newly added cards and image assets directly into the catalogue.</p><form id="sync-community" class="stack"><button class="button secondary" type="submit">Sync Community Cards to Catalogue →</button></form></section>`;
   if (tab === "resets")
     html = `<section class="host-panel danger-panel"><h2>Reset an Individual Player</h2><p class="warning-copy">WARNING: Restores 5,000 starting credits and resets lifetime earnings to 5,000. Removes cards, daily claims, tour activity, and predictions. Their showcases, gambling records, and open sale listings are cleared. Bidders on their cancelled listings are refunded. Their bids and unclaimed wins are removed; open lots restart at zero. Sessions are revoked. AMQ identity, username history, and password remain. This cannot be undone through this console.</p><form id="reset-player" class="stack"><label>Player<select name="player" required><option value="">Choose carefully</option>${players()}</select></label>${input("Type RESET PLAYER followed by their exact ID", "confirmation", "text", 'autocomplete="off" placeholder="RESET PLAYER 00123"')}<button class="button danger" type="submit">Reset this player’s gameplay</button></form></section><section class="host-panel danger-panel"><h2>Reset the Entire Community</h2><p class="warning-copy">WARNING: This impacts every player. Gameplay resets restore 5,000 starting credits. Collections, showcases, tour counts, wallet activity, pick’ems, predictions, auctions, shop listings, gambling records, and sessions will be cleared. Character and seiyuu catalogues, import progress, and rarity data are protected and always kept. Create an export or backup first. This cannot be undone through this console.</p><form id="reset-all" class="stack"><label>Reset scope<select name="scope" id="reset-scope"><option value="game">Reset gameplay · keep player registry, passwords, usernames, catalog, and prices</option><option value="everything">Delete all player data · include players, aliases, passwords, username history, and prices; keep catalogues</option></select></label><p class="form-hint">Gameplay: type <code>RESET ALL GAME DATA</code><br>Delete all player data: type <code>DELETE EVERYTHING</code>. Automatic sync recreates source player IDs as unregistered identities afterward; deleted credentials and gameplay do not return. The host token is a deployment secret and remains available.</p>${input("Exact confirmation phrase", "confirmation", "text", 'autocomplete="off"')}<button class="button danger" type="submit">Reset all selected data</button></form></section>`;
   if (tab === "catalog" && state.resourceBudget) {
@@ -555,6 +557,12 @@ document.addEventListener("submit", async (ev) => {
       );
     if (formIdentifier(form) === "replace-acdb")
       result = await api("replace-acdb", b, key);
+    if (formIdentifier(form) === "sync-community") {
+      const resp = await fetch("/community-cards.json");
+      if (!resp.ok) throw new Error("Could not load community-cards.json");
+      const cards = await resp.json();
+      result = await api("catalog", { cards }, key);
+    }
     if (["jikan-control", "appearance-control"].includes(formIdentifier(form)))
       result = await api(ev.submitter.value, {}, key);
     if (formIdentifier(form) === "deduct") {

@@ -298,5 +298,17 @@
     "image": "https://play.amqtours-gatcha.workers.dev/community-cards/msfearful.png",
     "source": "",
     "fixedRarity": "SSS"
+  },
+  {
+    "id": "community-faker",
+    "kind": "character",
+    "name": "Faker",
+    "series": "League of Legends",
+    "series_romaji": "League of Legends",
+    "series_english": "League of Legends",
+    "role": "main",
+    "image": "https://play.amqtours-gatcha.workers.dev/community-cards/faker.jpg",
+    "source": "",
+    "fixedRarity": "AG"
   }
 ]
