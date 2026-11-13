@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Pick’em Share Placement
+
+November 13. Source `e9314ab` is live on Worker version `47faac3e-5107-4bfe-b323-11aeac1602a8`. Copy Link is at the bottom right of the featured ticket and pick’em cards. The list expands and collapses teams in place. Multi-match boards share individual matches. All 24 focused tests passed. Verified clipboard, expansion, collapse and direct links on the live site at 1280 and 390 pixels.
+
 ## Homepage Pick’em Ticket
 
 November 13. The approved preview is deployed at `/gacha/` in source commit `756e730`, Worker version `5a5de384-65ee-492c-885b-27ee57cb4865`. All three live assets matched the release. The open-state browser fixture passed at 1320, 390 and 320 pixels, including the running clock and prediction link. There was no active production Pick’em at verification. All 21 focused tests, syntax checks and the dry-run build passed.
