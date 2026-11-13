@@ -736,6 +736,8 @@ export class Game extends DurableObject {
       }
       if (path === "host/credit-audit" && !post)
         return json(e.creditAudit.page(Object.fromEntries(url.searchParams)));
+      if (path === "host/player-activity" && !post)
+        return json(e.playerActivity(url.searchParams.get("player") || ""));
       if (path === "host/activity-csv" && !post)
         return new Response(e.creditAudit.recentCSV(), {
           headers: {

@@ -749,3 +749,45 @@ test("credit offers alongside cards escrow, transfer on accept, refund on declin
   assert.equal(e.player("b").balance, 1400);
   assert.deepEqual(f.inv("b", "one"), { copies: 1, level: 3 });
 });
+
+test("playerActivity returns player trade counterparties, offered cards/credits and wallet ledger by ID or username", (t) => {
+  const f = fixture(t);
+  const { e } = f;
+  f.card("a", "one", 2);
+  f.card("b", "two", 1);
+  e.run("UPDATE players SET balance=1000,earned=1000 WHERE id='b'");
+  const listing = f.act("a", "trade-list", {
+    card: "one",
+    variant: "card",
+    expectedLevel: 2,
+  }).listing;
+  f.act("b", "trade-offer", {
+    listing,
+    cards: [{ card: "two", variant: "card", expectedLevel: 1 }],
+    credits: 300,
+  });
+  const offer = e.one("SELECT id FROM trade_offers WHERE listing=?", listing).id;
+  f.act("a", "trade-accept", { offer });
+
+  // Query by username (case-insensitive) for seller a
+  const actA = e.playerActivity("A");
+  assert.equal(actA.player.id, "a");
+  assert.equal(actA.listings.length, 1);
+  assert.equal(actA.listings[0].status, "completed");
+  assert.equal(actA.listings[0].offers[0].proposer, "b");
+  assert.equal(actA.listings[0].offers[0].proposer_name, "b");
+  assert.equal(actA.listings[0].offers[0].credits, 300);
+  assert.equal(actA.listings[0].offers[0].cards[0].card, "two");
+  assert.ok(actA.ledger.some((l) => l.delta === 300));
+  assert.equal(actA.cards.one.name, "One");
+
+  // Query by ID for proposer b
+  const actB = e.playerActivity("b");
+  assert.equal(actB.player.id, "b");
+  assert.equal(actB.sentOffers.length, 1);
+  assert.equal(actB.sentOffers[0].status, "accepted");
+  assert.equal(actB.sentOffers[0].seller, "a");
+  assert.equal(actB.sentOffers[0].seller_name, "a");
+  assert.equal(actB.sentOffers[0].listing_card, "one");
+  assert.equal(actB.sentOffers[0].credits, 300);
+});

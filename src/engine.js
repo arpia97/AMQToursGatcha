@@ -1269,6 +1269,85 @@ export class Engine {
       value
     );
   }
+  playerActivity(query) {
+    const q = String(query || "").trim();
+    if (!q) fail("Enter a player ID or username.");
+    const resolved = this.resolvePlayer(q);
+    const playerRow =
+      this.one(
+        "SELECT id,name,balance,earned,is_admin FROM players WHERE id=?",
+        resolved,
+      ) ||
+      this.one(
+        "SELECT id,name,balance,earned,is_admin FROM players WHERE lower(name)=lower(?)",
+        q,
+      ) ||
+      this.one(
+        "SELECT p.id,p.name,p.balance,p.earned,p.is_admin FROM usernames u JOIN players p ON p.id=u.player WHERE lower(u.username)=lower(?)",
+        q,
+      );
+    if (!playerRow) fail("Player not found.", 404);
+    const id = playerRow.id;
+    const usernames = this.all(
+      "SELECT username,label,at FROM usernames WHERE player=? ORDER BY at DESC",
+      id,
+    );
+    const cardIds = new Set();
+    const offerCardsFor = (offerId) => {
+      const rows = this.all(
+        "SELECT card,level FROM trade_offer_cards WHERE offer=? ORDER BY position",
+        offerId,
+      );
+      for (const r of rows) cardIds.add(r.card);
+      return rows;
+    };
+    const listings = this.all(
+      "SELECT id,seller,card,level,status,accepted_offer,created_at,updated_at FROM trade_listings WHERE seller=? ORDER BY updated_at DESC,id DESC LIMIT 100",
+      id,
+    ).map((l) => {
+      cardIds.add(l.card);
+      const offers = this.all(
+        "SELECT o.id,o.proposer,p.name AS proposer_name,o.card,o.level,o.credits,o.status,o.created_at,o.updated_at FROM trade_offers o LEFT JOIN players p ON p.id=o.proposer WHERE o.listing=? ORDER BY o.id DESC",
+        l.id,
+      ).map((o) => {
+        const cards = offerCardsFor(o.id);
+        if (!cards.length && o.card) cardIds.add(o.card);
+        return {
+          ...o,
+          cards: cards.length
+            ? cards
+            : o.card
+              ? [{ card: o.card, level: o.level }]
+              : [],
+        };
+      });
+      return { ...l, offers };
+    });
+    const sentOffers = this.all(
+      "SELECT o.id,o.listing,o.proposer,o.card,o.level,o.credits,o.status,o.created_at,o.updated_at,l.seller,p.name AS seller_name,l.card AS listing_card,l.level AS listing_level,l.status AS listing_status,l.accepted_offer FROM trade_offers o JOIN trade_listings l ON l.id=o.listing LEFT JOIN players p ON p.id=l.seller WHERE o.proposer=? ORDER BY o.updated_at DESC,o.id DESC LIMIT 100",
+      id,
+    ).map((o) => {
+      cardIds.add(o.listing_card);
+      const cards = offerCardsFor(o.id);
+      if (!cards.length && o.card) cardIds.add(o.card);
+      return {
+        ...o,
+        cards: cards.length
+          ? cards
+          : o.card
+            ? [{ card: o.card, level: o.level }]
+            : [],
+      };
+    });
+    const ledger = this.all(
+      "SELECT id,delta,reason,at FROM ledger WHERE player=? ORDER BY id DESC LIMIT 200",
+      id,
+    );
+    const cards = Object.fromEntries(
+      this.catalogStore.cards([...cardIds]).map((c) => [c.id, c]),
+    );
+    return { player: playerRow, usernames, listings, sentOffers, ledger, cards };
+  }
   pickemPage(player, page = 1) {
     integer(page, 1, 10000);
     const rows = this.all(
