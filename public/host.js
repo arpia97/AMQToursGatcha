@@ -45,63 +45,7 @@ let participationDraft = null,
 const settlementDrafts = {};
 let auditData = null,
   auditFilters = { kind: "spent", scope: "all", window: "12h", player: "" },
-  auditHistory = [],
-  playerActivityData = null,
-  playerActivityQuery = "";
-function renderPlayerActivity(data) {
-  if (!data) return "";
-  const { player, usernames, listings, sentOffers, ledger, cards } = data;
-  const cardLabel = (id, level) => {
-    const c = cards[id];
-    return `${esc(c ? c.name : id)}${level > 1 ? ` Lv.${level}` : ""}`;
-  };
-  const tradeRows = [];
-  for (const l of listings || []) {
-    if (!l.offers.length) {
-      tradeRows.push({
-        at: l.updated_at,
-        role: "Listed",
-        status: l.status,
-        counterparty: "—",
-        listed: cardLabel(l.card, l.level),
-        offered: "No offers",
-      });
-    } else {
-      for (const o of l.offers) {
-        const offeredParts = o.cards.map((x) => cardLabel(x.card, x.level));
-        if (o.credits > 0) offeredParts.push(`${o.credits.toLocaleString()} credits`);
-        tradeRows.push({
-          at: o.updated_at || l.updated_at,
-          role: "Listed (received offer)",
-          status: o.status,
-          counterparty: `${esc(o.proposer_name || o.proposer)} (${esc(o.proposer)})`,
-          listed: cardLabel(l.card, l.level),
-          offered: offeredParts.join(", ") || "—",
-        });
-      }
-    }
-  }
-  for (const o of sentOffers || []) {
-    const offeredParts = o.cards.map((x) => cardLabel(x.card, x.level));
-    if (o.credits > 0) offeredParts.push(`${o.credits.toLocaleString()} credits`);
-    tradeRows.push({
-      at: o.updated_at,
-      role: "Sent offer",
-      status: o.status,
-      counterparty: `${esc(o.seller_name || o.seller)} (${esc(o.seller)})`,
-      listed: cardLabel(o.listing_card, o.listing_level),
-      offered: offeredParts.join(", ") || "—",
-    });
-  }
-  tradeRows.sort((a, b) => (b.at || 0) - (a.at || 0));
-  return `<div class="space-top">
-    <p><strong>${esc(player.name)}</strong> (ID: <code>${esc(player.id)}</code>) · Balance: <strong>${player.balance.toLocaleString()}</strong> · Earned: <strong>${player.earned.toLocaleString()}</strong>${usernames?.length ? ` · Usernames: ${usernames.map((u) => esc(u.username)).join(", ")}` : ""}</p>
-    <h3>Trades (${tradeRows.length})</h3>
-    ${tradeRows.length ? `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Role</th><th>Status</th><th>Counterparty</th><th>Listed Card</th><th>Offered</th></tr></thead><tbody>${tradeRows.map((r) => `<tr><td>${esc(new Date(r.at).toLocaleString())}</td><td>${esc(r.role)}</td><td>${esc(r.status)}</td><td>${r.counterparty}</td><td>${r.listed}</td><td>${r.offered}</td></tr>`).join("")}</tbody></table></div>` : `<p class="form-hint">No trade listings or offers recorded for this player.</p>`}
-    <h3 class="space-top">Wallet Ledger (Latest ${ledger.length})</h3>
-    ${ledger.length ? `<div class="table-wrap"><table><thead><tr><th>Time</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="form-hint">No wallet movements recorded.</p>`}
-  </div>`;
-}
+  auditHistory = [];
 async function loadCreditAudit(reset = false) {
   if (reset) {
     delete auditFilters.before;
@@ -242,7 +186,7 @@ function render() {
   if (tab === "credit-audit")
     html = creditAuditPanel(auditData, auditFilters, state.players, esc);
   if (tab === "activity")
-    html = `<section class="host-panel"><h2>Player Activity &amp; Trade Tracker</h2><p>Inspect any player’s trade counterparties (listings, offers, accepted trades) and wallet ledger.</p><form id="player-activity-lookup" class="stack"><label>Player name or ID<input name="player" maxlength="100" value="${esc(playerActivityQuery)}" placeholder="catisam" required></label><button class="button secondary" type="submit">Inspect player →</button></form>${renderPlayerActivity(playerActivityData)}</section><section class="host-panel"><h2>Every Credit Leaves a Trail.</h2><p>Latest 100 wallet movements. The CSV includes all available activity from the last 12 hours, including grants, purchases, holds, refunds and payouts.</p><button class="button secondary" id="export-ledger">Download Last 12 Hours CSV</button></section><div class="table-wrap"><table><thead><tr><th>Time</th><th>Player ID</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
+    html = `<section class="host-panel"><h2>Every Credit Leaves a Trail.</h2><p>Latest 100 wallet movements. The CSV includes all available activity from the last 12 hours, including grants, purchases, holds, refunds and payouts.</p><button class="button secondary" id="export-ledger">Download Last 12 Hours CSV</button></section><div class="table-wrap"><table><thead><tr><th>Time</th><th>Player ID</th><th>Credits</th><th>Reason</th></tr></thead><tbody>${state.ledger.map((l) => `<tr><td>${esc(new Date(l.at).toLocaleString())}</td><td>${esc(l.player)}</td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${l.delta}</td><td>${esc(l.reason)}</td></tr>`).join("")}</tbody></table></div>`;
   if (tab === "catalog")
     html += `<section class="host-panel"><h2>Character Main / Supporting Roles</h2><p>The most popular Main appearance by MAL member count is the primary series; Supporting appearances are the fallback. Host corrections take precedence. Supporting cards have weight 100. Main cards use the configured lower weight. Seiyuus have no classification.</p><form id="role-search" class="stack"><label>Find a character by name or series<input name="query" maxlength="100" placeholder="Frieren"></label><button class="button secondary" type="submit">Search catalog →</button></form><form id="role" class="stack space-top"><label>Character<select name="card" required><option value="">Choose a character</option>${state.cards
       .filter((c) => c.kind === "character")
@@ -612,14 +556,6 @@ document.addEventListener("submit", async (ev) => {
         { intervalDays: Number(b.intervalDays) },
         key,
       );
-    if (formIdentifier(form) === "player-activity-lookup") {
-      playerActivityQuery = String(b.player || "").trim();
-      playerActivityData = await api(
-        "player-activity?player=" + encodeURIComponent(playerActivityQuery),
-      );
-      render();
-      return;
-    }
     if (formIdentifier(form) === "replace-acdb")
       result = await api("replace-acdb", b, key);
     if (formIdentifier(form) === "sync-community") {
