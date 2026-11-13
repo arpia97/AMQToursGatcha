@@ -33,3 +33,10 @@ export function compactCountdownText(end, now) {
     pad = (n) => String(n).padStart(2, "0");
   return (d ? d + "d " : "") + pad(h) + "h " + pad(m) + "m " + pad(s) + "s";
 }
+
+export function clockCountdownText(end, now) {
+  const seconds = Math.max(0, Math.ceil((end - now) / 1000));
+  const pad = (value) => String(value).padStart(2, "0");
+  const hours = Math.floor(seconds / 3600);
+  return (hours ? hours + ":" : "") + pad(Math.floor(seconds / 60) % 60) + ":" + pad(seconds % 60);
+}

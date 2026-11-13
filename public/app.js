@@ -65,6 +65,7 @@ import { formIdentifier } from "./form-actions.js";
 import {
   countdownText,
   compactCountdownText,
+  clockCountdownText,
   nextWeeklyReset,
 } from "./countdown.js";
 import { createAlchemyUI } from "./alchemy-ui.js";
@@ -457,6 +458,7 @@ function tickCountdowns() {
     el.textContent =
       now >= end
         ? el.dataset.countdownEnded
+        : el.hasAttribute("data-countdown-clock") ? clockCountdownText(end, now)
         : el.dataset.countdownPrefix +
           (el.dataset.countdownCompact === "true"
             ? compactCountdownText(end, now)
@@ -1219,13 +1221,30 @@ function shop() {
   return features.shop();
 }
 function pickemHero(p) {
-  if (p.mode === "tour")
-    return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">TOUR PICK’EM OPEN</div><h2>Who Takes<br><span>the Tour?</span></h2><p>${escape(p.tour)} · ${remaining(p.ends)}<br>✦ ${number(p.winner_reward)} for the correct winner</p><a class="button" href="${routeHref("pickems/" + p.id)}">Pick your winner ↗</a></div><div class="hero-match"><strong>${escape(p.tour)}</strong><span>${pickemTeams(p).length} teams · one winner</span><small>Free entry</small></div></section>`;
-  const reward =
-    p.mode === "pair"
-      ? `✦ ${number(p.winner_reward + 2 * p.score_reward)} for the correct two-game result`
-      : `✦ ${number(p.winner_reward)} for the winner + ${number(p.score_reward)} per exact team score`;
-  return `<section class="hero pickem-hero"><div class="hero-copy"><div class="hero-tag">PICK’EMS OPEN · ${escape(p.tour)}</div><h2>Make Your Call.<br><span>Back Your Team.</span></h2><p>${escape(p.title)} · ${remaining(p.ends)}<br>${reward}</p><a class="button" href="${routeHref("pickems/" + p.id)}">Make your prediction ↗</a></div><div class="hero-match"><strong>${escape(p.team_a)}</strong><span>VS</span><strong>${escape(p.team_b)}</strong><small>Free entry · Open until the host’s deadline</small></div></section>`;
+  const winner = p.mode === "tour";
+  const dated = /^(\d{4}-\d{2}-\d{2})\s+(.+)$/.exec(p.tour);
+  const date = dated && new Date(dated[1] + "T00:00:00Z");
+  const hasDate = date && Number.isFinite(date.getTime()) && date.toISOString().startsWith(dated[1]);
+  const tourName = hasDate ? dated[2] : p.tour;
+  const dateLabel = hasDate
+    ? `<time datetime="${dated[1]}">${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}</time>`
+    : "";
+  const meta = [dateLabel, winner ? pickemTeams(p).length + " teams" : escape(tourName), "Free entry"]
+    .filter(Boolean).join('<b aria-hidden="true">•</b>');
+  const credits = p.winner_reward + (p.mode === "pair" ? 2 * p.score_reward : 0);
+  const reward = winner ? "for a correct pick" : p.mode === "pair" ? "for the correct two-game result"
+    : `for the winner + ${number(p.score_reward)} per exact team score`;
+  return `<section class="pickem-ticket" aria-label="Open Tour Pick’em"><div class="pickem-ticket-main">
+    <svg class="pickem-ticket-mark" viewBox="0 0 128 128" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M38 29h52v20c0 22-11 35-26 37-15-2-26-15-26-37V29Zm0 7H23v9c0 14 8 23 20 25m47-34h15v9c0 14-8 23-20 25M64 86v13m-15 6q15-12 30 0v5H49z"/><path d="m64 42 4 9 10 1-7 7 2 10-9-5-9 5 2-10-7-7 10-1z"/></svg>
+    <div class="pickem-ticket-kicker">Tour Pick’em <span class="pickem-ticket-open"><i aria-hidden="true"></i>Open</span></div>
+    <h2>${winner ? escape(tourName) : escape(p.team_a + " vs " + p.team_b)}</h2>
+    <div class="pickem-ticket-meta">${meta}</div>
+    <div class="pickem-ticket-prize"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" aria-hidden="true"><path d="M7 3h10v6c0 4-2.2 6.5-5 7-2.8-.5-5-3-5-7V3Zm0 2H3v2c0 3 2 5 5 5m9-7h4v2c0 3-2 5-5 5m-4 4v4m-4 1h8"/></svg><span><strong>${number(credits)} credits</strong> ${reward}</span></div>
+  </div><div class="pickem-ticket-side">
+    <div class="pickem-ticket-clocklabel">Voting closes in</div>
+    <div class="pickem-ticket-time" data-countdown-end="${Number(p.ends)}" data-countdown-ended="Closed" data-countdown-clock>${clockCountdownText(p.ends, Date.now() + clockOffset)}</div>
+    <a class="pickem-ticket-action" href="${routeHref("pickems/" + p.id)}">${winner ? "Pick Your Winner" : "Make Your Prediction"} <span aria-hidden="true">→</span></a>
+  </div></section>`;
 }
 const packReveal = createPackReveal({
   motionControl: packMotionControl,
