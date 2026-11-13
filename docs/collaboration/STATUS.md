@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Homepage Pick’em Ticket
+
+November 13. The approved preview is deployed at `/gacha/` in source commit `756e730`, Worker version `5a5de384-65ee-492c-885b-27ee57cb4865`. All three live assets matched the release. The open-state browser fixture passed at 1320, 390 and 320 pixels, including the running clock and prediction link. There was no active production Pick’em at verification. All 21 focused tests, syntax checks and the dry-run build passed.
+
 ## Pick’em Links and Gacha Navigation
 
 November 13. Codex updated the player router, Pick’em board and host publication link. The public path is `/gacha/pickems/<pickem ID>`. Bookmarked fragment routes remain supported. No schema or economy changes. Commit `8bbaf9b` was pushed and deployed to the original Worker, version `fcb4cce8-1c9a-44e4-a8a0-cb1da0317f71`. All 473 tests passed. Production desktop and mobile browser checks opened pick’em 114 directly. Copy Link, refresh, history navigation, legacy bookmarks and the missing-ID state were verified.
