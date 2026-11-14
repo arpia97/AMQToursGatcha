@@ -360,7 +360,7 @@ document.addEventListener("submit", async (ev) => {
       report("");
       return;
     }
-    let result;
+    let result, timerTarget;
     if (form.dataset.libraryAction) {
       const action = form.dataset.libraryAction;
       if (action === "cancel" && !confirm("Cancel this refresh? The current masterlist will remain available.")) return;
@@ -406,10 +406,12 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (formIdentifier(form) === "reopen-pickem") {
+    if (["reopen-pickem", "extend-pickem", "close-pickem"].includes(formIdentifier(form))) {
       if (!matchDraft) throw Error("Open a pick’em first.");
+      timerTarget = { pickem: matchDraft.id, event: managedTour?.id };
+      const action = { "reopen-pickem": "pickem-reopen", "extend-pickem": "pickem-extend", "close-pickem": "pickem-close" }[formIdentifier(form)];
       result = await api(
-        "pickem-reopen",
+        action,
         {
           pickem: matchDraft.id,
           expected: matchDraft,
@@ -706,6 +708,17 @@ document.addEventListener("submit", async (ev) => {
         "This host form could not be submitted. Reload the console and try again.",
       );
     await load();
+    if (timerTarget) {
+      if (timerTarget.event) {
+        managedTour = await api("pickem-event?event=" + timerTarget.event);
+        matchDraft = managedTour.matches.find(p => p.id === timerTarget.pickem) || null;
+        $("#manage-pickem-tour select[name=event]").value = String(timerTarget.event);
+        $("#pickem-tour-manager").innerHTML = tourManager(managedTour, esc);
+      } else {
+        matchDraft = await api("pickem-match?pickem=" + timerTarget.pickem);
+        $("#pickem-editor").innerHTML = matchEditor(matchDraft, esc);
+      }
+    }
     delete form.dataset.requestKey;
     report(
       result.message +

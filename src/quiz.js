@@ -462,6 +462,7 @@ export class Quiz {
               submittedAnswer: answer.submittedAnswer ?? answer.answer ?? "",
               correct: !!answer.correct,
               timedOut: !!answer.timedOut,
+              answerReceivedAt: answer.receivedAt ?? null,
               skipped: !!answer.skipped,
               elapsedMs: answer.elapsedMs ?? null,
               responseMs: answer.responseMs ?? null,
@@ -494,6 +495,7 @@ export class Quiz {
           ? {
               correct: answer.correct,
               timedOut: !!answer.timedOut,
+              answerReceivedAt: answer.receivedAt ?? null,
               answer: song.answers[0],
               submittedAnswer: answer.submittedAnswer ?? answer.answer,
               songTitle: song.title,
@@ -565,7 +567,7 @@ export class Quiz {
         .map((r) => r.answer),
     };
   }
-  action(player, action, b) {
+  action(player, action, b, context = {}) {
     const q = this.definition(b.quiz, player),
       e = this.e;
     let run = this.run(player, q.id);
@@ -639,14 +641,19 @@ export class Quiz {
       return { ...this.runView(q, run), message: "Song Ready" };
     }
     if (action === "quiz-answer") {
+      const processedAt = e.now();
+      const receivedAt = Number.isSafeInteger(context.quizAnswerReceivedAt) &&
+        context.quizAnswerReceivedAt > 0 && context.quizAnswerReceivedAt <= processedAt + 1000
+        ? Math.min(processedAt, context.quizAnswerReceivedAt) : processedAt;
       if (run.answers[run.index]) fail("This answer is already locked.", 409);
       if (!b.skip && (!run.timing || run.timing.index !== run.index))
         fail("Wait for the audio to load.", 409);
-      if (!b.skip && e.now() < run.timing.startsAt)
+      if (!b.skip && receivedAt < run.timing.startsAt)
         fail("Wait for the starting countdown.", 409);
-      // One second covers a submission sent at zero arriving over the network.
+      // Judge the complete answer's trusted Worker arrival, not time spent
+      // waiting for this database to process it. Client timestamps are ignored.
       const timedOut =
-        !b.skip && e.now() > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
+        !b.skip && receivedAt > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
       const submittedAnswer = b.skip
         ? ""
         : String(b.answer || "").slice(0, 300);
@@ -654,10 +661,12 @@ export class Quiz {
       run.answers.push({
         answer,
         submittedAnswer,
+        receivedAt,
+        processedAt,
         timedOut,
         skipped: !!b.skip,
-        elapsedMs: quizElapsed(run.startedAt, e.now()),
-        responseMs: quizElapsed(run.timing?.startsAt, e.now()),
+        elapsedMs: quizElapsed(run.startedAt, receivedAt),
+        responseMs: quizElapsed(run.timing?.startsAt, receivedAt),
         correct:
           !!answer &&
           run.songs[run.index].answers.some(
@@ -665,7 +674,7 @@ export class Quiz {
           ),
       });
       if (run.index === 19) {
-        run.completedAt = e.now();
+        run.completedAt = receivedAt;
         run.durationMs = quizElapsed(run.startedAt, run.completedAt);
       }
     } else if (action === "quiz-next") {

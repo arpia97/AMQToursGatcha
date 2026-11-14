@@ -39,6 +39,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
               });
               return Response.json({seeded:true});
             }
+            if(new URL(request.url).pathname==='/api/__quiz-deadline-probe') {
+              const e=this.engine,run=e.quiz.run('1','test');
+              const b=await request.json(),end=Date.now()+(b.expired?-2000:100);
+              run.timing={index:run.index,startsAt:end-20000,endsAt:end};
+              e.quiz.persist('1','test',run);
+              return Response.json({endsAt:end});
+            }
+            if(new URL(request.url).pathname==='/api/quiz-answer' && request.headers.get('X-Test-Processing-Delay'))
+              await new Promise(resolve=>setTimeout(resolve,1500));
             return super.handle(request);
           }
         }
@@ -713,5 +722,24 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.deepEqual((await response.json()).result,removed);
   response=await mf.dispatchFetch("http://game/api/player?id=1");
   assert.equal((await response.json()).balance,-950);
+
+  response=await post("quiz-start",{quiz:"test"},auth);
+  let timedRun=(await response.json()).run;
+  await post("__quiz-deadline-probe",{});
+  response=await post("quiz-answer",{quiz:"test",run:timedRun.id,index:0,answer:"Anime Test"},{...auth,"X-Test-Processing-Delay":"1"});
+  assert.equal(response.status,200,await response.clone().text());
+  let timedAnswer=(await response.json()).run;
+  assert.equal(timedAnswer.correct,true,"database delay must not expire an on-time answer");
+  assert.equal(timedAnswer.timedOut,false);
+  response=await post("quiz-restart",{quiz:"test",run:timedRun.id,index:0},auth);
+  timedRun=(await response.json()).run;
+  response=await post("__quiz-deadline-probe",{expired:true});
+  const expired=(await response.json()).endsAt;
+  response=await post("quiz-answer",{quiz:"test",run:timedRun.id,index:0,answer:"Anime Test",now:expired-1,quizAnswerReceivedAt:expired-1},{...auth,"X-AMQ-Answer-Received-At":String(expired-1)});
+  assert.equal(response.status,200);
+  timedAnswer=(await response.json()).run;
+  assert.equal(timedAnswer.correct,false,"client body/header timestamps cannot backdate a late answer");
+  assert.equal(timedAnswer.timedOut,true);
+
 
 });

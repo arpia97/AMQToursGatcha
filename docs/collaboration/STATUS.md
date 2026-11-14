@@ -2,6 +2,12 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Quiz Timing and Pick’em Timers
+
+November 15. Codex owns this isolated worktree for false quiz timeouts and host Pick’em reopen/extend/close controls. Original shared checkout has a simultaneous Delete Quiz task, excluded here. Do not deploy concurrently. Preserve server authority, quiz rewards and existing data. No production test attempts or historical score corrections.
+
+Reproduced delayed-response countdown showing 19s with only 16s on the server. Fixed minimum-latency/monotonic clock sync and complete-body trusted Worker arrival scoring (client headers overwritten; queue time excluded; existing grace unchanged). New receipt metadata supports diagnostics. Added host Extend/Close/Reopen controls (five-minute default, editable), preserved picks/rewards, stale guards and retry safety; editor stays open after actions. Local 1280/390px end-to-end checks pass, including mobile editor wrapping. 493 tests, 236 JS syntax checks and Wrangler dry run pass. Publish/live verification pending.
+
 ## Completed — Owner-Authorized AKINO Quiz Removal
 
 November 15. Exact AKINO quiz removal and full issued-credit recovery completed once under durable receipt `host:quiz-retirement / akino-removal-2026-11-15-v1`. NEVER replay it. Runtime `b36fee4858691b900dc53767fa96ef274b865614` is pushed/live on original Worker version `ab70ccd0-51d6-4f8e-aa56-e91da25744b0`. User explicitly authorized negative wallets. A final payout during deployment was caught by stale-source guards before mutation; quiz was unpublished with an idempotent host-save receipt, final source ledger re-reconciled to completion receipts, then removal applied atomically.

@@ -39,10 +39,17 @@ export function updateRewardDefaults(form) {
 }
 
 export function reopenPickemForm(p, now = Date.now()) {
-  if (p.settled || p.ends > now) return "";
+  if (p.settled) return "";
+  const open = p.ends > now;
   return (
-    '<section class="pickem-reopen space-top"><h3>Reopen Voting</h3><p class="form-hint">Keep existing picks and let players submit or change their picks.</p><form id="reopen-pickem" class="stack"><label>Reopen for (minutes)<input name="minutes" type="number" min="1" max="129600" step="1" value="' +
+    '<section class="pickem-reopen space-top"><div class="section-head"><h3>Voting Timer</h3><span class="pill">' +
+    (open ? "Open" : "Closed") + '</span></div><p class="form-hint">Existing picks are kept.</p><div class="pickem-timer-controls"><form id="' +
+    (open ? "extend-pickem" : "reopen-pickem") + '" class="pickem-timer-form"><label>' +
+    (open ? "Add (minutes)" : "Reopen for (minutes)") + '<input name="minutes" type="number" min="1" max="129600" step="1" value="' +
     PICKEM_REOPEN_WINDOW / 60000 +
-    '" required></label><button type="submit" class="button mint">Reopen Voting →</button></form></section>'
+    '" required></label><button type="submit" class="button mint">' +
+    (open ? "Extend Time →" : "Reopen Voting →") + '</button></form>' +
+    (open ? '<form id="close-pickem"><button type="submit" class="button secondary">Close Pick’em</button></form>' : "") +
+    '</div></section>'
   );
 }

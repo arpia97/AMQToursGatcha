@@ -22,6 +22,7 @@ function fixture(
     prefetch = false,
     history = [],
     hotkeys = {},
+    responseLag = {},
   } = {},
 ) {
   const old = globalThis.document,
@@ -78,6 +79,7 @@ function fixture(
     loseAnswerResponse = false,
     finishOnNext = false,
     ui;
+  let wallSkew = 0;
   const calls = [],
     audios = [],
     writes = [],
@@ -214,7 +216,9 @@ function fixture(
       loseAnswerResponse = false;
       throw Object.assign(Error("The response was lost"), { retryable: true });
     }
-    return { now, run };
+    const response = { now, run };
+    now += responseLag[path] || 0;
+    return response;
   };
   ui = createQuizUI({
     api,
@@ -230,7 +234,8 @@ function fixture(
     onWallet: () => {},
     storage: { getItem: () => saved, setItem: (...a) => writes.push(a) },
     clock: {
-      now: () => now,
+      now: () => now + wallSkew,
+      monotonicNow: () => now,
       every: (fn) => ((interval = fn), 1),
       cancel: () => {
         interval = null;
@@ -314,6 +319,7 @@ function fixture(
     writes,
     node,
     button,
+    skewClock: (ms) => { wallSkew += ms; },
     advance: async (ms) => {
       now += ms;
       interval?.();
@@ -1110,4 +1116,16 @@ test("stale prebuffer readiness never arms the next deadline while Firefox is se
  await f.ui.click(f.button("data-quiz-action","quiz-next"));
  assert.equal(f.calls.filter(c=>c.path==="quiz-next").at(-1).b.ready,undefined);
  assert.equal(buffered.plays,0);buffered.seeking=false;buffered.readyState=4;await buffered.emit("seeked");await flush();assert.equal(buffered.plays,1);
+});
+
+test("delayed quiz responses and device clock changes do not make the countdown disagree with the server", async t => {
+  const f = fixture(t, { responseLag: { "quiz-ready": 6000 } });
+  await f.start();
+  assert.equal(f.node("quiz-time-left").textContent, "16s");
+  f.skewClock(90000);
+  await f.advance(0);
+  assert.equal(f.node("quiz-time-left").textContent, "16s");
+  assert.equal(f.calls.filter(c => c.path === "quiz-answer").length, 0);
+  await f.advance(16000);
+  assert.equal(f.calls.filter(c => c.path === "quiz-answer").length, 1);
 });

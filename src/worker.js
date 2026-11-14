@@ -1,3 +1,4 @@
+import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { cachedQuizCover } from "./quiz-cover-cache.js";
@@ -1117,7 +1118,10 @@ export class Game extends DurableObject {
         session.player + ":" + path,
         request.headers.get("Idempotency-Key"),
         b,
-        () => e.action(session.player, path, b),
+        () => e.action(session.player, path, b, {
+          quizAnswerReceivedAt: path === "quiz-answer"
+            ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
+        }),
       );
       return json(result);
     }
@@ -1518,9 +1522,11 @@ export default {
           : 1000000)
       )
         return json({ error: "Request too large." }, 413);
-      const forwarded = await registrationForwarding(request, env);
+      let forwarded = await registrationForwarding(request, env);
       if (forwarded instanceof Response) return forwarded;
       try {
+        forwarded = await stampQuizAnswer(forwarded);
+        if (forwarded instanceof Response) return forwarded;
         // Do not permit registrations through an older, still-updating actor
         // whose policy allowed code-free signup during the deployment window.
         if(url.pathname==="/api/register" && request.method==="POST") {

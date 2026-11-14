@@ -74,6 +74,12 @@ Registration requires an individual one-use host-issued code, using the same exp
 - Recent activity uses ledger entries as authoritative credit movement; card-trade completion is informational, since credits entered escrow at offer time. Completed history reads the newest 25 per participant through indexed seller/proposer branches, with batched bundles and card names.
 - Pack results show remaining credits and auto-sold totals, and quantity is bounded by current affordability. Collectors access/counts, live pick'em countdowns, trade board/picker filters and wishlist card-type filters are included.
 
+## Quiz and Pick’em Timing
+
+Quiz countdowns advance from a monotonic clock using the lowest-latency server sample, so slower/out-of-order responses and device wall-clock changes do not pull the timer behind. The Worker stamps quiz answers only after receiving the complete bounded body, overwriting any client timestamp header. Scoring and response duration use that trusted arrival time, so database queue delays do not expire on-time answers; questions remain 20 seconds with the existing one-second arrival grace. Client-supplied body timestamps never control scoring. Answer receipts retain the trusted arrival time for diagnostics. Existing scores/rewards are not recalculated.
+
+Host Pick’em editors expose Extend Time and Close while voting is open, and Reopen when closed (five minutes by default, editable). Extensions add to the current deadline; reopening starts from now. All keep picks and rewards unchanged. Timer-only updates tolerate new votes but reject stale deadline/configuration edits and settled outcomes. Receipt retries never apply an extension twice.
+
 ## Tour Credit Review
 
 Participation is per round: up to 16 players = 200; 24 = 300; 32 = 400. Pasted result/signup lists resolve aliases to canonical IDs. Review infers the smallest supported 8/16/24/32 capacity containing the roster. Default maximum rounds: 8 players → 3; 16 → 6; 24/32 → 5. Hosts can edit the maximum and reduce individuals' played rounds. Subs come from the whole registry and split the original slot's rounds. Count and Report checkboxes each pay a flat 750 once per player/category/tour; outside helpers can have zero participation. The server recomputes and awards atomically with duplicate/retry protection. Do not recalculate past awards on deployment.

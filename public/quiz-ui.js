@@ -59,6 +59,7 @@ export function createQuizUI({
   };
   const time = clock || {
     now: () => Date.now(),
+    monotonicNow: () => performance.now(),
     every: (fn, ms) => setInterval(fn, ms),
     cancel: (id) => clearInterval(id),
   };
@@ -97,7 +98,8 @@ export function createQuizUI({
     playAttempted = false,
     arming = false,
     timer = null,
-    serverOffset = 0,
+    serverAnchor = null,
+    bestRoundTrip = Infinity,
     answerFocused = false;
   let draft = "",
     draftKey = "",
@@ -116,7 +118,10 @@ export function createQuizUI({
     if (saved !== null && saved !== undefined && Number.isFinite(Number(saved)))
       volume = Math.min(100, Math.max(0, Math.round(Number(saved))));
   } catch {}
-  const serverNow = () => time.now() + serverOffset;
+  const monotonicNow = () => (time.monotonicNow || time.now)();
+  const serverNow = () => serverAnchor
+    ? serverAnchor.server + monotonicNow() - serverAnchor.local
+    : time.now();
   const elapsed = () =>
     run?.index === 19 && run?.answered
       ? run.elapsedMs
@@ -128,14 +133,25 @@ export function createQuizUI({
         "</strong></span>"
       : "";
   async function call(path, body, key) {
-    const sent = time.now(),
+    const sent = monotonicNow(),
       controller = new AbortController(),
       deadline = setTimeout(() => controller.abort(), 12000);
     try {
       const result = await api(path, body, key, { signal: controller.signal }),
-        received = time.now();
-      if (Number.isFinite(result.now))
-        serverOffset = result.now - (sent + received) / 2;
+        received = monotonicNow();
+      if (Number.isFinite(result.now)) {
+        const roundTrip = Math.max(0, received - sent);
+        const estimate = serverNow();
+        // Slow/out-of-order responses have wider uncertainty. Keep the best
+        // sample instead of letting them pull a running timer backwards.
+        // Resync after a suspended clock falls outside the server's bounds.
+        const drifted = serverAnchor &&
+          (estimate < result.now - 1000 || estimate > result.now + roundTrip + 1000);
+        if (!serverAnchor || roundTrip <= bestRoundTrip || drifted) {
+          bestRoundTrip = roundTrip;
+          serverAnchor = { server: result.now + roundTrip / 2, local: received };
+        }
+      }
       return result;
     } catch (error) {
       if (controller.signal.aborted)

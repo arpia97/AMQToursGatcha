@@ -405,13 +405,13 @@ export class Engine {
       return Math.min(start + WEEK, this.economy.tick(start));
     });
   }
-  action(player, action, b) {
+  action(player, action, b, context = {}) {
     const now = this.now();
     this.assertAccountUnlocked(player);
     if (
       ["quiz-ready", "quiz-answer", "quiz-next"].includes(action)
     )
-      return this.quiz.action(player, action, b);
+      return this.quiz.action(player, action, b, context);
     this.player(player);
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
     if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))

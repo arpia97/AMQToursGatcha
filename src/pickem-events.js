@@ -252,6 +252,20 @@ export class PickemEvents {
   }
   action(action, b) {
     const e = this.e;
+    if (["pickem-extend", "pickem-close"].includes(action)) {
+      const p = this.match(b.pickem);
+      // New votes don't make a timer-only edit stale; preserve every pick.
+      this.assertUnchanged(p, { ...b.expected, votes: p.votes });
+      if (p.ends <= e.now()) fail("Voting is closed. Reopen it to start a new timer.", 409);
+      const minutes = action === "pickem-extend"
+        ? integer(b.minutes ?? PICKEM_REOPEN_WINDOW / 60000, 1, 90 * 24 * 60) : 0;
+      const ends = action === "pickem-close" ? e.now()
+        : integer(p.ends + minutes * 60000, e.now() + 1, e.now() + 90 * 86400000);
+      e.run("UPDATE pickems SET ends=? WHERE id=?", ends, p.id);
+      return { pickem: p.id, ends, message: action === "pickem-close"
+        ? "Voting closed. Existing picks kept."
+        : `Voting extended by ${minutes} minute${minutes === 1 ? "" : "s"}. Existing picks kept.` };
+    }
     const canonicalAlias = (name) =>
       e.one(
         "SELECT p.name FROM players p LEFT JOIN aliases a ON a.player=p.id WHERE a.alias=? OR lower(p.name)=? ORDER BY p.id LIMIT 1",

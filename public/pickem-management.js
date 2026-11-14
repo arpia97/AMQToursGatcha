@@ -6,7 +6,7 @@ export function localDeadline(ms) {
     .slice(0, 16);
 }
 export function pickemManagement(state, e) {
-  return `<section class="host-panel"><h2>Manage Published Pick’ems</h2><p>Open a tour to reopen voting or edit its name, teams, reward or deadline. Settled results are protected because rewards have been paid.</p><form id="manage-pickem-tour" class="stack"><label>Published tour<select name="event" required><option value="">Choose a tour</option>${(state.pickemEvents || []).map((t) => `<option value="${t.id}">${e(t.name)}</option>`).join("")}</select></label><button class="button secondary" type="submit">Manage tour →</button></form><div id="pickem-tour-manager"></div></section><div id="pickem-editor" tabindex="-1"></div>`;
+  return `<section class="host-panel"><h2>Manage Published Pick’ems</h2><p>Open a tour to extend, close or reopen voting, or edit its details. Settled results are protected because rewards have been paid.</p><form id="manage-pickem-tour" class="stack"><label>Published tour<select name="event" required><option value="">Choose a tour</option>${(state.pickemEvents || []).map((t) => `<option value="${t.id}">${e(t.name)}</option>`).join("")}</select></label><button class="button secondary" type="submit">Manage tour →</button></form><div id="pickem-tour-manager"></div></section><div id="pickem-editor" tabindex="-1"></div>`;
 }
 export function tourManager(t, e) {
   if (t.format === "winner" && t.matches[0])

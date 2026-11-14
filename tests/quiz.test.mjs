@@ -1,3 +1,4 @@
+import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "../src/quiz-ingress.js";
 import { cachedQuizCover } from "../src/quiz-cover-cache.js";
 import { AliasSync } from "../src/aliases.js";
 import test from "node:test";
@@ -424,6 +425,7 @@ test("expired questions cannot gain points from late or forged answers; normal t
     ...b,
     answer: correct,
     now: ready.endsAt - 1,
+    quizAnswerReceivedAt: ready.endsAt - 1,
   });
   assert.equal(late.run.correct, false);
   assert.equal(late.run.timedOut, true);
@@ -440,6 +442,47 @@ test("expired questions cannot gain points from late or forged answers; normal t
     true,
   );
 });
+test("a complete answer received on time stays valid while waiting for database processing", t => {
+  const f = fixture(t);
+  const run = f.action("p", "quiz-start", { quiz: "test" }).run;
+  const body = { quiz: "test", run: run.id, index: 0 };
+  const ready = f.action("p", "quiz-ready", body).run;
+  const receivedAt = ready.endsAt - 10;
+  f.advance(ready.endsAt - f.e.now() + 5000);
+  body.answer = f.e.quiz.run("p", "test").songs[0].answers[0];
+  const result = f.e.mutate("p:quiz-answer", "queued-answer", body, () =>
+    f.e.action("p", "quiz-answer", body, { quizAnswerReceivedAt: receivedAt }));
+  assert.equal(result.run.correct, true);
+  assert.equal(result.run.timedOut, false);
+  assert.equal(f.e.quiz.run("p", "test").answers[0].responseMs, 19990);
+  assert.deepEqual(f.e.mutate("p:quiz-answer", "queued-answer", body, () => {
+    throw Error("must not execute twice");
+  }), result);
+});
+
+test("Worker arrival stamps ignore client headers and wait for the complete size-limited answer body", async () => {
+  let stream, clockCalls = 0;
+  const request = new Request("https://example.com/api/quiz-answer", {
+    method: "POST", duplex: "half",
+    headers: { [QUIZ_ARRIVAL_HEADER]: "1" },
+    body: new ReadableStream({ start(controller) { stream = controller; } }),
+  });
+  const pending = stampQuizAnswer(request, () => { clockCalls++; return 123456; });
+  stream.enqueue(new TextEncoder().encode('{"answer":'));
+  await Promise.resolve();
+  assert.equal(clockCalls, 0);
+  stream.enqueue(new TextEncoder().encode('"Anime"}'));
+  stream.close();
+  const forwarded = await pending;
+  assert.equal(clockCalls, 1);
+  assert.equal(forwarded.headers.get(QUIZ_ARRIVAL_HEADER), "123456");
+  assert.equal(await forwarded.text(), '{"answer":"Anime"}');
+  const oversized = await stampQuizAnswer(new Request("https://example.com/api/quiz-answer", {
+    method: "POST", body: "x".repeat(1000001),
+  }));
+  assert.equal(oversized.status, 413);
+});
+
 test("answer banks paginate completely and retain quiz scope", (t) => {
   const f = fixture(t);
   f.save({

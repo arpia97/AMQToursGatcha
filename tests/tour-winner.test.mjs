@@ -315,10 +315,13 @@ test("closed pickem editors expose an editable five-minute reopening action, whi
     p = f.create(),
     esc = String;
   assert.doesNotMatch(winnerEditor(p, esc, f.now()), /id="reopen-pickem"/);
+  assert.match(winnerEditor(p, esc, f.now()), /id="extend-pickem"/);
+  assert.match(winnerEditor(p, esc, f.now()), /id="close-pickem"/);
   f.advance(900000);
   const closed = f.e.pickemEvents.match(p.id),
     html = winnerEditor(closed, esc, f.now());
   assert.match(html, /id="reopen-pickem"/);
+  assert.doesNotMatch(html, /id="extend-pickem"|id="close-pickem"/);
   assert.match(html, /name="minutes"[^>]*value="5"/);
   assert.match(html, /Existing|existing picks/);
   assert.doesNotMatch(
@@ -346,4 +349,38 @@ test("long team results strip statistics and use canonical AMQ aliases without a
   ]);
   assert.equal(winnerTeams(["X".repeat(500), "Other"])[0].length, 500);
   assert.doesNotMatch(winnerCreatePanel(), /maxlength="6500"/);
+});
+
+test("host timer controls extend the current deadline, close voting, retain new picks, and retry once", t => {
+  const f = fixture(t), p = f.create();
+  const original = f.e.pickemEvents.match(p.id);
+  f.act("p", { pickem: p.id, winner: "Alpha", expectedTeams: p.teams });
+  const body = { pickem: p.id, expected: original };
+  f.advance(30000);
+  const extended = f.host("pickem-extend", body, "extend-once");
+  assert.equal(extended.ends, original.ends + 300000);
+  assert.equal(f.e.pickemEvents.match(p.id).votes, 1);
+  f.advance(1000);
+  assert.deepEqual(f.host("pickem-extend", body, "extend-once"), extended);
+  assert.throws(() => f.host("pickem-extend", body), /changed/);
+  const beforeClose = f.e.pickemEvents.match(p.id);
+  f.act("q", { pickem: p.id, winner: "Beta", expectedTeams: p.teams });
+  const votes = f.e.all("SELECT * FROM predictions ORDER BY player");
+  const closed = f.host("pickem-close", { pickem: p.id, expected: beforeClose }, "close-once");
+  assert.equal(closed.ends, f.now());
+  assert.deepEqual(f.e.all("SELECT * FROM predictions ORDER BY player"), votes);
+  assert.throws(() => f.act("p", { pickem: p.id, winner: "Beta", expectedTeams: p.teams }), /closed/);
+  assert.deepEqual(f.host("pickem-close", { pickem: p.id, expected: beforeClose }, "close-once"), closed);
+  const fresh = () => ({ pickem: p.id, expected: f.e.pickemEvents.match(p.id) });
+  assert.throws(() => f.host("pickem-extend", fresh()), /closed/);
+  f.host("pickem-reopen", fresh());
+  assert.equal(f.e.pickemEvents.match(p.id).ends, f.now()+300000);
+  for (const minutes of [0, -1, 1.5, 129601, "5"])
+    assert.throws(() => f.host("pickem-extend", { ...fresh(), minutes }));
+  f.host("pickem-close", fresh());
+  f.host("settle", { pickem: p.id, winner: "Alpha", expectedTeams: p.teams });
+  const paid = f.e.all("SELECT id,balance,earned FROM players ORDER BY id");
+  for (const action of ["pickem-reopen", "pickem-extend", "pickem-close"])
+    assert.throws(() => f.host(action, fresh()), /Settled/);
+  assert.deepEqual(f.e.all("SELECT id,balance,earned FROM players ORDER BY id"), paid);
 });
