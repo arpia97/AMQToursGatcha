@@ -1123,7 +1123,9 @@ export class Game extends DurableObject {
             ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
         }),
       );
-      return json(result);
+      // A receipt replay keeps the original result but not its clock sample.
+      // Sending the saved timestamp would backdate the client's countdown.
+      return json({ ...result, now: e.now() });
     }
     // Paid game moves never need catalogue, inventory, auction settlement or
     // global rankings. Keep their authoritative wallet/state response small.

@@ -607,7 +607,10 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     const result = await response.json();
     run = result.run;
     const retry = await post("quiz-next", b, headers);
-    assert.deepEqual(await retry.json(), result);
+    const { now: retryNow, ...retryResult } = await retry.json();
+    const { now: originalNow, ...originalResult } = result;
+    assert.deepEqual(retryResult, originalResult);
+    assert.ok(retryNow >= originalNow);
   }
   assert.equal(run.score, 20);
   assert.equal(run.reward.total, 2900);
@@ -726,9 +729,18 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response=await post("quiz-start",{quiz:"test"},auth);
   let timedRun=(await response.json()).run;
   await post("__quiz-deadline-probe",{});
-  response=await post("quiz-answer",{quiz:"test",run:timedRun.id,index:0,answer:"Anime Test"},{...auth,"X-Test-Processing-Delay":"1"});
+  const queuedBody = {quiz:"test",run:timedRun.id,index:0,answer:"Anime Test"};
+  const queuedKey = "queued-answer-retry";
+  response=await post("quiz-answer",queuedBody,{...auth,"X-Test-Processing-Delay":"1","Idempotency-Key":queuedKey});
   assert.equal(response.status,200,await response.clone().text());
-  let timedAnswer=(await response.json()).run;
+  const firstQueued = await response.json();
+  let timedAnswer=firstQueued.run;
+  await new Promise(resolve => setTimeout(resolve, 20));
+  response = await post("quiz-answer", queuedBody, {...auth, "Idempotency-Key":queuedKey});
+  const replayed = await response.json();
+  assert.equal(response.status, 200);
+  assert.deepEqual(replayed.run, firstQueued.run);
+  assert.ok(replayed.now > firstQueued.now, "a cached result must carry a fresh server clock");
   assert.equal(timedAnswer.correct,true,"database delay must not expire an on-time answer");
   assert.equal(timedAnswer.timedOut,false);
   response=await post("quiz-restart",{quiz:"test",run:timedRun.id,index:0},auth);
