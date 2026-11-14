@@ -1291,12 +1291,14 @@ async function saveCardAction(path, body, t) {
     return execute(path, body, (result) => toast(result.message));
   if (busy) return;
   const root = $("#modal");
-  root.querySelectorAll("[data-pack-card] button").forEach((button) => {
-    button.disabled = true;
-  });
+  const buttons = [...root.querySelectorAll("[data-pack-card] button")].map(
+    (button) => ({ button, disabled: button.disabled }),
+  );
+  buttons.forEach(({ button }) => { button.disabled = true; });
   try {
     return await execute(path, body, (result) => toast(result.message));
   } finally {
+    buttons.forEach(({ button, disabled }) => { button.disabled = disabled; });
     syncPackCardActions(root, state);
     syncCardFlags(root, cardFlags);
   }
@@ -3746,7 +3748,7 @@ async function handleFeatureClick(a, t) {
             ? Math.min(maxAffordable, Math.max(1, Number(t.dataset.count) || 1))
             : 0;
       modal(
-        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}<p class="form-hint">5 cards per pack · up to ${number(maxAffordable)} pack${maxAffordable === 1 ? "" : "s"} affordable right now (max 100 · balance ✦ ${number(state.me?.balance || 0)}).</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
+        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}<p class="form-hint">5 cards per pack.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
       );
       return true;
     }
