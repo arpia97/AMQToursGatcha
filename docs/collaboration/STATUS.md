@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Completed — Pack Result Collection Access
+
+November 15. Runtime `7076503` pushed/deployed to original Worker version `d62c7827-2f2f-4876-9641-eefd7c8619d0`. Pack card actions now restore each button's previous disabled state in finally before syncing ownership-specific actions; Collection remains usable after successful or failed Protect/Showcase updates. Quantity hint shortened to “5 cards per pack.” while retaining the affordable quantity cap. Eleven focused existing tests, app syntax, diff checks and Wrangler dry run passed. Local 1280/390px end-to-end browser checks open a pack, perform successful and failed Protect updates, then open Collection; concise copy and affordability cap verified. Live app.js byte-matches release. No backend/economy changes, production test mutations or remaining work.
+
 ## Completed — Stable Wishlist Header
 
 November 15. Runtime source `fff9d9d` pushed and deployed to original Worker version `4ad9239e-7e06-41b1-9120-59dd3ad438fe`. Wishlist uses an explicit three-column header with fixed toggle placement and a separate right-aligned Arrange action; narrow screens use a fixed heading/action row with the toggle underneath. All Cards/Characters/Seiyuus have identical toggle coordinates and header heights when Arrange disappears. Checked at 1280/1024/800/720/390px, with no overflow or overlap. 16 focused existing tests, JS syntax, diff checks and Wrangler dry run passed; both changed live assets byte-match source. No backend/economy changes or production test mutations. No remaining work.
