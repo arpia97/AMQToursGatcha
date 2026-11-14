@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Authorized Targeted Recovery
+
+November 14. Owner approved the prepared conservative recovery. Codex owns the scoped recovery helper, existing rollback route, rollback behavioral tests and this status. Recheck private manifest and locked-account snapshot, apply atomically with an idempotent receipt, verify all affected and preserved state. Never repeat completed account resets. Private evidence remains outside Git. Local exact-manifest proof passed with all unrelated cards, quiz progress and titles preserved; 477 tests, 229 syntax checks and Wrangler dry run passed. Deployment/application pending.
+
 ## Account Correction Follow-up — Decision Pending
 
 November 14. Five explicitly authorized gameplay/access resets are complete and live-verified: baseline balance/earned 5,000, inventory and quiz progress cleared, sessions/credentials/recovery invites revoked, identities retained, consumed special packs preserved. Temporary locks were released after verification. Do not repeat these operations or the earlier six completed resets. Private before/receipt/after evidence and a proposed beneficiary recovery are saved outside Git. The beneficiary remains locked and unchanged; mixed credit/XP attribution requires the owner's pending choice before applying the associated recovery. No application code or deployment changes in this follow-up.

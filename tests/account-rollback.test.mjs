@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { BOP_ROLLBACK_ID, inspectAccountRollback, applyAccountRollback } from "../src/account-rollback.js";
+import { TARGETED_RECOVERY_ID, TARGETED_RECOVERY_DIGEST, inspectTargetedRecovery, applyTargetedRecovery } from "../src/targeted-recovery.js";
 
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
@@ -96,4 +97,67 @@ test("a later failure rolls back earlier counterparty changes and the receipt",t
   assert.deepEqual(e.all("SELECT * FROM inventory ORDER BY player,card"),before);
   assert.equal(e.one("SELECT count(*) n FROM trade_listings WHERE status='completed'").n,5);
   assert.equal(e.one("SELECT count(*) n FROM receipts WHERE scope='host:account-rollback'").n,0);
+});
+
+function recoveryFixture(t) {
+  const db = new DatabaseSync(":memory:");
+  t.after(() => db.close());
+  const e = new Engine((s,...a) => db.prepare(s).all(...a).map(r=>({...r})), fn => {
+    db.exec("BEGIN");
+    try { const r=fn(); db.exec("COMMIT"); return r; }
+    catch (error) { db.exec("ROLLBACK"); throw error; }
+  }, () => 1794636000000);
+  e.host("players", {players:[{id:"71",name:"Recovery fixture"},{id:"72",name:"Unaffected fixture"}]});
+  e.run("UPDATE players SET balance=2900,earned=7000,account_locked=1 WHERE id='71'");
+  e.run("INSERT INTO inventory(player,card,copies,level,protected) VALUES('71','remove',1,1,1),('71','downgrade',1,2,1),('71','unrelated-max',1,6,1),('72','remove',1,1,0)");
+  e.run("INSERT INTO card_alchemy VALUES('71',130,88,99)");
+  e.run("INSERT INTO card_upgrade_progress VALUES('71','downgrade',1),('71','unrelated-max',15)");
+  e.run("INSERT INTO profile_showcase VALUES('71','remove',0),('71','unrelated-max',1)");
+  e.run("INSERT INTO card_title_awards VALUES('71','unchanged-title','unrelated-max','Unchanged','B',1,0)");
+  e.run("INSERT INTO quiz_progress(player,quiz,best,at) VALUES('71','retained-quiz',20,1)");
+  const plan={repairId:TARGETED_RECOVERY_ID,confirmation:"APPLY REVIEWED TARGETED RECOVERY",player:"71",
+    account:e.one("SELECT id,balance,earned,account_locked,avatar_card,avatar_crop FROM players WHERE id='71'"),
+    alchemy:e.one("SELECT * FROM card_alchemy WHERE player='71'"),ledgerMax:e.one("SELECT max(id) AS n FROM ledger WHERE player='71'").n,
+    inventory:["remove","downgrade"].map(card=>{const before=e.one("SELECT * FROM inventory WHERE player='71' AND card=?",card);return {card,before,after:card==='remove'?null:{...before,level:1}};}),
+    upgradeProgress:e.all("SELECT * FROM card_upgrade_progress WHERE player='71' AND card='downgrade'"),cashRecovery:2900,xpRecovery:90,unrecoveredSourceCredits:85900};
+  const apply=()=>e.mutate("host:account-rollback",plan.repairId,plan,()=>applyTargetedRecovery(e,plan,TARGETED_RECOVERY_DIGEST,"test-bookmark"));
+  return {e,db,plan,apply};
+}
+
+test("targeted recovery preserves unrelated progress and lock, cleans references, and retries once",t=>{
+  const {e,plan,apply}=recoveryFixture(t);
+  assert.equal(inspectTargetedRecovery(e,plan,TARGETED_RECOVERY_DIGEST).cardsRemoved,1);
+  const result=apply();
+  assert.deepEqual(apply(),result);
+  assert.deepEqual(e.one("SELECT balance,earned,account_locked FROM players WHERE id='71'"),{balance:0,earned:7000,account_locked:1});
+  assert.equal(e.one("SELECT * FROM inventory WHERE player='71' AND card='remove'"),undefined);
+  assert.deepEqual(e.one("SELECT level,copies,protected FROM inventory WHERE player='71' AND card='downgrade'"),{level:1,copies:1,protected:1});
+  assert.deepEqual(e.one("SELECT xp,refinements,version FROM card_alchemy WHERE player='71'"),{xp:40,refinements:88,version:100});
+  assert.equal(e.one("SELECT count(*) n FROM profile_showcase WHERE player='71' AND card='remove'").n,0);
+  assert.equal(e.one("SELECT count(*) n FROM card_upgrade_progress WHERE player='71' AND card='downgrade'").n,0);
+  assert.equal(e.one("SELECT level FROM inventory WHERE player='71' AND card='unrelated-max'").level,6);
+  assert.equal(e.one("SELECT count(*) n FROM card_title_awards WHERE player='71'").n,1);
+  assert.equal(e.one("SELECT best FROM quiz_progress WHERE player='71'").best,20);
+  assert.equal(e.one("SELECT count(*) n FROM inventory WHERE player='72'").n,1);
+  assert.equal(e.one("SELECT count(*) n FROM receipts WHERE scope='host:account-rollback'").n,1);
+});
+
+test("targeted recovery rejects stale guards and rolls all writes back on a late failure",t=>{
+  for (const alter of [
+    f=>f.e.run("UPDATE players SET account_locked=0 WHERE id='71'"),
+    f=>f.e.run("UPDATE inventory SET copies=2 WHERE player='71' AND card='remove'"),
+    f=>f.e.run("UPDATE card_alchemy SET version=version+1 WHERE player='71'"),
+    f=>f.e.run("INSERT INTO ledger(player,delta,reason,at) VALUES('71',1,'intervening activity',1)"),
+    f=>f.e.run("UPDATE card_upgrade_progress SET spent=2 WHERE player='71' AND card='downgrade'"),
+    f=>f.plan.confirmation="unreviewed",
+    f=>f.db.exec("CREATE TRIGGER reject_recovery BEFORE UPDATE OF balance ON players WHEN NEW.id='71' BEGIN SELECT RAISE(ABORT,'injected recovery failure'); END"),
+  ]) {
+    const f=recoveryFixture(t);alter(f);
+    const inv=f.e.all("SELECT * FROM inventory ORDER BY player,card"),xp=f.e.one("SELECT * FROM card_alchemy WHERE player='71'");
+    assert.throws(f.apply);
+    assert.deepEqual(f.e.all("SELECT * FROM inventory ORDER BY player,card"),inv);
+    assert.deepEqual(f.e.one("SELECT * FROM card_alchemy WHERE player='71'"),xp);
+    assert.equal(f.e.one("SELECT balance FROM players WHERE id='71'").balance,2900);
+    assert.equal(f.e.one("SELECT count(*) n FROM receipts WHERE scope='host:account-rollback'").n,0);
+  }
 });

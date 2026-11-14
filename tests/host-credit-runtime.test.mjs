@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { SPECIALPACK_ROLLBACK_ID } from "../src/specialpack-rollback.js";
+import { TARGETED_RECOVERY_ID } from "../src/targeted-recovery.js";
 const require = createRequire(import.meta.url),
   { Miniflare, Response: RuntimeResponse } = createRequire(
     require.resolve("wrangler/package.json"),
@@ -165,6 +166,12 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     const rejectedScope = await post(path,{...unreviewed,digest:bodyDigest},host);
     assert.equal(rejectedScope.status,409);
     assert.match((await rejectedScope.json()).error,/scope/);
+    const changedRecovery={repairId:TARGETED_RECOVERY_ID,player:"unreviewed"};
+    const changedDigest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(changedRecovery)))),b=>b.toString(16).padStart(2,"0")).join("");
+    const rejectedRecovery=await post(path,{...changedRecovery,digest:changedDigest},host);
+    assert.equal(rejectedRecovery.status,409);
+    assert.match((await rejectedRecovery.json()).error,/manifest/);
+
   }
   assert.equal((await mf.dispatchFetch("http://game/api/host/account-rollback-receipt?id=test", {
     headers:{Cookie:hostCookie},
