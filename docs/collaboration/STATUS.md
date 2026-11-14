@@ -2,9 +2,13 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Funding-Based Upgrade Recovery
+## Completed — Funding-Based Upgrade Recovery
 
-November 14. Owner authorized chronological funding reconstruction and supported card downgrades. Codex owns the scoped upgrade recovery helper, owner rollback routing, existing rollback tests and status. Private replay honors prior cash/XP settlements; no earlier corrections may be replayed. Apply only reviewed levels/copies, their upgrade progress and affected MAX title, with sealed manifest, stale guards and one receipt. Historical replay reconciles all original inventory, 687 matched cash operations, cash balance and XP without negative states. Exact-snapshot correction proof, 479 tests, 230 syntax checks and Wrangler dry run passed. Deployment/application pending.
+November 14. Owner authorized chronological funding reconstruction and the previewed supported-copy downgrades. Runtime source `18f6abd` is pushed and live on original Worker version `d06823da-8dd7-4879-a8f8-bc7c6d948157`. Sealed owner-only correction committed once under `funding-upgrade-recovery-2026-11-14-v1`, with a PITR bookmark and stale account/card/title/upgrade/prior-settlement guards. It is complete: NEVER repeat it. Private reconstruction, exact manifest, previews, before/after, local proof, applied/verified receipt and owner report remain outside Git.
+
+Historical reconstruction reconciled original inventory, cash and XP, including escrow, receipt-linked cash operations and recorded outcomes. Prior cash/XP recovery was credited before deriving supplementary copy losses. Live verification confirms reviewed levels/spares, affected MAX award/order and legitimate upgrade investment; wallet, XP, lock, prior receipt, unrelated inventory, quiz records, avatar and showcase are unchanged. No previous reset/recovery was repeated, no hypothetical balance or cards granted, and no cash valuation of recovered copies claimed.
+
+479 tests, 230 syntax checks, Wrangler dry run and exact-snapshot correction proof passed. Existing runtime tests cover owner/seal rejection; behavioral tests cover stale/altered evidence, late-failure rollback, spare-copy retention, title isolation and retry safety. Live durable receipt and health verified. This later documentation commit records application evidence; deployed runtime source is the commit above. No remaining authorized work.
 
 ## Completed — Authorized Targeted Recovery
 
