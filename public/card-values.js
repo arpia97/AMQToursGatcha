@@ -1,4 +1,12 @@
 export const RARITIES = ["D", "C", "B", "A", "S", "SS", "SSS", "Ubers", "AG"];
+export const AUTOSELL_TIERS = Object.freeze([...RARITIES]);
+export function shouldAutosellRarity(cardRarity, threshold) {
+  if (!threshold) return false;
+  const thresholdIndex = AUTOSELL_TIERS.indexOf(threshold);
+  if (thresholdIndex < 0) return false;
+  const cardIndex = AUTOSELL_TIERS.indexOf(cardRarity || "Pending");
+  return cardIndex >= 0 && cardIndex < thresholdIndex;
+}
 export const SHOP_PRICE_REVISION = 1;
 export const SHOP_PRICES = Object.freeze({
   ...Object.fromEntries(RARITIES.map((r, i) => [r, 50 * 2 ** i])),

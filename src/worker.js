@@ -1289,6 +1289,10 @@ export class Game extends DurableObject {
           view: url.searchParams.get("view") || "browse",
           page: Number(url.searchParams.get("page") || 1),
           query: url.searchParams.get("q") || "",
+          kind: url.searchParams.get("kind") || "both",
+          rarity: url.searchParams.get("rarity") || "",
+          role: url.searchParams.get("role") || "",
+          sort: url.searchParams.get("sort") || "newest",
           wishlistOnly: url.searchParams.get("wishlist") === "1",
           hideCompleted: url.searchParams.get("hide_completed") === "1",
         }),
@@ -1379,7 +1383,9 @@ export class Game extends DurableObject {
     }
     if (path === "player" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
-      return json(e.profile(text(url.searchParams.get("id"), 100)));
+      return json(
+        e.profile(text(url.searchParams.get("id"), 100), session?.player || null),
+      );
     }
     if (path === "state" && !post) {
       if (session)

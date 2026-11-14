@@ -132,7 +132,7 @@ test("tour settlement pays only the correct winner once and updates winner accur
   assert.deepEqual(f.host("settle", b, "winner-once"), r);
   assert.equal(f.e.player("p").balance, before + 750);
   assert.equal(f.e.player("p").earned, 750);
-  assert.equal(f.e.player("q").balance, 0);
+  assert.equal(f.e.player("q").balance, 100);
   assert.deepEqual(
     { ...f.e.profile("p").stats.pickems },
     { total: 1, correct: 1 },

@@ -21,6 +21,7 @@ function fixture(
     transitions = false,
     prefetch = false,
     history = [],
+    hotkeys = {},
   } = {},
 ) {
   const old = globalThis.document,
@@ -219,7 +220,7 @@ function fixture(
     api,
     audioCache,
     escape,
-    getState: () => ({ me: { id: "host" } }),
+    getState: () => ({ me: { id: "host", quiz_hotkeys: hotkeys } }),
     onRender: (options) => {
       renders.push(options?.questionOnly ? "question" : "page");
       if (transitions && options?.questionOnly && ui.updateQuestion()) return;
@@ -379,6 +380,9 @@ test("dropdown filters without per-keystroke requests, Enter locks the selected 
   f.ui.setVolume(65);
   assert.equal(f.audios[0].volume, 0.65);
   assert.deepEqual(f.writes.at(-1), ["amqtours-quiz-volume", "65"]);
+  f.ui.key({ key: "F2", target: { closest: () => null } });
+  await flush();
+  assert.equal(f.calls.filter(c => c.path === "quiz-next").length, 0);
   let prevented = 0;
   f.ui.key({
     target: input,
@@ -428,7 +432,7 @@ test("the countdown panel drains with the clock, contains its numeric time, and 
 });
 
 test("new songs autofocus once, Enter advances the revealed answer once, and Restart is available before and after answering", async (t) => {
-  const f = fixture(t);
+  const f = fixture(t, { hotkeys: { next: "F2" } });
   await f.start();
   assert.equal(f.node("quiz-answer").focused, 0);
   await f.advance(2000);

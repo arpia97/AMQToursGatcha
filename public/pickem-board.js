@@ -3,6 +3,7 @@ import { pickemVoteChart, pickemParticipationTag, pickemShare } from "./pickem-v
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
 import { winnerCard } from "./tour-winner-ui.js";
+import { countdownMarkup } from "./countdown.js";
 export function tourSummaries(matches, now) {
   const groups = new Map();
   for (const p of matches) {
@@ -219,7 +220,11 @@ export function pickemBoard(
           "</span>" +
           (p.settled
             ? "<small>" + p.result_a + " : " + p.result_b + "</small>"
-            : "") +
+            : open
+              ? "<small>" +
+                countdownMarkup(p.ends, { now, ended: "Locked" }) +
+                "</small>"
+              : "") +
           '</td><td class="pickem-confirm">' +
           (open
             ? '<form id="' +
@@ -294,8 +299,14 @@ export function pickemBoard(
             rewardText +
             "</span>" +
             (t.nextEnds
-              ? "<span>Next deadline: " +
+              ? '<span title="' +
                 e(deadline({ ends: t.nextEnds })) +
+                '">' +
+                countdownMarkup(t.nextEnds, {
+                  now,
+                  prefix: "Next deadline: ",
+                  ended: "Locked",
+                }) +
                 "</span>"
               : "") +
             '</div><div class="table-wrap pickem-table-wrap"><table class="pickem-table"><thead><tr><th>' +

@@ -1,6 +1,7 @@
 import { pickemVoteSummary } from "../public/pickem-votes.js";
 import {
   PICKEM_WINNER_REWARD,
+  PICKEM_PARTICIPATION_REWARD,
   PICKEM_WINDOW,
   PICKEM_REOPEN_WINDOW,
   tourWinnerRewardDefault,
@@ -99,12 +100,20 @@ export class PickemEvents {
     if (!pickemTeams(p).includes(b.winner))
       fail("Choose the winning team from this tour.");
     for (const v of this.e.all(
-      "SELECT player FROM predictions WHERE pickem=? AND winner=?",
+      "SELECT player,winner FROM predictions WHERE pickem=?",
       p.id,
-      b.winner,
     )) {
-      if (p.winner_reward)
-        this.e.wallet(v.player, p.winner_reward, `Pick’em: ${p.title}`, true);
+      if (v.winner === b.winner) {
+        if (p.winner_reward)
+          this.e.wallet(v.player, p.winner_reward, `Pick’em: ${p.title}`, true);
+      } else if (PICKEM_PARTICIPATION_REWARD > 0) {
+        this.e.wallet(
+          v.player,
+          PICKEM_PARTICIPATION_REWARD,
+          `Pick’em participation: ${p.title}`,
+          true,
+        );
+      }
     }
     this.e.run(
       "UPDATE pickems SET settled=1,result_winner=? WHERE id=?",

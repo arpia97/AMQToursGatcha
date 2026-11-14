@@ -5,15 +5,19 @@ import { migrateTradeDefaults } from "./trade-defaults.js";
 import { profileSearchSql } from "./search.js";
 import { migrateEnhancements } from "./enhancement-migration.js";
 import {
+  AUTOSELL_TIERS,
   MAX_CARD_LEVEL,
   MIN_TITLE_UPGRADE_CARDS,
   enhancementCost,
   ENHANCEMENT_REVISION,
+  instantSalePrice,
+  shouldAutosellRarity,
 } from "../public/card-values.js";
 import { validFavorites } from "./popularity.js";
 import { CardTitles } from "./card-titles.js";
 import { Quiz } from "./quiz.js";
 import {
+  PICKEM_PARTICIPATION_REWARD,
   PICKEM_WINNER_REWARD,
   PICKEM_WINDOW,
   defaultReward,
@@ -28,7 +32,12 @@ import { RARITIES } from "../public/card-values.js";
 import {
   minimumBid,
   COMMUNITY_AUCTION_MS,
+  USER_AUCTION_SNIPE_WINDOW_MS,
 } from "../public/community-market-rules.js";
+import {
+  normalizeQuizHotkeys,
+  parseQuizHotkeysJSON,
+} from "../public/quiz-hotkeys.js";
 // All economic operations run inside one synchronous SQLite transaction.
 // The same engine is exercised against real SQLite in tests and Durable Objects in production.
 export const WEEK = 7 * 86400000;
@@ -70,6 +79,10 @@ export class Engine {
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "account_locked", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "autosell_below", "TEXT"],
+      ["players", "private_balance", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "private_collection", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "quiz_hotkeys", "TEXT"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"],
@@ -174,11 +187,51 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
-    return { ...p, role: p.is_admin ? "Host" : null };
+    return {
+      ...p,
+      autosell_below: p.autosell_below || null,
+      private_balance: !!p.private_balance,
+      private_collection: !!p.private_collection,
+      quiz_hotkeys: parseQuizHotkeysJSON(p.quiz_hotkeys),
+      role: p.is_admin ? "Host" : null,
+    };
+  }
+  grantPackPulls(player, cards, sourceLabel = "Pack") {
+    const threshold = this.player(player).autosell_below;
+    let autoSoldCount = 0,
+      autoSoldCredits = 0;
+    const resultCards = cards.map((card) => {
+      if (shouldAutosellRarity(card.rarity, threshold)) {
+        const price = instantSalePrice(card, 1);
+        autoSoldCount++;
+        autoSoldCredits += price;
+        return { ...card, autoSold: true, autoSoldPrice: price };
+      }
+      this.addCard(player, card.id);
+      return { ...card, autoSold: false };
+    });
+    if (autoSoldCredits > 0)
+      this.wallet(
+        player,
+        autoSoldCredits,
+        `${sourceLabel} auto-sell (${autoSoldCount} card${autoSoldCount === 1 ? "" : "s"})`,
+      );
+    return {
+      cards: resultCards,
+      autoSoldCount,
+      autoSoldCredits,
+      balance: this.player(player).balance,
+    };
+  }
+  formatLedgerReason(reason) {
+    const m = /^([^:]+):\s*(\S+)$/.exec(String(reason || ""));
+    if (!m) return reason;
+    const card = this.catalogStore.card(m[2]);
+    return card ? `${m[1]}: ${card.name}` : reason;
   }
   assertAccountUnlocked(id) {
     const p=this.one("SELECT account_locked FROM players WHERE id=?",id);
@@ -400,12 +453,22 @@ export class Engine {
             ),
       );
       const pulls = this.catalogStore.cards(selected.map((c) => c.id));
-      for (const card of pulls) this.addCard(player, card.id);
+      const outcome = this.grantPackPulls(player, pulls, "Pack");
+      const kept = pulls.length - outcome.autoSoldCount;
+      const message =
+        outcome.autoSoldCount === 0
+          ? `${pulls.length} new cards for your collection.`
+          : kept === 0
+            ? `All ${pulls.length} cards auto-sold for ✦ ${outcome.autoSoldCredits.toLocaleString("en-US")}.`
+            : `${kept} card${kept === 1 ? "" : "s"} added · ${outcome.autoSoldCount} auto-sold for ✦ ${outcome.autoSoldCredits.toLocaleString("en-US")}.`;
       return {
-        message: pulls.length + " new cards for your collection.",
-        cards: pulls,
+        message,
+        cards: outcome.cards,
         packCount: count,
         cost: price * count,
+        autoSoldCount: outcome.autoSoldCount,
+        autoSoldCredits: outcome.autoSoldCredits,
+        balance: outcome.balance,
       };
     }
     if (action === "enhance") {
@@ -478,11 +541,16 @@ export class Engine {
           );
         }
       }
+      const nextEnds = a.rolling
+        ? now + COMMUNITY_AUCTION_MS
+        : a.seller && a.ends - now < USER_AUCTION_SNIPE_WINDOW_MS
+          ? now + USER_AUCTION_SNIPE_WINDOW_MS
+          : a.ends;
       this.run(
         "UPDATE auctions SET bid=?,winner=?,ends=? WHERE id=?",
         amount,
         player,
-        a.rolling ? now + COMMUNITY_AUCTION_MS : a.ends,
+        nextEnds,
         a.id,
       );
       return {
@@ -499,7 +567,13 @@ export class Engine {
         fail("This auction cannot be claimed.", 409);
       this.economy.acquire(player, a.card, a.level, a.extra_copies);
       if (a.seller && !a.paid) {
-        this.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
+        const cardName = this.catalogStore.card(a.card)?.name || a.card;
+        const winnerName = this.player(player).name;
+        this.wallet(
+          a.seller,
+          a.bid,
+          `Player auction sale: ${cardName} to ${winnerName}`,
+        );
         this.economy.notices.add(
           a.seller,
           `auction-sale:${a.id}`,
@@ -595,8 +669,37 @@ export class Engine {
           player,
         );
       }
+      if (b.autosellBelow !== undefined) {
+        const tier =
+          b.autosellBelow === null || b.autosellBelow === ""
+            ? null
+            : String(b.autosellBelow).trim();
+        if (tier !== null && !AUTOSELL_TIERS.includes(tier))
+          fail("Choose a valid auto-sell rarity tier.");
+        this.run("UPDATE players SET autosell_below=? WHERE id=?", tier, player);
+      }
+      if (b.privateBalance !== undefined)
+        this.run(
+          "UPDATE players SET private_balance=? WHERE id=?",
+          b.privateBalance ? 1 : 0,
+          player,
+        );
+      if (b.privateCollection !== undefined)
+        this.run(
+          "UPDATE players SET private_collection=? WHERE id=?",
+          b.privateCollection ? 1 : 0,
+          player,
+        );
+      if (b.quizHotkeys !== undefined) {
+        const normalizedHotkeys = normalizeQuizHotkeys(b.quizHotkeys);
+        this.run(
+          "UPDATE players SET quiz_hotkeys=? WHERE id=?",
+          JSON.stringify(normalizedHotkeys),
+          player,
+        );
+      }
       return {
-        message: "Profile updated. Your previous usernames remain searchable.",
+        message: "Settings saved. Your previous usernames remain searchable.",
       };
     }
     fail("Unknown action.", 404);
@@ -752,11 +855,22 @@ export class Engine {
         "SELECT * FROM predictions WHERE pickem=?",
         p.id,
       )) {
-        const reward =
-          (v.winner === winner ? p.winner_reward : 0) +
+        const pickedWinner = v.winner === winner;
+        const scoreBonus =
           (v.score_a === a ? p.score_reward : 0) +
           (v.score_b === c ? p.score_reward : 0);
-        if (reward) this.wallet(v.player, reward, `Pick’em: ${p.title}`, true);
+        const reward =
+          (pickedWinner ? p.winner_reward : PICKEM_PARTICIPATION_REWARD) +
+          scoreBonus;
+        if (reward > 0)
+          this.wallet(
+            v.player,
+            reward,
+            pickedWinner || scoreBonus > 0
+              ? `Pick’em: ${p.title}`
+              : `Pick’em participation: ${p.title}`,
+            true,
+          );
       }
       this.run(
         "UPDATE pickems SET settled=1,result_a=?,result_b=? WHERE id=?",
@@ -1075,7 +1189,7 @@ export class Engine {
         )
       : [];
     const ranks = this.all(
-      "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
+      "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 AND COALESCE(private_balance,0)=0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
     );
     const references = new Set([
       ...auctions.map((a) => a.card),
@@ -1151,8 +1265,12 @@ export class Engine {
         ? this.all(
             "SELECT * FROM ledger WHERE player=? ORDER BY id DESC LIMIT 50",
             id,
-          )
+          ).map((entry) => ({
+            ...entry,
+            reason: this.formatLedgerReason(entry.reason),
+          }))
         : [],
+      recentTrades: id ? this.economy.trades.recent(id) : [],
       ranks,
       shop,
       communityMarket: this.economy.community.info(),
@@ -1192,11 +1310,14 @@ export class Engine {
     integer(limit, 1, 100);
     const search = profileSearchSql(typeof query === "string" ? query : "");
     return this.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,p.earned,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ${search.where} ORDER BY p.earned DESC,p.id LIMIT ? OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.earned END AS earned,COALESCE(p.private_balance,0) AS private_balance,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM players p WHERE ${search.where} ORDER BY CASE WHEN COALESCE(p.private_balance,0)=1 THEN 1 ELSE 0 END,p.earned DESC,p.id LIMIT ? OFFSET ?`,
       ...search.args,
       limit,
       (page - 1) * 50,
-    );
+    ).map((row) => ({
+      ...row,
+      private_balance: !!row.private_balance,
+    }));
   }
   profilesPage(query, page = 1) {
     const rows = this.searchProfiles(query, page, 51);
@@ -1213,9 +1334,12 @@ export class Engine {
       hasMore: rows.length > 50,
     };
   }
-  profile(id) {
+  profile(id, viewerId = null) {
     id = this.resolvePlayer(id);
     const p = this.player(id);
+    const isSelf = viewerId === id;
+    const hideBalance = !!p.private_balance && !isSelf;
+    const hideCollection = !!p.private_collection && !isSelf;
     const stats = Object.fromEntries(
       this.all(
         "SELECT category,count(*) AS n FROM tour_events WHERE player=? GROUP BY category",
@@ -1230,8 +1354,25 @@ export class Engine {
       "SELECT s.card,i.level,i.copies,i.protected,COALESCE(i.for_trade,0) AS for_trade FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
       id,
     );
+    const inventory = hideCollection
+      ? []
+      : this.all(
+          "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
+          id,
+        );
+    const collectionCount = hideCollection
+      ? 0
+      : this.one(
+          "SELECT count(*) AS n FROM inventory WHERE player=?",
+          id,
+        ).n;
     return {
       ...p,
+      balance: hideBalance ? null : p.balance,
+      earned: hideBalance ? null : p.earned,
+      balanceHidden: hideBalance,
+      collectionHidden: hideCollection,
+      collectionCount,
       titles: this.quiz.titles(id),
       aliases: this.all(
         "SELECT alias FROM aliases WHERE player=? ORDER BY alias",
@@ -1249,18 +1390,12 @@ export class Engine {
       },
       showcase,
       wishlist: this.economy.wishlist.read(id),
-      pinnedAnime: this.economy.anime.pinned(id),
-      completion: this.economy.completion(id),
-      inventory: this.all(
-        "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
-        id,
-      ),
+      pinnedAnime: this.economy.anime.pinned(id, { hideOwnership: hideCollection }),
+      completion: hideCollection ? null : this.economy.completion(id),
+      inventory,
       cards: this.catalogStore.cards([
         ...new Set([
-          ...this.all(
-            "SELECT card FROM inventory WHERE player=? ORDER BY position IS NULL,position LIMIT 20",
-            id,
-          ).map((i) => i.card),
+          ...inventory.slice(0, 20).map((i) => i.card),
           p.avatar_card,
           ...showcase.map((c) => c.card),
         ]),

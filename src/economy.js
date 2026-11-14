@@ -193,13 +193,16 @@ export class Economy {
     const context = {};
     for (let i = 0; i < 5; i++)
       cards.push(e.catalogStore.draw(kind, e.rand, 100, new Set(), context));
-    for (const c of cards) e.addCard(player, c.id);
+    const outcome = e.grantPackPulls(player, cards, "Daily pack");
     e.run("UPDATE players SET daily_pack=? WHERE id=?", day, player);
     return {
       message: "Your daily five-card pack is here!",
-      credits: 0,
+      credits: outcome.autoSoldCredits,
+      autoSoldCount: outcome.autoSoldCount,
+      autoSoldCredits: outcome.autoSoldCredits,
+      balance: outcome.balance,
       kind,
-      cards,
+      cards: outcome.cards,
     };
   }
   buyout(player, id) {
@@ -209,13 +212,20 @@ export class Economy {
       fail("This auction is not available for buyout.", 409);
     if (a.seller === player) fail("You cannot buy your own auction.");
     e.assertAccountUnlocked(a.seller);
+    const cardName = e.catalogStore.card(a.card)?.name || a.card;
+    const sellerName =
+      e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", a.seller)
+        ?.name || a.seller;
+    const buyerName =
+      e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", player)
+        ?.name || player;
     e.wallet(
       player,
       -(a.buyout - (a.winner === player ? a.bid : 0)),
-      "Auction buyout: " + a.card,
+      `Auction buyout: ${cardName} from ${sellerName}`,
     );
     if (a.winner && a.winner !== player) {
-      e.wallet(a.winner, a.bid, "Buyout: auction bid refund");
+      e.wallet(a.winner, a.bid, `Buyout: ${cardName} auction bid refund`);
       this.notices.add(
         a.winner,
         `buyout-refund:${a.id}`,
@@ -225,7 +235,11 @@ export class Economy {
         a.bid,
       );
     }
-    e.wallet(a.seller, a.buyout, "Player auction sale: " + a.card);
+    e.wallet(
+      a.seller,
+      a.buyout,
+      `Player auction sale: ${cardName} to ${buyerName}`,
+    );
     this.notices.add(
       a.seller,
       `auction-sale:${a.id}`,
@@ -331,7 +345,17 @@ export class Economy {
       now,
     )) {
       if (a.winner) {
-        e.wallet(a.seller, a.bid, "Player auction sale: " + a.card);
+        const cardName = e.catalogStore.card(a.card)?.name || a.card;
+        const winnerName =
+          e.one(
+            "SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?",
+            a.winner,
+          )?.name || a.winner;
+        e.wallet(
+          a.seller,
+          a.bid,
+          `Player auction sale: ${cardName} to ${winnerName}`,
+        );
         this.notices.add(
           a.seller,
           `auction-sale:${a.id}`,
@@ -747,8 +771,15 @@ export class Economy {
       if (!l) fail("This card has already sold or been withdrawn.", 409);
       if (l.seller === player) fail("You cannot buy your own listing.");
       e.assertAccountUnlocked(l.seller);
-      e.wallet(player, -l.price, "Marketplace purchase: " + l.card);
-      e.wallet(l.seller, l.price, "Marketplace sale: " + l.card);
+      const cardName = e.catalogStore.card(l.card)?.name || l.card;
+      const sellerName =
+        e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", l.seller)
+          ?.name || l.seller;
+      const buyerName =
+        e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", player)
+          ?.name || player;
+      e.wallet(player, -l.price, `Marketplace purchase: ${cardName} from ${sellerName}`);
+      e.wallet(l.seller, l.price, `Marketplace sale: ${cardName} to ${buyerName}`);
       this.notices.add(
         l.seller,
         `market-sale:${l.id}`,
@@ -912,7 +943,7 @@ export class Economy {
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,p.earned,p.balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.earned END AS earned,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.balance END AS balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0 AND COALESCE(p.private_balance,0)=0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
       (page - 1) * 50,
     );
     return {

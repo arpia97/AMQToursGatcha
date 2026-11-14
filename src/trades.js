@@ -1,5 +1,7 @@
 import { fail, integer, text } from "./engine.js";
 import { searchMatcher, cardSearchText } from "../public/search.js";
+import { cardComparator } from "../public/card-display.js";
+import { RARITIES } from "../public/card-values.js";
 
 // Listings escrow one copy; offers escrow a bundle. All changes share one transaction.
 export class Trades {
@@ -37,6 +39,43 @@ export class Trades {
     if (!row || row.status !== "open")
       fail("This offer is no longer available.", 409);
     return row;
+  }
+  recent(player) {
+    const fields = "l.id,l.seller,l.card,l.accepted_offer AS offer_id,o.proposer,o.card AS offered_card,o.credits,COALESCE(ps.display_name,ps.name,l.seller) AS seller_name,COALESCE(pp.display_name,pp.name,o.proposer) AS proposer_name";
+    // Limit both participant lookups before merging, independent of global history.
+    const sold = this.e.all(
+      `SELECT ${fields},l.updated_at AS at FROM trade_listings l INDEXED BY trade_recent_seller JOIN trade_offers o ON o.id=l.accepted_offer LEFT JOIN players ps ON ps.id=l.seller LEFT JOIN players pp ON pp.id=o.proposer WHERE l.seller=? AND l.status='completed' ORDER BY l.updated_at DESC,l.id DESC LIMIT 25`,
+      player,
+    );
+    const offered = this.e.all(
+      `SELECT ${fields},o.updated_at AS at FROM trade_offers o INDEXED BY trade_recent_proposer JOIN trade_listings l ON l.id=o.listing LEFT JOIN players ps ON ps.id=l.seller LEFT JOIN players pp ON pp.id=o.proposer WHERE o.proposer=? AND o.status='accepted' AND l.status='completed' AND l.accepted_offer=o.id ORDER BY o.updated_at DESC,o.listing DESC LIMIT 25`,
+      player,
+    );
+    const rows = [...new Map([...sold, ...offered].map(r => [r.id, r])).values()]
+      .sort((a, b) => b.at - a.at || b.id - a.id).slice(0, 25);
+    if (!rows.length) return [];
+    const bundles = new Map();
+    for (const c of this.e.all(
+      `SELECT offer,card FROM trade_offer_cards WHERE offer IN (${rows.map(() => "?").join(",")}) ORDER BY offer,position`,
+      ...rows.map(r => r.offer_id),
+    )) {
+      if (!bundles.has(c.offer)) bundles.set(c.offer, []);
+      bundles.get(c.offer).push(c.card);
+    }
+    const ids = [...new Set(rows.flatMap(r => [r.card, ...(bundles.get(r.offer_id) || [r.offered_card])]))];
+    const names = new Map(this.e.catalogStore.cards(ids).map(c => [c.id, c.name]));
+    return rows.map(r => {
+      const seller = r.seller === player;
+      const listed = [names.get(r.card) || r.card];
+      const bundle = (bundles.get(r.offer_id) || [r.offered_card]).map(id => names.get(id) || id);
+      return {
+        id: r.id, at: r.at, role: seller ? "seller" : "proposer",
+        partnerId: seller ? r.proposer : r.seller,
+        partnerName: seller ? r.proposer_name : r.seller_name,
+        credits: r.credits, givenCards: seller ? listed : bundle,
+        receivedCards: seller ? bundle : listed,
+      };
+    });
   }
   take(player, b) {
     const card = text(b.card, 100),
@@ -121,8 +160,19 @@ export class Trades {
   returnOffer(o, status = "returned") {
     for (const c of this.offerCards(o))
       this.e.economy.acquire(o.proposer, c.card, c.level, c.extra_copies);
-    if (Number(o.credits) > 0)
-      this.e.wallet(o.proposer, Number(o.credits), "Trade offer return");
+    if (Number(o.credits) > 0) {
+      const l = this.e.one(
+        "SELECT l.card,COALESCE(p.display_name,p.name,l.seller) AS seller_name FROM trade_listings l LEFT JOIN players p ON p.id=l.seller WHERE l.id=?",
+        o.listing,
+      );
+      const cardName = l ? this.e.catalogStore.card(l.card)?.name || l.card : "trade";
+      const sellerName = l?.seller_name || "player";
+      this.e.wallet(
+        o.proposer,
+        Number(o.credits),
+        `Trade offer return: ${cardName} from ${sellerName}`,
+      );
+    }
     this.e.run(
       "UPDATE trade_offers SET status=?,updated_at=? WHERE id=?",
       status,
@@ -219,7 +269,13 @@ export class Trades {
         b.credits !== undefined && b.credits !== null && b.credits !== ""
           ? integer(b.credits, 0, 1000000000)
           : 0;
-      if (credits > 0) e.wallet(player, -credits, "Trade offer escrow");
+      if (credits > 0) {
+        const cardName = e.catalogStore.card(l.card)?.name || l.card;
+        const sellerName =
+          e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", l.seller)
+            ?.name || l.seller;
+        e.wallet(player, -credits, `Trade offer escrow: ${cardName} to ${sellerName}`);
+      }
       const cards = this.takeBundle(player, b),
         c = cards[0];
       e.run(
@@ -292,8 +348,17 @@ export class Trades {
       for (const c of this.offerCards(o))
         e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
       e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);
-      if (Number(o.credits) > 0)
-        e.wallet(l.seller, Number(o.credits), "Trade accepted: " + l.card);
+      if (Number(o.credits) > 0) {
+        const cardName = e.catalogStore.card(l.card)?.name || l.card;
+        const proposerName =
+          e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", o.proposer)
+            ?.name || o.proposer;
+        e.wallet(
+          l.seller,
+          Number(o.credits),
+          `Trade accepted: ${cardName} with ${proposerName}`,
+        );
+      }
       e.run(
         "UPDATE trade_offers SET status='accepted',updated_at=? WHERE id=?",
         e.now(),
@@ -322,6 +387,10 @@ export class Trades {
       view = "browse",
       page = 1,
       query = "",
+      kind = "both",
+      rarity = "",
+      role = "",
+      sort = "newest",
       wishlistOnly = false,
       hideCompleted = false,
     } = {},
@@ -331,6 +400,12 @@ export class Trades {
       fail("Unknown trade view.");
     if (view !== "browse" && !player) fail("Sign in to see your trades.", 401);
     if (wishlistOnly && !player) fail("Sign in to use your wishlist.", 401);
+    const activeKind = ["character", "seiyuu"].includes(kind) ? kind : "both";
+    const activeRarity = [...RARITIES, "Pending"].includes(rarity) ? rarity : "";
+    const activeRole = activeKind === "character" && role ? String(role).slice(0, 60) : "";
+    const activeSort = ["newest", "rarity", "level", "name"].includes(sort)
+      ? sort
+      : "newest";
     let where =
       view === "listings"
         ? hideCompleted
@@ -351,22 +426,23 @@ export class Trades {
       .trim()
       .slice(0, 100);
     const select = `SELECT l.*,COALESCE(p.display_name,p.name,l.seller) seller_name,(SELECT count(*) FROM trade_offers o WHERE o.listing=l.id AND o.status='open') offer_count FROM trade_listings l LEFT JOIN players p ON p.id=l.seller WHERE ${where}`;
+    const hasFilter =
+      !!query || activeKind !== "both" || !!activeRarity || !!activeRole;
     let rows;
-    if (!query)
+    if (!hasFilter && activeSort === "newest")
       rows = this.e.all(
         `${select} ORDER BY l.id DESC LIMIT 13 OFFSET ?`,
         ...args,
         (page - 1) * 12,
       );
     else {
-      // Search visible listings before pagination, resolving only their card IDs.
-      // Never scan the full catalogue or expose another collector's private offers.
-      const matches = searchMatcher(query),
-        offset = (page - 1) * 12;
-      rows = [];
-      let cursor = Number.MAX_SAFE_INTEGER,
-        skipped = 0;
-      while (rows.length < 13) {
+      // Filter/sort visible listings without scanning the full catalogue or exposing private offers.
+      const matches = query ? searchMatcher(query) : null,
+        offset = (page - 1) * 12,
+        needSorted = activeSort !== "newest",
+        filtered = [];
+      let cursor = Number.MAX_SAFE_INTEGER;
+      while (needSorted || filtered.length < offset + 13) {
         const batch = this.e.all(
           `${select} AND l.id<? ORDER BY l.id DESC LIMIT 100`,
           ...args,
@@ -380,14 +456,32 @@ export class Trades {
         );
         for (const l of batch) {
           const c = cards.get(l.card);
-          if (!matches([c ? cardSearchText(c) : "", l.seller_name])) continue;
-          if (skipped++ < offset) continue;
-          rows.push(l);
-          if (rows.length === 13) break;
+          if (activeKind !== "both" && c?.kind !== activeKind) continue;
+          if (activeRarity && (c?.rarity || "Pending") !== activeRarity) continue;
+          if (activeRole && c?.role !== activeRole) continue;
+          if (matches && !matches([c ? cardSearchText(c) : "", l.seller_name]))
+            continue;
+          filtered.push({ l, c });
         }
         if (batch.length < 100) break;
         cursor = batch.at(-1).id;
       }
+      if (needSorted) {
+        const rarityCmp = cardComparator("rarity"),
+          nameCmp = cardComparator("name");
+        filtered.sort((a, b) => {
+          if (activeSort === "rarity")
+            return rarityCmp(a.c || {}, b.c || {}) || b.l.id - a.l.id;
+          if (activeSort === "level")
+            return (
+              b.l.level - a.l.level ||
+              rarityCmp(a.c || {}, b.c || {}) ||
+              b.l.id - a.l.id
+            );
+          return nameCmp(a.c || {}, b.c || {}) || b.l.id - a.l.id;
+        });
+      }
+      rows = filtered.slice(offset, offset + 13).map((x) => x.l);
     }
     const items = rows.slice(0, 12).map((l) => ({
       ...l,
@@ -405,6 +499,10 @@ export class Trades {
       items,
       page,
       query,
+      kind: activeKind,
+      rarity: activeRarity,
+      role: activeRole,
+      sort: activeSort,
       wishlistOnly,
       hideCompleted,
       hasMore: rows.length > 12,
@@ -423,6 +521,8 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS trade_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',accepted_offer INTEGER,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS trade_offers(id INTEGER PRIMARY KEY AUTOINCREMENT,listing INTEGER NOT NULL,proposer TEXT NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,credits INTEGER NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'open',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS trade_offer_cards(offer INTEGER NOT NULL,position INTEGER NOT NULL,card TEXT NOT NULL,level INTEGER NOT NULL,PRIMARY KEY(offer,position));
+CREATE INDEX IF NOT EXISTS trade_recent_seller ON trade_listings(seller,updated_at DESC,id DESC) WHERE status='completed';
+CREATE INDEX IF NOT EXISTS trade_recent_proposer ON trade_offers(proposer,updated_at DESC,listing DESC) WHERE status='accepted';
 CREATE INDEX IF NOT EXISTS trade_browse ON trade_listings(status,id);
 CREATE INDEX IF NOT EXISTS trade_seller ON trade_listings(seller,id);
 CREATE INDEX IF NOT EXISTS trade_seller_open ON trade_listings(seller) WHERE status='open';

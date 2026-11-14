@@ -147,7 +147,7 @@ export class Wishlist {
         UNION SELECT card,seller FROM trade_listings WHERE card IN (SELECT card FROM requested) AND status='open'
       ) UNION SELECT c.card,o.proposer FROM trade_offer_cards c JOIN trade_offers o ON o.id=c.offer WHERE c.card IN (SELECT card FROM requested) AND o.status='open'
       UNION SELECT o.card,o.proposer FROM trade_offers o WHERE o.card IN (SELECT card FROM requested) AND o.status='open' AND NOT EXISTS(SELECT 1 FROM trade_offer_cards c WHERE c.offer=o.id)
-    ) SELECT card,count(*) AS owned FROM held GROUP BY card`,
+    ) SELECT h.card,count(*) AS owned FROM held h JOIN players p ON p.id=h.player WHERE COALESCE(p.private_collection,0)=0 GROUP BY h.card`,
       ids,
       e.now(),
     );
@@ -181,10 +181,11 @@ export class Wishlist {
       UNION SELECT winner FROM auctions WHERE card=? AND winner IS NOT NULL AND ends<=? AND claimed=0
       UNION SELECT seller FROM trade_listings WHERE card=? AND status='open')
       UNION SELECT o.proposer FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE COALESCE(c.card,o.card)=? AND o.status='open'`;
+    const visibleOwnership = `SELECT c.player FROM (${ownership}) c JOIN players p ON p.id=c.player WHERE COALESCE(p.private_collection,0)=0`;
     const ownerArgs = [card, card, card, card, e.now(), card, card];
     const counts = {
       owned: e.one(
-        "SELECT count(*) AS n FROM (" + ownership + ")",
+        "SELECT count(*) AS n FROM (" + visibleOwnership + ")",
         ...ownerArgs,
       ).n,
       wanted: e.one(
@@ -194,7 +195,7 @@ export class Wishlist {
     };
     const source =
       view === "owned"
-        ? ownership
+        ? visibleOwnership
         : "SELECT player FROM card_wishlist WHERE card=?";
     const rows = e.all(
       "SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM (" +
@@ -222,16 +223,51 @@ export class Wishlist {
   page(id, view, page = 1, options = {}) {
     const e = this.e;
     id = e.resolvePlayer(text(id, 100));
-    const owner=e.player(id);
+    const owner = e.player(id);
     integer(page, 1, 10000);
-    let rows, total;
-    if (view === "wishlist")
-      rows = e.all(
-        "SELECT w.card,w.created,COALESCE(i.protected,0) AS protected FROM card_wishlist w LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?",
-        id,
-        (page - 1) * 24,
-      );
-    else if (view === "collection") {
+    let rows, total, wishlistKind;
+    if (view === "wishlist") {
+      const ownershipVisible = !owner.private_collection || options.viewer === id;
+      const ownershipColumn = ownershipVisible ? "COALESCE(i.protected,0)" : "NULL";
+      const ownershipJoin = ownershipVisible
+        ? "LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card"
+        : "";
+      wishlistKind = ["both", "character", "seiyuu"].includes(options.kind)
+        ? options.kind
+        : "both";
+      if (wishlistKind === "both") {
+        rows = e.all(
+          `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?`,
+          id,
+          (page - 1) * 24,
+        );
+      } else {
+        const allWish = e.all(
+          `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card`,
+          id,
+        );
+        const cardMap = new Map(
+          e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]),
+        );
+        const filtered = allWish.filter(
+          (w) => cardMap.get(w.card)?.kind === wishlistKind,
+        );
+        total = filtered.length;
+        rows = filtered.slice((page - 1) * 24, (page - 1) * 24 + 25);
+      }
+    } else if (view === "collection") {
+      if (owner.private_collection && options.viewer !== id) {
+        return {
+          player: id,
+          view,
+          page: 1,
+          total: 0,
+          hasMore: false,
+          hidden: true,
+          rows: [],
+          cards: [],
+        };
+      }
       const kind = ["both", "character", "seiyuu"].includes(options.kind)
           ? options.kind
           : "both",
@@ -327,6 +363,7 @@ export class Wishlist {
       player: id,
       view,
       page,
+      ...(wishlistKind !== undefined ? { kind: wishlistKind } : {}),
       ...(total !== undefined ? { total } : {}),
       hasMore: rows.length > 24,
       rows: visible.map((row) => ({

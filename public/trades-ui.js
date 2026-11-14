@@ -1,9 +1,9 @@
 import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
-import { levelLabel } from "./card-values.js";
+import { levelLabel, RARITIES } from "./card-values.js";
+import { collectorsButton } from "./card-collectors.js";
 import {
   collectionView,
   collectionPage,
-  cardComparator,
 } from "./card-display.js";
 
 export function createTradesUI(h, ui) {
@@ -48,6 +48,10 @@ export function createTradesUI(h, ui) {
       data = ui.tradeData,
       view = ui.tradeView || "browse";
     const query = ui.tradeQuery || "",
+      kind = ui.tradeKind || "both",
+      rarity = ui.tradeRarity || "",
+      role = ui.tradeRole || "",
+      sort = ui.tradeSort || "newest",
       noResults = !!query && data?.query === query.trim() && !data.items.length;
     const head = `<div class="section-head"><h2>Card Trades</h2>${btn("List a Card", "trade-new", "", "mint")}</div><p class="subtext">Offer up to 10 card copies alongside optional credits for one listed card. The lister chooses an offer. All cards and offered credits are held until the trade ends; withdrawing returns them. No credit fee.</p><div class="tabs trade-views" role="group" aria-label="Trade views">${[
       ["browse", "Browse Trades"],
@@ -64,7 +68,20 @@ export function createTradesUI(h, ui) {
       )
       .join(
         "",
-      )}${btn("Refresh", "trade-refresh", "", "secondary")}</div><div class="trade-search"><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<label class="trade-wishlist-filter"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label>${view === "listings" || view === "offers" ? `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div>`;
+      )}${btn("Refresh", "trade-refresh", "", "secondary")}</div><div class="trade-search"><div class="tabs trade-kind-tabs" role="group" aria-label="Card Type">${[
+        ["both", "All Cards"],
+        ["character", "Characters"],
+        ["seiyuu", "Seiyuus"],
+      ]
+        .map(([id, label]) =>
+          btn(
+            label,
+            "trade-kind",
+            `data-kind="${id}" aria-pressed="${kind === id}"`,
+            kind === id ? "mint" : "secondary",
+          ),
+        )
+        .join("")}</div><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<select id="trade-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select>${kind === "character" ? `<select id="trade-role" aria-label="Role">${[["", "All Roles"], ["main", "Main"], ["supporting", "Supporting"]].map(([v, l]) => `<option value="${v}" ${role === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}<select id="trade-sort" aria-label="Sort by">${[["newest", "Newest"], ["rarity", "Highest Rarity"], ["level", "Highest Level"], ["name", "A → Z"]].map(([v, l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>Sort: ${l}</option>`).join("")}</select><label class="trade-wishlist-filter"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label>${view === "listings" || view === "offers" ? `<label class="trade-wishlist-filter"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div>`;
     if (!s.me && view !== "browse")
       return (
         head +
@@ -80,10 +97,11 @@ export function createTradesUI(h, ui) {
       .map((l) => {
         const mine = s.me?.id === l.seller,
           open = l.status === "open",
+          listedCard = cardBy(l.card),
           ownOffer = l.offers.find(
             (o) => o.proposer === s.me?.id && o.status === "open",
           );
-        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Make an Offer", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${offer(o)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
+        return `<article class="trade-listing"><header><a href="${profileURL(l.seller)}">${e(l.seller_name)}</a><span class="pill">${e(open ? "Open" : l.status === "completed" ? "Traded" : "Cancelled")}</span></header>${card(l.card, l.level)}${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="trade-listing-actions"><span class="subtext">${n(l.offer_count)} ${l.offer_count === 1 ? "offer" : "offers"}</span>${listedCard ? collectorsButton(listedCard, e) : ""}${open ? (mine ? btn("Cancel Listing", "trade-cancel", `data-id="${l.id}"`, "secondary") : ownOffer ? btn("Withdraw Offer", "trade-withdraw", `data-id="${ownOffer.id}"`, "secondary") : btn("Make an Offer", "trade-make", `data-id="${l.id}"`, "mint")) : ""}</div>${l.offers.length ? `<details class="trade-offers" ${mine ? "open" : ""}><summary>${mine ? "Review Offers" : "Your Offer History"}</summary>${l.offers.map((o) => `<div class="trade-offer"><div class="trade-offer-heading"><a href="${profileURL(o.proposer)}">${e(o.proposer_name)}</a><span>${e(o.status === "open" ? "Awaiting Decision" : o.status === "accepted" ? "Accepted" : o.status[0].toUpperCase() + o.status.slice(1))}</span></div>${offer(o)}${mine && open && o.status === "open" ? `<div class="trade-offer-actions">${btn("Accept Trade", "trade-accept", `data-id="${o.id}"`, "mint")}${btn("Decline", "trade-decline", `data-id="${o.id}"`, "secondary")}</div>` : ""}</div>`).join("")}</details>` : ""}</article>`;
       })
       .join("");
     return (
@@ -112,6 +130,10 @@ export function createTradesUI(h, ui) {
       listing,
       query: "",
       kind: "",
+      rarity: "",
+      role: "",
+      sort: "rarity",
+      upgradable: false,
       showProtected: ui.tradePickerShowProtected || false,
       page: 1,
       selected: null,
@@ -185,9 +207,19 @@ export function createTradesUI(h, ui) {
   function filter(key, value) {
     if (
       picker &&
-      ["query", "kind", "showProtected", "page"].includes(key)
+      [
+        "query",
+        "kind",
+        "rarity",
+        "role",
+        "sort",
+        "upgradable",
+        "showProtected",
+        "page",
+      ].includes(key)
     ) {
       picker[key] = value;
+      if (key === "kind" && value !== "character") picker.role = "";
       if (key === "showProtected") ui.tradePickerShowProtected = !!value;
       if (key !== "page") picker.page = 1;
     }
@@ -323,17 +355,20 @@ export function createTradesUI(h, ui) {
     const available = (i) =>
       i.copies -
       (picker.listing ? bundle.filter((c) => c.card === i.card).length : 0);
-    const items = (picker.kind ? [picker.kind] : ["character", "seiyuu"])
-      .flatMap((kind) =>
-        collectionView(
-          s.inventory.filter(
-            (i) => (picker.showProtected || !i.protected) && available(i) > 0,
-          ),
-          cardBy,
-          { query: picker.query, kind, sort: "rarity" },
-        ),
-      )
-      .sort((a, b) => cardComparator("rarity")(a.c, b.c));
+    const items = collectionView(
+      s.inventory.filter(
+        (i) => (picker.showProtected || !i.protected) && available(i) > 0,
+      ),
+      cardBy,
+      {
+        kind: picker.kind || "both",
+        query: picker.query,
+        rarity: picker.rarity,
+        role: picker.kind === "character" ? picker.role : "",
+        upgradable: !!picker.upgradable,
+        sort: picker.sort || "rarity",
+      },
+    );
     const data = collectionPage(items, picker.page, 12);
     picker.page = data.page;
     return (
@@ -350,7 +385,30 @@ export function createTradesUI(h, ui) {
         )
         .join(
           "",
-        )}</select><label class="trade-picker-protected-label check-label"><input id="trade-picker-show-protected" type="checkbox" ${picker.showProtected ? "checked" : ""}> Show Protected Cards</label></div><p class="form-hint">${picker.showProtected ? "Protected cards are included. Unprotect a card to offer it for trade." : "Protected cards are excluded."}</p><div class="trade-picker-grid">${data.items.map((i) => {
+        )}</select><select id="trade-picker-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${picker.rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select><select id="trade-picker-sort" aria-label="Sort by">${[
+        ["rarity", "Highest Rarity"],
+        ["level", "Highest Level"],
+        ["copies", "Most Copies"],
+        ["name", "A → Z"],
+      ]
+        .map(
+          ([v, l]) =>
+            `<option value="${v}" ${picker.sort === v ? "selected" : ""}>Sort: ${l}</option>`,
+        )
+        .join("")}</select>${
+        picker.kind === "character"
+          ? `<select id="trade-picker-role" aria-label="Role">${[
+              ["", "All Roles"],
+              ["main", "Main"],
+              ["supporting", "Supporting"],
+            ]
+              .map(
+                ([v, l]) =>
+                  `<option value="${v}" ${picker.role === v ? "selected" : ""}>${l}</option>`,
+              )
+              .join("")}</select>`
+          : ""
+      }<label class="check-label"><input id="trade-picker-upgradable" type="checkbox" ${picker.upgradable ? "checked" : ""}> Upgradable only</label><label class="trade-picker-protected-label check-label"><input id="trade-picker-show-protected" type="checkbox" ${picker.showProtected ? "checked" : ""}> Show Protected Cards</label></div><p class="form-hint">${picker.showProtected ? "Protected cards are included. Unprotect a card to offer it for trade." : "Protected cards are excluded."}</p><div class="trade-picker-grid">${data.items.map((i) => {
           const avail = available(i);
           const disabled = picker.listing && bundle.length >= 10;
           if (i.protected) {

@@ -25,7 +25,7 @@ export function createFeatures(h, ui) {
   function profileExtras(p, own, arrangement = null) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own)}<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own)}${p.collectionHidden ? '<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="pill">Private</span></div></section>' : `<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]
@@ -35,7 +35,7 @@ export function createFeatures(h, ui) {
       })
       .join(
         "",
-      )}</div><p class="form-hint">The total grows as the catalogue import continues. Duplicates count once.</p></section>`;
+      )}</div><p class="form-hint">The total grows as the catalogue import continues. Duplicates count once.</p></section>`}`;
   }
   function sortControl(context) {
     const collection = context === "collection",
@@ -133,6 +133,8 @@ export function createFeatures(h, ui) {
   function animeCard(c, own = true, pinned = false) {
     const title = series({ ...c, series: c.series_romaji }),
       owned = c.owned || 0;
+    if (c.ownershipHidden)
+      return `<article class="anime-progress-card"><span class="eyebrow">★ PINNED ANIME</span><h3>${e(title)}</h3><p class="subtext">Collection progress is private.</p></article>`;
     return `<article class="anime-progress-card ${owned === c.total ? "complete" : ""}"><span class="eyebrow">${pinned ? "★ PINNED ANIME" : owned === c.total ? "COLLECTION COMPLETE" : "IN PROGRESS"}</span><h3>${own ? `<button type="button" class="anime-checklist-open" data-action="anime-checklist-open" data-series="${e(c.series_key)}">${e(title)} ↗</button>` : e(title)}</h3><div class="completion-label"><strong>${n(owned)} / ${n(c.total)} characters</strong><span>${Math.round((owned * 100) / c.total)}%</span></div><progress aria-label="${e(title)} completion" value="${owned}" max="${Math.max(1, c.total)}"></progress>${own ? `<button class="text-button space-top" data-action="pin-anime" data-series="${e(c.series_key)}" data-pinned="${pinned}">${pinned ? "★ Unpin anime" : "☆ Pin anime"}</button>` : ""}</article>`;
   }
   function pinnedPanel(pins, own) {

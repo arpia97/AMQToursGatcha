@@ -5511,3 +5511,24 @@ dialog.avatar-editor-modal {
 .flash-original-price { color:var(--muted);font-size:.8em;font-weight:400; }
 .flash-discount-tag { display:inline-block;padding:3px 6px;border-radius:5px;background:#b8e3cc20;color:var(--mint,#b8e3cc);font-size:10px;font-weight:700;white-space:nowrap; }
 .card-front-meta .flash-discount-tag { padding:2px 5px;font-size:9px; }
+
+dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
+.settings-section { min-width: 0; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: grid; gap: 10px; background: #ffffff04; }
+.settings-section legend { padding: 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--mint, #9ad6b4); }
+.settings-section .check-label { white-space: normal; }
+.settings-section .check-label input { flex-shrink: 0; }
+.hotkey-grid { display: grid; gap: 8px; }
+.hotkey-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid #ffffff08; }
+.hotkey-row:last-child { border-bottom: none; }
+.hotkey-row strong { display: block; font-size: 13px; }
+.hotkey-row small { display: block; color: var(--muted); font-size: 11px; }
+.hotkey-controls { display: flex; align-items: center; gap: 8px; }
+.hotkey-capture { width: 130px; text-align: center; cursor: pointer; font-weight: 600; font-size: 12px; }
+.hotkey-capture:focus { outline: 2px solid var(--mint, #9ad6b4); border-color: var(--mint, #9ad6b4); }
+.hotkey-footer { display: flex; justify-content: flex-end; }
+.pack-credits-left { margin: 8px 0 4px; font-weight: 600; font-size: 14px; }
+.pack-autosell-summary { margin: 8px 0 14px; }
+.pack-autosell-tag { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #dfbc871f; color: #f0d096; border: 1px solid #dfbc8740; }
+.quiz-hotkey-hints { margin-top: 12px; line-height: 1.8; }
+.quiz-hotkey-hints kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); background: #ffffff0a; font-size: 11px; font-family: inherit; }
+.profile-wishlist-kind, .trade-kind-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }

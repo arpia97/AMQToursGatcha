@@ -1,4 +1,5 @@
 export const COMMUNITY_AUCTION_MS = 12 * 3600000;
+export const USER_AUCTION_SNIPE_WINDOW_MS = 5 * 60000;
 export const FLASH_SHOP_MS = 3 * 3600000;
 export function flashDiscount(rand) {
   // Every whole percentage is possible. Higher percentages have fewer outcomes.

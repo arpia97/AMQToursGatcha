@@ -1,47 +1,64 @@
 import { routeHref } from "./site-navigation.js";
 import { rarityRank, rarityClass } from "./card-display.js";
+import { collectorsButton } from "./card-collectors.js";
 
-function cardActions(card, state) {
-  const item = state.inventory?.find((i) => i.card === card);
+function cardActions(card, state, isAutoSold = false) {
+  const item = isAutoSold ? null : state.inventory?.find((i) => i.card === card);
   return [
     {
       action: "protect-toggle",
       pressed: !!item?.protected,
       label: item?.protected ? "🔒 Protected" : "♧ Protect",
-      title: item?.protected ? "Unprotect this card" : "Protect this card",
+      title: isAutoSold
+        ? "Auto-sold for credits"
+        : item?.protected
+          ? "Unprotect this card"
+          : "Protect this card",
       disabled: !item,
     },
     {
       action: "showcase-toggle",
-      pressed: (state.showcase || []).includes(card),
-      label: (state.showcase || []).includes(card)
-        ? "★ Showcased"
-        : "☆ Showcase",
-      title: (state.showcase || []).includes(card)
-        ? "Remove from showcase"
-        : "Add to showcase",
+      pressed: !isAutoSold && (state.showcase || []).includes(card),
+      label:
+        !isAutoSold && (state.showcase || []).includes(card)
+          ? "★ Showcased"
+          : "☆ Showcase",
+      title: isAutoSold
+        ? "Auto-sold for credits"
+        : (state.showcase || []).includes(card)
+          ? "Remove from showcase"
+          : "Add to showcase",
       disabled: !item,
     },
   ];
 }
 
-export function packCardActions(card, state, escape) {
-  return `<div class="pack-card-actions" data-pack-card="${escape(card)}">${cardActions(
-    card,
+export function packCardActions(card, state, escape, options = {}) {
+  const id = typeof card === "string" ? card : card.id;
+  const cardObj = typeof card === "string" ? options.card || { id } : card;
+  const isAutoSold = !!(typeof card === "object" && card.autoSold);
+  const autoSoldBadge = isAutoSold
+    ? `<span class="pack-autosell-tag">Auto-sold · +✦ ${card.autoSoldPrice}</span>`
+    : "";
+  return `<div class="pack-card-actions" data-pack-card="${escape(id)}"${isAutoSold ? ' data-auto-sold="1"' : ""}>${autoSoldBadge}${cardActions(
+    id,
     state,
+    isAutoSold,
   )
     .map(
       (a) =>
-        `<button type="button" class="text-button" data-action="${a.action}" data-id="${escape(card)}" aria-pressed="${a.pressed}" title="${a.title}" ${a.disabled ? "disabled" : ""}>${a.label}</button>`,
+        `<button type="button" class="text-button" data-action="${a.action}" data-id="${escape(id)}" aria-pressed="${a.pressed}" title="${a.title}" ${a.disabled ? "disabled" : ""}>${a.label}</button>`,
     )
-    .join("")}</div>`;
+    .join("")}${collectorsButton(cardObj, escape)}</div>`;
 }
 
 // Update every copy of a pulled card without replacing the card or its animation.
 export function syncPackCardActions(root, state) {
   for (const group of root.querySelectorAll("[data-pack-card]")) {
-    for (const action of cardActions(group.dataset.packCard, state)) {
+    const isAutoSold = group.dataset.autoSold === "1";
+    for (const action of cardActions(group.dataset.packCard, state, isAutoSold)) {
       const button = group.querySelector(`[data-action="${action.action}"]`);
+      if (!button) continue;
       button.textContent = action.label;
       button.setAttribute("aria-pressed", String(action.pressed));
       button.title = action.title;
@@ -62,6 +79,12 @@ export function createPackReveal({
   let pull = null,
     last = null,
     resultPage = 1;
+  const creditsLeftMarkup = (result) => {
+    const remaining = result?.balance ?? getState().me?.balance;
+    return typeof remaining === "number"
+      ? `<p class="pack-credits-left">Credits left: <span class="money">✦ ${number(remaining)}</span></p>`
+      : "";
+  };
   function show(result, pack) {
     pull = { result, pack };
     last = null;
@@ -71,7 +94,7 @@ export function createPackReveal({
     )[0];
     const tier = rarityClass(best?.rarity);
     modal(
-      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.special ? "SPECIAL BONUS PACK" : pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>${pack.special ? "A Special Gift For You." : "A Little Light. A New Favourite."}</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your ${result.cards.length} cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">${pack.special ? "Your 5 special cards (1 AG guaranteed!) are waiting." : `Your ${result.cards.length} cards are already safely in your collection.`}</p><button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
+      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.special ? "SPECIAL BONUS PACK" : pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>${pack.special ? "A Special Gift For You." : "A Little Light. A New Favourite."}</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your ${result.cards.length} cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">${pack.special ? "Your 5 special cards (1 AG guaranteed!) are waiting." : result.autoSoldCount > 0 ? `${number(result.cards.length - result.autoSoldCount)} cards added to your collection · ${number(result.autoSoldCount)} auto-sold (+✦ ${number(result.autoSoldCredits)}).` : `Your ${result.cards.length} cards are already safely in your collection.`}</p>${creditsLeftMarkup(result)}<button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
       true,
     );
   }
@@ -90,8 +113,14 @@ export function createPackReveal({
       getState().settings[
         (pack.premium ? "premium_" : "") + pack.kind + "_price"
       ] || (pack.premium ? 1000 : 500);
+    const autoSoldCount = result.autoSoldCount || 0;
+    const keptCount = result.cards.length - autoSoldCount;
+    const autoSoldNotice =
+      autoSoldCount > 0
+        ? `<p class="notice pack-autosell-summary">Auto-sold <strong>${number(autoSoldCount)}</strong> card${autoSoldCount === 1 ? "" : "s"} below your Settings threshold for <strong>+✦ ${number(result.autoSoldCredits || 0)}</strong>.</p>`
+        : "";
     modal(
-      `<section class="pack-results">${motionControl()}<div class="pull-label">${pack.special ? "SPECIAL BONUS PACK" : pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who Found Their Way to You?</h2><p>${result.cards.length === 5 ? "Five" : number(result.cards.length)} cards added. Duplicates are saved as extra copies.</p><div class="card-grid pull-reveal">${shown.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c, null, null, packCardActions(c.id, getState(), escape))}</div>`).join("")}</div>${pages > 1 ? `<div class="toolbar"><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="-1" ${resultPage <= 1 ? "disabled" : ""}>← Previous</button><span>Page ${resultPage} of ${pages}</span><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="1" ${resultPage >= pages ? "disabled" : ""}>Next →</button></div>` : ""}<div class="reveal-actions">${pack.special ? '<a class="button mint" href="' + routeHref("collection") + '" data-close-dialog>My Collection ↗</a><button type="button" class="button secondary" data-close-dialog>Continue</button>' : !pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}" data-count="${pack.count || 1}">Open ${pack.count > 1 ? pack.count + " more packs" : "another pack"} · ✦ ${number(price * (pack.count || 1))}</button>` : '<a class="button mint" href="' + routeHref("packs") + '" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="${routeHref("collection")}" data-close-dialog>My Collection ↗</a></div></section>`,
+      `<section class="pack-results">${motionControl()}<div class="pull-label">${pack.special ? "SPECIAL BONUS PACK" : pack.daily ? "DAILY PACK CLAIMED" : "YOUR NEWEST ADDITIONS"}</div><h2>Who Found Their Way to You?</h2><p>${autoSoldCount > 0 ? `${number(keptCount)} of ${number(result.cards.length)} cards added to your collection. Duplicates are saved as extra copies.` : `${result.cards.length === 5 ? "Five" : number(result.cards.length)} cards added. Duplicates are saved as extra copies.`}</p>${creditsLeftMarkup(result)}${autoSoldNotice}<div class="card-grid pull-reveal">${shown.map((c, i) => `<div class="pull-slot pull-${i}">${cardHTML(c, null, null, packCardActions(c, getState(), escape))}</div>`).join("")}</div>${pages > 1 ? `<div class="toolbar"><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="-1" ${resultPage <= 1 ? "disabled" : ""}>← Previous</button><span>Page ${resultPage} of ${pages}</span><button type="button" class="button secondary" data-action="pack-reveal-page" data-delta="1" ${resultPage >= pages ? "disabled" : ""}>Next →</button></div>` : ""}<div class="reveal-actions">${pack.special ? '<a class="button mint" href="' + routeHref("collection") + '" data-close-dialog>My Collection ↗</a><button type="button" class="button secondary" data-close-dialog>Continue</button>' : !pack.daily ? `<button class="button mint" data-action="pack" data-kind="${escape(pack.kind)}" data-premium="${!!pack.premium}" data-count="${pack.count || 1}">Open ${pack.count > 1 ? pack.count + " more packs" : "another pack"} · ✦ ${number(price * (pack.count || 1))}</button>` : '<a class="button mint" href="' + routeHref("packs") + '" data-close-dialog>Explore more packs ↗</a>'}<a class="button secondary" href="${routeHref("collection")}" data-close-dialog>My Collection ↗</a></div></section>`,
       true,
     );
   }

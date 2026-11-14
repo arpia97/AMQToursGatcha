@@ -56,7 +56,7 @@ export function createShopUI(h, ui) {
         level: l.level || 1,
         showLevel: l.level > 1,
         meta: price,
-        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price flash-card-price">${price}</div>${control}`,
+        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price flash-card-price">${price}</div>${control}${collectorsButton(c, e)}`,
       },
       h,
     );

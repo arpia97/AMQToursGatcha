@@ -239,7 +239,7 @@ test("pickems allow edits before lock and pay winner plus each exact team score 
   );
   f.e.tx(() => f.e.host("settle", { pickem: 1, scoreA: 3, scoreB: 2 }));
   assert.equal(f.e.player("1").earned, 500);
-  assert.equal(f.e.player("2").earned, 100);
+  assert.equal(f.e.player("2").earned, 200);
   assert.throws(
     () => f.e.tx(() => f.e.host("settle", { pickem: 1, scoreA: 3, scoreB: 2 })),
     /already settled/,

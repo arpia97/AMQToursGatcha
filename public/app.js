@@ -1,3 +1,4 @@
+import { recentActivityRows } from "./account-activity.js";
 import { pickemShare } from "./pickem-votes.js";
 import { readApiResponse } from "./api-response.js";
 import { installCardOrderDrag } from "./card-order-drag.js";
@@ -16,9 +17,16 @@ import { cardFrameClass, cardAura } from "./card-frames.js";
 import {
   MAX_CARD_LEVEL,
   ENHANCEMENT_REVISION,
+  AUTOSELL_TIERS,
   enhancementCost,
   levelLabel,
 } from "./card-values.js";
+import {
+  QUIZ_HOTKEY_ACTIONS,
+  DEFAULT_QUIZ_HOTKEYS,
+  formatHotkeyEvent,
+  normalizeQuizHotkeys,
+} from "./quiz-hotkeys.js";
 import {
   wishlistButton,
   profileCardTabs,
@@ -242,7 +250,12 @@ const ui = {
   shopSection: "buy",
   tradeView: "browse",
   tradeQuery: "",
+  tradeKind: "both",
+  tradeRarity: "",
+  tradeRole: "",
+  tradeSort: "newest",
   tradeWishlistOnly: false,
+  profileWishlistKind: "both",
   tradeHideCompleted: (() => {
     try {
       return localStorage.getItem("amqtours-trade-hide-completed") === "1";
@@ -340,6 +353,7 @@ function modal(html, wide = false, className = "") {
     .join(" ");
   $("#modal-body").innerHTML = html;
   $("#modal").showModal();
+  ensureCollectorCounts();
 }
 let animeChecklistData = null;
 async function openAnimeChecklist(seriesKey, pageNumber = 1) {
@@ -639,7 +653,7 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
       ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on marketplace, auction, trade, or sell to store">List Card ↗</button></div>`
       : "";
   const actions =
-    (page() === "catalog" ? collectorsButton(c, escape) : "") +
+    (page() === "catalog" || a ? collectorsButton(c, escape) : "") +
     auction +
     owned +
     (state.me && !item?.preview && !owned
@@ -1010,6 +1024,22 @@ document.addEventListener("change", (event) => {
   }
   if (event.target.id === "trade-picker-kind") {
     tradesUI.filter("kind", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-picker-rarity") {
+    tradesUI.filter("rarity", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-picker-role") {
+    tradesUI.filter("role", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-picker-sort") {
+    tradesUI.filter("sort", event.target.value);
+    $("#modal-body").innerHTML = tradesUI.renderPicker();
+  }
+  if (event.target.id === "trade-picker-upgradable") {
+    tradesUI.filter("upgradable", event.target.checked);
     $("#modal-body").innerHTML = tradesUI.renderPicker();
   }
   if (event.target.id === "trade-picker-show-protected") {
@@ -1493,7 +1523,7 @@ function players() {
       "Meet the Collectors.",
       "Find a player by their AMQ Tours ID, alias, or any of their usernames.",
     ) +
-    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p><span class="money">✦ ${number(p.earned)} earned</span></div><span class="muted">↗</span></a>`).join("") || empty("No Player Found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
+    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p>${p.private_balance || p.earned == null ? '<span class="muted">Private balance</span>' : `<span class="money">✦ ${number(p.earned)} earned</span>`}</div><span class="muted">↗</span></a>`).join("") || empty("No Player Found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
   );
 }
 function profileTabs(active) {
@@ -1528,7 +1558,7 @@ function profile() {
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
   const heading =
-    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Edit profile", "edit-profile", "", "secondary") : ""}</div>` +
+    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Settings", "edit-profile", "", "secondary") : ""}</div>` +
     profileCardTabs(ui.profileView);
   if (ui.profileView !== "overview")
     return (
@@ -1551,29 +1581,31 @@ function profile() {
     );
   return (
     heading +
-    `${features.profileExtras(p, own, own && showcaseEditor.activeFor(p.id) ? showcaseEditor.render() : null)}<div class="stat-grid profile-stats"><div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div><div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div><div class="stat"><span>COLLECTION</span><strong>${number(p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div></div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
-      p.inventory.length
-        ? `<div class="card-grid">${p.inventory
-            .slice(0, 20)
-            .map((item) => {
-              const c = cardBy(item.card);
-              return cardHTML(c, null, {
-                level: item.level,
-                preview: true,
-                ownerFlags: {
-                  protectedCard: !!item.protected,
-                  wishlisted: (p.wishlist || []).includes(item.card),
-                  forTrade: !!item.for_trade,
-                },
-              });
-            })
-            .join(
-              "",
-            )}</div><div class="section-head space-top"><p class="form-hint">Showing up to 20 owned cards.</p><button type="button" class="button secondary" data-action="profile-cards-view" data-view="collection">View Full Collection →</button></div>`
-        : empty(
-            "A Fresh Deck, Ready for Favourites.",
-            "This collector has not collected a card yet.",
-          )
+    `${features.profileExtras(p, own, own && showcaseEditor.activeFor(p.id) ? showcaseEditor.render() : null)}<div class="stat-grid profile-stats">${p.balanceHidden ? '<div class="stat"><span>AVAILABLE CREDITS</span><strong>Private</strong><small>Hidden by collector</small></div>' : `<div class="stat"><span>AVAILABLE CREDITS</span><strong>✦ ${number(p.balance)}</strong><small>${number(p.earned)} earned over time</small></div>`}<div class="stat"><span>TOURS PLAYED</span><strong>${number(p.stats.participation)}</strong><small>tour participation</small></div><div class="stat"><span>TOURS COUNTED</span><strong>${number(p.stats.counting)}</strong><small>counting contributions</small></div><div class="stat"><span>TOURS REPORTED</span><strong>${number(p.stats.reporting)}</strong><small>reporting contributions</small></div><div class="stat"><span>PICK’EM WINNER ACCURACY</span><strong>${rate}</strong><small>${pk.correct} ${pk.correct === 1 ? "win" : "wins"} / ${pk.total - pk.correct} ${pk.total - pk.correct === 1 ? "loss" : "losses"}</small></div>${p.collectionHidden ? '<div class="stat"><span>COLLECTION</span><strong>Private</strong><small>Hidden by collector</small></div>' : `<div class="stat"><span>COLLECTION</span><strong>${number(p.collectionCount ?? p.inventory.length)}</strong><small>unique characters &amp; seiyuus</small></div>`}</div><div class="notice space-top"><strong>Find this player by</strong><br>AMQ aliases: ${p.aliases.map(escape).join(" · ") || "—"}<br>Username history: ${p.usernames.map(escape).join(" · ") || escape(p.name)}</div><div class="section-head"><h2>Recent Collection</h2><span class="subtext">${p.avatar_card ? "Card avatars always show their current enhancement." : "No card profile picture selected yet."}</span></div>${
+      p.collectionHidden
+        ? '<p class="notice">This collector’s collection is private.</p>'
+        : p.inventory.length
+          ? `<div class="card-grid">${p.inventory
+              .slice(0, 20)
+              .map((item) => {
+                const c = cardBy(item.card);
+                return cardHTML(c, null, {
+                  level: item.level,
+                  preview: true,
+                  ownerFlags: {
+                    protectedCard: !!item.protected,
+                    wishlisted: (p.wishlist || []).includes(item.card),
+                    forTrade: !!item.for_trade,
+                  },
+                });
+              })
+              .join(
+                "",
+              )}</div><div class="section-head space-top"><p class="form-hint">Showing up to 20 owned cards.</p><button type="button" class="button secondary" data-action="profile-cards-view" data-view="collection">View Full Collection →</button></div>`
+          : empty(
+              "A Fresh Deck, Ready for Favourites.",
+              "This collector has not collected a card yet.",
+            )
     }`
   );
 }
@@ -1657,18 +1689,21 @@ async function loadDynamic() {
     (state.me || ui.tradeView === "browse")
   )
     data = await api(
-      "trades?view=" +
-        ui.tradeView +
-        "&page=" +
-        ui.tradePage +
-        "&q=" +
-        encodeURIComponent(ui.tradeQuery) +
-        "&wishlist=" +
-        (ui.tradeWishlistOnly ? "1" : "0") +
-        ((ui.tradeView === "listings" || ui.tradeView === "offers") &&
-        ui.tradeHideCompleted
-          ? "&hide_completed=1"
-          : ""),
+      "trades?" +
+        new URLSearchParams({
+          view: ui.tradeView,
+          page: String(ui.tradePage),
+          q: ui.tradeQuery || "",
+          kind: ui.tradeKind || "both",
+          rarity: ui.tradeRarity || "",
+          role: ui.tradeKind === "character" ? ui.tradeRole || "" : "",
+          sort: ui.tradeSort || "newest",
+          wishlist: ui.tradeWishlistOnly ? "1" : "0",
+          ...((ui.tradeView === "listings" || ui.tradeView === "offers") &&
+          ui.tradeHideCompleted
+            ? { hide_completed: "1" }
+            : {}),
+        }),
     );
   if (current === "players")
     data = await api(
@@ -1714,7 +1749,9 @@ async function loadDynamic() {
             encodeURIComponent(ui.profileCollection.sort) +
             (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
             (ui.profileCollection.tradeable ? "&tradeable=1" : "")
-          : ""),
+          : ui.profileView === "wishlist"
+            ? "&kind=" + encodeURIComponent(ui.profileWishlistKind || "both")
+            : ""),
     );
   if (version !== loadVersion || currentRoute() !== route) return;
   if (profileCardsResult) {
@@ -2087,23 +2124,24 @@ async function execute(path, b, after, form = null) {
 function auth(register = false, recovery = false) {
   modal(authFormHTML(recovery ? "recover" : register ? "register" : "login"));
 }
+let settingsHotkeyDraft = { ...DEFAULT_QUIZ_HOTKEYS };
 function account() {
   if (!state.me) {
     auth();
     return;
   }
+  const activities = recentActivityRows(state);
   modal(
     `<section class="account-popup"><header class="account-summary"><h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div></header><div class="section-head"><h3 id="account-activity-heading">Recent Activity</h3></div><div class="account-activity" role="region" aria-labelledby="account-activity-heading" tabindex="0">${
-      state.ledger.length
-        ? `<div class="table-wrap"><table><tbody>${state.ledger
-            .slice(0, 12)
+      activities.length
+        ? `<div class="table-wrap"><table><tbody>${activities
             .map(
               (l) =>
-                `<tr><td>${escape(l.reason)}<br><small>${new Date(l.at).toLocaleDateString()}</small></td><td class="${l.delta > 0 ? "ledger-positive" : "ledger-negative"}">${l.delta > 0 ? "+" : ""}${number(l.delta)}</td></tr>`,
+                `<tr><td>${escape(l.text)}<br><small>${new Date(l.at).toLocaleDateString()}</small></td><td class="${l.delta > 0 ? "ledger-positive" : l.delta < 0 ? "ledger-negative" : "muted"}">${l.delta > 0 ? "+" : ""}${number(l.delta)}</td></tr>`,
             )
             .join("")}</tbody></table></div>`
-        : "<p>No wallet activity yet.</p>"
-    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Edit profile", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
+        : "<p>No wallet or trade activity yet.</p>"
+    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Settings", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
     false,
     "account-modal",
   );
@@ -2197,16 +2235,35 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (a === "edit-profile") {
+    settingsHotkeyDraft = normalizeQuizHotkeys(state.me.quiz_hotkeys);
+    const currentAutosell = state.me.autosell_below || "";
     modal(
-      `<h2>Make Yourself at Home.</h2><p>Change your username freely. Past usernames remain linked to your profile. AMQ aliases and other players’ names are reserved.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><div class="form-error" role="alert"></div><button type="submit" class="button full">Save profile →</button></form>`,
+      `<h2>Settings</h2><p class="subtext">Manage your profile, pack auto-sell, privacy, and quiz keyboard shortcuts.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
       false,
-      "avatar-editor-modal",
+      "avatar-editor-modal settings-modal",
     );
     avatarEditor.mount(
       $("#profile-form"),
       state.me.avatar_card,
       state.me.avatar_crop,
     );
+    return;
+  }
+  if (a === "clear-hotkey") {
+    const id = t.dataset.hotkeyAction;
+    if (id && Object.hasOwn(settingsHotkeyDraft, id)) {
+      settingsHotkeyDraft[id] = "";
+      const input = document.querySelector(`.hotkey-capture[data-hotkey-action="${id}"]`);
+      if (input) input.value = "";
+    }
+    return;
+  }
+  if (a === "reset-hotkeys") {
+    settingsHotkeyDraft = { ...DEFAULT_QUIZ_HOTKEYS };
+    for (const item of QUIZ_HOTKEY_ACTIONS) {
+      const input = document.querySelector(`.hotkey-capture[data-hotkey-action="${item.id}"]`);
+      if (input) input.value = settingsHotkeyDraft[item.id] || "";
+    }
     return;
   }
   if (a === "set-avatar") {
@@ -2450,6 +2507,12 @@ document.addEventListener("submit", async (ev) => {
   if (["profile-form", "avatar-form"].includes(formIdentifier(f))) {
     b.avatar = b.avatar || null;
     if (b.avatar) b.crop = avatarEditor.read(f);
+    if (formIdentifier(f) === "profile-form") {
+      b.autosellBelow = f.elements.autosellBelow?.value || null;
+      b.privateBalance = Boolean(f.elements.privateBalance?.checked);
+      b.privateCollection = Boolean(f.elements.privateCollection?.checked);
+      b.quizHotkeys = normalizeQuizHotkeys(settingsHotkeyDraft);
+    }
     await execute("profile", b);
   }
   if (formIdentifier(f) === "bid-form")
@@ -2483,16 +2546,31 @@ document.addEventListener("submit", async (ev) => {
 document.addEventListener("input", (ev) => {
   savePredictionDraft(ev.target);
   if (ev.target.form?.id === "pack-form" && ev.target.name === "count") {
-    const count = Number(ev.target.value),
-      form = ev.target.form;
-    form.querySelector("[data-pack-total]").textContent =
-      "✦ Open " +
-      count +
-      " Pack" +
-      (count === 1 ? "" : "s") +
-      " · " +
-      number(Number(form.dataset.packPrice) * count) +
-      " credits";
+    const form = ev.target.form,
+      price = Math.max(1, Number(form.dataset.packPrice) || 500),
+      maxAffordable = Math.min(100, Math.floor((state.me?.balance || 0) / price));
+    if (ev.target.value !== "") {
+      let parsed = parseInt(ev.target.value, 10);
+      if (Number.isFinite(parsed) && parsed > maxAffordable) {
+        parsed = maxAffordable;
+        ev.target.value = String(parsed);
+      }
+    }
+    const count = Math.max(0, Number(ev.target.value) || 0);
+    const submitBtn = form.querySelector("[data-pack-total]");
+    if (submitBtn) {
+      submitBtn.disabled = count < 1;
+      submitBtn.textContent =
+        count < 1
+          ? "Insufficient credits"
+          : "✦ Open " +
+            count +
+            " Pack" +
+            (count === 1 ? "" : "s") +
+            " · " +
+            number(price * count) +
+            " credits";
+    }
   }
   if (ev.target.id === "market-search") {
     ev.target.classList.remove("no-results");
@@ -2897,6 +2975,17 @@ async function handleFeatureClick(a, t) {
         await loadDynamic();
         render();
         $("#trade-search")?.focus({ preventScroll: true });
+        return true;
+      }
+      if (a === "trade-kind") {
+        const nextKind = t.dataset.kind;
+        if (!["both", "character", "seiyuu"].includes(nextKind)) return true;
+        ui.tradeKind = nextKind;
+        if (nextKind !== "character") ui.tradeRole = "";
+        ui.tradePage = 1;
+        ui.tradeData = null;
+        await loadDynamic();
+        render();
         return true;
       }
       if (
@@ -3370,6 +3459,18 @@ async function handleFeatureClick(a, t) {
       );
       return true;
     }
+    if (a === "profile-wishlist-kind") {
+      const nextKind = t.dataset.kind;
+      if (!["both", "character", "seiyuu"].includes(nextKind)) return true;
+      wishlistDrag.cancel();
+      wishlistEditor.close();
+      ui.profileWishlistKind = nextKind;
+      ui.profileCardsPage = 1;
+      ui.profileCardsData = null;
+      await loadDynamic();
+      render();
+      return true;
+    }
     if (a === "profile-cards-view" || a === "profile-cards-page") {
       wishlistDrag.cancel();
       wishlistEditor.close();
@@ -3638,9 +3739,14 @@ async function handleFeatureClick(a, t) {
         premium = t.dataset.premium === "true",
         price =
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
-          (premium ? 1000 : 500);
+          (premium ? 1000 : 500),
+        maxAffordable = Math.min(100, Math.floor((state.me?.balance || 0) / price)),
+        initialCount =
+          maxAffordable > 0
+            ? Math.min(maxAffordable, Math.max(1, Number(t.dataset.count) || 1))
+            : 0;
       modal(
-        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: 1, max: 100, value: Math.min(100, Math.max(1, Number(t.dataset.count) || 1)) })}<p class="form-hint">5 cards per pack · up to 100 packs at once.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total>✦ Open for ${number(price * (Number(t.dataset.count) || 1))} credits</button></form>`,
+        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}<p class="form-hint">5 cards per pack · up to ${number(maxAffordable)} pack${maxAffordable === 1 ? "" : "s"} affordable right now (max 100 · balance ✦ ${number(state.me?.balance || 0)}).</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
       );
       return true;
     }
@@ -4351,6 +4457,15 @@ document.addEventListener("input", (ev) => {
     quizUI.input(ev.target).catch((err) => toast(err.message, true));
 });
 document.addEventListener("change", (ev) => {
+  if (["trade-rarity", "trade-role", "trade-sort"].includes(ev.target.id)) {
+    if (ev.target.id === "trade-rarity") ui.tradeRarity = ev.target.value;
+    else if (ev.target.id === "trade-role") ui.tradeRole = ev.target.value;
+    else ui.tradeSort = ev.target.value;
+    ui.tradePage = 1;
+    loadDynamic()
+      .then(render)
+      .catch((err) => toast(err.message, true));
+  }
   if (ev.target.id === "trade-wishlist-only") {
     ui.tradeWishlistOnly = ev.target.checked;
     ui.tradePage = 1;
@@ -4394,7 +4509,28 @@ document.addEventListener("pointerdown", (ev) => {
   else if (!ev.target.closest(".quiz-answer-field")) quizUI.closeSuggestions();
 });
 document.addEventListener("keydown", (ev) => {
-  if (page() === "quiz") quizUI.key(ev);
+  if (ev.target?.classList?.contains("hotkey-capture")) {
+    if (ev.key === "Tab") return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const actionId = ev.target.dataset.hotkeyAction;
+    if (!actionId || !Object.hasOwn(settingsHotkeyDraft, actionId)) return;
+    if (ev.key === "Backspace" || ev.key === "Delete") {
+      settingsHotkeyDraft[actionId] = "";
+      ev.target.value = "";
+      return;
+    }
+    if (ev.key === "Escape") {
+      ev.target.blur();
+      return;
+    }
+    const combo = formatHotkeyEvent(ev);
+    if (!combo) return;
+    settingsHotkeyDraft[actionId] = combo;
+    ev.target.value = combo;
+    return;
+  }
+  if (page() === "quiz" && !$("#modal")?.open) quizUI.key(ev);
 });
 document.addEventListener("submit", (ev) => {
   if (ev.target.id !== "quiz-answer-form") return;

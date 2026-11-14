@@ -8,6 +8,12 @@ import { quizDuration, quizElapsed } from "./quiz-time.js";
 import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
+import {
+  DEFAULT_QUIZ_HOTKEYS,
+  QUIZ_HOTKEY_ACTIONS,
+  normalizeQuizHotkeys,
+  hotkeyActionForEvent,
+} from "./quiz-hotkeys.js";
 
 // Case-, accent- and punctuation-insensitive key for quiz name search.
 function searchKey(value) {
@@ -29,7 +35,28 @@ export function createQuizUI({
   audioFactory,
   clock,
   audioCache,
+  getHotkeys,
 }) {
+  const hotkeys = () =>
+    normalizeQuizHotkeys(
+      getHotkeys
+        ? getHotkeys()
+        : getState()?.me?.quiz_hotkeys || DEFAULT_QUIZ_HOTKEYS,
+    );
+  const hotkeyTitle = (id, base) => {
+    const key = hotkeys()[id];
+    return key ? `${base} (Hotkey: ${key})` : base;
+  };
+  const hotkeyHintBar = () => {
+    const map = hotkeys();
+    const items = ['<span><kbd>Enter</kbd> Next / Finish Song</span>', ...QUIZ_HOTKEY_ACTIONS.filter((a) => map[a.id]).map(
+      (a) =>
+        `<span><kbd>${e(map[a.id])}</kbd> ${e(a.label)}</span>`,
+    )];
+    return items.length
+      ? `<p class="quiz-hotkey-hints form-hint">${items.join(" · ")} · Customize in Settings</p>`
+      : "";
+  };
   const time = clock || {
     now: () => Date.now(),
     every: (fn, ms) => setInterval(fn, ms),
@@ -705,7 +732,11 @@ export function createQuizUI({
         ? elapsedControl() + serverControl() + volumeControl()
         : "") +
       (!leaderboardOnly && run && !run.finished
-        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart">Restart Quiz ↻</button><button type="button" class="button secondary" data-quiz-action="quiz-stop" title="End This Attempt and Return to All Quizzes">Stop Quiz</button>'
+        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart" title="' +
+          e(hotkeyTitle("restart", "Restart this quiz from Song 1")) +
+          '">Restart Quiz ↻</button><button type="button" class="button secondary" data-quiz-action="quiz-stop" title="' +
+          e(hotkeyTitle("stop", "End This Attempt and Return to All Quizzes")) +
+          '">Stop Quiz</button>'
         : "") +
       '<button class="button secondary" data-quiz-back>All Quizzes ←</button></div></div>';
     if (preparing && run && !run.finished) top += downloadHTML();
@@ -777,7 +808,9 @@ export function createQuizUI({
     const answerForm =
       '<form id="quiz-answer-form" class="stack"><div class="quiz-answer-field"><label for="quiz-answer">Anime Title</label><input id="quiz-answer" class="search" name="answer" value="' +
       e(draft) +
-      '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip>Skip Song</button></form>';
+      '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip title="' +
+      e(hotkeyTitle("skip", "Skip the current song")) +
+      '">Skip Song</button></form>';
     const result =
       '<div class="notice quiz-answer-result" role="status"><strong>' +
       (run.correct ? "Correct!" : run.timedOut ? "Time’s Up" : "Incorrect") +
@@ -790,7 +823,8 @@ export function createQuizUI({
       " · " +
       e(run.artist || "") +
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
-      (run.index === 19 ? "Finish Quiz (Enter)" : "Next Song (Enter)") +
+      (run.index === 19 ? "Finish Quiz" : "Next Song") +
+      " (Enter)" +
       "</button>";
     return (
       '<section class="quiz-question' +
@@ -817,6 +851,7 @@ export function createQuizUI({
         : "") +
       "</div>" +
       (run.answered ? result : answerForm) +
+      hotkeyHintBar() +
       '<p id="quiz-inline-error" class="form-error" role="alert">' +
       e(errorMessage) +
       "</p></section>"
@@ -1046,9 +1081,8 @@ export function createQuizUI({
           ? run?.index === 19
             ? "Finishing Quiz…"
             : "Loading Next Song…"
-          : run?.index === 19
-            ? "Finish Quiz (Enter)"
-            : "Next Song (Enter)",
+          : (run?.index === 19 ? "Finish Quiz" : "Next Song") +
+              " (Enter)",
       );
     }
     const clock = document.getElementById("quiz-elapsed");
@@ -1252,6 +1286,39 @@ export function createQuizUI({
     if (prefetched && !current.seeking && current.readyState >= 3) ready();
     else tick();
   }
+  async function openSongListModal(id) {
+    if (!id || working) return true;
+    songListIsRecap = false;
+    const q = quizzes.find((x) => x.id === id);
+    const cacheKey = q ? q.id + ":" + q.updated : null;
+    songListQuiz = id;
+    songListError = "";
+    if (cacheKey && songLists.has(cacheKey)) {
+      songListData = songLists.get(cacheKey);
+      songListLoading = false;
+      onRender();
+      return true;
+    }
+    songListData = null;
+    songListLoading = true;
+    onRender();
+    try {
+      const data = await call("quiz-songs?quiz=" + encodeURIComponent(id));
+      if (songListQuiz !== id) return true;
+      songLists.set(data.id + ":" + data.updated, data);
+      songListData = data;
+    } catch (err) {
+      if (songListQuiz === id)
+        songListError = err.message || String(err);
+      throw err;
+    } finally {
+      if (songListQuiz === id) {
+        songListLoading = false;
+        onRender();
+      }
+    }
+    return true;
+  }
   return {
     load,
     render,
@@ -1344,39 +1411,7 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-songs")) {
-        if (working) return true;
-        songListIsRecap = false;
-        const id = button.dataset.quizSongs;
-        if (!id) return true;
-        const q = quizzes.find((x) => x.id === id);
-        const cacheKey = q ? q.id + ":" + q.updated : null;
-        songListQuiz = id;
-        songListError = "";
-        if (cacheKey && songLists.has(cacheKey)) {
-          songListData = songLists.get(cacheKey);
-          songListLoading = false;
-          onRender();
-          return true;
-        }
-        songListData = null;
-        songListLoading = true;
-        onRender();
-        try {
-          const data = await call("quiz-songs?quiz=" + encodeURIComponent(id));
-          if (songListQuiz !== id) return true;
-          songLists.set(data.id + ":" + data.updated, data);
-          songListData = data;
-        } catch (err) {
-          if (songListQuiz === id)
-            songListError = err.message || String(err);
-          throw err;
-        } finally {
-          if (songListQuiz === id) {
-            songListLoading = false;
-            onRender();
-          }
-        }
-        return true;
+        return openSongListModal(button.dataset.quizSongs);
       }
       if (button.hasAttribute("data-quiz-leaderboard")) {
         if (working) return true;
@@ -1466,23 +1501,117 @@ export function createQuizUI({
       }
       if (locallyStopped) return;
       if (event.key === "Enter" && (event.repeat || event.isComposing)) {
-        event.preventDefault();
+        event.preventDefault?.();
         return;
       }
-      if (
-        run?.answered &&
-        !run.finished &&
-        event.key === "Enter" &&
-        !working &&
-        !event.target.closest?.(
+      const isEditable = Boolean(
+        event.target?.closest?.(
+          "input,select,textarea,[contenteditable=true]",
+        ) || event.target?.id === "quiz-answer",
+      );
+      const isInteractiveControl = Boolean(
+        event.target?.closest?.(
           "button,a,input,select,textarea,[contenteditable=true]",
-        )
+        ),
+      );
+      const hotkeyAction = !event.repeat
+        ? hotkeyActionForEvent(event, hotkeys(), { isEditable })
+        : null;
+      if (
+        event.key === "Enter" && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey &&
+        run?.answered && !run.finished && !working && !isInteractiveControl
       ) {
-        event.preventDefault();
+        event.preventDefault?.();
         mutate("quiz-next").catch(showError);
         return;
       }
-      if (event.target.id !== "quiz-answer") return;
+      if (hotkeyAction) {
+        if (
+          hotkeyAction === "skip" &&
+          selected &&
+          run &&
+          !run.finished &&
+          !run.answered &&
+          !working &&
+          !leaderboardOnly
+        ) {
+          event.preventDefault?.();
+          mutate("quiz-answer", "", true).catch(showError);
+          return;
+        }
+        if (
+          hotkeyAction === "restart" &&
+          selected &&
+          run &&
+          !run.finished &&
+          !working &&
+          !leaderboardOnly
+        ) {
+          event.preventDefault?.();
+          start("quiz-restart").catch(showError);
+          return;
+        }
+        if (
+          hotkeyAction === "stop" &&
+          selected &&
+          run &&
+          !run.finished &&
+          !working &&
+          !leaderboardOnly
+        ) {
+          event.preventDefault?.();
+          mutate("quiz-stop").catch(showError);
+          return;
+        }
+        if (
+          hotkeyAction === "play" &&
+          selected &&
+          run &&
+          !run.finished &&
+          !run.answered &&
+          !leaderboardOnly
+        ) {
+          event.preventDefault?.();
+          if (audioState === "error" && audio) {
+            audioKey = "";
+            mount({ direct: true });
+          } else {
+            playAttempted = false;
+            attemptPlay();
+          }
+          return;
+        }
+        if (
+          hotkeyAction === "focus" &&
+          selected &&
+          run &&
+          !run.finished &&
+          !run.answered &&
+          !leaderboardOnly
+        ) {
+          const input = document.getElementById("quiz-answer");
+          if (input && !input.disabled) {
+            event.preventDefault?.();
+            input.focus();
+          }
+          return;
+        }
+        if (
+          hotkeyAction === "songs" &&
+          selected &&
+          (!run || run.finished || leaderboardOnly)
+        ) {
+          event.preventDefault?.();
+          if (songListQuiz === selected) {
+            closeSongList();
+            onRender();
+          } else {
+            openSongListModal(selected).catch(showError);
+          }
+          return;
+        }
+      }
+      if (event.target?.id !== "quiz-answer") return;
       if (
         !run ||
         run.finished ||

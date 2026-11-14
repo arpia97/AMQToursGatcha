@@ -4,6 +4,7 @@ export const FREE_SPOTLIGHTS = 30;
 export const MAX_SPOTLIGHTS = 100;
 export const MAX_WISHLIST = 1000;
 export const PICKEM_WINNER_REWARD = 1000;
+export const PICKEM_PARTICIPATION_REWARD = 100;
 // Tour winner entries contain four-player teams; round up partial eight-player groups.
 export const tourWinnerRewardDefault = (teamCount = 4) =>
   Math.ceil(teamCount / 2) * 500;

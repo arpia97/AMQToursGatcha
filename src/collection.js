@@ -232,7 +232,13 @@ export class AnimeCollection {
       pinned: this.pinned(player),
     };
   }
-  progress(player, key) {
+  progress(player, key, { hideOwnership = false } = {}) {
+    if (hideOwnership)
+      return this.e.one(
+        `WITH associated AS (${animeLinks("s.series_key=?")}) SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,NULL AS owned,1 AS ownershipHidden FROM associated GROUP BY series_key`,
+        key,
+        key,
+      );
     return this.e.one(
       `WITH associated AS (${animeLinks("s.series_key=?")}), owned AS (${ownedCards}) SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,sum(card IN (SELECT card FROM owned)) AS owned FROM associated GROUP BY series_key`,
       key,
@@ -240,17 +246,19 @@ export class AnimeCollection {
       ...Array(5).fill(player),
     );
   }
-  pinned(player) {
+  pinned(player, { hideOwnership = false } = {}) {
     const rows = this.e.all(
       "SELECT series_key,position FROM profile_anime WHERE player=? ORDER BY position IS NULL,position,at,series_key",
       player,
     );
     const hasCustomOrder = rows.some((r) => r.position != null);
     const list = rows
-      .map(({ series_key }) => this.progress(player, series_key))
+      .map(({ series_key }) => this.progress(player, series_key, { hideOwnership }))
       .filter(Boolean);
     if (!hasCustomOrder) {
-      return list.sort(animeProgressComparator);
+      return list.sort(hideOwnership
+        ? (a, b) => a.series_romaji.localeCompare(b.series_romaji)
+        : animeProgressComparator);
     }
     const posMap = new Map(
       rows.map((r, idx) => [r.series_key, r.position ?? 1000 + idx]),

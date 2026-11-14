@@ -2,6 +2,16 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Integrate Gemini Settings Patch and Review Fixes
+
+November 15. User authorized Codex to fix the five reviewed issues and deploy Gemini's existing patch. Preserve all other Gemini changes. Codex owns integration, collection privacy, unrated auto-sell protection, informational trade activity, indexed recent history, removal of customizable Next (fixed Enter retained), behavioral checks and deployment. Original uncommitted patch and both new modules were saved outside Git before edits. No historical account/data corrections may be replayed.
+
+All five fixes implemented; fixed Enter remains and custom Next is omitted. Both privacy leaks are covered, unrated cards retained, completion activity has zero synthetic credit delta, and seller/proposer recent-history branches use participant indexes and batched bundles/card names. Six other customizable shortcuts and the rest of Gemini's features are preserved. Mobile Settings width/wrapping corrected during visual QA. Validation: 486/486 tests, 233 JS syntax checks, Wrangler dry run, migration/restart + autosell idempotency/late-failure rollback probe, indexed EXPLAIN plans with no temporary sort, and 1280/390px browser QA passed using local disposable state. Integration/deploy/live verification are next; no production test mutations.
+
+## Pre-Deploy Review — Gemini Settings and UX Patch
+
+November 15. Codex reviewed the uncommitted patch against `65b3599`, including both new untracked modules. Application source untouched; nothing deployed. Five findings need follow-up: private-collection ownership leaks via wishlist/pinned progress; unrated auto-sell; duplicate completed-trade debit display; global completed-history scan on state refresh; custom Next hotkey focus suppression. Detailed reviewer handoff and disposable repro harnesses are outside Git. Existing 486 tests and 232 syntax checks passed, as did additional legacy-migration/restart and auto-sell retry/rollback probes. The user requested review, not implementation; Gemini/Antigravity retains implementation ownership.
+
 ## Owner-Authorized Access Follow-up
 
 November 14. The owner subsequently authorized unlocking the corrected beneficiary account. Existing owner-only account-lock API applied the unlock with an idempotent receipt. Live flag, registered access and retained card/XP/title corrections were verified. No credentials, recovered assets, balances or previous corrections were restored; no runtime changes or deployment. Private before/intent/result/after evidence stays outside Git.

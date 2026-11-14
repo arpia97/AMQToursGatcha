@@ -40,3 +40,37 @@ export function clockCountdownText(end, now) {
   const hours = Math.floor(seconds / 3600);
   return (hours ? hours + ":" : "") + pad(Math.floor(seconds / 60) % 60) + ":" + pad(seconds % 60);
 }
+
+const escapeAttr = (s) =>
+  String(s ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+  );
+
+export function countdownMarkup(
+  end,
+  { prefix = "", days = true, ended = "Ended", compact = false, now = Date.now() } = {},
+) {
+  const numEnd = Number(end);
+  return (
+    '<span class="countdown" data-countdown-end="' +
+    numEnd +
+    '" data-countdown-prefix="' +
+    escapeAttr(prefix) +
+    '" data-countdown-days="' +
+    Boolean(days) +
+    '" data-countdown-ended="' +
+    escapeAttr(ended) +
+    '" data-countdown-compact="' +
+    Boolean(compact) +
+    '">' +
+    (numEnd <= now
+      ? escapeAttr(ended)
+      : escapeAttr(prefix) +
+        (compact
+          ? compactCountdownText(numEnd, now)
+          : countdownText(numEnd, now, days))) +
+    "</span>"
+  );
+}

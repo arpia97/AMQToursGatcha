@@ -132,6 +132,10 @@ export function profileCardPanel(
   { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters },
 ) {
   if (!data) return '<p class="notice">Loading Cards…</p>';
+  if (data.hidden && data.view === "collection") {
+    return '<section class="profile-card-panel"><div class="section-head"><h2>Collection</h2></div><p class="notice">This collector’s collection is private.</p></section>';
+  }
+  const wishKind = data.kind || "both";
   const tiles = data.rows
     .map((row) => {
       const c = cardBy(row.card);
@@ -152,7 +156,8 @@ export function profileCardPanel(
           venue +
           '">View ' +
           label +
-          " →</button>"
+          " →</button>" +
+          collectorsButton(c, e)
         : collectorsButton(c, e) + wishlistButton(c, wishlist, e);
       return cardHTML(
         c,
@@ -171,6 +176,29 @@ export function profileCardPanel(
     })
     .join("");
   const totalOwned = data.total ?? data.rows.length;
+  const wishlistKindTabs =
+    data.view === "wishlist"
+      ? '<div class="tabs profile-wishlist-kind" role="group" aria-label="Wishlist card type">' +
+        [
+          ["both", "All Cards"],
+          ["character", "Characters"],
+          ["seiyuu", "Seiyuus"],
+        ]
+          .map(
+            ([value, text]) =>
+              '<button type="button" class="button ' +
+              (wishKind === value ? "mint" : "secondary") +
+              '" data-action="profile-wishlist-kind" data-kind="' +
+              value +
+              '" aria-pressed="' +
+              (wishKind === value) +
+              '">' +
+              text +
+              "</button>",
+          )
+          .join("") +
+        "</div>"
+      : "";
   return (
     '<section class="profile-card-panel"><div class="section-head"><h2>' +
     (data.view === "collection"
@@ -179,9 +207,10 @@ export function profileCardPanel(
         ? "Wishlist"
         : "Active Listings") +
     "</h2>" +
+    wishlistKindTabs +
     (own && data.view === "collection" && totalOwned > 1
       ? '<button type="button" class="text-button" data-action="collection-arrange" aria-pressed="false">Arrange Collection</button>'
-      : own && data.view === "wishlist" && wishlist.length > 1
+      : own && data.view === "wishlist" && wishKind === "both" && wishlist.length > 1
         ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
         : "") +
     "</div>" +
@@ -195,7 +224,11 @@ export function profileCardPanel(
       ? '<div class="card-grid">' + tiles + "</div>"
       : '<p class="notice">' +
         (data.view === "wishlist"
-          ? "No wishlisted cards yet."
+          ? wishKind === "both"
+            ? "No wishlisted cards yet."
+            : wishKind === "seiyuu"
+              ? "No wishlisted seiyuus yet."
+              : "No wishlisted characters yet."
           : data.view === "collection"
             ? totalOwned > 0
               ? "No matching cards in this collection."
