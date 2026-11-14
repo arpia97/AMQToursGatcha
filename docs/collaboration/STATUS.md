@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Completed — Compact Trade Filters
+
+November 15. Runtime `18dd773` pushed/deployed to original Worker version `88cb22f7-ecb7-4317-8aeb-d300b2da45e1`. Trade browsing uses aligned 42px type/search/rarity/sort controls, compact 160px dropdowns, expanding search, and collection-style checkbox chips with matching selected highlights. Narrow screens wrap with paired dropdowns and consistent gaps. Fifteen focused existing tests, JS syntax/diff checks and Wrangler dry run passed; browser QA at 1440/1280/800/390px checked all three card types with character-role and completed filters, equal control heights and no overflow. Desktop All Cards toolbar fits one row. Both changed live assets match source. No backend changes or production mutations; no remaining work.
+
 ## Completed — Pack Result Collection Access
 
 November 15. Runtime `7076503` pushed/deployed to original Worker version `d62c7827-2f2f-4876-9641-eefd7c8619d0`. Pack card actions now restore each button's previous disabled state in finally before syncing ownership-specific actions; Collection remains usable after successful or failed Protect/Showcase updates. Quantity hint shortened to “5 cards per pack.” while retaining the affordable quantity cap. Eleven focused existing tests, app syntax, diff checks and Wrangler dry run passed. Local 1280/390px end-to-end browser checks open a pack, perform successful and failed Protect updates, then open Collection; concise copy and affordability cap verified. Live app.js byte-matches release. No backend/economy changes, production test mutations or remaining work.
