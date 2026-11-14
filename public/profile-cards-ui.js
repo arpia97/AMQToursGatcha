@@ -200,7 +200,9 @@ export function profileCardPanel(
         "</div>"
       : "";
   return (
-    '<section class="profile-card-panel"><div class="section-head"><h2>' +
+    '<section class="profile-card-panel"><div class="section-head' +
+    (data.view === "wishlist" ? " profile-wishlist-header" : "") +
+    '"><h2>' +
     (data.view === "collection"
       ? "Collection"
       : data.view === "wishlist"
