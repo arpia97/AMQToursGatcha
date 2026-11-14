@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Funding-Based Upgrade Recovery
+
+November 14. Owner authorized chronological funding reconstruction and supported card downgrades. Codex owns the scoped upgrade recovery helper, owner rollback routing, existing rollback tests and status. Private replay honors prior cash/XP settlements; no earlier corrections may be replayed. Apply only reviewed levels/copies, their upgrade progress and affected MAX title, with sealed manifest, stale guards and one receipt. Historical replay reconciles all original inventory, 687 matched cash operations, cash balance and XP without negative states. Exact-snapshot correction proof, 479 tests, 230 syntax checks and Wrangler dry run passed. Deployment/application pending.
+
 ## Completed — Authorized Targeted Recovery
 
 November 14. Owner approved the prepared conservative recovery. Runtime source `15818e9` is pushed and deployed to the original Worker version `f1d409ff-c3ee-427b-93af-17f9e9559620`. The owner-only rollback route accepts only the exact sealed manifest, rechecks locked-account/inventory/wallet/XP/upgrade guards, and commits all changes with a PITR bookmark and one receipt under `targeted-benefit-recovery-2026-11-14-v1`. It is complete: NEVER repeat it. Private manifest, preview, before/after, applied/verified receipt, exact-snapshot local proof and owner report remain outside Git. All affected rows and preserved inventory, quiz progress, titles, profile fields and account lock were verified live. The report explicitly records unrecovered mixed proceeds; no negative wallet or automatic future collection was added.
