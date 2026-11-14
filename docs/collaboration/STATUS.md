@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Account Correction Follow-up — Decision Pending
+
+November 14. Five explicitly authorized gameplay/access resets are complete and live-verified: baseline balance/earned 5,000, inventory and quiz progress cleared, sessions/credentials/recovery invites revoked, identities retained, consumed special packs preserved. Temporary locks were released after verification. Do not repeat these operations or the earlier six completed resets. Private before/receipt/after evidence and a proposed beneficiary recovery are saved outside Git. The beneficiary remains locked and unchanged; mixed credit/XP attribution requires the owner's pending choice before applying the associated recovery. No application code or deployment changes in this follow-up.
+
 ## Flash Shop Schedule and Discounts
 
 November 14. Runtime source `2a797ef` is pushed and deployed to the original `amqtours-gatcha` Worker, version `b5f8b12b-f24c-4f31-a10e-0e4fbee528eb`. Flash Shop alternates three hours open / three hours closed using a persistent cycle anchor, including restarts and missed windows. New stock receives a stored whole-percent discount from 0 to 50, weighted by `51 - discount`, with crossed-out original prices and badges. Existing open stock retains its listed prices. Purchase receipts and stored server prices remain authoritative.
