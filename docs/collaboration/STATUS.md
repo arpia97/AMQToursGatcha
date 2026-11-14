@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Owner-Authorized Access Follow-up
+
+November 14. The owner subsequently authorized unlocking the corrected beneficiary account. Existing owner-only account-lock API applied the unlock with an idempotent receipt. Live flag, registered access and retained card/XP/title corrections were verified. No credentials, recovered assets, balances or previous corrections were restored; no runtime changes or deployment. Private before/intent/result/after evidence stays outside Git.
+
 ## Completed — Funding-Based Upgrade Recovery
 
 November 14. Owner authorized chronological funding reconstruction and the previewed supported-copy downgrades. Runtime source `18f6abd` is pushed and live on original Worker version `d06823da-8dd7-4879-a8f8-bc7c6d948157`. Sealed owner-only correction committed once under `funding-upgrade-recovery-2026-11-14-v1`, with a PITR bookmark and stale account/card/title/upgrade/prior-settlement guards. It is complete: NEVER repeat it. Private reconstruction, exact manifest, previews, before/after, local proof, applied/verified receipt and owner report remain outside Git.
