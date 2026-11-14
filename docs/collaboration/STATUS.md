@@ -2,11 +2,13 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Integrate Gemini Settings Patch and Review Fixes
+## Completed — Gemini Settings Patch and Review Fixes
 
-November 15. User authorized Codex to fix the five reviewed issues and deploy Gemini's existing patch. Preserve all other Gemini changes. Codex owns integration, collection privacy, unrated auto-sell protection, informational trade activity, indexed recent history, removal of customizable Next (fixed Enter retained), behavioral checks and deployment. Original uncommitted patch and both new modules were saved outside Git before edits. No historical account/data corrections may be replayed.
+November 15. User authorized integration of Gemini's patch with all five review findings fixed; custom Next Song was omitted, retaining fixed Enter. Runtime source `516960172413bdd531005b62047c24383d2f2cc4` is pushed to main and deployed on original Worker `amqtours-gatcha`, version `7da7e86f-56ec-408c-aa1a-d19755dbd482`. No proxy deployment, production test mutations or historical account/data corrections.
 
-All five fixes implemented; fixed Enter remains and custom Next is omitted. Both privacy leaks are covered, unrated cards retained, completion activity has zero synthetic credit delta, and seller/proposer recent-history branches use participant indexes and batched bundles/card names. Six other customizable shortcuts and the rest of Gemini's features are preserved. Mobile Settings width/wrapping corrected during visual QA. Validation: 486/486 tests, 233 JS syntax checks, Wrangler dry run, migration/restart + autosell idempotency/late-failure rollback probe, indexed EXPLAIN plans with no temporary sort, and 1280/390px browser QA passed using local disposable state. Integration/deploy/live verification are next; no production test mutations.
+Private collection ownership is hidden in wishlist protection flags and pinned anime progress (including implicit progress ordering); owner access remains. Unrated auto-sell cards are retained. Trade completion is informational with zero synthetic wallet delta. Recent history uses indexed seller/proposer branches limited before merging, with batched bundles and card names. Six other customizable quiz shortcuts and all other Gemini features were preserved. Mobile Settings width/checkbox wrapping corrected during visual QA.
+
+Validation: 486/486 tests, 233 JS syntax checks, Wrangler dry run, migration/restart + auto-sell retry/late-failure rollback, indexed EXPLAIN plans with no temporary sort, and 1280/390px local browser QA passed. GitHub Verify and demo jobs succeeded for source SHA. Seven production assets byte-match source; live page loads without script errors. After Cloudflare's normal deferred database rollout, public profiles at both domain and play-proxy APIs expose the six new shortcut defaults without Next, and health/state reads succeed. Private original patch, test evidence, screenshots and release report remain outside Git. This newer documentation commit records release evidence; deployed runtime source is the SHA above. No remaining authorized work.
 
 ## Pre-Deploy Review — Gemini Settings and UX Patch
 
