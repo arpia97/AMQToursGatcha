@@ -49,6 +49,7 @@ Registration requires an individual one-use host-issued code, using the same exp
 
 ## Current Product Rules
 
+- Explicit owner-authorized credit recoveries may create negative wallets. Credits/refunds/sales then pay down the debt normally; ordinary spending must still leave a nonnegative balance. The AKINO-only retirement route migrates the legacy balance CHECK transactionally, preserving every account field and index. It is never a startup migration or automatic replay.
 - Starting credits: 5,000. Daily credits: 300, explicitly claimed. Daily pack: five cards, explicitly claimed with Character/Seiyuu choice. Separate claim records reset at midnight Asia/Seoul. Refreshing must not claim either reward.
 - Main navigation: Overview, My Profile, Card Packs, Shop, Auctions, Pick'ems, Card Alchemy, Catalogue, Pachinko, Quiz, Players, Rankings. My Collection is inside My Profile. Public player profiles also have a read-only, paginated Collection tab for inventory cards (`Characters | Seiyuus | Both` toggle, search, rarity/role filters, and sorting by custom order, collection date, rarity, enhancement, copies, alphabetical, or role), plus owner-only drag-and-drop `Arrange Collection` (`collection-order` action storing `inventory.position`); Listed remains separate. Card Size is one compact top-bar control immediately left of Anime Titles.
 - Compact dark UI, title case for headings/navigation/dialogs, source/player spelling preserved. No gender filters. Characters can have Main/Supporting roles; seiyuus do not use that classification.

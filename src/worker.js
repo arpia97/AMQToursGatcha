@@ -1,3 +1,4 @@
+import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { cachedQuizCover } from "./quiz-cover-cache.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
@@ -364,6 +365,9 @@ export class Game extends DurableObject {
       };
       if (
         [
+          "host/quiz-retirement-preview",
+          "host/quiz-retirement",
+          "host/quiz-retirement-receipt",
           "host/permissions",
           "host/account-lock",
           "host/fusion-revert-preview",
@@ -414,6 +418,19 @@ export class Game extends DurableObject {
             ),
           ),
         );
+      }
+      if (path === "host/quiz-retirement-preview" && !post)
+        return json(e.tx(() => quizRetirementPreview(e)));
+      if (path === "host/quiz-retirement-receipt" && !post) {
+        const saved = e.one("SELECT result FROM receipts WHERE scope=? AND key=?", AKINO_RETIREMENT_SCOPE, AKINO_RETIREMENT_ID);
+        return json({ result: saved ? JSON.parse(saved.result) : null });
+      }
+      if (path === "host/quiz-retirement" && post) {
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        if (key !== AKINO_RETIREMENT_ID) fail("Use the authorized quiz removal ID.");
+        const bookmark = await this.ctx.storage.getCurrentBookmark();
+        requireOwner();
+        return json(e.mutate(AKINO_RETIREMENT_SCOPE, key, b, () => retireAkinoQuiz(e, b, bookmark)));
       }
       if (path === "host/quiz-scores-reset" && post)
         return json(

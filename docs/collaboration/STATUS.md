@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Owner-Authorized AKINO Quiz Removal
+
+November 15. User authorized removal of exact AKINO quiz and recovery of all actually issued quiz credits, including negative balances. Codex owns a narrowly scoped owner-only, transactional/idempotent removal route, signed-wallet constraint migration and validation. Other Akino-named quizzes remain untouched. Save private payout evidence and PITR bookmark outside Git; preserve credentials, inventory, other quiz data and unrelated wallets. No historical repairs may be replayed. Exact recorded payouts reconcile with completion receipts; private source snapshot saved. Local proof covers signed-wallet copy preservation, negative balances and repayment, unauthorized/stale requests, transactional schema/debit/deletion rollback, and receipt retry safety. Real isolated Worker/SQLite migration and owner authorization pass; 489 tests, 235 JS syntax checks and Wrangler dry run pass. Deploy, preview, apply once and verify are next.
+
 ## Completed — Compact Trade Filters
 
 November 15. Runtime `18dd773` pushed/deployed to original Worker version `88cb22f7-ecb7-4317-8aeb-d300b2da45e1`. Trade browsing uses aligned 42px type/search/rarity/sort controls, compact 160px dropdowns, expanding search, and collection-style checkbox chips with matching selected highlights. Narrow screens wrap with paired dropdowns and consistent gaps. Fifteen focused existing tests, JS syntax/diff checks and Wrangler dry run passed; browser QA at 1440/1280/800/390px checked all three card types with character-role and completed filters, equal control heights and no overflow. Desktop All Cards toolbar fits one row. Both changed live assets match source. No backend changes or production mutations; no remaining work.

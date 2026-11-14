@@ -2550,7 +2550,7 @@ document.addEventListener("input", (ev) => {
   if (ev.target.form?.id === "pack-form" && ev.target.name === "count") {
     const form = ev.target.form,
       price = Math.max(1, Number(form.dataset.packPrice) || 500),
-      maxAffordable = Math.min(100, Math.floor((state.me?.balance || 0) / price));
+      maxAffordable = Math.max(0, Math.min(100, Math.floor((state.me?.balance || 0) / price)));
     if (ev.target.value !== "") {
       let parsed = parseInt(ev.target.value, 10);
       if (Number.isFinite(parsed) && parsed > maxAffordable) {
@@ -3742,7 +3742,7 @@ async function handleFeatureClick(a, t) {
         price =
           state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
           (premium ? 1000 : 500),
-        maxAffordable = Math.min(100, Math.floor((state.me?.balance || 0) / price)),
+        maxAffordable = Math.max(0, Math.min(100, Math.floor((state.me?.balance || 0) / price))),
         initialCount =
           maxAffordable > 0
             ? Math.min(maxAffordable, Math.max(1, Number(t.dataset.count) || 1))

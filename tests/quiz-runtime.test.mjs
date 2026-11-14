@@ -30,6 +30,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
               if(request.method==='POST') this.probe={sql:0,market:0,schedule:0,starters:0};
               return Response.json(this.probe);
             }
+            if(new URL(request.url).pathname==='/api/__retirement-seed') {
+              const e=this.engine,id='3817093a-993e-47c8-88be-2804df54ef56';
+              e.tx(()=>{
+                e.run("INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES(?,'AKINO','','AKINO',1,'fixture',1)",id);
+                e.wallet('1',1000,'Quiz: AKINO · 12/20',true);
+                e.wallet('1',-(e.player('1').balance-50),'Local test spend');
+              });
+              return Response.json({seeded:true});
+            }
             return super.handle(request);
           }
         }
@@ -679,4 +688,30 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const resetProfile = await response.json();
   assert.equal(resetProfile.titles.length, 0);
   assert.equal(resetProfile.balance, 7900);
+  await post("__retirement-seed",{});
+  assert.equal((await mf.dispatchFetch("http://game/api/host/quiz-retirement-preview")).status,401);
+  response=await post("host/permissions",{player:"1",enabled:true},host);
+  assert.equal(response.status,200);
+  for(const endpoint of ["quiz-retirement-preview","quiz-retirement-receipt"])
+    assert.equal((await mf.dispatchFetch("http://game/api/host/"+endpoint,{headers:auth})).status,403);
+  response=await mf.dispatchFetch("http://game/api/host/quiz-retirement-preview",{headers:host});
+  assert.equal(response.status,200);
+  const retirement=await response.json();
+  const removalBody={confirmation:"REMOVE AKINO AND RECLAIM ALL REWARDS",expected:retirement.expected};
+  const removalHeaders={...host,"Idempotency-Key":"akino-removal-2026-11-15-v1"};
+  assert.equal((await post("host/quiz-retirement",removalBody,auth)).status,403);
+  response=await post("host/quiz-retirement",removalBody,removalHeaders);
+  assert.equal(response.status,200,await response.clone().text());
+  const removed=await response.json();
+  assert.equal(removed.credits,1000);
+  assert.equal(removed.players[0].balanceAfter,-950);
+  assert.equal(removed.signedWalletMigration,true);
+  assert.ok(removed.bookmark);
+  response=await post("host/quiz-retirement",removalBody,removalHeaders);
+  assert.deepEqual(await response.json(),removed);
+  response=await mf.dispatchFetch("http://game/api/host/quiz-retirement-receipt",{headers:host});
+  assert.deepEqual((await response.json()).result,removed);
+  response=await mf.dispatchFetch("http://game/api/player?id=1");
+  assert.equal((await response.json()).balance,-950);
+
 });

@@ -315,7 +315,7 @@ export class Engine {
     // Bulk settlements must continue paying other players when one is locked.
     if(p.account_locked && earned && delta>0) return false;
     const balance = p.balance + delta;
-    if (balance < 0) fail("Not enough available credits.");
+    if (delta < 0 && balance < 0) fail("Not enough available credits.");
     if (!Number.isSafeInteger(balance) || balance > 1000000000000)
       fail("Wallet limit exceeded.");
     this.run(
