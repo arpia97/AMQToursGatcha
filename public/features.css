@@ -4501,9 +4501,36 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   margin: 16px 0 24px;
 }
 .trade-search .search {
-  flex: 1 1 260px;
+  flex: 1 1 240px;
   min-width: 0;
-  max-width: 540px;
+  max-width: none;
+  margin: 0;
+}
+.trade-search > :is(input, select) {
+  height: 42px;
+}
+.trade-search > select {
+  flex: 0 0 160px;
+  width: 160px;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+.trade-search .trade-kind-tabs {
+  flex: 0 0 auto;
+  padding: 3px;
+}
+.trade-search .trade-kind-tabs .button {
+  min-height: 34px;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.trade-search > .collection-checkboxes {
+  align-self: center;
+}
+@media (max-width: 600px) {
+  .trade-search .trade-kind-tabs { flex-basis: 100%; width: max-content; }
+  .trade-search .search { flex-basis: 100%; }
+  .trade-search > select { flex: 1 1 140px; width: 0; }
 }
 
 .quiz-categories {
