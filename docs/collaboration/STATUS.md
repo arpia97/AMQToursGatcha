@@ -2,9 +2,11 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Flash Shop Schedule and Discounts
+## Flash Shop Schedule and Discounts
 
-November 14. Codex owns community-market server/rules, shop UI/styles, focused auction tests and collaboration documentation. Implement three hours open / three hours closed, weighted 0–50% per-stock discounts, and original-price displays. Preserve existing open stock and prices, the original economy identity and all player activity. Local checks passed: 475 tests, syntax check (228 JS files), Wrangler dry run, desktop/mobile (1280/390px) actual shop-renderer fixtures including crossed-out prices, 0% normal prices and closed-window countdown. Deployment pending.
+November 14. Runtime source `2a797ef` is pushed and deployed to the original `amqtours-gatcha` Worker, version `b5f8b12b-f24c-4f31-a10e-0e4fbee528eb`. Flash Shop alternates three hours open / three hours closed using a persistent cycle anchor, including restarts and missed windows. New stock receives a stored whole-percent discount from 0 to 50, weighted by `51 - discount`, with crossed-out original prices and badges. Existing open stock retains its listed prices. Purchase receipts and stored server prices remain authoritative.
+
+All 475 tests passed; syntax check covered 228 JS files; Wrangler dry run passed. Actual shop-renderer fixtures passed at 1280/390px for sale/normal prices and closed-window countdown. Live asset bytes match local files, health is OK, and the public shop renders the new schedule. After the default deferred Durable Object rollout, public state verified `flashNext - flashEnds = 3 hours` during the existing opening and discount fields on all ten preserved stock rows. No production purchases or test accounts were created. Original economy bindings and named instance remain unchanged. This later documentation commit records deployment evidence; runtime source is the commit above. No remaining task work.
 
 ## Pick’em Share Placement
 
