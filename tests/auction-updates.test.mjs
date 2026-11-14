@@ -1,3 +1,4 @@
+import {flashDiscount} from '../public/community-market-rules.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -301,7 +302,7 @@ test("community reform waits for the weekly boundary, preserves pending wins and
     user.ends,
   );
 });
-test("flash stock is S-or-higher, shared, refilled once per paid purchase, and opens on a persistent random schedule after closing", (t) => {
+test("flash stock is S-or-higher, shared, refilled once per paid purchase, and alternates persistent three-hour openings and closures after closing", (t) => {
   const f = fixture(t),
     { e, act } = f;
   e.host("catalog", {
@@ -314,6 +315,7 @@ test("flash stock is S-or-higher, shared, refilled once per paid purchase, and o
       })),
     ),
   });
+  e.rand = max => max - 1;
   f.advance(e.economy.community.activation() - e.now());
   e.ensureAuctions();
   const slots = e.state("p").shop;
@@ -325,13 +327,15 @@ test("flash stock is S-or-higher, shared, refilled once per paid purchase, and o
         e.catalogStore.card(s.card).rarity === "S",
     ),
   );
+  assert.ok(slots.every(s=>s.discount_percent===50 && s.base_price===800 && s.price===400));
+  e.run("DELETE FROM settings WHERE key='flash_shop_cycle_anchor'");
+  e.run("UPDATE settings SET value=? WHERE key='flash_shop_next'", e.now()+24*3600000);
+  e.ensureAuctions();
+  assert.deepEqual(e.state("p").shop,slots);
   const next = e.one(
     "SELECT value FROM settings WHERE key='flash_shop_next'",
   ).value;
-  assert.ok(
-    next >= slots[0].ends + 12 * 3600000 &&
-      next <= slots[0].ends + 24 * 3600000,
-  );
+  assert.equal(next, slots[0].ends + 3 * 3600000);
   const s = slots[0],
     before = e.player("p").balance;
   const buy = act("p", "shop-buy", { slot: s.id }, "flash-buy");
@@ -342,6 +346,8 @@ test("flash stock is S-or-higher, shared, refilled once per paid purchase, and o
   f.advance(3 * 3600000);
   e.ensureAuctions();
   assert.equal(e.state().shop.length, 0);
+  assert.equal(e.state().communityMarket.flashOpen,false);
+  assert.equal(e.state().communityMarket.flashNext,next);
   assert.throws(() => act("q", "shop-buy", { slot: slots[1].id }), /expired/);
   assert.equal(
     e.one("SELECT value FROM settings WHERE key='flash_shop_next'").value,
@@ -363,4 +369,17 @@ test("flash stock is S-or-higher, shared, refilled once per paid purchase, and o
     e.state().shop.map((s) => s.id),
     ids,
   );
+  f.advance(7*3600000);
+  e.ensureAuctions();
+  assert.ok(e.state().shop.every(s=>s.starts===next+6*3600000));
+  assert.equal(e.state().communityMarket.flashEnds,e.now()+2*3600000);
+});
+
+
+test("every flash discount from 0 through 50 has strictly decreasing probability",()=>{
+ const counts=Array(51).fill(0);
+ for(let roll=0;roll<1326;roll++)counts[flashDiscount(()=>roll)]++;
+ assert.deepEqual(counts,Array.from({length:51},(_,i)=>51-i));
+ assert.equal(flashDiscount(()=>0),0);
+ assert.equal(flashDiscount(max=>max-1),50);
 });

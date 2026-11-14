@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## In Progress — Flash Shop Schedule and Discounts
+
+November 14. Codex owns community-market server/rules, shop UI/styles, focused auction tests and collaboration documentation. Implement three hours open / three hours closed, weighted 0–50% per-stock discounts, and original-price displays. Preserve existing open stock and prices, the original economy identity and all player activity. Local checks passed: 475 tests, syntax check (228 JS files), Wrangler dry run, desktop/mobile (1280/390px) actual shop-renderer fixtures including crossed-out prices, 0% normal prices and closed-window countdown. Deployment pending.
+
 ## Pick’em Share Placement
 
 November 13. Source `e9314ab` is live on Worker version `47faac3e-5107-4bfe-b323-11aeac1602a8`. Copy Link is at the bottom right of the featured ticket and pick’em cards. The list expands and collapses teams in place. Multi-match boards share individual matches. All 24 focused tests passed. Verified clipboard, expansion, collapse and direct links on the live site at 1280 and 390 pixels.

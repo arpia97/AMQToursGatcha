@@ -30,6 +30,9 @@ export function createShopUI(h, ui) {
       mine = !weekly && !!s.me && l.seller === s.me.id;
     const shortfall = s.me ? Math.max(0, l.price - s.me.balance) : 0;
     const action = weekly ? "shop-buy" : "buy-listing";
+    const discounted = weekly && l.discount_percent > 0 && l.base_price > l.price;
+    const price = '<span class="coin">✦</span> <strong>'+n(l.price)+'</strong>' +
+      (discounted ? ' <del class="flash-original-price">'+n(l.base_price)+'</del><span class="flash-discount-tag">'+n(l.discount_percent)+'% Off</span>' : '');
     const control = mine
       ? btn(
           "Withdraw listing",
@@ -52,8 +55,8 @@ export function createShopUI(h, ui) {
       {
         level: l.level || 1,
         showLevel: l.level > 1,
-        meta: `✦ ${n(l.price)}`,
-        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price"><span class="coin">✦</span> ${n(l.price)}</div>${control}`,
+        meta: price,
+        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price flash-card-price">${price}</div>${control}`,
       },
       h,
     );
@@ -161,7 +164,7 @@ export function createShopUI(h, ui) {
       );
     return (
       header +
-      `<div class="section-head"><h2>${s.communityMarket?.active ? "Flash Shop" : "This Week’s Shop"}</h2><span class="subtext">${s.communityMarket?.active ? (s.communityMarket.flashOpen ? h.countdown(s.communityMarket.flashEnds, "Closes in ", true, "Shop Closed") : "Currently Closed") : h.countdown(weekly[0]?.ends || h.nextWeeklyReset(s.now), "Shop resets in ", true, "Restocking…")}</span></div><p class="subtext">${s.communityMarket?.active ? "Three-hour openings at random times. S-or-higher cards, with new stock after every purchase." : "Ten cards from the character and seiyuu pools. Each has one shared copy; every purchase brings in a new random card immediately."}</p><details class="shop-price-guide"><summary>Shop Prices and Selling Values</summary><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Buy Price</th><th>Sell at Lv. 1</th></tr></thead><tbody>${RARITIES.map((r) => `<tr><td>${r}</td><td>✦ ${n(SHOP_PRICES[r])}</td><td>✦ ${n(SHOP_PRICES[r] / 2)}</td></tr>`).join("")}</tbody></table></div><p class="form-hint">Pending uses D prices. Enhanced sale value multiplies by invested copies: Lv. 2 ×2, Lv. 3 ×4, Lv. 4 ×7, Lv. 5 ×11, MAX ×16. Shop purchase prices are fixed when a card enters stock. Player marketplace sellers choose their own prices.</p></details>${weekly.length ? `<div class="card-grid shop-card-grid weekly-card-grid">${weekly.map((l) => listingCard(l, true)).join("")}</div>` : empty(s.communityMarket?.active ? "The Flash Shop Is Closed." : "Restocking Soon.", s.communityMarket?.active ? "Check back for the next surprise opening. Each opening lasts three hours." : "The shop opens once at least ten cards are available.")}`
+      `<div class="section-head"><h2>${s.communityMarket?.active ? "Flash Shop" : "This Week’s Shop"}</h2><span class="subtext">${s.communityMarket?.active ? (s.communityMarket.flashOpen ? h.countdown(s.communityMarket.flashEnds, "Closes in ", true, "Shop Closed") : h.countdown(s.communityMarket.flashNext, "Opens in ", true, "Opening…")) : h.countdown(weekly[0]?.ends || h.nextWeeklyReset(s.now), "Shop resets in ", true, "Restocking…")}</span></div><p class="subtext">${s.communityMarket?.active ? "Three hours open, three hours closed. S-or-higher cards with discounts up to 50% and new stock after every purchase." : "Ten cards from the character and seiyuu pools. Each has one shared copy; every purchase brings in a new random card immediately."}</p><details class="shop-price-guide"><summary>Shop Prices and Selling Values</summary><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Buy Price</th><th>Sell at Lv. 1</th></tr></thead><tbody>${RARITIES.map((r) => `<tr><td>${r}</td><td>✦ ${n(SHOP_PRICES[r])}</td><td>✦ ${n(SHOP_PRICES[r] / 2)}</td></tr>`).join("")}</tbody></table></div><p class="form-hint">Pending uses D prices. Enhanced sale value multiplies by invested copies: Lv. 2 ×2, Lv. 3 ×4, Lv. 4 ×7, Lv. 5 ×11, MAX ×16. Shop purchase prices are fixed when a card enters stock. Player marketplace sellers choose their own prices.</p></details>${weekly.length ? `<div class="card-grid shop-card-grid weekly-card-grid">${weekly.map((l) => listingCard(l, true)).join("")}</div>` : empty(s.communityMarket?.active ? (s.communityMarket.flashOpen ? "No Flash Stock Available." : "The Flash Shop Is Closed.") : "Restocking Soon.", s.communityMarket?.active ? "The next opening follows the three-hour break." : "The shop opens once at least ten cards are available.")}`
     );
   }
   return { render };

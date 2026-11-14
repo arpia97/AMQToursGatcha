@@ -5506,3 +5506,8 @@ dialog.avatar-editor-modal {
 .collection-arrange-panel .wishlist-inline-sort {
   flex-wrap: wrap;
 }
+
+.flash-card-price,.card-front-meta:has(.flash-discount-tag) { display:flex;align-items:center;gap:7px;flex-wrap:wrap; }
+.flash-original-price { color:var(--muted);font-size:.8em;font-weight:400; }
+.flash-discount-tag { display:inline-block;padding:3px 6px;border-radius:5px;background:#b8e3cc20;color:var(--mint,#b8e3cc);font-size:10px;font-weight:700;white-space:nowrap; }
+.card-front-meta .flash-discount-tag { padding:2px 5px;font-size:9px; }
