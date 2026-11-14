@@ -2,13 +2,15 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Authorized Targeted Recovery
+## Completed — Authorized Targeted Recovery
 
-November 14. Owner approved the prepared conservative recovery. Codex owns the scoped recovery helper, existing rollback route, rollback behavioral tests and this status. Recheck private manifest and locked-account snapshot, apply atomically with an idempotent receipt, verify all affected and preserved state. Never repeat completed account resets. Private evidence remains outside Git. Local exact-manifest proof passed with all unrelated cards, quiz progress and titles preserved; 477 tests, 229 syntax checks and Wrangler dry run passed. Deployment/application pending.
+November 14. Owner approved the prepared conservative recovery. Runtime source `15818e9` is pushed and deployed to the original Worker version `f1d409ff-c3ee-427b-93af-17f9e9559620`. The owner-only rollback route accepts only the exact sealed manifest, rechecks locked-account/inventory/wallet/XP/upgrade guards, and commits all changes with a PITR bookmark and one receipt under `targeted-benefit-recovery-2026-11-14-v1`. It is complete: NEVER repeat it. Private manifest, preview, before/after, applied/verified receipt, exact-snapshot local proof and owner report remain outside Git. All affected rows and preserved inventory, quiz progress, titles, profile fields and account lock were verified live. The report explicitly records unrecovered mixed proceeds; no negative wallet or automatic future collection was added.
 
-## Account Correction Follow-up — Decision Pending
+477 tests, 229 syntax checks and Wrangler dry run passed, including stale-snapshot rejection, late-failure atomic rollback, retry safety and real Worker owner/seal rejection. Original economy identity, other players and earlier account resets remain untouched; live health OK. This later documentation commit records application evidence; runtime source is the commit above. No remaining authorized work.
 
-November 14. Five explicitly authorized gameplay/access resets are complete and live-verified: baseline balance/earned 5,000, inventory and quiz progress cleared, sessions/credentials/recovery invites revoked, identities retained, consumed special packs preserved. Temporary locks were released after verification. Do not repeat these operations or the earlier six completed resets. Private before/receipt/after evidence and a proposed beneficiary recovery are saved outside Git. The beneficiary remains locked and unchanged; mixed credit/XP attribution requires the owner's pending choice before applying the associated recovery. No application code or deployment changes in this follow-up.
+## Completed — Account Correction Follow-up
+
+November 14. Five explicitly authorized gameplay/access resets are complete and live-verified: baseline balance/earned 5,000, inventory and quiz progress cleared, sessions/credentials/recovery invites revoked, identities retained, consumed special packs preserved. Temporary locks were released after verification. Do not repeat these operations or the earlier six completed resets. The later owner-approved targeted recovery above resolves the prior pending decision. Private evidence remains outside Git.
 
 ## Flash Shop Schedule and Discounts
 
