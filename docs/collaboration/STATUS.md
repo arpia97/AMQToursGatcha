@@ -2,6 +2,10 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
+## Completed — Stable Wishlist Header
+
+November 15. Runtime source `fff9d9d` pushed and deployed to original Worker version `4ad9239e-7e06-41b1-9120-59dd3ad438fe`. Wishlist uses an explicit three-column header with fixed toggle placement and a separate right-aligned Arrange action; narrow screens use a fixed heading/action row with the toggle underneath. All Cards/Characters/Seiyuus have identical toggle coordinates and header heights when Arrange disappears. Checked at 1280/1024/800/720/390px, with no overflow or overlap. 16 focused existing tests, JS syntax, diff checks and Wrangler dry run passed; both changed live assets byte-match source. No backend/economy changes or production test mutations. No remaining work.
+
 ## Completed — Gemini Settings Patch and Review Fixes
 
 November 15. User authorized integration of Gemini's patch with all five review findings fixed; custom Next Song was omitted, retaining fixed Enter. Runtime source `516960172413bdd531005b62047c24383d2f2cc4` is pushed to main and deployed on original Worker `amqtours-gatcha`, version `7da7e86f-56ec-408c-aa1a-d19755dbd482`. No proxy deployment, production test mutations or historical account/data corrections.
