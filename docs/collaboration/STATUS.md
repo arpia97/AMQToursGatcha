@@ -2,9 +2,13 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Owner-Authorized AKINO Quiz Removal
+## Completed — Owner-Authorized AKINO Quiz Removal
 
-November 15. User authorized removal of exact AKINO quiz and recovery of all actually issued quiz credits, including negative balances. Codex owns a narrowly scoped owner-only, transactional/idempotent removal route, signed-wallet constraint migration and validation. Other Akino-named quizzes remain untouched. Save private payout evidence and PITR bookmark outside Git; preserve credentials, inventory, other quiz data and unrelated wallets. No historical repairs may be replayed. Exact recorded payouts reconcile with completion receipts; private source snapshot saved. Local proof covers signed-wallet copy preservation, negative balances and repayment, unauthorized/stale requests, transactional schema/debit/deletion rollback, and receipt retry safety. Real isolated Worker/SQLite migration and owner authorization pass; 489 tests, 235 JS syntax checks and Wrangler dry run pass. Deploy, preview, apply once and verify are next.
+November 15. Exact AKINO quiz removal and full issued-credit recovery completed once under durable receipt `host:quiz-retirement / akino-removal-2026-11-15-v1`. NEVER replay it. Runtime `b36fee4858691b900dc53767fa96ef274b865614` is pushed/live on original Worker version `ab70ccd0-51d6-4f8e-aa56-e91da25744b0`. User explicitly authorized negative wallets. A final payout during deployment was caught by stale-source guards before mutation; quiz was unpublished with an idempotent host-save receipt, final source ledger re-reconciled to completion receipts, then removal applied atomically.
+
+126,700 credits recovered from 59 players across 82 original payments; lifetime earned reduced by the same amounts. 36 balances became negative at application. Removed quiz pool/answers, scores, active runs, reward history, completion-title preferences and quiz-title ordering. Arai, Akino and Makino, Yui retain their original pools. Original award ledger entries and receipts remain as evidence; new reversal entries record every deduction. Signed-wallet table migration preserved every account column/value/index within the transaction, and a PITR bookmark is saved privately. Ordinary spending remains bounded by available funds; incoming earnings/refunds reduce negative balances normally.
+
+489 tests, 235 JS syntax checks, real isolated Worker owner/auth/migration checks, failure rollback/retry proofs, Wrangler dry run and both GitHub jobs passed. Negative-wallet pack UI checked at 1280/390px; live app asset matches. Live verification reconciled each debit, wallet and earned result (including two subsequent legitimate awards), removal/public listing, original award history, preserved indexes and other quizzes. Receipt confirmed without reapplying. Private before/intent/result/after, proof, report and per-player CSV remain outside Git. No other accounts, inventory or historical recoveries were reset. No remaining authorized work.
 
 ## Completed — Compact Trade Filters
 
