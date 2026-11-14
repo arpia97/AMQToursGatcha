@@ -2,11 +2,15 @@
 
 Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
 
-## In Progress — Quiz Timing and Pick’em Timers
+## Completed — Quiz Timing and Pick’em Timers
 
-November 15. Codex owns this isolated worktree for false quiz timeouts and host Pick’em reopen/extend/close controls. Original shared checkout has a simultaneous Delete Quiz task, excluded here. Do not deploy concurrently. Preserve server authority, quiz rewards and existing data. No production test attempts or historical score corrections.
+November 15. Isolated runtime source `9aac2ecb7413c2b17e49731ea2b26448fd8892a7` (includes `575ea98`) is pushed to main and deployed on original Worker version `b56a109e-9f01-4137-b3a5-9ac1432c238a`. The original shared checkout has separate uncommitted Delete Quiz work, preserved and excluded from this release. Its integration notice requires merging main before deployment. The temporary timing worktree is being archived after handoff; source/evidence remain recoverable.
 
-Reproduced delayed-response countdown showing 19s with only 16s on the server. Fixed minimum-latency/monotonic clock sync and complete-body trusted Worker arrival scoring (client headers overwritten; queue time excluded; existing grace unchanged). New receipt metadata supports diagnostics. Added host Extend/Close/Reopen controls (five-minute default, editable), preserved picks/rewards, stale guards and retry safety; editor stays open after actions. Local 1280/390px end-to-end checks pass, including mobile editor wrapping. 493 tests, 236 JS syntax checks and Wrangler dry run pass. Publish/live verification pending.
+Reproduced a delayed-response timer showing 19s when the server had 16s. The quiz now uses monotonic time and the lowest-latency clock sample, stamps complete answer bodies at the Worker with client headers overwritten, judges arrival instead of database processing, and returns fresh server timestamps for cached receipt replays. Server-authoritative 20-second questions and existing one-second arrival grace remain. Arrival/processing metadata support diagnostics; historical scores/rewards were not changed.
+
+Host Pick’em editors offer Extend Time and Close while open, and editable Reopen (five-minute default) when closed. Extensions add to the existing deadline, reopening starts from now, picks/rewards stay intact, and paid results remain protected. Timer-only changes tolerate newly submitted votes; stale settings and duplicate retries are guarded. The active editor stays open/refreshed after each action, including mobile wrapping.
+
+493 tests, 236 JS syntax checks, Wrangler dry run and both GitHub jobs pass for the final source. Real isolated Worker tests cover queued on-time answers, forged timestamps, bounded complete-body stamping, receipt retries with fresh clocks, and unchanged rewards. 1280/390px host end-to-end checks cover extend/close/reopen, preserved votes and refreshed editor. All five changed live UI assets match source; health and unauthenticated host-action rejection checks pass. Natural production traffic produced 13 arrival-stamped answers after the first runtime rollout. Final retry-clock behavior was verified in the isolated Worker; normal deferred backend propagation was allowed. Private logs, red/green timing repro and release evidence stay outside Git. No production test mutations or historical corrections. No remaining authorized work.
 
 ## Completed — Owner-Authorized AKINO Quiz Removal
 
