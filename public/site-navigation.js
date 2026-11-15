@@ -6,11 +6,11 @@ export const SITE_ROUTES = [
   ["auctions", "Auctions"],
   ["pickems", "Pick’ems"],
   ["fusion", "Card Alchemy"],
-  ["catalog", "Catalogue"],
   ["arcade", "Pachinko"],
   ["quiz", "Quiz"],
   ["players", "Players"],
   ["ranks", "Rankings"],
+  ["catalog", "Catalogue"],
 ];
 const pages = new Set([...SITE_ROUTES.map(([id]) => id), "collection", "titles"]);
 export function isPlayerRoute(route) {

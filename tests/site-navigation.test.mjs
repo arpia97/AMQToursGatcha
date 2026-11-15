@@ -7,7 +7,7 @@ import {
   navigationSection,
   SITE_ROUTES,
 } from "../public/site-navigation.js";
-test("profile subpages and public routes resolve correctly; collection stays nested and Rankings stays last", () => {
+test("profile subpages and public routes resolve correctly; collection stays nested and Catalogue stays last", () => {
   for (const id of ["catalog", "profile", "collection", "titles"])
     assert.equal(resolvePage("#" + id), id);
   assert.equal(resolvePage("#player/368"), "player");
@@ -21,6 +21,7 @@ test("profile subpages and public routes resolve correctly; collection stays nes
     assert.equal(navigationSection(id, "368"), "profile");
   assert.equal(navigationSection("player", "368", "368"), "profile");
   assert.equal(navigationSection("player", "368", "357"), "players");
-  assert.equal(SITE_ROUTES.at(-1)[0], "ranks");
+  assert.deepEqual(SITE_ROUTES.at(-2), ["ranks", "Rankings"]);
+  assert.deepEqual(SITE_ROUTES.at(-1), ["catalog", "Catalogue"]);
   assert.ok(!SITE_ROUTES.some(([id]) => ["collection", "titles"].includes(id)));
 });
