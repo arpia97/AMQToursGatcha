@@ -298,9 +298,12 @@ test("draws support random combined pools, stale target protection and missing p
 test("alchemy progress and targets migrate with canonical identity and gameplay resets clear only that player", (t) => {
   const f = fixture(t);
   f.seed(500, 5);
+  f.e.economy.alchemy.saveBopXP("p",125);
   f.act("alchemy-target", { rarity: "A", card: "A1", expectedVersion: 0 });
   new AliasSync(f.e).renamePlayer("p", "90001");
   assert.equal(f.e.economy.alchemy.state("90001").xp, 500);
+  assert.equal(f.e.economy.alchemy.state("90001").bopXP,125);
+  assert.equal(f.e.economy.alchemy.bopXP("p"),0);
   assert.equal(f.e.economy.alchemy.state("90001").targets.A, "A1");
   f.e.tx(() =>
     f.e.host("reset-player", {
@@ -309,6 +312,7 @@ test("alchemy progress and targets migrate with canonical identity and gameplay 
     }),
   );
   assert.equal(f.e.economy.alchemy.state("90001").xp, 0);
+  assert.equal(f.e.economy.alchemy.state("90001").bopXP,0);
   assert.equal(f.e.economy.alchemy.state("90001").refinements, 0);
   assert.deepEqual(f.e.economy.alchemy.state("90001").targets, {});
   assert.equal(f.e.player("90001").balance, 5000);
@@ -439,4 +443,64 @@ test("wishlist targets use only the signed-in player's active cards before type,
   f.e.catalogStore.pool = pool;
   assert.equal(alchemy.pool("D").length, before);
   assert.ok(alchemy.targetsPage({ rarity: "D" }).total > 16);
+});
+
+test("bop XP returns exactly 10% on targeted misses in every tier and buys the target without normal XP or duplicate rewards", t => {
+  const f=fixture(t);
+  for(const tier of ALCHEMY_TIERS) {
+    f.seed(tier.cost*10);
+    f.act("alchemy-target",{rarity:tier.rarity,card:tier.rarity+"2",expectedVersion:0});
+    f.e.rand=n=>n-1;
+    for(let i=0;i<10;i++) {
+      const body={rarity:tier.rarity,targetCard:tier.rarity+"2",expectedVersion:f.e.economy.alchemy.read("p").version,confirmed:true};
+      const key="bop-miss-"+tier.rarity+"-"+i;
+      const r=f.act("alchemy-draw",body,key);
+      assert.equal(r.targetHit,false);
+      assert.equal(r.bopXPGained,tier.cost/10);
+      assert.equal(r.alchemyState.bopXP,(i+1)*tier.cost/10);
+      assert.deepEqual(f.act("alchemy-draw",body,key),r);
+      assert.equal(f.e.economy.alchemy.bopXP("p"),(i+1)*tier.cost/10);
+    }
+    const body={rarity:tier.rarity,targetCard:tier.rarity+"2",currency:"bop",expectedVersion:f.e.economy.alchemy.read("p").version,confirmed:true};
+    f.e.rand=()=>{throw Error("Guaranteed bop draws must not roll.");};
+    const r=f.act("alchemy-draw",body,"bop-spend-"+tier.rarity);
+    assert.equal(r.cards[0].id,tier.rarity+"2");
+    assert.equal(r.level,1);
+    assert.equal(r.targetChance,100);
+    assert.equal(r.targetHit,true);
+    assert.equal(r.xpSpent,0);
+    assert.equal(r.bopXPSpent,tier.cost);
+    assert.equal(r.bopXPGained,0);
+    assert.equal(r.alchemyState.xp,0);
+    assert.equal(r.alchemyState.bopXP,0);
+    assert.deepEqual(f.act("alchemy-draw",body,"bop-spend-"+tier.rarity),r);
+    assert.throws(()=>f.act("alchemy-draw",{...body,expectedVersion:r.alchemyState.version}),/enough bop XP/);
+  }
+});
+test("bop XP is not earned on hits/random draws and cannot bypass target, version, balance or account protections", t => {
+  const f=fixture(t);
+  f.seed(500);
+  f.e.economy.alchemy.saveBopXP("p",100);
+  let r=f.act("alchemy-draw",{rarity:"D",targetCard:null,expectedVersion:0,confirmed:true});
+  assert.equal(r.bopXPGained,0);
+  r=f.act("alchemy-target",{rarity:"D",card:"D1",expectedVersion:r.alchemyState.version});
+  r=f.act("alchemy-draw",{rarity:"D",targetCard:"D1",expectedVersion:r.alchemyState.version,confirmed:true});
+  assert.equal(r.targetHit,true);
+  assert.equal(r.bopXPGained,0);
+  assert.equal(r.alchemyState.bopXP,100);
+  const body={rarity:"D",currency:"bop",targetCard:"D1",expectedVersion:r.alchemyState.version,confirmed:true};
+  const snapshot=()=>JSON.stringify([f.e.economy.alchemy.state("p"),f.e.all("SELECT * FROM inventory")]);
+  const before=snapshot();
+  for(const bad of [{...body,confirmed:false},{...body,expectedVersion:-1},{...body,targetCard:"D2"},{...body,currency:"free"}])
+    assert.throws(()=>f.act("alchemy-draw",bad));
+  f.cards.get("D1").rarity="C";
+  assert.throws(()=>f.act("alchemy-draw",body),/target changed/);
+  f.cards.get("D1").rarity="D";
+  assert.equal(snapshot(),before);
+  f.e.run("UPDATE players SET account_locked=1 WHERE id='p'");
+  assert.throws(()=>f.act("alchemy-draw",body),/locked/);
+  f.e.run("UPDATE players SET account_locked=0 WHERE id='p'");
+  r=f.act("alchemy-target",{rarity:"D",card:null,expectedVersion:body.expectedVersion});
+  assert.throws(()=>f.act("alchemy-draw",{...body,targetCard:null,expectedVersion:r.alchemyState.version}),/Choose a target/);
+  assert.equal(f.e.economy.alchemy.bopXP("p"),100);
 });

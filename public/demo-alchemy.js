@@ -10,10 +10,12 @@ export function demoAlchemy(d, path, b, { take, add }) {
   const s = d.s,
     progress = (s.alchemy ||= {
       xp: 0,
+      bopXP: 0,
       refinements: 0,
       version: 0,
       targets: {},
     });
+  progress.bopXP ||= 0;
   const state = () => ({
     ...progress,
     tiers: ALCHEMY_TIERS,
@@ -88,15 +90,19 @@ export function demoAlchemy(d, path, b, { take, add }) {
     const tier = ALCHEMY_TIERS.find((t) => t.rarity === b.rarity),
       pool = d.cards.filter((c) => c.rarity === b.rarity),
       targetId = progress.targets[b.rarity] || null;
-    if (!tier || progress.xp < tier.cost) throw Error("Not enough XP.");
+    const guaranteed = b.currency === "bop";
+    if (b.currency !== undefined && !["xp", "bop"].includes(b.currency)) throw Error("Choose a valid alchemy currency.");
+    if (!tier || (guaranteed ? progress.bopXP : progress.xp) < tier.cost) throw Error(guaranteed ? "Not enough bop XP." : "Not enough XP.");
     if ((b.targetCard || null) !== targetId) throw Error("Target changed.");
     const target = targetId ? pool.find((c) => c.id === targetId) : null;
     if (targetId && !target) throw Error("Target rarity changed.");
-    const c = drawAlchemyCard(pool, target, (n) =>
-      Math.floor(Math.random() * n),
-    );
+    if (guaranteed && !target) throw Error("Choose a target before spending bop XP.");
+    const c = guaranteed ? target : drawAlchemyCard(pool, target, (n) => Math.floor(Math.random() * n));
+    const targetHit = !!target && c.id === target.id;
+    const bopXPGained = !guaranteed && target && !targetHit ? tier.cost / 10 : 0;
     add(c.id);
-    progress.xp -= tier.cost;
+    progress.xp -= guaranteed ? 0 : tier.cost;
+    progress.bopXP += bopXPGained - (guaranteed ? tier.cost : 0);
     progress.version++;
     return {
       alchemyState: state(),
@@ -104,8 +110,13 @@ export function demoAlchemy(d, path, b, { take, add }) {
       message: tier.rarity + " Draw · " + c.name,
       cards: [c],
       rarity: tier.rarity,
-      xpSpent: tier.cost,
-      targetHit: !!target && c.id === target.id,
+      xpSpent: guaranteed ? 0 : tier.cost,
+      bopXPSpent: guaranteed ? tier.cost : 0,
+      bopXPGained,
+      currency: guaranteed ? "bop" : "xp",
+      level: 1,
+      targetChance: guaranteed ? 100 : target ? (pool.length === 1 ? 100 : 50) : 0,
+      targetHit,
     };
   }
 }

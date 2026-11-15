@@ -1087,6 +1087,7 @@ export class Engine {
         "card_title_awards",
         "card_upgrade_progress",
         "card_alchemy",
+        "alchemy_bop_xp",
         "alchemy_targets",
         "card_wishlist",
         "special_packs",

@@ -34,6 +34,8 @@ export function createAlchemyUI(h) {
     targetData = null,
     lastResult = null,
     drawRevealed = false;
+  const bopIcon = (className = "") =>
+    '<img class="alchemy-bop-icon ' + className + '" src="community-cards/bop.webp" alt="" width="24" height="24">';
   const cards = new Map();
   let selectionId = 0;
   const keyed = (entry) => ({ ...entry, key: String(++selectionId) });
@@ -257,13 +259,18 @@ export function createAlchemyUI(h) {
       expectedVersion: data.version,
     };
   }
-  function drawRequest(rarity) {
+  function drawRequest(rarity, currency = "xp") {
     if (!data) throw Error("Wait for alchemy progress to load.");
     const t = ALCHEMY_TIERS.find((t) => t.rarity === rarity);
-    if (!t || data.xp < t.cost)
-      throw Error("Not enough alchemy XP for this tier.");
+    const guaranteed = currency === "bop";
+    if (!t || (guaranteed ? data.bopXP || 0 : data.xp) < t.cost)
+      throw Error(guaranteed ? "Not enough bop XP for this target." : "Not enough alchemy XP for this tier.");
+    const target = card(data.targets[rarity]);
+    if (guaranteed && (!target || target.rarity !== rarity))
+      throw Error("Choose a valid target before spending bop XP.");
     return {
       action: "alchemy-draw",
+      ...(guaranteed ? { currency: "bop" } : {}),
       rarity,
       targetCard: data.targets[rarity] || null,
       expectedVersion: data.version,
@@ -313,34 +320,34 @@ export function createAlchemyUI(h) {
     } else {
       const tier = ALCHEMY_TIERS.find((t) => t.rarity === body.rarity),
         target = body.targetCard ? card(body.targetCard) : null;
+      const guaranteed = body.currency === "bop";
       details =
-        "<p>Spend <strong>" +
-        n(tier.cost) +
-        " XP</strong> for one Lv. 1 " +
-        e(tier.rarity) +
-        " card.</p>" +
+        "<p>Spend <strong>" + (guaranteed ? bopIcon() : "") +
+        n(tier.cost) + (guaranteed ? " bop XP" : " XP") +
+        "</strong> for one Lv. 1 " + e(tier.rarity) + " card.</p>" +
         (target
-          ? '<div class="alchemy-review-material">' +
-            image(target) +
-            "<div><strong>" +
-            e(target.name) +
-            "</strong><p>50% Target Chance · Remaining Cards Share the Other 50%</p></div></div>"
+          ? '<div class="alchemy-review-material">' + image(target) +
+            "<div><strong>" + e(target.name) + "</strong><p>" +
+            (guaranteed ? "100% Guaranteed Target" : "50% Target Chance · Remaining Cards Share the Other 50%") +
+            "</p></div></div>"
           : "<p>No target selected. Draw a random card from both catalogues at this rarity.</p>") +
-        "<p>Unused XP stays in your pool.</p>";
-      label = "Spend " + n(tier.cost) + " XP & Draw";
+        (guaranteed ? "<p>Your normal XP stays unchanged.</p>"
+          : "<p>Unused XP stays in your pool.</p>" +
+            (target ? "<p>A missed target returns 10% of this cost as bop XP.</p>" : ""));
+      label = guaranteed ? "bop" : "Spend " + n(tier.cost) + " XP & Draw";
     }
     return (
       '<form id="alchemy-confirm-form" class="fusion-review-form"><h2 id="fusion-review-title">' +
       (body.action === "alchemy-feed"
         ? "Confirm Refinement"
-        : "Confirm Alchemy Draw") +
+        : body.currency === "bop" ? "Do you really want to bop this card?" : "Confirm Alchemy Draw") +
       '</h2><div class="fusion-review-details">' +
       details +
       '</div><input type="hidden" name="reviewed" value="' +
       e(JSON.stringify(body)) +
       '"><div class="form-error" role="alert"></div><div class="fusion-review-actions"><button type="submit" class="button mint">' +
       label +
-      '</button><button type="button" class="button secondary" data-action="alchemy-close">Cancel</button></div></form>'
+      '</button><button type="button" class="button secondary" data-action="alchemy-close">' + (body.currency === "bop" ? "nope" : "Cancel") + '</button></div></form>'
     );
   }
   function refinementResult() {
@@ -407,9 +414,9 @@ export function createAlchemyUI(h) {
     return (
       '<section class="fusion-review-form alchemy-draw-popup tier-' +
       tier +
-      '"><h2 id="fusion-review-title">Alchemy Draw</h2><p>' +
-      n(lastResult.xpSpent) +
-      ' XP Spent · Your card is safely in your collection.</p><div class="alchemy-draw-stage ' +
+      '"><h2 id="fusion-review-title">' + (lastResult.currency === "bop" ? "bop Draw" : "Alchemy Draw") + '</h2><p>' +
+      (lastResult.currency === "bop" ? bopIcon() + n(lastResult.bopXPSpent) + " bop XP" : n(lastResult.xpSpent) + " XP") +
+      ' Spent · Your card is safely in your collection.</p><div class="alchemy-draw-stage ' +
       (drawRevealed ? "is-unsealed" : "") +
       '">' +
       (drawRevealed
@@ -421,6 +428,8 @@ export function createAlchemyUI(h) {
       (drawRevealed && lastResult.targetHit
         ? '<p class="alchemy-target-hit" role="status">✦ Target Card!</p>'
         : "") +
+      (drawRevealed && lastResult.bopXPGained
+        ? '<p class="alchemy-bop-rebate" role="status">' + bopIcon() + "+" + n(lastResult.bopXPGained) + " bop XP · Target Miss</p>" : "") +
       '<div class="fusion-review-actions"><button type="button" class="button mint" data-action="alchemy-close">Done</button></div></section>'
     );
   }
@@ -450,9 +459,10 @@ export function createAlchemyUI(h) {
       n(data.nextRefinement) +
       "</span><h2>" +
       (data.nextLucky ? "Lucky Refinement" : "Refine Selected Cards") +
-      '</h2></div><strong class="alchemy-xp">' +
-      n(data.xp) +
-      " XP</strong></div>" +
+      '</h2></div><div class="alchemy-balances"><strong class="alchemy-xp">' +
+      n(data.xp) + ' XP</strong><div class="alchemy-bop-balance" title="Earn 10% of a normal draw’s XP cost when it misses your selected target.">' +
+      bopIcon() + '<div><strong>' + n(data.bopXP || 0) +
+      '</strong><span>bop XP</span></div></div></div></div>' +
       (data.nextLucky
         ? '<p class="alchemy-lucky-message">✦ A lucky energy engulfs the room.</p>'
         : '<p class="form-hint">' +
@@ -545,7 +555,8 @@ export function createAlchemyUI(h) {
         n(Math.min(t.cost, data.xp)) +
         " / " +
         n(t.cost) +
-        ' XP</small><div class="alchemy-tier-actions">' +
+        ' XP<span class="alchemy-bop-cost" title="Guaranteed target cost">' + bopIcon() + n(t.cost) +
+        '</span></small><div class="alchemy-tier-actions">' +
         btn(
           valid ? "Change Target" : "Choose Target",
           "alchemy-target-open",
@@ -561,7 +572,10 @@ export function createAlchemyUI(h) {
             (data.xp < t.cost || (targetId && !valid) ? "disabled" : ""),
           "mint",
         ) +
-        "</div>" +
+        '<button type="button" class="alchemy-bop-button" data-action="alchemy-draw-review" data-currency="bop" data-rarity="' + t.rarity +
+        '" title="' + e(valid ? "Get " + target.name + " guaranteed for " + n(t.cost) + " bop XP" : "Choose a target to use bop XP") +
+        '" aria-label="' + e(t.rarity + " guaranteed target · " + n(t.cost) + " bop XP") + '" ' +
+        (!valid || (data.bopXP || 0) < t.cost ? "disabled" : "") + ">" + bopIcon() + "<span>bop</span></button></div>" +
         (targetId
           ? btn(
               "Clear Target",
@@ -578,7 +592,7 @@ export function createAlchemyUI(h) {
       feed +
       '<div class="section-head"><h2>Your Alchemy Targets</h2><span class="subtext">One Shared XP Pool · Unused XP Is Kept</span></div><div class="alchemy-tier-grid">' +
       tiers +
-      '</div><details class="rarity-guide"><summary>Alchemy Rules</summary><h3>Refinement System</h3><ul><li><strong>Cost &amp; Material:</strong> Consumes one selected card per attempt to add XP (protected or locked cards cannot be used).</li><li><strong>Standard Rates:</strong> 90% Success (1× XP), 9% Great Success (2× XP), 1% Erig (5× XP).</li><li><strong>Bonus Rates (Every 6th Attempt):</strong> 50% Success (1× XP), 45% Great Success (2× XP), 5% Erig (5× XP).</li></ul><h3>Draw Mechanics</h3><ul><li><strong>Target Selected:</strong> The chosen character/seiyuu has a 50% chance to drop; all other cards of that rarity split the remaining 50%.</li><li><strong>No Target Selected:</strong> Draws are split equally among all cards of the selected rarity.</li><li><strong>Single-Card Tiers:</strong> If a tier has only 1 card, it is 100% guaranteed.</li><li><strong>Output:</strong> All drawn cards start at Level 1.</li></ul><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Lv. 1 XP</th><th>Draw Cost</th></tr></thead><tbody>' +
+      '</div><details class="rarity-guide"><summary>Alchemy Rules</summary><h3>Refinement System</h3><ul><li><strong>Cost &amp; Material:</strong> Consumes one selected card per attempt to add XP (protected or locked cards cannot be used).</li><li><strong>Standard Rates:</strong> 90% Success (1× XP), 9% Great Success (2× XP), 1% Erig (5× XP).</li><li><strong>Bonus Rates (Every 6th Attempt):</strong> 50% Success (1× XP), 45% Great Success (2× XP), 5% Erig (5× XP).</li></ul><h3>Draw Mechanics</h3><ul><li><strong>Target Selected:</strong> The chosen character/seiyuu has a 50% chance to drop; all other cards of that rarity split the remaining 50%.</li><li><strong>No Target Selected:</strong> Draws are split equally among all cards of the selected rarity.</li><li><strong>Single-Card Tiers:</strong> If a tier has only 1 card, it is 100% guaranteed.</li><li><strong>Output:</strong> All drawn cards start at Level 1.</li></ul><h3>bop XP</h3><ul><li>A normal XP draw that misses your selected target returns 10% of its XP cost as bop XP.</li><li>Spend bop XP equal to a tier’s normal draw cost to receive its selected target at 100%.</li><li>Untargeted draws and bop draws do not earn bop XP.</li></ul><div class="table-wrap"><table><thead><tr><th>Rarity</th><th>Lv. 1 XP</th><th>Draw Cost</th></tr></thead><tbody>' +
       ALCHEMY_TIERS.map(
         (t) =>
           "<tr><td>" +

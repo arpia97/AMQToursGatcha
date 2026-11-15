@@ -363,3 +363,28 @@ test("draw results stay in a covered-card popup and reveal locally once without 
   f.ui.dismiss();
   assert.equal(f.ui.drawResult(), "");
 });
+
+test("bop draw uses the square image, quotes its own balance and reveals target-miss returns without spoiling the card", () => {
+  const f=fixture();
+  const progress={xp:0,bopXP:12800,refinements:0,version:3,targets:{AG:"a"},cards:f.cards,nextLucky:false,nextRefinement:1};
+  f.ui.update(progress);
+  const body=f.ui.drawRequest("AG","bop");
+  assert.equal(body.currency,"bop");
+  assert.equal(body.targetCard,"a");
+  assert.match(f.ui.render(),/community-cards\/bop.webp/);
+  assert.match(f.ui.render(),/data-currency="bop"/);
+  assert.match(f.ui.confirmation(body),/Do you really want to bop this card\?/);
+  assert.match(f.ui.confirmation(body),/>bop<\/button>/);
+  assert.match(f.ui.confirmation(body),/>nope<\/button>/);
+  assert.match(f.ui.confirmation(body),/100% Guaranteed Target/);
+  assert.match(f.ui.confirmation(body),/12800 bop XP/);
+  assert.match(f.ui.confirmation(body),/normal XP stays unchanged/);
+  f.ui.update({...progress,bopXP:0});
+  assert.throws(()=>f.ui.drawRequest("AG","bop"),/Not enough bop XP/);
+  f.ui.update({...progress,targets:{}});
+  assert.throws(()=>f.ui.drawRequest("AG","bop"),/Choose a valid target/);
+  f.ui.complete({cards:[f.cards[1]],xpSpent:12800,bopXPGained:1280,alchemyState:progress});
+  assert.doesNotMatch(f.ui.drawResult(),/Target Miss/);
+  f.ui.revealDraw();
+  assert.match(f.ui.drawResult(),/\+1280 bop XP · Target Miss/);
+});

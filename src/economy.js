@@ -1000,6 +1000,7 @@ export class Economy {
   resetPlayer(player) {
     const e = this.e;
     e.run("DELETE FROM card_alchemy WHERE player=?", player);
+    e.run("DELETE FROM alchemy_bop_xp WHERE player=?", player);
     e.run("DELETE FROM alchemy_targets WHERE player=?", player);
     e.run("DELETE FROM card_wishlist WHERE player=?", player);
     this.trades.resetPlayer(player);

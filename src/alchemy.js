@@ -14,6 +14,7 @@ export class Alchemy {
     e.run(
       "CREATE TABLE IF NOT EXISTS card_alchemy(player TEXT PRIMARY KEY,xp INTEGER NOT NULL DEFAULT 0 CHECK(xp>=0),refinements INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 0)",
     );
+    e.run("CREATE TABLE IF NOT EXISTS alchemy_bop_xp(player TEXT PRIMARY KEY,xp INTEGER NOT NULL DEFAULT 0 CHECK(xp>=0))");
     e.run(
       "CREATE TABLE IF NOT EXISTS alchemy_targets(player TEXT NOT NULL,rarity TEXT NOT NULL,card TEXT NOT NULL,PRIMARY KEY(player,rarity))",
     );
@@ -26,6 +27,13 @@ export class Alchemy {
       ) || { xp: 0, refinements: 0, version: 0 }
     );
   }
+  bopXP(player) {
+    return this.e.one("SELECT xp FROM alchemy_bop_xp WHERE player=?", player)?.xp || 0;
+  }
+  saveBopXP(player, xp) {
+    if (!Number.isSafeInteger(xp) || xp < 0) fail("Invalid bop XP balance.", 409);
+    this.e.run("INSERT INTO alchemy_bop_xp VALUES(?,?) ON CONFLICT(player) DO UPDATE SET xp=excluded.xp", player, xp);
+  }
   state(player) {
     const progress = this.read(player),
       targets = Object.fromEntries(
@@ -35,6 +43,7 @@ export class Alchemy {
       );
     return {
       ...progress,
+      bopXP: this.bopXP(player),
       targets,
       tiers: ALCHEMY_TIERS,
       xpRevision: ALCHEMY_XP_REVISION,
@@ -258,8 +267,11 @@ export class Alchemy {
     const progress = this.checkVersion(player, b),
       tier = ALCHEMY_TIERS.find((t) => t.rarity === b.rarity);
     if (!tier) fail("Choose a valid alchemy tier.");
-    if (progress.xp < tier.cost)
-      fail("You do not have enough alchemy XP for this tier.", 409);
+    if (b.currency !== undefined && !["xp", "bop"].includes(b.currency))
+      fail("Choose a valid alchemy currency.");
+    const guaranteed = b.currency === "bop", bopXP = this.bopXP(player);
+    if ((guaranteed ? bopXP : progress.xp) < tier.cost)
+      fail(guaranteed ? "You do not have enough bop XP for this target." : "You do not have enough alchemy XP for this tier.", 409);
     const saved =
       this.e.one(
         "SELECT card FROM alchemy_targets WHERE player=? AND rarity=?",
@@ -277,23 +289,33 @@ export class Alchemy {
       );
     if (!pool.length)
       fail("This tier has no available cards. Your XP was kept.", 409);
+    if (guaranteed && !target)
+      fail("Choose a target before spending bop XP.", 409);
     const result = this.e.catalogStore.card(
-      drawAlchemyCard(pool, target, (n) => this.e.rand(n)).id,
+      guaranteed ? target.id : drawAlchemyCard(pool, target, (n) => this.e.rand(n)).id,
     );
+    const targetHit = !!target && result.id === target.id;
+    const bopXPGained = !guaranteed && target && !targetHit ? tier.cost / 10 : 0;
+    if (bopXP > Number.MAX_SAFE_INTEGER - bopXPGained)
+      fail("Spend some bop XP before drawing again.", 409);
     this.e.addCard(player, result.id);
     this.save(player, {
       ...progress,
-      xp: progress.xp - tier.cost,
+      xp: progress.xp - (guaranteed ? 0 : tier.cost),
       version: progress.version + 1,
     });
+    if (guaranteed || bopXPGained) this.saveBopXP(player, bopXP + bopXPGained - (guaranteed ? tier.cost : 0));
     return {
-      message: tier.rarity + " Draw · " + result.name,
+      message: tier.rarity + (guaranteed ? " bop Draw · " : " Draw · ") + result.name,
       cards: [result],
       level: 1,
       rarity: tier.rarity,
-      xpSpent: tier.cost,
-      targetHit: !!target && result.id === target.id,
-      targetChance: target ? (pool.length === 1 ? 100 : 50) : 0,
+      xpSpent: guaranteed ? 0 : tier.cost,
+      bopXPSpent: guaranteed ? tier.cost : 0,
+      bopXPGained,
+      currency: guaranteed ? "bop" : "xp",
+      targetHit,
+      targetChance: guaranteed ? 100 : target ? (pool.length === 1 ? 100 : 50) : 0,
       alchemyState: this.state(player),
       collectionPatch: this.collectionPatch(player, [result.id]),
     };

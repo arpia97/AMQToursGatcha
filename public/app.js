@@ -2340,7 +2340,7 @@ document.addEventListener("submit", async (ev) => {
       const current =
         action === "alchemy-feed"
           ? alchemyUI.request()
-          : alchemyUI.drawRequest(body.rarity);
+          : alchemyUI.drawRequest(body.rarity, body.currency);
       if (JSON.stringify(current) !== JSON.stringify(reviewed))
         throw Error("The alchemy quote changed. Close and review again.");
       await execute(
@@ -3381,7 +3381,7 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       if (a === "alchemy-draw-review") {
-        openFusionReview(alchemyUI.drawRequest(t.dataset.rarity));
+        openFusionReview(alchemyUI.drawRequest(t.dataset.rarity, t.dataset.currency));
         return true;
       }
       if (a === "alchemy-material-clear") {

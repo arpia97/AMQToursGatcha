@@ -5576,3 +5576,26 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
   .profile-wishlist-header > .profile-wishlist-kind { grid-column: 1 / -1; grid-row: 2; }
   .profile-wishlist-header > .text-button { grid-column: 2; }
 }
+
+
+/* bop XP: a separate target-miss currency; compact alongside ordinary draws. */
+.alchemy-balances { display:flex; align-items:center; justify-content:flex-end; gap:16px; flex-wrap:wrap; }
+.alchemy-bop-icon { width:24px; height:24px; aspect-ratio:1; object-fit:cover; border-radius:4px; vertical-align:middle; flex-shrink:0; }
+.alchemy-bop-balance { display:flex; gap:8px; align-items:center; padding:8px 12px; border:1px solid #665640; border-radius:10px; background:#26231f; }
+.alchemy-bop-balance .alchemy-bop-icon { width:30px; height:30px; }
+.alchemy-bop-balance strong { display:block; color:#f3d39b; font-size:19px; line-height:1.1; }
+.alchemy-bop-balance span { display:block; font-size:10px; color:var(--muted); margin-top:3px; }
+.alchemy-tier > small:has(.alchemy-bop-cost) { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.alchemy-bop-cost { display:inline-flex; align-items:center; gap:5px; color:#e5c994; font-variant-numeric:tabular-nums; }
+.alchemy-bop-cost .alchemy-bop-icon { width:17px; height:17px; border-radius:3px; }
+.alchemy-tier-actions { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px; gap:8px; }
+.alchemy-tier-actions > .alchemy-bop-button { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2px; padding:4px; border:1px solid #8c734c; border-radius:8px; background:#30291e; color:#f3d39b; cursor:pointer; min-height:45px; font:inherit; transition:background .15s,border-color .15s; }
+.alchemy-bop-button span { font-size:10px; line-height:1; }
+.alchemy-bop-button:hover:not(:disabled) { background:#443622; border-color:#e0bd7f; }
+.alchemy-bop-button:focus-visible { outline:2px solid var(--mint); outline-offset:3px; }
+.alchemy-bop-button:disabled { opacity:.38; cursor:not-allowed; filter:grayscale(.65); }
+.alchemy-bop-rebate { display:flex; align-items:center; justify-content:center; gap:8px; color:#f3d39b; font-weight:600; }
+@media(max-width:600px) { .alchemy-balances { gap:10px; } .alchemy-bop-balance { padding:6px 9px; } }
+
+.fusion-review-details strong > .alchemy-bop-icon { margin:0 5px; }
+.alchemy-draw-popup > p > .alchemy-bop-icon { margin-right:5px; }

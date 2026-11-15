@@ -1,5 +1,17 @@
 # Shared Status and Handoff
 
+## Ready for Review — bop XP (Local Only)
+
+November 15. User requests a preview BEFORE deployment. Local branch feat/bop-xp-preview in C:/Users/USER/.codex/worktrees/bop-xp-preview/AMQToursGatcha is based on c10994e. Do not deploy or push to main until user approves the preview. Original shared checkout's Delete Quiz source edits are untouched.
+
+Implemented a separate per-player alchemy_bop_xp balance, initially zero and prospective only. Normal XP draws that miss an explicitly saved valid target earn exactly 10% of tier cost (D=5 through AG=1,280). Hits, untargeted draws and bop draws earn zero. Guaranteed bop draws cost the normal tier cost entirely in bop XP, leave normal XP unchanged, and award the saved matching target at Level 1 with 100% probability and no RNG. Existing transactional receipts/version checks, account locks and stale/retired target guards apply. Identity rename and gameplay reset include the new balance. No historical compensation, live schema change or production mutation has occurred.
+
+UI uses public/community-cards/bop.webp for the balance, cost units and a compact gold-outlined per-tier image button with lowercase bop underneath. Currency wording is lowercase bop everywhere. The confirmation heading is exactly "Do you really want to bop this card?" with buttons "bop" and "nope", showing target, 100% guarantee and cost. Normal draw results reveal the 10% bop XP return alongside the drawn card, after reveal. Demo logic mirrors the rules.
+
+497 full tests, 238 syntax checks and browser QA at 1440/390px pass. Browser tests verify the exact confirmation/cancel text, cancel preserving both pools, a guaranteed AG target, normal XP unchanged by bop redemption, disabled unaffordable button, 1,280 XP returned on a normal AG target miss, no script errors or horizontal overflow. Shared source and tests are reviewable locally; no main push or deployment. Local-only disposable Miniflare preview is running on http://127.0.0.1:8878/fusion via work/serve-bop-preview.mjs (session 70615); its injected fixtures have sample 24,000 normal XP / 12,800 bop XP and a Reset button. It binds only localhost and uses no production resources. Do not archive this worktree while that preview is needed. Full-page, individual tier, balance, confirmation and refund screenshots are in outputs/bop-*-preview-1440.png and *-390.png; harness/proof/logs remain under work/bop-xp-*.
+
+Next: collect user design feedback/approval. Before any future deployment, integrate newer main safely, preserve QUIZ_SESSIONS plus existing migration history, run required checks on the final integrated source, and deploy only after explicit preview approval.
+
 ## Completed — Quiz Focus Recovery
 
 November 15. Runtime 6929d1b63406c7a6d31ee0ff757e10dd97cdd899 is pushed/live on the original amqtours-gatcha Worker version 5ab6ad3c-d18b-48f0-a738-0fd48dee25f1. The existing foreground quiz clock now also recovers same-node focus loss when focus falls to the page (including temporarily disabled inputs after submission errors). It respects explicit Tab/Shift-Tab navigation, other focused controls, open account/song dialogs, hidden documents and inactive windows; returning focus to the answer input or starting a new song resets the navigation pause. Explicit audio recovery returns focus to answering. No new timers/listeners/polling, backend changes or quiz timing/reward changes.
