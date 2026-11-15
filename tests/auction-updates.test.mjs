@@ -1,4 +1,5 @@
 import {flashDiscount} from '../public/community-market-rules.js';
+import {auctionRefreshIds,applyAuctionRefresh,syncBidForm} from '../public/auction-live.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -296,11 +297,33 @@ test("community reform waits for the weekly boundary, preserves pending wins and
   });
   const user = e.one("SELECT * FROM auctions WHERE seller IS NOT NULL");
   act("p", "bid", { auction: user.id, amount: 100 });
-  act("p", "bid", { auction: user.id, amount: 101 });
+  assert.throws(()=>act("p", "bid", {auction:user.id,amount:109}),/minimum bid is 110/);
+  act("p", "bid", { auction: user.id, amount: 110 });
   assert.equal(
     e.one("SELECT ends FROM auctions WHERE id=?", user.id).ends,
     user.ends,
   );
+});
+
+test('live auction updates reject stale/account-mismatched balances and keep custom bid amounts',()=>{
+  const before={id:2,seller:'q',bid:101,winner:'p',ends:10000};
+  const state={now:100,me:{id:'p',balance:899},auctions:[before],myListings:[{id:2,venue:'shop',price:5}]};
+  const market={items:[before]},next={...before,bid:112,winner:'r'};
+  assert.deepEqual(auctionRefreshIds(state,market,2),[2]);
+  assert.equal(auctionRefreshIds({auctions:Array.from({length:100},(_,id)=>({id:id+1}))},null,99).length,64);
+  const snapshot={player:'p',now:101,balance:1000,lots:[next]};
+  assert.equal(applyAuctionRefresh(state,market,snapshot),true);
+  assert.equal(state.me.balance,1000);assert.equal(market.items[0].winner,'r');
+  assert.deepEqual(state.myListings,[{id:2,venue:'shop',price:5}]);
+  assert.equal(applyAuctionRefresh(state,market,{...snapshot,now:99,balance:0}),false);
+  assert.equal(applyAuctionRefresh(state,market,{...snapshot,player:'q',now:102,balance:0}),false);
+  assert.equal(state.me.balance,1000);
+  const input={min:'112',value:'500'},nodes={'[data-bid-current]':{},'[data-bid-balance]':{},'button[type="submit"]':{}};
+  const form={elements:{amount:input},querySelector:key=>nodes[key]};
+  syncBidForm(form,next,state.me,String,102);assert.equal(input.min,'124');assert.equal(input.value,'500');
+  input.value=input.min;syncBidForm(form,{...next,bid:124},state.me,String,102);assert.equal(input.value,'137');
+  assert.match(nodes['[data-bid-balance]'].textContent,/Available: 1000/);
+  syncBidForm(form,{...next,closed:1},state.me,String,102);assert.equal(nodes['button[type="submit"]'].disabled,true);
 });
 test("flash stock is S-or-higher, shared, refilled once per paid purchase, and alternates persistent three-hour openings and closures after closing", (t) => {
   const f = fixture(t),

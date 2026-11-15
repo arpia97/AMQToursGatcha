@@ -94,6 +94,7 @@ import { createPachinkoUI } from "./pachinko-ui.js";
 import { createHorseUI } from "./horse-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
+import { auctionRefreshIds, applyAuctionRefresh, syncBidForm } from "./auction-live.js";
 import { readRouletteMotion, saveRouletteMotion } from "./roulette-motion.js";
 import {
   seriesTitle,
@@ -531,30 +532,49 @@ function showTradeNotices() {
   if ($("#modal").open)
     markTradeNoticesSeen(notices.map((notice) => notice.id));
 }
-let pollingNotices = false;
-setInterval(async () => {
+function acceptAuctionNotices(value, player) {
+  if(state.me?.id!==player||busy)return;
+  rememberCards(value.cards);
+  state.notices=value.notices;
+  const market=page()==='auctions'?ui.marketData:null;
+  if(applyAuctionRefresh(state,market,value.auctionState))render();
+  const form=document.getElementById('bid-form');
+  if(form&&value.auctionState?.player===player&&value.auctionState.now===state.auctionUpdatedAt){
+    const lot=value.auctionState?.lots.find(a=>a.id===Number(form.elements.auction.value));
+    if(lot)syncBidForm(form,lot,state.me,number,Date.now()+clockOffset);
+  }
+}
+let pollingNotices = false,lastNoticePoll=0;
+async function pollNotices(force=false) {
+  const form=document.getElementById('bid-form');
+  const fast=page()==='auctions'||!!form;
   if (
     pollingNotices ||
+    busy ||
     !state?.me ||
     document.hidden ||
     isDemo ||
-    quizUI.active()
+    quizUI.active() ||
+    !force&&Date.now()-lastNoticePoll<(fast?5000:30000)
   )
     return;
-  const player = state.me.id;
+  const player = state.me.id,requestState=state;
+  lastNoticePoll=Date.now();
   pollingNotices = true;
   try {
-    const value = await api("notices");
-    if (state.me?.id === player) {
-      rememberCards(value.cards);
-      state.notices = value.notices;
+    const ids=auctionRefreshIds(state,page()==='auctions'?ui.marketData:null,form?.elements.auction.value);
+    const value = await api("notices?auctions="+ids.join(','));
+    if (state.me?.id === player&&state===requestState) {
+      acceptAuctionNotices(value,player);
       showTradeNotices();
     }
   } catch {
   } finally {
     pollingNotices = false;
   }
-}, 30000);
+}
+setInterval(pollNotices,1000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)pollNotices(true);});
 function revealAcquired(result, title = "A New Favourite Is Yours.") {
   const c = result.cards?.[0];
   if (!c) {
@@ -2306,12 +2326,19 @@ document.addEventListener("click", async (ev) => {
     return;
   }
   if (a === "bid") {
+    const player=state.me.id;
+    if(!isDemo)acceptAuctionNotices(await api('notices?auctions='+Number(t.dataset.id)),player);
+    if(state.me?.id!==player)return;
     const lot = [...state.auctions, ...(ui.marketData?.items || [])].find(
       (x) => x.id === Number(t.dataset.id),
     );
+    if(!lot)return toast('This auction is no longer available.',true);
+    if(lot.seller===player)return toast('You cannot bid on your own auction.',true);
+    if(lot.closed||lot.ends<=Date.now()+clockOffset)return toast('This auction has ended.',true);
     modal(
-      `<h2>${escape(cardBy(lot.card).name)}</h2><p>${lot.bid ? "Highest bid: " + number(lot.bid) + " credits." : "Be the first to bid."} Your credits are held while your bid leads.</p><form id="bid-form" class="stack"><input type="hidden" name="auction" value="${lot.id}"><label>Your bid in credits<input type="number" name="amount" required min="${minimumBid(lot)}" max="100000000" step="1" value="${minimumBid(lot)}"></label><span class="form-hint">Available: ${number(state.me.balance)} credits${lot.winner === state.me.id ? " · Your existing bid counts toward the total." : ""}</span><div class="form-error" role="alert"></div><button class="button full" type="submit">Place bid →</button></form>`,
+      `<h2>${escape(cardBy(lot.card).name)}</h2><form id="bid-form" class="stack"><input type="hidden" name="auction" value="${lot.id}"><p data-bid-current aria-live="polite"></p><label>Your bid in credits<input type="number" name="amount" required min="${minimumBid(lot)}" max="100000000" step="1" value="${minimumBid(lot)}"></label><span class="form-hint" data-bid-balance></span><div class="form-error" role="alert"></div><button class="button full" type="submit">Place bid →</button></form>`,
     );
+    syncBidForm(document.getElementById('bid-form'),lot,state.me,number,Date.now()+clockOffset);
     return;
   }
   if (a === "predict") {

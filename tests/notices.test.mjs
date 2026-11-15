@@ -119,6 +119,23 @@ test("outbid events return held credits once, own raises/failed bids stay silent
   assert.equal(e.gameState("r").auctionWins.length, 0);
   assert.equal(e.gameState("q").notices.length, 1);
 });
+test('user auction 10% raises, seller rejection and bounded live snapshots preserve escrow and refunded balances',t=>{
+  const {e,act,advance}=fixture(t);
+  act('p','list-card',{card:'card-0',variant:'card',venue:'auction',price:100,buyout:500,hours:1});
+  const id=e.one('SELECT max(id) id FROM auctions').id;
+  assert.throws(()=>act('p','bid',{auction:id,amount:500}),/own auction/);
+  assert.throws(()=>act('p','buyout',{auction:id}),/own auction/);
+  act('q','bid',{auction:id,amount:101});
+  assert.throws(()=>act('r','bid',{auction:id,amount:111}),/minimum bid is 112/);
+  advance(1);act('r','bid',{auction:id,amount:112});
+  const live=e.economy.notices.auctionState('q',id+','+id);
+  assert.equal(live.player,'q');assert.equal(live.balance,10000);assert.equal(live.lots.length,1);
+  assert.equal(live.lots[0].bid,112);assert.equal(live.lots[0].winner_name,'Buyer');
+  assert.equal(e.player('r').balance,9888);
+  assert.equal(e.economy.notices.auctionState('q','').lots.length,0);
+  for(const invalid of ['0','1.5','oops',Array(65).fill('1').join(',')])assert.throws(()=>e.economy.notices.auctionState('q',invalid),/64 auction IDs/);
+});
+
 test("auction buyouts queue winner/seller/refund events atomically, with direct-reveal acknowledgment IDs and no duplicates", (t) => {
   const { e, act } = fixture(t);
   act("p", "list-card", {

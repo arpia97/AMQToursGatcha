@@ -43,6 +43,16 @@ export class PlayerNotices {
           .map((r) => ({ ...r, metadata: JSON.parse(r.metadata) }))
       : [];
   }
+  auctionState(player, ids) {
+    const values = ids ? ids.split(',').map(Number) : [];
+    if(values.length>64 || values.some(id=>!Number.isSafeInteger(id)||id<1))
+      fail('Choose at most 64 auction IDs.');
+    const unique=[...new Set(values)];
+    return {
+      player, now:this.e.now(), balance:this.e.player(player).balance,
+      lots:unique.length?this.e.all(`SELECT a.*,COALESCE(s.display_name,s.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name FROM auctions a LEFT JOIN players s ON s.id=a.seller LEFT JOIN players w ON w.id=a.winner WHERE a.id IN (${unique.map(()=>'?').join(',')})`,...unique):[],
+    };
+  }
   seen(player, ids) {
     if (
       !Array.isArray(ids) ||

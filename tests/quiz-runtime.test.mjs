@@ -200,6 +200,13 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(response.status, 200, await response.clone().text());
   const cookie = response.headers.get("Set-Cookie").split(";")[0];
   const auth = { Cookie: cookie };
+  assert.equal((await mf.dispatchFetch('http://game/api/notices?auctions=1')).status,401);
+  const liveNotice=await mf.dispatchFetch('http://game/api/notices?auctions=1',{headers:auth});
+  assert.equal(liveNotice.status,200);
+  const liveAuctions=(await liveNotice.json()).auctionState;
+  assert.equal(liveAuctions.player,'1');assert.ok(Array.isArray(liveAuctions.lots));
+  assert.equal(typeof liveAuctions.balance,'number');
+  assert.equal((await mf.dispatchFetch('http://game/api/notices?auctions=1.5',{headers:auth})).status,400);
   const input = Array.from({ length: 20 }, (_, i) => ({
     annId: 1,
     audio: "fixture-song-" + i + ".mp3",

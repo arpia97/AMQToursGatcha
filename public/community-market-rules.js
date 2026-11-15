@@ -21,7 +21,7 @@ export function minimumBid(auction) {
   return auction.bid
     ? Math.max(
         auction.bid + 1,
-        Math.ceil((auction.bid * (auction.rolling ? 11 : 10)) / 10),
+        Math.ceil((auction.bid * (auction.rolling || auction.seller ? 11 : 10)) / 10),
       )
     : auction.reserve || 1;
 }

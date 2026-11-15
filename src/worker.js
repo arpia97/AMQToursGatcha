@@ -1441,6 +1441,7 @@ export class Game extends DurableObject {
       const notices = e.economy.notices.pending(session.player);
       return json({
         notices,
+        ...(url.searchParams.has('auctions')?{auctionState:e.economy.notices.auctionState(session.player,url.searchParams.get('auctions'))}:{}),
         cards: e.catalogStore.cards(notices.map((n) => n.card).filter(Boolean)),
       });
     }
