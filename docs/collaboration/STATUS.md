@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Completed — Quiz Answer Autofocus
+
+November 15. Runtime 1c29aa2e7159bdc80fc476f8cacaa6057ff245a3 is pushed/live on the original amqtours-gatcha Worker version 7b143602-9f2a-4f8e-92b0-12a9b7d71a9d. Autofocus tracks the actual answer input node instead of a per-song boolean, and records focus only after the browser accepts it. Replaced fields regain focus; failed mount-time focus retries; intentional focus on another control is not repeatedly stolen. No backend/timing/reward changes.
+
+The existing regression test failed before the fix and now passes. All 26 focused quiz UI tests, syntax/diff checks, dry run and real-browser QA at 1280/390px pass. Browser assertions check focus before fill on the first song and the next song, after a full in-song redraw through Anime Titles, and after a two-second delayed Next acknowledgment; typing/focus and refresh resume survive, without script errors or overflow. The live quiz-ui.js byte-matches the release. Private proof/logs/harness remain in work/quiz-autofocus-*. No production quiz attempts or data corrections. Original shared Delete Quiz edits remain preserved; merge origin/main before publishing them.
+
 ## Completed — Competitive Quiz Fast Sessions
 
 November 15. Runtime 533a6fd59a7f2dccff01d3dbeacd29a49bc89ee7 is pushed to origin/main and deployed on the original amqtours-gatcha Worker version 7812a076-6ec2-4e5e-8b9c-56d83df8380f. New Competitive runs preload audio and use per-run SQLite QuizSession actors; the original economy/Game and QuizLibrary remain intact. Preserve QUIZ_SESSIONS / QuizSession and additive migration v3-quiz-sessions when integrating other work. Shared question-state extraction preserves legacy deadlines and guards competitive runs against the old endpoints.
