@@ -1,8 +1,14 @@
 # Shared Status and Handoff
 
-## In Progress — Team Reward Review and Faster Credit Search
+## Completed — Team Reward Review and Faster Credit Search
 
-November 16. Codex owns feat/tour-reward-controls in C:/Users/USER/.codex/worktrees/tour-reward-controls/AMQToursGatcha from origin/main 50899ff. Scope: team-preserving participation preview/review, participant search, whole-batch credit multiplier (including Count/Report, explicitly confirmed), cached/bounded manual credit search, focused tests/CSS/docs. Preserve shared Delete Quiz edits; no concurrent deployment. Reward changes stay server-calculated, version-gated, transactional and retry-safe. No historical credits are being changed.
+November 16. Runtime 15a41bb19d4fcbf4a96d4a99010405e7ac44dc58 is pushed/live on original amqtours-gatcha Worker version 97ce1c36-9067-401c-95e5-cbb15f784cc0. Existing GAME/Quiz bindings, named objects and migration history are unchanged. Upstream Delete Quiz/auction work 6f2abce was integrated before validation/deployment; preserve it when making later releases.
+
+Participation review preserves team-result line/order with four-player desktop rows and responsive wrapping. Subs stay under their outgoing player; flat signup lists retain pasted order in groups of four, and outside staff have a separate group. Participant search includes names/IDs/aliases and hides no-match groups without resetting rounds/checkboxes or removing anyone from the payout. Credit Multiplier defaults to 1×, accepts 0.1×–10× in tenths and scales participation AND Count/Report/outside staff as explicitly requested. Server-authoritative whole-credit math, audit multiplier, v3 review guard, duplicate-tour and retry protections remain. No past awards are recalculated.
+
+Manual grant/deduction search reuses normalized registry indexes, limits displayed options to 100 while searching every identity, preserves matching selected recipients, and avoids identical dropdown rebuilds; no per-keystroke requests/debounce/caret replacement. Local browser benchmark with 601 players/6,002 aliases: median update 7.4 ms before vs 0.3 ms after (local measurement, not a production latency guarantee).
+
+504 full tests, 239 syntax checks, dry run, both GitHub checks and 1440/390px real isolated Worker/browser tests pass. Browser checks cover team order, retained form state, subs/staff, exact 2× payout, invalid multiplier, old-client rejection, paid-once retries, native dropdown search/caret and no overflow. All six live assets byte-match. After the normal deferred actor rollout, the read-only owner preview returns the new canonical team metadata. Private logs, screenshots, benchmark and release proof are in work/reward-controls-*. No production reward batches or test accounts were created. Release ownership is released; the isolated worktree can be archived. Shared checkout remains on its own commit; integrate origin/main before its next deployment. This documentation commit is newer than the deployed runtime SHA. No remaining authorized work.
 
 ## Completed — bop XP, Historical Compensation and Missing-Target Warnings
 
