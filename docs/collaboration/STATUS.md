@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## Ready for Deployment — Quiz Anime Display Preference
+## Completed — Quiz Anime Display Preference
 
 November 16. Codex on main, base fba6edd. Public Song List, answer reveal and Songs Played recap resolve imported anime aliases to AMQ's labelled English/Romaji main names using the existing site preference. Preference changes render immediately, including cached song lists and reveals. Existing pools need no reimport; submitted text, accepted answers, scoring, rewards and saved data are unchanged. A static 509,657-byte anime-only index is loaded once on entering Quiz, alongside the list request; no per-song API or answer-key metadata is added. Missing translations use the other main name, unknown/ambiguous aliases retain the source label. The bundled-master refresh tool rebuilds the index too.
 
-Validation: 34 focused quiz tests passed; 242 source/test syntax checks and Wrangler dry-run passed; diff checks clean. Disposable local Worker/browser QA at 1280px and 390px verified mixed English/Romaji source labels become consistent in both modes, switching preferences, correct grading with original submitted text preserved, no repeated title downloads, no page errors or page overflow. Private screenshots/scripts are in surrounding work/quiz-title* and work/quiz-titles*. No production quiz attempt or data mutation was made. Runtime commit/deployment/live verification pending below.
+Validation: 34 focused quiz tests passed; 242 source/test syntax checks and Wrangler dry-run passed; diff checks clean. Disposable local Worker/browser QA at 1280px and 390px verified mixed English/Romaji source labels become consistent in both modes, switching preferences, correct grading with original submitted text preserved, no repeated title downloads, no page errors or page overflow. Private screenshots/scripts are in surrounding work/quiz-title* and work/quiz-titles*. No production quiz attempt or data mutation was made.
+
+Runtime e0128d0ecfdf4ecd1f59ba33cfe503612bffd370 is pushed and deployed to original amqtours-gatcha, version e29cf7b2-26b9-49bb-8300-3caaa5e58ad7. Bindings, named objects, migrations and Worker runtime code are unchanged. Four changed assets return 200 and match local bytes at amqtours.app/gacha; health is 200. Read-only live browser verification of Hatano, Wataru's actual 33-song list confirmed both screenshot songs display Haiyore! Nyaruko-san W in Romaji mode and Nyaruko: Crawling with Love! W in English mode, with no page errors. Private evidence: work/quiz-title-live-proof.json and work/quiz-titles-live-*.png. Ownership released; no remaining authorized work. This documentation-only commit is newer than the deployed runtime commit.
 
 ## Completed — Team Reward Review and Faster Credit Search
 
@@ -533,7 +535,7 @@ The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtour
 
 ## Work Ownership
 
-Active task: Codex / main / shared AMQToursGatcha checkout, base fba6edd. Scope: quiz anime display language (public app/quiz UI, display-only name index and refresh tooling, focused quiz tests). Codex owns integration and deployment. No economy or quiz-answer changes. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
+No concurrent feature task is claimed. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
 
 ## Next Handoff Template
 
