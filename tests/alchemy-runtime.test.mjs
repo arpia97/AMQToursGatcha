@@ -11,7 +11,13 @@ const require = createRequire(import.meta.url),
   )("miniflare");
 test("Worker alchemy endpoints protect one-card refinements, preserve XP and reject retired fusion clients", async (t) => {
   const bundle = await build({
-    entryPoints: [fileURLToPath(new URL("../src/worker.js", import.meta.url))],
+    stdin: { resolveDir: fileURLToPath(new URL("../", import.meta.url)), contents:
+      "import worker,{Game as OriginalGame} from './src/worker.js';export {QuizSession,QuizLibrary} from './src/worker.js';" +
+      "export class Game extends OriginalGame { async handle(request) { if(new URL(request.url).pathname==='/api/__bop-history-seed') {" +
+      "const e=this.engine,p=e.economy.alchemy.read('1'),version=p.version+1;" +
+      "e.economy.alchemy.save('1',{...p,version});" +
+      "e.run('INSERT INTO receipts VALUES(?,?,?,?,?)','1:alchemy-draw','historical-target-miss',JSON.stringify({targetCard:'old-target',expectedVersion:version-1}),JSON.stringify({targetHit:false,xpSpent:50,cards:[{id:'old-other'}],alchemyState:{version,refinements:p.refinements}}),1);" +
+      "return Response.json({ok:true});} return super.handle(request);}}export default worker;" },
     bundle: true,
     write: false,
     format: "esm",
@@ -250,4 +256,31 @@ test("Worker alchemy endpoints protect one-card refinements, preserve XP and rej
   assert.equal(draw.collectionPatch.me.earned, 5000);
   response = await post("fusion", { confirmed: true }, auth);
   assert.equal(response.status, 410);
+  assert.equal((await mf.dispatchFetch("http://game/api/host/bop-xp-compensation")).status,401);
+  assert.equal((await post("host/bop-xp-compensation",{confirmation:"compensate historical bop XP"},auth)).status,401);
+  await post("__bop-history-seed",{});
+  response=await mf.dispatchFetch("http://game/api/host/bop-xp-compensation",{headers:host});
+  assert.equal(response.status,200,await response.clone().text());
+  const backfill=await response.json();
+  assert.equal(backfill.totalBopXP,5);
+  assert.equal(backfill.players,1);
+  assert.deepEqual(backfill.warnings,[]);
+  assert.equal((await post("host/bop-xp-compensation",{confirmed:true,expectedDigest:backfill.expectedDigest},host)).status,400);
+  assert.equal((await post("host/bop-xp-compensation",{confirmation:"compensate historical bop XP",expectedDigest:"wrong"},host)).status,409);
+  const beforeBop=(await (await mf.dispatchFetch("http://game/api/alchemy",{headers:auth})).json()).alchemyState;
+  const compensation={confirmation:"compensate historical bop XP",expectedDigest:backfill.expectedDigest};
+  response=await post("host/bop-xp-compensation",compensation,host);
+  assert.equal(response.status,200,await response.clone().text());
+  const compensated=await response.json();
+  assert.equal(compensated.totalBopXP,5);
+  assert.ok(compensated.bookmark);
+  response=await post("host/bop-xp-compensation",compensation,host);
+  assert.equal((await response.json()).alreadyApplied,true);
+  const afterBop=(await (await mf.dispatchFetch("http://game/api/alchemy",{headers:auth})).json()).alchemyState;
+  assert.equal(afterBop.xp,beforeBop.xp);
+  assert.equal(afterBop.bopXP,beforeBop.bopXP+5);
+  response=await post("host/permissions",{player:"1",enabled:true},host);
+  assert.equal(response.status,200);
+  assert.equal((await mf.dispatchFetch("http://game/api/host/bop-xp-compensation",{headers:auth})).status,403);
+
 });

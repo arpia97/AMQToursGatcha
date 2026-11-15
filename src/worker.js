@@ -1,3 +1,4 @@
+import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
@@ -304,7 +305,7 @@ export class Game extends DurableObject {
     ].includes(path);
     const quizRun = path === "quiz-run" && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !path.startsWith('host/quiz-master')) e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -667,6 +668,25 @@ export class Game extends DurableObject {
             }));
         }
         return json(result);
+      }
+      if (path === "host/bop-xp-compensation") {
+        requireOwner();
+        if (post && b.confirmation !== "compensate historical bop XP")
+          fail("Confirm the historical bop XP compensation.");
+        const saved = savedBopCompensation(e);
+        if (saved) return json(saved);
+        const plan = bopCompensationPlan(e);
+        const source = bopCompensationSource(plan), sourceDigest = await digest(source);
+        requireOwner();
+        if (!post) {
+          const { source: evidence, ...preview } = plan;
+          return json({ ...preview, expectedDigest: sourceDigest, sourceReceipts: evidence.length });
+        }
+        if (b.expectedDigest !== sourceDigest)
+          fail("The historical draw evidence changed. Preview compensation again.", 409);
+        const bookmark = await this.ctx.storage.getCurrentBookmark();
+        requireOwner();
+        return json(e.tx(() => applyBopCompensation(e, plan, source, sourceDigest, bookmark)));
       }
       if (path === "host/alchemy-compensation") {
         requireOwner();

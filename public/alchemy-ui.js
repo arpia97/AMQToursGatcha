@@ -259,15 +259,17 @@ export function createAlchemyUI(h) {
       expectedVersion: data.version,
     };
   }
-  function drawRequest(rarity, currency = "xp") {
+  function drawRequest(rarity, currency = "xp", review = false) {
     if (!data) throw Error("Wait for alchemy progress to load.");
     const t = ALCHEMY_TIERS.find((t) => t.rarity === rarity);
     const guaranteed = currency === "bop";
-    if (!t || (guaranteed ? data.bopXP || 0 : data.xp) < t.cost)
-      throw Error(guaranteed ? "Not enough bop XP for this target." : "Not enough alchemy XP for this tier.");
+    if (!t) throw Error("Choose a valid alchemy tier.");
     const target = card(data.targets[rarity]);
-    if (guaranteed && (!target || target.rarity !== rarity))
+    const warnMissing = review && !data.targets[rarity];
+    if (!warnMissing && guaranteed && (!target || target.rarity !== rarity))
       throw Error("Choose a valid target before spending bop XP.");
+    if (!warnMissing && (guaranteed ? data.bopXP || 0 : data.xp) < t.cost)
+      throw Error(guaranteed ? "Not enough bop XP for this target." : "Not enough alchemy XP for this tier.");
     return {
       action: "alchemy-draw",
       ...(guaranteed ? { currency: "bop" } : {}),
@@ -321,6 +323,12 @@ export function createAlchemyUI(h) {
       const tier = ALCHEMY_TIERS.find((t) => t.rarity === body.rarity),
         target = body.targetCard ? card(body.targetCard) : null;
       const guaranteed = body.currency === "bop";
+      if (guaranteed && !target) return (
+        '<section class="fusion-review-form"><h2 id="fusion-review-title">No Target Selected</h2>' +
+        '<div class="notice warm" role="alert">Choose a target first. bop cannot draw a random card, and no XP will be spent.</div>' +
+        '<div class="fusion-review-actions">' + btn("Choose Target", "alchemy-target-open", 'data-rarity="' + e(body.rarity) + '"', "mint") +
+        '<button type="button" class="button secondary" data-action="alchemy-close">nope</button></div></section>'
+      );
       details =
         "<p>Spend <strong>" + (guaranteed ? bopIcon() : "") +
         n(tier.cost) + (guaranteed ? " bop XP" : " XP") +
@@ -330,11 +338,11 @@ export function createAlchemyUI(h) {
             "<div><strong>" + e(target.name) + "</strong><p>" +
             (guaranteed ? "100% Guaranteed Target" : "50% Target Chance · Remaining Cards Share the Other 50%") +
             "</p></div></div>"
-          : "<p>No target selected. Draw a random card from both catalogues at this rarity.</p>") +
+          : '<div class="notice warm" role="alert"><strong>No Target Selected</strong><p>This draw will be random and will not earn bop XP.</p></div>') +
         (guaranteed ? "<p>Your normal XP stays unchanged.</p>"
           : "<p>Unused XP stays in your pool.</p>" +
             (target ? "<p>A missed target returns 10% of this cost as bop XP.</p>" : ""));
-      label = guaranteed ? "bop" : "Spend " + n(tier.cost) + " XP & Draw";
+      label = guaranteed ? "bop" : "Spend " + n(tier.cost) + (target ? " XP & Draw" : " XP & Draw Randomly");
     }
     return (
       '<form id="alchemy-confirm-form" class="fusion-review-form"><h2 id="fusion-review-title">' +
@@ -345,7 +353,8 @@ export function createAlchemyUI(h) {
       details +
       '</div><input type="hidden" name="reviewed" value="' +
       e(JSON.stringify(body)) +
-      '"><div class="form-error" role="alert"></div><div class="fusion-review-actions"><button type="submit" class="button mint">' +
+      '"><div class="form-error" role="alert"></div><div class="fusion-review-actions"><button type="submit" class="button mint" ' +
+      (body.action === "alchemy-draw" && body.currency !== "bop" && data.xp < ALCHEMY_TIERS.find(t => t.rarity === body.rarity).cost ? "disabled" : "") + ">" +
       label +
       '</button><button type="button" class="button secondary" data-action="alchemy-close">' + (body.currency === "bop" ? "nope" : "Cancel") + '</button></div></form>'
     );
@@ -569,13 +578,13 @@ export function createAlchemyUI(h) {
           'data-rarity="' +
             t.rarity +
             '" ' +
-            (data.xp < t.cost || (targetId && !valid) ? "disabled" : ""),
+            (targetId && (data.xp < t.cost || !valid) ? "disabled" : ""),
           "mint",
         ) +
         '<button type="button" class="alchemy-bop-button" data-action="alchemy-draw-review" data-currency="bop" data-rarity="' + t.rarity +
         '" title="' + e(valid ? "Get " + target.name + " guaranteed for " + n(t.cost) + " bop XP" : "Choose a target to use bop XP") +
         '" aria-label="' + e(t.rarity + " guaranteed target · " + n(t.cost) + " bop XP") + '" ' +
-        (!valid || (data.bopXP || 0) < t.cost ? "disabled" : "") + ">" + bopIcon() + "<span>bop</span></button></div>" +
+        (targetId && (!valid || (data.bopXP || 0) < t.cost) ? "disabled" : "") + ">" + bopIcon() + "<span>bop</span></button></div>" +
         (targetId
           ? btn(
               "Clear Target",

@@ -3300,6 +3300,7 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       if (a === "alchemy-target-open") {
+        fusionReviewOpen = false;
         await openFusionPicker("target", t.dataset.rarity);
         return true;
       }
@@ -3381,7 +3382,7 @@ async function handleFeatureClick(a, t) {
         return true;
       }
       if (a === "alchemy-draw-review") {
-        openFusionReview(alchemyUI.drawRequest(t.dataset.rarity, t.dataset.currency));
+        openFusionReview(alchemyUI.drawRequest(t.dataset.rarity, t.dataset.currency, true));
         return true;
       }
       if (a === "alchemy-material-clear") {

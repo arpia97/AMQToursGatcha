@@ -124,3 +124,86 @@ test("Auto Refine uses low normal/high lucky rarities, max rarity and invested X
   assert.equal(refinementQuote("D").baseXP, 15);
   assert.equal(refinementQuote("AG").baseXP, 3840);
 });
+
+
+import { BOP_COMPENSATION_ID, savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "../src/bop-compensation.js";
+function legacyBopDraw(e,player,key,{cost=400,target="target",drawn="other",hit=false,version=1,result={},body={}}={}) {
+  e.run("INSERT INTO receipts VALUES(?,?,?,?,?)",player+":alchemy-draw",key,
+    JSON.stringify({confirmed:true,targetCard:target,expectedVersion:version-1,...body}),
+    JSON.stringify({xpSpent:cost,targetHit:hit,cards:[{id:drawn}],alchemyState:{version,refinements:0},...result}),1);
+}
+const applyBop = (e,plan=bopCompensationPlan(e)) => e.tx(()=>applyBopCompensation(e,plan,bopCompensationSource(plan),"test-source-digest","test-bookmark"));
+test("historical bop compensation uses spent XP from missed saved targets, pays once, and preserves live XP/currency earned after preview",t=>{
+  const e=fixture(t);
+  e.economy.alchemy.save("p",{xp:7,refinements:0,version:10});
+  e.economy.alchemy.saveBopXP("p",3);
+  legacyBopDraw(e,"p","miss",{cost:12800});
+  legacyBopDraw(e,"p","miss-two",{cost:50,version:2});
+  const plan=bopCompensationPlan(e);
+  assert.equal(plan.totalBopXP,1285);
+  assert.equal(plan.counts.eligibleMisses,2);
+  assert.equal(e.economy.alchemy.bopXP("p"),3);
+  const wallet=e.player("p");
+  e.economy.alchemy.save("p",{xp:22,refinements:1,version:11});
+  e.economy.alchemy.saveBopXP("p",8);
+  const result=applyBop(e,plan);
+  assert.equal(result.rows[0].priorBopXP,8);
+  assert.equal(e.economy.alchemy.bopXP("p"),1293);
+  assert.deepEqual({...e.economy.alchemy.read("p")},{xp:22,refinements:1,version:12});
+  assert.deepEqual(e.player("p"),wallet);
+  assert.equal(result.id,BOP_COMPENSATION_ID);
+  assert.equal(applyBop(e,plan).alreadyApplied,true);
+  assert.equal(e.economy.alchemy.bopXP("p"),1293);
+});
+test("historical bop compensation excludes reset/reverted history, hits, untargeted and already-paid draws",t=>{
+  const e=fixture(t);
+  e.economy.alchemy.save("p",{xp:0,refinements:0,version:10});
+  legacyBopDraw(e,"p","before-reset");
+  e.run("INSERT INTO receipts VALUES(?,?,?,?,?)","host:host/reset-player","reset-p",JSON.stringify({player:"p"}),"{}",1);
+  legacyBopDraw(e,"p","after-reset",{cost:50});
+  legacyBopDraw(e,"p","hit",{drawn:"target",hit:true});
+  legacyBopDraw(e,"p","random",{target:null});
+  legacyBopDraw(e,"p","reverted",{result:{reverted:true}});
+  legacyBopDraw(e,"p","new-paid",{result:{bopXPGained:40}});
+  legacyBopDraw(e,"p","bop",{body:{currency:"bop"},cost:0});
+  const plan=bopCompensationPlan(e);
+  assert.equal(plan.totalBopXP,5);
+  for(const key of ["reset","hits","untargeted","reverted","alreadyCredited","guaranteed"])
+    assert.equal(plan.counts[key],1,key);
+  assert.deepEqual(plan.warnings,[]);
+  applyBop(e,plan);
+  assert.equal(e.economy.alchemy.bopXP("p"),5);
+});
+test("historical bop compensation rejects changed or ambiguous evidence and overflow without paying anyone",t=>{
+  const e=fixture(t);
+  e.economy.alchemy.save("p",{xp:0,refinements:0,version:10});
+  legacyBopDraw(e,"p","first");
+  const plan=bopCompensationPlan(e);
+  legacyBopDraw(e,"p","second",{version:2});
+  assert.throws(()=>applyBop(e,plan),/evidence changed/);
+  assert.equal(e.economy.alchemy.bopXP("p"),0);
+  legacyBopDraw(e,"p","contradiction",{drawn:"target"});
+  assert.throws(()=>applyBop(e),/needs review/);
+  e.run("DELETE FROM receipts WHERE key='contradiction'");
+  e.economy.alchemy.saveBopXP("p",Number.MAX_SAFE_INTEGER);
+  assert.throws(()=>applyBop(e),/needs review/);
+  assert.equal(e.economy.alchemy.bopXP("p"),Number.MAX_SAFE_INTEGER);
+  assert.equal(savedBopCompensation(e),null);
+});
+test("a late historical bop compensation failure rolls back every balance/version and its one-time marker",t=>{
+  const e=fixture(t);
+  for(const player of ["p","q"]) {
+    e.economy.alchemy.save(player,{xp:13,refinements:0,version:10});
+    legacyBopDraw(e,player,"miss-"+player);
+  }
+  const run=e.run.bind(e);
+  e.run=(sql,...args)=>{if(sql.startsWith("INSERT INTO alchemy_compensations"))throw Error("Simulated marker write failure");return run(sql,...args);};
+  assert.throws(()=>applyBop(e),/Simulated marker/);
+  for(const player of ["p","q"]) {
+    assert.equal(e.economy.alchemy.bopXP(player),0);
+    assert.equal(e.economy.alchemy.read(player).version,10);
+  }
+  assert.equal(savedBopCompensation(e),null);
+  e.run=run;
+  assert.equal(applyBop(e).totalBopXP,80);
+});

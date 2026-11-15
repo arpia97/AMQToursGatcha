@@ -388,3 +388,20 @@ test("bop draw uses the square image, quotes its own balance and reveals target-
   f.ui.revealDraw();
   assert.match(f.ui.drawResult(),/\+1280 bop XP · Target Miss/);
 });
+
+
+test("both draw buttons warn when no target is selected, including empty balances; bop cannot submit without a target",()=>{
+  const f=fixture();
+  f.ui.update({xp:0,bopXP:0,version:0,refinements:0,targets:{},cards:[],nextLucky:false,nextRefinement:1});
+  const normal=f.ui.confirmation(f.ui.drawRequest("AG","xp",true));
+  assert.match(normal,/No Target Selected/);
+  assert.match(normal,/random and will not earn bop XP/);
+  assert.match(normal,/type="submit"[^>]*disabled/);
+  const bop=f.ui.confirmation(f.ui.drawRequest("AG","bop",true));
+  assert.match(bop,/No Target Selected/);
+  assert.match(bop,/bop cannot draw a random card/);
+  assert.match(bop,/Choose Target/);
+  assert.doesNotMatch(bop,/type="submit"/);
+  assert.throws(()=>f.ui.drawRequest("AG","bop"),/Choose a valid target/);
+  assert.doesNotMatch(f.ui.render(),/class="alchemy-bop-button"[^>]*disabled/);
+});
