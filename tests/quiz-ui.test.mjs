@@ -54,6 +54,7 @@ function fixture(
         focused: 0,
         focus() {
           this.focused++;
+          if (!this.rejectFocus) document.activeElement = this;
         },
       });
     return nodes.get(id);
@@ -321,6 +322,11 @@ function fixture(
     audios,
     writes,
     node,
+    replaceNode(id) {
+      if (document.activeElement === nodes.get(id)) document.activeElement = null;
+      nodes.delete(id);
+      return node(id);
+    },
     button,
     skewClock: (ms) => { wallSkew += ms; },
     advance: async (ms) => {
@@ -448,6 +454,17 @@ test("new songs autofocus once, Enter advances the revealed answer once, and Res
   assert.equal(f.node("quiz-answer").focused, 1);
   await f.advance(400);
   assert.equal(f.node("quiz-answer").focused, 1);
+  const replacement = f.replaceNode("quiz-answer");
+  replacement.rejectFocus = true;
+  f.ui.mount();
+  assert.equal(document.activeElement, null);
+  replacement.rejectFocus = false;
+  await f.advance(200);
+  assert.equal(document.activeElement, replacement, "a replaced answer field must regain focus even after a rejected attempt");
+  const focused = replacement.focused;
+  document.activeElement = f.node("other-control");
+  await f.advance(200);
+  assert.equal(replacement.focused, focused, "do not steal focus repeatedly from other controls");
   assert.match(f.ui.render(), /Restart Quiz/);
   await f.ui.submit({ elements: { answer: { value: "Bocchi the Rock!" } } });
   assert.match(f.ui.render(), /Next Song \(Enter\)/);

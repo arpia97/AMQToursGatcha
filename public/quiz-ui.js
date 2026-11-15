@@ -101,7 +101,7 @@ export function createQuizUI({
     timer = null,
     serverAnchor = null,
     bestRoundTrip = Infinity,
-    answerFocused = false;
+    answerFocusedInput = null;
   let draft = "",
     draftKey = "",
     options = [],
@@ -189,7 +189,7 @@ export function createQuizUI({
       highlight = -1;
       suggestionsOpen = false;
       errorMessage = "";
-      answerFocused = false;
+      answerFocusedInput = null;
       locallyStopped = false;
     }
   }
@@ -1181,9 +1181,11 @@ export function createQuizUI({
     }
     const skip = document.querySelector("[data-quiz-skip]");
     if (skip) skip.disabled = working;
-    if (started && remaining > 0 && !input?.disabled && input && !answerFocused) {
-      answerFocused = true;
+    if (started && remaining > 0 && input && !input.disabled && input !== answerFocusedInput) {
       input.focus({ preventScroll: true });
+      // A redraw can replace the field without changing the song. Remember
+      // the actual node, and retry if focus was rejected while mounting.
+      if (document.activeElement === input) answerFocusedInput = input;
     }
     const left = document.getElementById("quiz-time-left"),
       bar = document.getElementById("quiz-time-progress");
