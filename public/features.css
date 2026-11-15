@@ -3969,6 +3969,32 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+.quiz-songs-dialog .quiz-song-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 2px 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transform: none;
+}
+.quiz-song-sort span { opacity: .5; }
+.quiz-song-list th[aria-sort="ascending"] .quiz-song-sort,
+.quiz-song-list th[aria-sort="descending"] .quiz-song-sort,
+.quiz-songs-dialog .quiz-song-sort:hover { color: var(--mint); }
+.quiz-song-list th:not([aria-sort="none"]) .quiz-song-sort span { opacity: 1; }
+.quiz-songs-dialog .quiz-song-sort:focus-visible { outline: 2px solid var(--mint); outline-offset: 4px; }
 .quiz-recap-dialog {
   width: min(1100px, 100%);
 }

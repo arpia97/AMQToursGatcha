@@ -291,6 +291,7 @@ function fixture(
       quizAnswerOption: value,
       quizLeaderboard: value,
       quizSongs: value,
+      quizSongSort: value,
       quizRankPage: value,
     },
   });
@@ -980,6 +981,20 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   mode = "english";
   assert.match(f.ui.render(), /Bocchi English/);
   assert.doesNotMatch(f.ui.render(), /Bocchi Romaji/);
+  await f.ui.click(f.button("data-quiz-song-sort", "title"));
+  let sorted = f.ui.render();
+  assert.ok(sorted.indexOf('Guitar, Loneliness') < sorted.indexOf('Seishun &lt;Complex>'));
+  assert.match(sorted, /<tr><td>2<\/td><td>Guitar/);
+  assert.match(sorted, /aria-sort="ascending"><button[^>]+data-quiz-song-sort="title"/);
+  await f.ui.click(f.button("data-quiz-song-sort", "title"));
+  sorted = f.ui.render();
+  assert.ok(sorted.indexOf('Seishun &lt;Complex>') < sorted.indexOf('Guitar, Loneliness'));
+  assert.match(sorted, /aria-sort="descending"><button[^>]+data-quiz-song-sort="title"/);
+  for (const key of ["artist", "anime", "index"]) {
+    await f.ui.click(f.button("data-quiz-song-sort", key));
+    assert.match(f.ui.render(), new RegExp('aria-sort="ascending"><button[^>]+data-quiz-song-sort="' + key + '"'));
+  }
+  assert.ok(f.ui.render().indexOf('Seishun &lt;Complex>') < f.ui.render().indexOf('Guitar, Loneliness'));
   assert.equal(
     f.calls.filter((c) => c.path === "quiz-songs?quiz=q").length,
     1,
@@ -990,6 +1005,7 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   assert.match(f.ui.render(), /data-quiz-songs="q">Song List<\/button>/);
   await f.ui.click(f.button("data-quiz-songs", "q"));
   assert.match(f.ui.render(), /quiz-songs-dialog/);
+  assert.match(f.ui.render(), /aria-sort="ascending"><button[^>]+data-quiz-song-sort="index"/);
   assert.equal(
     f.calls.filter((c) => c.path === "quiz-songs?quiz=q").length,
     1,
@@ -1043,6 +1059,14 @@ test("finished quiz recap shows escaped songs, right/wrong results and recorded 
   assert.match(html, /Anime English/);
   mode = "romaji";
   assert.match(f.ui.render(), /Anime Romaji/);
+  await f.ui.click(f.button("data-quiz-song-sort", "result"));
+  await f.ui.click(f.button("data-quiz-song-sort", "result"));
+  assert.ok(f.ui.render().indexOf('Song Two') < f.ui.render().indexOf('Song &lt;One>'));
+  for (const key of ["elapsed", "response"]) {
+    await f.ui.click(f.button("data-quiz-song-sort", key));
+    await f.ui.click(f.button("data-quiz-song-sort", key));
+    assert.ok(f.ui.render().indexOf('Song &lt;One>') < f.ui.render().indexOf('Song Two'), 'missing times stay last in descending order');
+  }
   assert.equal(f.calls.length, count);
   await f.ui.click(f.button("data-quiz-songs-close"));
   assert.doesNotMatch(f.ui.render(), /quiz-recap-dialog/);

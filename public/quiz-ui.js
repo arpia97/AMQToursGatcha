@@ -68,6 +68,7 @@ export function createQuizUI({
   const makeAudio = audioFactory || ((src) => new Audio(src));
   const banks = new Map();
   const songLists = new Map();
+  const songCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const cache = audioCache || createQuizAudioCache();
   let server = "EU",
     competitive = false,
@@ -93,6 +94,8 @@ export function createQuizUI({
     songListLoading = false,
     songListError = "",
     songListIsRecap = false,
+    songListSort = "index",
+    songListSortAscending = true,
     quizSort = "recent",
     quizSearch = "",
     category = "singers";
@@ -544,12 +547,39 @@ export function createQuizUI({
     songListLoading = false;
     songListError = "";
     songListIsRecap = false;
+    songListSort = "index";
+    songListSortAscending = true;
   }
-  function recapRows(songs) {
-    return songs.map((s, i) => {
-      const result = s.correct
-        ? "Correct"
-        : s.timedOut ? "Timed Out" : s.skipped ? "Skipped" : "Incorrect";
+  const songResult = s => s.correct ? "Correct" : s.timedOut ? "Timed Out" : s.skipped ? "Skipped" : "Incorrect";
+  function songListColumns() {
+    return [["index", "#"], ...(songListIsRecap
+      ? [["result", "Result"], ["title", "Song / Artist"], ["anime", "Anime"], ["answer", "Your Answer"], ["elapsed", "Elapsed"], ["response", "Answer Time"]]
+      : [["title", "Song"], ["artist", "Artist"], ["anime", "Anime"]])];
+  }
+  function sortedSongEntries(songs) {
+    const value = ({ song, index }) => ({ index, title: song.title || "Unknown Song", artist: song.artist || "",
+      anime: animeTitle(song) || "", result: songResult(song), answer: song.submittedAnswer || "",
+      elapsed: song.elapsedMs, response: song.responseMs })[songListSort];
+    return songs.map((song, index) => ({ song, index, sortValue: value({ song, index }) })).sort((a, b) => {
+      const av = a.sortValue, bv = b.sortValue, missingA = av == null || av === "", missingB = bv == null || bv === "";
+      // Missing metadata stays last in either direction; ties keep original song order.
+      if (missingA !== missingB) return missingA ? 1 : -1;
+      const compared = missingA ? 0 : typeof av === "number" && typeof bv === "number" ? av - bv : songCollator.compare(String(av), String(bv));
+      return (songListSortAscending ? compared : -compared) || a.index - b.index;
+    });
+  }
+  function songListHeaders() {
+    return songListColumns().map(([key, label]) => {
+      const active = songListSort === key;
+      return '<th scope="col" aria-sort="' + (active ? songListSortAscending ? "ascending" : "descending" : "none") +
+        '"><button type="button" class="quiz-song-sort" data-quiz-song-sort="' + key + '" aria-label="' +
+        e('Sort by ' + (key === "index" ? "Song Number" : label) + ', ' + (active && songListSortAscending ? "Descending" : "Ascending")) +
+        '">' + e(label) + '<span aria-hidden="true">' + (active ? songListSortAscending ? "↑" : "↓" : "↕") + '</span></button></th>';
+    }).join("");
+  }
+  function recapRows(entries) {
+    return entries.map(({ song: s, index: i }) => {
+      const result = songResult(s);
       return '<tr class="quiz-recap-' + (s.correct ? "correct" : "incorrect") + '"><td>' +
         (i + 1) + '</td><td><span class="quiz-recap-result">' +
         (s.correct ? "✓ " : "✕ ") + result + '</span></td><td><strong>' +
@@ -566,9 +596,10 @@ export function createQuizUI({
     const name = songListData?.name || q?.name || "Quiz";
     const songs = songListData?.songs || [];
     const count = songs.length || q?.songs || 0;
-    const rows = songListIsRecap ? recapRows(songs) : songs
+    const entries = sortedSongEntries(songs);
+    const rows = songListIsRecap ? recapRows(entries) : entries
       .map(
-        (s, i) =>
+        ({ song: s, index: i }) =>
           "<tr><td>" +
           (i + 1) +
           "</td><td>" +
@@ -596,8 +627,7 @@ export function createQuizUI({
         : songListError
           ? '<p class="notice warm" role="alert">' + e(songListError) + "</p>"
           : rows
-            ? '<div class="table-wrap quiz-song-list"><table><thead><tr><th>#</th>' +
-              (songListIsRecap ? '<th>Result</th><th>Song / Artist</th><th>Anime</th><th>Your Answer</th><th>Elapsed</th><th>Answer Time</th>' : '<th>Song</th><th>Artist</th><th>Anime</th>') + '</tr></thead><tbody>' +
+            ? '<div class="table-wrap quiz-song-list"><table><thead><tr>' + songListHeaders() + '</tr></thead><tbody>' +
               rows +
               "</tbody></table></div>"
             : '<p class="notice">No songs in this quiz pool yet.</p>') +
@@ -1367,6 +1397,8 @@ export function createQuizUI({
   async function openSongListModal(id) {
     if (!id || working) return true;
     songListIsRecap = false;
+    songListSort = "index";
+    songListSortAscending = true;
     const q = quizzes.find((x) => x.id === id);
     const cacheKey = q ? q.id + ":" + q.updated : null;
     songListQuiz = id;
@@ -1474,6 +1506,15 @@ export function createQuizUI({
       if (button.hasAttribute("data-quiz-songs-close")) {
         closeSongList();
         onRender();
+        return true;
+      }
+      if (button.hasAttribute("data-quiz-song-sort")) {
+        const key = button.dataset.quizSongSort;
+        if (!songListQuiz || !songListColumns().some(([column]) => column === key)) return true;
+        songListSortAscending = key === songListSort ? !songListSortAscending : true;
+        songListSort = key;
+        onRender();
+        document.querySelector('[data-quiz-song-sort="' + key + '"]')?.focus({ preventScroll: true });
         return true;
       }
       if (button.hasAttribute("data-quiz-recap")) {
