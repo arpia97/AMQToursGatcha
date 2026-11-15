@@ -101,7 +101,8 @@ export function createQuizUI({
     timer = null,
     serverAnchor = null,
     bestRoundTrip = Infinity,
-    answerFocusedInput = null;
+    answerFocusedInput = null,
+    answerFocusPaused = false;
   let draft = "",
     draftKey = "",
     options = [],
@@ -190,6 +191,7 @@ export function createQuizUI({
       suggestionsOpen = false;
       errorMessage = "";
       answerFocusedInput = null;
+      answerFocusPaused = false;
       locallyStopped = false;
     }
   }
@@ -233,6 +235,8 @@ export function createQuizUI({
     recoverAudio = null;
     audioKey = "";
     arming = false;
+    answerFocusedInput = null;
+    answerFocusPaused = false;
     if (!keepPrefetch) dropPrefetch();
     if (timer !== null) time.cancel(timer);
     timer = null;
@@ -1181,10 +1185,17 @@ export function createQuizUI({
     }
     const skip = document.querySelector("[data-quiz-skip]");
     if (skip) skip.disabled = working;
-    if (started && remaining > 0 && input && !input.disabled && input !== answerFocusedInput) {
+    const active = document.activeElement;
+    const focusFellToPage = !active || active === document.body ||
+      active === document.documentElement || active.isConnected === false;
+    if (started && remaining > 0 && input && !input.disabled && !answerFocusPaused &&
+        document.visibilityState !== "hidden" && (!document.hasFocus || document.hasFocus()) &&
+        !songListQuiz && !document.getElementById("modal")?.open &&
+        (input !== answerFocusedInput || focusFellToPage)) {
+      // Disabling a focused input or a late browser blur can lose focus without
+      // replacing the node. Recover on the existing clock tick, unless the
+      // player deliberately tabbed away or is using another control/dialog.
       input.focus({ preventScroll: true });
-      // A redraw can replace the field without changing the song. Remember
-      // the actual node, and retry if focus was rejected while mounting.
       if (document.activeElement === input) answerFocusedInput = input;
     }
     const left = document.getElementById("quiz-time-left"),
@@ -1530,6 +1541,8 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-play")) {
+        answerFocusedInput = null;
+        answerFocusPaused = false;
         if (audioState === "error" && audio) {
           audioKey = "";
           mount({ direct: true });
@@ -1554,9 +1567,13 @@ export function createQuizUI({
       updateInput(input);
     },
     focus(input) {
+      answerFocusPaused = false;
+      if (document.activeElement === input) answerFocusedInput = input;
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if (event.key === "Tab" && !event.altKey && !event.ctrlKey && !event.metaKey)
+        answerFocusPaused = true;
       if (songListQuiz && event.key === "Escape") {
         event.preventDefault?.();
         closeSongList();
