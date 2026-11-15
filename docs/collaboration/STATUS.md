@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## Ready for Deployment — Wishlist Controls Across Card Browsing
+## Completed — Wishlist Controls Across Card Browsing
 
 November 16. Codex on main, base 1aba653. Added the shared wishlist toggle to player marketplace, Flash/weekly shop, Sell Cards, Your Listings, trade listings and offered cards, profile showcases, Recent Collection and Listed cards. Buttons use the viewer's saved wishlist, retain Collection-before-Wishlist order, and do not depend on affordability or ownership. Profile owner status icons remain the owner's flags. New signed-in controls stay out of card-selection pickers; existing wishlist/API authorization behavior is preserved. No backend, economy, schema or binding changes.
 
-Validation: 30 focused existing tests passed (shop, trades, showcase, wishlist, settings/UX), expanded for selected state, guest behavior, profile listings and picker isolation. Modified browser modules passed syntax checks; diff checks and Wrangler dry-run passed. Disposable local SQLite/browser QA at 1280px and 390px verified marketplace add/remove, server-error handling, wishlist heart refresh, Sell/Your Listings, trade listing/offer controls, showcase saving and Recent Collection controls; no page errors or page overflow, and inventory/balance were unchanged. Private evidence/scripts: work/wishlist-access-browser-proof.json, work/wishlist-access-browser.mjs and work/wishlist-access-*.png. No production wishlist edits or test accounts. Runtime commit/deploy/live verification pending.
+Validation: 30 focused existing tests passed (shop, trades, showcase, wishlist, settings/UX), expanded for selected state, guest behavior, profile listings and picker isolation. Modified browser modules passed syntax checks; diff checks and Wrangler dry-run passed. Disposable local SQLite/browser QA at 1280px and 390px verified marketplace add/remove, server-error handling, wishlist heart refresh, Sell/Your Listings, trade listing/offer controls, showcase saving and Recent Collection controls; no page errors or page overflow, and inventory/balance were unchanged. Private evidence/scripts: work/wishlist-access-browser-proof.json, work/wishlist-access-browser.mjs and work/wishlist-access-*.png. No production wishlist edits or test accounts.
+
+Runtime f1828f21f2d1fc83db678d2cda78fd788a7fa29d is pushed/deployed on original amqtours-gatcha, version c28b88ea-3f5a-4cfe-84d5-74c84b430dd0. All five changed assets return 200 and match release bytes at amqtours.app/gacha; health returns 200. Bindings, named objects and migrations remain unchanged. Ownership released; no remaining authorized work. This documentation-only commit is newer than the deployed runtime commit.
 
 ## Completed — Quiz Anime Display Preference
 
@@ -541,7 +543,7 @@ The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtour
 
 ## Work Ownership
 
-Active task: Codex on main at 1aba653, shared Gatcha checkout. Scope: wishlist controls in shop, trades, showcases and profile listings; existing UI tests and handoff docs. Codex owns integration/deployment. Preserve all gameplay data and backend behavior. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
+No concurrent feature task is claimed. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
 
 ## Next Handoff Template
 
