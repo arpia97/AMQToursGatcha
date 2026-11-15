@@ -174,6 +174,45 @@ export class Quiz {
       players: count,
     };
   }
+  deleteQuiz(b) {
+    const id = text(b.quiz, 100);
+    const quiz = this.e.one("SELECT id,name FROM quizzes WHERE id=?", id);
+    if (!quiz) fail("Quiz was not found.", 404);
+    if (b.confirmation !== "DELETE QUIZ")
+      fail("Confirm deleting this quiz.");
+    for (const table of [
+      "quiz_songs",
+      "quiz_answers",
+      "quiz_progress",
+      "quiz_runs",
+      "quiz_reward_history",
+      "profile_title_preferences",
+    ])
+      this.e.run("DELETE FROM " + table + " WHERE quiz=?", id);
+    const key = "quiz:" + id;
+    for (const row of this.e.all(
+      "SELECT player,data FROM profile_title_order WHERE instr(data,?)>0",
+      key,
+    )) {
+      const order = JSON.parse(row.data);
+      if (Array.isArray(order))
+        this.e.run(
+          "UPDATE profile_title_order SET data=? WHERE player=?",
+          JSON.stringify(order.filter((item) => item !== key)),
+          row.player,
+        );
+    }
+    this.e.run(
+      "DELETE FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')=?",
+      id,
+    );
+    this.e.run("DELETE FROM quizzes WHERE id=?", id);
+    this.statisticsCache = null;
+    return {
+      message: `Quiz “${quiz.name}” deleted.`,
+      id,
+    };
+  }
   isHost(player) {
     return !!player && !!this.e.player(player).is_admin;
   }

@@ -1322,6 +1322,7 @@ export function demoFeatures(d, path, b) {
       Object.assign(a, {
         bid: a.buyout,
         winner: me.id,
+        winner_name: me.name,
         closed: 1,
         claimed: 1,
         paid: 1,

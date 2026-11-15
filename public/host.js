@@ -639,6 +639,21 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
+    if (formIdentifier(form) === "quiz-delete") {
+      if (
+        !confirm(
+          `Permanently delete quiz "${b.quizName}"? This removes its song pool, scores, active runs, and completion titles, and cannot be undone.`,
+        )
+      )
+        return;
+      result = await api(
+        "quiz-delete",
+        { quiz: b.quiz, confirmation: "DELETE QUIZ" },
+        key,
+      );
+      quizSelection = null;
+      quizPool = null;
+    }
     if (formIdentifier(form) === "aliases-sync") {
       if (submit) submit.textContent = "Scanning…";
       result = await api("aliases-sync", {}, key);

@@ -1128,3 +1128,37 @@ test("sheet aliases group IDs, reject ambiguity and migrate legacy admin identit
   assert.equal(e.state("368").inventory.length, 1);
   assert.equal(e.resolvePlayer("two_squirds"), "368");
 });
+
+test("auction state and seller myListings include bidder and seller usernames instead of user IDs", () => {
+  const f = fixture(),
+    { e } = f;
+  e.host("players", {
+    players: [
+      { id: "101", name: "SellerUser" },
+      { id: "202", name: "BidderUser" },
+    ],
+  });
+  e.host("grant", { player: "202", amount: 500, reason: "other", note: "test" });
+  e.addCard("101", "mal-character-1");
+  e.addCard("101", "mal-character-1");
+  f.act("101", "list-card", {
+    card: "mal-character-1",
+    variant: "extra",
+    venue: "auction",
+    price: 50,
+    hours: 24,
+  });
+  const auction = e.economy.market("auction").items[0];
+  f.act("202", "bid", { auction: auction.id, amount: 75 });
+
+  assert.equal(e.economy.market("auction").items[0].winner_name, "BidderUser");
+  const sellerListing = e.state("101").myListings.find((x) => x.id === auction.id);
+  assert.equal(sellerListing.winner, "202");
+  assert.equal(sellerListing.winner_name, "BidderUser");
+  assert.equal(sellerListing.seller_name, "SellerUser");
+
+  f.tick(25 * 3600000);
+  const wonAuction = e.state("202").auctions.find((x) => x.id === auction.id);
+  assert.equal(wonAuction.winner_name, "BidderUser");
+  assert.equal(wonAuction.seller_name, "SellerUser");
+});

@@ -863,5 +863,25 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal((await mf.dispatchFetch("http://game/api/"+lateEndpoint,{headers:{...auth,"X-Quiz-Session":fast.sessionTicket}})).status,401);
   assert.equal((await post("quiz-next",{quiz:"test",run:fast.id,index:19,fastSession:true},auth)).status,401);
 
+  assert.equal(
+    (await post("host/quiz-delete", { quiz: "test", confirmation: "DELETE QUIZ" })).status,
+    401,
+  );
+  response = await post(
+    "host/quiz-delete",
+    { quiz: "test", confirmation: "DELETE QUIZ" },
+    host,
+  );
+  assert.equal(response.status, 200);
+  assert.match((await response.json()).message, /deleted/);
+  response = await mf.dispatchFetch("http://game/api/host/quizzes", { headers: host });
+  assert.equal(
+    (await response.json()).quizzes.some((q) => q.id === "test"),
+    false,
+  );
+  assert.equal(
+    (await post("host/quiz-delete", { quiz: "test", confirmation: "DELETE QUIZ" }, host)).status,
+    404,
+  );
 
 });

@@ -81,6 +81,14 @@ test("the actual host submit handler saves a draft with a hidden id field instea
         json: async () => ({ message: "Quiz scores and titles reset." }),
       };
     }
+    if (path === "api/host/quiz-delete") {
+      requests.push({ path, body: JSON.parse(options.body) });
+      saved = false;
+      return {
+        ok: true,
+        json: async () => ({ id: "saved-quiz", message: "Quiz “Sample Draft” deleted." }),
+      };
+    }
     if (path === "api/host/quiz-preview")
       return {
         ok: true,
@@ -140,6 +148,8 @@ test("the actual host submit handler saves a draft with a hidden id field instea
       yield* Object.entries(this.form.values);
     }
   }
+  const confirms = [];
+  let confirmAnswer = true;
   const context = vm.createContext({
     document,
     fetch,
@@ -151,7 +161,10 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     clearTimeout,
     Blob,
     URL,
-    confirm: () => true,
+    confirm: (message) => {
+      confirms.push(message);
+      return confirmAnswer;
+    },
   });
   vm.runInContext(bundle.outputFiles[0].text, context);
   await new Promise((resolve) => setImmediate(resolve));
@@ -199,6 +212,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     node("#host-content").innerHTML,
     /Reset Scores & Completion Titles/,
   );
+  assert.match(node("#host-content").innerHTML, /Delete Quiz/);
   const resetForm = {
     getAttribute: (key) => (key === "id" ? "quiz-scores-reset" : null),
     values: { quiz: "saved-quiz", quizName: "Sample Draft" },
@@ -215,4 +229,22 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   await handlers.get('submit')[0]({preventDefault(){},target:refreshForm});assert.equal(requests[2].path,'api/host/quiz-master-refresh');assert.equal(requests[2].body.action,'start');assert.match(node('#quiz-library-status').innerHTML,/Pause Refresh/);assert.equal(node('#host-content').innerHTML,content,'refresh controls do not rerender or discard unsaved quiz fields');
   const syncForm={getAttribute:key=>key==='id'?'quiz-master-sync':null,values:{quiz:'saved-quiz'},dataset:{},isConnected:false,querySelector:()=>submit};
   await handlers.get('submit')[0]({preventDefault(){},target:syncForm});assert.equal(requests[3].path,'api/host/quiz-master-sync');assert.equal(requests[3].body.quiz,'saved-quiz');assert.match(node('#result').textContent,/Quiz Answers Synced/);
+  const deleteForm = {
+    getAttribute: (key) => (key === "id" ? "quiz-delete" : null),
+    values: { quiz: "saved-quiz", quizName: "Sample Draft" },
+    dataset: {},
+    isConnected: false,
+    querySelector: () => submit,
+  };
+  confirmAnswer = false;
+  await handlers.get("submit")[0]({ preventDefault() {}, target: deleteForm });
+  assert.equal(requests.length, 4);
+  assert.match(confirms.at(-1), /Sample Draft/);
+  confirmAnswer = true;
+  await handlers.get("submit")[0]({ preventDefault() {}, target: deleteForm });
+  assert.equal(requests[4].path, "api/host/quiz-delete");
+  assert.equal(requests[4].body.quiz, "saved-quiz");
+  assert.equal(requests[4].body.confirmation, "DELETE QUIZ");
+  assert.match(node("#result").textContent, /deleted/);
+  assert.doesNotMatch(node("#host-content").innerHTML, /id="quiz-delete"/);
 });

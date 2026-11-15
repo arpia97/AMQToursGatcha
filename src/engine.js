@@ -1174,7 +1174,7 @@ export class Engine {
       me = id ? this.player(id) : null;
     const summary = this.catalogStore.summary();
     const auctions = this.all(
-      "SELECT a.*,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players p ON p.id=a.winner WHERE (a.seller IS NULL AND a.ends>?) OR (a.winner=? AND a.claimed=0) ORDER BY a.ends,a.id",
+      "SELECT a.*,COALESCE(s.display_name,s.name) AS seller_name,COALESCE(p.display_name,p.name) AS winner_name FROM auctions a LEFT JOIN players s ON s.id=a.seller LEFT JOIN players p ON p.id=a.winner WHERE (a.seller IS NULL AND a.ends>?) OR (a.winner=? AND a.claimed=0) ORDER BY a.ends,a.id",
       now,
       id || "",
     );
@@ -1203,11 +1203,11 @@ export class Engine {
     const myListings = id
       ? [
           ...this.all(
-            "SELECT *, 'shop' AS venue FROM market_listings WHERE seller=? AND status='open' ORDER BY id DESC LIMIT 20",
+            "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name,'shop' AS venue FROM market_listings l LEFT JOIN players p ON p.id=l.seller WHERE l.seller=? AND l.status='open' ORDER BY l.id DESC LIMIT 20",
             id,
           ),
           ...this.all(
-            "SELECT *, 'auction' AS venue FROM auctions WHERE seller=? AND paid=0 AND closed=0 ORDER BY id DESC LIMIT 20",
+            "SELECT a.*,COALESCE(s.display_name,s.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name,'auction' AS venue FROM auctions a LEFT JOIN players s ON s.id=a.seller LEFT JOIN players w ON w.id=a.winner WHERE a.seller=? AND a.paid=0 AND a.closed=0 ORDER BY a.id DESC LIMIT 20",
             id,
           ),
         ]

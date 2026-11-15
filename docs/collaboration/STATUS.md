@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## In Progress — Team Reward Review and Faster Credit Search
+
+November 16. Codex owns feat/tour-reward-controls in C:/Users/USER/.codex/worktrees/tour-reward-controls/AMQToursGatcha from origin/main 50899ff. Scope: team-preserving participation preview/review, participant search, whole-batch credit multiplier (including Count/Report, explicitly confirmed), cached/bounded manual credit search, focused tests/CSS/docs. Preserve shared Delete Quiz edits; no concurrent deployment. Reward changes stay server-calculated, version-gated, transactional and retry-safe. No historical credits are being changed.
+
 ## Completed — bop XP, Historical Compensation and Missing-Target Warnings
 
 November 15. Runtime 460fbf3eb66cb012b3728cdba99027137558622a is pushed/live on the original amqtours-gatcha Worker version a8e7d67f-e0c1-4bf3-b7f8-0e199acdbf29, with the original GAME/Quiz bindings and migrations preserved. Both draw buttons warn when no saved target exists, including with empty balances. Normal XP draws can review/confirm an affordable random draw; bop cannot submit without a target and offers Choose Target. The lowercase bop confirmation and 10% target-miss rebates/guaranteed redemptions are live.

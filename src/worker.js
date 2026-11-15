@@ -466,6 +466,15 @@ export class Game extends DurableObject {
             () => e.quiz.resetScores(b),
           ),
         );
+      if (path === "host/quiz-delete" && post)
+        return json(
+          e.mutate(
+            "host:quiz-delete",
+            request.headers.get("Idempotency-Key"),
+            b,
+            () => e.quiz.deleteQuiz(b),
+          ),
+        );
       if (path === "host/permissions" && post) {
         return json(
           e.mutate(

@@ -1228,3 +1228,70 @@ test("revealed songs expose nextAudio and nextSample without upcoming answers, q
     }
   }
 });
+
+test("host quiz delete removes quiz, songs, answers, progress, runs, reward history, title preferences/order and notices without changing credits", (t) => {
+  const f = fixture(t);
+  play(f, 20);
+  const balance = f.e.player("p").balance;
+  f.e.run(
+    "INSERT INTO profile_title_preferences VALUES(?,?,1)",
+    "p",
+    "test",
+  );
+  f.e.run(
+    "INSERT INTO profile_title_order VALUES(?,?)",
+    "p",
+    JSON.stringify(["quiz:test"]),
+  );
+  f.e.run(
+    "INSERT INTO player_notices(player,event_key,kind,card,level,credits,created,metadata) VALUES(?,?,?,?,?,?,?,?)",
+    "p",
+    "quiz-leader-beaten:test:1",
+    "quiz-leader-beaten",
+    "",
+    0,
+    0,
+    f.e.now(),
+    JSON.stringify({ quiz: "test" }),
+  );
+  f.action("p", "quiz-start", { quiz: "test" });
+
+  assert.throws(
+    () => f.e.quiz.deleteQuiz({ quiz: "test", confirmation: "NOPE" }),
+    /Confirm deleting this quiz/,
+  );
+
+  const res = f.e.mutate("host:quiz-delete", "del-1", { quiz: "test" }, () =>
+    f.e.quiz.deleteQuiz({ quiz: "test", confirmation: "DELETE QUIZ" }),
+  );
+  assert.match(res.message, /Quiz “Quiz” deleted\./);
+  assert.equal(f.e.one("SELECT id FROM quizzes WHERE id='test'"), undefined);
+  for (const table of [
+    "quiz_songs",
+    "quiz_answers",
+    "quiz_progress",
+    "quiz_runs",
+    "quiz_reward_history",
+    "profile_title_preferences",
+  ])
+    assert.equal(
+      f.e.one(`SELECT count(*) AS n FROM ${table} WHERE quiz='test'`).n,
+      0,
+    );
+  assert.deepEqual(
+    JSON.parse(f.e.one("SELECT data FROM profile_title_order WHERE player='p'").data),
+    [],
+  );
+  assert.equal(
+    f.e.one(
+      "SELECT count(*) AS n FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')='test'",
+    ).n,
+    0,
+  );
+  assert.equal(f.e.player("p").balance, balance);
+  assert.equal(f.e.quiz.list("p").length, 0);
+  assert.throws(
+    () => f.e.quiz.deleteQuiz({ quiz: "test", confirmation: "DELETE QUIZ" }),
+    /Quiz was not found/,
+  );
+});
