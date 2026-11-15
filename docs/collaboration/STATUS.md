@@ -1,6 +1,12 @@
 # Shared Status and Handoff
 
-Updated November 12, 2026, Asia/Seoul. This file is a coordination record; Git and deployment evidence must still be checked at task start.
+## Completed — Competitive Quiz Fast Sessions
+
+November 15. Runtime 533a6fd59a7f2dccff01d3dbeacd29a49bc89ee7 is pushed to origin/main and deployed on the original amqtours-gatcha Worker version 7812a076-6ec2-4e5e-8b9c-56d83df8380f. New Competitive runs preload audio and use per-run SQLite QuizSession actors; the original economy/Game and QuizLibrary remain intact. Preserve QUIZ_SESSIONS / QuizSession and additive migration v3-quiz-sessions when integrating other work. Shared question-state extraction preserves legacy deadlines and guards competitive runs against the old endpoints.
+
+Game retains setup/resume/stop/restart and final transactional awards. Session ready/answer/Next/read avoids shared-engine activity, authenticates cookie-bound HMAC tickets before actor lookup, durably locks answers, and never accepts client scores/timestamps. Buffered Next starts locally while acknowledgment is pending, preserving the typed input/focus; failures reconcile or roll back for a stable-key retry. Reveals still require one small online acknowledgment: no offline/decryptable answer key was shipped. Competitive completion timing starts at the first authorized song, excluding initial preload/countdown; historical scores/rewards are unchanged. Pool/list download ordering is independent. Logout/access-reset/lock revokes actor access; stop/restart invalidates the old actor.
+
+494 tests, 238 syntax checks, real isolated Worker auth/timing/retry/settlement checks, final dry run and both runtime-commit GitHub jobs pass. Browser QA at 1280/390px with real MP3 playback and a deliberately delayed 2-second Next acknowledgment measured 17/16ms to the usable next question, preserved typing/focus, resumed after reload, and had no script errors or horizontal overflow. These are local measurements, not production latency guarantees. All 20 question moves made zero shared-engine calls in the runtime proof. Live app.js and quiz-ui.js byte-match the release; health is 200, unsigned/forged session access is 401. No production quiz attempts, test accounts or reward/data corrections were made. Private logs, browser harness/screenshots and live proof remain in the original workspace's work directory. No required work remains.
 
 ## Completed — Quiz Timing and Pick’em Timers
 
