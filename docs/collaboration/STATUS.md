@@ -1,12 +1,14 @@
 # Shared Status and Handoff
 
-## Ready for Deployment — Live Auction Updates and User Bid Increments
+## Completed — Live Auction Updates and User Bid Increments
 
 November 16. Auction work started on f4b0f83; separate navigation commit 17534f5 arrived in the shared checkout and is preserved unchanged. User auctions now require 10% higher bids rounded up to whole credits after the opening reserve. Existing server-side seller bid/buyout rejection is retained and explicitly tested, including a bid that would trigger buyout; the browser rejects attempts to open an own-auction bid form too. Opening reserves, fixed buyouts, holds/refunds, auction durations and anti-sniping behavior are preserved. No migration or historical auction reset.
 
 Optional bounded snapshots on authenticated notices reads return the viewer's current balance and up to 64 requested auction lots. Polling uses five seconds on visible Auctions/open bid forms and the existing 30-second cadence elsewhere; hidden tabs, busy actions and active quizzes pause. Live lot/refund updates redraw only when changed; current bid forms patch minimum/available credits in place, preserve custom amounts, and reject stale/account-mismatched responses. A fresh read precedes opening a bid form. No repeated full-state download is used for outbid detection.
 
-Validation: all 508 tests passed. The existing Worker runtime test additionally verified snapshot authentication, payload and invalid-ID rejection. Local desktop/mobile browser QA at 1280px/390px verified 100 → 110 → 121 bidding, another 134 bid updating the open form minimum to 148 while preserving a typed 500, refunded balances, successful re-bids, no manual reload/full-state fetch on outbid, and no page errors/overflow. Syntax/diff checks passed. Evidence: surrounding work/auction-live-tests.log, auction-live-runtime.log, auction-live-browser-proof.json and auction-live-form-*.png. Production checks remain read-only; runtime commit/deploy pending.
+Validation: all 508 tests passed. The existing Worker runtime test additionally verified snapshot authentication, payload and invalid-ID rejection. Local desktop/mobile browser QA at 1280px/390px verified 100 → 110 → 121 bidding, another 134 bid updating the open form minimum to 148 while preserving a typed 500, refunded balances, successful re-bids, no manual reload/full-state fetch on outbid, and no page errors/overflow. All 243 source/test syntax checks, diff checks and Wrangler dry-run passed. Evidence: surrounding work/auction-live-tests.log, auction-live-runtime.log, auction-live-browser-proof.json and auction-live-form-*.png. Production checks remained read-only.
+
+Runtime a9dd32f4644323414e264c9ae7ebd37c0494d433 is pushed/deployed to original amqtours-gatcha, version fe2ffaf8-fc77-4279-91bc-ffacf81cbc51. All four changed browser assets returned 200 with exact release bytes on amqtours.app/gacha; health is 200 and guest auction-snapshot access is 401. Existing GAME/Quiz bindings, named objects and migration history are unchanged. No production bids, account/test mutations or resets. Private live proof: work/auction-live-release-proof.json. Ownership released; no remaining authorized work. This documentation-only commit is newer than the deployed runtime commit.
 
 ## Completed — Wishlist Controls Across Card Browsing
 
@@ -551,7 +553,7 @@ The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtour
 
 ## Work Ownership
 
-Active task: Codex / main at f4b0f83 / shared Gatcha checkout. Scope: live auction/outbid refresh, user auction 10% increments, seller guards and tests; owns integration/deploy. Preserve wallets/holds and existing production auction timers. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
+No concurrent feature task is claimed. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
 
 ## Next Handoff Template
 
