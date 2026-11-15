@@ -391,9 +391,28 @@ export class JikanImport {
           else {
             const cards = voiceCards(data.data, "Voice actor");
             // Preserve existing actor identities, host edits and starter metadata.
-            const fresh = cards.filter(
-              (c) => !this.e.one("SELECT id FROM catalog WHERE id=?", c.id),
-            );
+            const fresh = [];
+            let actorImageUpdated = false;
+            for (const c of cards) {
+              const existing = this.e.one(
+                "SELECT id,image FROM catalog WHERE id=?",
+                c.id,
+              );
+              if (!existing) fresh.push(c);
+              else if (
+                c.image &&
+                existing.image !== c.image &&
+                /^https:\/\/cdn\.myanimelist\.net\//.test(existing.image || "")
+              ) {
+                this.e.run(
+                  "UPDATE catalog SET image=? WHERE id=?",
+                  c.image,
+                  c.id,
+                );
+                actorImageUpdated = true;
+              }
+            }
+            if (actorImageUpdated) this.e.catalogStore.invalidate();
             for (let i = 0; i < fresh.length; i += 500)
               this.e.host("catalog", { cards: fresh.slice(i, i + 500) });
             this.e.catalogStore.recordArrivals(fresh);

@@ -39,6 +39,7 @@ import {
   storageQuotaResponse,
 } from "./sql-budget.js";
 import communityCards from "../public/community-cards.json" with { type: "json" };
+import { applyPortraitRepairs } from "./portrait-repairs.js";
 
 const enc = new TextEncoder();
 const token = () =>
@@ -164,6 +165,7 @@ export class Game extends DurableObject {
         this.engine.host("catalog", { cards: missingCards });
       });
     }
+    if (hasSeed) applyPortraitRepairs(this.engine);
   }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.

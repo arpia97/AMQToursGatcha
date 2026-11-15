@@ -70,8 +70,17 @@ export class TenraiCatalog {
       const incoming = { ...c };
       delete incoming.appearance;
       const merged = representative
-        ? { ...(old || incoming), ...representative }
-        : incoming;
+        ? {
+            ...(old || incoming),
+            ...(incoming.image ? { image: incoming.image } : {}),
+            ...representative,
+          }
+        : !old || (old.role !== "main" && c.role === "main")
+          ? incoming
+          : {
+              ...old,
+              ...(incoming.image ? { image: incoming.image } : {}),
+            };
       if (representative) changed.set(c.id, merged);
       if (!old) {
         data[c.id] = merged;
@@ -83,11 +92,7 @@ export class TenraiCatalog {
       }
       // Main roles precede Supporting roles; MAL member count picks the representative.
       // Identity, portrait and host edits survive metadata enrichment.
-      else if (
-        representative
-          ? JSON.stringify(old) !== JSON.stringify(merged)
-          : old.role !== "main" && c.role === "main"
-      ) {
+      else if (JSON.stringify(old) !== JSON.stringify(merged)) {
         data[c.id] = merged;
         dirty.add(b);
         changed.set(c.id, merged);

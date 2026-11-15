@@ -4,6 +4,11 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { characterCards, animeTitles } from "../src/jikan.js";
 import { seriesTitle, rarityClass } from "../public/card-display.js";
+import {
+  applyPortraitRepairs,
+  CHARACTER_PORTRAIT_REPAIRS,
+  SEIYUU_PORTRAIT_REPAIRS,
+} from "../src/portrait-repairs.js";
 
 function fixture() {
   const db = new DatabaseSync(":memory:");
@@ -398,4 +403,55 @@ test("all anime appearances share one card, select Main then members, and preser
     e.economy.anime.page("p").series.filter((s) => s.owned === 1).length,
     4,
   );
+});
+
+test("applyPortraitRepairs fixes stale MAL portraits once and Tenrai upsert refreshes changed images", () => {
+  const { e } = fixture(),
+    c = e.catalogStore;
+  const [charId, charOld, charNew] = CHARACTER_PORTRAIT_REPAIRS[0];
+  const [seiyuuId, seiyuuOld, seiyuuNew] = SEIYUU_PORTRAIT_REPAIRS[0];
+  const [, , untouchedNew] = SEIYUU_PORTRAIT_REPAIRS[1];
+  const untouchedId = SEIYUU_PORTRAIT_REPAIRS[1][0];
+  c.tenrai.upsert([
+    {
+      ...card(169032),
+      id: charId,
+      name: "Tsubakihara, Mira",
+      image: charOld,
+    },
+  ]);
+  e.host("catalog", {
+    cards: [
+      {
+        id: seiyuuId,
+        kind: "seiyuu",
+        name: "Umehara, Yuuichirou",
+        series: "Voice actor",
+        image: seiyuuOld,
+      },
+      {
+        id: untouchedId,
+        kind: "seiyuu",
+        name: "Custom Image Seiyuu",
+        series: "Voice actor",
+        image: "https://cdn.myanimelist.net/images/voiceactors/9/999999.jpg",
+      },
+    ],
+  });
+  assert.equal(applyPortraitRepairs(e), true);
+  assert.equal(c.card(charId).image, charNew);
+  assert.equal(c.card(seiyuuId).image, seiyuuNew);
+  assert.notEqual(c.card(untouchedId).image, untouchedNew);
+  assert.equal(applyPortraitRepairs(e), false);
+
+  const upgradedImg = "https://cdn.myanimelist.net/images/characters/9/999999.jpg";
+  c.tenrai.upsert([
+    {
+      ...card(169032),
+      id: charId,
+      name: "Tsubakihara, Mira",
+      image: upgradedImg,
+    },
+  ]);
+  assert.equal(c.card(charId).image, upgradedImg);
 });
