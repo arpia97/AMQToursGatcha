@@ -1602,7 +1602,7 @@ function profile() {
                     wishlisted: (p.wishlist || []).includes(item.card),
                     forTrade: !!item.for_trade,
                   },
-                });
+                }, state.me ? wishlistButton(c, state.wishlist || [], escape) : "");
               })
               .join(
                 "",

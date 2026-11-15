@@ -253,6 +253,13 @@ test("public profile listings include only current sale, auction and trade cards
   assert.ok(data.rows.every((r) => r.level === 3));
   assert.equal(data.cards.length, 3);
   assert.equal(data.rows.find((r) => r.venue === "sale").price, 123);
+  const listingHTML = profileCardPanel(data, {
+    cardBy: (id) => e.catalogStore.card(id),
+    cardHTML: (_card, _auction, _flags, actions) => actions,
+    escape: String, number: String, own: false, wishlist: ["c0"],
+  });
+  assert.equal((listingHTML.match(/data-action="wishlist-toggle"/g) || []).length, 3);
+  assert.match(listingHTML, /data-action="wishlist-toggle" data-id="c0" aria-pressed="true"/);
   const shop = e.one("SELECT id FROM market_listings WHERE seller='p'");
   e.run("UPDATE players SET balance=1000 WHERE id='q'");
   act("q", "buy-listing", { listing: shop.id });

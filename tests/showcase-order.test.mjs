@@ -85,6 +85,7 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
     editor.render(),
     /type="submit" class="button mint" disabled/,
   );
+  const viewer = { me: { id: "viewer" }, wishlist: ["b"] };
   const feature = createFeatures(
     {
       ...helpers,
@@ -92,7 +93,7 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
       rarity: () => "",
       number: String,
       empty: () => "",
-      getState: () => ({}),
+      getState: () => viewer,
       profileURL: () => "",
     },
     {},
@@ -105,6 +106,10 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
     feature.profileExtras(profile, false),
     /data-action="showcase-arrange"/,
   );
+  assert.match(feature.profileExtras(profile, false), /data-action="wishlist-toggle" data-id="b" aria-pressed="true"/);
+  assert.match(feature.profileExtras(profile, false), /data-action="wishlist-toggle" data-id="a" aria-pressed="false"/);
+  viewer.me = null;
+  assert.doesNotMatch(feature.profileExtras(profile, false), /wishlist-toggle/);
   assert.doesNotMatch(
     feature.profileExtras(
       { ...profile, showcase: profile.showcase.slice(0, 1) },

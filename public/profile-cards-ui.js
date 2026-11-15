@@ -157,7 +157,7 @@ export function profileCardPanel(
           '">View ' +
           label +
           " →</button>" +
-          collectorsButton(c, e)
+          collectorsButton(c, e) + wishlistButton(c, wishlist, e)
         : collectorsButton(c, e) + wishlistButton(c, wishlist, e);
       return cardHTML(
         c,

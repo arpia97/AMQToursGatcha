@@ -95,16 +95,23 @@ test("offer payload locks listing and player; rendered owner controls and status
   ui.tradeData = { items: [listing], page: 1, hasMore: false };
   assert.match(c.render(), /Accept Trade/);
   assert.match(c.render(), /&lt;Owner&gt;/);
+  assert.match(c.render(), /data-action="wishlist-toggle" data-id="a" aria-pressed="false"/);
+  assert.match(c.render(), /data-action="wishlist-toggle" data-id="b" aria-pressed="false"/);
+  s.wishlist = ["b"];
+  assert.match(c.render(), /data-action="wishlist-toggle" data-id="b" aria-pressed="true"/);
   assert.doesNotMatch(c.render(), /Offer a Card/);
   s.me.id = "other";
   assert.match(c.render(), /Withdraw Offer/);
   assert.doesNotMatch(c.render(), /Accept Trade/);
   c.openPicker(listing);
+  assert.doesNotMatch(c.renderPicker(), /wishlist-toggle/);
   c.choose("b");
   assert.equal(c.payload().action, "trade-offer");
   assert.equal(c.payload().body.listing, 1);
   s.me.id = "changed";
   assert.throws(() => c.payload(), /current account/);
+  s.me = null;
+  assert.doesNotMatch(c.render(), /wishlist-toggle/);
 });
 test("offer builder adds/removes multiple copies, includes full bundle, and prevents selecting the same enhanced base twice", () => {
   const { component: c, s } = fixture();

@@ -2,6 +2,7 @@ import { routeHref } from "./site-navigation.js";
 import { MAX_SPOTLIGHTS, FREE_SPOTLIGHTS } from "./site-defaults.js";
 import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
+import { wishlistButton } from "./profile-cards-ui.js";
 
 import { roleBadge } from "./role-label.js";
 import { createShopUI } from "./shop-ui.js";
@@ -20,7 +21,11 @@ export function createFeatures(h, ui) {
   const pager = (prefix, page, more) =>
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
   const readCard = (id, level = 1, flags = {}) => {
-    return cardSurface(cardBy(id), { level, showLevel: true, ...flags }, h);
+    const c = cardBy(id), s = getState();
+    return cardSurface(c, {
+      level, showLevel: true, ...flags,
+      actions: s.me ? wishlistButton(c, s.wishlist || [], e) : "",
+    }, h);
   };
   function profileExtras(p, own, arrangement = null) {
     const favorites = p.showcase || [],
