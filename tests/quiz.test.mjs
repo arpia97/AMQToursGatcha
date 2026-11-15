@@ -1086,6 +1086,10 @@ test("quiz song list returns public song metadata in pool order without audio UR
     answers: ["Anime 0", "Alternative 0"],
   });
   assert.equal("audio" in list.songs[0], false);
+  const manifest=f.e.quiz.audioManifest("test","p");
+  assert.deepEqual(new Set(manifest.audio),new Set(f.songs.map(song=>song.audio)));
+  assert.notDeepEqual(manifest.audio,f.songs.map(song=>song.audio),
+    "download order must not map positionally to the public answer list");
   f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
   f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
   f.save({ published: false });

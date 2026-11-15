@@ -1,13 +1,10 @@
-import { quizElapsed } from "../public/quiz-time.js";
+import { quizRunView, advanceQuizRun } from "./quiz-run-state.js";
 import { titleOrderKey } from "../public/title-order.js";
 import {mergeQuizAnswers} from '../public/quiz-answer-index.js';
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
   QUIZ_LENGTH,
-  QUIZ_SONG_MS,
-  QUIZ_LEAD_IN_MS,
-  QUIZ_ANSWER_GRACE_MS,
   quizAnswerKey,
   quizReward,
   validQuizAudio,
@@ -437,77 +434,9 @@ export class Quiz {
     return this.runView(q, this.run(player, q.id));
   }
   runView(q, run) {
-    const now = this.e.now();
-    if (!run) return { now, run: null };
-    const score = run.answers.filter((a) => a.correct).length;
-    if (run.finished)
-      return {
-        now,
-        run: {
-          id: run.id,
-          index: 20,
-          score,
-          finished: true,
-          startedAt: run.startedAt ?? null,
-          durationMs: run.durationMs ?? null,
-          reward: run.reward,
-          preview: !!run.preview || !q.published,
-          history: run.songs.map((song, index) => {
-            const answer = run.answers[index] || {};
-            return {
-              index,
-              title: song.title || "Unknown Song",
-              artist: song.artist || "",
-              anime: song.answers?.[0] || "",
-              submittedAnswer: answer.submittedAnswer ?? answer.answer ?? "",
-              correct: !!answer.correct,
-              timedOut: !!answer.timedOut,
-              answerReceivedAt: answer.receivedAt ?? null,
-              skipped: !!answer.skipped,
-              elapsedMs: answer.elapsedMs ?? null,
-              responseMs: answer.responseMs ?? null,
-            };
-          }),
-        },
-      };
-    const song = run.songs[run.index],
-      answer = run.answers[run.index],
-      // Once the current song is revealed, the client may buffer the next
-      // song's audio so moving on does not wait for a fresh download. The
-      // scored clock still starts only when the server records readiness.
-      upcoming = answer ? run.songs[run.index + 1] : null;
-    return {
-      now,
-      run: {
-        id: run.id,
-        index: run.index,
-        score,
-        finished: false,
-        startedAt: run.startedAt ?? null,
-        elapsedMs: quizElapsed(run.startedAt, run.completedAt ?? now),
-        audio: song.audio,
-        sample: song.sample,
-        preview: !!run.preview || !q.published,
-        startsAt: run.timing?.index === run.index ? run.timing.startsAt : null,
-        endsAt: run.timing?.index === run.index ? run.timing.endsAt : null,
-        answered: !!answer,
-        ...(answer
-          ? {
-              correct: answer.correct,
-              timedOut: !!answer.timedOut,
-              answerReceivedAt: answer.receivedAt ?? null,
-              answer: song.answers[0],
-              submittedAnswer: answer.submittedAnswer ?? answer.answer,
-              songTitle: song.title,
-              artist: song.artist,
-            }
-          : {}),
-        ...(upcoming
-          ? { nextAudio: upcoming.audio, nextSample: upcoming.sample }
-          : {}),
-      },
-    };
+    return quizRunView(q, run, this.e.now());
   }
+
   songs(id, player = null) {
     const q = this.definition(id, player);
     return {
@@ -530,12 +459,15 @@ export class Quiz {
   }
   audioManifest(id, player) {
     const q = this.definition(id, player);
-    return {
-      version: q.updated,
-      audio: this.e
-        .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", id)
-        .map((row) => JSON.parse(row.data).audio),
-    };
+    const audio = this.e
+      .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", id)
+      .map(row => JSON.parse(row.data).audio);
+    // Download order is independent of the public Song List and play order.
+    for (let i = audio.length - 1; i > 0; i--) {
+      const j = this.e.rand(i + 1);
+      [audio[i], audio[j]] = [audio[j], audio[i]];
+    }
+    return { version: q.updated, audio };
   }
   answerBank(id, player = null, page = 1) {
     const q = this.definition(id, player);
@@ -625,59 +557,14 @@ export class Quiz {
     }
     if (!run || run.finished || run.id !== b.run || run.index !== b.index)
       fail("The question changed. Refresh the quiz.", 409);
-    if (action === "quiz-ready") {
-      if (
-        !run.answers[run.index] &&
-        (!run.timing || run.timing.index !== run.index)
-      ) {
-        const startsAt = e.now() + (run.index === 0 ? QUIZ_LEAD_IN_MS : 0);
-        run.timing = {
-          index: run.index,
-          startsAt,
-          endsAt: startsAt + QUIZ_SONG_MS,
-        };
-        this.persist(player, q.id, run);
-      }
-      return { ...this.runView(q, run), message: "Song Ready" };
+    if (run.fast && context.verifiedSession !== true)
+      fail("Continue through the quiz session.", 409);
+    if (["quiz-ready", "quiz-answer"].includes(action)) {
+      advanceQuizRun(run, action, b, e.now(), context.quizAnswerReceivedAt);
+      this.persist(player, q.id, run);
+      return { ...this.runView(q, run), message: action === "quiz-ready" ? "Song Ready" : "Answer Updated" };
     }
-    if (action === "quiz-answer") {
-      const processedAt = e.now();
-      const receivedAt = Number.isSafeInteger(context.quizAnswerReceivedAt) &&
-        context.quizAnswerReceivedAt > 0 && context.quizAnswerReceivedAt <= processedAt + 1000
-        ? Math.min(processedAt, context.quizAnswerReceivedAt) : processedAt;
-      if (run.answers[run.index]) fail("This answer is already locked.", 409);
-      if (!b.skip && (!run.timing || run.timing.index !== run.index))
-        fail("Wait for the audio to load.", 409);
-      if (!b.skip && receivedAt < run.timing.startsAt)
-        fail("Wait for the starting countdown.", 409);
-      // Judge the complete answer's trusted Worker arrival, not time spent
-      // waiting for this database to process it. Client timestamps are ignored.
-      const timedOut =
-        !b.skip && receivedAt > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
-      const submittedAnswer = b.skip
-        ? ""
-        : String(b.answer || "").slice(0, 300);
-      const answer = timedOut ? "" : submittedAnswer;
-      run.answers.push({
-        answer,
-        submittedAnswer,
-        receivedAt,
-        processedAt,
-        timedOut,
-        skipped: !!b.skip,
-        elapsedMs: quizElapsed(run.startedAt, receivedAt),
-        responseMs: quizElapsed(run.timing?.startsAt, receivedAt),
-        correct:
-          !!answer &&
-          run.songs[run.index].answers.some(
-            (a) => quizAnswerKey(a) === quizAnswerKey(answer),
-          ),
-      });
-      if (run.index === 19) {
-        run.completedAt = receivedAt;
-        run.durationMs = quizElapsed(run.startedAt, run.completedAt);
-      }
-    } else if (action === "quiz-next") {
+    if (action === "quiz-next") {
       if (!run.answers[run.index]) fail("Lock an answer first.");
       if (run.index === 19) {
         const score = run.answers.filter((a) => a.correct).length;
@@ -788,18 +675,7 @@ export class Quiz {
               title: score === 20 ? q.title : "",
             };
       } else {
-        run.index++;
-        run.timing = null;
-        // A client that already buffered this song can start it in the same
-        // request, saving the separate quiz-ready round trip.
-        if (b.ready === true) {
-          const startsAt = e.now();
-          run.timing = {
-            index: run.index,
-            startsAt,
-            endsAt: startsAt + QUIZ_SONG_MS,
-          };
-        }
+        advanceQuizRun(run, action, b, e.now());
       }
     } else fail("Unknown quiz action.", 404);
     this.persist(player, q.id, run);

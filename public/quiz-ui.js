@@ -77,6 +77,7 @@ export function createQuizUI({
     working = false,
     pendingAction = "",
     pendingMove = null,
+    queuedAnswer = null,
     locallyStopped = false,
     audio = null,
     audioKey = "",
@@ -127,17 +128,27 @@ export function createQuizUI({
       ? run.elapsedMs
       : quizElapsed(run?.startedAt, Math.round(serverNow()));
   const elapsedControl = () =>
-    run && !run.finished && Number.isSafeInteger(run.startedAt)
+    run && !run.finished && (Number.isSafeInteger(run.startedAt) || run.transport === "session")
       ? '<span class="quiz-elapsed">Elapsed <strong id="quiz-elapsed" role="timer" aria-label="Elapsed Quiz Time">' +
-        quizDuration(elapsed(), false) +
+        quizDuration(elapsed() ?? (run?.transport === "session" ? 0 : null), false) +
         "</strong></span>"
       : "";
   async function call(path, body, key) {
+    if (run?.transport === "session" && ["quiz-ready", "quiz-answer", "quiz-next"].includes(path)
+        && !(path === "quiz-next" && body.index === 19)) {
+      body = { ...body, action: path };
+      path = "quiz-session?run=" + encodeURIComponent(body.run);
+      key ||= crypto.randomUUID();
+    }
     const sent = monotonicNow(),
       controller = new AbortController(),
       deadline = setTimeout(() => controller.abort(), 12000);
     try {
-      const result = await api(path, body, key, { signal: controller.signal }),
+      const result = await api(path, body, key, {
+        signal: controller.signal,
+        ...(path.startsWith("quiz-session?") && run?.sessionTicket
+          ? { headers: { "X-Quiz-Session": run.sessionTicket } } : {}),
+      }),
         received = monotonicNow();
       if (Number.isFinite(result.now)) {
         const roundTrip = Math.max(0, received - sent);
@@ -167,6 +178,8 @@ export function createQuizUI({
     }
   }
   function useRun(value) {
+    if (value?.transport === "session" && value.id === run?.id && !value.sessionTicket)
+      value = { ...value, sessionTicket: run.sessionTicket };
     run = value;
     const key = run ? run.id + ":" + run.index : "";
     if (key !== draftKey) {
@@ -950,13 +963,19 @@ export function createQuizUI({
     if (el) el.textContent = errorMessage;
   }
   async function mutate(action, answer, skip = false) {
-    if (working) return;
+    if (working) {
+      if (action === "quiz-answer" && pendingAction === "quiz-next" && run?.transport === "session")
+        queuedAnswer ||= { answer, skip };
+      return;
+    }
     working = true;
     pendingAction = action;
     errorMessage = "";
     const body = {
       quiz: selected,
+      ...(["quiz-start", "quiz-restart"].includes(action) && competitive ? { competitive: true } : {}),
       ...(run ? { run: run.id, index: run.index } : {}),
+      ...(run?.transport === "session" ? { fastSession: true } : {}),
       ...(answer !== undefined ? { answer } : {}),
       ...(skip ? { skip: true } : {}),
       ...(action === "quiz-next" &&
@@ -966,10 +985,15 @@ export function createQuizUI({
         ? { ready: true }
         : {}),
     };
+    if (action === "quiz-next" && pendingMove?.body?.run === body.run &&
+        pendingMove.body.index === body.index && pendingMove.action === action)
+      body.ready = pendingMove.body.ready;
     const signature = JSON.stringify([action, body]);
     if (pendingMove?.signature !== signature)
-      pendingMove = { signature, key: crypto.randomUUID() };
+      pendingMove = { signature, key: crypto.randomUUID(), body, action };
     const move = pendingMove;
+    const previousRun = run;
+    const instantNext = action === "quiz-next" && run?.transport === "session" && run.index < 19 && body.ready && prefetchReady();
     if (action === "quiz-answer") audio?.pause();
     if (action === "quiz-stop") {
       locallyStopped = true;
@@ -977,6 +1001,15 @@ export function createQuizUI({
       dropPrefetch();
     }
     closeSuggestions();
+    if (instantNext) {
+      const startsAt = Math.round(serverNow());
+      useRun({ ...run, index: run.index + 1, answered: false,
+        audio: run.nextAudio, sample: run.nextSample, startsAt, endsAt: startsAt + QUIZ_SONG_MS,
+        nextAudio: undefined, nextSample: undefined,
+        answer: undefined, correct: undefined, submittedAnswer: undefined,
+      });
+      onRender({ questionOnly: true });
+    }
     tick();
     try {
       let result;
@@ -986,17 +1019,20 @@ export function createQuizUI({
         // A lost response does not mean the answer failed to save. Read the
         // authoritative reveal instead of posting another answer or guessing.
         if (
-          action !== "quiz-answer" ||
+          (!["quiz-answer", "quiz-next"].includes(action) || (action === "quiz-next" && !instantNext)) ||
           (error.status && !error.retryable && error.status !== 409)
         )
           throw error;
         const saved = await call(
-          "quiz-run?quiz=" + encodeURIComponent(body.quiz),
+          previousRun?.transport === "session"
+            ? "quiz-session?run=" + encodeURIComponent(body.run)
+            : "quiz-run?quiz=" + encodeURIComponent(body.quiz),
         ).catch(() => null);
         if (
-          !saved?.run?.answered ||
+          !saved?.run ||
           saved.run.id !== body.run ||
-          saved.run.index !== body.index
+          (instantNext ? saved.run.index !== body.index + 1
+            : !saved.run.answered || saved.run.index !== body.index)
         )
           throw error;
         result = saved;
@@ -1031,10 +1067,17 @@ export function createQuizUI({
           })
           .catch(() => {});
       }
-      onRender({
+      if (!instantNext || run?.answered || run?.finished || run?.index !== body.index + 1) onRender({
         questionOnly: action === "quiz-answer" || action === "quiz-next",
       });
     } catch (error) {
+      if (instantNext) {
+        queuedAnswer = null;
+        useRun(previousRun);
+        stop();
+        onRender({ questionOnly: true });
+        error.message = "The next song could not be confirmed. Retry Next Song. " + error.message;
+      }
       if (action === "quiz-answer" && !run?.answered) playAttempted = false;
       if (action === "quiz-stop") {
         error.message =
@@ -1048,6 +1091,9 @@ export function createQuizUI({
       working = false;
       pendingAction = "";
       tick();
+      const queued = queuedAnswer;
+      queuedAnswer = null;
+      if (queued) mutate("quiz-answer", queued.answer, queued.skip).catch(showError);
     }
   }
   function attemptPlay() {
@@ -1103,7 +1149,7 @@ export function createQuizUI({
     }
     const clock = document.getElementById("quiz-elapsed");
     if (clock && run && !run.finished)
-      text(clock, quizDuration(elapsed(), false));
+      text(clock, quizDuration(elapsed() ?? (run?.transport === "session" ? 0 : null), false));
     if (locallyStopped) {
       for (const id of ["quiz-answer", "quiz-lock-answer"]) {
         const control = document.getElementById(id);
@@ -1125,7 +1171,7 @@ export function createQuizUI({
       : 0;
     const input = document.getElementById("quiz-answer"),
       lock = document.getElementById("quiz-lock-answer");
-    if (input) input.disabled = !started || working;
+    if (input) input.disabled = !started || (working && !(pendingAction === "quiz-next" && run.transport === "session"));
     if (lock) {
       lock.disabled = !started || working;
       text(
@@ -1135,7 +1181,7 @@ export function createQuizUI({
     }
     const skip = document.querySelector("[data-quiz-skip]");
     if (skip) skip.disabled = working;
-    if (started && remaining > 0 && !working && input && !answerFocused) {
+    if (started && remaining > 0 && !input?.disabled && input && !answerFocused) {
       answerFocused = true;
       input.focus({ preventScroll: true });
     }

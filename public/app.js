@@ -1964,19 +1964,20 @@ function ensureCollectorCounts() {
     });
 }
 const pendingReads = new Map();
-async function api(path, body, key, { signal } = {}) {
+async function api(path, body, key, { signal, headers: extraHeaders = {} } = {}) {
   if (demo && path === "quizzes") return { quizzes: [] };
   if (demo) return demo.request(path, body);
   if (!body && !signal && pendingReads.has(path)) return pendingReads.get(path);
   const request = (async () => {
     const res = await fetch("api/" + path, {
       method: body ? "POST" : "GET",
-      headers: body
-        ? {
-            "Content-Type": "application/json",
-            "Idempotency-Key": key || crypto.randomUUID(),
-          }
-        : {},
+      headers: {
+        ...extraHeaders,
+        ...(body ? {
+          "Content-Type": "application/json",
+          "Idempotency-Key": key || crypto.randomUUID(),
+        } : {}),
+      },
       body: body ? JSON.stringify(body) : undefined,
       credentials: "same-origin",
       signal,

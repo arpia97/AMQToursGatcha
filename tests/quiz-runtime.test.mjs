@@ -15,6 +15,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       contents: `
         import worker, { Game as OriginalGame } from './src/worker.js';
         export {QuizLibrary} from './src/worker.js';
+        import {QuizSession as OriginalQuizSession} from './src/worker.js';
+        export class QuizSession extends OriginalQuizSession {
+          expireForTest() {
+            const state=this.read(),end=Date.now()-2000;
+            state.run.timing={index:state.run.index,startsAt:end-20000,endsAt:end};
+            this.write(state);
+            return end;
+          }
+        }
         export class Game extends OriginalGame {
           constructor(ctx,env) {
             super(ctx,env);
@@ -26,6 +35,10 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
           maintainMarket(...args) { this.probe.market++; return super.maintainMarket(...args); }
           scheduleAlarm(...args) { this.probe.schedule++; return super.scheduleAlarm(...args); }
           async handle(request) {
+            if(new URL(request.url).pathname==='/api/__fast-expire') {
+              const {run}=await request.json();
+              return Response.json({end:await this.env.QUIZ_SESSIONS.get(this.env.QUIZ_SESSIONS.idFromName('quiz:'+run)).expireForTest()});
+            }
             if(new URL(request.url).pathname==='/api/__quiz-probe') {
               if(request.method==='POST') this.probe={sql:0,market:0,schedule:0,starters:0};
               return Response.json(this.probe);
@@ -79,6 +92,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
           },
           exports: {
             QuizLibrary:{type:'durable-object',storage:'sqlite',state:'created'},
+            QuizSession:{type:'durable-object',storage:'sqlite',state:'created'},
             Game: {
               type: "durable-object",
               storage: "sqlite",
@@ -87,6 +101,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
           },
           env: {
             QUIZ_LIBRARY:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizLibrary'},
+            QUIZ_SESSIONS:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizSession'},
             ASSETS:{type:'fetcher',handler:async request=>{
               const manifest={schema:1,version:'runtime-seed',source:'Fixture',generatedAt:'2026-11-01T00:00:00Z',count:1,requested:1,missing:[],shards:[97],amq:{90001:[50001]}};
               const data=new URL(request.url).pathname.endsWith('manifest.json')?manifest:{50001:{annSongId:50001,amqSongId:90001,annId:1,title:'Cached Song',artist:'Artist',audio:'https://example.com/cached.mp3',titles:['Cached Alternative']}};
@@ -752,6 +767,101 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   timedAnswer=(await response.json()).run;
   assert.equal(timedAnswer.correct,false,"client body/header timestamps cannot backdate a late answer");
   assert.equal(timedAnswer.timedOut,true);
+
+  // Competitive sessions bypass Game entirely between setup and settlement.
+  response = await post("quiz-restart", {quiz:"test",run:timedRun.id,index:0,competitive:true}, auth);
+  assert.equal(response.status,200,await response.clone().text());
+  let fast = (await response.json()).run;
+  assert.equal(fast.transport,"session");
+  assert.equal(fast.startedAt,null,"loading must not count toward completion time");
+  const endpoint = "quiz-session?run="+fast.id;
+  const fastAuth = {...auth, "X-Quiz-Session":fast.sessionTicket};
+  assert.equal((await post(endpoint,{run:fast.id,index:0,action:"quiz-ready"})).status,401);
+  assert.equal((await post(endpoint,{run:fast.id,index:0,action:"quiz-ready"},{...auth,Origin:"https://other.example"})).status,403);
+  assert.equal((await post(endpoint,{run:fast.id,index:0,action:"quiz-ready"},{Cookie:"amq_session="+"b".repeat(48)})).status,401);
+  assert.equal((await post(endpoint,{run:fast.id,index:0,action:"quiz-ready"},{...auth,"X-Quiz-Session":"invalid"})).status,401);
+  const getFast=async()=> (await mf.dispatchFetch("http://game/api/"+endpoint,{headers:fastAuth})).json();
+  const fastMove=async(action,extra={},key=crypto.randomUUID())=>{
+    const res=await post(endpoint,{run:fast.id,index:fast.index,action,...extra},{...fastAuth,"Idempotency-Key":key});
+    assert.equal(res.status,200,await res.clone().text());
+    fast=(await res.json()).run;
+    return fast;
+  };
+  await fastMove("quiz-ready");
+  const startedAt=fast.startsAt;
+  assert.equal(fast.startedAt,startedAt);
+  assert.equal(fast.endsAt-fast.startsAt,20000);
+  assert.equal(fast.answer,undefined);
+  await new Promise(resolve=>setTimeout(resolve,Math.max(0,fast.startsAt-Date.now()+5)));
+  await post("__quiz-probe",{});
+  for(let i=0;i<20;i++){
+    assert.equal(fast.index,i);
+    assert.equal(fast.answer,undefined,"future/current keys are absent until the lock is durable");
+    const body={run:fast.id,index:i,action:"quiz-answer",answer:"Anime Test"};
+    const key="fast-lock-"+i;
+    await fastMove("quiz-answer",{answer:"Anime Test"},key);
+    assert.equal(fast.correct,true);
+    assert.equal(fast.answer,"Anime Test");
+    response=await post(endpoint,body,{...fastAuth,"Idempotency-Key":key});
+    assert.equal(response.status,200);
+    assert.equal((await response.json()).run.score,i+1);
+    assert.equal((await post(endpoint,{...body,answer:"Changed"},{...fastAuth,"Idempotency-Key":key})).status,409);
+    assert.equal((await post(endpoint,{...body,answer:"Changed"},fastAuth)).status,409);
+    if(i<19) await fastMove("quiz-next",{ready:true});
+  }
+  const probeFast=await (await mf.dispatchFetch("http://game/api/__quiz-probe")).json();
+  assert.deepEqual(probeFast,{sql:0,market:0,schedule:0,starters:0},"no shared-engine calls during all 20 questions");
+  assert.equal((await getFast()).run.index,19);
+  // Reopening resumes the isolated actor rather than its initial economy snapshot.
+  response=await mf.dispatchFetch("http://game/api/quiz-run?quiz=test",{headers:auth});
+  assert.equal((await response.json()).run.score,20);
+  const settleBody={quiz:"test",run:fast.id,index:19,fastSession:true,answer:"forged",score:0,answers:[]};
+  const settleHeaders={...auth,"Idempotency-Key":"fast-final-settlement"};
+  response=await post("quiz-next",settleBody,settleHeaders);
+  assert.equal(response.status,200,await response.clone().text());
+  const settled=await response.json();
+  assert.equal(settled.run.score,20,"settlement trusts only the actor snapshot");
+  assert.equal(settled.run.startedAt,startedAt);
+  assert.ok(settled.run.durationMs>=0);
+  const balance=settled.me.balance;
+  response=await post("quiz-next",settleBody,settleHeaders);
+  assert.equal((await response.json()).me.balance,balance,"reward settlement is retry-safe");
+  // Stop/restart invalidate old actors, and their receipts remain retryable.
+  response=await post("quiz-start",{quiz:"test",competitive:true},auth);
+  fast=(await response.json()).run;
+  const oldEndpoint="quiz-session?run="+fast.id;
+  const restartBody={quiz:"test",run:fast.id,index:0,competitive:true,fastSession:true};
+  const restartHeaders={...auth,"Idempotency-Key":"fast-restart-repeat"};
+  response=await post("quiz-restart",restartBody,restartHeaders);
+  assert.equal(response.status,200,await response.clone().text());
+  const restarted=(await response.json()).run;
+  response=await post("quiz-restart",restartBody,restartHeaders);
+  assert.equal((await response.json()).run.id,restarted.id);
+  assert.equal((await mf.dispatchFetch("http://game/api/"+oldEndpoint,{headers:auth})).status,401);
+  const stopBody={quiz:"test",run:restarted.id,index:0,fastSession:true};
+  const stopHeaders={...auth,"Idempotency-Key":"fast-stop-repeat"};
+  response=await post("quiz-stop",stopBody,stopHeaders);
+  assert.equal(response.status,200,await response.clone().text());
+  response=await post("quiz-stop",stopBody,stopHeaders);
+  assert.equal((await response.json()).run,null);
+
+  response=await post("quiz-start",{quiz:"test",competitive:true},auth);
+  fast=(await response.json()).run;
+  const lateEndpoint="quiz-session?run="+fast.id;
+  response=await post("__fast-expire",{run:fast.id});
+  const fastExpired=(await response.json()).end;
+  response=await post(lateEndpoint,{action:"quiz-answer",run:fast.id,index:0,answer:"Anime Test",now:fastExpired-1,quizAnswerReceivedAt:fastExpired-1},
+    {...auth,"X-Quiz-Session":fast.sessionTicket,"X-AMQ-Answer-Received-At":String(fastExpired-1)});
+  assert.equal(response.status,200);
+  const late=(await response.json()).run;
+  assert.equal(late.timedOut,true,"the isolated path also ignores forged arrival timestamps");
+  assert.equal(late.correct,false);
+  assert.equal((await post("quiz-answer",{quiz:"test",run:fast.id,index:0,answer:"Anime Test"},auth)).status,409,
+    "legacy endpoints cannot bypass a competitive session");
+  // Revoking the login also revokes direct access to the actor.
+  assert.equal((await post("logout",{},auth)).status,200);
+  assert.equal((await mf.dispatchFetch("http://game/api/"+lateEndpoint,{headers:{...auth,"X-Quiz-Session":fast.sessionTicket}})).status,401);
+  assert.equal((await post("quiz-next",{quiz:"test",run:fast.id,index:19,fastSession:true},auth)).status,401);
 
 
 });

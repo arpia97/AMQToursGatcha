@@ -1,3 +1,5 @@
+import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
+export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
@@ -181,6 +183,27 @@ export class Game extends DurableObject {
     this.engine.track("maintenance", () => this.cleanup());
     this.budget.flush(true);
     await this.scheduleAlarm(next);
+  }
+  async openQuizSession(session, sessionHash, q, run) {
+    const view = await quizSessionStub(this.env, run.id).initialize({
+      player: session.player, sessionHash, expires: session.expires, q, run,
+    });
+    view.run.sessionTicket = await quizSessionTicket(this.env, run.id, sessionHash, session.expires);
+    return view;
+  }
+  quizSessionIds(player = null) {
+    if (!this.env.QUIZ_SESSIONS) return [];
+    return this.engine.all("SELECT player,data FROM quiz_runs" + (player ? " WHERE player=?" : ""),
+      ...(player ? [player] : [])).flatMap(row => {
+      const run = JSON.parse(row.data);
+      return run.fast && !run.finished ? [{ player: row.player, run: run.id }] : [];
+    });
+  }
+  async cancelQuizSessions(sessions, sessionHash = null) {
+    await Promise.all(sessions.map(({ player, run }) =>
+      quizSessionStub(this.env, run).revoke(player, sessionHash).catch(() => {
+        console.warn(JSON.stringify({ event: "quiz_session_revoke_failed" }));
+      })));
   }
   async quizAnswersMaster(){
     if(!this.quizMaster||Date.now()-this.quizMaster.at>86400000){
@@ -972,6 +995,7 @@ export class Game extends DurableObject {
           );
           e.run("DELETE FROM sessions WHERE player=?", id);
         });
+        await this.cancelQuizSessions(this.quizSessionIds(id));
         return json({
           message:
             "Account access reset. Existing sessions revoked; wallet and cards preserved.",
@@ -979,6 +1003,9 @@ export class Game extends DurableObject {
           player: id,
         });
       }
+      const revokedQuizSessions = (path === "host/account-lock" && b.locked === true) ||
+          path === "host/reset-player" || path === "host/reset-all"
+        ? this.quizSessionIds(path === "host/reset-all" ? null : b.player) : [];
       const result = e.mutate(
         "host:" + path,
         request.headers.get("Idempotency-Key"),
@@ -989,6 +1016,7 @@ export class Game extends DurableObject {
             () => e.host(path.slice(5), b),
           ),
       );
+      await this.cancelQuizSessions(revokedQuizSessions);
       const next = e.ensureAuctions();
       await this.scheduleAlarm(next);
       return json(result);
@@ -1071,13 +1099,14 @@ export class Game extends DurableObject {
     }
     const session = sessionHash
       ? e.one(
-          "SELECT player FROM sessions WHERE token=? AND expires>?",
+          "SELECT player,expires FROM sessions WHERE token=? AND expires>?",
           sessionHash,
           Date.now(),
         )
       : null;
     if (path === "logout" && post) {
       if (raw) e.run("DELETE FROM sessions WHERE token=?", await digest(raw));
+      if (session) await this.cancelQuizSessions(this.quizSessionIds(session.player), sessionHash);
       return json({ message: "Signed out." }, 200, {
         "Set-Cookie": cookie("", secure, 0),
       });
@@ -1108,23 +1137,102 @@ export class Game extends DurableObject {
     }
     if (quizMove || quizRun) {
       if (!session) fail("Sign in to play quizzes.", 401);
+      if (post && b.competitive !== true && b.fastSession !== true) {
+        this.bursts.take("play:" + session.player);
+        const result = e.mutate(session.player + ":" + path,
+          request.headers.get("Idempotency-Key"), b,
+          () => e.action(session.player, path, b, {
+            quizAnswerReceivedAt: path === "quiz-answer"
+              ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
+          }));
+        return json({ ...result, now: e.now() });
+      }
+      if (post) {
+        const saved = e.one("SELECT input,result FROM receipts WHERE scope=? AND key=?",
+          session.player + ":" + path, request.headers.get("Idempotency-Key") || "");
+        if (saved) {
+          e.assertAccountUnlocked(session.player);
+          if (saved.input !== JSON.stringify(b)) fail("This request ID was used for a different action.", 409);
+          const result = JSON.parse(saved.result);
+          const active = e.quiz.run(session.player, b.quiz);
+          if (active?.fast && !active.finished && active.id === result.run?.id &&
+              ["quiz-start", "quiz-restart"].includes(path)) {
+            const q = e.quiz.definition(b.quiz, session.player);
+            const view = await this.openQuizSession(session, sessionHash, q, active);
+            return json({ ...result, ...view, now: e.now() });
+          }
+          return json({ ...result, now: e.now() });
+        }
+      }
+      const id = post ? b.quiz : url.searchParams.get("quiz");
+      const q = e.quiz.definition(id, session.player);
+      let current = e.quiz.run(session.player, q.id);
+      const stub = current?.fast && this.env.QUIZ_SESSIONS
+        ? quizSessionStub(this.env, current.id) : null;
       if (!post) {
         if (path !== "quiz-run") fail("Unknown endpoint.", 404);
         this.bursts.take("read:" + session.player, 60, 5);
-        return json(e.quiz.view(session.player, url.searchParams.get("quiz")));
+        if (stub && !current.finished) {
+          e.assertAccountUnlocked(session.player);
+          return json(await this.openQuizSession(session, sessionHash, q, current));
+        }
+        return json(e.quiz.view(session.player, id));
       }
       this.bursts.take("play:" + session.player);
+      e.assertAccountUnlocked(session.player);
+      if (stub && !current.finished && !["quiz-start", "quiz-restart", "quiz-stop"].includes(path)) {
+        if (path !== "quiz-next" || b.run !== current.id || b.index !== 19)
+          fail("Continue through the quiz session.", 409);
+        // Only the private actor snapshot can supply scored answers/timing.
+        // Client batches, score fields and timestamps never enter settlement.
+        const snapshot = await stub.snapshot(session.player, sessionHash);
+        if (snapshot.id !== current.id || snapshot.index !== 19 || snapshot.answers.length !== 20)
+          fail("Answer all songs before finishing.", 409);
+        current = snapshot;
+      }
+      if (stub && ["quiz-restart", "quiz-stop"].includes(path)) {
+        const snapshot = await stub.snapshot(session.player, sessionHash);
+        // Check the actual current question before cancelling a live run.
+        if (snapshot.id !== b.run || snapshot.index !== b.index)
+          fail("The quiz run changed. Reopen it before continuing.", 409);
+        current = snapshot;
+      }
+      // External RPC may yield: never overwrite a newer restart/stop.
+      const latest = e.quiz.run(session.player, q.id);
+      if (current && latest?.id !== current.id) fail("The quiz run changed. Reopen it.", 409);
+      if (!e.one("SELECT player FROM sessions WHERE token=? AND expires>?", sessionHash, Date.now()))
+        fail("Your session ended. Please sign in again.", 401);
       const result = e.mutate(
         session.player + ":" + path,
         request.headers.get("Idempotency-Key"),
         b,
-        () => e.action(session.player, path, b, {
-          quizAnswerReceivedAt: path === "quiz-answer"
-            ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
-        }),
+        () => {
+          e.assertAccountUnlocked(session.player);
+          if (current?.fast && !current.finished) e.quiz.persist(session.player, q.id, current);
+          const result = e.action(session.player, path, b, {
+            verifiedSession: !!current?.fast && path === "quiz-next",
+            quizAnswerReceivedAt: path === "quiz-answer"
+              ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
+          });
+          if (["quiz-start", "quiz-restart"].includes(path) && b.competitive === true && this.env.QUIZ_SESSIONS && this.env.HOST_TOKEN?.length >= 32) {
+            const next = e.quiz.run(session.player, q.id);
+            if (!next.finished && !next.timing && !next.answers.length) {
+              next.fast = true;
+              next.startedAt = null;
+              e.quiz.persist(session.player, q.id, next);
+              return { ...result, ...e.quiz.runView(q, next) };
+            }
+          }
+          return result;
+        },
       );
-      // A receipt replay keeps the original result but not its clock sample.
-      // Sending the saved timestamp would backdate the client's countdown.
+      if (stub && ["quiz-restart", "quiz-stop"].includes(path))
+        await stub.cancel(session.player);
+      const active = e.quiz.run(session.player, q.id);
+      if (active?.fast && !active.finished && ["quiz-start", "quiz-restart"].includes(path)) {
+        const view = await this.openQuizSession(session, sessionHash, q, active);
+        return json({ ...result, ...view, now: e.now() });
+      }
       return json({ ...result, now: e.now() });
     }
     // Paid game moves never need catalogue, inventory, auction settlement or
@@ -1514,6 +1622,8 @@ export default {
         request.method === "GET"
       )
         return json(registrationPolicy);
+      if (url.pathname === "/api/quiz-session")
+        return await quizSessionRequest(request, env);
       const size = Number(request.headers.get("Content-Length") || 0);
       if (
         size >

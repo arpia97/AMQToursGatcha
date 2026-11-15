@@ -20,6 +20,7 @@ function fixture(
     audioCache,
     transitions = false,
     prefetch = false,
+    fastSession = false,
     history = [],
     hotkeys = {},
     responseLag = {},
@@ -96,6 +97,7 @@ function fixture(
   const api = async (path, b, key) => {
     calls.push({ path, b, key });
     if (gates.has(path)) await gates.get(path);
+    if (path.startsWith("quiz-session?")) path = b?.action || "quiz-run";
     if (path === "quizzes") return { quizzes: [quiz] };
     if (path.startsWith("quiz-leaderboard"))
       return {
@@ -143,6 +145,7 @@ function fixture(
     if (path === "quiz-start")
       run = {
         id: "run",
+        ...(fastSession ? {transport:"session"} : {}),
         startedAt: now,
         index: 0,
         score: 0,
@@ -1128,4 +1131,47 @@ test("delayed quiz responses and device clock changes do not make the countdown 
   assert.equal(f.calls.filter(c => c.path === "quiz-answer").length, 0);
   await f.advance(16000);
   assert.equal(f.calls.filter(c => c.path === "quiz-answer").length, 1);
+});
+
+
+test("fast session starts buffered next audio before acknowledgment without replacing the input on confirmation", async t => {
+  const f=fixture(t,{transitions:true,prefetch:true,fastSession:true});
+  await f.start();
+  await f.advance(2000);
+  f.node("quiz-answer").value="Bocchi the Rock!";
+  await f.ui.submit({elements:{answer:f.node("quiz-answer")}});
+  const nextAudio=f.audios.at(-1);
+  await nextAudio.emit("loadedmetadata");
+  await nextAudio.emit("canplay");
+  const gate=f.hold("quiz-session?run=run");
+  const transition=f.ui.click(f.button("data-quiz-action","quiz-next"));
+  await flush();
+  assert.equal(nextAudio.plays,1,"playback starts while the Next acknowledgment is still delayed");
+  assert.equal(f.node("quiz-answer").disabled,false,"typing is available immediately");
+  f.node("quiz-answer").value="Boku";
+  await f.ui.input(f.node("quiz-answer"));
+  const renderCount=f.renders.length;
+  gate.release();
+  await transition;
+  assert.equal(f.renders.length,renderCount,"acknowledgment must not replace the focused textbox");
+  assert.equal(f.node("quiz-answer").value,"Boku");
+  assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && c.b.action==="quiz-answer"));
+  assert.equal(f.calls.filter(c=>c.path==="quiz-answer").length,0);
+  f.loseAnswerResponse();
+  await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
+  assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && !c.b),"lost acknowledgment uses the isolated saved reveal");
+  assert.equal(f.calls.filter(c=>c.path.startsWith("quiz-run?")).length,1,"only initial loading used the economy run endpoint");
+  const nextAudio2=f.audios.at(-1);
+  await nextAudio2.emit("loadedmetadata");
+  await nextAudio2.emit("canplay");
+  const failure=f.hold("quiz-session?run=run");
+  const failedNext=f.ui.click(f.button("data-quiz-action","quiz-next"));
+  await flush();
+  const first=f.calls.at(-1);
+  failure.reject(Object.assign(Error("Offline"),{retryable:true}));
+  await assert.rejects(failedNext,/next song could not be confirmed/i);
+  await f.ui.click(f.button("data-quiz-action","quiz-next"));
+  const retry=f.calls.filter(c=>c.b?.action==="quiz-next").at(-1);
+  assert.equal(retry.key,first.key,"uncertain Next retries retain their key and body");
+  assert.deepEqual(retry.b,first.b);
 });
