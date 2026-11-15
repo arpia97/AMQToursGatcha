@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Completed — Quiz Focus Recovery
+
+November 15. Runtime 6929d1b63406c7a6d31ee0ff757e10dd97cdd899 is pushed/live on the original amqtours-gatcha Worker version 5ab6ad3c-d18b-48f0-a738-0fd48dee25f1. The existing foreground quiz clock now also recovers same-node focus loss when focus falls to the page (including temporarily disabled inputs after submission errors). It respects explicit Tab/Shift-Tab navigation, other focused controls, open account/song dialogs, hidden documents and inactive windows; returning focus to the answer input or starting a new song resets the navigation pause. Explicit audio recovery returns focus to answering. No new timers/listeners/polling, backend changes or quiz timing/reward changes.
+
+The existing focus test failed before the fix and now passes. All 26 focused UI tests, syntax/diff checks and dry run pass. Real-browser checks at 1280/390px verify native blur recovery, preserved answer/caret, an injected rejected submission and retry on the same input, Tab/other-control respect, modal plus background-field redraw, first/next-song focus, a 2-second delayed Next acknowledgment, and refresh resume without script errors/overflow. Hidden-tab/inactive-window gates are covered deterministically in the UI test; headless Chrome does not reliably model native tab/window focus. Live quiz-ui.js byte-matches the release. Private logs/harness/proof are in work/quiz-focus-recovery-*. No production quiz attempts or data corrections; shared Delete Quiz edits remain untouched. Merge origin/main before publishing them.
+
 ## Completed — Quiz Answer Autofocus
 
 November 15. Runtime 1c29aa2e7159bdc80fc476f8cacaa6057ff245a3 is pushed/live on the original amqtours-gatcha Worker version 7b143602-9f2a-4f8e-92b0-12a9b7d71a9d. Autofocus tracks the actual answer input node instead of a per-song boolean, and records focus only after the browser accepts it. Replaced fields regain focus; failed mount-time focus retries; intentional focus on another control is not repeatedly stolen. No backend/timing/reward changes.
