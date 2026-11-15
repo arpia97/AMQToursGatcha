@@ -1,4 +1,4 @@
-import { participationNames } from "../public/participation.js";
+import { participationRoster } from "../public/participation.js";
 import { tourRewardQuote, tourRewardDefaults } from "../public/tour-rewards.js";
 import { fail, text } from "./engine.js";
 export class Participation {
@@ -6,16 +6,16 @@ export class Participation {
     this.e = e;
   }
   preview(raw) {
-    const names = participationNames(raw),
+    const roster = participationRoster(raw), names = roster.names,
       players = new Map(),
-      unknown = [];
+      unknown = [], resolvedNames = new Map();
     for (const name of names) {
       const p = this.e.one(
         "SELECT p.id,COALESCE(p.display_name,p.name) AS name FROM aliases a JOIN players p ON p.id=a.player WHERE a.alias=?",
         name.toLowerCase(),
       );
       if (!p) unknown.push(name);
-      else players.set(p.id, p);
+      else { players.set(p.id, p); resolvedNames.set(name.toLowerCase(),p.id); }
     }
     if (unknown.length)
       fail(
@@ -26,7 +26,18 @@ export class Participation {
     const resolved = [...players.values()].sort((a, b) =>
       a.id.localeCompare(b.id),
     );
-    return { players: resolved, ...tourRewardDefaults(resolved.length) };
+    const seen = new Set(), teams=[];
+    for(const names of roster.teams){
+      const ids=names.map(name=>resolvedNames.get(name.toLowerCase())).filter(id=>{if(seen.has(id))return false;seen.add(id);return true;});
+      for(let i=0;i<ids.length;i+=4)teams.push(ids.slice(i,i+4));
+    }
+    // A flat signup list has no submitted teams; keep its order in groups of four.
+    if(roster.teams.every(row=>row.length===1)){
+      const ids=teams.flat();teams.length=0;
+      for(let i=0;i<ids.length;i+=4)teams.push(ids.slice(i,i+4));
+    }
+    const groupedTeams=roster.teams.length>1 && roster.teams.every(row=>row.length>1 && row.length<=4);
+    return { players: resolved, teams, groupedTeams, ...tourRewardDefaults(resolved.length) };
   }
   grant(b) {
     const e = this.e,
@@ -71,12 +82,13 @@ export class Participation {
               " players" +
               (row.replaces ? " · Sub" : "")
             : " · " + category + " · Flat reward";
+        const magnitude = quote.multiplier===1 ? "" : " · " + quote.multiplier + "× rewards";
         awards.push({
           player: row.player,
           reason: category,
           amount: row[category],
           event,
-          note: note.slice(0, 240 - detail.length) + detail,
+          note: note.slice(0, 240 - detail.length - magnitude.length) + detail + magnitude,
         });
       }
     }

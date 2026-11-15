@@ -124,6 +124,14 @@ test("credit recipient search covers current names, canonical IDs, aliases and h
     );
   assert.equal(matchingCreditPlayers(state, "21")[0].name, "Other");
   assert.equal(matchingCreditPlayers(state, "[").length, 0);
+  state.aliases=[...state.aliases,{player:"21",alias:"New Alias"}];
+  assert.equal(matchingCreditPlayers(state,"alias new")[0].id,"21");
+  state.aliases.push({player:"21",alias:"Later Alias"});
+  assert.equal(matchingCreditPlayers(state,"later")[0].id,"21");
+  const many={players:Array.from({length:600},(_,i)=>({id:String(i),name:"Player "+i,balance:0}))};
+  assert.equal((creditPlayerPicker(many,"grant",escape).match(/<option /g)||[]).length,101);
+  assert.equal(matchingCreditPlayers(many,"599")[0].id,"599");
+
   assert.match(
     creditPlayerPicker(state, "grant", escape),
     /Search Players to Reward/,

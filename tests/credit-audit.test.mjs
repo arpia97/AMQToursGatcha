@@ -1,3 +1,4 @@
+import { TOUR_REWARD_VERSION } from "../public/tour-rewards.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -64,7 +65,7 @@ test("host attribution is tied to the exact ledger movement, inherited by batche
       e.participation.grant({
         text: "Player (1) Host (2) Player (3) Host (4) | Total = 10 | Guesses = [1111]",
         event: "Batch",
-        rewardVersion: 2,
+        rewardVersion: TOUR_REWARD_VERSION,
         tourSize: 16,
         maxRounds: 6,
         expectedPlayers: ["h", "p"],

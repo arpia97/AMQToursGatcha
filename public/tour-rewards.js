@@ -1,4 +1,4 @@
-export const TOUR_REWARD_VERSION = 2;
+export const TOUR_REWARD_VERSION = 3;
 export const STAFF_REWARD = 750;
 export const TOUR_SIZES = [8, 16, 24, 32, 40, 48, 64, 80, 96, 128, 256, 500];
 const invalid = (message) => Object.assign(new Error(message), { status: 400 });
@@ -26,6 +26,7 @@ export function initialTourRewards(
     rewardVersion: TOUR_REWARD_VERSION,
     tourSize: settings.tourSize,
     maxRounds: settings.maxRounds,
+    multiplier: 1,
     participants: players.map((p) => ({
       player: p.id,
       rounds: settings.maxRounds,
@@ -40,8 +41,12 @@ export function tourRewardQuote(players, plan) {
     throw invalid(
       "Tour reward rules changed. Refresh the host console and review the tour again.",
     );
+  const multiplier = plan.multiplier===undefined?1:plan.multiplier;
+  if(typeof multiplier!=="number" || !Number.isFinite(multiplier) || multiplier<0.1 || multiplier>10 || Math.abs(multiplier*10-Math.round(multiplier*10))>1e-9)
+    throw invalid("Credit multiplier must be from 0.1× to 10× in steps of 0.1.");
+  const magnitude=Math.round(multiplier*10);
   const size = whole(plan.tourSize, 1, 500, "Tour size"),
-    rate = participationRate(size),
+    rate = participationRate(size)*magnitude/10,
     maxRounds = whole(plan.maxRounds, 1, 2000, "Maximum rounds");
   const originals = new Set(players.map((p) => p.id));
   if (originals.size > size)
@@ -90,8 +95,9 @@ export function tourRewardQuote(players, plan) {
         );
     }
     const participation = rounds * rate,
-      counting = row.count ? STAFF_REWARD : 0,
-      reporting = row.report ? STAFF_REWARD : 0;
+      counting = row.count ? STAFF_REWARD*magnitude/10 : 0,
+      reporting = row.report ? STAFF_REWARD*magnitude/10 : 0;
+    whole(participation,0,1000000,"Participation reward per player");
     return {
       player: row.player,
       rounds,
@@ -115,6 +121,8 @@ export function tourRewardQuote(players, plan) {
     tourSize: size,
     maxRounds,
     rate,
+    multiplier,
+    staffRate:STAFF_REWARD*magnitude/10,
     rows,
     participation,
     staff,

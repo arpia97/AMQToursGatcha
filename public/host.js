@@ -13,8 +13,7 @@ import {
 import { TOUR_SIZES } from "./tour-rewards.js";
 import { createTourRewardEditor } from "./tour-rewards-ui.js";
 import {
-  matchingCreditPlayers,
-  creditPlayerOptions,
+  updateCreditPlayerSearch,
   creditPlayerPicker,
   deductionPanel,
   deductionReview,
@@ -758,22 +757,7 @@ document.addEventListener("submit", async (ev) => {
 });
 document.addEventListener("input", (ev) => {
   if (ev.target.dataset.creditSearch) {
-    const id = ev.target.dataset.creditSearch,
-      select = document.getElementById(id + "-player"),
-      matches = matchingCreditPlayers(state, ev.target.value);
-    select.innerHTML = creditPlayerOptions(matches, esc, select.value);
-    document.querySelector('[data-credit-count="' + id + '"]').textContent =
-      matches.length +
-      " matching " +
-      (matches.length === 1 ? "player" : "players");
-    ev.target.classList.toggle(
-      "no-results",
-      !!ev.target.value.trim() && !matches.length,
-    );
-    ev.target.setAttribute(
-      "aria-invalid",
-      String(!!ev.target.value.trim() && !matches.length),
-    );
+    updateCreditPlayerSearch(state,ev.target,esc);
   }
   if (ev.target.closest("#deduct")) {
     deductionDraft = null;

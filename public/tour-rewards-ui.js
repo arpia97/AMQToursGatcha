@@ -15,33 +15,34 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
   for (const p of preview.players) people.set(p.id, { ...p });
   for (const p of state.players) people.set(p.id, { ...people.get(p.id), ...p });
   const name = (id) => people.get(id)?.name || id;
-  function playerMatches(row, query) {
-    if (!query) return true;
-    const q = query.trim().toLowerCase();
-    if (!q) return true;
-    const p = people.get(row.player);
-    if (row.player.toLowerCase().includes(q)) return true;
-    if (name(row.player).toLowerCase().includes(q)) return true;
-    if (p?.aliases?.some((a) => String(a).toLowerCase().includes(q))) return true;
-    if (row.replaces) {
-      if (row.replaces.toLowerCase().includes(q)) return true;
-      if (name(row.replaces).toLowerCase().includes(q)) return true;
-      const rep = people.get(row.replaces);
-      if (rep?.aliases?.some((a) => String(a).toLowerCase().includes(q))) return true;
-    }
-    return false;
+  const searchState={...state,players:[...people.values()]};
+  function teamMarkup(){
+    const groups=preview.teams || Array.from({length:Math.ceil(preview.players.length/4)},(_,i)=>preview.players.slice(i*4,i*4+4).map(p=>p.id));
+    let offset=0;
+    const teams=groups.map((ids,index)=>{
+      const seats=ids.map(id=>`<div class="tour-reward-seat" data-reward-seat>${plan.participants.filter(row=>row.player===id || row.replaces===id).map(rowMarkup).join('')}</div>`).join('');
+      const title=preview.groupedTeams?'Team '+(index+1):'Players '+(offset+1)+'–'+(offset+ids.length);
+      offset+=ids.length;
+      return `<section class="tour-reward-team" data-reward-team><h4>${escape(title)}</h4><div class="tour-reward-team-grid">${seats}</div></section>`;
+    });
+    const staff=plan.participants.filter(row=>row.staffOnly);
+    if(staff.length)teams.push(`<section class="tour-reward-team" data-reward-team><h4>Additional Staff</h4><div class="tour-reward-team-grid">${staff.map(rowMarkup).join('')}</div></section>`);
+    return teams.join('');
   }
   function applyFilter(query = searchQuery) {
     searchQuery = query;
     const cards = root.querySelectorAll("[data-reward-player]");
     let visibleCount = 0;
+    const matches=new Set(matchingCreditPlayers(searchState,query).map(p=>p.id)), rows=new Map(plan.participants.map(row=>[row.player,row]));
     for (const el of cards) {
       const playerId = el.dataset.rewardPlayer;
-      const row = plan.participants.find((r) => r.player === playerId);
-      const matches = row ? playerMatches(row, query) : true;
-      el.hidden = !matches;
-      if (matches) visibleCount++;
+      const row = rows.get(playerId);
+      const match = !query.trim() || matches.has(playerId) || (row?.replaces && matches.has(row.replaces));
+      el.hidden = !match;
+      if (match) visibleCount++;
     }
+    for(const group of root.querySelectorAll('[data-reward-seat], [data-reward-team]'))
+      group.hidden=![...group.querySelectorAll('[data-reward-player]')].some(card=>!card.hidden);
     const emptyHint = root.querySelector("[data-reward-filter-empty]");
     if (emptyHint) {
       emptyHint.hidden = visibleCount > 0 || !query.trim();
@@ -52,19 +53,20 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     }
   }
   function rowMarkup(row) {
-    return `<article class="tour-reward-player" data-reward-player="${escape(row.player)}"><div class="tour-reward-player-head"><div><strong>${escape(name(row.player))}</strong><small>${escape(row.player)}${row.replaces ? " · Sub for " + escape(name(row.replaces)) : row.staffOnly ? " · Staff Only" : ""}</small></div>${row.replaces || row.staffOnly ? '<button type="button" class="text-button" data-remove-reward="' + escape(row.player) + '" aria-label="Remove ' + escape(name(row.player)) + '">×</button>' : ""}</div><div class="tour-reward-rounds"><label>Rounds Played<input type="number" name="rounds" min="0" max="${plan.maxRounds}" value="${row.rounds}" step="1" required ${row.staffOnly ? "disabled" : ""} aria-label="Rounds Played by ${escape(name(row.player))}"></label>${!row.staffOnly ? '<button type="button" class="button secondary" data-add-sub="' + escape(row.player) + '" aria-label="Sub for ' + escape(name(row.player)) + '">Sub ＋</button>' : ""}</div><div class="tour-reward-work"><label><input type="checkbox" name="count" ${row.count ? "checked" : ""}> Count <small>+750</small></label><label><input type="checkbox" name="report" ${row.report ? "checked" : ""}> Report <small>+750</small></label></div><div class="tour-reward-row-total" data-reward-total></div></article>`;
+    return `<article class="tour-reward-player" data-reward-player="${escape(row.player)}"><div class="tour-reward-player-head"><div><strong>${escape(name(row.player))}</strong><small>${escape(row.player)}${row.replaces ? " · Sub for " + escape(name(row.replaces)) : row.staffOnly ? " · Staff Only" : ""}</small></div>${row.replaces || row.staffOnly ? '<button type="button" class="text-button" data-remove-reward="' + escape(row.player) + '" aria-label="Remove ' + escape(name(row.player)) + '">×</button>' : ""}</div><div class="tour-reward-rounds"><label>Rounds Played<input type="number" name="rounds" min="0" max="${plan.maxRounds}" value="${row.rounds}" step="1" required ${row.staffOnly ? "disabled" : ""} aria-label="Rounds Played by ${escape(name(row.player))}"></label>${!row.staffOnly ? '<button type="button" class="button secondary" data-add-sub="' + escape(row.player) + '" aria-label="Sub for ' + escape(name(row.player)) + '">Sub ＋</button>' : ""}</div><div class="tour-reward-work"><label><input type="checkbox" name="count" ${row.count ? "checked" : ""}> Count <small data-staff-rate>+${number(STAFF_REWARD*plan.multiplier)}</small></label><label><input type="checkbox" name="report" ${row.report ? "checked" : ""}> Report <small data-staff-rate>+${number(STAFF_REWARD*plan.multiplier)}</small></label></div><div class="tour-reward-row-total" data-reward-total></div></article>`;
   }
   function draw() {
     const availableSizes = TOUR_SIZES.includes(plan.tourSize)
       ? TOUR_SIZES
       : [...TOUR_SIZES, plan.tourSize].sort((a, b) => a - b);
-    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label></div><p class="form-hint" data-reward-rate></p><div class="tour-reward-search-bar"><div class="search-input-wrap"><input type="search" data-reward-filter class="search" placeholder="Search participants by name, alias or ID…" value="${escape(searchQuery)}" aria-label="Search participants"><button type="button" class="button secondary small" data-clear-reward-filter ${searchQuery.trim() ? "" : "hidden"}>Clear Search</button></div></div><p class="form-hint" data-reward-filter-empty hidden>No participants match your search.</p><div class="tour-reward-grid">${plan.participants.map(rowMarkup).join("")}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
+    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid tour-reward-settings"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label><label>Credit Multiplier<input name="multiplier" type="number" min="0.1" max="10" step="0.1" value="${plan.multiplier}" required aria-describedby="reward-multiplier-hint"></label></div><p class="form-hint" id="reward-multiplier-hint">Multiplier applies to participation, Count and Report.</p><p class="form-hint" data-reward-rate></p><div class="tour-reward-search-bar"><div class="search-input-wrap"><input type="search" data-reward-filter class="search" placeholder="Search participants by name, alias or ID…" value="${escape(searchQuery)}" aria-label="Search participants"><button type="button" class="button secondary small" data-clear-reward-filter ${searchQuery.trim() ? "" : "hidden"}>Clear Search</button></div></div><p class="form-hint" data-reward-filter-empty hidden>No participants match your search.</p><div class="tour-reward-grid">${teamMarkup()}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
     updateTotals();
     applyFilter(searchQuery);
   }
   function collect() {
     plan.tourSize = Number(root.querySelector("[name=tourSize]").value);
     plan.maxRounds = Number(root.querySelector("[name=maxRounds]").value);
+    plan.multiplier = Number(root.querySelector("[name=multiplier]").value);
     for (const el of root.querySelectorAll("[data-reward-player]")) {
       const row = plan.participants.find(
         (r) => r.player === el.dataset.rewardPlayer,
@@ -79,7 +81,8 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     try {
       const quote = tourRewardQuote(preview.players, plan);
       root.querySelector("[data-reward-rate]").textContent =
-        `${number(quote.rate)} credits per played round · Count and Report each pay a flat ${STAFF_REWARD} credits per tour.`;
+        `${number(quote.rate)} credits per played round · Count and Report each pay a flat ${number(quote.staffRate)} credits per tour (${quote.multiplier}×).`;
+      for(const hint of root.querySelectorAll("[data-staff-rate]"))hint.textContent="+"+number(quote.staffRate);
       for (const el of root.querySelectorAll("[data-reward-player]")) {
         const row = quote.rows.find(
           (r) => r.player === el.dataset.rewardPlayer,

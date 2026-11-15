@@ -1,3 +1,4 @@
+import { TOUR_REWARD_VERSION } from "../public/tour-rewards.js";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -125,7 +126,7 @@ test("host reward defaults use per-round participation and flat 750 staff credit
     event: "t3",
     note: "Default batch",
     expectedPlayers: preview.players.map((p) => p.id),
-    rewardVersion: 2,
+    rewardVersion: TOUR_REWARD_VERSION,
     tourSize: 8,
     maxRounds: 3,
     participants: preview.players.map((p) => ({

@@ -160,7 +160,13 @@ test("participation accepts scored results and ranked signup lists, resolves ali
     ["Player", "oldname", "Other"],
   );
   const preview = e.participation.preview(raw);
-  assert.deepEqual(e.participation.preview(ranked), preview);
+  assert.deepEqual(e.participation.preview(ranked).players, preview.players);
+  assert.deepEqual(preview.teams,[["p"],["q"]]);
+  assert.deepEqual(e.participation.preview(ranked).teams,[["p","q"]]);
+  const ordered=e.participation.preview("Other (1) Player (2) | Total = 3\narpia97 (1) oldname (2) | Total = 3");
+  assert.deepEqual(ordered.teams,[["q","p"],["368"]]);
+  assert.equal(ordered.groupedTeams,true);
+  assert.deepEqual(e.participation.preview(signup).teams[0],["signup-0","signup-1","signup-2","signup-3"]);
   assert.deepEqual(
     preview.players.map((p) => p.id),
     ["p", "q"],
@@ -516,6 +522,21 @@ test("whole-tour rewards price rounds by size, split substitutes and pay flat st
       }),
     /only once/,
   );
+  for(const multiplier of [0,0.01,1.25,11,NaN,Infinity,"2",null])
+    assert.throws(()=>tourRewardQuote(preview.players,{...body,multiplier}),/multiplier/);
+  assert.equal(tourRewardQuote(preview.players,{...body,multiplier:1.5}).total,5850);
+  assert.throws(()=>f.host("participation-batch",{...body,event:"old-version",rewardVersion:2,multiplier:2}),/rules changed/);
+  const before=f.e.player("p").balance,boosted={...body,event:"double-tour",multiplier:2};
+  const award=()=>f.e.mutate("host:participation-batch","double-key",boosted,()=>f.e.host("participation-batch",boosted));
+  const doubled=award();
+  assert.equal(doubled.total,7800);
+  assert.equal(doubled.staff,3000);
+  assert.equal(doubled.participation,4800);
+  assert.equal(doubled.rows.find(r=>r.player==="368").participation,1600);
+  assert.equal(f.e.player("p").balance-before,3800);
+  assert.equal(award().total,7800);
+  assert.equal(f.e.player("p").balance-before,3800);
+  assert.match(f.e.one("SELECT reason FROM ledger WHERE player='p' ORDER BY id DESC LIMIT 1").reason,/2× rewards/);
   f.host("grant", { player: "p", reason: "reporting", amount: 1, note: "" });
   assert.equal(
     f.e.one("SELECT reason FROM ledger ORDER BY id DESC LIMIT 1").reason,

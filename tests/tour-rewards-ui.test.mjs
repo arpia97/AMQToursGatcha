@@ -19,6 +19,7 @@ function createMockRoot() {
       elements.set("[name=tourSize]", { value: "16" });
       // Max rounds
       elements.set("[name=maxRounds]", { value: "5" });
+      elements.set("[name=multiplier]", { value: "1" });
       // Search filter input
       elements.set("[data-reward-filter]", {
         value: "",
@@ -168,7 +169,10 @@ test("createTourRewardEditor renders search bar and filters participants in revi
   assert.equal(p2Card._report.checked, true);
 
   // 6. Payload awards all participants correctly
+  root.querySelector("[name=multiplier]").value="2";
   const payload = editor.payload();
+  assert.equal(payload.multiplier,2);
+  assert.match(root.innerHTML,/data-reward-team/);
   assert.equal(payload.participants.length, 3);
   const p1Payload = payload.participants.find((p) => p.player === "p1");
   const p2Payload = payload.participants.find((p) => p.player === "p2");
