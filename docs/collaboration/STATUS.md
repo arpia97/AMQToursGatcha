@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Ready for Deployment — Quiz Anime Display Preference
+
+November 16. Codex on main, base fba6edd. Public Song List, answer reveal and Songs Played recap resolve imported anime aliases to AMQ's labelled English/Romaji main names using the existing site preference. Preference changes render immediately, including cached song lists and reveals. Existing pools need no reimport; submitted text, accepted answers, scoring, rewards and saved data are unchanged. A static 509,657-byte anime-only index is loaded once on entering Quiz, alongside the list request; no per-song API or answer-key metadata is added. Missing translations use the other main name, unknown/ambiguous aliases retain the source label. The bundled-master refresh tool rebuilds the index too.
+
+Validation: 34 focused quiz tests passed; 242 source/test syntax checks and Wrangler dry-run passed; diff checks clean. Disposable local Worker/browser QA at 1280px and 390px verified mixed English/Romaji source labels become consistent in both modes, switching preferences, correct grading with original submitted text preserved, no repeated title downloads, no page errors or page overflow. Private screenshots/scripts are in surrounding work/quiz-title* and work/quiz-titles*. No production quiz attempt or data mutation was made. Runtime commit/deployment/live verification pending below.
+
 ## Completed — Team Reward Review and Faster Credit Search
 
 November 16. Runtime 15a41bb19d4fcbf4a96d4a99010405e7ac44dc58 is pushed/live on original amqtours-gatcha Worker version 97ce1c36-9067-401c-95e5-cbb15f784cc0. Existing GAME/Quiz bindings, named objects and migration history are unchanged. Upstream Delete Quiz/auction work 6f2abce was integrated before validation/deployment; preserve it when making later releases.
@@ -527,7 +533,7 @@ The play proxy deployment `a4548b51-c01d-4ed2-8988-1530146c2054` serves `amqtour
 
 ## Work Ownership
 
-No concurrent feature task is claimed. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
+Active task: Codex / main / shared AMQToursGatcha checkout, base fba6edd. Scope: quiz anime display language (public app/quiz UI, display-only name index and refresh tooling, focused quiz tests). Codex owns integration and deployment. No economy or quiz-answer changes. Before overlapping work, record each task's agent, branch/check-out path, base SHA, file scope, integration owner and deployment owner. Agree on ownership before editing shared files. A status row is advisory, not an atomic lock.
 
 ## Next Handoff Template
 

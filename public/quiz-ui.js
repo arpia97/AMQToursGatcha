@@ -36,6 +36,8 @@ export function createQuizUI({
   clock,
   audioCache,
   getHotkeys,
+  prepareTitles = async () => {},
+  animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
   const hotkeys = () =>
     normalizeQuizHotkeys(
@@ -340,7 +342,8 @@ export function createQuizUI({
     }
   }
   async function load() {
-    quizzes = (await call("quizzes")).quizzes;
+    const [data] = await Promise.all([call("quizzes"), prepareTitles()]);
+    quizzes = data.quizzes;
     if (selected && !quizzes.some((q) => q.id === selected)) {
       selected = null;
       useRun(null);
@@ -551,7 +554,7 @@ export function createQuizUI({
         (i + 1) + '</td><td><span class="quiz-recap-result">' +
         (s.correct ? "✓ " : "✕ ") + result + '</span></td><td><strong>' +
         e(s.title || "Unknown Song") + '</strong><small>' + e(s.artist || "—") +
-        '</small></td><td>' + e(s.anime || "—") + '</td><td>' +
+        '</small></td><td>' + e(animeTitle(s) || "—") + '</td><td>' +
         e(s.submittedAnswer || "—") + '</td><td class="quiz-recap-time">' +
         e(quizDuration(s.elapsedMs)) + '</td><td class="quiz-recap-time">' +
         e(quizDuration(s.responseMs)) + '</td></tr>';
@@ -573,7 +576,7 @@ export function createQuizUI({
           "</td><td>" +
           e(s.artist || "—") +
           "</td><td>" +
-          e(s.anime || s.answers?.[0] || "—") +
+          e(animeTitle(s) || "—") +
           "</td></tr>",
       )
       .join("");
@@ -850,7 +853,7 @@ export function createQuizUI({
       '</strong><div class="quiz-answer-comparison"><div><span>Your Answer</span><p>' +
       e(run.submittedAnswer?.trim() ? run.submittedAnswer : "No Answer") +
       "</p></div><div><span>Correct Answer</span><p>" +
-      e(run.answer || "") +
+      e(animeTitle(run)) +
       "</p></div></div><small>" +
       e(run.songTitle || "") +
       " · " +

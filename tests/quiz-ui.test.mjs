@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createQuizUI } from "../public/quiz-ui.js";
 import { quizAnswerOptions } from "../public/quiz-autocomplete.js";
+import { createQuizTitleDisplay } from "../public/quiz-title-display.js";
 const escape = (s) =>
   String(s ?? "")
     .replaceAll("&", "&amp;")
@@ -24,6 +25,8 @@ function fixture(
     history = [],
     hotkeys = {},
     responseLag = {},
+    animeTitle,
+    prepareTitles,
   } = {},
 ) {
   const old = globalThis.document,
@@ -226,6 +229,8 @@ function fixture(
   };
   ui = createQuizUI({
     api,
+    animeTitle,
+    prepareTitles,
     audioCache,
     escape,
     getState: () => ({ me: { id: "host", quiz_hotkeys: hotkeys } }),
@@ -950,8 +955,15 @@ test("Stop Quiz pauses audio immediately, never submits an answer, stays stopped
 });
 
 test("Song List button next to Play Quiz opens a cached song-list popup and closes via button or Escape", async (t) => {
-  const f = fixture(t);
+  let mode = "romaji";
+  const display = createQuizTitleDisplay([["Bocchi English", "Bocchi Romaji", ["Bocchi the Rock!"]]]);
+  let prepared = false;
+  const f = fixture(t, {
+    animeTitle: (song) => display(song, mode),
+    prepareTitles: async () => { prepared = true; },
+  });
   await f.ui.load();
+  assert.equal(prepared, true);
   const grid = f.ui.render();
   assert.match(
     grid,
@@ -963,7 +975,11 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   assert.match(popup, /Seishun &lt;Complex>/);
   assert.doesNotMatch(popup, /Seishun <Complex>/);
   assert.match(popup, /Kessoku Band/);
-  assert.match(popup, /Bocchi the Rock!/);
+  assert.match(popup, /Bocchi Romaji/);
+  assert.doesNotMatch(popup, /Bocchi English/);
+  mode = "english";
+  assert.match(f.ui.render(), /Bocchi English/);
+  assert.doesNotMatch(f.ui.render(), /Bocchi Romaji/);
   assert.equal(
     f.calls.filter((c) => c.path === "quiz-songs?quiz=q").length,
     1,
@@ -991,7 +1007,12 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
 });
 
 test("finished quiz recap shows escaped songs, right/wrong results and recorded times without another request", async (t) => {
-  const f = fixture(t, { history: [
+  let mode = "romaji";
+  const display = createQuizTitleDisplay([
+    ["Bocchi English", "Bocchi Romaji", ["Bocchi the Rock!"]],
+    ["Anime English", "Anime Romaji", ["Anime"]],
+  ]);
+  const f = fixture(t, { animeTitle: (song) => display(song, mode), history: [
     {title:"Song <One>",artist:"Artist",anime:"Anime",submittedAnswer:"Anime",correct:true,elapsedMs:4500,responseMs:2500},
     {title:"Song Two",anime:"Anime 2",submittedAnswer:"<Wrong>",correct:false,elapsedMs:null,responseMs:null},
   ] });
@@ -1001,6 +1022,10 @@ test("finished quiz recap shows escaped songs, right/wrong results and recorded 
   assert.doesNotMatch(f.ui.render(), /quiz-recap-dialog/);
   await f.ui.click(f.button("data-quiz-action", "quiz-start"));
   await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
+  assert.match(f.ui.render(), /Correct Answer<\/span><p>Bocchi Romaji/);
+  assert.match(f.ui.render(), /Your Answer<\/span><p>Bocchi the Rock!/);
+  mode = "english";
+  assert.match(f.ui.render(), /Correct Answer<\/span><p>Bocchi English/);
   f.finishNext();
   await f.ui.click(f.button("data-quiz-action", "quiz-next"));
   assert.match(f.ui.render(), /data-quiz-recap>Songs Played/);
@@ -1015,6 +1040,9 @@ test("finished quiz recap shows escaped songs, right/wrong results and recorded 
   assert.match(html, /0:04.500/);
   assert.match(html, /0:02.500/);
   assert.match(html, /Not Recorded/);
+  assert.match(html, /Anime English/);
+  mode = "romaji";
+  assert.match(f.ui.render(), /Anime Romaji/);
   assert.equal(f.calls.length, count);
   await f.ui.click(f.button("data-quiz-songs-close"));
   assert.doesNotMatch(f.ui.render(), /quiz-recap-dialog/);

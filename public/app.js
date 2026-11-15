@@ -35,6 +35,7 @@ import {
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
+import { loadQuizTitleDisplay, quizAnimeTitle } from "./quiz-title-display.js";
 import { pageErrorHTML } from "./page-error.js";
 import { gamblingHistoryModalHTML } from "./gambling-history-ui.js";
 import { createTradesUI } from "./trades-ui.js";
@@ -700,6 +701,8 @@ function tabs() {
 const quizUI = createQuizUI({
   api,
   escape,
+  prepareTitles: loadQuizTitleDisplay,
+  animeTitle: (song) => quizAnimeTitle(song, titleMode),
   getState: () => state,
   onRender: (options) => {
     if (page() === "quiz" && options?.questionOnly && quizUI.updateQuestion())

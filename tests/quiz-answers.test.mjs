@@ -2,6 +2,28 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
+import { readFileSync } from "node:fs";
+import { createQuizTitleDisplay } from "../public/quiz-title-display.js";
+
+test("quiz display resolves English and Romaji aliases consistently without altering accepted answers", () => {
+  const rows = JSON.parse(readFileSync(new URL("../public/quiz-anime-titles.json", import.meta.url)));
+  const display = createQuizTitleDisplay(rows);
+  for (const anime of ["Nyarko-san: Another Crawling Chaos W", "Haiyore! Nyaruko-san W"]) {
+    const song = Object.freeze({ anime, answers: Object.freeze([anime]) });
+    assert.equal(display(song, "romaji"), "Haiyore! Nyaruko-san W");
+    assert.equal(display(song, "english"), "Nyaruko: Crawling with Love! W");
+    assert.equal(song.answers[0], anime);
+  }
+  const fallback = createQuizTitleDisplay([
+    ["Only English", "", []], ["", "Only Romaji", []],
+    ["First", "Ichi", ["Shared"]], ["Second", "Ni", ["Shared"]],
+  ]);
+  assert.equal(fallback({anime:"Only English"}, "romaji"), "Only English");
+  assert.equal(fallback({anime:"Only Romaji"}, "english"), "Only Romaji");
+  assert.equal(fallback({anime:"Shared"}), "Shared");
+  assert.equal(fallback({anime:"Unknown <Title>"}), "Unknown <Title>");
+  assert.equal(fallback({anime:"Unknown",animeENName:"English",animeJPName:"Romaji"}), "Romaji");
+});
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());

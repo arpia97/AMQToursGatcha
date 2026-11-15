@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { writeQuizTitleNames } from "./build-quiz-title-names.mjs";
 const source = "https://animemusicquiz.com/libraryMasterList";
 const response = await fetch(source, { signal: AbortSignal.timeout(30000) });
 if (!response.ok) throw Error("AMQ returned HTTP " + response.status);
@@ -29,6 +30,7 @@ const compact = {
 };
 const file = new URL("../public/quiz-amq-master.json", import.meta.url);
 await fs.writeFile(file, JSON.stringify(compact) + String.fromCharCode(10));
+await writeQuizTitleNames(compact);
 console.log(
   JSON.stringify({
     masterListId: compact.masterListId,
