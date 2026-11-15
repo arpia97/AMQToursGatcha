@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## In Progress — Quiz Song List Column Sorting
+## Completed — Quiz Song List Column Sorting
 
 November 16. Codex owns `public/quiz-ui.js`, scoped styles in `public/features.css`, existing quiz UI test coverage and this handoff. Base beb8331; remote main is aligned. Public Song List and Songs Played recap have ascending/descending column buttons, arrows and aria-sort state. Sorting preserves original row numbers, stable ties, cached pool/recap data and the selected anime-title preference; missing metadata/times stay last. Sort values are prepared once per row. Keyboard focus remains on the activated header. No backend or quiz/account/economy writes.
 
-Validation: all 26 existing quiz UI tests pass, including expanded pool/recap sort coverage; 243 JavaScript syntax checks and Wrangler dry-run pass. Disposable browser QA at 1280px/390px verified numeric song ordering, stable ties/original row numbers, all pool columns, missing artist last in both directions, Enter activation/focus, no page overflow and no browser errors. Evidence in surrounding `work/quiz-song-sort-browser-proof.json` and screenshots. Commit/deployment/live asset verification are next; Codex retains integration ownership.
+Validation: all 26 existing quiz UI tests pass, including expanded pool/recap sort coverage; 243 JavaScript syntax checks and Wrangler dry-run pass. Disposable browser QA at 1280px/390px verified numeric song ordering, stable ties/original row numbers, all pool columns, missing artist last in both directions, Enter activation/focus, no page overflow and no browser errors. Evidence in surrounding `work/quiz-song-sort-browser-proof.json` and screenshots.
+
+Runtime f08d167 is pushed/deployed on original amqtours-gatcha, version 55955cf5-dc1a-4dec-976f-161754af0d50. Both changed assets return 200 with exact release bytes at amqtours.app/gacha; health is 200. No production quiz attempts or data mutations; bindings, named objects and migrations are unchanged. Live proof: `work/quiz-song-sort-live-proof.json`. Ownership released; no remaining authorized work. This documentation-only commit is newer than the deployed runtime commit.
 
 ## Completed — Live Auction Updates and User Bid Increments
 
