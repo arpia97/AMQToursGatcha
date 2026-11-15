@@ -85,7 +85,7 @@
 }
 .card-back {
   position: absolute;
-  inset: 35px 8px calc(9px + var(--card-level-space, 0px));
+  inset: 44px 8px calc(9px + var(--card-level-space, 0px));
   z-index: 4;
   overflow: visible;
   opacity: 0;
@@ -122,6 +122,7 @@
   gap: 7px;
 }
 .card-action-content > :is(.button, .text-button, .bid-button),
+.card-surface .pack-card-actions > :is(.button, .text-button, .bid-button),
 .card-action-grid > :is(button, a) {
   display: flex;
   align-items: center;
@@ -129,7 +130,7 @@
   width: 100%;
   min-width: 0;
   min-height: 28px;
-  padding: 6px 2px;
+  padding: 6px 4px;
   border: 1px solid #ffffff35;
   border-radius: 6px;
   background: #202633cf;
@@ -143,23 +144,24 @@
   white-space: normal;
   margin: 0;
   cursor: pointer;
+  flex: none;
 }
 .card-action-content .button.mint {
   background: var(--mint);
   color: #14251d;
 }
-.card-action-content :is(button, a):is(:hover, :focus-visible):not(:disabled) {
+.card-surface .card-action-content :is(button, a):is(:hover, :focus-visible):not(:disabled) {
   border-color: var(--mint);
   background: #345a4bea;
   color: #fff;
 }
-.card-action-content :is([aria-pressed="true"], .is-selected),
+.card-surface .card-action-content :is([aria-pressed="true"], .is-selected),
 .card-action-grid :is([aria-pressed="true"], .is-selected) {
   color: var(--mint);
   border-color: #b7e4ca80;
   background: #24493bcc;
 }
-.card-action-content :is([aria-pressed="true"], .is-selected):is(:hover, :focus-visible),
+.card-surface .card-action-content :is([aria-pressed="true"], .is-selected):is(:hover, :focus-visible),
 .card-action-grid :is([aria-pressed="true"], .is-selected):is(:hover, :focus-visible) {
   color: #fff;
   border-color: var(--mint);
@@ -186,10 +188,6 @@
   grid-template-columns: 1fr;
   margin: 0;
   gap: 7px;
-}
-.card-surface .pack-card-actions .text-button {
-  min-height: 32px;
-  flex-basis: auto;
 }
 .card-surface.is-revealed .portrait > :is(img, .fallback-img) {
   filter: blur(6px) brightness(0.38);
@@ -317,6 +315,8 @@ html[data-card-size="large"] .paged-twentyfour-grid {
 html[data-card-size="large"] .weekly-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+html[data-card-size="small"] .card-action-content > :is(.button, .text-button, .bid-button),
+html[data-card-size="small"] .card-surface .pack-card-actions > :is(.button, .text-button, .bid-button),
 html[data-card-size="small"] .card-action-grid > :is(button, a) {
   font-size: 8px;
   min-height: 25px;
@@ -457,7 +457,21 @@ html[data-card-size="large"]
   font-size: 11px;
 }
 .pack-results .pull-reveal .card-back {
-  bottom: 112px;
+  top: 44px;
+  bottom: 82px;
+}
+.pack-results .pull-reveal :is(.card-back > .card-body, .card-action-content, .pack-card-actions) {
+  gap: 5px;
+}
+.pack-results .pull-reveal .card-action-content :is(.button, .text-button, .bid-button) {
+  min-height: 26px;
+  padding: 4px 6px;
+}
+.pack-results .pull-reveal .pack-autosell-tag {
+  padding: 2px 6px;
+  font-size: 9px;
+  line-height: 1.2;
+  text-align: center;
 }
 .pack-results .pull-reveal .card-surface:has(.card-state-icons) .card-front {
   padding-right: 42px;

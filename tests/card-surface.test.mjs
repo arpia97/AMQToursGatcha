@@ -185,6 +185,22 @@ test("syncCardFlags updates icons on single card and container roots, and css hi
     /\.card-action-grid :is\(\[aria-pressed="true"\], \.is-selected\)/,
   );
   assert.match(css, /\.card-state-trade/);
+  assert.match(
+    css,
+    /\.card-back\s*\{[^}]*inset:\s*44px 8px calc\(9px \+ var\(--card-level-space,\s*0px\)\)/,
+  );
+  assert.match(
+    css,
+    /\.card-action-content\s*>\s*:is\(\.button,\s*\.text-button,\s*\.bid-button\),\s*\.card-surface \.pack-card-actions\s*>\s*:is\(\.button,\s*\.text-button,\s*\.bid-button\)/,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.card-surface \.pack-card-actions \.text-button\s*\{[^}]*min-height:\s*32px/,
+  );
+  assert.match(
+    css,
+    /\.pack-results \.pull-reveal \.card-back\s*\{[^}]*top:\s*44px;\s*bottom:\s*82px;/,
+  );
 
   let insertedHtml = "";
   const stage = {
