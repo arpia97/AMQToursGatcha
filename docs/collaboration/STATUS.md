@@ -1,8 +1,14 @@
 # Shared Status and Handoff
 
-## In Progress — Profile Quiz Statistics and Larger Showcases
+## Completed — Profile Quiz Statistics and Larger Showcases
 
-November 16. Codex owns `src/quiz.js`, `src/worker.js`, `src/economy.js`, `public/app.js`, a new profile quiz UI module, related scoped styles/tests/defaults and this status. Add public profile Quiz stats from one best submitted score per published quiz and current leaderboard #1s; raise paid showcase capacity to 1,000 with a preserving constraint migration. Wishlist is already 1,000. Premium sub-minute perfect quiz titles are preview-only pending user approval. Preserve accounts, rewards and score history. Adjacent Host changes only verify/invalidate stale Eru export snapshots; separate deployment.
+November 16. Runtime `9866cfbc510eff761051270ea34d07d78e80f09f` is pushed/deployed on original `amqtours-gatcha`, version `eeca039b-65e2-4dd7-a04c-94ec94700c59`. Own/public profiles have Quiz after Listed: unique published quizzes played, max scores, average personal best, current #1 count, average recorded best time, and a #1 list with score/time/category and leaderboard shortcuts. Existing score/time/achievement/player-ID tiebreaks are preserved; drafts, previews, removed quizzes and unfinished attempts do not count. Untimed records are excluded from the time average. The bounded stats read runs only when the Quiz profile tab opens.
+
+Showcase capacity now allows 1,000 total slots, still 30 free and 100 credits per extra slot. The once-only transactional CHECK-constraint migration copies existing capacities exactly; it does not replay old free-slot conversions, credit corrections or purchases. Wishlist was already 1,000 and remains so. Bindings, named objects, credentials, scores/rewards and existing holdings are preserved. Adjacent Host version83 (`aa85d496e38bb7de391b88c8b245a6a9d59aa75f`) prevents exporting stale Eru snapshots; CSV/PNG use the corrected per-tier life taken/lost columns, with both-hit matchups skipped.
+
+Validation: 509 tests, 244 syntax checks, diff checks and Wrangler dry-run passed. The existing real Workers SQLite profile test additionally verifies an old 100-slot constraint migrates and preserves capacity before a 900-slot purchase to 1,000. Desktop/mobile full-app local checks verify own/other profiles, all metrics, #1 lists/shortcuts, no unnecessary card-page request, overflow or page errors. Seven live assets byte-match release (including unchanged title-ui.js); new public stats endpoint returns200 after normal deferred rollout, invalid player404, health200. Host Eru guard asset is verified live. No production quiz attempts, purchases or test accounts were created. Private proof: surrounding `work/profile-quiz-*` files.
+
+Premium 20/20 + strictly sub-60-second title styling remains preview-only pending user approval. Standalone gold/opal/shimmer HTML and PNG live outside the repository/public assets in surrounding `outputs/premium-quiz-title-preview.*`. Reduced-motion behavior verified. No premium title CSS, eligibility or awards were deployed. Ownership released; no required implementation work remains. This documentation commit is newer than the deployed runtime source.
 
 ## Completed — Quiz Song List Column Sorting
 
