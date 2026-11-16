@@ -200,6 +200,7 @@ export class Demo {
         )
         .map((p) => ({
           ...p,
+          friendship: {added:(s.friends||[]).includes(p.id),mutual:false,followers:(s.friends||[]).includes(p.id)?1:0},
           avatar_card: p.id === s.me.id ? s.me.avatar_card : this.cards[2].id,
           avatar_crop: p.id === s.me.id ? s.me.avatar_crop : null,
           avatar_level:
@@ -271,6 +272,7 @@ export class Demo {
         packCount: count,
       };
     } else if (path === "profile") {
+      if(b.notifyFriendsQuiz!==undefined)s.me.notify_friends_quiz=!!b.notifyFriendsQuiz;
       if (b.username !== undefined) {
         const name = b.username.trim();
         if (!name || name.length > 32 || !/^[\p{L}\p{N}_ .-]+$/u.test(name))

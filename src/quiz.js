@@ -87,13 +87,14 @@ export class Quiz {
       ) || null
     );
   }
-  leaderboard(id, player = null, page = 1) {
+  leaderboard(id, player = null, page = 1, friendsOnly = false) {
     this.definition(id, player);
     integer(page, 1, 10000);
     this.ensureBestAt(id);
+    const scope = this.e.friends.filter("p.player",player,friendsOnly,true);
     const rows = this.e.all(
-      "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 21 OFFSET ?",
-      id,
+      "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=?" + scope.sql + " ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 21 OFFSET ?",
+      id, ...scope.args,
       (page - 1) * 20,
     );
     const pageRows = rows.slice(0, 20);
@@ -113,8 +114,8 @@ export class Quiz {
           const rank =
             1 +
             this.e.one(
-              "SELECT count(*) AS n FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=? AND (p.best>? OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)<?) OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)=? AND (p.best_at<? OR (p.best_at=? AND p.player<?))))",
-              id,
+              "SELECT count(*) AS n FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=?" + scope.sql + " AND (p.best>? OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)<?) OR (p.best=? AND COALESCE(p.best_duration_ms,9007199254740991)=? AND (p.best_at<? OR (p.best_at=? AND p.player<?))))",
+              id, ...scope.args,
               own.best,
               own.best,
               ownDuration,
@@ -184,7 +185,7 @@ export class Quiz {
     ])
       this.e.run("DELETE FROM " + table + " WHERE quiz=?", id);
     this.e.run(
-      "DELETE FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')=?",
+      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten') AND json_extract(metadata,'$.quiz')=?",
       id,
     );
     this.statisticsCache = null;
@@ -224,7 +225,7 @@ export class Quiz {
         );
     }
     this.e.run(
-      "DELETE FROM player_notices WHERE kind='quiz-leader-beaten' AND json_extract(metadata,'$.quiz')=?",
+      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten') AND json_extract(metadata,'$.quiz')=?",
       id,
     );
     this.e.run("DELETE FROM quizzes WHERE id=?", id);
@@ -686,6 +687,7 @@ export class Quiz {
             bestAt,
             duration,
           );
+          let leaderNotified = null;
           if (improved && previousLeader && previousLeader.id !== player) {
             const newLeader = this.topLeader(q.id, true);
             if (newLeader?.id === player) {
@@ -693,6 +695,7 @@ export class Quiz {
                 "SELECT length(cover)>0 AS has_cover FROM quizzes WHERE id=?",
                 q.id,
               )?.has_cover;
+              leaderNotified = previousLeader.id;
               e.economy.notices.add(
                 previousLeader.id,
                 `quiz-leader-beaten:${q.id}:${run.id}`,
@@ -719,6 +722,7 @@ export class Quiz {
               );
             }
           }
+          if (improved) e.friends.notifyQuiz(player,q,previous,{best:displayBest,best_duration_ms:duration},run.id,leaderNotified);
           e.run(
             "INSERT INTO quiz_reward_history VALUES(?,?,?) ON CONFLICT(player,quiz) DO UPDATE SET best=MAX(best,excluded.best)",
             player,

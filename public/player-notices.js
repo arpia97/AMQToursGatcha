@@ -11,6 +11,7 @@ function formatQuizAttempt(score, durationMs) {
 }
 export function noticeCopy(notice) {
   switch (notice.kind) {
+    case "quiz-friend-beaten":
     case "quiz-leader-beaten": {
       const byName = notice.metadata?.byName || "Another player",
         nextAttempt = formatQuizAttempt(
@@ -22,11 +23,11 @@ export function noticeCopy(notice) {
           notice.metadata?.previousDurationMs,
         );
       return {
-        title: "Your #1 Quiz Score Was Beaten",
+        title: notice.kind === "quiz-friend-beaten" ? "A Friend Beat Your Quiz Score" : "Your #1 Quiz Score Was Beaten",
         detail:
-          `${byName} took #1 with ${nextAttempt}` +
+          `${byName} ${notice.kind === "quiz-friend-beaten" ? "moved ahead with" : "took #1 with"} ${nextAttempt}` +
           (previousAttempt
-            ? `, beating your #1 score of ${previousAttempt}.`
+            ? `, beating your ${notice.kind === "quiz-friend-beaten" ? "personal best" : "#1 score"} of ${previousAttempt}.`
             : "."),
         credit: "",
         sign: "",
@@ -90,14 +91,14 @@ export function noticePanel(
 ) {
   if (!notices.length) return "";
   const heading = notices.every(
-    (notice) => notice.kind === "quiz-leader-beaten",
+    (notice) => ["quiz-leader-beaten","quiz-friend-beaten"].includes(notice.kind),
   )
     ? "Your Quiz Updates"
     : "Your Collection Updates";
   return `<section class="trade-notices"><span class="eyebrow">SINCE YOUR LAST VISIT</span><h2>${heading}</h2><div class="trade-notice-list">${notices
     .map((notice) => {
       const copy = noticeCopy(notice);
-      if (notice.kind === "quiz-leader-beaten") {
+      if (["quiz-leader-beaten","quiz-friend-beaten"].includes(notice.kind)) {
         const tier = rarityClass(quizRarity(notice.metadata?.score ?? 0)),
           quizName = notice.metadata?.quizName || "Music Quiz",
           cover = notice.metadata?.cover

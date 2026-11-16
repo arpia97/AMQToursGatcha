@@ -152,7 +152,8 @@ export function installCardOrderDrag(
       x: event.clientX,
       y: event.clientY,
     };
-    root.querySelector(capture)?.setPointerCapture?.(event.pointerId);
+    const captureTarget = typeof capture === "function" ? capture(handle) : root.querySelector(capture);
+    captureTarget?.setPointerCapture?.(event.pointerId);
     const scroll = () => {
       if (!drag?.ghost) return;
       const scroller = drag.scroller,

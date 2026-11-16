@@ -304,6 +304,16 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(savedFavorites.quizzes.find(q=>q.id==="test").favorited,1);
   assert.equal(savedFavorites.quizzes.find(q=>q.id==="test").played,0);
   assert.equal((await post("quiz-favorite",{quiz:"test",favorited:false},auth)).status,200);
+  assert.equal((await post('friend-set',{player:'1',added:true})).status,401);
+  await post('host/players',{players:[{id:'2',name:'Local Friend'}]},host);
+  await post('__quiz-probe',{});
+  const friendKey=crypto.randomUUID();
+  for(let i=0;i<2;i++)assert.equal((await post('friend-set',{player:'2',added:true},{...auth,'Idempotency-Key':friendKey})).status,200);
+  const friendList=await mf.dispatchFetch('http://game/api/friends',{headers:auth});
+  assert.equal(friendList.status,200);assert.deepEqual((await friendList.json()).rows.map(p=>p.id),['2']);
+  const socialProbe=await (await mf.dispatchFetch('http://game/api/__quiz-probe')).json();
+  assert.equal(socialProbe.market,0);assert.equal(socialProbe.schedule,0);assert.equal(socialProbe.starters,0);
+  for(const url of ['friends','rankings?friends=1','quiz-leaderboard?quiz=test&friends=1'])assert.equal((await mf.dispatchFetch('http://game/api/'+url)).status,401);
   assert.match(tile.cover, /^api\/quiz-cover/);
   const imageResponse = await mf.dispatchFetch("http://game/" + tile.cover);
   assert.equal(imageResponse.status, 200);

@@ -306,9 +306,10 @@ export class Game extends DurableObject {
       "quiz-next",
     ].includes(path);
     const quizRun = path === "quiz-run" && !post;
-    const quizPreference = path === "quiz-favorite" && post;
+    const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
+    const friendsRead = path === "friends" && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !quizPreference && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1299,7 +1300,7 @@ export class Game extends DurableObject {
       return json({ ...result, gameState: e.gameState(session.player) });
     }
     if (quizPreference) {
-      if (!session) fail("Sign in to favorite quizzes.", 401);
+      if (!session) fail(path === "friend-set" ? "Sign in to add friends." : "Sign in to favorite quizzes.", 401);
       this.bursts.take("play:" + session.player);
       return json(e.mutate(
         session.player + ":" + path,
@@ -1307,6 +1308,10 @@ export class Game extends DurableObject {
         b,
         () => e.action(session.player, path, b),
       ));
+    }
+    if (friendsRead) {
+      this.bursts.take("read:" + (session?.player || ip),60,5);
+      return json(e.friends.page(session?.player,url.searchParams.get("view") || "added",Number(url.searchParams.get("page") || 1)));
     }
     const next = this.maintainMarket();
     if (!(await this.ctx.storage.getAlarm()))
@@ -1368,6 +1373,7 @@ export class Game extends DurableObject {
           url.searchParams.get("card"),
           url.searchParams.get("view") || "owned",
           Number(url.searchParams.get("page") || 1),
+          session?.player, url.searchParams.get("friends") === "1",
         ),
       );
     }
@@ -1397,6 +1403,7 @@ export class Game extends DurableObject {
         e.economy.rankings(
           url.searchParams.get("metric") || "earned",
           Number(url.searchParams.get("page") || 1),
+          session?.player, url.searchParams.get("friends") === "1",
         ),
       );
     if (path === "anime-collection" && !post) {
@@ -1468,6 +1475,7 @@ export class Game extends DurableObject {
           role: url.searchParams.get("role") || "",
           sort: url.searchParams.get("sort") || "newest",
           wishlistOnly: url.searchParams.get("wishlist") === "1",
+          friendsOnly: url.searchParams.get("friends") === "1",
           hideCompleted: url.searchParams.get("hide_completed") === "1",
         }),
       );
@@ -1481,6 +1489,7 @@ export class Game extends DurableObject {
           {
             sort: url.searchParams.get("sort") || "newest",
             wishlistOnly: url.searchParams.get("wishlist") === "1",
+            friendsOnly: url.searchParams.get("friends") === "1",
             query: url.searchParams.get("q") || "",
           },
           session?.player,
@@ -1501,6 +1510,7 @@ export class Game extends DurableObject {
           url.searchParams.get("quiz"),
           session?.player,
           Number(url.searchParams.get("page") || 1),
+          url.searchParams.get("friends") === "1",
         ),
       );
     }
@@ -1546,6 +1556,7 @@ export class Game extends DurableObject {
       const result = e.profilesPage(
         url.searchParams.get("q"),
         Number(url.searchParams.get("page") || 1),
+        session?.player,
       );
       const profiles = result.profiles;
       return json({

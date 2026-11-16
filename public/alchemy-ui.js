@@ -165,73 +165,24 @@ export function createAlchemyUI(h) {
     materials(next);
     selected = next;
   }
-  function queueHTML(editable = true) {
-    if (!selected.length) return "";
+  function queueHTML(editable = true, showEmpty = false) {
+    if (!selected.length && !showEmpty) return "";
     let queue;
-    try {
-      queue = materials();
-    } catch (error) {
-      return (
-        '<p class="form-error">' +
-        e(error.message) +
-        "</p>" +
-        btn("Clear Selection", "alchemy-material-clear", "", "secondary")
-      );
-    }
-    return (
-      '<section class="alchemy-queue"><div class="section-head"><h3>Selected Cards · ' +
-      selected.length +
-      '/100</h3><span class="subtext">Drag to Reorder · ✦ Lucky Every Sixth</span></div><ol class="alchemy-queue-list alchemy-sort-grid" aria-label="Refinement Order">' +
-      queue
-        .map((m, index) => {
-          const key = selected[index].key;
-          return (
-            '<li class="alchemy-sort-card ' +
-            (m.lucky ? "is-lucky" : "") +
-            '" ' +
-            (editable
-              ? 'data-alchemy-sort-card="' + key + '" draggable="true"'
-              : "") +
-            '><div class="alchemy-sort-tools">' +
-            (editable
-              ? '<button type="button" class="alchemy-drag-handle" draggable="true" data-alchemy-handle="' +
-                key +
-                '" aria-label="Move ' +
-                e(m.name) +
-                '">⠿</button>'
-              : "") +
-            "<strong>#" +
-            (index + 1) +
-            "</strong>" +
-            (m.lucky
-              ? '<span class="alchemy-lucky-label">✦ Lucky</span>'
-              : "") +
-            (editable
-              ? btn(
-                  "×",
-                  "alchemy-remove",
-                  'data-index="' +
-                    index +
-                    '" aria-label="Remove ' +
-                    e(m.name) +
-                    '"',
-                  "text-button",
-                )
-              : "") +
-            "</div>" +
-            cardHTML(m, null, { preview: true, level: m.level }) +
-            "<small>Refinement #" +
-            m.next +
-            " · " +
-            (m.variant === "extra" ? "Extra Copy" : levelLabel(m.level)) +
-            "<br>" +
-            n(m.baseXP) +
-            " Base XP</small></li>"
-          );
-        })
-        .join("") +
-      "</ol></section>"
-    );
+    try { queue = materials(); }
+    catch(error) { return '<p class="form-error">'+e(error.message)+'</p>'+btn("Clear Selection","alchemy-material-clear","","secondary"); }
+    return '<section class="alchemy-queue"><div class="section-head"><h3>Selected Cards <span>· '+selected.length+'/100</span></h3>'+
+      (editable ? btn("Choose Cards","alchemy-material-open","","text-button") : '') +
+      '</div><ol class="alchemy-queue-list alchemy-sort-grid alchemy-compact-list" aria-label="Refinement Order">'+
+      (queue.length ? queue.map((m,index)=>{
+        const key=selected[index].key;
+        return '<li class="alchemy-sort-card alchemy-compact-item '+(m.lucky?'is-lucky ':'')+(index===0?'is-next':'')+'" '+
+          (editable ? 'data-alchemy-sort-card="'+key+'" draggable="true"' : '')+'><div class="alchemy-order-number">'+
+          (editable ? '<button type="button" class="alchemy-drag-handle" draggable="true" data-alchemy-handle="'+key+'" aria-label="Move '+e(m.name)+'">⠿</button>' : '')+
+          '<strong>#'+(index+1)+'</strong></div><div class="alchemy-queue-thumb">'+image(m)+'</div><div class="alchemy-queue-info"><strong class="alchemy-queue-name" title="'+e(m.name)+'">'+e(m.name)+'</strong><small class="alchemy-queue-source">'+e(h.series ? h.series(m) : m.series || (m.kind==='seiyuu'?'Voice Actor':''))+'</small><div class="alchemy-queue-meta"><span class="grade-badge grade-'+rarityClass(m.rarity)+'">'+e(m.rarity)+'</span><span>'+ (m.variant==='extra'?'Extra Copy':levelLabel(m.level))+'</span>'+
+          (m.lucky?'<span class="alchemy-lucky-label">✦ Lucky</span>':'')+'<b>'+n(m.baseXP)+' Base XP</b></div><small class="alchemy-refinement-number">Refinement #'+m.next+'</small></div>'+
+          (editable ? btn('×','alchemy-remove','data-index="'+index+'" aria-label="Remove '+e(m.name)+'"','text-button alchemy-queue-remove') : '')+'</li>';
+      }).join('') : '<li class="alchemy-queue-empty">Choose cards to build your refinement order.</li>')+
+      '</ol><div class="alchemy-queue-footer"><span>Drag or use arrow keys to reorder</span><span>✦ Lucky Every Sixth</span></div></section>';
   }
 
   function request() {
@@ -461,77 +412,14 @@ export function createAlchemyUI(h) {
       error = err.message;
     }
     const quote = m || refinementQuote("D", 1, data.refinements);
-    const feed =
-      '<section class="alchemy-refinery ' +
-      (data.nextLucky ? "is-lucky" : "") +
-      '"><div class="section-head"><div><span class="eyebrow">REFINEMENT ' +
-      n(data.nextRefinement) +
-      "</span><h2>" +
-      (data.nextLucky ? "Lucky Refinement" : "Refine Selected Cards") +
-      '</h2></div><div class="alchemy-balances"><strong class="alchemy-xp">' +
-      n(data.xp) + ' XP</strong><div class="alchemy-bop-balance" title="Earn 10% of a normal draw’s XP cost when it misses your selected target.">' +
-      bopIcon() + '<div><strong>' + n(data.bopXP || 0) +
-      '</strong><span>bop XP</span></div></div></div></div>' +
-      (data.nextLucky
-        ? '<p class="alchemy-lucky-message">✦ A lucky energy engulfs the room.</p>'
-        : '<p class="form-hint">' +
-          (5 - (data.refinements % 6)) +
-          " normal refinement" +
-          (data.refinements % 6 === 4 ? "" : "s") +
-          " before the next lucky surge.</p>") +
-      queueHTML() +
-      '<div class="alchemy-feed-row"><button type="button" class="alchemy-material-slot ' +
-      (m
-        ? "tier-" + rarityClass(m.rarity) + " " + cardFrameClass(m.level)
-        : "empty-slot") +
-      '" data-action="alchemy-material-open">' +
-      (m
-        ? cardAura(m.level) +
-          image(m) +
-          "<strong>" +
-          e(m.name) +
-          "</strong><span>" +
-          e(m.rarity) +
-          " · " +
-          levelLabel(m.level) +
-          "</span>"
-        : "<span>＋</span><strong>Choose Cards</strong>") +
-      '</button><div class="alchemy-feed-details"><div class="alchemy-chances">' +
-      quote.outcomes
-        .map(
-          (o) =>
-            "<div><strong>" +
-            o.chance +
-            "%</strong><span>" +
-            o.label +
-            "</span><b>" +
-            (m ? "+" + n(o.xp) + " XP" : o.multiplier + "× XP") +
-            "</b></div>",
-        )
-        .join("") +
-      '</div><p class="form-hint">' +
-      (m
-        ? "Base: " +
-          n(m.baseXP) +
-          " XP · " +
-          n(m.investment) +
-          " invested cop" +
-          (m.investment === 1 ? "y" : "ies") +
-          ". Enhanced cards count all invested copies."
-        : "Every sixth refinement boosts Great Success and Erig chances fivefold.") +
-      "</p>" +
-      btn(
-        "Review Refinement →",
-        "alchemy-refine",
-        !m || error ? "disabled" : "",
-        "mint",
-      ) +
-      btn("Auto Refine", "alchemy-auto", "", "secondary") +
-      (m
-        ? btn("Clear Selection", "alchemy-material-clear", "", "secondary")
-        : "") +
-      (error ? '<p class="form-error">' + e(error) + "</p>" : "") +
-      "</div></div></section>";
+    const feed = '<section class="alchemy-refinery alchemy-compact-refinery '+(data.nextLucky?'is-lucky':'')+'">'+
+      '<div class="section-head"><div><span class="eyebrow">REFINEMENT '+n(data.nextRefinement)+'</span><h2>'+(data.nextLucky?'Lucky Refinement':'Refine Selected Cards')+'</h2></div><div class="alchemy-balances"><strong class="alchemy-xp">'+n(data.xp)+' XP</strong><div class="alchemy-bop-balance" title="Earn 10% of a normal draw’s XP cost when it misses your selected target.">'+bopIcon()+'<div><strong>'+n(data.bopXP||0)+'</strong><span>bop XP</span></div></div></div></div>'+
+      '<div class="alchemy-workspace"><div class="alchemy-queue-pane">'+queueHTML(true,true)+'</div><aside class="alchemy-refine-summary"><div class="section-head"><h3>Next Card</h3><span class="alchemy-next-tag">'+(data.nextLucky?'✦ Lucky':'Standard')+'</span></div>'+
+      '<button type="button" class="alchemy-next-material" data-action="alchemy-material-open">'+(m?'<span class="alchemy-next-thumb">'+image(m)+'</span><span><strong>'+e(m.name)+'</strong><small>'+e(m.rarity)+' · '+levelLabel(m.level)+'</small></span>':'<span>＋ Choose Cards</span>')+'</button>'+
+      '<div class="alchemy-compact-odds">'+quote.outcomes.map(o=>'<div class="alchemy-odds-row"><span>'+o.label+' <small>'+o.chance+'%</small></span><strong>'+(m?'+'+n(o.xp)+' XP':o.multiplier+'× XP')+'</strong><div class="alchemy-odds-track"><i style="width:'+o.chance+'%"></i></div></div>').join('')+'</div><p class="form-hint">'+
+      (m?'Base: '+n(m.baseXP)+' XP · '+n(m.investment)+' invested cop'+(m.investment===1?'y':'ies')+'. Enhanced cards count all invested copies.':'Every sixth refinement boosts Great Success and Erig chances fivefold.')+'</p>'+
+      (data.nextLucky?'<p class="alchemy-lucky-message">✦ A lucky energy engulfs the room.</p>':'<p class="alchemy-lucky-message">'+(5-(data.refinements%6))+' normal refinement'+(data.refinements%6===4?'':'s')+' before the next lucky surge.</p>')+
+      '<div class="alchemy-refine-actions">'+btn('Review Refinement →','alchemy-refine',!m||error?'disabled':'','mint')+btn('Auto Refine','alchemy-auto','','secondary')+(m?btn('Clear Selection','alchemy-material-clear','','text-button'):'')+(error?'<p class="form-error">'+e(error)+'</p>':'')+'</div></aside></div></section>';
     const tiers = ALCHEMY_TIERS.map((t) => {
       const targetId = data.targets[t.rarity],
         target = targetId ? card(targetId) : null,

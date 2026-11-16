@@ -16,6 +16,7 @@ import {
 import { validFavorites } from "./popularity.js";
 import { CardTitles } from "./card-titles.js";
 import { Quiz } from "./quiz.js";
+import { Friends } from "./friends.js";
 import {
   PICKEM_PARTICIPATION_REWARD,
   PICKEM_WINNER_REWARD,
@@ -83,6 +84,7 @@ export class Engine {
       ["players", "private_balance", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "private_collection", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "quiz_hotkeys", "TEXT"],
+      ["players", "notify_friends_quiz", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "for_trade", "INTEGER NOT NULL DEFAULT 0"],
@@ -124,6 +126,7 @@ export class Engine {
     this.economy = new Economy(this);
     this.pickemEvents = new PickemEvents(this);
     this.participation = new Participation(this);
+    this.friends = new Friends(this);
     this.quiz = new Quiz(this);
     this.creditAudit = new CreditAudit(this);
     this.cardTitles = new CardTitles(this);
@@ -187,7 +190,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -197,6 +200,7 @@ export class Engine {
       private_balance: !!p.private_balance,
       private_collection: !!p.private_collection,
       quiz_hotkeys: parseQuizHotkeysJSON(p.quiz_hotkeys),
+      notify_friends_quiz: !!p.notify_friends_quiz,
       role: p.is_admin ? "Host" : null,
     };
   }
@@ -414,6 +418,7 @@ export class Engine {
       return this.quiz.action(player, action, b, context);
     this.player(player);
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
+    if (action === "friend-set") return this.friends.set(player, b);
     if (action === "quiz-favorite") return this.quiz.favorite(player, b);
     if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))
       return this.quiz.action(player, action, b);
@@ -691,6 +696,11 @@ export class Engine {
           b.privateCollection ? 1 : 0,
           player,
         );
+      if (b.notifyFriendsQuiz !== undefined) {
+        if (typeof b.notifyFriendsQuiz !== "boolean") fail("Choose your quiz notification preference.");
+        this.run("UPDATE players SET notify_friends_quiz=? WHERE id=?", b.notifyFriendsQuiz ? 1 : 0, player);
+        if (!b.notifyFriendsQuiz) this.run("DELETE FROM player_notices WHERE player=? AND kind='quiz-friend-beaten' AND seen=0",player);
+      }
       if (b.quizHotkeys !== undefined) {
         const normalizedHotkeys = normalizeQuizHotkeys(b.quizHotkeys);
         this.run(
@@ -1105,6 +1115,7 @@ export class Engine {
           this.now(),
         );
       if (full) {
+        this.run("DELETE FROM player_friends");
         for (const table of [
           "players",
           "aliases",
@@ -1323,7 +1334,7 @@ export class Engine {
       private_balance: !!row.private_balance,
     }));
   }
-  profilesPage(query, page = 1) {
+  profilesPage(query, page = 1, viewer = null) {
     const rows = this.searchProfiles(query, page, 51);
     const search = profileSearchSql(query);
     const total = this.one(
@@ -1331,7 +1342,7 @@ export class Engine {
       ...search.args,
     ).n;
     return {
-      profiles: rows.slice(0, 50),
+      profiles: this.friends.decorate(rows.slice(0, 50), viewer),
       page,
       total,
       limit: 50,
@@ -1371,7 +1382,8 @@ export class Engine {
           id,
         ).n;
     return {
-      ...p,
+      ...this.friends.decorate([p],viewerId)[0],
+      notify_friends_quiz: isSelf ? p.notify_friends_quiz : undefined,
       balance: hideBalance ? null : p.balance,
       earned: hideBalance ? null : p.earned,
       balanceHidden: hideBalance,

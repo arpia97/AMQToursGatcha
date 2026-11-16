@@ -5673,3 +5673,82 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .profile-quiz-firsts th:first-child,.profile-quiz-firsts td:first-child { text-align:left; }
 .profile-quiz-firsts .text-button { text-align:left;white-space:normal; }
 @media(max-width:700px){.profile-quiz-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.profile-quiz-stats .stat:last-child { grid-column:1 / -1; }}
+.friend-button { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-width:72px; min-height:34px; padding:6px 13px; border:1px solid #65737855; border-radius:24px; background:#223036; color:#edf5f5; font-size:12px; font-weight:700; white-space:nowrap; cursor:pointer; }
+.friend-button svg { width:19px; height:19px; flex-shrink:0; }
+.friend-button.is-added { background:#687f12; border-color:#90a727; color:white; }
+.friend-button.is-mutual { background:#b14b80; border-color:#db7da9; color:white; }
+.friend-button.is-compact { min-width:34px; width:34px; height:34px; padding:6px; }
+.friend-button:focus-visible { outline:2px solid var(--mint); outline-offset:3px; }
+.friend-button:disabled { opacity:.6; cursor:wait; }
+.profile-social-actions { display:flex; align-items:center; gap:10px; margin-left:auto; }
+.profile-tile-link { display:flex; align-items:center; gap:16px; flex:1; min-width:0; color:inherit; text-decoration:none; }
+.profile-tile-link > div { min-width:0; }
+.profile-tile-link h3 { overflow-wrap:anywhere; }
+.friend-row { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); }
+.friend-row > a { display:flex; gap:12px; align-items:center; color:var(--text); min-width:0; }
+.friend-row > a > span { overflow-wrap:anywhere; }
+.friends-list { max-height:55vh; overflow:auto; margin-bottom:18px; scrollbar-width:none; }
+.friends-list::-webkit-scrollbar { display:none; }
+.friends-modal { width:min(620px,calc(100% - 32px)); }
+.friends-panel > .tabs { display:flex; flex-direction:row; align-items:center; width:fit-content; margin-bottom:16px; }
+.friends-ranking-filter,.quiz-friends-filter { margin:12px 0; }
+.alchemy-compact-refinery { padding:0; overflow:hidden; }
+.alchemy-compact-refinery > .section-head { padding:22px 24px; margin:0; border-bottom:1px solid var(--border); }
+.alchemy-workspace { display:grid; grid-template-columns:minmax(0,1fr) 280px; }
+.alchemy-queue-pane { min-width:0; padding:20px 22px; }
+.alchemy-queue-pane .alchemy-queue { margin:0; }
+.alchemy-queue .section-head h3 { font-size:13px; }
+.alchemy-queue .section-head h3 > span { color:var(--muted); font-weight:400; }
+.alchemy-compact-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:3px; margin:14px -3px 0; max-height:510px; scrollbar-width:thin; }
+.alchemy-compact-item { display:grid; grid-template-columns:23px 46px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:98px; padding:10px; border-radius:10px; }
+.alchemy-compact-item.is-next { border-left:3px solid var(--mint); }
+.alchemy-order-number { display:grid; justify-items:center; gap:5px; font-size:10px; }
+.alchemy-order-number .alchemy-drag-handle { border:0; background:none; padding:0; font-size:19px; }
+.alchemy-queue-thumb { width:46px; height:64px; overflow:hidden; border-radius:6px; }
+.alchemy-queue-thumb > img,.alchemy-queue-thumb .fallback-img { width:100%; height:100%; object-fit:cover; object-position:top; }
+.alchemy-queue-info { min-width:0; }
+.alchemy-queue-name { display:block; line-height:1.4; font-size:12px; overflow-wrap:anywhere; }
+.alchemy-queue-source { display:block; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; margin-top:3px; }
+.alchemy-queue-meta { display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:7px; color:var(--muted); font-size:9px; }
+.alchemy-queue-meta .grade-badge { position:static; padding:2px 4px; font-size:9px; box-shadow:none; }
+.alchemy-queue-meta b { color:var(--mint); margin-left:auto; font-size:9px; font-weight:500; }
+.alchemy-refinement-number { color:var(--muted); font-size:9px; }
+.alchemy-queue-remove { align-self:start; padding:0; color:var(--muted); line-height:18px; }
+.alchemy-queue-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; margin-top:14px; font-size:10px; color:var(--muted); }
+.alchemy-queue-empty { grid-column:1/-1; display:grid; place-items:center; min-height:160px; padding:24px; border:1px dashed var(--border); border-radius:10px; color:var(--muted); text-align:center; }
+.alchemy-refine-summary { display:flex; flex-direction:column; min-width:0; padding:22px 20px; background:#11151d80; border-left:1px solid var(--border); }
+.alchemy-refine-summary h3 { font-size:13px; }
+.alchemy-next-tag { border:1px solid #b6e2c540; color:var(--mint); padding:4px 8px; border-radius:15px; font-size:10px; }
+.alchemy-next-material { display:flex; align-items:center; gap:12px; width:100%; padding:0; margin:0 0 20px; background:none; color:var(--text); border:0; text-align:left; cursor:pointer; }
+.alchemy-next-material strong { font-size:12px; line-height:1.4; }
+.alchemy-next-material small { display:block; margin-top:4px; font-size:10px; color:var(--muted); }
+.alchemy-next-thumb { width:39px; height:54px; flex-shrink:0; overflow:hidden; border-radius:5px; }
+.alchemy-next-thumb > img,.alchemy-next-thumb .fallback-img { width:100%; height:100%; object-fit:cover; object-position:top; }
+.alchemy-compact-odds { display:grid; gap:14px; }
+.alchemy-odds-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; font-size:11px; }
+.alchemy-odds-row small { color:var(--muted); font-size:10px; }
+.alchemy-odds-row strong { color:var(--mint); font-size:11px; }
+.alchemy-odds-track { grid-column:1/-1; height:3px; background:#343845; border-radius:5px; overflow:hidden; }
+.alchemy-odds-track i { display:block; min-width:3px; height:100%; background:var(--mint); }
+.alchemy-odds-row:nth-child(2) i { background:#8cc5ea; }
+.alchemy-odds-row:nth-child(3) i { background:#ddbf7a; }
+.alchemy-refine-summary .form-hint { font-size:10px; line-height:1.6; margin:16px 0 4px; }
+.alchemy-refine-summary .alchemy-lucky-message { font-size:10px; margin:14px 0; }
+.alchemy-refine-actions { display:grid; gap:9px; margin-top:auto; padding-top:18px; border-top:1px solid var(--border); }
+.alchemy-refine-actions .button { width:100%; }
+@media(max-width:1100px) { .alchemy-compact-list { grid-template-columns:1fr; } }
+@media(max-width:650px) {
+  .profile-social-actions { width:100%; justify-content:flex-end; }
+  .alchemy-workspace { grid-template-columns:1fr; }
+  .alchemy-compact-refinery > .section-head { padding:18px 16px; gap:18px; flex-wrap:wrap; }
+  .alchemy-compact-refinery .alchemy-balances { width:100%; justify-content:space-between; }
+  .alchemy-queue-pane { padding:16px 14px; }
+  .alchemy-compact-list { max-height:370px; }
+  .alchemy-refine-summary { border-left:0; border-top:1px solid var(--border); padding:18px 16px; }
+  .alchemy-compact-odds { grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .alchemy-odds-row { display:flex; flex-direction:column; gap:5px; }
+  .alchemy-odds-track { width:100%; }
+  .alchemy-refine-actions { grid-template-columns:1fr 1fr; }
+  .alchemy-refine-actions > .button { font-size:11px; padding-inline:8px; white-space:nowrap; }
+  .alchemy-refine-actions > .text-button { grid-column:1/-1; }
+}

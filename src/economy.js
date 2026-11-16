@@ -848,6 +848,7 @@ export class Economy {
     integer(page, 1, 10000);
     const sort = options.sort || "newest",
       wishlistOnly = options.wishlistOnly === true,
+      friendsOnly = options.friendsOnly === true,
       queryText = String(options.query || "")
         .trim()
         .slice(0, 100);
@@ -863,10 +864,12 @@ export class Economy {
     const e = this.e,
       auction = venue === "auction",
       alias = auction ? "a" : "l";
+    const friendScope = e.friends.filter(alias + ".seller", player, friendsOnly);
     const args = [
       player || "",
       ...(auction ? [e.now()] : []),
       ...(kind === "both" ? [] : [kind]),
+      ...friendScope.args,
     ];
     const select = auction
       ? "SELECT a.*,COALESCE(p.display_name,p.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name"
@@ -884,7 +887,7 @@ export class Economy {
       " WHERE " +
       (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
       (kind === "both" ? "" : " AND " + alias + ".kind=?") +
-      (wishlistOnly ? " AND is_wishlisted=1" : "");
+      (wishlistOnly ? " AND is_wishlisted=1" : "") + friendScope.sql;
     const price = auction
       ? "CASE WHEN a.bid>0 THEN a.bid ELSE a.reserve END"
       : "l.price";
@@ -937,7 +940,7 @@ export class Economy {
         : e.catalogStore.cards([...new Set(items.map((l) => l.card))]),
     };
   }
-  rankings(metric = "earned", page = 1) {
+  rankings(metric = "earned", page = 1, viewer = null, friendsOnly = false) {
     integer(page, 1, 10000);
     if (
       !["earned", "balance", "gambling_won", "gambling_lost"].includes(metric)
@@ -951,8 +954,10 @@ export class Economy {
     }[metric];
     const gambling = metric.startsWith("gambling_");
     const direction = metric === "gambling_lost" ? "ASC" : "DESC";
+    const scope = this.e.friends.filter("p.id", viewer, friendsOnly, true);
     const rows = this.e.all(
-      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.earned END AS earned,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.balance END AS balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0 AND COALESCE(p.private_balance,0)=0"} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      `SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.earned END AS earned,CASE WHEN COALESCE(p.private_balance,0)=1 THEN NULL ELSE p.balance END AS balance,${expression} AS value,RANK() OVER (ORDER BY ${expression} ${direction}) AS rank,COALESCE(g.net,0) AS gambling_net FROM players p LEFT JOIN (SELECT player,sum(payout-stake) AS net,count(*) AS rounds FROM gambling_rounds WHERE stake>0 AND game NOT LIKE '%-reverted' GROUP BY player) g ON g.player=p.id WHERE ${gambling ? "g.rounds>0" : expression + ">0 AND COALESCE(p.private_balance,0)=0"}${scope.sql} ORDER BY value ${direction},p.id LIMIT 51 OFFSET ?`,
+      ...scope.args,
       (page - 1) * 50,
     );
     return {

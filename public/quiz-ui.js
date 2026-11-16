@@ -89,6 +89,8 @@ export function createQuizUI({
     generation = 0,
     leaderboardOnly = false,
     leaderboardData = null,
+    friendsOnly = false,
+    leaderboardFilterVersion = 0,
     songListQuiz = null,
     songListData = null,
     songListLoading = false,
@@ -350,6 +352,7 @@ export function createQuizUI({
   async function load() {
     const [data] = await Promise.all([call("quizzes"), prepareTitles()]);
     quizzes = data.quizzes;
+    if (!getState().me) friendsOnly = false;
     if (selected && !quizzes.some((q) => q.id === selected)) {
       selected = null;
       useRun(null);
@@ -368,7 +371,7 @@ export function createQuizUI({
         stop();
       }
       leaderboardData = await call(
-        "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1",
+        "quiz-leaderboard?quiz=" + encodeURIComponent(selected) + "&page=1" + (friendsOnly ? "&friends=1" : ""),
       );
     }
   }
@@ -536,6 +539,7 @@ export function createQuizUI({
         : "");
     return (
       '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
+      '<label class="check-label quiz-friends-filter"><input type="checkbox" id="quiz-friends-only" ' + (friendsOnly ? 'checked' : '') + ' ' + (!getState().me ? 'disabled' : '') + '> Friends Only</label>' +
       (rows
         ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
           rows +
@@ -1108,15 +1112,16 @@ export function createQuizUI({
           );
         // The scored result is already durable. Optional list/ranking refreshes
         // must not keep the result screen locked or hide it on a read failure.
+        const filterVersion=leaderboardFilterVersion;
         Promise.allSettled([
           call("quizzes"),
-          call("quiz-leaderboard?quiz=" + encodeURIComponent(quiz) + "&page=1"),
+          call("quiz-leaderboard?quiz=" + encodeURIComponent(quiz) + "&page=1" + (friendsOnly ? "&friends=1" : "")),
         ])
           .then(([list, ranks]) => {
             if (selected !== quiz || run?.id !== completed || !run.finished)
               return;
             if (list.status === "fulfilled") quizzes = list.value.quizzes;
-            if (ranks.status === "fulfilled") leaderboardData = ranks.value;
+            if (ranks.status === "fulfilled" && filterVersion===leaderboardFilterVersion) leaderboardData = ranks.value;
             onRender();
           })
           .catch(() => {});
@@ -1480,6 +1485,24 @@ export function createQuizUI({
       if (!preparing && !working) {
         competitive = !!value;
         onRender();
+      }
+    },
+    async setFriendsOnly(value) {
+      if (!selected || !getState().me) return;
+      const previous = friendsOnly, version = ++leaderboardFilterVersion, quiz = selected, player = getState().me.id;
+      friendsOnly = !!value;
+      const update = () => {
+        const panel = document.querySelector('.quiz-leaderboard');
+        if (panel) panel.outerHTML = leaderboardHTML(); else onRender();
+        document.getElementById('quiz-friends-only')?.focus({preventScroll:true});
+      };
+      try {
+        const data = await call('quiz-leaderboard?quiz=' + encodeURIComponent(quiz) + '&page=1' + (friendsOnly ? '&friends=1' : ''));
+        if (version !== leaderboardFilterVersion || selected !== quiz || getState().me?.id !== player) return;
+        leaderboardData = data;update();
+      } catch(error) {
+        if (version === leaderboardFilterVersion && selected === quiz && getState().me?.id === player) {friendsOnly = previous;update();}
+        throw error;
       }
     },
     setFavoritesFirst(value) {

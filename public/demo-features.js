@@ -55,6 +55,18 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.wishlist ||= [];
+  s.friends ||= [];
+  const friendship = id => ({added:s.friends.includes(id),mutual:false,followers:s.friends.includes(id)?1:0});
+  if(path==='friend-set') {
+    if(b.player===me.id || !s.ranks.some(p=>p.id===b.player) || typeof b.added!=='boolean')throw Error('Choose another player.');
+    s.friends=s.friends.filter(id=>id!==b.player);if(b.added)s.friends.push(b.player);
+    return {player:b.player,friendship:friendship(b.player)};
+  }
+  if(path.startsWith('friends?')) {
+    const params=new URLSearchParams(path.split('?')[1]),view=params.get('view')||'added',page=Number(params.get('page')||1);
+    const all=view==='added'?s.ranks.filter(p=>s.friends.includes(p.id)):[];
+    return {view,page,rows:all.slice((page-1)*25,page*25).map(p=>({...p,friendship:friendship(p.id)})),hasMore:all.length>page*25,cards:d.cards};
+  }
   if(path.startsWith('player-quiz?'))return {player:new URLSearchParams(path.split('?')[1]).get('id'),played:0,maxScores:0,averageScore:null,firstPlaces:0,averageTimeMs:null,timedQuizzes:0,firsts:[]};
   for(const item of s.inventory || [])if(item.for_trade===undefined)item.for_trade=0;
   if (me && me.showcase_slots === undefined)
@@ -135,14 +147,16 @@ export function demoFeatures(d, path, b) {
     const params = new URLSearchParams(path.split("?")[1]),
       card = params.get("card"),
       view = params.get("view") || "owned";
-    const owners = s.inventory.some((i) => i.card === card) ? [me] : [];
-    const wanted = s.wishlist.includes(card) ? [me] : [];
+    const friendsOnly=params.get("friends")==="1";
+    const owners = !friendsOnly && s.inventory.some((i) => i.card === card) ? [me] : [];
+    const wanted = !friendsOnly && s.wishlist.includes(card) ? [me] : [];
     return {
       card,
       rarity: d.cards.find((c) => c.id === card)?.rarity,
       view,
       page: 1,
       counts: { owned: owners.length, wanted: wanted.length },
+      friendsOnly,
       rows: view === "wanted" ? wanted : owners,
       hasMore: false,
       cards: d.cards,
@@ -855,6 +869,7 @@ export function demoFeatures(d, path, b) {
       hideCompleted = q.get("hide_completed") === "1",
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
+      .filter(l=>q.get("friends")!=="1"||s.friends.includes(l.seller))
       .filter((l) => q.get("wishlist") !== "1" || s.wishlist.includes(l.card))
       .filter((l) =>
         view === "listings"
@@ -1011,6 +1026,7 @@ export function demoFeatures(d, path, b) {
     const net = s.gambling.reduce((n, g) => n + g.payout - g.stake, 0),
       gambling = metric.startsWith("gambling_");
     const rows = s.ranks
+      .filter(row=>p.get("friends")!=="1"||row.id===me.id||s.friends.includes(row.id))
       .map((p) => {
         const own = p.id === me.id;
         return {
@@ -1094,6 +1110,7 @@ export function demoFeatures(d, path, b) {
         : s.market.filter((l) => l.status === "open")
     )
       .filter((x) => kind === "both" || x.kind === kind)
+      .filter(x=>p.get("friends")!=="1"||s.friends.includes(x.seller))
       .map((x) => ({
         ...x,
         is_wishlisted: (s.wishlist || []).includes(x.card),
@@ -1168,6 +1185,7 @@ export function demoFeatures(d, path, b) {
           ];
     return {
       ...p,
+      friendship: friendship(id),
       balance: mine ? me.balance : 7400,
       ...s.history[id],
       avatar_card: mine ? me.avatar_card : d.cards[2].id,

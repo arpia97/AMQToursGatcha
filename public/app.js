@@ -34,6 +34,7 @@ import {
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import {profileQuizPanel} from './profile-quiz-ui.js';
+import {friendButton,friendsPanel} from './friends-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "./quiz-title-display.js";
@@ -241,6 +242,10 @@ const ui = {
   metric: "earned",
   rankPage: 1,
   rankData: null,
+  rankFriendsOnly: false,
+  marketFriendsOnly: false,
+  tradeFriendsOnly: false,
+  profileQuizSort: {key:"quiz",ascending:true},
   pickemPage: 1,
   pickemData: null,
   pickemOpen: null,
@@ -1124,7 +1129,7 @@ const alchemyDrag = installCardOrderDrag(
   {
     prefix: "alchemy",
     panel: ".alchemy-sort-grid",
-    capture: "#fusion-picker",
+    capture: (handle) => handle,
     scrollSelector: ".alchemy-queue-list",
     canEdit: () => !busy && !fusionReviewOpen,
     changed: repaintAlchemyOrder,
@@ -1551,7 +1556,7 @@ function players() {
       "Meet the Collectors.",
       "Find a player by their AMQ Tours ID, alias, or any of their usernames.",
     ) +
-    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<a class="profile-tile" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p>${p.private_balance || p.earned == null ? '<span class="muted">Private balance</span>' : `<span class="money">✦ ${number(p.earned)} earned</span>`}</div><span class="muted">↗</span></a>`).join("") || empty("No Player Found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
+    `<form id="player-search" class="player-search"><input id="profile-search" name="q" class="search" placeholder="Search players, aliases, past usernames…" aria-label="Search players" value="${escape(search)}"><button class="button secondary" type="submit">Search ↗</button></form><p class="form-hint">${number(ui.playerData?.total ?? profileResults.length)} collectors · 50 per page</p><div class="profile-grid space-top">${profileResults.map((p) => `<article class="profile-tile"><a class="profile-tile-link" href="${profileURL(p.id)}">${avatarHTML(p)}<div><h3>${escape(p.name)} ${roleBadge(state.roles?.[p.id])}</h3><p>${escape(p.id)}</p>${p.private_balance || p.earned == null ? '<span class="muted">Private balance</span>' : `<span class="money">✦ ${number(p.earned)} earned</span>`}</div></a>${friendButton(p,state.me?.id,escape,true)}</article>`).join("") || empty("No Player Found.", "Try another alias, username, or AMQ Tours ID.")}</div>${features.catalogPager(ui.playerData, ui.playerPage, "players", 50)}`
   );
 }
 function profileTabs(active) {
@@ -1586,9 +1591,9 @@ function profile() {
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
   const heading =
-    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Settings", "edit-profile", "", "secondary") : ""}</div>` +
+    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div><div class="profile-social-actions">${friendButton(p,state.me?.id,escape)}${own ? btn("Settings", "edit-profile", "", "secondary") : ""}</div></div>` +
     profileCardTabs(ui.profileView);
-  if(ui.profileView==='quiz')return heading+profileQuizPanel(ui.profileQuizData,escape);
+  if(ui.profileView==='quiz')return heading+profileQuizPanel(ui.profileQuizData,escape,ui.profileQuizSort);
   if (ui.profileView !== "overview")
     return (
       heading +
@@ -1648,6 +1653,9 @@ async function loadDynamic() {
   if (current === "shop" && ui.marketSort === "ending")
     ui.marketSort = "newest";
   if (!state.me) {
+    ui.rankFriendsOnly = false;
+    ui.tradeFriendsOnly = false;
+    ui.marketFriendsOnly = false;
     ui.tradeWishlistOnly = false;
     ui.marketWishlistOnly = false;
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
@@ -1669,7 +1677,7 @@ async function loadDynamic() {
     data = await api("anime-collection?page=" + (ui.animePage || 1));
   if (current === "titles" && state.me) data = await api("my-titles");
   if (current === "ranks")
-    data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage);
+    data = await api("rankings?metric=" + ui.metric + "&page=" + ui.rankPage + (ui.rankFriendsOnly && state.me ? "&friends=1" : ""));
   if (current === "pickems") {
     const id = route.split("/")[1];
     if (id) {
@@ -1711,7 +1719,7 @@ async function loadDynamic() {
         "&wishlist=" +
         (ui.marketWishlistOnly ? "1" : "0") +
         "&q=" +
-        encodeURIComponent(ui.marketQuery),
+        encodeURIComponent(ui.marketQuery) + (ui.marketFriendsOnly && state.me ? "&friends=1" : ""),
     );
   if (
     current === "shop" &&
@@ -1729,6 +1737,7 @@ async function loadDynamic() {
           role: ui.tradeKind === "character" ? ui.tradeRole || "" : "",
           sort: ui.tradeSort || "newest",
           wishlist: ui.tradeWishlistOnly ? "1" : "0",
+          friends: ui.tradeFriendsOnly && state.me ? "1" : "0",
           ...((ui.tradeView === "listings" || ui.tradeView === "offers") &&
           ui.tradeHideCompleted
             ? { hide_completed: "1" }
@@ -2176,7 +2185,7 @@ function account() {
             )
             .join("")}</tbody></table></div>`
         : "<p>No wallet or trade activity yet.</p>"
-    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Settings", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
+    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Friends", "friends-open", "", "secondary")}${btn("Settings", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
     false,
     "account-modal",
   );
@@ -2273,7 +2282,7 @@ document.addEventListener("click", async (ev) => {
     settingsHotkeyDraft = normalizeQuizHotkeys(state.me.quiz_hotkeys);
     const currentAutosell = state.me.autosell_below || "";
     modal(
-      `<h2>Settings</h2><p class="subtext">Manage your profile, pack auto-sell, privacy, and quiz keyboard shortcuts.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend><label>Anime Titles<select id="settings-title-mode"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
+      `<h2>Settings</h2><p class="subtext">Manage your profile, pack auto-sell, privacy, and quiz keyboard shortcuts.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend><label>Anime Titles<select id="settings-title-mode"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Notifications</legend><label class="check-label"><input type="checkbox" name="notifyFriendsQuiz" ${state.me.notify_friends_quiz ? "checked" : ""}> Notify me when an added friend beats my quiz score</label></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
       false,
       "avatar-editor-modal settings-modal",
     );
@@ -2556,6 +2565,7 @@ document.addEventListener("submit", async (ev) => {
       b.privateBalance = Boolean(f.elements.privateBalance?.checked);
       b.privateCollection = Boolean(f.elements.privateCollection?.checked);
       b.quizHotkeys = normalizeQuizHotkeys(settingsHotkeyDraft);
+      b.notifyFriendsQuiz = Boolean(f.elements.notifyFriendsQuiz?.checked);
     }
     await execute("profile", b);
   }
@@ -2973,8 +2983,47 @@ function setAnimeTitleMode(value) {
 }
 titleSelect.addEventListener("change", () => setAnimeTitleMode(titleSelect.value));
 
+let friendListView = "added", friendListPage = 1, collectorLoad = 0, friendsLoad = 0;
+const friendSaving = new Set();
+async function openFriends(view = "added", page = 1) {
+  if (!state.me) { auth(); return; }
+  const player = state.me.id, version=++friendsLoad, route=currentRoute(), origin=$("#modal-body").firstElementChild, wasOpen=$("#modal").open;
+  const data = await api("friends?view=" + view + "&page=" + page);
+  if (state.me?.id !== player || version!==friendsLoad || route!==currentRoute() || $("#modal-body").firstElementChild!==origin || (wasOpen&&!$("#modal").open)) return;
+  friendListView = view; friendListPage = page;
+  rememberCards(data.cards);
+  modal(friendsPanel(data,{escape,avatarHTML,profileURL,viewer:player}),false,"friends-modal");
+}
 async function handleFeatureClick(a, t) {
   try {
+    if (a === "friends-open") {
+      await openFriends(t.dataset.view || "added",Number(t.dataset.page || 1));
+      return true;
+    }
+    if (a === "friend-set") {
+      if (!state.me) { auth(); return true; }
+      const id=t.dataset.player, player=state.me.id;
+      if (friendSaving.has(id)) return true;
+      friendSaving.add(id);t.disabled=true;
+      try {
+        const result=await api("friend-set",{player:id,added:t.dataset.added==="true"},crypto.randomUUID());
+        if (state.me?.id !== player) return true;
+        const patch=p=>p.id===result.player?{...p,friendship:result.friendship}:p;
+        profileResults=profileResults.map(patch);
+        if(profileData)profileData=patch(profileData);
+        if(ui.playerData)ui.playerData.profiles=ui.playerData.profiles.map(patch);
+        render();
+        if($("#modal").open && $(".friends-panel"))await openFriends(friendListView,friendListPage);
+      } finally {friendSaving.delete(id); if(t.isConnected)t.disabled=false;}
+      return true;
+    }
+    if (a === "profile-quiz-sort") {
+      const key=t.dataset.sort;
+      if(!["quiz","category","time"].includes(key))return true;
+      ui.profileQuizSort={key,ascending:ui.profileQuizSort.key===key?!ui.profileQuizSort.ascending:true};
+      render();$("[data-action=profile-quiz-sort][data-sort="+key+"]")?.focus({preventScroll:true});
+      return true;
+    }
     if (a === "retry-page") {
       await refresh();
       return true;
@@ -3551,14 +3600,17 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "card-collectors") {
+      const version=++collectorLoad, viewer=state.me?.id, route=currentRoute();
+      const updating=!!t.closest?.(".card-collectors") || t.dataset.friends!==undefined;
       const data = await api(
         "card-collectors?card=" +
           encodeURIComponent(t.dataset.id) +
           "&view=" +
           (t.dataset.view || "owned") +
           "&page=" +
-          (t.dataset.page || 1),
+          (t.dataset.page || 1) + (t.dataset.friends === "1" ? "&friends=1" : ""),
       );
+      if(version!==collectorLoad || viewer!==state.me?.id || route!==currentRoute() || (updating && (!$("#modal").open || !$(".card-collectors"))))return true;
       rememberCards(data.cards);
       modal(
         collectorsPanel(data, {
@@ -3567,6 +3619,7 @@ async function handleFeatureClick(a, t) {
           cardBy,
           avatarHTML,
           profileURL,
+          signedIn: !!state.me,
         }),
         true,
       );
@@ -4509,6 +4562,17 @@ document.addEventListener("input", (ev) => {
     quizUI.input(ev.target).catch((err) => toast(err.message, true));
 });
 document.addEventListener("change", (ev) => {
+  if (["rank-friends-only","market-friends-only","trade-friends-only"].includes(ev.target.id)) {
+    const prefix=ev.target.id.split("-")[0];
+    ui[prefix+"FriendsOnly"]=ev.target.checked;
+    ui[prefix==="rank"?"rankPage":prefix==="market"?"marketPage":"tradePage"]=1;
+    loadDynamic().then(render).catch(err=>toast(err.message,true));
+  }
+  if (ev.target.id === "collector-friends-only") {
+    const box=ev.target;
+    handleFeatureClick("card-collectors",{dataset:{id:box.dataset.card,view:box.dataset.view,page:"1",friends:box.checked?"1":"0"}}).catch(err=>toast(err.message,true));
+  }
+  if (ev.target.id === "quiz-friends-only")quizUI.setFriendsOnly(ev.target.checked).catch(err=>toast(err.message,true));
   if (ev.target.id === "settings-title-mode") setAnimeTitleMode(ev.target.value);
   if (ev.target.id === "quiz-favorites-first") {
     quizUI.setFavoritesFirst(ev.target.checked);

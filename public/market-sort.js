@@ -18,6 +18,7 @@ export function marketSortControl(
   auction = false,
   query = "",
   noResults = false,
+  friendsOnly = false,
 ) {
   const escape = (s) =>
     String(s).replace(
@@ -61,7 +62,8 @@ export function marketSortControl(
     (wishlistOnly ? "checked" : "") +
     " " +
     (!signedIn ? "disabled" : "") +
-    "> My Wishlist Only</label></div>"
+    '> My Wishlist Only</label><label class="check-label"><input type="checkbox" id="market-friends-only" ' +
+    (friendsOnly ? 'checked' : '') + ' ' + (!signedIn ? 'disabled' : '') + '> Friends Only</label></div>'
   );
 }
 export function sortMarketItems(rows, cards, sort) {

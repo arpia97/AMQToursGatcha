@@ -5,12 +5,12 @@ export function collectorsButton(card, e) {
 }
 export function collectorsPanel(
   data,
-  { escape: e, number: n, cardBy, avatarHTML, profileURL },
+  { escape: e, number: n, cardBy, avatarHTML, profileURL, signedIn = false },
 ) {
   const button = (view, page, label, disabled = false) =>
     '<button type="button" class="button secondary" data-action="card-collectors" data-id="' +
     e(data.card) +
-    '" data-view="' +
+    '" data-friends="' + (data.friendsOnly ? "1" : "0") + '" data-view="' +
     view +
     '" data-page="' +
     page +
@@ -31,7 +31,7 @@ export function collectorsPanel(
           (data.view === view ? "active" : "") +
           '" data-action="card-collectors" data-id="' +
           e(data.card) +
-          '" data-view="' +
+          '" data-friends="' + (data.friendsOnly ? "1" : "0") + '" data-view="' +
           view +
           '">' +
           (view === "owned" ? "Owned By" : "Wanted By") +
@@ -40,7 +40,7 @@ export function collectorsPanel(
           "</button>",
       )
       .join("") +
-    '</nav><div class="collector-people">' +
+    '</nav><label class="check-label"><input id="collector-friends-only" type="checkbox" data-card="' + e(data.card) + '" data-view="' + data.view + '" ' + (data.friendsOnly ? 'checked' : '') + ' ' + (!signedIn ? 'disabled' : '') + '> Friends Only</label><div class="collector-people">' +
     (data.rows.length
       ? data.rows
           .map(

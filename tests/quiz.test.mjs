@@ -1124,16 +1124,25 @@ test("quiz song list returns public song metadata in pool order without audio UR
 
 test("displacing the #1 quiz leader notifies the previous #1 player on score or speed tiebreak, while self-improvements, non-leading runs and previews stay silent", (t) => {
   const f = fixture(t);
+  f.e.host("players",{players:[{id:"friend",name:"Friend"}]});
+  f.action("friend","friend-set",{player:"q",added:true});
+  f.action("friend","profile",{notifyFriendsQuiz:true});
   timedPlay(f, 18, "p", 1000);
   assert.deepEqual(f.e.gameState("p").notices, []);
   timedPlay(f, 19, "p", 1000);
+  f.e.run("INSERT INTO quiz_progress(player,quiz,best,at,best_at,best_duration_ms) VALUES('friend','test',17,1,1,22000)");
+
   assert.deepEqual(f.e.gameState("p").notices, []);
   timedPlay(f, 18, "q", 500);
+  assert.equal(f.e.economy.notices.pending("friend")[0].kind,"quiz-friend-beaten");
   timedPlay(f, 19, "q", 1500);
   timedPlay(f, 19, "q", 1000);
   assert.deepEqual(f.e.gameState("p").notices, []);
   assert.deepEqual(f.e.gameState("q").notices, []);
 
+  assert.equal(f.e.economy.notices.pending("friend").length,1,"already ahead does not notify again");
+  f.action("p","friend-set",{player:"q",added:true});
+  f.action("p","profile",{notifyFriendsQuiz:true});
   timedPlay(f, 20, "q", 1000);
   const pNotices = f.e.gameState("p").notices;
   assert.equal(pNotices.length, 1);

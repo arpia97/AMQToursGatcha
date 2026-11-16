@@ -165,7 +165,7 @@ export class Wishlist {
       },
     }));
   }
-  collectors(card, view = "owned", page = 1) {
+  collectors(card, view = "owned", page = 1, viewer = null, friendsOnly = false) {
     const e = this.e;
     card = text(card, 100);
     integer(page, 1, 10000);
@@ -181,27 +181,28 @@ export class Wishlist {
       UNION SELECT winner FROM auctions WHERE card=? AND winner IS NOT NULL AND ends<=? AND claimed=0
       UNION SELECT seller FROM trade_listings WHERE card=? AND status='open')
       UNION SELECT o.proposer FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE COALESCE(c.card,o.card)=? AND o.status='open'`;
-    const visibleOwnership = `SELECT c.player FROM (${ownership}) c JOIN players p ON p.id=c.player WHERE COALESCE(p.private_collection,0)=0`;
+    const scope = e.friends.filter("p.id",viewer,friendsOnly);
+    const visibleOwnership = `SELECT c.player FROM (${ownership}) c JOIN players p ON p.id=c.player WHERE COALESCE(p.private_collection,0)=0${scope.sql}`;
     const ownerArgs = [card, card, card, card, e.now(), card, card];
     const counts = {
       owned: e.one(
         "SELECT count(*) AS n FROM (" + visibleOwnership + ")",
-        ...ownerArgs,
+        ...ownerArgs, ...scope.args,
       ).n,
       wanted: e.one(
-        "SELECT count(*) AS n FROM card_wishlist WHERE card=?",
-        card,
+        "SELECT count(*) AS n FROM card_wishlist w JOIN players p ON p.id=w.player WHERE w.card=?" + scope.sql,
+        card, ...scope.args,
       ).n,
     };
     const source =
       view === "owned"
         ? visibleOwnership
-        : "SELECT player FROM card_wishlist WHERE card=?";
+        : "SELECT w.player FROM card_wishlist w JOIN players p ON p.id=w.player WHERE w.card=?" + scope.sql;
     const rows = e.all(
       "SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_card,p.avatar_crop,(SELECT level FROM inventory i WHERE i.player=p.id AND i.card=p.avatar_card) AS avatar_level FROM (" +
         source +
         ") c JOIN players p ON p.id=c.player ORDER BY name COLLATE NOCASE,p.id LIMIT 26 OFFSET ?",
-      ...(view === "owned" ? ownerArgs : [card]),
+      ...(view === "owned" ? ownerArgs : [card]), ...scope.args,
       (page - 1) * 25,
     );
     return {
@@ -210,6 +211,7 @@ export class Wishlist {
       view,
       page,
       counts,
+      friendsOnly,
       rows: rows.slice(0, 25),
       hasMore: rows.length > 25,
       cards: e.catalogStore.cards(

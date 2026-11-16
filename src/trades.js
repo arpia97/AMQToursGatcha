@@ -392,6 +392,7 @@ export class Trades {
       role = "",
       sort = "newest",
       wishlistOnly = false,
+      friendsOnly = false,
       hideCompleted = false,
     } = {},
   ) {
@@ -422,6 +423,9 @@ export class Trades {
         " AND EXISTS(SELECT 1 FROM card_wishlist w WHERE w.player=? AND w.card=l.card)";
       args.push(player);
     }
+    const friendScope = this.e.friends.filter("l.seller", player, friendsOnly);
+    where += friendScope.sql;
+    args.push(...friendScope.args);
     query = String(query || "")
       .trim()
       .slice(0, 100);

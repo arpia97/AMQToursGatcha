@@ -228,6 +228,8 @@ export class AliasSync {
       "special_packs",
     ])
       this.e.run(`UPDATE ${table} SET player=? WHERE player=?`, id, old);
+    this.e.run("UPDATE player_friends SET player=? WHERE player=?", id, old);
+    this.e.run("UPDATE player_friends SET friend=? WHERE friend=?", id, old);
     this.e.run("UPDATE auctions SET winner=? WHERE winner=?", id, old);
     this.e.run("UPDATE auctions SET seller=? WHERE seller=?", id, old);
     this.e.run("UPDATE market_listings SET seller=? WHERE seller=?", id, old);
