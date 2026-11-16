@@ -1,8 +1,12 @@
 # Shared Status and Handoff
 
-## In Progress — Approved Premium Quiz Titles; Alchemy Design Preview
+## Completed — Approved Premium Quiz Titles; Alchemy Design Preview
 
-November 16. Codex owns quiz title metadata in `src/quiz.js`, `public/title-ui.js`, scoped title styles and relevant existing tests/docs. Apply the approved gold/opal theme only to saved perfect scores with a nonnegative recorded duration strictly below 60,000ms, including existing records, without changing titles/awards/rewards. Mirror title presentation metadata/styles in the Host profile identity bridge. Alchemy selection redesign stays outside the application as a standalone interactive preview; do not deploy alchemy UI or mechanics changes without approval.
+November 16. Runtime `067bd0f3be65fd3bfbdf51ebd13abd3f450ca113` is pushed/deployed on original `amqtours-gatcha`, version `7b32ee11-251c-4bad-b4a7-32b3079a1259`. The user approved the earlier premium quiz-title design. Saved perfect scores with nonnegative integer completion times strictly below60,000ms now derive `premium` and `durationMs` presentation metadata on read, including existing records. Exactly60,000ms, slower, untimed, invalid times and non-perfect scores do not qualify. Profiles and My Titles apply the gold/opal border, soft glow and passing shimmer without rarity labels/icons; equipment, ordering, titles, awards, rewards and score data are unchanged. Reduced-motion disables both animations.
+
+Host version84/source `b563edf390e24ecd94b61a7a6cadc06ec1142697` mirrors the approved styling and whitelists the public title metadata through its identity bridge. Public profile metadata and Host synchronization verified after ordinary deferred backend rollout; both changed Gacha assets and Host identity assets byte-match source, health200. No maintenance mode, schema migration, production quiz attempt, title equip or economy mutation was used. All511 Gacha tests,245 syntax checks and Wrangler dry-run pass; six focused Host account/identity tests and types pass. Local desktop/mobile checks cover both renderers, card-title separation, My Titles, animations and reduced motion. Private evidence: surrounding `work/premium-*` files.
+
+Alchemy redesign is **preview-only**, outside repository/public assets: `outputs/alchemy-selection-preview.html` and `outputs/alchemy-selection-draft-1280.png` / `-390.png` in the surrounding task workspace. The interactive draft uses compact numbered thumbnail rows, full names, lucky-slot highlighting and a right-side next-card/odds/action panel; removal, reset and keyboard reordering update the sample queue/lucky slots. No alchemy application files or mechanics changed; live alchemy-ui.js matches unchanged source. Wait for explicit user approval before implementing/deploying the alchemy layout. Ownership released; this documentation commit is newer than the deployed runtime source.
 
 ## Completed — Quiz Upload Automod and Review Sorting
 
