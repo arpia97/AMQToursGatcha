@@ -2433,6 +2433,8 @@ document.addEventListener("submit", async (ev) => {
       f,
     );
     if (result) {
+      ui.profileWishlistSort = "custom";
+      ui.profileCardsPage = 1;
       wishlistDrag.cancel();
       wishlistEditor.close();
       showcaseDrag.cancel();
