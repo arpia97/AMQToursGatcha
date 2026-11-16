@@ -3415,6 +3415,14 @@ async function handleFeatureClick(a, t) {
         $("#fusion-picker .fusion-picker-dialog").scrollTop = scroll;
         return true;
       }
+      if (a === "alchemy-inspect") {
+        if (alchemyUI.inspect(t.dataset.key)) {
+          repaintAlchemyOrder();
+          const root = alchemyUI.pickerOpen() ? $("#fusion-picker") : $("#main");
+          root.querySelector('[data-action="alchemy-inspect"][data-key="' + CSS.escape(t.dataset.key) + '"]')?.focus({ preventScroll: true });
+        }
+        return true;
+      }
       if (a === "alchemy-move" || a === "alchemy-remove") {
         if (a === "alchemy-move")
           alchemyUI.move(Number(t.dataset.index), Number(t.dataset.direction));

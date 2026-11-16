@@ -16,7 +16,7 @@ export function wishlistButton(card, wishlist, e) {
 }
 export function profileCardTabs(view, friendControl = "") {
   return (
-    '<nav class="tabs profile-card-tabs" aria-label="Player Profile Views">' +
+    '<div class="profile-card-controls"><nav class="tabs profile-card-tabs" aria-label="Player Profile Views">' +
     [
       ["overview", "Overview"],
       ["collection", "Collection"],
@@ -26,17 +26,16 @@ export function profileCardTabs(view, friendControl = "") {
     ]
       .map(
         ([id, label]) =>
-          (id === "quiz" && friendControl ? '<span class="profile-quiz-friend-tabs">' : "") +
           '<button type="button" class="tab ' +
           (view === id ? "active" : "") +
           '" data-action="profile-cards-view" data-view="' +
           id +
           '">' +
           label +
-          "</button>" + (id === "quiz" && friendControl ? friendControl + "</span>" : ""),
+          "</button>",
       )
       .join("") +
-    "</nav>"
+    "</nav>" + friendControl + "</div>"
   );
 }
 function profileCollectionControls(

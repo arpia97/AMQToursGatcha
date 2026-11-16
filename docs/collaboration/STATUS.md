@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Profile Friend Placement and Alchemy Card Inspection
+
+November16. Codex owns integration/deployment in this main checkout, base4494497. Scope: profile tab markup/styles, alchemy selection UI and click wiring, focused existing tests and documentation. Move Add Friend outside the tab border; selected queue cards populate Selected Card without changing refinement order. Preserve all production state and other pending design choices; local-only mutation fixtures. No concurrent task claimed.
+
+Complete locally. Add Friend is a sibling outside the bordered nav, keeping desktop alignment and mobile wrapping. Queue cards have a native inspection button separate from drag/remove controls; Selected Card follows the stable copy key across reordering, displays its current slot and corresponding standard/lucky XP odds, and falls back to the first remaining copy after removal. Inspection leaves refinement requests/order unchanged and keeps keyboard focus in the current page/picker. No backend, schema or economy code changed.
+
+Validation:57 focused existing tests passed with one behavioral test extended,248 syntax checks, dry-run build and diff check passed. Disposable SQLite/full-browser checks at1280/390 verify friend placement and click state, pointer/keyboard inspection, queue unchanged on inspection, slot/odds updates through keyboard and mouse/touch drag, selection removal fallback, picker focus/selection persistence, correct refinement confirmation and unchanged wallet/inventory. No page errors or overflow. Evidence: surrounding work/selected-card-* and profile-friend-outside-* screenshots/logs. Runtime deployment pending; Codex owns integration/deployment.
+
 ## Completed — Cancel Individual Pack Auto-sales
 
 November 16. Codex owns integration/deployment in this main checkout, base 2a0e758. Scope: pack grant/cancellation records and reset/identity lifecycle, pack-result actions and summaries, demo parity, focused existing tests, collaboration docs. Put Cancel Auto-sell first and restore only that pulled copy for its original credited price. Preserve settings and production economy; mutations tested locally only. No concurrent feature task claimed.

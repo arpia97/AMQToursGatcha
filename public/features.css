@@ -5680,7 +5680,8 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .friend-button.is-compact { min-width:34px; width:34px; height:34px; padding:6px; }
 .friend-button:focus-visible { outline:2px solid var(--mint); outline-offset:3px; }
 .friend-button:disabled { opacity:.6; cursor:wait; }
-.profile-quiz-friend-tabs { display:inline-flex; align-items:center; gap:5px; flex:0 0 auto; }
+.profile-card-controls { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:22px 0; }
+.profile-card-controls > .profile-card-tabs { margin:0; }
 .profile-tile-link { display:flex; align-items:center; gap:16px; flex:1; min-width:0; color:inherit; text-decoration:none; }
 .profile-tile-link > div { min-width:0; }
 .profile-tile-link h3 { overflow-wrap:anywhere; }
@@ -5700,8 +5701,11 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .alchemy-queue .section-head h3 { font-size:13px; }
 .alchemy-queue .section-head h3 > span { color:var(--muted); font-weight:400; }
 .alchemy-compact-list { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; padding:3px; margin:14px -3px 0; max-height:510px; scrollbar-width:thin; }
-.alchemy-compact-item { display:grid; grid-template-columns:23px 46px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:98px; padding:10px; border-radius:10px; }
+.alchemy-compact-item { display:grid; grid-template-columns:23px minmax(0,1fr) 18px; align-items:center; gap:10px; min-height:98px; padding:10px; border-radius:10px; }
 .alchemy-compact-item.is-next { border-left:3px solid var(--mint); }
+.alchemy-compact-item.is-inspected { background:#b7e4ca0d; box-shadow:inset 0 0 0 1px #b7e4ca70; }
+.alchemy-queue-inspect { display:grid; grid-template-columns:46px minmax(0,1fr); align-items:center; gap:10px; padding:0; border:0; background:none; color:inherit; font:inherit; text-align:left; cursor:pointer; min-width:0; }
+.alchemy-queue-inspect:focus-visible { outline:2px solid var(--mint); outline-offset:4px; border-radius:5px; }
 .alchemy-order-number { display:grid; justify-items:center; gap:5px; font-size:10px; }
 .alchemy-order-number .alchemy-drag-handle { border:0; background:none; padding:0; font-size:19px; }
 .alchemy-queue-thumb { width:46px; height:64px; overflow:hidden; border-radius:6px; }

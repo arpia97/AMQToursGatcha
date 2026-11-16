@@ -64,15 +64,29 @@ test("alchemy keeps an ordered selection and confirmation preserves the exact ve
     f.ui.request().materials.map((m) => m.card),
     ["a", "d"],
   );
+  const unchanged = f.ui.request(), dKey = f.ui.orderKeys()[1];
+  assert.equal(f.ui.inspect(dKey), true);
+  assert.equal(f.ui.inspect("missing"), false);
+  const summary = () => f.ui.render().match(/<aside class="alchemy-refine-summary">([\s\S]*?)<\/aside>/)[1];
+  assert.match(summary(), /<h3>Selected Card<\/h3>/);
+  assert.match(summary(), /D Card/);
+  assert.match(summary(), /#2 · Standard/);
+  assert.match(summary(), /90%/);
+  assert.deepEqual(f.ui.request(), unchanged, "inspection does not change the refinement order or quote");
   f.ui.move(1, -1);
   assert.deepEqual(
     f.ui.request().materials.map((m) => m.card),
     ["d", "a"],
   );
+  assert.match(summary(), /D Card/);
+  assert.match(summary(), /#1 · ✦ Lucky/);
+  assert.match(summary(), /45%/);
+  assert.match(f.ui.queueHTML(), new RegExp('data-key="'+dKey+'" aria-pressed="true"'));
   assert.match(f.ui.queueHTML(), /Refinement #6/);
   assert.match(f.ui.queueHTML(), /Lucky/);
   f.ui.remove(0);
   assert.equal(f.ui.request().card, "a");
+  assert.match(summary(), /&lt;Alchemy>/, "removing the inspected card falls back to the first remaining card");
   assert.equal(f.state.inventory.length, 2);
   f.ui.toggle({ card: "a", variant: "card" });
   assert.throws(() => f.ui.request(), /Choose cards/);
