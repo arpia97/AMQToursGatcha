@@ -1,3 +1,5 @@
+import {installMobileNavigation} from "./mobile-navigation.js";
+import {installMobileFilters} from "./mobile-filters.js";
 import { recentActivityRows } from "./account-activity.js";
 import { installDetailPopovers } from "./detail-popover.js";
 import { pickemShare } from "./pickem-votes.js";
@@ -113,6 +115,21 @@ const currentCardSize = installCardSize(document, {
   getItem: (key) => localStorage.getItem(key),
   setItem: (key, value) => localStorage.setItem(key, value),
 });
+const mobileNavigation = installMobileNavigation({
+  bottom: [{key:'home',label:'Home'},{key:'profile',label:'Profile'},{key:'quiz',label:'Quiz'}],
+  route: () => navigationSection(page(),state?.me?.id,profileData?.id),
+  brand: {href:routeHref('home'),logo:new URL('./amq-tours-logo.png',import.meta.url).href},
+  secondary: {href:'/tour',label:'Open Tour Platform'},
+  preferences: ['.card-size-control','.title-mode'],
+  groups: () => [
+    {key:'collect',label:'Collect',keys:['profile','collection','packs','fusion','catalog','shop','auctions']},
+    {key:'play',label:'Play',keys:['quiz','pickems','arcade']},
+    {key:'community',label:'Community',keys:['home','players','ranks']}
+  ],
+  additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
+  extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
+});
+const mobileFilters = installMobileFilters();
 let titleMode = "romaji";
 try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
@@ -1407,7 +1424,7 @@ function collection() {
     return (
       profileTabs("collection") +
       intro(
-        "Your Collection. Your Favourites.",
+        '<span class="desktop-collection-title">Your Collection. Your Favourites.</span><span class="mobile-collection-title">My Collection</span>',
         "Every card has a story.",
         btn("Close Arrange", "collection-cancel", "", "secondary"),
       ) +
@@ -1427,7 +1444,7 @@ function collection() {
   return (
     profileTabs("collection") +
     intro(
-      "Your Collection. Your Favourites.",
+      '<span class="desktop-collection-title">Your Collection. Your Favourites.</span><span class="mobile-collection-title">My Collection</span>',
       "Every card has a story.",
       state.me &&
       (state.inventory.length > 1 || (ui.animeData?.pinned?.length || 0) > 1)
@@ -1900,6 +1917,8 @@ function render() {
         : profile(),
   }[route]();
   $("#main").dataset.cardPage = route;
+  mobileNavigation.update();
+  mobileFilters.update();
   cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI.mount();
   else quizUI.leave();

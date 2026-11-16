@@ -1,5 +1,12 @@
 # Shared Status and Handoff
 
+## Validated Locally — Approved Mobile Navigation
+
+November16. Codex owns mobile-only shell/styles, navigation integration and validation/deployment in this checkout. Approved previews are being integrated in Gacha and separately in Host. Gacha bottom navigation is Home, Profile, Quiz, More; Packs moves to Collect. Desktop styles and all production gameplay/data remain unchanged. Local fixtures only; no concurrent task claimed.
+
+Implemented mobile-navigation.js/mobile-filters.js/mobile.css and app/index integration; no preview source or sample data included. Browser checks with disposable SQLite cover360/390/430/850 mobile and900/1440 desktop, guest/signed-in/host menus, all navigation links, filtering, quiz search/favorites/song popup, account popup, preferences and mobile→desktop resizing. Desktop screenshots match (one antialias pixel at900); no overflow or page errors; wallet/inventory unchanged.28 focused existing tests and251 syntax checks pass, Wrangler dry-run passes. Host has separate permissions/browser checks and17 focused tests; its desktop screenshots match exactly. No additional repository tests. Deployment pending.
+
+
 ## Completed — Favorite Heart and Unclipped Glows
 
 November16. Codex owns integration/deployment on main, base6573aa6. Scope: remove quiz favorite status dot; give avatar/card scroll lists sufficient halo room without changing effect strength, crop, saved state or scroll access. Focused existing tests and local desktop/mobile browser fixtures; no production mutations. No concurrent task claimed.
