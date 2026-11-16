@@ -11,6 +11,7 @@ import {
   quizPoolEditor,
   handleQuizReviewSort,
   refreshQuizReviewWarnings,
+  refreshQuizNameWarnings,
   checkQuizPoolLinks,
 } from "./quiz-host-ui.js";
 import { TOUR_SIZES } from "./tour-rewards.js";
@@ -768,6 +769,7 @@ document.addEventListener("input", (ev) => {
   }
   rememberSettlement(ev.target);
   const form = ev.target.closest("form");
+  if(form && formIdentifier(form)==="quiz-save" && ev.target.name==="name") refreshQuizNameWarnings(form,esc);
   syncWinnerRewardDefault(form, ev.target);
   if (
     form?.getAttribute("id") === "participation-preview" &&

@@ -2962,20 +2962,26 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   width: 40px;
   height: 40px;
   padding: 0;
-  border: 1px solid #ffffff45;
-  border-radius: 50%;
-  background: #14151ee8;
-  color: #fff;
-  font-size: 25px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: #bec8d9;
   line-height: 1;
   cursor: pointer;
 }
-.quiz-favorite.is-selected { color: var(--accent, #f47a96); border-color: currentColor; }
+.quiz-favorite svg { width:36px; height:36px; overflow:visible; }
+.quiz-favorite-heart { stroke:currentColor; fill:none; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.quiz-favorite-light { fill:#65728a; stroke:none; }
+.quiz-favorite.is-selected { color:#f280a4; }
+.quiz-favorite.is-selected .quiz-favorite-light { fill:#f280a4; filter:drop-shadow(0 0 3px #f280a4c0); }
+.quiz-favorite.is-selected .quiz-favorite-heart { fill:#f280a40d; filter:drop-shadow(0 0 3px #f280a42f); }
+.quiz-favorite:hover { filter:brightness(1.2); }
 .quiz-favorite:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
 .quiz-favorite:disabled { opacity: .6; cursor: wait; }
 .quiz-favorites-filter { white-space: nowrap; margin: 0; }
-.quiz-working-titles { cursor: help; text-decoration: underline dotted #ffffff40; text-underline-offset: 3px; }
+.quiz-working-titles { padding:0; min-height:0; background:none; border:0; color:inherit; font:inherit; text-align:left; cursor:help; text-decoration:underline dotted #ffffff40; text-underline-offset:3px; }
 .quiz-working-titles:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
+.detail-popover { position:fixed; z-index:200; max-width:min(460px,calc(100vw - 24px)); max-height:min(320px,calc(100dvh - 24px)); overflow:auto; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#171922; color:var(--text); font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; box-shadow:0 3px 12px #0008; }
 .profile-wishlist-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .profile-wishlist-sort { display: flex; justify-content: flex-end; margin: 0; }
 .profile-wishlist-sort select { min-width: 200px; }

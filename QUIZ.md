@@ -106,3 +106,8 @@ For an existing quiz, select it and use **Sync This Quiz’s Fallback Answers**.
 New host routes (existing host/session, origin and retry protections): GET `/api/host/quiz-master`; POST `/api/host/quiz-master-refresh` with action `start|pause|resume|cancel`; POST `/api/host/quiz-master-sync` with `quiz`. The internal metadata actor is not a public API.
 
 To rebuild the seed from reinforced local files, run `node tools/build-quiz-library.mjs <masterlist.json> <working-titles.json> [source-commit]`, validate, and deploy the generated assets. The tool rejects duplicate/unexpected song IDs and records input hashes/missing IDs. It retains only the fields used by current matching and future song-pool selection: IDs, title/artist, MP3 URL, working names, type, difficulty and linked anime IDs. Reinforcing raw source data does not automatically alter saved quiz answer keys.
+
+
+November16 UI: Song List and recap anime labels open a fixed hover/focus/tap popup with all saved working titles, without native-tooltip delay or clipping in the table. Popups close on Escape, outside interaction, list sorting/closing or when their row leaves the visible table area. Favorites use the approved Pulse frameless SVG heart/status light.
+
+The host form checks Quiz Name against other quizzes already in the protected host index, across Singers/Composers and Draft/Published. Unicode width, letter case and repeated whitespace do not hide a match; the edited quiz itself is excluded. The warning updates while typing and during pool automod checks, and remains advisory so deliberate same-name category overlaps can still be saved. Song-title, audio-link and import checks are unchanged.

@@ -1,4 +1,12 @@
 const titleKey=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/\s+/gu,' ').trim();
+export function quizNameMatches(name,quizzes,exclude="") {
+  const key=titleKey(name);
+  return key?quizzes.filter(q=>q.id!==exclude && titleKey(q.name)===key):[];
+}
+export function quizNameWarningHTML(name,quizzes,exclude,e) {
+  const matches=quizNameMatches(name,quizzes,exclude);
+  return matches.length?`<div class="quiz-automod has-warnings" role="status"><strong>Duplicate Quiz Name</strong><p>This quiz name already exists:</p><ul>${matches.map(q=>`<li><strong>${e(q.name)}</strong> · ${q.category==='composers'?'Composers':'Singers'} · ${q.published?'Published':'Draft'}</li>`).join('')}</ul><p class="form-hint">Review before saving. This warning does not block intentional duplicates.</p></div>`:'';
+}
 const collator=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
 export const reviewSortKeys=['title','artist','anime'];
 export function quizReviewWarnings(songs,existing=[]){

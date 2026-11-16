@@ -1,6 +1,6 @@
 import { validQuizAudio } from "./quiz-rules.js";
 import {quizLibraryPanel} from './quiz-library-host-ui.js';
-import {quizReviewWarnings,quizAutomodHTML,sortQuizReview,reviewSortHeader,reviewSortKeys} from './quiz-review.js';
+import {quizNameWarningHTML,quizReviewWarnings,quizAutomodHTML,sortQuizReview,reviewSortHeader,reviewSortKeys} from './quiz-review.js';
 function quizResetPanel(q, e) {
   return q
     ? `<form id="quiz-scores-reset" class="stack space-top"><input type="hidden" name="quiz" value="${e(q.id)}"><input type="hidden" name="quizName" value="${e(q.name)}"><p class="form-hint">Reset this quiz’s leaderboard, personal bests, active runs and completion titles. Existing credits stay, and previously claimed rewards remain protected.</p><button type="submit" class="button danger">Reset Scores & Completion Titles</button></form>`
@@ -13,7 +13,7 @@ function quizDeletePanel(q, e) {
 }
 export function quizHostPanel(quizzes, e, selected = null, pool = null, library=null) {
   const q = quizzes.find((q) => q.id === selected);
-  return `<section class="host-panel"><h2>Quiz Pools</h2><div id="quiz-library-status">${quizLibraryPanel(library,q,e)}</div><p>Upload an AnisongDB or AMQ song export. AMQ MP3 videoUrl links are used when supplied; missing audio is resolved by song ID. Audio links are checked before saving, and broken links can be replaced or skipped. AMQ JSON answers take priority; AMQ Plus fills missing metadata and fallback titles. Existing personal bests and one-time rewards remain when the pool is updated.</p><div class="quiz-pool-picker"><label for="host-quiz-select">Quiz<select id="host-quiz-select"><option value="" ${q ? "" : "selected"}>New Quiz</option>${quizzes.map((item) => `<option value="${e(item.id)}" ${item.id === selected ? "selected" : ""}>${e(item.name)} · ${item.published ? "Published" : "Draft"}</option>`).join("")}</select></label><button type="button" class="button secondary" data-new-quiz>New Quiz ＋</button></div><form id="quiz-save" class="stack space-top" data-pool-loading="${!!q && pool?.id !== q.id}"><input name="id" type="hidden" value="${e(q?.id || "")}"><label>Category<select name="category"><option value="singers" ${q?.category !== "composers" ? "selected" : ""}>Singers</option><option value="composers" ${q?.category === "composers" ? "selected" : ""}>Composers</option></select></label><label>Quiz Name<input name="name" maxlength="100" required value="${e(q?.name || "")}"></label><label>100% Completion Title<input name="title" maxlength="80" value="${e(q?.title || "")}" placeholder="Optional achievement title"></label><label>Cover Image<input name="coverFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${q?.cover ? `<img class="quiz-cover-preview" src="${e(q.cover)}" alt="Current Quiz Cover">` : ""}${q ? `<div id="quiz-current-pool">${pool?.id === q.id ? quizPoolEditor(pool, e) : '<p role="status">Loading Current Song Pool…</p>'}</div><label>JSON Import Mode<select name="songMode"><option value="replace">Replace Pool</option><option value="append">Add Songs to Current Pool</option></select></label>` : ""}<label>AnisongDB / AMQ Song JSON<input name="songsFile" type="file" accept=".json,application/json" ${q ? "" : "required"}></label><p class="form-hint">Up to 2,000 songs. Use Replace Pool or Add Songs for a JSON import. Leave the file blank to keep the pool with any checked removals. A published quiz needs at least 20 matched songs.</p><div data-quiz-song-review aria-live="polite"></div><label>Status<select name="published"><option value="false" ${!q?.published ? "selected" : ""}>Draft · Hidden From Players</option><option value="true" ${q?.published ? "selected" : ""}>Published</option></select></label><button class="button" type="submit" ${q && pool?.id !== q.id ? "disabled" : ""}>Save Quiz →</button></form>${quizResetPanel(q, e)}${quizDeletePanel(q, e)}</section>`;
+  return `<section class="host-panel"><h2>Quiz Pools</h2><div id="quiz-library-status">${quizLibraryPanel(library,q,e)}</div><p>Upload an AnisongDB or AMQ song export. AMQ MP3 videoUrl links are used when supplied; missing audio is resolved by song ID. Audio links are checked before saving, and broken links can be replaced or skipped. AMQ JSON answers take priority; AMQ Plus fills missing metadata and fallback titles. Existing personal bests and one-time rewards remain when the pool is updated.</p><div class="quiz-pool-picker"><label for="host-quiz-select">Quiz<select id="host-quiz-select"><option value="" ${q ? "" : "selected"}>New Quiz</option>${quizzes.map((item) => `<option value="${e(item.id)}" ${item.id === selected ? "selected" : ""}>${e(item.name)} · ${item.published ? "Published" : "Draft"}</option>`).join("")}</select></label><button type="button" class="button secondary" data-new-quiz>New Quiz ＋</button></div><form id="quiz-save" class="stack space-top" data-pool-loading="${!!q && pool?.id !== q.id}" data-quiz-name-index="${e(JSON.stringify(quizzes.map(({id,name,category,published})=>({id,name,category,published}))))}"><input name="id" type="hidden" value="${e(q?.id || "")}"><label>Category<select name="category"><option value="singers" ${q?.category !== "composers" ? "selected" : ""}>Singers</option><option value="composers" ${q?.category === "composers" ? "selected" : ""}>Composers</option></select></label><label>Quiz Name<input name="name" maxlength="100" required value="${e(q?.name || "")}"></label><div data-quiz-name-warnings aria-live="polite">${quizNameWarningHTML(q?.name,quizzes,q?.id||"",e)}</div><label>100% Completion Title<input name="title" maxlength="80" value="${e(q?.title || "")}" placeholder="Optional achievement title"></label><label>Cover Image<input name="coverFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${q?.cover ? `<img class="quiz-cover-preview" src="${e(q.cover)}" alt="Current Quiz Cover">` : ""}${q ? `<div id="quiz-current-pool">${pool?.id === q.id ? quizPoolEditor(pool, e) : '<p role="status">Loading Current Song Pool…</p>'}</div><label>JSON Import Mode<select name="songMode"><option value="replace">Replace Pool</option><option value="append">Add Songs to Current Pool</option></select></label>` : ""}<label>AnisongDB / AMQ Song JSON<input name="songsFile" type="file" accept=".json,application/json" ${q ? "" : "required"}></label><p class="form-hint">Up to 2,000 songs. Use Replace Pool or Add Songs for a JSON import. Leave the file blank to keep the pool with any checked removals. A published quiz needs at least 20 matched songs.</p><div data-quiz-song-review aria-live="polite"></div><label>Status<select name="published"><option value="false" ${!q?.published ? "selected" : ""}>Draft · Hidden From Players</option><option value="true" ${q?.published ? "selected" : ""}>Published</option></select></label><button class="button" type="submit" ${q && pool?.id !== q.id ? "disabled" : ""}>Save Quiz →</button></form>${quizResetPanel(q, e)}${quizDeletePanel(q, e)}</section>`;
 }
 export async function quizHostBody(form) {
   const fields = Object.fromEntries(new FormData(form)),
@@ -222,9 +222,17 @@ export function handleQuizReviewSort(event){
   return true;
 }
 export function refreshQuizReviewWarnings(form,e){
+  refreshQuizNameWarnings(form,e);
   const token=fileReviews.get(form?.elements.songsFile);
   if(token?.current()&&token.review)syncAudioReview(token,e);
   syncPoolReviewWarnings(form,e);
+}
+export function refreshQuizNameWarnings(form,e) {
+  const output=form?.querySelector?.('[data-quiz-name-warnings]');
+  if(!output)return;
+  let quizzes=[];
+  try { quizzes=JSON.parse(form.dataset.quizNameIndex||'[]'); } catch { return; }
+  output.innerHTML=quizNameWarningHTML(form.elements.name.value,quizzes,form.elements.id.value,e);
 }
 function syncPoolReviewWarnings(form,e){
   const pool=form?.querySelector?.('[data-quiz-pool-warnings]'),scan=poolScans.get(form);
@@ -233,6 +241,7 @@ function syncPoolReviewWarnings(form,e){
 export async function checkQuizPoolLinks(event,call,e){
   const button=event.target.closest('[data-quiz-pool-check]');if(!button||button.disabled)return false;
   const form=button.closest('form'),table=form.querySelector('[data-quiz-review-table="pool"]');
+  refreshQuizNameWarnings(form,e);
   const scan={checks:new Map()},songs=poolReviewSongs(form).filter(s=>!s.skipped);
   const current=()=>form.isConnected&&table.isConnected&&poolScans.get(form)===scan;
   poolScans.set(form,scan);button.disabled=true;syncPoolReviewWarnings(form,e);

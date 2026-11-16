@@ -1,5 +1,5 @@
 import test from "node:test";
-import {quizReviewWarnings,sortQuizReview} from '../public/quiz-review.js';
+import {quizNameMatches,quizNameWarningHTML,quizReviewWarnings,sortQuizReview} from '../public/quiz-review.js';
 import assert from "node:assert/strict";
 import {
   quizHostPanel,
@@ -71,6 +71,14 @@ test("song review escapes metadata and shows matched titles, artist, anime and s
 });
 
 test('automod distinguishes repeated song titles from shared anime answers and sorts without changing source rows or audio actions',()=>{
+  const quizzes=[{id:'a',name:'LiSA',published:true},{id:'b',name:'ＬｉＳＡ',category:'composers',published:false},{id:'c',name:'Other'}];
+  assert.deepEqual(quizNameMatches(' lisa ',quizzes,'a').map(q=>q.id),['b']);
+  assert.equal(quizNameMatches('',quizzes).length,0);
+  assert.equal(quizNameMatches('Unique',quizzes).length,0);
+  const warning=quizNameWarningHTML('lisa',quizzes,'',e);
+  assert.match(warning,/Duplicate Quiz Name/);assert.match(warning,/Singers · Published/);assert.match(warning,/Composers · Draft/);
+  assert.match(quizNameWarningHTML('<Quiz>',[{id:'x',name:'<Quiz>'}],'',e),/&lt;Quiz>/);
+  assert.equal(quizNameWarningHTML('LiSA',quizzes.slice(0,1),'a',e),'');
   const songs=[{title:'Song 10',artist:'Beta',answers:['Same Anime'],link:{working:true},audio:'a'},
     {title:'Song 2',artist:'',answers:['Same Anime'],link:{working:false,message:'HTTP 404'},audio:'b'},
     {title:' song   2 ',artist:'Alpha',answers:['Other Anime'],link:{working:true},audio:'c'},

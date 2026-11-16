@@ -1,4 +1,5 @@
 import { recentActivityRows } from "./account-activity.js";
+import { installDetailPopovers } from "./detail-popover.js";
 import { pickemShare } from "./pickem-votes.js";
 import { readApiResponse } from "./api-response.js";
 import { installCardOrderDrag } from "./card-order-drag.js";
@@ -92,7 +93,7 @@ import {
   MAHJONG_DISCARD,
   mahjongEntryFee,
 } from "./mahjong-rules.js";
-import { createPachinkoUI } from "./pachinko-ui.js";
+import { createPachinkoUI, savedPachinkoGame, rememberPachinkoGame } from "./pachinko-ui.js";
 import { createHorseUI } from "./horse-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
@@ -292,7 +293,7 @@ const ui = {
     sort: "rarity",
     page: 1,
   },
-  pachinkoGame: "mahjong",
+  pachinkoGame: savedPachinkoGame(),
   rouletteDraft: { choice: "red", stake: 100 },
   mahjongHistoryOpen: false,
   mahjongHistoryPage: 1,
@@ -726,6 +727,7 @@ function tabs() {
   ];
   return `<div class="tabs" role="group" aria-label="Card type">${choices.map(([id, label]) => `<button class="tab ${tab === id ? "active" : ""}" data-tab="${id}" aria-pressed="${tab === id}">${label}</button>`).join("")}</div>`;
 }
+const workingTitlePopovers = installDetailPopovers(document);
 const quizUI = createQuizUI({
   api,
   escape,
@@ -1832,6 +1834,7 @@ async function loadDynamic() {
 }
 function render() {
   if (!state) return;
+  workingTitlePopovers.dismiss();
   const cardSurfaceState =
     $("#main").dataset.cardPage === page()
       ? cardSurfaces.capture($("#main"))
@@ -3220,6 +3223,7 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "pachinko-game") {
+      if (!rememberPachinkoGame(t.dataset.game)) return true;
       ui.pachinkoGame = t.dataset.game;
       render();
       return true;

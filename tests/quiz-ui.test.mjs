@@ -973,6 +973,8 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
   await f.ui.click(f.button("data-quiz-songs", "q"));
   const popup = f.ui.render();
   assert.match(popup, /Draft Quiz · Song List/);
+  assert.match(popup, /<button type="button" class="quiz-working-titles" data-detail-popup="All Working Titles/);
+  assert.doesNotMatch(popup, /title="All Working Titles/);
   assert.match(popup, /Seishun &lt;Complex>/);
   assert.doesNotMatch(popup, /Seishun <Complex>/);
   assert.match(popup, /Kessoku Band/);

@@ -2,6 +2,20 @@ import { gameHelp } from "./game-help.js";
 import { blackjackUI } from "./blackjack-ui.js";
 import { createAdventureUI } from "./adventure-ui.js";
 import { GEM_CLICK_PRICE, gemCounts, gemValue } from "./gem-rules.js";
+const gameIds = ["mahjong", "horse", "gem", "roulette", "blackjack", "climb"];
+const preferenceKey = "amq-pachinko-game-v1";
+export function savedPachinkoGame() {
+  try {
+    const game = localStorage.getItem(preferenceKey);
+    if (gameIds.includes(game)) return game;
+  } catch { /* Storage may be unavailable in private browsing. */ }
+  return "mahjong";
+}
+export function rememberPachinkoGame(game) {
+  if (!gameIds.includes(game)) return false;
+  try { localStorage.setItem(preferenceKey, game); } catch { /* Keep the in-memory choice. */ }
+  return true;
+}
 export function createPachinkoUI({
   getState,
   escape: e,
@@ -39,14 +53,7 @@ export function createPachinkoUI({
   return {
     mount: () => games.mount(),
     render() {
-      const selected = [
-        "mahjong",
-        "gem",
-        "roulette",
-        "horse",
-        "climb",
-        "blackjack",
-      ].includes(ui.pachinkoGame)
+      const selected = gameIds.includes(ui.pachinkoGame)
         ? ui.pachinkoGame
         : "mahjong";
       return `<div class="page-intro"><div><h1>Pachinko</h1><p>Feeling lucky?</p></div><button class="button secondary" data-action="gambling-history" data-game="${selected}">Gambling History</button></div><nav class="pachinko-games" aria-label="Pachinko games">${[

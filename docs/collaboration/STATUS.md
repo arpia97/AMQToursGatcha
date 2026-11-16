@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Quiz Working-title Popups, Last Pachinko Game and Quiz-name Automod
+
+November16. Codex owns integration/deployment on main, baseea4e7ef. Scope: public quiz tooltip/songlist, Pachinko selection preference, host duplicate-name warning and focused existing tests/docs. Preserve gameplay, wallet, scores, quiz import semantics and other pending design choices. No backend/economy/schema changes intended; QA uses local fixtures only. No concurrent work claimed. User also approved Pulse, the third quiz-favorite design, during this task.
+
+Implementation complete locally. Native title hints are replaced by one page-lifetime floating popup controller with hover/focus/tap, escaped text, viewport/table clipping checks, Escape/outside dismissal and render cleanup. Pachinko validates and saves the last game in browser storage; failures fall back safely to the in-memory choice. Host quiz-name automod checks the already-loaded protected summary index across categories/statuses, excludes the current ID and normalizes Unicode width/case/spacing. Warnings update without network requests or replacing the form/caret; intentional duplicates remain allowed. Approved Pulse SVG/status light replaces the circular heart control, preserving the existing account favorite operation. No backend/schema/economy change.
+
+Validation:42 focused tests pass with existing tests extended (no new cases),249 syntax checks, dry-run and diff checks pass. Disposable SQLite/full-browser at1280/390 verifies all working titles, escaped metadata, hover/touch/keyboard and sort/scroll/close cleanup; Pulse save/style; all6 games across reloads, navigation back to the last game and invalid-storage fallback; duplicate draft/published names, self exclusion, live typing/caret, pool automod and unchanged inventory/balance. No errors/overflow. Evidence: surrounding work/quiz-hints-* and quiz-working-popover/quiz-pulse/quiz-name-automod screenshots. Full519 tests also pass. Deployment pending; Codex owns integration/deployment.
+
 ## Completed — Profile Friend Placement and Alchemy Card Inspection
 
 November16. Codex owns integration/deployment in this main checkout, base4494497. Scope: profile tab markup/styles, alchemy selection UI and click wiring, focused existing tests and documentation. Move Add Friend outside the tab border; selected queue cards populate Selected Card without changing refinement order. Preserve all production state and other pending design choices; local-only mutation fixtures. No concurrent task claimed.
