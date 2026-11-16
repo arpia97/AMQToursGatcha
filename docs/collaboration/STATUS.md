@@ -1,8 +1,8 @@
 # Shared Status and Handoff
 
-## Validated Locally — Remove Repeated bop Cost
+## Completed — Remove Repeated bop Cost
 
-November16. Codex removed the small bop image/cost beside each alchemy tier XP progress counter, as requested. Ordinary XP progress, bop draw buttons, hover cost, confirmation and balances retained. Removed the three unused alchemy-bop-cost CSS rules.12 existing alchemy UI tests and diff check pass; no new tests or backend/data changes. Deployment pending.
+November16. Codex removed the small bop image/cost beside each alchemy tier XP progress counter, as requested. Ordinary XP progress, bop draw buttons, hover cost, confirmation and balances retained. Removed the three unused alchemy-bop-cost CSS rules.12 existing alchemy UI tests, diff check and Wrangler dry-run pass; no new tests or backend/data changes. Runtime `0d190c7` pushed/deployed on original Worker, version `ceccb1b0-fa18-4762-8046-ab4ad400c54a`. Both changed live assets200, byte-match and contain no retired cost markup/styles. No production QA mutations; ownership released.
 
 
 ## Completed — Mobile Header Avatar Proportions
