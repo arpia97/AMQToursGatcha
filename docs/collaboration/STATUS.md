@@ -1,5 +1,10 @@
 # Shared Status and Handoff
 
+## Validated Locally — Remove Repeated bop Cost
+
+November16. Codex removed the small bop image/cost beside each alchemy tier XP progress counter, as requested. Ordinary XP progress, bop draw buttons, hover cost, confirmation and balances retained. Removed the three unused alchemy-bop-cost CSS rules.12 existing alchemy UI tests and diff check pass; no new tests or backend/data changes. Deployment pending.
+
+
 ## Completed — Mobile Header Avatar Proportions
 
 November16. Codex owns a scoped mobile.css fix after the approved mobile release. At390px a MAX header avatar was29px with a4px computed border and only21px of portrait; the36px button background was visible as an extra ring. Header avatars now fill36px with a2px maximum border and32px of portrait; their button background is transparent only when a portrait frame exists. Glow, level badge, saved crop, other avatar contexts and desktop rules remain intact. Local browser fixture verifies levels1/2/6 at390/850 and unchanged desktop measurements at1440; diff checks pass. No added tests, no backend/data changes. Wrangler dry-run passed. Runtime `d089278` pushed/deployed to original Worker, version `54fa11e9-2cc5-440b-b195-9da098a4c452`; live custom-domain mobile.css200 and byte-identical at12:48Z. Evidence: surrounding work/avatar-mobile-{before,after}.{json,png} and avatar-mobile-live.json. Production accounts/preferences/gameplay untouched; ownership released.

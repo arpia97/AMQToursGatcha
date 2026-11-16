@@ -5655,9 +5655,6 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .alchemy-bop-balance .alchemy-bop-icon { width:30px; height:30px; }
 .alchemy-bop-balance strong { display:block; color:#f3d39b; font-size:19px; line-height:1.1; }
 .alchemy-bop-balance span { display:block; font-size:10px; color:var(--muted); margin-top:3px; }
-.alchemy-tier > small:has(.alchemy-bop-cost) { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.alchemy-bop-cost { display:inline-flex; align-items:center; gap:5px; color:#e5c994; font-variant-numeric:tabular-nums; }
-.alchemy-bop-cost .alchemy-bop-icon { width:17px; height:17px; border-radius:3px; }
 .alchemy-tier-actions { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px; gap:8px; }
 .alchemy-tier-actions > .alchemy-bop-button { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2px; padding:4px; border:1px solid #8c734c; border-radius:8px; background:#30291e; color:#f3d39b; cursor:pointer; min-height:45px; font:inherit; transition:background .15s,border-color .15s; }
 .alchemy-bop-button span { font-size:10px; line-height:1; }

@@ -456,8 +456,7 @@ export function createAlchemyUI(h) {
         n(Math.min(t.cost, data.xp)) +
         " / " +
         n(t.cost) +
-        ' XP<span class="alchemy-bop-cost" title="Guaranteed target cost">' + bopIcon() + n(t.cost) +
-        '</span></small><div class="alchemy-tier-actions">' +
+        ' XP</small><div class="alchemy-tier-actions">' +
         btn(
           valid ? "Change Target" : "Choose Target",
           "alchemy-target-open",
