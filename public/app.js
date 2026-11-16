@@ -265,8 +265,7 @@ const ui = {
   tradeRole: "",
   tradeSort: "newest",
   tradeWishlistOnly: false,
-  profileWishlistKind: "both",
-  profileWishlistSort: "custom",
+  profileWishlist: {kind:"both",query:"",rarity:"",role:"",sort:"custom",excludeOwned:false},
   tradeHideCompleted: (() => {
     try {
       return localStorage.getItem("amqtours-trade-hide-completed") === "1";
@@ -1613,7 +1612,7 @@ function profile() {
               own,
               wishlist: state.wishlist || [],
               collectionFilters: ui.profileCollection,
-              wishlistSort: ui.profileWishlistSort,
+              wishlistFilters: ui.profileWishlist,
             }))
     );
   return (
@@ -1759,6 +1758,7 @@ async function loadDynamic() {
             : decodeURIComponent(route.slice(7)),
         ),
     );
+  if(data?.collectionHidden && ui.profileView==="wishlist") ui.profileWishlist.excludeOwned=false;
   if (
     (current === "player" || current === "profile") &&
     data &&
@@ -1792,7 +1792,7 @@ async function loadDynamic() {
             (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
             (ui.profileCollection.tradeable ? "&tradeable=1" : "")
           : ui.profileView === "wishlist"
-            ? "&kind=" + encodeURIComponent(ui.profileWishlistKind || "both") + "&sort=" + encodeURIComponent(ui.profileWishlistSort)
+            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
             : ""),
     );
   if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
@@ -1937,10 +1937,10 @@ function render() {
     queryInput.classList.toggle("no-results", none);
     queryInput.setAttribute("aria-invalid", String(none));
   }
-  const profileCollectionInput = $("#profile-collection-search");
+  const profileCollectionInput = $("#profile-collection-search") || $("#profile-wishlist-search");
   if (
     profileCollectionInput &&
-    ui.profileCollection.query.trim() &&
+    (ui.profileView === "wishlist" ? ui.profileWishlist.query : ui.profileCollection.query).trim() &&
     ui.profileCardsData
   ) {
     const none = !ui.profileCardsData.rows?.length;
@@ -2203,9 +2203,9 @@ document.addEventListener("click", async (ev) => {
     ui.filters.role = "";
     ui.collectionFilters.role = "";
     ui.collectionPage = 1;
-    if (tab !== "character" && ui.catalogSort === "role")
+    if (tab !== "character" && ui.catalogSort.startsWith("role"))
       ui.catalogSort = "name";
-    if (tab !== "character" && ui.collectionSort === "role")
+    if (tab !== "character" && ui.collectionSort.startsWith("role"))
       ui.collectionSort = "name";
     catalogPageNumber = 1;
     await loadDynamic();
@@ -2445,7 +2445,7 @@ document.addEventListener("submit", async (ev) => {
       f,
     );
     if (result) {
-      ui.profileWishlistSort = "custom";
+      ui.profileWishlist.sort = "custom";
       ui.profileCardsPage = 1;
       wishlistDrag.cancel();
       wishlistEditor.close();
@@ -2689,31 +2689,33 @@ document.addEventListener("input", (ev) => {
     }, 350);
     return;
   }
-  if (ev.target.id === "profile-collection-search") {
+  if (["profile-collection-search","profile-wishlist-search"].includes(ev.target.id)) {
+    const view = ev.target.id.includes("wishlist") ? "wishlist" : "collection";
+    const filters = view === "wishlist" ? ui.profileWishlist : ui.profileCollection;
     ev.target.classList.remove("no-results");
     ev.target.setAttribute("aria-invalid", "false");
-    ui.profileCollection.query = ev.target.value;
+    filters.query = ev.target.value;
     ui.profileCardsPage = 1;
     ++loadVersion;
     clearTimeout(searchTimer);
-    const query = ui.profileCollection.query;
+    const query = filters.query;
     searchTimer = setTimeout(async () => {
       if (
         !(page() === "profile" || page() === "player") ||
-        ui.profileView !== "collection" ||
-        query !== ui.profileCollection.query
+        ui.profileView !== view ||
+        query !== filters.query
       )
         return;
       try {
         await loadDynamic();
         if (
           (page() === "profile" || page() === "player") &&
-          ui.profileView === "collection" &&
-          query === ui.profileCollection.query
+          ui.profileView === view &&
+          query === filters.query
         )
           render();
       } catch (err) {
-        if (query === ui.profileCollection.query) toast(err.message, true);
+        if (query === filters.query) toast(err.message, true);
       }
     }, 350);
     return;
@@ -3570,13 +3572,17 @@ async function handleFeatureClick(a, t) {
       );
       return true;
     }
+    if (a === "clear-profile-wishlist-filters") {
+      ui.profileWishlist={...ui.profileWishlist,kind:"both",query:"",rarity:"",role:"",sort:ui.profileWishlist.sort.startsWith("role")?"custom":ui.profileWishlist.sort,excludeOwned:false};
+      ui.profileCardsPage=1; await loadDynamic(); render(); return true;
+    }
     if (a === "profile-wishlist-kind") {
       const nextKind = t.dataset.kind;
       if (!["both", "character", "seiyuu"].includes(nextKind)) return true;
       wishlistDrag.cancel();
       wishlistEditor.close();
-      ui.profileWishlistKind = nextKind;
-      if (nextKind !== "character" && ui.profileWishlistSort === "role") ui.profileWishlistSort = "custom";
+      ui.profileWishlist.kind = nextKind;
+      if (nextKind !== "character") { ui.profileWishlist.role=""; if(ui.profileWishlist.sort.startsWith("role")) ui.profileWishlist.sort="custom"; }
       ui.profileCardsPage = 1;
       ui.profileCardsData = null;
       await loadDynamic();
@@ -3757,7 +3763,7 @@ async function handleFeatureClick(a, t) {
       ui.profileCollection.kind = t.dataset.kind || "both";
       if (ui.profileCollection.kind === "seiyuu") {
         ui.profileCollection.role = "";
-        if (ui.profileCollection.sort === "role")
+        if (ui.profileCollection.sort.startsWith("role"))
           ui.profileCollection.sort = "custom";
       }
       ui.profileCardsPage = 1;
@@ -4596,8 +4602,9 @@ document.addEventListener("change", (ev) => {
     quizUI.setFavoritesFirst(ev.target.checked);
     $("#quiz-favorites-first")?.focus();
   }
-  if (ev.target.id === "profile-wishlist-sort") {
-    ui.profileWishlistSort = ev.target.value;
+  if (["profile-wishlist-sort","profile-wishlist-rarity","profile-wishlist-role","profile-wishlist-exclude-owned"].includes(ev.target.id)) {
+    const field=ev.target.id.replace("profile-wishlist-", "");
+    ui.profileWishlist[field==="exclude-owned"?"excludeOwned":field]=ev.target.type==="checkbox"?ev.target.checked:ev.target.value;
     ui.profileCardsPage = 1;
     loadDynamic().then(render).catch((err) => toast(err.message, true));
   }

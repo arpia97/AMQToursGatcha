@@ -181,9 +181,9 @@ export function demoFeatures(d, path, b) {
       tradeableOnly = params.get("tradeable") === "1";
     let rows =
       id === me.id && view === "wishlist"
-        ? collectionView(s.wishlist.map((card, position) => ({ card, position, acquired_at: -position })),
+        ? collectionView(s.wishlist.map((card, position) => ({ card, position, acquired_at: s.wishlist.length-position })),
             (cid) => d.cards.find((c) => c.id === cid),
-            { kind: params.get("kind") || "both", sort: params.get("sort") || "custom" })
+            { kind: params.get("kind") || "both", sort: params.get("sort") || "custom", query:params.get("q")||"",rarity:params.get("rarity")||"",role:params.get("role")||"" })
             .map(({ c, acquired_at, position, ...row }) => row)
         : id === me.id && view === "collection"
           ? collectionView(
@@ -198,6 +198,12 @@ export function demoFeatures(d, path, b) {
               },
             ).map(({ c: _c, ...row }) => row)
           : [];
+    if(view==="wishlist" && params.get("excludeOwned")==="1") {
+      const owned=new Set(s.inventory.map(i=>i.card));
+      for(const row of [...(s.market||[]),...(s.auctions||[]),...(s.trades||[])])if(row.seller===id && (!row.status||row.status==="open")&&!row.paid)owned.add(row.card);
+      for(const row of s.tradeOffers||[])if(row.proposer===id&&row.status==="open")for(const c of row.cards||[row])owned.add(c.card);
+      rows=rows.filter(row=>!owned.has(row.card));
+    }
     if (wishlistOnly) {
       const wishSet = new Set(s.wishlist || []);
       rows = rows.filter((r) => wishSet.has(r.card));
@@ -900,9 +906,10 @@ export function demoFeatures(d, path, b) {
           l.seller_name || l.seller,
         ]),
       )
-      .sort((a, b) => b.id - a.id);
+      ;
+    const sorted=sortMarketItems(all,new Map(d.cards.map(c=>[c.id,c])),q.get("sort")||"newest");
     return {
-      items: all.slice((page - 1) * 12, page * 12).map((l) => ({
+      items: sorted.slice((page - 1) * 12, page * 12).map((l) => ({
         ...l,
         offer_count: s.tradeOffers.filter(
           (o) => o.listing === l.id && o.status === "open",

@@ -1,3 +1,4 @@
+import { cardComparator } from "./card-display.js";
 import { readApiResponse } from "./api-response.js";
 import { validateAvatarCrop } from "./avatar-crop.js";
 import { searchMatcher, cardSearchText } from "./search.js";
@@ -191,8 +192,8 @@ export class Demo {
         page = Number(p.get("page") || 1);
       const cards = s.catalog.filter(
         (c) =>
-          (kind === "both" || c.kind === kind) && matches(cardSearchText(c)),
-      );
+          (kind === "both" || c.kind === kind) && matches(cardSearchText(c)) && (!p.get("rarity") || (c.rarity||"Pending")===p.get("rarity")) && (kind!=="character" || !p.get("role") || c.role===p.get("role")),
+      ).sort(cardComparator(p.get("sort")||"name"));
       return {
         cards: cards.slice((page - 1) * 40, page * 40),
         page,

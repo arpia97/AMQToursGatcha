@@ -660,8 +660,11 @@ export function createQuizUI({
         ? '<label class="quiz-sort-control">Sort By<select id="quiz-sort">' +
           [
             ["recent", "Recently Updated"],
+            ["recent-oldest", "Oldest Updated"],
             ["name", "Alphabetical · A–Z"],
+            ["name-desc", "Alphabetical · Z–A"],
             ["unplayed", "Unplayed First"],
+            ["played", "Played First"],
             ["pool-desc", "Song Pool · Largest First"],
             ["pool-asc", "Song Pool · Smallest First"],
             ["best-desc", "Performance · Highest First"],
@@ -725,13 +728,16 @@ export function createQuizUI({
                 if (favoritesFirst && !!a.favorited !== !!b.favorited)
                   return Number(!!b.favorited) - Number(!!a.favorited);
                 switch (quizSort) {
+                  case "recent-oldest": return (a.updated||0)-(b.updated||0);
+                  case "name-desc":
                   case "name":
-                    return a.name.localeCompare(b.name, "en", {
+                    return (quizSort === "name-desc" ? -1 : 1) * a.name.localeCompare(b.name, "en", {
                       sensitivity: "base",
                       numeric: true,
                     });
+                  case "played":
                   case "unplayed":
-                    return Number(!!a.played) - Number(!!b.played);
+                    return (Number(!!a.played) - Number(!!b.played)) * (quizSort === "played" ? -1 : 1);
                   case "pool-desc":
                     return b.songs - a.songs;
                   case "pool-asc":
@@ -1513,9 +1519,9 @@ export function createQuizUI({
     setSort(value) {
       if (
         ![
-          "recent",
-          "name",
-          "unplayed",
+          "recent", "recent-oldest",
+          "name", "name-desc",
+          "unplayed", "played",
           "pool-desc",
           "pool-asc",
           "best-desc",

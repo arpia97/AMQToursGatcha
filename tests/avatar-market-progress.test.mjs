@@ -137,6 +137,10 @@ test("market sorts globally before paging, uses only listed metadata, and keeps 
   listings(f);
   const e = f.e;
   const before = e.one("SELECT count(*) n FROM ledger").n;
+  assert.equal(e.economy.market("shop","both",1,{sort:"level-low"}).items[0].level,1);
+  assert.equal(e.economy.market("shop","both",1,{sort:"level"}).items[0].level,6);
+  assert.equal(e.economy.market("shop","both",1,{sort:"oldest"}).items[0].id,1);
+  assert.ok(e.economy.market("shop","both",1,{sort:"name-desc"}).items.length);
   const pool = e.catalogStore.pool;
   e.catalogStore.pool = () => {
     throw Error("Full catalogue scan");

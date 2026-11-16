@@ -33,7 +33,7 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
  engine.mutate('offerer:pack-autosell-cancel','retry',{sale:sale.autoSoldId},cancel);
  this.cancelProof={debited:before-engine.player('offerer').balance,price:sale.autoSoldPrice,restored:engine.one("SELECT copies FROM inventory WHERE player='offerer' AND card='p1'").copies-copies,cancelled:engine.one('SELECT cancelled FROM pack_auto_sales WHERE id=?',sale.autoSoldId).cancelled};}
 
- async fetch(){try{return Response.json({cancelProof:this.cancelProof,profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
+ async fetch(){try{return Response.json({missingWishlist:this.e.economy.wishlist.page("offerer","wishlist",1,{excludeOwned:true,viewer:"offerer"}).total,cancelProof:this.cancelProof,profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
  export default {fetch(request,env){return env.GAME.getByName('isolated-profile').fetch(request);}};
  `,
     },
@@ -81,6 +81,7 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
     data = await response.json();
   assert.equal(response.status, 200, JSON.stringify(data));
   assert.equal(data.profile.id, "offerer");
+  assert.equal(data.missingWishlist,0);
   assert.deepEqual(data.cancelProof, { debited:25, price:25, restored:1, cancelled:1 });
   assert.equal(data.profile.showcase_slots,1000);
   assert.equal(data.profile.completion.character.owned, 2);

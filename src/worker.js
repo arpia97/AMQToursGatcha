@@ -1543,6 +1543,7 @@ export class Game extends DurableObject {
           sort: url.searchParams.get("sort") || "custom",
           wishlist: url.searchParams.get("wishlist") === "1",
           tradeable: url.searchParams.get("tradeable") === "1",
+          excludeOwned: url.searchParams.get("excludeOwned") === "1",
           viewer: session?.player,
         },
       );

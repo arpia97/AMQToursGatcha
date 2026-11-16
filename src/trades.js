@@ -404,7 +404,7 @@ export class Trades {
     const activeKind = ["character", "seiyuu"].includes(kind) ? kind : "both";
     const activeRarity = [...RARITIES, "Pending"].includes(rarity) ? rarity : "";
     const activeRole = activeKind === "character" && role ? String(role).slice(0, 60) : "";
-    const activeSort = ["newest", "rarity", "level", "name"].includes(sort)
+    const activeSort = ["newest", "oldest", "rarity", "rarity-low", "level", "level-low", "name", "name-desc"].includes(sort)
       ? sort
       : "newest";
     let where =
@@ -471,14 +471,15 @@ export class Trades {
         cursor = batch.at(-1).id;
       }
       if (needSorted) {
-        const rarityCmp = cardComparator("rarity"),
-          nameCmp = cardComparator("name");
+        const rarityCmp = cardComparator(activeSort.startsWith("rarity")?activeSort:"rarity"),
+          nameCmp = cardComparator(activeSort);
         filtered.sort((a, b) => {
-          if (activeSort === "rarity")
+          if (activeSort === "oldest") return a.l.id-b.l.id;
+          if (activeSort.startsWith("rarity"))
             return rarityCmp(a.c || {}, b.c || {}) || b.l.id - a.l.id;
-          if (activeSort === "level")
+          if (activeSort.startsWith("level"))
             return (
-              b.l.level - a.l.level ||
+              (b.l.level - a.l.level) * (activeSort === "level-low" ? -1 : 1) ||
               rarityCmp(a.c || {}, b.c || {}) ||
               b.l.id - a.l.id
             );

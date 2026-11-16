@@ -64,6 +64,12 @@ test("rarity, natural alphabetical and enhancement sorts include both card types
   assert.deepEqual(editor.payload("p").cards, ["c", "b", "a", "d"]);
   editor.sortBy("level");
   assert.deepEqual(editor.payload("p").cards, ["c", "a", "b", "d"]);
+  editor.sortBy("rarity-low");
+  assert.deepEqual(editor.payload("p").cards,["a","c","b","d"]);
+  editor.sortBy("level-low");
+  assert.deepEqual(editor.payload("p").cards,["d","b","a","c"]);
+  editor.sortBy("name-desc");
+  assert.deepEqual(editor.payload("p").cards,["a","b","c","d"]);
   editor.sortBy("name");
   assert.deepEqual(editor.payload("p").cards, ["d", "c", "b", "a"]);
   editor.sortBy("invalid");

@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Wishlist Toolbar and Bidirectional Sorts
+
+November16. Codex owns integration/deployment on main, baseb5694da. Scope: shared profile card filters/Wishlist search, rarity, role and Exclude Owned; server filtering/pagination/privacy; opposite numeric/date/name/role sort choices across Gacha browsing and order editors, with demo parity and focused checks. Exclude Owned uses the wishlist profile owner’s inventory/escrow, while private ownership stays hidden. Preserve wallets/cards/receipts and existing order; all QA mutations local only. No concurrent work claimed.
+
+Implementation complete locally. Shared Collection/Wishlist toolbar uses the same responsive controls, search debounce/caret retention, combined filters and empty-state styling. Exclude Owned checks inventory and marketplace/auction/trade/offer holds plus unclaimed auction wins; private foreign ownership remains hidden and exclusion is rejected. Reverse sorts are wired through server validation, global ordering before pagination, browser demos, card order editors and quiz browsing. Existing saved orders and production records are preserved.
+
+Validation: all519 existing tests pass with focused cases extended (no additional test count), including actual Workers SQLite for nested escrow exclusion. Disposable SQLite/full-browser checks at1440/390 verify aligned toolbar controls, combined filtering across30-card pagination, search caret, role reset, exclusion of all owned/held variants, public wishlist/private ownership protection, reverse order editing and Collection/Catalogue/Shop/Trades/Quiz dropdowns. Inventory/balance unchanged; no page errors or overflow. Evidence: surrounding work/wishlist-toolbar-browser-proof.json, wishlist-toolbar-{1440,390}.png and wishlist-toolbar-tests.log. All249 JavaScript syntax checks, Wrangler dry-run build and diff checks also pass. Release verification pending.
+
 ## Completed — Working-title Popups, Last Pachinko Game, Quiz-name Automod and Approved Pulse
 
 November16. Codex owns integration/deployment on main, baseea4e7ef. Scope: public quiz tooltip/songlist, Pachinko selection preference, host duplicate-name warning and focused existing tests/docs. Preserve gameplay, wallet, scores, quiz import semantics and other pending design choices. No backend/economy/schema changes intended; QA uses local fixtures only. No concurrent work claimed. User also approved Pulse, the third quiz-favorite design, during this task.

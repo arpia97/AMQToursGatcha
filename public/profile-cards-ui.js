@@ -1,4 +1,5 @@
 import { collectorsButton } from "./card-collectors.js";
+import { reverseCardSortOptions } from "./card-display.js";
 import { RARITIES } from "./card-values.js";
 export function wishlistButton(card, wishlist, e) {
   const wanted = wishlist.includes(card.id);
@@ -41,8 +42,9 @@ export function profileCardTabs(view, friendControl = "") {
 function profileCollectionControls(
   filters = {},
   e,
-  { own = false, canWishlist = false } = {},
+  { own = false, canWishlist = false, view = "collection", ownershipHidden = false } = {},
 ) {
+  const isWishlist = view === "wishlist";
   const kind = ["character", "seiyuu", "both"].includes(filters.kind)
       ? filters.kind
       : "both",
@@ -50,17 +52,16 @@ function profileCollectionControls(
     rarity = filters.rarity || "",
     role = kind === "character" ? filters.role || "" : "",
     sort = filters.sort || "custom";
-  const sorts = [
+  const sorts = reverseCardSortOptions([
     ["custom", "Custom Order"],
-    ["collected", "Collection Date · Newest"],
+    ["collected", isWishlist ? "Date Added · Newest" : "Collection Date · Newest"],
     ["rarity", "Rarity · Highest First"],
-    ["level", "Enhancement · Highest First"],
-    ["copies", "Most Copies"],
+    ...(!isWishlist ? [["level", "Enhancement · Highest First"], ["copies", "Most Copies"]] : []),
     ["name", "Alphabetical · A–Z"],
     ["name-desc", "Alphabetical · Z–A"],
     ...(kind === "character" ? [["role", "Role · Main First"]] : []),
-  ];
-  return (
+  ]);
+  const html = (
     '<div class="filters collection-toolbar-main profile-collection-toolbar"><div class="tabs profile-collection-tabs" role="group" aria-label="Collection Card Type">' +
     [
       ["character", "Characters"],
@@ -117,26 +118,31 @@ function profileCollectionControls(
         ">Supporting</option></select></label>"
       : "") +
     '<div class="collection-checkboxes" role="group" aria-label="Collection Filters">' +
-    (!own && canWishlist
+    (!isWishlist && !own && canWishlist
       ? '<label class="check-label profile-collection-wishlist-toggle"><input type="checkbox" id="profile-collection-wishlist" ' +
         (filters.wishlist ? "checked" : "") +
         "> My Wishlist Only</label>"
       : "") +
-    '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" ' +
-    (filters.tradeable ? "checked" : "") +
-    "> Tradeable Only</label></div>" +
+    (isWishlist
+      ? '<label class="check-label"><input type="checkbox" id="profile-collection-exclude-owned" '+(filters.excludeOwned ? 'checked' : '')+' '+(ownershipHidden ? 'disabled title="This collection is private"' : '')+'> Exclude Owned</label></div>'
+      : '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="profile-collection-tradeable" '+(filters.tradeable ? 'checked' : '')+'> Tradeable Only</label></div>') +
     '<button type="button" class="text-button" data-action="clear-profile-collection-filters">Clear Filters</button></div></div>'
   );
+  return isWishlist ? html.replaceAll('id="profile-collection-', 'id="profile-wishlist-')
+    .replaceAll('data-action="profile-collection-kind"', 'data-action="profile-wishlist-kind"')
+    .replaceAll('data-action="clear-profile-collection-filters"', 'data-action="clear-profile-wishlist-filters"')
+    .replaceAll('Collection Filters', 'Wishlist Filters').replaceAll('Search Collection', 'Search Wishlist').replaceAll('Collection Card Type', 'Wishlist Card Type') : html;
 }
 export function profileCardPanel(
   data,
-  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters, wishlistSort = "custom" },
+  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters, wishlistFilters = {} },
 ) {
   if (!data) return '<p class="notice">Loading Cards…</p>';
   if (data.hidden && data.view === "collection") {
     return '<section class="profile-card-panel"><div class="section-head"><h2>Collection</h2></div><p class="notice">This collector’s collection is private.</p></section>';
   }
   const wishKind = data.kind || "both";
+  const filteredWishlist = wishlistFilters.query?.trim() || wishlistFilters.rarity || wishlistFilters.role || wishlistFilters.excludeOwned;
   const tiles = data.rows
     .map((row) => {
       const c = cardBy(row.card);
@@ -177,29 +183,6 @@ export function profileCardPanel(
     })
     .join("");
   const totalOwned = data.total ?? data.rows.length;
-  const wishlistKindTabs =
-    data.view === "wishlist"
-      ? '<div class="tabs profile-wishlist-kind" role="group" aria-label="Wishlist card type">' +
-        [
-          ["both", "All Cards"],
-          ["character", "Characters"],
-          ["seiyuu", "Seiyuus"],
-        ]
-          .map(
-            ([value, text]) =>
-              '<button type="button" class="button ' +
-              (wishKind === value ? "mint" : "secondary") +
-              '" data-action="profile-wishlist-kind" data-kind="' +
-              value +
-              '" aria-pressed="' +
-              (wishKind === value) +
-              '">' +
-              text +
-              "</button>",
-          )
-          .join("") +
-        "</div>"
-      : "";
   return (
     '<section class="profile-card-panel"><div class="section-head' +
     (data.view === "wishlist" ? " profile-wishlist-header" : "") +
@@ -216,12 +199,7 @@ export function profileCardPanel(
         ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
         : "") +
     "</div>" +
-    (data.view === "wishlist" ? '<div class="profile-wishlist-toolbar">' + wishlistKindTabs + '<div class="catalog-refinements sort-control profile-wishlist-sort"><label>Sort By<select id="profile-wishlist-sort">' +
-      [["custom", "Custom Order"], ["collected", "Date Added · Newest"], ["rarity", "Rarity · Highest First"],
-       ["name", "Alphabetical · A–Z"], ["name-desc", "Alphabetical · Z–A"],
-       ...(wishKind === "character" ? [["role", "Role · Main First"]] : [])]
-        .map(([id, label]) => '<option value="' + id + '"' + (wishlistSort === id ? ' selected' : '') + '>' + label + '</option>').join('') +
-      '</select></label></div></div>' : '') +
+    (data.view === "wishlist" ? profileCollectionControls({...wishlistFilters,kind:wishKind},e,{view:"wishlist",ownershipHidden:data.ownershipHidden}) : '') +
     (data.view === "collection"
       ? profileCollectionControls(collectionFilters, e, {
           own,
@@ -232,7 +210,7 @@ export function profileCardPanel(
       ? '<div class="card-grid">' + tiles + "</div>"
       : '<p class="notice">' +
         (data.view === "wishlist"
-          ? wishKind === "both"
+          ? filteredWishlist ? "No Matching Wishlisted Cards." : wishKind === "both"
             ? "No wishlisted cards yet."
             : wishKind === "seiyuu"
               ? "No wishlisted seiyuus yet."

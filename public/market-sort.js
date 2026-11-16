@@ -1,5 +1,5 @@
-import { rarityRank } from "./card-display.js";
-export const MARKET_SORTS = [
+import { rarityRank, cardComparator, reverseCardSortOptions } from "./card-display.js";
+export const MARKET_SORTS = reverseCardSortOptions([
   ["newest", "Newest First"],
   ["oldest", "Oldest First"],
   ["rarity", "Rarity · Highest First"],
@@ -7,10 +7,10 @@ export const MARKET_SORTS = [
   ["wishlist", "My Wishlist First"],
   ["price-low", "Price · Lowest First"],
   ["price-high", "Price · Highest First"],
-  ["level", "Enhancement Level"],
+  ["level", "Enhancement · Highest First"],
   ["name", "Name · A–Z"],
   ["ending", "Ending Soon"],
-];
+]);
 export function marketSortControl(
   sort = "newest",
   wishlistOnly = false,
@@ -44,7 +44,7 @@ export function marketSortControl(
     '"><label>Sort By<select id="market-sort" aria-label="Sort player ' +
     (auction ? "auctions" : "marketplace") +
     '">' +
-    MARKET_SORTS.filter(([v]) => auction || v !== "ending")
+    MARKET_SORTS.filter(([v]) => auction || !v.startsWith("ending"))
       .map(
         ([v, label]) =>
           '<option value="' +
@@ -76,22 +76,22 @@ export function sortMarketItems(rows, cards, sort) {
         : sort === "rarity"
           ? rank(a) - rank(b)
           : sort === "rarity-low"
-            ? rank(b) - rank(a)
+            ? cardComparator("rarity-low")(cards.get(a.card)||{},cards.get(b.card)||{})
             : sort === "wishlist"
               ? Number(b.is_wishlisted) - Number(a.is_wishlisted)
               : sort === "price-low"
                 ? price(a) - price(b)
                 : sort === "price-high"
                   ? price(b) - price(a)
-                  : sort === "level"
-                    ? b.level - a.level
-                    : sort === "name"
-                      ? String(cards.get(a.card)?.name || "").localeCompare(
+                  : sort === "level" || sort === "level-low"
+                    ? (b.level - a.level) * (sort === "level-low" ? -1 : 1)
+                    : sort === "name" || sort === "name-desc"
+                      ? (sort === "name-desc" ? -1 : 1) * String(cards.get(a.card)?.name || "").localeCompare(
                           String(cards.get(b.card)?.name || ""),
                           "en",
                         )
-                      : sort === "ending"
-                        ? a.ends - b.ends
+                      : sort === "ending" || sort === "ending-last"
+                        ? (a.ends - b.ends) * (sort === "ending-last" ? -1 : 1)
                         : b.id - a.id;
     return d || b.id - a.id;
   });

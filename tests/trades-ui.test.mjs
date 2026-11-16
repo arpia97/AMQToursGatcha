@@ -52,11 +52,11 @@ function fixture() {
 test("trade picker includes both types, excludes protection, searches and selects spare or enhanced base explicitly", () => {
   const { component: c } = fixture();
   c.openPicker();
-  assert.match(c.renderPicker(), /Alpha/);
+  assert.match(c.renderPicker(), /<strong>Alpha<\/strong>/);
   assert.match(c.renderPicker(), /&lt;Voice&gt;/);
   assert.doesNotMatch(c.renderPicker(), />Protected</);
   c.filter("kind", "seiyuu");
-  assert.doesNotMatch(c.renderPicker(), /Alpha/);
+  assert.doesNotMatch(c.renderPicker(), /<strong>Alpha<\/strong>/);
   c.filter("query", "missing");
   assert.match(c.renderPicker(), /No Available Cards/);
   c.choose("a");

@@ -1,3 +1,4 @@
+import { reverseCardSortOptions } from "./card-display.js";
 import { routeHref } from "./site-navigation.js";
 import { MAX_SPOTLIGHTS, FREE_SPOTLIGHTS } from "./site-defaults.js";
 import { marketSortControl } from "./market-sort.js";
@@ -55,11 +56,11 @@ export function createFeatures(h, ui) {
       choices.push(
         ["custom", "Custom order"],
         ["collected", "Collection date · newest"],
-        ["level", "Enhancement level"],
+        ["level", "Enhancement · Highest First"],
         ["copies", "Most copies"],
       );
     else choices.push(["newest", "MAL ID · newest first"]);
-    return `<div class="catalog-refinements sort-control"><label>Sort by<select id="${context}-sort">${choices.map(([id, label]) => `<option value="${id}" ${value === id ? "selected" : ""}>${label}</option>`).join("")}</select></label>${collection && value === "collected" ? '<span class="form-hint">Dates are recorded from this update; older cards appear last.</span>' : ""}</div>`;
+    return `<div class="catalog-refinements sort-control"><label>Sort by<select id="${context}-sort">${reverseCardSortOptions(choices).map(([id, label]) => `<option value="${id}" ${value === id ? "selected" : ""}>${label}</option>`).join("")}</select></label>${collection && value === "collected" ? '<span class="form-hint">Dates are recorded from this update; older cards appear last.</span>' : ""}</div>`;
   }
   function filters(context = "catalog") {
     const collection = context === "collection",

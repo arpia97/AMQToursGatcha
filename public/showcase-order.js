@@ -1,3 +1,4 @@
+import { collectionView, reverseCardSortOptions } from "./card-display.js";
 import { RARITIES } from "./card-values.js";
 import { cardSurface } from "./card-surface.js";
 export const CARD_ORDER_PAGE_SIZE = 24;
@@ -71,43 +72,17 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
     }
     return true;
   }
-  function compareCards(a, b) {
-    const first = cardBy(a),
-      second = cardBy(b);
-    return (
-      (sort === "rarity"
-        ? RARITIES.indexOf(second.rarity) - RARITIES.indexOf(first.rarity)
-        : sort === "level"
-          ? (items.get(b)?.level || 1) - (items.get(a)?.level || 1)
-          : sort === "copies"
-            ? (items.get(b)?.copies || 1) - (items.get(a)?.copies || 1)
-            : sort === "collected"
-              ? (items.get(b)?.acquired_at || 0) -
-                (items.get(a)?.acquired_at || 0)
-              : 0) ||
-      first.name.localeCompare(second.name, "en", {
-        numeric: true,
-        sensitivity: "base",
-      })
-    );
-  }
+  const sortedCards = ids => collectionView(ids.map(card=>({...items.get(card),card})),cardBy,{sort}).map(item=>item.card);
   function sortBy(value) {
-    const allowed = [
-      "custom",
-      "original",
-      "rarity",
-      "name",
-      "level",
-      ...(mode === "collection" ? ["copies", "collected"] : []),
-    ];
+    const allowed = ["custom","original","rarity","rarity-low","name","name-desc","level","level-low",...(mode==="collection"?["copies","copies-low","collected","collected-oldest"]:[])];
     if (!allowed.includes(value)) return;
     sort = value;
     if (sort === "original") order = [...original];
     else if (sort !== "custom") {
       const visible = visibleOrder();
-      if (visible.length === order.length) order.sort(compareCards);
+      if (visible.length === order.length) order = sortedCards(order);
       else {
-        const subset = [...visible].sort(compareCards),
+        const subset = sortedCards(visible),
           set = new Set(visible);
         let idx = 0;
         order = order.map((id) => (set.has(id) ? subset[idx++] : id));
@@ -166,7 +141,7 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
       '" ' +
       (page >= pages() ? "disabled" : "") +
       ' title="Drop a card here to move it to the next page">Next →</button></div>';
-    const sorts = [
+    const sorts = reverseCardSortOptions([
       ["custom", "Custom Order"],
       ["rarity", "Rarity · Highest First"],
       ["name", "Name · A–Z"],
@@ -180,7 +155,7 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
           ]
         : []),
       ["original", "Restore Saved Order"],
-    ];
+    ]);
     const filterControls =
       mode === "collection"
         ? '<div class="collection-arrange-filters"><div class="tabs profile-collection-tabs" role="group" aria-label="Collection Card Type">' +

@@ -1,5 +1,5 @@
 import { fail, integer, text } from "./engine.js";
-import { collectionView } from "../public/card-display.js";
+import { collectionView, WISHLIST_SORTS, COLLECTION_SORTS } from "../public/card-display.js";
 import { MAX_WISHLIST } from "../public/site-defaults.js";
 export { MAX_WISHLIST };
 export class Wishlist {
@@ -227,9 +227,11 @@ export class Wishlist {
     id = e.resolvePlayer(text(id, 100));
     const owner = e.player(id);
     integer(page, 1, 10000);
-    let rows, total, wishlistKind;
+    let rows, total, wishlistKind, ownershipHidden;
     if (view === "wishlist") {
       const ownershipVisible = !owner.private_collection || options.viewer === id;
+      ownershipHidden = !ownershipVisible;
+      if(options.excludeOwned && !ownershipVisible) fail("This collection is private.",403);
       const ownershipColumn = ownershipVisible ? "COALESCE(i.protected,0)" : "NULL";
       const ownershipJoin = ownershipVisible
         ? "LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card"
@@ -237,21 +239,32 @@ export class Wishlist {
       wishlistKind = ["both", "character", "seiyuu"].includes(options.kind)
         ? options.kind
         : "both";
-      const sort = ["custom", "collected", "rarity", "name", "name-desc", "role"].includes(options.sort)
+      const sort = WISHLIST_SORTS.includes(options.sort)
         ? options.sort : "custom";
-      if (wishlistKind === "both" && sort === "custom") {
+      const query=String(options.query||"").slice(0,100), rarity=String(options.rarity||""), role=wishlistKind==="character"?String(options.role||""):"";
+      if (wishlistKind === "both" && sort === "custom" && !query.trim() && !rarity && !role && !options.excludeOwned) {
         rows = e.all(
           `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?`,
           id, (page - 1) * 24,
         );
         total = e.one("SELECT count(*) AS n FROM card_wishlist WHERE player=?", id).n;
       } else {
-        const allWish = e.all(
+        let allWish = e.all(
           `SELECT w.card,w.created,w.position,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=?`, id,
         );
+        if(options.excludeOwned) {
+          const owned=new Set(e.all(`SELECT card FROM (
+            SELECT card FROM inventory WHERE player=? AND copies>0
+            UNION SELECT card FROM market_listings WHERE seller=? AND status='open'
+            UNION SELECT card FROM auctions WHERE seller=? AND paid=0
+            UNION SELECT card FROM trade_listings WHERE seller=? AND status='open'
+            UNION SELECT COALESCE(c.card,o.card) FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'
+          ) UNION SELECT card FROM auctions WHERE winner=? AND claimed=0 AND ends<=?`,id,id,id,id,id,id,e.now()).map(r=>r.card));
+          allWish=allWish.filter(w=>!owned.has(w.card));
+        }
         const cardMap = new Map(e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]));
         const sorted = collectionView(allWish.map((w) => ({ ...w, acquired_at: w.created })),
-          (cid) => cardMap.get(cid), { kind: wishlistKind, sort });
+          (cid) => cardMap.get(cid), { kind: wishlistKind, sort, query, rarity, role });
         total = sorted.length;
         rows = sorted.slice((page - 1) * 24, page * 24 + 1)
           .map(({ c, acquired_at, position, ...w }) => w);
@@ -275,16 +288,7 @@ export class Wishlist {
         query = String(options.query || "").slice(0, 100),
         rarity = String(options.rarity || ""),
         role = kind === "character" ? String(options.role || "") : "",
-        sort = [
-          "custom",
-          "collected",
-          "rarity",
-          "level",
-          "copies",
-          "name",
-          "name-desc",
-          "role",
-        ].includes(options.sort)
+        sort = COLLECTION_SORTS.includes(options.sort)
           ? options.sort
           : "custom";
       let allRows = this.readCollection(id);
@@ -364,7 +368,7 @@ export class Wishlist {
       player: id,
       view,
       page,
-      ...(wishlistKind !== undefined ? { kind: wishlistKind } : {}),
+      ...(wishlistKind !== undefined ? { kind: wishlistKind, ownershipHidden } : {}),
       ...(total !== undefined ? { total } : {}),
       hasMore: rows.length > 24,
       rows: visible.map((row) => ({

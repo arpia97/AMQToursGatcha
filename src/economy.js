@@ -856,7 +856,7 @@ export class Economy {
       !["shop", "auction"].includes(venue) ||
       !["character", "seiyuu", "both"].includes(kind) ||
       !MARKET_SORTS.some(([v]) => v === sort) ||
-      (venue === "shop" && sort === "ending")
+      (venue === "shop" && sort.startsWith("ending"))
     )
       fail("Unknown marketplace filter.");
     if ((sort === "wishlist" || wishlistOnly) && !player)
@@ -898,10 +898,12 @@ export class Economy {
       "price-low": price + " ASC," + alias + ".id DESC",
       "price-high": price + " DESC," + alias + ".id DESC",
       level: alias + ".level DESC," + alias + ".id DESC",
+      "level-low": alias + ".level ASC," + alias + ".id DESC",
       ending: "a.ends ASC,a.id DESC",
+      "ending-last": "a.ends DESC,a.id DESC",
     };
     let rows, metadata;
-    if (queryText || ["rarity", "rarity-low", "name"].includes(sort)) {
+    if (queryText || ["rarity", "rarity-low", "name", "name-desc"].includes(sort)) {
       // Resolve only listed card IDs, never the full catalogue, before paging.
       rows = e.all(query, ...args);
       metadata = new Map(

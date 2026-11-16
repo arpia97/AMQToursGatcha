@@ -491,6 +491,12 @@ test("trade search matches card names in either order, anime and sellers before 
   const unfiltered = e.economy.trades.page(null);
   assert.equal(unfiltered.items[0].id, 130);
   assert.equal(unfiltered.query, "");
+  assert.equal(e.economy.trades.page(null,{sort:"oldest"}).items[0].id,1);
+  assert.equal(e.economy.trades.page(null,{sort:"name-desc"}).items[0].card,"one");
+  e.run("UPDATE trade_listings SET level=6 WHERE id=130");
+  assert.equal(e.economy.trades.page(null,{sort:"level"}).items[0].id,130);
+  assert.equal(e.economy.trades.page(null,{sort:"level-low"}).items[0].level,1);
+
 });
 test("trade search keeps account scopes and private offers intact and never changes cards or credits", (t) => {
   const { e, card, list, offer } = fixture(t);

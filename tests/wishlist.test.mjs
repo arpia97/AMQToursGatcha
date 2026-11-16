@@ -677,6 +677,8 @@ test("wishlist sorts the complete saved set before paging and preserves private 
   e.catalogStore.invalidate();
   const page=(sort,kind="both",number=1)=>e.economy.wishlist.page("p","wishlist",number,{sort,kind,viewer:"q"});
   assert.equal(page("collected").rows[0].card,"community-c29");
+  assert.equal(page("collected-oldest").rows[0].card,"community-c0");
+  assert.equal(page("rarity-low").rows[0].card,"community-c0");
   assert.equal(page("rarity").rows[0].card,"community-c29");
   assert.equal(page("name-desc").rows[0].card,"community-c29");
   assert.equal(page("name").rows[0].card,"community-c0");
@@ -684,8 +686,27 @@ test("wishlist sorts the complete saved set before paging and preserves private 
   assert.equal(page("name","character").total,15);
   assert.equal(page("collected","character").rows[0].card,"community-c28");
   e.addCard("p","community-c29");e.run("UPDATE inventory SET protected=1 WHERE player='p' AND card='community-c29'");
+  for(let i=0;i<5;i++)e.addCard("p","community-c"+i);
+  act("p","list-card",{card:"community-c1",variant:"card",venue:"shop",price:100});
+  act("p","trade-list",{card:"community-c2",variant:"card",expectedLevel:1});
+  act("p","list-card",{card:"community-c3",variant:"card",venue:"auction",price:100,hours:1});
+  e.addCard("q","community-c6");const listing=act("q","trade-list",{card:"community-c6",variant:"card",expectedLevel:1}).listing;
+  act("p","trade-offer",{listing,cards:[{card:"community-c4",variant:"card",expectedLevel:1}]});
+  e.run("INSERT INTO auctions(card,kind,starts,ends,winner,bid,closed,paid) VALUES('community-c5','seiyuu',0,1,'p',1,1,1)");
+  const saved=JSON.stringify(e.all("SELECT * FROM inventory ORDER BY player,card")),balance=e.player("p").balance;
+  const missing=viewer=>e.economy.wishlist.page("p","wishlist",1,{excludeOwned:true,sort:"name",viewer});
+  assert.equal(missing("q").total,23);assert.equal(missing("q").hasMore,false);
+  assert.ok(missing("q").rows.every(r=>!['0','1','2','3','4','5','29'].some(i=>r.card==='community-c'+i)));
+  const filtered=e.economy.wishlist.page("p","wishlist",1,{excludeOwned:true,kind:"seiyuu",query:"Card 2",rarity:"D",viewer:"q"});
+  assert.deepEqual(filtered.rows.map(r=>r.card).sort(),['community-c21','community-c23','community-c25','community-c27']);
   e.run("UPDATE players SET private_collection=1 WHERE id='p'");
   assert.equal(page("rarity").rows[0].protected,null);
   assert.equal(e.economy.wishlist.page("p","wishlist",1,{sort:"rarity",viewer:"p"}).rows[0].protected,1);
   assert.equal(page("custom").rows[0].card,"community-c29");
+  assert.throws(()=>missing("q"),e=>e.status===403);
+  assert.throws(()=>missing(null),e=>e.status===403);
+  assert.equal(missing("p").total,23);
+  assert.equal(page("custom").ownershipHidden,true);
+  assert.equal(JSON.stringify(e.all("SELECT * FROM inventory ORDER BY player,card")),saved);assert.equal(e.player("p").balance,balance);
+
 });

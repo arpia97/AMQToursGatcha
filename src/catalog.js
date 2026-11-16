@@ -2,7 +2,7 @@ import { catalogProgress } from "../public/catalog-progress.js";
 import { fail, integer, text } from "./engine.js";
 import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
 import { Popularity } from "./popularity.js";
-import { cardComparator } from "../public/card-display.js";
+import { cardComparator, CATALOG_SORTS } from "../public/card-display.js";
 import { searchMatcher } from "../public/search.js";
 import { searchSql } from "./search.js";
 
@@ -550,10 +550,10 @@ export class Catalog {
   sortedPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
     if (
-      !["name", "name-desc", "rarity", "role", "favorites", "newest"].includes(
+      !CATALOG_SORTS.includes(
         filters.sort,
       ) ||
-      (kind !== "character" && filters.sort === "role")
+      (kind !== "character" && filters.sort.startsWith("role"))
     )
       fail("Choose a valid catalogue sort.");
     const q = String(query).trim().toLowerCase().slice(0, 100);

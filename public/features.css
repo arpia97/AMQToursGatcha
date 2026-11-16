@@ -2982,13 +2982,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-working-titles { padding:0; min-height:0; background:none; border:0; color:inherit; font:inherit; text-align:left; cursor:help; text-decoration:underline dotted #ffffff40; text-underline-offset:3px; }
 .quiz-working-titles:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
 .detail-popover { position:fixed; z-index:200; max-width:min(460px,calc(100vw - 24px)); max-height:min(320px,calc(100dvh - 24px)); overflow:auto; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#171922; color:var(--text); font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; box-shadow:0 3px 12px #0008; }
-.profile-wishlist-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-.profile-wishlist-sort { display: flex; justify-content: flex-end; margin: 0; }
-.profile-wishlist-sort select { min-width: 200px; }
 @media (max-width: 600px) {
   .quiz-favorites-filter { min-height: 40px; }
-  .profile-wishlist-toolbar > .profile-wishlist-sort { width: 100%; }
-  .profile-wishlist-sort label, .profile-wishlist-sort select { width: 100%; min-width: 0; }
 }
 .quiz-tile > img,
 .quiz-cover-placeholder {
@@ -5640,7 +5635,7 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .pack-autosell-tag { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600; background: #dfbc871f; color: #f0d096; border: 1px solid #dfbc8740; }
 .quiz-hotkey-hints { margin-top: 12px; line-height: 1.8; }
 .quiz-hotkey-hints kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); background: #ffffff0a; font-size: 11px; font-family: inherit; }
-.profile-wishlist-kind, .trade-kind-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.trade-kind-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 .profile-wishlist-header {
   display: flex;
   align-items: center;

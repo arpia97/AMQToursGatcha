@@ -3,6 +3,7 @@ import { levelLabel, RARITIES } from "./card-values.js";
 import { collectorsButton } from "./card-collectors.js";
 import { wishlistButton } from "./profile-cards-ui.js";
 import {
+  reverseCardSortOptions,
   collectionView,
   collectionPage,
 } from "./card-display.js";
@@ -83,7 +84,7 @@ export function createTradesUI(h, ui) {
             kind === id ? "mint" : "secondary",
           ),
         )
-        .join("")}</div><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<select id="trade-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select>${kind === "character" ? `<select id="trade-role" aria-label="Role">${[["", "All Roles"], ["main", "Main"], ["supporting", "Supporting"]].map(([v, l]) => `<option value="${v}" ${role === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}<select id="trade-sort" aria-label="Sort by">${[["newest", "Newest"], ["rarity", "Highest Rarity"], ["level", "Highest Level"], ["name", "A → Z"]].map(([v, l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>Sort: ${l}</option>`).join("")}</select><div class="collection-checkboxes"><label class="trade-wishlist-filter check-label"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label><label class="trade-wishlist-filter check-label"><input id="trade-friends-only" type="checkbox" ${ui.tradeFriendsOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>Friends Only</label>${view === "listings" || view === "offers" ? `<label class="trade-wishlist-filter check-label"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div></div>`;
+        .join("")}</div><input type="search" id="trade-search" class="search ${noResults ? "no-results" : ""}" maxlength="100" aria-label="Search Trades" aria-invalid="${noResults}" placeholder="Search cards, anime or collectors…" value="${e(query)}">${query ? btn("Clear Search", "trade-search-clear", "", "secondary") : ""}<select id="trade-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select>${kind === "character" ? `<select id="trade-role" aria-label="Role">${[["", "All Roles"], ["main", "Main"], ["supporting", "Supporting"]].map(([v, l]) => `<option value="${v}" ${role === v ? "selected" : ""}>${l}</option>`).join("")}</select>` : ""}<select id="trade-sort" aria-label="Sort by">${reverseCardSortOptions([["newest", "Newest"], ["rarity", "Highest Rarity"], ["level", "Highest Level"], ["name", "A → Z"]]).map(([v, l]) => `<option value="${v}" ${sort === v ? "selected" : ""}>Sort: ${l}</option>`).join("")}</select><div class="collection-checkboxes"><label class="trade-wishlist-filter check-label"><input id="trade-wishlist-only" type="checkbox" ${ui.tradeWishlistOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>My Wishlist Only</label><label class="trade-wishlist-filter check-label"><input id="trade-friends-only" type="checkbox" ${ui.tradeFriendsOnly ? "checked" : ""} ${!s.me ? "disabled" : ""}>Friends Only</label>${view === "listings" || view === "offers" ? `<label class="trade-wishlist-filter check-label"><input id="trade-hide-completed" type="checkbox" ${ui.tradeHideCompleted ? "checked" : ""} ${!s.me ? "disabled" : ""}>Hide Completed Trades</label>` : ""}</div></div>`;
     if (!s.me && view !== "browse")
       return (
         head +
@@ -387,12 +388,12 @@ export function createTradesUI(h, ui) {
         )
         .join(
           "",
-        )}</select><select id="trade-picker-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${picker.rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select><select id="trade-picker-sort" aria-label="Sort by">${[
+        )}</select><select id="trade-picker-rarity" aria-label="Rarity"><option value="">All Rarities</option>${[...RARITIES, "Pending"].map((r) => `<option value="${r}" ${picker.rarity === r ? "selected" : ""}>${r}</option>`).join("")}</select><select id="trade-picker-sort" aria-label="Sort by">${reverseCardSortOptions([
         ["rarity", "Highest Rarity"],
         ["level", "Highest Level"],
         ["copies", "Most Copies"],
         ["name", "A → Z"],
-      ]
+      ])
         .map(
           ([v, l]) =>
             `<option value="${v}" ${picker.sort === v ? "selected" : ""}>Sort: ${l}</option>`,

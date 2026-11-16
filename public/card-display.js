@@ -52,23 +52,38 @@ export function cardComparator(sort = "name") {
   const name = (a, b) =>
     nameCollator.compare(String(a.name), String(b.name)) ||
     nameCollator.compare(String(a.id), String(b.id));
-  const role = (c) => ({ main: 0, supporting: 1, unknown: 2 })[c.role] ?? 2;
+  const role = (c) => (sort === "role-supporting" ? { supporting:0, main:1, unknown:2 } : { main:0, supporting:1, unknown:2 })[c.role] ?? 2;
   return (a, b) => {
     let d = 0;
-    if (sort === "rarity")
+    if (sort === "rarity" || sort === "rarity-low")
       d =
-        rarityRank(a) - rarityRank(b) ||
+        Number(rarityRank(a) === 9) - Number(rarityRank(b) === 9) ||
+        (rarityRank(a) - rarityRank(b)) * (sort === "rarity-low" ? -1 : 1) ||
         (b.favorites ?? -1) - (a.favorites ?? -1);
-    if (sort === "favorites") d = (b.favorites ?? -1) - (a.favorites ?? -1);
-    if (sort === "role") d = role(a) - role(b);
-    if (sort === "newest")
+    if (sort === "favorites" || sort === "favorites-low") d =
+      Number(a.favorites == null) - Number(b.favorites == null) ||
+      ((b.favorites ?? 0) - (a.favorites ?? 0)) * (sort === "favorites-low" ? -1 : 1);
+    if (sort === "role" || sort === "role-supporting") d = role(a) - role(b);
+    if (sort === "newest" || sort === "oldest")
       d =
-        (Number(String(b.id).match(/\d+$/)?.[0]) || 0) -
-        (Number(String(a.id).match(/\d+$/)?.[0]) || 0);
+        ((Number(String(b.id).match(/\d+$/)?.[0]) || 0) -
+        (Number(String(a.id).match(/\d+$/)?.[0]) || 0)) * (sort === "oldest" ? -1 : 1);
     if (sort === "name-desc") return -name(a, b);
     return d || name(a, b);
   };
 }
+export const CATALOG_SORTS = ["name", "name-desc", "rarity", "rarity-low", "role", "role-supporting", "favorites", "favorites-low", "newest", "oldest"];
+export const WISHLIST_SORTS = ["custom", "collected", "collected-oldest", "rarity", "rarity-low", "name", "name-desc", "role", "role-supporting"];
+export const COLLECTION_SORTS = [...WISHLIST_SORTS, "level", "level-low", "copies", "copies-low"];
+export const reverseCardSortOptions = (options) => options.flatMap(([id,label]) => {
+  const opposite = {
+    rarity:["rarity-low","Rarity · Lowest First"], level:["level-low","Enhancement · Lowest First"],
+    copies:["copies-low","Fewest Copies"], collected:["collected-oldest",label.replace(/newest/gi,"Oldest")],
+    newest:["oldest",label.replace(/newest/gi,"Oldest")], name:["name-desc","Alphabetical · Z–A"],
+    role:["role-supporting","Role · Supporting First"], ending:["ending-last","Ending Latest"],
+  }[id];
+  return opposite && !options.some(([value])=>value===opposite[0]) ? [[id,label],opposite] : [[id,label]];
+});
 
 export function collectionView(
   inventory,
@@ -110,12 +125,12 @@ export function collectionView(
         );
       }
       const order =
-        sort === "collected"
-          ? (b.acquired_at || 0) - (a.acquired_at || 0)
-          : sort === "level"
-            ? b.level - a.level
-            : sort === "copies"
-              ? b.copies - a.copies
+        sort === "collected" || sort === "collected-oldest"
+          ? Number(!a.acquired_at)-Number(!b.acquired_at) || ((b.acquired_at || 0) - (a.acquired_at || 0)) * (sort === "collected-oldest" ? -1 : 1)
+          : sort === "level" || sort === "level-low"
+            ? (b.level - a.level) * (sort === "level-low" ? -1 : 1)
+            : sort === "copies" || sort === "copies-low"
+              ? (b.copies - a.copies) * (sort === "copies-low" ? -1 : 1)
               : cardComparator(sort)(a.c, b.c);
       return order || cardComparator("name")(a.c, b.c);
     });

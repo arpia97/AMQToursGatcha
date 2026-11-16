@@ -4,7 +4,7 @@ import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
 import { levelLabel } from "./card-values.js";
 import { roleBadge } from "./role-label.js";
-import { collectionView, collectionPage } from "./card-display.js";
+import { collectionView, collectionPage, reverseCardSortOptions } from "./card-display.js";
 import { RARITIES, SHOP_PRICES, instantSalePrice } from "./card-values.js";
 
 export function shopSellPage(inventory, cardBy, options, kind) {
@@ -86,12 +86,12 @@ export function createShopUI(h, ui) {
       .reverse()
       .concat("Pending")
       .map((r) => `<option ${f.rarity === r ? "selected" : ""}>${r}</option>`)
-      .join("")}</select></label><label>Sort by<select id="shop-sort">${[
+      .join("")}</select></label><label>Sort by<select id="shop-sort">${reverseCardSortOptions([
       ["rarity", "Rarity · highest first"],
       ["name", "Alphabetical · A–Z"],
-      ["level", "Enhancement level"],
+      ["level", "Enhancement · Highest First"],
       ["copies", "Most copies"],
-    ]
+    ])
       .map(
         ([value, label]) =>
           `<option value="${value}" ${f.sort === value ? "selected" : ""}>${label}</option>`,
