@@ -5161,6 +5161,23 @@ dialog.avatar-editor-modal {
 .title-option .equipped-title {
   font-size: 12px;
 }
+/* Perfect quizzes completed in strictly less than one minute. */
+@property --quiz-title-turn { syntax:'<angle>'; initial-value:110deg; inherits:false; }
+.equipped-title.quiz-earned-title.quiz-premium-title {
+  position:relative;isolation:isolate;overflow:hidden;color:#fff1c8;
+  background:linear-gradient(115deg,#31271b,#1b202d 60%,#34293c) padding-box,
+    linear-gradient(var(--quiz-title-turn,110deg),#dfb663,#ffedbd,#9fdcdd,#d7b7ef,#e5bd6b,#ffedbd,#dfb663) border-box;
+  box-shadow:0 0 18px #e7c37c26,0 0 32px #b3d7ef0a,inset 0 0 13px #f4d49513;
+  text-shadow:0 0 12px #ffdb8d55;animation:quiz-title-halo 7s linear infinite;
+}
+.quiz-premium-title::after { content:'';position:absolute;inset:-50% -90%;z-index:0;pointer-events:none;
+  background:linear-gradient(105deg,transparent 43%,#fff4d02b 49%,#fffbe148 50%,transparent 57%);
+  transform:translateX(-48%);animation:quiz-title-gleam 5s ease-in-out infinite;
+}
+.quiz-title-label { position:relative;z-index:1; }
+@keyframes quiz-title-halo { to { --quiz-title-turn:470deg; } }
+@keyframes quiz-title-gleam { 0%,40% { transform:translateX(-48%); } 75%,100% { transform:translateX(48%); } }
+@media(prefers-reduced-motion:reduce){.equipped-title.quiz-premium-title { animation:none; }.quiz-premium-title::after { animation:none;display:none; }}
 .title-option > span {
   min-width: 0;
 }

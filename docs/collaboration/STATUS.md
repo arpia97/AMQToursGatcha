@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## In Progress — Approved Premium Quiz Titles; Alchemy Design Preview
+
+November 16. Codex owns quiz title metadata in `src/quiz.js`, `public/title-ui.js`, scoped title styles and relevant existing tests/docs. Apply the approved gold/opal theme only to saved perfect scores with a nonnegative recorded duration strictly below 60,000ms, including existing records, without changing titles/awards/rewards. Mirror title presentation metadata/styles in the Host profile identity bridge. Alchemy selection redesign stays outside the application as a standalone interactive preview; do not deploy alchemy UI or mechanics changes without approval.
+
 ## Completed — Quiz Upload Automod and Review Sorting
 
 November 16. Runtime `b1909ba1255130f774fcffe86b6429000ff800be` is pushed/deployed on original `amqtours-gatcha`, version `dce777fb-9e88-427a-bd60-89fee65aadd2`. Upload review automatically summarizes broken/unverified MP3 links and duplicate song titles (Unicode width/case/whitespace normalized), with original row references and per-song duplicate badges. Duplicate warnings are advisory; existing link replacement/skip/save validation remains enforced. Append mode also compares retained current-pool songs, omitting selected removals and identical MP3s that save merges. Warnings refresh when skipping/restoring/removing songs or changing import mode. Saved pools expose Run Automod · Check Links, with bounded host-only scans and no player-triggered background requests. Explicit rechecks now bypass cached successes as well as failures; network target validation and limits are preserved.

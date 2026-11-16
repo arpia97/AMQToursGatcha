@@ -54,6 +54,21 @@ function fixture(t) {
     e.mutate("p:" + a, key, b, () => e.action("p", a, b));
   return { db, e, make, act };
 }
+test('premium quiz titles derive from saved perfect-score times and preserve title identity and equipment',t=>{
+  const {e,make,act}=fixture(t);
+  const cases=[['fast',59999,20,true],['minute',60000,20,false],['slow',60001,20,false],['untimed',null,20,false],['invalid',-1,20,false],['partial',20000,19,false]];
+  for(const [id,time,best]of cases){e.run('INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES(?,?,\'\',?,1,\'\',1)',id,id,id);
+    e.run('INSERT INTO quiz_progress(player,quiz,best,at,best_duration_ms) VALUES(\'p\',?,?,1,?)',id,best,time);}
+  const before=e.player('p'),titles=e.quiz.titleOptions('p');
+  for(const [id,,best,premium]of cases){const t=titles.find(t=>t.quiz===id);if(best===20)assert.equal(t.premium,premium,id);else assert.equal(t,undefined);}
+  assert.equal(make().quiz.titles('p').find(t=>t.quiz==='fast').durationMs,59999);
+  const html=titleBadges({titles:e.quiz.titles('p')},escape);assert.equal((html.match(/quiz-premium-title/g)||[]).length,1);assert.match(html,/Under 1 Minute/);
+  assert.match(titleSettingsPanel(e.quiz.titleSettings('p'),escape),/20 \/ 20 · Under 1 Minute/);
+  act('equip-titles',{quizzes:titles.filter(t=>t.quiz!=='fast').map(t=>t.quiz),awards:[]});
+  assert.equal(e.quiz.titleOptions('p').find(t=>t.quiz==='fast').equipped,false);assert.doesNotMatch(titleBadges({titles:e.quiz.titles('p')},escape),/quiz-premium-title/);
+  assert.equal(e.player('p').balance,before.balance);assert.equal(e.player('p').earned,before.earned);
+});
+
 test("MAX enhancement awards a rarity title atomically, once, and keeps it after the card leaves", (t) => {
   const { e, act, make } = fixture(t);
   e.addCard("p", "community-00");
@@ -160,7 +175,7 @@ test("card title equipment is independent of quiz titles, host titles and alias 
     "INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','quiz',20,1)",
   );
   act("equip-titles", { quizzes: ["quiz"], cards: [] });
-  assert.deepEqual(e.quiz.titles("p"), [{ quiz: "quiz", title: "Listener" }]);
+  assert.deepEqual(e.quiz.titles("p"), [{ quiz: "quiz", title: "Listener",premium:false,durationMs:null }]);
   assert.equal(make().cardTitles.options("p")[0].equipped, false);
   assert.throws(
     () => act("equip-titles", { quizzes: ["quiz"], cards: ["community-01"] }),

@@ -7,18 +7,19 @@ function isCard(t) {
 }
 function titleBadge(t, e) {
   const card = isCard(t);
+  const premium=!card&&t.premium===true;
   const label = card
     ? (t.rarity || "Pending") + " Card Title"
-    : "Quiz Completion Title";
+    : premium?"Perfect Quiz · Under 1 Minute":"Quiz Completion Title";
   return (
     '<span class="equipped-title ' +
     (card
       ? "card-earned-title tier-" + rarityClass(t.rarity)
-      : "quiz-earned-title") +
+      : "quiz-earned-title"+(premium?" quiz-premium-title":"")) +
     '" title="' +
     e(label) +
     '">' +
-    e(t.title) +
+    (premium?'<span class="quiz-title-label">'+e(t.title)+'</span>':e(t.title)) +
     "</span>"
   );
 }
@@ -41,7 +42,7 @@ export function titleSettingsPanel(data, e) {
   function detail(t) {
     if (!isCard(t))
       return (
-        "Quiz Completion · 20 / 20" +
+        "Quiz Completion · 20 / 20" + (t.premium===true?" · Under 1 Minute":"") +
         (t.quizName &&
         t.quizName.trim().toLocaleLowerCase() !==
           t.title.trim().toLocaleLowerCase()
