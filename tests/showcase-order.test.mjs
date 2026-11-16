@@ -201,7 +201,7 @@ test("Inline Showcase and Wishlist editors preserve all pages, support drops/glo
         },
         {
           award: "two",
-          card: "a",
+          card: "b",
           source: "card",
           rarity: "AG",
           title: "Same",

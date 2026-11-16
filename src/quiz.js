@@ -774,7 +774,7 @@ export class Quiz {
       player,
     );
     if (!row) return titles;
-    const positions = new Map(JSON.parse(row.data).map((id, i) => [id, i]));
+    const positions = new Map(this.e.cardTitles.normalizeOrder(player, JSON.parse(row.data)).map((id, i) => [id, i]));
     return titles.sort(
       (a, b) =>
         (positions.get(titleOrderKey(a)) ?? Number.MAX_SAFE_INTEGER) -
@@ -809,7 +809,7 @@ export class Quiz {
           409,
         );
     }
-    // Older clients select card IDs; new clients select each award independently.
+    // Older clients select card IDs; new clients use the canonical award for each card.
     const awards =
       b.awards !== undefined
         ? b.awards
@@ -854,10 +854,10 @@ export class Quiz {
         );
     for (const title of cardTitles)
       this.e.run(
-        "UPDATE card_title_awards SET hidden=? WHERE player=? AND award=?",
+        "UPDATE card_title_awards SET hidden=? WHERE player=? AND card=?",
         awards.includes(title.award) ? 0 : 1,
         player,
-        title.award,
+        title.card,
       );
     if (b.order !== undefined)
       this.e.run(

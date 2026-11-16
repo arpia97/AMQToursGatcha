@@ -258,7 +258,7 @@ test("anime checklists paginate primary-series cards with unique escrow ownershi
   );
 });
 
-test("each separate MAX enhancement earns a distinct title, retries do not, and matching quiz names remain independent", (t) => {
+test("repeat MAX enhancements award one title per card, retries stay safe, and matching quiz names remain independent", (t) => {
   const { e, act, make } = fixture(t);
   const card = "community-actor";
   e.host("catalog", {
@@ -287,8 +287,8 @@ test("each separate MAX enhancement earns a distinct title, retries do not, and 
   });
   max("second");
   const awards = e.cardTitles.options("p");
-  assert.equal(awards.length, 2);
-  assert.notEqual(awards[0].award, awards[1].award);
+  assert.equal(awards.length, 1);
+  assert.equal(e.one("SELECT count(*) AS n FROM card_title_awards WHERE player='p'").n,1);
   assert.ok(
     awards.every(
       (a) =>
@@ -313,21 +313,20 @@ test("each separate MAX enhancement earns a distinct title, retries do not, and 
   assert.match(html, /card-earned-title tier-ubers/);
   assert.equal((html.match(/>Nao Touyama<\/span>/g) || []).length, 2);
   const panel = titleSettingsPanel(e.quiz.titleSettings("p"), escape);
-  assert.match(panel, /Award 1 of 2/);
-  assert.match(panel, /Award 2 of 2/);
+  assert.doesNotMatch(panel, /Award [12] of 2/);
   assert.doesNotMatch(panel, />Ubers<|>QUIZ<|♫|♬|✧/);
   assert.throws(
     () => act("equip-titles", { quizzes: [], awards: ["foreign"] }),
     /earned/,
   );
-  // Old clients preserve per-award settings when omitting cards, or select all copies by card ID.
+  // Old clients preserve visibility when omitting cards, or select the card ID.
   act("equip-titles", { quizzes: [] });
   assert.equal(e.quiz.titles("p").length, 1);
   act("equip-titles", { quizzes: [], cards: [card] });
-  assert.equal(e.quiz.titles("p").length, 2);
+  assert.equal(e.quiz.titles("p").length, 1);
   const restarted = make();
-  assert.equal(restarted.cardTitles.options("p").length, 2);
-  assert.equal(restarted.quiz.titles("p").length, 2);
+  assert.equal(restarted.cardTitles.options("p").length, 1);
+  assert.equal(restarted.quiz.titles("p").length, 1);
   e.host("catalog", {
     cards: [
       { id: card, kind: "seiyuu", name: "Touyama, Nao", fixedRarity: "SSS" },
@@ -345,10 +344,10 @@ test("each separate MAX enhancement earns a distinct title, retries do not, and 
     6,
   );
 });
-test("mixed title ordering preserves duplicate awards, rejects stale/foreign orders, and follows identity/reset", (t) => {
+test("mixed title ordering preserves same-name titles from distinct cards, rejects stale/foreign orders, and follows identity/reset", (t) => {
   const { e, act, make } = fixture(t);
   for (const award of ["one", "two"])
-    e.cardTitles.insert("p", "community-00", "Shared Name", "AG", 1, 0, award);
+    e.cardTitles.insert("p", award === "one" ? "community-00" : "community-01", "Shared Name", "AG", 1, 0, award);
   e.run(
     "INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES('same','Quiz','','Shared Name',1,'',1)",
   );
@@ -393,7 +392,7 @@ test("mixed title ordering preserves duplicate awards, rejects stale/foreign ord
   // Visibility-only older clients preserve the custom order.
   act("equip-titles", { quizzes: ["same"], awards: ["one", "two"] });
   assert.deepEqual(e.quiz.titles("p").map(titleOrderKey), order);
-  e.cardTitles.insert("p", "community-01", "New Award", "SSS", 2, 0, "new");
+  e.cardTitles.insert("p", "community-02", "New Award", "SSS", 2, 0, "new");
   assert.deepEqual(e.quiz.titleOptions("p").map(titleOrderKey), [
     ...order,
     "award:new",
@@ -457,14 +456,15 @@ test("title-award migration preserves visibility, recovers only evidenced repeat
   e.run("DELETE FROM catalog_meta WHERE key='card-title-awards-v2'");
   const upgraded = make(),
     awards = upgraded.cardTitles.options("p");
-  assert.equal(awards.length, 2);
+  assert.equal(awards.length, 1);
   assert.ok(awards.every((a) => !a.equipped));
   assert.deepEqual(
     awards.map((a) => a.award),
-    ["legacy:community-00", "receipt:repeat"],
+    ["legacy:community-00"],
   );
   assert.equal(upgraded.cardTitles.options("q").length, 0);
-  assert.equal(make().cardTitles.options("p").length, 2);
+  assert.equal(make().cardTitles.options("p").length, 1);
+  assert.equal(upgraded.one("SELECT count(*) AS n FROM card_title_awards WHERE player='p'").n,2,"raw historical evidence remains intact");
   const marker = JSON.parse(
     upgraded.one(
       "SELECT value FROM catalog_meta WHERE key='card-title-awards-v2'",
@@ -588,4 +588,29 @@ test("MAX title requires at least 8 cards spent upgrading; traded Lv.5->6 fails 
     enhancementRevision: ENHANCEMENT_REVISION,
   });
   assert.match(fourth.message, /Title Unlocked: Character 3\./);
+});
+
+
+test("historical repeated card titles collapse without losing equipped state or order, and settings update the whole card group",t=>{
+  const {e,act,make}=fixture(t);
+  e.cardTitles.insert('p','community-00','First Name','AG',1,1,'first');
+  e.cardTitles.insert('p','community-00','First Name','AG',2,0,'repeat');
+  e.cardTitles.insert('p','community-01','Other Name','SSS',3,0,'other');
+  e.run("INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES('same','Quiz','','First Name',1,'',1)");
+  e.run("INSERT INTO quiz_progress(player,quiz,best,at) VALUES('p','same',20,1)");
+  e.run('INSERT INTO profile_title_order VALUES(?,?)','p',JSON.stringify(['award:repeat','quiz:same','award:other','award:first']));
+  const before=e.player('p'),originalRows=e.all("SELECT * FROM card_title_awards WHERE player='p'");
+  const titles=e.quiz.titleSettings('p');
+  assert.deepEqual(titles.titles.map(titleOrderKey),['award:first','quiz:same','award:other']);
+  assert.equal(titles.titles[0].equipped,true);
+  assert.deepEqual(make().quiz.titleSettings('p').titles,titles.titles);
+  assert.deepEqual(e.all("SELECT * FROM card_title_awards WHERE player='p'"),originalRows);
+  act('equip-titles',{quizzes:['same'],awards:['other'],order:['quiz:same','award:other','award:first'],expectedOrder:titles.titles.map(titleOrderKey)});
+  assert.equal(e.all("SELECT * FROM card_title_awards WHERE player='p' AND card='community-00'").every(r=>r.hidden===1),true);
+  assert.equal(e.quiz.titles('p').filter(t=>t.card==='community-00').length,0);
+  act('equip-titles',{quizzes:['same'],awards:['first','other']});
+  assert.equal(e.quiz.titles('p').filter(t=>t.card==='community-00').length,1);
+  assert.equal(e.cardTitles.award('p','community-00'),null);
+  assert.equal(e.one("SELECT count(*) AS n FROM card_title_awards WHERE player='p'").n,3);
+  assert.deepEqual(e.player('p'),before);
 });

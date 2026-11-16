@@ -23,6 +23,7 @@ export class CardTitles {
     e.run(
       "CREATE TABLE IF NOT EXISTS card_title_awards(player TEXT NOT NULL,award TEXT NOT NULL,card TEXT NOT NULL,title TEXT NOT NULL,rarity TEXT NOT NULL,at INTEGER NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,award))",
     );
+    e.run("CREATE INDEX IF NOT EXISTS card_title_unique_lookup ON card_title_awards(player,card,at,award)");
     e.run(
       "CREATE TABLE IF NOT EXISTS card_upgrade_progress(player TEXT NOT NULL,card TEXT NOT NULL,spent INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(player,card))",
     );
@@ -118,8 +119,13 @@ export class CardTitles {
     if (!c) throw Error("The card could not be loaded. Refresh and try again.");
     const title = cardTitleName(c.name),
       rarity = RARITIES.includes(c.rarity) ? c.rarity : "Pending";
-    this.insert(player, id, title, rarity, this.e.now());
-    return title;
+    const award = crypto.randomUUID();
+    // Historical repeat-award rows remain evidence; new MAX runs claim once per card ID.
+    this.e.run(
+      "INSERT INTO card_title_awards(player,award,card,title,rarity,at,hidden) SELECT ?,?,?,?,?,?,0 WHERE NOT EXISTS(SELECT 1 FROM card_title_awards WHERE player=? AND card=?)",
+      player, award, id, title, rarity, this.e.now(), player, id,
+    );
+    return this.e.one("SELECT award FROM card_title_awards WHERE player=? AND award=?", player, award) ? title : null;
   }
   upgradeSpent(player, card) {
     return (
@@ -203,25 +209,42 @@ export class CardTitles {
       });
     }
   }
-  options(player) {
-    const rows = this.e.all(
+  rows(player) {
+    return this.e.all(
       "SELECT award,card,title,rarity,hidden FROM card_title_awards WHERE player=? ORDER BY at,award",
       player,
     );
+  }
+  normalizeOrder(player, order) {
+    const canonical = new Map(), aliases = new Map();
+    for (const row of this.rows(player)) {
+      if (!canonical.has(row.card)) canonical.set(row.card, row.award);
+      aliases.set("award:" + row.award, "award:" + canonical.get(row.card));
+    }
+    return [...new Set(order.map(key => aliases.get(key) || key))];
+  }
+  options(player) {
+    const rows = this.rows(player);
     const cards = new Map(
       this.e.catalogStore
         .cards([...new Set(rows.map((r) => r.card))])
         .map((c) => [c.id, c]),
     );
-    return rows.map(({ hidden, ...r }) => {
+    const unique = new Map();
+    for (const { hidden, ...r } of rows) {
+      if (unique.has(r.card)) {
+        if (!hidden) unique.get(r.card).equipped = true;
+        continue;
+      }
       const c = cards.get(r.card);
-      return {
+      unique.set(r.card, {
         ...r,
         rarity: c ? c.rarity || "Pending" : r.rarity,
         kind: c?.kind,
         source: "card",
         equipped: !hidden,
-      };
-    });
+      });
+    }
+    return [...unique.values()];
   }
 }
