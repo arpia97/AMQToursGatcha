@@ -33,6 +33,7 @@ import {
   profileCardPanel,
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
+import {profileQuizPanel} from './profile-quiz-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
 import { createQuizUI } from "./quiz-ui.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "./quiz-title-display.js";
@@ -210,6 +211,7 @@ const ui = {
   profileView: "overview",
   profileCardsPage: 1,
   profileCardsData: null,
+  profileQuizData: null,
   profileCollection: {
     kind: "both",
     query: "",
@@ -1585,6 +1587,7 @@ function profile() {
   const heading =
     `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Settings", "edit-profile", "", "secondary") : ""}</div>` +
     profileCardTabs(ui.profileView);
+  if(ui.profileView==='quiz')return heading+profileQuizPanel(ui.profileQuizData,escape);
   if (ui.profileView !== "overview")
     return (
       heading +
@@ -1639,7 +1642,7 @@ async function loadDynamic() {
     current = page(),
     route = currentRoute();
   if (current === "packs" && tab === "both") tab = "character";
-  let data, pickemDetail, profileCardsResult;
+  let data, pickemDetail, profileCardsResult,profileQuizResult;
   if (current === "shop" && ui.marketSort === "ending")
     ui.marketSort = "newest";
   if (!state.me) {
@@ -1747,6 +1750,7 @@ async function loadDynamic() {
     (current === "player" || current === "profile") &&
     data &&
     ui.profileView !== "overview" &&
+    ui.profileView !== "quiz" &&
     !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id)) &&
     !(ui.profileView === "collection" && collectionEditor.activeFor(data.id))
   )
@@ -1778,7 +1782,10 @@ async function loadDynamic() {
             ? "&kind=" + encodeURIComponent(ui.profileWishlistKind || "both")
             : ""),
     );
+  if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
+    profileQuizResult=await api('player-quiz?id='+encodeURIComponent(data.id));
   if (version !== loadVersion || currentRoute() !== route) return;
+  if(profileQuizResult)ui.profileQuizData=profileQuizResult;
   if (profileCardsResult) {
     rememberCards(profileCardsResult.cards);
     ui.profileCardsData = profileCardsResult;
@@ -3519,6 +3526,7 @@ async function handleFeatureClick(a, t) {
         }
       } else ui.profileCardsPage = Number(t.dataset.page);
       ui.profileCardsData = null;
+      ui.profileQuizData = null;
       await loadDynamic();
       render();
       return true;

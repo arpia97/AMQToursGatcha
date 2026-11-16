@@ -1,6 +1,8 @@
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "../src/quiz-ingress.js";
 import { cachedQuizCover } from "../src/quiz-cover-cache.js";
 import { AliasSync } from "../src/aliases.js";
+import {profileQuizPanel} from '../public/profile-quiz-ui.js';
+import {profileCardTabs} from '../public/profile-cards-ui.js';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -68,6 +70,27 @@ function fixture(t) {
     },
   };
 }
+test('profile quiz statistics count unique published scores and match score/time/achievement leaderboard tiebreaks',t=>{
+  const {e,save,songs}=fixture(t);
+  for(const id of ['second','untimed','zero','hidden','unplayed'])save({id,name:id,published:id!=='hidden',songs});
+  const put=(player,quiz,best,time,at)=>e.run('INSERT INTO quiz_progress(player,quiz,best,at,best_at,best_duration_ms) VALUES(?,?,?,?,?,?)',player,quiz,best,9999,at,time);
+  put('p','test',20,60000,10);put('q','test',20,50000,20);
+  put('p','second',18,80000,10);put('q','second',18,80000,20);
+  put('p','untimed',20,null,1);put('q','untimed',20,90000,20);
+  put('p','zero',0,null,null);put('p','hidden',20,10000,1);
+  const r=e.quiz.profileStats('p');
+  assert.deepEqual([r.played,r.maxScores,r.averageScore,r.firstPlaces,r.averageTimeMs,r.timedQuizzes],[4,2,14.5,2,70000,2]);
+  assert.deepEqual(r.firsts.map(q=>q.id),['second','zero']);
+  for(const q of r.firsts)assert.equal(e.quiz.leaderboard(q.id).rows[0].id,'p');
+  assert.equal(e.quiz.profileStats('absent').averageTimeMs,null);
+  e.run("UPDATE quiz_progress SET best_at=20 WHERE player='p' AND quiz='second'");
+  assert.equal(e.quiz.profileStats('p').firstPlaces,2,'final equal-score/time/date tie uses player ID');
+  const esc=v=>String(v).replaceAll('<','&lt;').replaceAll('"','&quot;');
+  const html=profileQuizPanel({...r,firsts:[{...r.firsts[0],name:'<script>bad</script>'},r.firsts[1]]},esc);
+  assert.match(html,/Current #1s/);assert.match(html,/Not Recorded/);assert.doesNotMatch(html,/<script>/);
+  assert.match(profileCardTabs('quiz'),/Listed<\/button><button[^>]+data-view="quiz"/);
+});
+
 test("AMQ IDs supply alternative and shared-song answers; video, unmatched and duplicate audio are rejected", () => {
   const master = {
     masterListId: "v1",

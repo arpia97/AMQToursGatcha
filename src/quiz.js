@@ -137,6 +137,24 @@ export class Quiz {
       ).n,
     };
   }
+  profileStats(player) {
+    // Only legacy quizzes with missing achievement timestamps need reconciliation.
+    const missing=this.e.all("SELECT DISTINCT p.quiz FROM quiz_progress p JOIN quiz_progress mine ON mine.quiz=p.quiz JOIN quizzes q ON q.id=p.quiz WHERE mine.player=? AND q.published=1 AND p.best_at IS NULL",player);
+    for(const {quiz} of missing)this.ensureBestAt(quiz);
+    const rows=this.e.all(`SELECT q.id,q.name,q.category,p.best AS score,p.best_duration_ms AS durationMs,
+      NOT EXISTS(SELECT 1 FROM quiz_progress r JOIN players u ON u.id=r.player WHERE r.quiz=p.quiz AND
+        (r.best>p.best OR (r.best=p.best AND
+          (COALESCE(r.best_duration_ms,9007199254740991)<COALESCE(p.best_duration_ms,9007199254740991) OR
+           (COALESCE(r.best_duration_ms,9007199254740991)=COALESCE(p.best_duration_ms,9007199254740991) AND
+            (r.best_at<p.best_at OR (r.best_at=p.best_at AND r.player<p.player))))))) AS firstPlace
+      FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz WHERE p.player=? AND q.published=1 ORDER BY q.name COLLATE NOCASE,q.id`,player);
+    const timed=rows.filter(r=>Number.isSafeInteger(r.durationMs)&&r.durationMs>=0);
+    const firsts=rows.filter(r=>r.firstPlace).map(({firstPlace,...r})=>r);
+    return {player,played:rows.length,maxScores:rows.filter(r=>r.score===QUIZ_LENGTH).length,
+      averageScore:rows.length?Number((rows.reduce((n,r)=>n+r.score,0)/rows.length).toFixed(2)):null,
+      firstPlaces:firsts.length,averageTimeMs:timed.length?Math.round(timed.reduce((n,r)=>n+r.durationMs,0)/timed.length):null,
+      timedQuizzes:timed.length,firsts};
+  }
   resetScores(b) {
     const id = text(b.quiz, 100);
     if (!this.e.one("SELECT id FROM quizzes WHERE id=?", id))

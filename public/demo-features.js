@@ -55,6 +55,7 @@ export function demoFeatures(d, path, b) {
     me = s.me,
     now = Date.now();
   s.wishlist ||= [];
+  if(path.startsWith('player-quiz?'))return {player:new URLSearchParams(path.split('?')[1]).get('id'),played:0,maxScores:0,averageScore:null,firstPlaces:0,averageTimeMs:null,timedQuizzes:0,firsts:[]};
   for(const item of s.inventory || [])if(item.for_trade===undefined)item.for_trade=0;
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;

@@ -1,7 +1,7 @@
 export const DAILY_CREDITS = 300;
 export const MAX_PINNED_ANIME = 20;
 export const FREE_SPOTLIGHTS = 30;
-export const MAX_SPOTLIGHTS = 100;
+export const MAX_SPOTLIGHTS = 1000;
 export const MAX_WISHLIST = 1000;
 export const PICKEM_WINNER_REWARD = 1000;
 export const PICKEM_PARTICIPATION_REWARD = 100;

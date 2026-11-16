@@ -34,6 +34,15 @@ export class Economy {
     this.e = e;
     this.wishlist = new Wishlist(e);
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
+    if (!e.one("SELECT value FROM settings WHERE key='showcase_capacity_1000'"))
+      e.tx(() => {
+        // Widen the old CHECK constraint while preserving every purchased capacity.
+        e.run("CREATE TABLE showcase_capacity_expanded(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 1000))");
+        e.run("INSERT INTO showcase_capacity_expanded SELECT player,slots FROM showcase_capacity");
+        e.run("DROP TABLE showcase_capacity");
+        e.run("ALTER TABLE showcase_capacity_expanded RENAME TO showcase_capacity");
+        e.run("INSERT INTO settings VALUES('showcase_capacity_1000',1)");
+      });
     this.applyShopPriceRevision();
     if (!e.one("SELECT value FROM settings WHERE key='showcase_slots_v1'"))
       e.tx(() => {
@@ -1038,6 +1047,6 @@ CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL
 CREATE TABLE IF NOT EXISTS gambling_rounds(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,game TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL,net INTEGER NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS gambling_player ON gambling_rounds(player,id);
 CREATE TABLE IF NOT EXISTS showcase_slots(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 0 AND 20));
-CREATE TABLE IF NOT EXISTS showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 100));
+CREATE TABLE IF NOT EXISTS showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 1000));
 CREATE TABLE IF NOT EXISTS profile_showcase(player TEXT NOT NULL,card TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(player,card));
 `;

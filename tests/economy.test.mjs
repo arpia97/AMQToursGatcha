@@ -985,8 +985,8 @@ test("showcase requires owned unique cards, maintains order and completion ignor
   assert.equal(e.player("buyer").showcase_slots, 32);
   assert.throws(() => f.act("buyer", "showcase-slots", purchase), /changed/);
   assert.throws(
-    () => f.act("buyer", "showcase-slots", { quantity: 69, expectedSlots: 32 }),
-    /100/,
+    () => f.act("buyer", "showcase-slots", { quantity: 969, expectedSlots: 32 }),
+    /1000/,
   );
   e.run("UPDATE players SET balance=0 WHERE id='buyer'");
   assert.throws(
@@ -1050,6 +1050,11 @@ test("showcase reordering persists publicly across restart, replays once and rej
   e.run("DELETE FROM showcase_capacity");
   e.run("DELETE FROM settings WHERE key='showcase_slots_v1'");
   e.run("DELETE FROM showcase_slots");
+  // Existing 100-slot SQL constraints must be widened without losing purchased slots.
+  e.run("DELETE FROM settings WHERE key='showcase_capacity_1000'");
+  e.run("DROP TABLE showcase_capacity");
+  e.run("CREATE TABLE showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 100))");
+  e.run("INSERT INTO showcase_capacity VALUES('buyer',32)");
   const restarted = new Engine(
     (sql, ...args) => f.db.prepare(sql).all(...args),
     (fn) => fn(),
@@ -1060,6 +1065,15 @@ test("showcase reordering persists publicly across restart, replays once and rej
     restarted.profile("buyer").showcase.map((c) => c.card),
     reversed,
   );
+  restarted.run("UPDATE showcase_capacity SET slots=999 WHERE player='buyer'");
+  restarted.wallet('buyer',100,'Fixture');
+  const wallet=restarted.player('buyer').balance;
+  f.act('buyer','showcase-slots',{quantity:1,expectedSlots:999},'last-slot');
+  f.act('buyer','showcase-slots',{quantity:1,expectedSlots:999},'last-slot');
+  assert.equal(restarted.player('buyer').showcase_slots,1000);
+  assert.equal(restarted.player('buyer').balance,wallet-100);
+  assert.throws(()=>f.act('buyer','showcase-slots',{quantity:1,expectedSlots:1000}),/1000/);
+  assert.equal(new Engine((sql,...args)=>f.db.prepare(sql).all(...args),fn=>fn()).player('buyer').showcase_slots,1000);
 });
 test("seller reset refunds bidders, removes open sale inventory, and leaves catalogues intact", () => {
   const f = fixture(),

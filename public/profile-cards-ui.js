@@ -22,6 +22,7 @@ export function profileCardTabs(view) {
       ["collection", "Collection"],
       ["wishlist", "Wishlist"],
       ["listings", "Listed"],
+      ["quiz", "Quiz"],
     ]
       .map(
         ([id, label]) =>

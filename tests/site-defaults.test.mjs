@@ -51,7 +51,7 @@ test("thirty free showcase slots accept owned cards and paid extras preserve cap
       name: "Card " + i,
       series: "Anime",
     }));
-  assert.equal(MAX_SPOTLIGHTS, 100);
+  assert.equal(MAX_SPOTLIGHTS, 1000);
   assert.equal(MAX_PINNED_ANIME, 20);
   assert.equal(MAX_WISHLIST, 1000);
   e.host("catalog", { cards });

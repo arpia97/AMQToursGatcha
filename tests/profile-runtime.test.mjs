@@ -20,7 +20,11 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
  e.action('offerer','list-card',{card:'c1',variant:'card',venue:'shop',price:100});
  const listing=e.action('lister','trade-list',{card:'c1',variant:'card',expectedLevel:1}).listing;
  e.action('offerer','trade-offer',{listing,cards:[{card:'c2',variant:'card',expectedLevel:1},{card:'p1',variant:'card',expectedLevel:1}]});
- e.economy.anime.pin('offerer',{series:'anime',pinned:true});e.action('lister','wishlist',{card:'p1',wanted:true});e.action('offerer','wishlist',{card:'p1',wanted:true});});}
+ e.economy.anime.pin('offerer',{series:'anime',pinned:true});e.action('lister','wishlist',{card:'p1',wanted:true});e.action('offerer','wishlist',{card:'p1',wanted:true});});
+ // Emulate a previously purchased 100-slot capacity in the real Workers SQLite runtime.
+ e.tx(()=>{e.run("DELETE FROM settings WHERE key='showcase_capacity_1000'");e.run('DROP TABLE showcase_capacity');e.run('CREATE TABLE showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 100))');e.run("INSERT INTO showcase_capacity VALUES('offerer',100)");});
+ this.e=new Engine((sql,...args)=>[...ctx.storage.sql.exec(sql,...args)],fn=>ctx.storage.transactionSync(fn));
+ this.e.tx(()=>{this.e.wallet('offerer',90000,'Local Fixture');this.e.action('offerer','showcase-slots',{quantity:900,expectedSlots:100});});}
  async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
  export default {fetch(request,env){return env.GAME.getByName('isolated-profile').fetch(request);}};
  `,
@@ -69,6 +73,7 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
     data = await response.json();
   assert.equal(response.status, 200, JSON.stringify(data));
   assert.equal(data.profile.id, "offerer");
+  assert.equal(data.profile.showcase_slots,1000);
   assert.equal(data.profile.completion.character.owned, 2);
   assert.equal(data.profile.completion.seiyuu.owned, 1);
   assert.equal(data.profile.pinnedAnime[0].owned, 2);

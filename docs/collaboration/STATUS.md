@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## In Progress — Profile Quiz Statistics and Larger Showcases
+
+November 16. Codex owns `src/quiz.js`, `src/worker.js`, `src/economy.js`, `public/app.js`, a new profile quiz UI module, related scoped styles/tests/defaults and this status. Add public profile Quiz stats from one best submitted score per published quiz and current leaderboard #1s; raise paid showcase capacity to 1,000 with a preserving constraint migration. Wishlist is already 1,000. Premium sub-minute perfect quiz titles are preview-only pending user approval. Preserve accounts, rewards and score history. Adjacent Host changes only verify/invalidate stale Eru export snapshots; separate deployment.
+
 ## Completed — Quiz Song List Column Sorting
 
 November 16. Codex owns `public/quiz-ui.js`, scoped styles in `public/features.css`, existing quiz UI test coverage and this handoff. Base beb8331; remote main is aligned. Public Song List and Songs Played recap have ascending/descending column buttons, arrows and aria-sort state. Sorting preserves original row numbers, stable ties, cached pool/recap data and the selected anime-title preference; missing metadata/times stay last. Sort values are prepared once per row. Keyboard focus remains on the activated header. No backend or quiz/account/economy writes.

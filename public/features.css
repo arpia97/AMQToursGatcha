@@ -5625,3 +5625,10 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 
 .fusion-review-details strong > .alchemy-bop-icon { margin:0 5px; }
 .alchemy-draw-popup > p > .alchemy-bop-icon { margin-right:5px; }
+.profile-quiz-stats { grid-template-columns:repeat(5,minmax(0,1fr)); }
+.profile-quiz-stats .stat { min-width:0; }
+.profile-quiz-stats .stat strong { font-size:clamp(20px,2.4vw,30px);font-variant-numeric:tabular-nums; }
+.profile-quiz-stats .stat strong small { display:inline;font-size:13px;color:var(--muted);font-weight:400; }
+.profile-quiz-firsts th:first-child,.profile-quiz-firsts td:first-child { text-align:left; }
+.profile-quiz-firsts .text-button { text-align:left;white-space:normal; }
+@media(max-width:700px){.profile-quiz-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.profile-quiz-stats .stat:last-child { grid-column:1 / -1; }}

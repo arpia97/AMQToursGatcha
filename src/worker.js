@@ -1544,6 +1544,12 @@ export class Game extends DurableObject {
         ]),
       });
     }
+    if (path === "player-quiz" && !post) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      const id=e.resolvePlayer(text(url.searchParams.get("id"),100));
+      e.player(id);
+      return json(e.quiz.profileStats(id));
+    }
     if (path === "player" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
