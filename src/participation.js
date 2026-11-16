@@ -51,6 +51,16 @@ export class Participation {
       fail("The resolved participants changed. Review the batch again.", 409);
     const quote = tourRewardQuote(players, b),
       awards = [], skipped = [];
+    let hostingPlayer = null;
+    if (quote.hosting) {
+      const actor = e.creditAudit.actor;
+      if (!actor || actor === 'host-token') fail('Sign in with your host account to receive hosting credits.', 403);
+      hostingPlayer = e.player(actor);
+      if (!hostingPlayer.is_admin) fail('Host access is required for hosting credits.', 403);
+      e.assertAccountUnlocked(actor);
+      if (e.one("SELECT player FROM tour_events WHERE category='hosting' AND event=?", event))
+        fail('Hosting credits were already awarded for this tour. No credits were added.', 409);
+    }
     for (const row of quote.rows) {
       const p = e.player(row.player);
       if(p.account_locked){skipped.push(row.player);continue;}
@@ -93,11 +103,16 @@ export class Participation {
       }
     }
     for (const award of awards) e.host("grant", award);
+    if (hostingPlayer) {
+      e.host('grant', {player:hostingPlayer.id,reason:'other',amount:quote.hosting,event,note:'Tour hosting: '+note.slice(0,220)});
+      e.run("INSERT INTO tour_events VALUES(?,'hosting',?)",hostingPlayer.id,event);
+    }
     const participation=awards.filter(a=>a.reason==="participation").reduce((n,a)=>n+a.amount,0);
     const staff=awards.filter(a=>a.reason!=="participation").reduce((n,a)=>n+a.amount,0);
     return {
       ...quote,
-      participation,staff,total:participation+staff,skipped,
+      participation,staff,total:participation+staff+quote.hosting,skipped,
+      hostingPlayer: hostingPlayer?.id || null,
       players: quote.rows.filter(row=>!skipped.includes(row.player)).map((row) => row.player),
       message:
         "Tour rewards awarded: " +
@@ -105,7 +120,8 @@ export class Participation {
         " participation credits and " +
         staff.toLocaleString("en-US") +
         " staff credits; " +
-        (participation+staff).toLocaleString("en-US") +
+        (quote.hosting ? 'plus '+quote.hosting.toLocaleString('en-US')+' hosting credits; ' : '') +
+        (participation+staff+quote.hosting).toLocaleString("en-US") +
         " credits total." + (skipped.length?" Skipped "+skipped.length+" locked account(s).":""),
     };
   }

@@ -1,5 +1,12 @@
 # Shared Status and Handoff
 
+## Validated Locally — Hosting Reward and Title Motion
+
+November17. Codex owns participation UI/shared quote/server validation, currentHost metadata, browser-local title animation preference and related existing tests. Receive Host Credits defaults off and adds a fixed2,000 outside the batch multiplier to the authenticated host only; no client-selected recipient. Atomic batch, idempotency replay, one hosting reward per tour event and account-lock/admin checks preserved. Token-only tools cannot claim hosting credits. Signed-in account attribution takes priority when a legacy host token is also supplied. Hosting uses Other grant ledger plus hosting tour_events marker, with existing credit audit.
+
+Firefox160 on this desktop reports prefers-reduced-motion:reduce; no title animations ran in the baseline fixture. Settings → Title Animations adds Follow Device Preference(default)/On/Off, browser-local and shared by same-origin Host. On explicitly overrides reduced motion for title effects only; Off disables them. Firefox native headless verified animated rainbow positions and premium border angle with On; Chromium responsive UI verified preferences, state after reload, checkbox default/quote and escaped Host labels. All519 Gacha tests,252 syntax checks and dry-run pass; existing host-credit runtime additionally verifies delegated recipient, forged host rejection, replay and duplicate/token-only denial. No added test count. Local-only fixtures and no production writes. Deployment pending.
+
+
 ## Completed — Remove Repeated bop Cost
 
 November16. Codex removed the small bop image/cost beside each alchemy tier XP progress counter, as requested. Ordinary XP progress, bop draw buttons, hover cost, confirmation and balances retained. Removed the three unused alchemy-bop-cost CSS rules.12 existing alchemy UI tests, diff check and Wrangler dry-run pass; no new tests or backend/data changes. Runtime `0d190c7` pushed/deployed on original Worker, version `ceccb1b0-fa18-4762-8046-ab4ad400c54a`. Both changed live assets200, byte-match and contain no retired cost markup/styles. No production QA mutations; ownership released.

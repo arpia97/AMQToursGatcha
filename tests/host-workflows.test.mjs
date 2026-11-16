@@ -537,6 +537,20 @@ test("whole-tour rewards price rounds by size, split substitutes and pay flat st
   assert.equal(award().total,7800);
   assert.equal(f.e.player("p").balance-before,3800);
   assert.match(f.e.one("SELECT reason FROM ledger WHERE player='p' ORDER BY id DESC LIMIT 1").reason,/2× rewards/);
+  assert.equal(initialTourRewards(preview.players).receiveHostCredits,false);
+  const hosting={...boosted,event:'hosting-tour',receiveHostCredits:true,host:'q'};
+  assert.equal(tourRewardQuote(preview.players,hosting).hosting,2000);
+  assert.equal(tourRewardQuote(preview.players,hosting).total,9800);
+  assert.throws(()=>f.host('participation-batch',hosting),/Sign in/);
+  f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  const hostBefore=f.e.player('368').balance;
+  const payHost=()=>f.e.creditAudit.asHost('368',()=>f.e.mutate('host:participation-batch','hosting-key',hosting,()=>f.e.host('participation-batch',hosting)));
+  assert.equal(payHost().hostingPlayer,'368');
+  assert.equal(f.e.player('368').balance-hostBefore,3600);
+  payHost();assert.equal(f.e.player('368').balance-hostBefore,3600);
+  assert.equal(f.e.one("SELECT count(*) AS n FROM tour_events WHERE event='hosting-tour' AND category='hosting'").n,1);
+  assert.throws(()=>f.e.creditAudit.asHost('368',()=>f.host('participation-batch',{...hosting,participants:hosting.participants.map(r=>({...r,count:false,report:false}))})),/already awarded/);
+  assert.throws(()=>tourRewardQuote(preview.players,{...body,receiveHostCredits:'true'}),/checkbox/);
   f.host("grant", { player: "p", reason: "reporting", amount: 1, note: "" });
   assert.equal(
     f.e.one("SELECT reason FROM ledger ORDER BY id DESC LIMIT 1").reason,

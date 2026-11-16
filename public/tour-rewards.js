@@ -1,5 +1,6 @@
 export const TOUR_REWARD_VERSION = 3;
 export const STAFF_REWARD = 750;
+export const HOST_REWARD = 2000;
 export const TOUR_SIZES = [8, 16, 24, 32, 40, 48, 64, 80, 96, 128, 256, 500];
 const invalid = (message) => Object.assign(new Error(message), { status: 400 });
 const whole = (value, min, max, label) => {
@@ -27,6 +28,7 @@ export function initialTourRewards(
     tourSize: settings.tourSize,
     maxRounds: settings.maxRounds,
     multiplier: 1,
+    receiveHostCredits: false,
     participants: players.map((p) => ({
       player: p.id,
       rounds: settings.maxRounds,
@@ -37,6 +39,9 @@ export function initialTourRewards(
 }
 // Shared preview math; the server revalidates identities and calculates every amount again.
 export function tourRewardQuote(players, plan) {
+  if (plan.receiveHostCredits !== undefined && typeof plan.receiveHostCredits !== 'boolean')
+    throw invalid('Review the Receive Host Credits checkbox.');
+  const hosting = plan.receiveHostCredits === true ? HOST_REWARD : 0;
   if (plan.rewardVersion !== TOUR_REWARD_VERSION)
     throw invalid(
       "Tour reward rules changed. Refresh the host console and review the tour again.",
@@ -115,7 +120,7 @@ export function tourRewardQuote(players, plan) {
     throw invalid("The pasted participants changed. Review the batch again.");
   const participation = rows.reduce((sum, row) => sum + row.participation, 0),
     staff = rows.reduce((sum, row) => sum + row.counting + row.reporting, 0);
-  if (!participation && !staff)
+  if (!participation && !staff && !hosting)
     throw invalid("Choose at least one round or staff reward.");
   return {
     tourSize: size,
@@ -126,6 +131,7 @@ export function tourRewardQuote(players, plan) {
     rows,
     participation,
     staff,
-    total: participation + staff,
+    hosting,
+    total: participation + staff + hosting,
   };
 }

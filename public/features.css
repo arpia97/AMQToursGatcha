@@ -5755,3 +5755,13 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
   .alchemy-refine-actions > .button { font-size:11px; padding-inline:8px; white-space:nowrap; }
   .alchemy-refine-actions > .text-button { grid-column:1/-1; }
 }
+
+/* A browser preference can explicitly opt title effects in or out. */
+.role-title.title-ag > span { display:inline-block; }
+html[data-title-motion=on] :is(.role-title.title-ag,.equipped-title.card-earned-title.tier-ag),
+html[data-title-motion=on] .role-title.title-ag > span { animation:rainbow-flow 6s ease infinite!important; }
+html[data-title-motion=on] .equipped-title.quiz-premium-title { animation:quiz-title-halo 7s linear infinite!important; }
+html[data-title-motion=on] .quiz-premium-title::after { display:block!important;animation:quiz-title-gleam 5s ease-in-out infinite!important; }
+html[data-title-motion=off] :is(.role-title,.equipped-title),
+html[data-title-motion=off] .role-title > span { animation:none!important; }
+html[data-title-motion=off] .quiz-premium-title::after { display:none!important;animation:none!important; }

@@ -4,6 +4,7 @@ import {
   tourRewardDefaults,
   TOUR_SIZES,
   STAFF_REWARD,
+  HOST_REWARD,
 } from "./tour-rewards.js";
 import { matchingCreditPlayers } from "./host-credit-ui.js";
 const number = (value) => value.toLocaleString("en-US");
@@ -59,7 +60,7 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     const availableSizes = TOUR_SIZES.includes(plan.tourSize)
       ? TOUR_SIZES
       : [...TOUR_SIZES, plan.tourSize].sort((a, b) => a - b);
-    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid tour-reward-settings"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label><label>Credit Multiplier<input name="multiplier" type="number" min="0.1" max="10" step="0.1" value="${plan.multiplier}" required aria-describedby="reward-multiplier-hint"></label></div><p class="form-hint" id="reward-multiplier-hint">Multiplier applies to participation, Count and Report.</p><p class="form-hint" data-reward-rate></p><div class="tour-reward-search-bar"><div class="search-input-wrap"><input type="search" data-reward-filter class="search" placeholder="Search participants by name, alias or ID…" value="${escape(searchQuery)}" aria-label="Search participants"><button type="button" class="button secondary small" data-clear-reward-filter ${searchQuery.trim() ? "" : "hidden"}>Clear Search</button></div></div><p class="form-hint" data-reward-filter-empty hidden>No participants match your search.</p><div class="tour-reward-grid">${teamMarkup()}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
+    root.innerHTML = `<form id="participation-batch" class="stack tour-reward-editor"><h3>Review Tour Rewards</h3><p class="form-hint">${escape(meta.event)} · ${escape(meta.note)}<br>Every pasted player starts at the maximum rounds. Adjust early leavers, add their Sub, and check Count or Report below each player.</p><div class="form-grid tour-reward-settings"><label>Tour Size<select name="tourSize">${availableSizes.map((size) => '<option value="' + size + '" ' + (size === plan.tourSize ? "selected" : "") + ">" + size + " Players</option>").join("")}</select></label><label>Maximum Rounds<input name="maxRounds" type="number" min="1" max="2000" step="1" value="${plan.maxRounds}" required></label><label>Credit Multiplier<input name="multiplier" type="number" min="0.1" max="10" step="0.1" value="${plan.multiplier}" required aria-describedby="reward-multiplier-hint"></label></div><p class="form-hint" id="reward-multiplier-hint">Multiplier applies to participation, Count and Report.</p><label class="check-label"><input type="checkbox" name="receiveHostCredits" ${plan.receiveHostCredits ? "checked" : ""} ${state.currentHost ? "" : "disabled"}> Receive Host Credits · +${number(HOST_REWARD)}${state.currentHost ? " · " + escape(state.currentHost.name) : " · Sign in with your host account"}</label><p class="form-hint">Hosting reward is fixed at 2,000 credits.</p><p class="form-hint" data-reward-rate></p><div class="tour-reward-search-bar"><div class="search-input-wrap"><input type="search" data-reward-filter class="search" placeholder="Search participants by name, alias or ID…" value="${escape(searchQuery)}" aria-label="Search participants"><button type="button" class="button secondary small" data-clear-reward-filter ${searchQuery.trim() ? "" : "hidden"}>Clear Search</button></div></div><p class="form-hint" data-reward-filter-empty hidden>No participants match your search.</p><div class="tour-reward-grid">${teamMarkup()}</div><button type="button" class="text-button" data-add-reward-helper>Add Counter / Reporter from Player Pool ＋</button><div class="notice" data-reward-summary aria-live="polite"></div><p class="form-error" data-reward-error role="alert"></p><button class="button" type="submit" data-award-tour>Award Reviewed Tour Rewards →</button></form>`;
     updateTotals();
     applyFilter(searchQuery);
   }
@@ -67,6 +68,7 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
     plan.tourSize = Number(root.querySelector("[name=tourSize]").value);
     plan.maxRounds = Number(root.querySelector("[name=maxRounds]").value);
     plan.multiplier = Number(root.querySelector("[name=multiplier]").value);
+    plan.receiveHostCredits = root.querySelector("[name=receiveHostCredits]")?.checked === true;
     for (const el of root.querySelectorAll("[data-reward-player]")) {
       const row = plan.participants.find(
         (r) => r.player === el.dataset.rewardPlayer,
@@ -91,7 +93,7 @@ export function createTourRewardEditor(root, preview, meta, state, escape) {
           `${number(row.participation)} Participation + ${number(row.counting + row.reporting)} Staff = ${number(row.total)} Credits`;
       }
       root.querySelector("[data-reward-summary]").textContent =
-        `Participation: ${number(quote.participation)} · Staff: ${number(quote.staff)} · Total: ${number(quote.total)} Credits`;
+        `Participation: ${number(quote.participation)} · Staff: ${number(quote.staff)}${quote.hosting ? " · Hosting: " + number(quote.hosting) : ""} · Total: ${number(quote.total)} Credits`;
       root.querySelector("[data-reward-error]").textContent = "";
       root.querySelector("[data-award-tour]").disabled = false;
     } catch (error) {

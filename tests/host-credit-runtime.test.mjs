@@ -1,3 +1,4 @@
+import {TOUR_REWARD_VERSION} from "../public/tour-rewards.js";
 import { registerWithHostCode } from "./host-registered-account.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -155,7 +156,18 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   assert.equal(response.status, 200);
   const entry = await mf.dispatchFetch(entryUrl, { headers: { Cookie: hostCookie } });
   assert.equal(entry.status, 200);
-  assert.deepEqual(Object.keys(await entry.json()).sort(), ["aliases", "players", "usernames"]);
+  const rewardState = await entry.json();
+  assert.deepEqual(Object.keys(rewardState).sort(), ["aliases", "currentHost", "players", "usernames"]);
+  assert.deepEqual(rewardState.currentHost,{id:"2",name:"Delegated Host"});
+  const rewardBody={text:'Local User (1)',event:'hosting-runtime',rewardVersion:TOUR_REWARD_VERSION,tourSize:16,maxRounds:6,multiplier:2,expectedPlayers:['1'],participants:[{player:'1',rounds:1,count:false,report:false}],receiveHostCredits:true,host:'1'};
+  const awardHeaders={Cookie:hostCookie,'Idempotency-Key':'host-reward-runtime'};
+  const hostingResponse=await post('host/participation-batch',rewardBody,awardHeaders);
+  assert.equal(hostingResponse.status,200);
+  const hostingResult=await hostingResponse.json();assert.equal(hostingResult.hosting,2000);assert.equal(hostingResult.hostingPlayer,'2');assert.equal(hostingResult.total,2400);
+  assert.equal((await post('host/participation-batch',rewardBody,awardHeaders)).status,200);
+  assert.equal((await post('host/participation-batch',rewardBody,{Cookie:hostCookie})).status,409);
+  assert.equal((await post('host/participation-batch',{...rewardBody,event:'forged-host'},host)).status,403);
+
   for (const path of ["host/account-rollback-preview", "host/account-rollback"]) {
     assert.equal((await post(path, {})).status, 401);
     assert.equal((await post(path, {}, { Cookie: cookie })).status, 401);

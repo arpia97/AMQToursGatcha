@@ -832,6 +832,10 @@ export class Game extends DurableObject {
         const section = url.searchParams.get("section");
         const needs = (...sections) => !section || sections.includes(section);
         const data = {};
+        if (needs('rewards')) {
+          const hostId = sessionHash ? e.hostIdentity(sessionHash) : null;
+          data.currentHost = hostId ? {id:hostId,name:e.player(hostId).name} : null;
+        }
         if (needs("rewards", "players", "credit-audit", "resets")) {
           const fields = needs("players") ? ",earned,is_admin,account_locked,password IS NOT NULL AS registered" : "";
           data.players = e.all("SELECT id,COALESCE(display_name,name) AS name,balance" + fields + " FROM players ORDER BY name");
@@ -1045,7 +1049,7 @@ export class Game extends DurableObject {
         b,
         () =>
           e.creditAudit.asHost(
-            hostTokenValid ? "host-token" : e.hostIdentity(sessionHash),
+            (sessionHash ? e.hostIdentity(sessionHash) : null) || (hostTokenValid ? 'host-token' : null),
             () => e.host(path.slice(5), b),
           ),
       );
