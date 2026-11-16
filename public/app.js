@@ -670,7 +670,7 @@ function cardFlags(c) {
     wishlisted: (state?.wishlist || []).includes(c.id),
   };
 }
-function cardHTML(c, a = null, item = null, extraActions = "") {
+function cardHTML(c, a = null, item = null, extraActions = "", { packResult = false } = {}) {
   const mine = a?.winner === state.me?.id,
     selling = a?.seller === state.me?.id,
     level = item?.level || a?.level;
@@ -684,8 +684,8 @@ function cardHTML(c, a = null, item = null, extraActions = "") {
   const actions =
     auction +
     owned +
-    (page() === "catalog" || a ? collectorsButton(c, escape) : "") +
-    (state.me && !item?.preview && !owned
+    (!packResult && (page() === "catalog" || a) ? collectorsButton(c, escape) : "") +
+    (state.me && !item?.preview && !owned && !packResult
       ? wishlistButton(c, state.wishlist || [], escape)
       : "") +
     extraActions;
@@ -3810,6 +3810,7 @@ async function handleFeatureClick(a, t) {
       ![
         "pack",
         "pack-reveal-page",
+        "pack-autosell-cancel",
         "showcase-toggle",
         "showcase-buy-slots",
         "showcase-arrange",
@@ -3837,6 +3838,11 @@ async function handleFeatureClick(a, t) {
     if (a === "pack-reveal-page") {
       packReveal.turn(Number(t.dataset.delta));
       $("#modal").scrollTop = 0;
+      return true;
+    }
+    if (a === "pack-autosell-cancel") {
+      const result = await saveCardAction(a, { sale: t.dataset.sale }, t);
+      if (result) packReveal.cancelAutoSale(result.sale, $("#modal"));
       return true;
     }
     if (a === "pack") {

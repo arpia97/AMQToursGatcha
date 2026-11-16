@@ -24,8 +24,16 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
  // Emulate a previously purchased 100-slot capacity in the real Workers SQLite runtime.
  e.tx(()=>{e.run("DELETE FROM settings WHERE key='showcase_capacity_1000'");e.run('DROP TABLE showcase_capacity');e.run('CREATE TABLE showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 100))');e.run("INSERT INTO showcase_capacity VALUES('offerer',100)");});
  this.e=new Engine((sql,...args)=>[...ctx.storage.sql.exec(sql,...args)],fn=>ctx.storage.transactionSync(fn));
- this.e.tx(()=>{this.e.wallet('offerer',90000,'Local Fixture');this.e.action('offerer','showcase-slots',{quantity:900,expectedSlots:100});});}
- async fetch(){try{return Response.json({profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
+ this.e.tx(()=>{this.e.wallet('offerer',90000,'Local Fixture');this.e.action('offerer','showcase-slots',{quantity:900,expectedSlots:100});});
+ const engine=this.e;engine.run("UPDATE players SET autosell_below='AG' WHERE id='offerer'");
+ const pulls=engine.tx(()=>engine.grantPackPulls('offerer',[{...engine.catalogStore.card('p1'),rarity:'D'}]));
+ const sale=pulls.cards[0],before=engine.player('offerer').balance,copies=engine.one("SELECT copies FROM inventory WHERE player='offerer' AND card='p1'")?.copies||0;
+ const cancel=()=>engine.action('offerer','pack-autosell-cancel',{sale:sale.autoSoldId});
+ engine.mutate('offerer:pack-autosell-cancel','first',{sale:sale.autoSoldId},cancel);
+ engine.mutate('offerer:pack-autosell-cancel','retry',{sale:sale.autoSoldId},cancel);
+ this.cancelProof={debited:before-engine.player('offerer').balance,price:sale.autoSoldPrice,restored:engine.one("SELECT copies FROM inventory WHERE player='offerer' AND card='p1'").copies-copies,cancelled:engine.one('SELECT cancelled FROM pack_auto_sales WHERE id=?',sale.autoSoldId).cancelled};}
+
+ async fetch(){try{return Response.json({cancelProof:this.cancelProof,profile:this.e.profile('offerer'),anime:this.e.economy.anime.page('offerer'),collectors:this.e.economy.wishlist.collectors('c1'),offered:this.e.economy.wishlist.collectors('c2'),wanted:this.e.economy.wishlist.collectors('p1','wanted'),counts:this.e.economy.wishlist.withCounts(this.e.catalogStore.cards(['c1','c2','p1'])),both:this.e.catalogStore.page('both','',1,40,{sort:'name'})});}catch(error){return Response.json({error:error.message},{status:500});}}}
  export default {fetch(request,env){return env.GAME.getByName('isolated-profile').fetch(request);}};
  `,
     },
@@ -73,12 +81,14 @@ test("Workers SQLite loads profiles and pinned/anime completion with marketplace
     data = await response.json();
   assert.equal(response.status, 200, JSON.stringify(data));
   assert.equal(data.profile.id, "offerer");
+  assert.deepEqual(data.cancelProof, { debited:25, price:25, restored:1, cancelled:1 });
   assert.equal(data.profile.showcase_slots,1000);
   assert.equal(data.profile.completion.character.owned, 2);
   assert.equal(data.profile.completion.seiyuu.owned, 1);
   assert.equal(data.profile.pinnedAnime[0].owned, 2);
   assert.equal(data.anime.series[0].owned, 2);
-  assert.equal(data.profile.inventory.length, 0);
+  assert.equal(data.profile.inventory.length, 1);
+  assert.equal(data.profile.inventory[0].card, "p1");
   assert.deepEqual(data.counts.find((c) => c.id === "c1").collectors, {
     owned: 2,
     wanted: 0,

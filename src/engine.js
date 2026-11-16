@@ -211,9 +211,14 @@ export class Engine {
     const resultCards = cards.map((card) => {
       if (shouldAutosellRarity(card.rarity, threshold)) {
         const price = instantSalePrice(card, 1);
+        const sale = crypto.randomUUID();
+        this.run(
+          "INSERT INTO pack_auto_sales(id,player,card,price,created) VALUES(?,?,?,?,?)",
+          sale, player, card.id, price, this.now(),
+        );
         autoSoldCount++;
         autoSoldCredits += price;
-        return { ...card, autoSold: true, autoSoldPrice: price };
+        return { ...card, autoSold: true, autoSoldPrice: price, autoSoldId: sale };
       }
       this.addCard(player, card.id);
       return { ...card, autoSold: false };
@@ -228,6 +233,25 @@ export class Engine {
       cards: resultCards,
       autoSoldCount,
       autoSoldCredits,
+      balance: this.player(player).balance,
+    };
+  }
+  cancelPackAutoSale(player, b) {
+    const id = text(b.sale, 100);
+    // Called inside the action receipt transaction, like pack grants.
+    const sale = this.one("SELECT * FROM pack_auto_sales WHERE id=? AND player=?", id, player);
+    if (!sale) fail("This pack auto-sale is unavailable.", 404);
+    if (!sale.cancelled) {
+      // The server's original credited price and card identify this one pull.
+      // A new request key must never restore the same copy a second time.
+      if (!this.catalogStore.card(sale.card)) fail("This card is unavailable.", 404);
+      this.wallet(player, -sale.price, `Cancel pack auto-sell: ${sale.card}`);
+      this.addCard(player, sale.card);
+      this.run("UPDATE pack_auto_sales SET cancelled=1 WHERE id=?", id);
+    }
+    return {
+      message: "Auto-sell cancelled. Card added to your collection.",
+      sale: id, card: sale.card, price: sale.price,
       balance: this.player(player).balance,
     };
   }
@@ -420,6 +444,7 @@ export class Engine {
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
     if (action === "friend-set") return this.friends.set(player, b);
     if (action === "quiz-favorite") return this.quiz.favorite(player, b);
+    if (action === "pack-autosell-cancel") return this.cancelPackAutoSale(player, b);
     if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))
       return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
@@ -1042,6 +1067,7 @@ export class Engine {
         "tour_events",
         "sessions",
         "special_packs",
+        "pack_auto_sales",
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
@@ -1067,6 +1093,7 @@ export class Engine {
       for (const table of [
         "inventory",
         "host_credit_issues",
+        "pack_auto_sales",
         "ledger",
         "predictions",
         "tour_events",

@@ -1043,6 +1043,8 @@ export class Economy {
   }
 }
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS pack_auto_sales(id TEXT PRIMARY KEY,player TEXT NOT NULL,card TEXT NOT NULL,price INTEGER NOT NULL CHECK(price>=0),created INTEGER NOT NULL,cancelled INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS pack_auto_sales_player ON pack_auto_sales(player);
 CREATE TABLE IF NOT EXISTS market_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,kind TEXT NOT NULL,level INTEGER NOT NULL,price INTEGER NOT NULL,created INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',buyer TEXT,sold_at INTEGER);
 CREATE INDEX IF NOT EXISTS listings_open ON market_listings(status,kind,id);
 CREATE INDEX IF NOT EXISTS listings_seller ON market_listings(seller,status);

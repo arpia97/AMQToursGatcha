@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Cancel Individual Pack Auto-sales
+
+November 16. Codex owns integration/deployment in this main checkout, base 2a0e758. Scope: pack grant/cancellation records and reset/identity lifecycle, pack-result actions and summaries, demo parity, focused existing tests, collaboration docs. Put Cancel Auto-sell first and restore only that pulled copy for its original credited price. Preserve settings and production economy; mutations tested locally only. No concurrent feature task claimed.
+
+Complete locally. Each new auto-sold pull has an owner-bound server record with its original credited price; cancellation runs with its receipt in the existing synchronous transaction, restores one copy and cannot be repeated with another key. Insufficient funds, foreign/unknown IDs and locked accounts reject safely. Identity migration/reset cleanup and browser demo parity included. Cancel Auto-sell is the first pack action; cancellation updates that copy, totals and credits without replacing the card/page or changing settings. Older responses without a ticket remain informational; no historical sale reconstruction or production QA mutation.
+
+Validation: all519 tests pass (one focused new regression),248 syntax checks, dry-run build and diff check pass; final compact UI guard passed14 focused tests and syntax again. Existing Workers SQLite fixture verifies the real transaction/runtime and retry. Disposable SQLite/browser at1280/390 verifies top placement, touch reveal without accidental action, exact per-copy debit/grant, injected network failure/retry, rapid duplicate clicks, Protect after restoration, unchanged sold duplicates/settings, insufficient funds and pagination retention, without page errors/overflow. Evidence: surrounding work/pack-autosell-* files. Deployment pending; Codex owns integration/deployment.
+
 ## Completed — Heart Design Options, Profile Friend Placement, Unique Card Titles
 
 November16. Codex owns main integration/deployment, base43d3d3f. Scope: three local HTML/SVG heart previews for user choice (not deployed); move the profile friend control immediately after Quiz; enforce one earned title per player/card ID, consolidate existing duplicate display with visibility/order preservation and retain award history. Distinct cards sharing a name and quiz titles remain separate. Preserve existing production inventory, wallet, receipts, title history and historical migration markers. No historical replay or production QA mutations. Integration/deployment owner:Codex.

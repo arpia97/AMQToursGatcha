@@ -10,6 +10,7 @@ test("pack reveals keep highest-rarity effects, duplicate controls, paid-pack id
       rarity: i === 8 ? "AG" : "D",
     }));
   const state = {
+    me: { balance: 100 }, wishlist: [],
     settings: { premium_seiyuu_price: 1000 },
     inventory: cards.map((c) => ({
       card: c.id,
@@ -53,6 +54,25 @@ test("pack reveals keep highest-rarity effects, duplicate controls, paid-pack id
   reveal.reveal();
   assert.equal(views.length, count);
   assert.equal(JSON.stringify(state), saved);
+  const sold = cards.map((c, i) => i < 2 ? { ...c, autoSold: true, autoSoldId: "sale-" + i, autoSoldPrice: 25 } : { ...c });
+  reveal.show({ cards: sold, autoSoldCount: 2, autoSoldCredits: 50 }, { kind: "character", count: 5 });
+  reveal.reveal();
+  const html = views.at(-1);
+  assert.ok(html.indexOf('data-action="pack-autosell-cancel"') < html.indexOf('data-action="wishlist-toggle"'));
+  assert.equal((html.match(/Cancel Auto-sell · −✦ 25/g) || []).length, 2);
+  const root = { querySelectorAll: () => [], querySelector: () => null };
+  state.me.balance = 75;
+  reveal.cancelAutoSale("sale-0", root);
+  reveal.cancelAutoSale("sale-0", root); // Duplicate acknowledgement is harmless.
+  assert.equal(sold[0].autoSold, false);
+  assert.equal(sold[1].autoSold, true);
+  reveal.turn(1);
+  reveal.turn(-1);
+  assert.match(views.at(-1), /Page 1 of 2/);
+  assert.equal((views.at(-1).match(/Cancel Auto-sell · −✦ 25/g) || []).length, 1);
+  assert.match(views.at(-1), /Auto-sold <strong>1<\/strong>/);
+  assert.match(views.at(-1), /Credits left:.*75/);
+  assert.match(views.at(-1), /data-auto-sold-id="sale-0"><button[^>]*data-action="wishlist-toggle"/);
   reveal.show({ cards: cards.slice(0, 5) }, { daily: true });
   reveal.reveal();
   assert.match(views.at(-1), /DAILY PACK CLAIMED/);

@@ -19,6 +19,7 @@ import { createShopUI } from "../public/shop-ui.js";
 import { profileCardPanel } from "../public/profile-cards-ui.js";
 import { createTradesUI } from "../public/trades-ui.js";
 import { pickemBoard } from "../public/pickem-board.js";
+import { AliasSync } from "../src/aliases.js";
 import { winnerCard } from "../public/tour-winner-ui.js";
 
 function makeFixture(t, { now = 1_750_000_000_000 } = {}) {
@@ -118,6 +119,60 @@ test("pickem participation awards 100 credits to losing predictors in match pick
   assert.equal(e.player("alice").balance, 350);
   assert.equal(e.player("bob").balance, PICKEM_PARTICIPATION_REWARD);
   assert.equal(e.player("carol").balance, 0);
+});
+
+test("pack auto-sale cancellation restores one original-price copy, enforces ownership/funds and survives retries atomically", (t) => {
+  const { e, act, host, db } = makeFixture(t);
+  act("alice", "profile", { autosellBelow: "AG" });
+  const card = e.catalogStore.card("community-c-d");
+  const result = e.tx(() => e.grantPackPulls("alice", [card, card]));
+  const [first, second] = result.cards;
+  assert.notEqual(first.autoSoldId, second.autoSoldId);
+  assert.equal(e.all("SELECT * FROM pack_auto_sales WHERE player='alice'").length, 2);
+  const starting = e.player("alice");
+  assert.throws(() => act("bob", "pack-autosell-cancel", { sale: first.autoSoldId }), /unavailable/);
+  assert.throws(() => act("alice", "pack-autosell-cancel", { sale: "invented", card: card.id, price: 0 }), /unavailable/);
+  e.run("UPDATE players SET account_locked=1 WHERE id='alice'");
+  assert.throws(() => act("alice", "pack-autosell-cancel", { sale: first.autoSoldId }), /locked/);
+  e.run("UPDATE players SET account_locked=0 WHERE id='alice'");
+
+  // Failed persistence must roll back both the debit and the inventory grant.
+  db.exec("CREATE TRIGGER reject_cancel BEFORE UPDATE OF cancelled ON pack_auto_sales BEGIN SELECT RAISE(ABORT,'cancel failure'); END");
+  assert.throws(() => act("alice", "pack-autosell-cancel", { sale: first.autoSoldId }), /cancel failure/);
+  assert.equal(e.player("alice").balance, starting.balance);
+  assert.equal(e.one("SELECT count(*) n FROM inventory WHERE player='alice'").n, 0);
+  assert.equal(e.one("SELECT cancelled FROM pack_auto_sales WHERE id=?", first.autoSoldId).cancelled, 0);
+  db.exec("DROP TRIGGER reject_cancel");
+
+  const body = { sale: first.autoSoldId, card: "community-c-ag", price: 0 };
+  const cancelled = act("alice", "pack-autosell-cancel", body, "cancel-once");
+  assert.equal(cancelled.card, card.id);
+  assert.equal(cancelled.price, first.autoSoldPrice);
+  assert.equal(e.player("alice").balance, starting.balance - first.autoSoldPrice);
+  assert.equal(e.player("alice").earned, starting.earned);
+  assert.equal(e.player("alice").autosell_below, "AG");
+  assert.deepEqual(act("alice", "pack-autosell-cancel", body, "cancel-once"), cancelled);
+  act("alice", "pack-autosell-cancel", body); // Different receipt key, same pull.
+  assert.equal(e.one("SELECT copies FROM inventory WHERE player='alice' AND card=?", card.id).copies, 1);
+  assert.equal(e.one("SELECT count(*) n FROM ledger WHERE reason LIKE 'Cancel pack auto-sell:%'").n, 1);
+
+  e.tx(() => e.wallet("alice", -e.player("alice").balance, "Local spend"));
+  assert.throws(() => act("alice", "pack-autosell-cancel", { sale: second.autoSoldId }), /Not enough/);
+  assert.equal(e.one("SELECT cancelled FROM pack_auto_sales WHERE id=?", second.autoSoldId).cancelled, 0);
+  e.tx(() => e.wallet("alice", second.autoSoldPrice, "Local funds"));
+  e.run("UPDATE inventory SET level=3,copies=2 WHERE player='alice'");
+  e.tx(() => new AliasSync(e).renamePlayer("alice", "10001"));
+  act("10001", "pack-autosell-cancel", { sale: second.autoSoldId });
+  assert.deepEqual({ ...e.one("SELECT level,copies FROM inventory WHERE player='10001' AND card=?", card.id) }, { level: 3, copies: 3 });
+  host("reset-player", { player: "10001", confirmation: "RESET PLAYER 10001" });
+  assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 0);
+  assert.throws(() => act("10001", "pack-autosell-cancel", { sale: second.autoSoldId }), /unavailable/);
+  e.tx(() => e.grantPackPulls("bob", [card])); // No threshold means no cancellation ticket.
+  assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 0);
+  act("bob", "profile", { autosellBelow: "AG" });
+  e.tx(() => e.grantPackPulls("bob", [card]));
+  host("reset-all", { confirmation: "RESET ALL GAME DATA" });
+  assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 0);
 });
 
 test("settings persist autosell, privacy flags, and quiz hotkeys; pack autosell excludes trades and buys", (t) => {

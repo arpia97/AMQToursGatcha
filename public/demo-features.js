@@ -72,6 +72,16 @@ export function demoFeatures(d, path, b) {
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;
   if (path === "special-pack-seen") return { ok: true };
+  if (path === "pack-autosell-cancel") {
+    const sale = s.packAutoSales?.[b.sale];
+    if (!sale) throw Error("This pack auto-sale is unavailable.");
+    if (!sale.cancelled) {
+      d.wallet(-sale.price, `Cancel pack auto-sell: ${sale.card}`);
+      d.add(sale.card);
+      sale.cancelled = true;
+    }
+    return { message: "Auto-sell cancelled. Card added to your collection.", sale: b.sale, card: sale.card, price: sale.price, balance: me.balance };
+  }
   if (path === "wishlist-order" && !b)
     return {
       wishlist: [...s.wishlist],
@@ -715,10 +725,10 @@ export function demoFeatures(d, path, b) {
         { length: 5 },
         () => pool[Math.floor(Math.random() * pool.length)],
       );
-      cards.forEach((c) => d.add(c.id));
+      const outcome = d.grantPackPulls(cards, "Daily pack");
       me.daily_pack = day;
       return {
-        cards,
+        ...outcome,
         message: "Daily pack claimed.",
         credits: 0,
         kind: b.kind,

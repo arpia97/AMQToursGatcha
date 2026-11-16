@@ -1,7 +1,7 @@
 import { readApiResponse } from "./api-response.js";
 import { validateAvatarCrop } from "./avatar-crop.js";
 import { searchMatcher, cardSearchText } from "./search.js";
-import { enhancementCost, MAX_CARD_LEVEL } from "./card-values.js";
+import { enhancementCost, MAX_CARD_LEVEL, shouldAutosellRarity, instantSalePrice } from "./card-values.js";
 import { DAILY_CREDITS } from "./site-defaults.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { drawFeatured } from "./auction-odds.js";
@@ -154,6 +154,23 @@ export class Demo {
         for_trade:0,
       });
   }
+  grantPackPulls(cards, source = "Pack") {
+    const sales = this.s.packAutoSales ||= {};
+    let autoSoldCount = 0, autoSoldCredits = 0;
+    cards = cards.map((card) => {
+      if (!shouldAutosellRarity(card.rarity, this.s.me.autosell_below)) {
+        this.add(card.id);
+        return { ...card, autoSold: false };
+      }
+      const id = crypto.randomUUID(), price = instantSalePrice(card, 1);
+      sales[id] = { card: card.id, price, cancelled: false };
+      autoSoldCount++;
+      autoSoldCredits += price;
+      return { ...card, autoSold: true, autoSoldPrice: price, autoSoldId: id };
+    });
+    if (autoSoldCredits) this.wallet(autoSoldCredits, `${source} auto-sell (${autoSoldCount} cards)`);
+    return { cards, autoSoldCount, autoSoldCredits, balance: this.s.me.balance };
+  }
   async request(path, b) {
     const s = this.s;
     s.now = Date.now();
@@ -264,14 +281,19 @@ export class Demo {
       const cards = Array.from({ length: 5 * count }, () =>
         enhanced ? drawPremium(enhanced, rand) : pool[rand(pool.length)],
       );
-      cards.forEach((c) => this.add(c.id));
+      const outcome = this.grantPackPulls(cards);
       this.save();
       return {
         message: cards.length + " new demo cards.",
-        cards,
+        ...outcome,
         packCount: count,
       };
     } else if (path === "profile") {
+      if (b.autosellBelow !== undefined) {
+        if (b.autosellBelow && !["D", "C", "B", "A", "S", "SS", "SSS", "Ubers", "AG"].includes(b.autosellBelow))
+          throw Error("Choose a valid auto-sell rarity.");
+        s.me.autosell_below = b.autosellBelow || null;
+      }
       if(b.notifyFriendsQuiz!==undefined)s.me.notify_friends_quiz=!!b.notifyFriendsQuiz;
       if (b.username !== undefined) {
         const name = b.username.trim();

@@ -473,6 +473,11 @@ html[data-card-size="large"]
   line-height: 1.2;
   text-align: center;
 }
+.pack-results .pull-reveal button.pack-autosell-tag {
+  color: #f0d096;
+  border-color: #dfbc8760;
+  background: #473b29d9;
+}
 .pack-results .pull-reveal .card-surface:has(.card-state-icons) .card-front {
   padding-right: 42px;
 }
