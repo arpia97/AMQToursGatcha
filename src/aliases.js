@@ -213,6 +213,7 @@ export class AliasSync {
       "profile_anime",
       "host_delegations",
       "quiz_progress",
+      "quiz_favorites",
       "quiz_reward_history",
       "quiz_runs",
       "profile_title_preferences",

@@ -289,6 +289,21 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const tile = (
     await (await mf.dispatchFetch("http://game/api/quizzes")).json()
   ).quizzes.find((q) => q.id === "test");
+  assert.equal(tile.favorited, 0);
+  assert.equal((await post("quiz-favorite",{quiz:"test",favorited:true})).status,401);
+  await post("__quiz-probe",{});
+  const favoriteKey=crypto.randomUUID();
+  for(let i=0;i<2;i++){
+    const favorite=await post("quiz-favorite",{quiz:"test",favorited:true},{...auth,"Idempotency-Key":favoriteKey});
+    assert.equal(favorite.status,200,await favorite.clone().text());
+    assert.deepEqual(await favorite.json(),{quiz:"test",favorited:true});
+  }
+  const favoriteProbe=await (await mf.dispatchFetch("http://game/api/__quiz-probe")).json();
+  assert.equal(favoriteProbe.market,0);assert.equal(favoriteProbe.schedule,0);assert.equal(favoriteProbe.starters,0);
+  const savedFavorites=await (await mf.dispatchFetch("http://game/api/quizzes",{headers:auth})).json();
+  assert.equal(savedFavorites.quizzes.find(q=>q.id==="test").favorited,1);
+  assert.equal(savedFavorites.quizzes.find(q=>q.id==="test").played,0);
+  assert.equal((await post("quiz-favorite",{quiz:"test",favorited:false},auth)).status,200);
   assert.match(tile.cover, /^api\/quiz-cover/);
   const imageResponse = await mf.dispatchFetch("http://game/" + tile.cover);
   assert.equal(imageResponse.status, 200);

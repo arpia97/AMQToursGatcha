@@ -1107,6 +1107,7 @@ test("quiz song list returns public song metadata in pool order without audio UR
     artist: "Kessoku Band",
     anime: "Anime 0",
     answers: ["Anime 0", "Alternative 0"],
+    workingTitles: ["Anime 0", "Alternative 0"],
   });
   assert.equal("audio" in list.songs[0], false);
   const manifest=f.e.quiz.audioManifest("test","p");
@@ -1317,4 +1318,34 @@ test("host quiz delete removes quiz, songs, answers, progress, runs, reward hist
     () => f.e.quiz.deleteQuiz({ quiz: "test", confirmation: "DELETE QUIZ" }),
     /Quiz was not found/,
   );
+});
+
+
+test("quiz favorites persist independently of scores, isolate accounts and follow identity/deletion lifecycle", (t) => {
+  const f = fixture(t), e = f.e;
+  const balance = e.player("p").balance;
+  const input = { quiz: "test", favorited: true };
+  assert.deepEqual(f.action("p", "quiz-favorite", input, "favorite-once"), { quiz: "test", favorited: true });
+  f.action("p", "quiz-favorite", input, "favorite-once");
+  assert.equal(e.quiz.list("p")[0].favorited, 1);
+  assert.equal(e.quiz.list("p")[0].played, 0);
+  assert.equal(e.quiz.list("q")[0].favorited, 0);
+  assert.equal(e.quiz.list()[0].favorited, 0);
+  assert.equal(e.one("SELECT count(*) AS n FROM quiz_favorites").n, 1);
+  assert.equal(e.player("p").balance, balance);
+  assert.equal(e.one("SELECT count(*) AS n FROM quiz_runs").n, 0);
+  assert.throws(() => f.action("p", "quiz-favorite", {quiz:"test",favorited:1}), /whether to favorite/);
+  assert.throws(() => f.action("p", "quiz-favorite", {quiz:"missing",favorited:true}), /not available/);
+  e.quiz.resetScores({quiz:"test",confirmation:"RESET QUIZ SCORES AND TITLES"});
+  assert.equal(e.quiz.list("p")[0].favorited, 1);
+  e.tx(() => new AliasSync(e).renamePlayer("p", "368"));
+  assert.equal(e.quiz.list("368")[0].favorited, 1);
+  f.action("368", "quiz-favorite", {quiz:"test",favorited:false});
+  assert.equal(e.quiz.list("368")[0].favorited, 0);
+  f.save({published:false});
+  assert.throws(() => f.action("q", "quiz-favorite", input), /not available/);
+  e.run("UPDATE players SET is_admin=1 WHERE id='368'");
+  f.action("368", "quiz-favorite", input);
+  e.quiz.deleteQuiz({quiz:"test",confirmation:"DELETE QUIZ"});
+  assert.equal(e.one("SELECT count(*) AS n FROM quiz_favorites").n, 0);
 });

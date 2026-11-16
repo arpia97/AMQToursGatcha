@@ -19,6 +19,8 @@ export class Quiz {
       "CREATE INDEX IF NOT EXISTS quiz_answer_prefix ON quiz_answers(key)",
       "CREATE TABLE IF NOT EXISTS quiz_progress(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL DEFAULT 0,at INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
+      "CREATE TABLE IF NOT EXISTS quiz_favorites(player TEXT NOT NULL,quiz TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
+      "CREATE INDEX IF NOT EXISTS quiz_favorites_quiz ON quiz_favorites(quiz)",
       "CREATE TABLE IF NOT EXISTS quiz_reward_history(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_preferences(player TEXT NOT NULL,quiz TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN(0,1)),PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS profile_title_order(player TEXT PRIMARY KEY,data TEXT NOT NULL)",
@@ -203,6 +205,7 @@ export class Quiz {
       "quiz_answers",
       "quiz_progress",
       "quiz_runs",
+      "quiz_favorites",
       "quiz_reward_history",
       "profile_title_preferences",
     ])
@@ -251,9 +254,10 @@ export class Quiz {
     host = host || this.isHost(player);
     const rows = this.e.all(
       "SELECT q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover" +
-        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? " +
+        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played,CASE WHEN f.player IS NOT NULL THEN 1 ELSE 0 END AS favorited FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? LEFT JOIN quiz_favorites f ON f.quiz=q.id AND f.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
+      player || "",
       player || "",
     );
     const statistics = this.statistics();
@@ -510,9 +514,18 @@ export class Quiz {
             artist: s.artist || "",
             anime: s.answers?.[0] || "",
             answers: s.answers || [],
+            workingTitles: [...new Set([...(s.answers || []), ...(s.workingTitles || [])])],
           };
         }),
     };
+  }
+  favorite(player, b) {
+    const q = this.definition(b.quiz, player);
+    if (typeof b.favorited !== "boolean") fail("Choose whether to favorite this quiz.");
+    if (b.favorited)
+      this.e.run("INSERT OR IGNORE INTO quiz_favorites(player,quiz,created) VALUES(?,?,?)", player, q.id, this.e.now());
+    else this.e.run("DELETE FROM quiz_favorites WHERE player=? AND quiz=?", player, q.id);
+    return { quiz: q.id, favorited: b.favorited };
   }
   audioManifest(id, player) {
     const q = this.definition(id, player);

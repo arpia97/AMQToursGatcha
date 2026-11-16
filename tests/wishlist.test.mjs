@@ -665,3 +665,27 @@ test("wishlist capacity supports 1000 cards across engine, reordering, paginatio
   });
   assert.equal(mockResExisting.wishlist.length, 1000);
 });
+
+
+test("wishlist sorts the complete saved set before paging and preserves private ownership", (t) => {
+  const {e,act}=fixture(t);
+  e.host("catalog",{cards:Array.from({length:30},(_,i)=>({id:"community-c"+i,name:"Card "+i,kind:i%2?"seiyuu":"character",fixedRarity:i===29?"AG":"D"}))});
+  for(let i=0;i<30;i++){
+    act("p","wishlist",{card:"community-c"+i,wanted:true});
+    e.run("UPDATE card_wishlist SET created=? WHERE player='p' AND card=?",i+1,"community-c"+i);
+  }
+  e.catalogStore.invalidate();
+  const page=(sort,kind="both",number=1)=>e.economy.wishlist.page("p","wishlist",number,{sort,kind,viewer:"q"});
+  assert.equal(page("collected").rows[0].card,"community-c29");
+  assert.equal(page("rarity").rows[0].card,"community-c29");
+  assert.equal(page("name-desc").rows[0].card,"community-c29");
+  assert.equal(page("name").rows[0].card,"community-c0");
+  assert.equal(page("name","both",2).rows[0].card,"community-c24");
+  assert.equal(page("name","character").total,15);
+  assert.equal(page("collected","character").rows[0].card,"community-c28");
+  e.addCard("p","community-c29");e.run("UPDATE inventory SET protected=1 WHERE player='p' AND card='community-c29'");
+  e.run("UPDATE players SET private_collection=1 WHERE id='p'");
+  assert.equal(page("rarity").rows[0].protected,null);
+  assert.equal(e.economy.wishlist.page("p","wishlist",1,{sort:"rarity",viewer:"p"}).rows[0].protected,1);
+  assert.equal(page("custom").rows[0].card,"community-c29");
+});

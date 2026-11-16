@@ -20,17 +20,17 @@ export function createFeatures(h, ui) {
   } = h;
   const pager = (prefix, page, more) =>
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
-  const readCard = (id, level = 1, flags = {}) => {
+  const readCard = (id, level = 1, flags = {}, extraActions = "") => {
     const c = cardBy(id), s = getState();
     return cardSurface(c, {
       level, showLevel: true, ...flags,
-      actions: s.me ? wishlistButton(c, s.wishlist || [], e) : "",
+      actions: s.me ? wishlistButton(c, s.wishlist || [], e) + extraActions : "",
     }, h);
   };
   function profileExtras(p, own, arrangement = null) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade })).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own)}${p.collectionHidden ? '<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="pill">Private</span></div></section>' : `<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade }, own ? '<button type="button" class="text-button" data-action="showcase-toggle" data-id="' + e(c.card) + '">Remove From Showcase</button>' : "")).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own)}${p.collectionHidden ? '<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="pill">Private</span></div></section>' : `<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]

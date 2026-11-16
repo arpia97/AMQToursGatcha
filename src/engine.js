@@ -414,6 +414,7 @@ export class Engine {
       return this.quiz.action(player, action, b, context);
     this.player(player);
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
+    if (action === "quiz-favorite") return this.quiz.favorite(player, b);
     if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))
       return this.quiz.action(player, action, b);
     const additional = this.economy.action(player, action, b);
@@ -1013,6 +1014,7 @@ export class Engine {
       this.economy.resetPlayer(id);
       this.run("DELETE FROM quiz_runs WHERE player=?", id);
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
+      this.run("DELETE FROM quiz_favorites WHERE player=?", id);
       this.run("DELETE FROM quiz_reward_history WHERE player=?", id);
       this.run("DELETE FROM profile_title_preferences WHERE player=?", id);
       this.run("DELETE FROM profile_title_order WHERE player=?", id);
@@ -1080,6 +1082,7 @@ export class Engine {
         "profile_anime",
         "quiz_runs",
         "quiz_progress",
+        "quiz_favorites",
         "quiz_reward_history",
         "profile_title_preferences",
         "profile_title_order",

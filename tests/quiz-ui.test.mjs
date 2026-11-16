@@ -1268,3 +1268,47 @@ test("fast session starts buffered next audio before acknowledgment without repl
   assert.equal(retry.key,first.key,"uncertain Next retries retain their key and body");
   assert.deepEqual(retry.b,first.b);
 });
+
+
+test("favorite priority composes with quiz sorting/search/category and saves account preferences", async (t) => {
+  const oldDocument = globalThis.document;
+  globalThis.document = {querySelector:()=>null};
+  t.after(()=>globalThis.document=oldDocument);
+  const quizzes = [
+    {id:"a",name:"Alpha",songs:20,best:0},
+    {id:"b",name:"Beta",songs:40,best:10,favorited:1},
+    {id:"c",name:"Gamma",songs:30,best:20,favorited:1},
+    {id:"d",name:"Composer",songs:80,best:0,category:"composers",favorited:1},
+  ];
+  let saves=0, fail=false, resolve;
+  const storage = new Map(), pending = () => new Promise(r=>resolve=r);
+  let gate;
+  const ui=createQuizUI({escape,getState:()=>({me:{id:"p"}}),onRender:()=>{},
+    storage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},
+    api:async(path,b)=>{
+      if(path==="quizzes")return {quizzes:structuredClone(quizzes)};
+      assert.equal(path,"quiz-favorite");saves++;
+      if(gate)await gate;
+      if(fail)throw Error("Not saved");
+      quizzes.find(q=>q.id===b.quiz).favorited=b.favorited;
+      return b;
+    }});
+  const button=(attr,value)=>({dataset:{quizFavorite:value,quizCategory:value},hasAttribute:k=>k===attr});
+  const order=()=>[...ui.render().matchAll(/data-quiz-open="([^"]+)"/g)].map(m=>m[1]);
+  await ui.load();ui.setSort("pool-desc");ui.setFavoritesFirst(true);
+  assert.deepEqual(order(),["b","c","a"]);
+  ui.setSort("name");assert.deepEqual(order(),["b","c","a"]);
+  ui.setSearch("Alpha");assert.deepEqual(order(),["a"]);
+  ui.setSearch("");ui.setFavoritesFirst(false);assert.deepEqual(order(),["a","b","c"]);
+  ui.setFavoritesFirst(true);gate=pending();
+  const saving=ui.click(button("data-quiz-favorite","a"));
+  await ui.click(button("data-quiz-favorite","a"));assert.equal(saves,1);
+  resolve();await saving;gate=null;
+  assert.deepEqual(order(),["a","b","c"]);
+  assert.match(ui.render(),/class="quiz-favorite is-selected"[^>]*data-quiz-favorite="a"[^>]*aria-pressed="true"/);
+  fail=true;await assert.rejects(ui.click(button("data-quiz-favorite","a")),/Not saved/);
+  assert.deepEqual(order(),["a","b","c"]);fail=false;
+  await ui.load();assert.deepEqual(order(),["a","b","c"]);
+  await ui.click(button("data-quiz-category","composers"));assert.deepEqual(order(),["d"]);
+  assert.equal(storage.get("amqtours-quiz-favorites-first"),"1");
+});

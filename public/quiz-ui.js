@@ -98,7 +98,9 @@ export function createQuizUI({
     songListSortAscending = true,
     quizSort = "recent",
     quizSearch = "",
+    favoritesFirst = false,
     category = "singers";
+  const favoritePending = new Set();
   let sampleStart = 0,
     audioState = "loading",
     playAttempted = false,
@@ -119,6 +121,7 @@ export function createQuizUI({
   let volume = 30;
   try {
     storage = storage || globalThis.localStorage;
+    favoritesFirst = storage?.getItem("amqtours-quiz-favorites-first") === "1";
     const savedServer = storage?.getItem("amqtours-quiz-server");
     if (QUIZ_SERVERS.includes(savedServer)) server = savedServer;
     const saved = storage?.getItem("amqtours-quiz-volume");
@@ -577,6 +580,12 @@ export function createQuizUI({
         '">' + e(label) + '<span aria-hidden="true">' + (active ? songListSortAscending ? "↑" : "↓" : "↕") + '</span></button></th>';
     }).join("");
   }
+  function songAnimeLabel(song) {
+    const titles = [...new Set([...(song.answers || []), ...(song.workingTitles || [])])].filter(Boolean);
+    return '<span class="quiz-working-titles" tabindex="0" title="' +
+      e("All Working Titles\n" + (titles.length ? titles.join("\n") : animeTitle(song))) +
+      '">' + e(animeTitle(song) || "—") + '</span>';
+  }
   function recapRows(entries) {
     return entries.map(({ song: s, index: i }) => {
       const result = songResult(s);
@@ -584,7 +593,7 @@ export function createQuizUI({
         (i + 1) + '</td><td><span class="quiz-recap-result">' +
         (s.correct ? "✓ " : "✕ ") + result + '</span></td><td><strong>' +
         e(s.title || "Unknown Song") + '</strong><small>' + e(s.artist || "—") +
-        '</small></td><td>' + e(animeTitle(s) || "—") + '</td><td>' +
+        '</small></td><td>' + songAnimeLabel(s) + '</td><td>' +
         e(s.submittedAnswer || "—") + '</td><td class="quiz-recap-time">' +
         e(quizDuration(s.elapsedMs)) + '</td><td class="quiz-recap-time">' +
         e(quizDuration(s.responseMs)) + '</td></tr>';
@@ -607,7 +616,7 @@ export function createQuizUI({
           "</td><td>" +
           e(s.artist || "—") +
           "</td><td>" +
-          e(animeTitle(s) || "—") +
+          songAnimeLabel(s) +
           "</td></tr>",
       )
       .join("");
@@ -697,6 +706,7 @@ export function createQuizUI({
         `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
         '<div class="quiz-toolbar-filters">' +
         searchControl +
+        '<label class="check-label quiz-favorites-filter"><input type="checkbox" id="quiz-favorites-first" ' + (favoritesFirst ? 'checked' : '') + '> Favorites First</label>' +
         sortControl +
         "</div>" +
         "</div>" +
@@ -708,6 +718,8 @@ export function createQuizUI({
           ? '<div class="quiz-grid">' +
             [...matchingQuizzes]
               .sort((a, b) => {
+                if (favoritesFirst && !!a.favorited !== !!b.favorited)
+                  return Number(!!b.favorited) - Number(!!a.favorited);
                 switch (quizSort) {
                   case "name":
                     return a.name.localeCompare(b.name, "en", {
@@ -743,6 +755,11 @@ export function createQuizUI({
                   '<article class="collect-card quiz-tile tier-' +
                   rarityClass(quizRarity(q.best)) +
                   '">' +
+                  '<button type="button" class="quiz-favorite' + (q.favorited ? ' is-selected' : '') + '" ' +
+                  (getState().me ? 'data-quiz-favorite="' + e(q.id) + '"' : 'data-action="account"') +
+                  ' aria-pressed="' + !!q.favorited + '" aria-label="' + e((q.favorited ? 'Unfavorite ' : 'Favorite ') + q.name) +
+                  '" title="' + (q.favorited ? 'Remove From Favorites' : 'Add to Favorites') + '" ' +
+                  (favoritePending.has(q.id) ? 'disabled' : '') + '><span aria-hidden="true">' + (q.favorited ? '♥' : '♡') + '</span></button>' +
                   (q.cover
                     ? '<img src="' +
                       e(q.cover) +
@@ -1465,6 +1482,11 @@ export function createQuizUI({
         onRender();
       }
     },
+    setFavoritesFirst(value) {
+      favoritesFirst = !!value;
+      try { storage?.setItem("amqtours-quiz-favorites-first", favoritesFirst ? "1" : "0"); } catch {}
+      onRender();
+    },
     setSort(value) {
       if (
         ![
@@ -1496,6 +1518,26 @@ export function createQuizUI({
         return true;
       }
       if (preparing) return true;
+      if (button.hasAttribute("data-quiz-favorite")) {
+        const id = button.dataset.quizFavorite, player = getState().me?.id;
+        const quiz = quizzes.find((q) => q.id === id);
+        if (!player || !quiz || favoritePending.has(id)) return true;
+        favoritePending.add(id);
+        onRender();
+        try {
+          const result = await call("quiz-favorite", { quiz: id, favorited: !quiz.favorited }, crypto.randomUUID());
+          if (getState().me?.id === player) {
+            const current = quizzes.find((q) => q.id === id);
+            if (current) current.favorited = result.favorited;
+          }
+        } finally {
+          favoritePending.delete(id);
+          onRender();
+          if (globalThis.CSS?.escape)
+            document.querySelector('[data-quiz-favorite="' + CSS.escape(id) + '"]')?.focus({ preventScroll: true });
+        }
+        return true;
+      }
       if (button.hasAttribute("data-quiz-category")) {
         const next = button.dataset.quizCategory;
         if (!["singers", "composers"].includes(next)) return true;

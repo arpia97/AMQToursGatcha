@@ -157,7 +157,10 @@ export function demoFeatures(d, path, b) {
       tradeableOnly = params.get("tradeable") === "1";
     let rows =
       id === me.id && view === "wishlist"
-        ? s.wishlist.map((card) => ({ card }))
+        ? collectionView(s.wishlist.map((card, position) => ({ card, position, acquired_at: -position })),
+            (cid) => d.cards.find((c) => c.id === cid),
+            { kind: params.get("kind") || "both", sort: params.get("sort") || "custom" })
+            .map(({ c, acquired_at, position, ...row }) => row)
         : id === me.id && view === "collection"
           ? collectionView(
               s.inventory,
@@ -182,6 +185,7 @@ export function demoFeatures(d, path, b) {
       player: id,
       view,
       page,
+      kind: params.get("kind") || "both",
       total: rows.length,
       rows: rows.slice((page - 1) * 24, page * 24),
       hasMore: rows.length > page * 24,

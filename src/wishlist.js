@@ -235,25 +235,24 @@ export class Wishlist {
       wishlistKind = ["both", "character", "seiyuu"].includes(options.kind)
         ? options.kind
         : "both";
-      if (wishlistKind === "both") {
+      const sort = ["custom", "collected", "rarity", "name", "name-desc", "role"].includes(options.sort)
+        ? options.sort : "custom";
+      if (wishlistKind === "both" && sort === "custom") {
         rows = e.all(
           `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?`,
-          id,
-          (page - 1) * 24,
+          id, (page - 1) * 24,
         );
+        total = e.one("SELECT count(*) AS n FROM card_wishlist WHERE player=?", id).n;
       } else {
         const allWish = e.all(
-          `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card`,
-          id,
+          `SELECT w.card,w.created,w.position,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=?`, id,
         );
-        const cardMap = new Map(
-          e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]),
-        );
-        const filtered = allWish.filter(
-          (w) => cardMap.get(w.card)?.kind === wishlistKind,
-        );
-        total = filtered.length;
-        rows = filtered.slice((page - 1) * 24, (page - 1) * 24 + 25);
+        const cardMap = new Map(e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]));
+        const sorted = collectionView(allWish.map((w) => ({ ...w, acquired_at: w.created })),
+          (cid) => cardMap.get(cid), { kind: wishlistKind, sort });
+        total = sorted.length;
+        rows = sorted.slice((page - 1) * 24, page * 24 + 1)
+          .map(({ c, acquired_at, position, ...w }) => w);
       }
     } else if (view === "collection") {
       if (owner.private_collection && options.viewer !== id) {

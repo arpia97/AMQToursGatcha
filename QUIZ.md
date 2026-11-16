@@ -2,6 +2,10 @@
 
 Draft quizzes are visible and playable only to hosts, with a Draft · Hosts Only badge. Host previews never change personal bests, credits, milestone rewards or titles. Other players see only published quizzes; with none published, they see Coming Soon.
 
+Each quiz tile has a heart for the signed-in player's saved favorites. The separate **Favorites First** checkbox prioritizes favorites inside the current category/search results, retaining the selected sort within the favorite and remaining groups. It never hides matching nonfavorites. Favorites do not require a submitted score, survive score resets, follow canonical player identity changes, and are removed when the quiz or player gameplay is deleted/reset. Saving uses an authenticated, receipt-protected preference endpoint without loading full game state or triggering market/starter housekeeping.
+
+Hover an Anime label in Song List to view all working titles (the union of saved answers and additional working titles). Display labels still follow the English/Romaji preference. The same preference is available in Settings and in the top bar; changing either synchronizes both immediately and saves the browser preference without submitting profile changes.
+
 ## Import
 
 Upload an AnisongDB array (or an object containing `songs`). Recognized audio fields: `audio`, `audioUrl`, `audio_url`, `mp3`, `songLink`. Bare AMQ MP3 filenames (for example, `dntpj0.mp3`) resolve to `https://naedist.animemusicquiz.com/`. Full URLs must be HTTPS and end in .mp3. Video-only rows are skipped. An upload with no playable matched songs returns a clear error without changing the pool. AMQ JSON title/working-answer fields take priority. Song IDs also resolve against AMQ's master list and the secondary AMQ Plus cache; rows without any accepted title or playable MP3 are skipped and reported. Repeated audio URLs are deduplicated. The import response lists skipped row numbers and reasons. Uploading a replacement JSON replaces the pool, while active runs retain their question/answer snapshots.
@@ -23,6 +27,7 @@ Personal best and milestone payments are committed in the same transaction as th
 ## Routes
 
 - GET /api/quizzes — published tiles and personal bests; signed-in hosts also see draft previews.
+- POST /api/quiz-favorite — authenticated `{quiz, favorited: boolean}` preference; accepts an idempotency key and returns the saved state.
 - GET /api/quiz-answers?quiz=ID&bank=1&page=N — scoped title bank in pages of 1,000 for immediate local autocomplete.
 - GET /api/quiz-answers?quiz=ID&q=PREFIX — up to 20 autocomplete titles.
 - GET /api/quiz-run?quiz=ID — authenticated current question, never the answer key before locking.

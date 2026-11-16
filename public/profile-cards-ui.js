@@ -130,7 +130,7 @@ function profileCollectionControls(
 }
 export function profileCardPanel(
   data,
-  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters },
+  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters, wishlistSort = "custom" },
 ) {
   if (!data) return '<p class="notice">Loading Cards…</p>';
   if (data.hidden && data.view === "collection") {
@@ -210,13 +210,18 @@ export function profileCardPanel(
         ? "Wishlist"
         : "Active Listings") +
     "</h2>" +
-    wishlistKindTabs +
     (own && data.view === "collection" && totalOwned > 1
       ? '<button type="button" class="text-button" data-action="collection-arrange" aria-pressed="false">Arrange Collection</button>'
       : own && data.view === "wishlist" && wishKind === "both" && wishlist.length > 1
         ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
         : "") +
     "</div>" +
+    (data.view === "wishlist" ? '<div class="profile-wishlist-toolbar">' + wishlistKindTabs + '<div class="catalog-refinements sort-control profile-wishlist-sort"><label>Sort By<select id="profile-wishlist-sort">' +
+      [["custom", "Custom Order"], ["collected", "Date Added · Newest"], ["rarity", "Rarity · Highest First"],
+       ["name", "Alphabetical · A–Z"], ["name-desc", "Alphabetical · Z–A"],
+       ...(wishKind === "character" ? [["role", "Role · Main First"]] : [])]
+        .map(([id, label]) => '<option value="' + id + '"' + (wishlistSort === id ? ' selected' : '') + '>' + label + '</option>').join('') +
+      '</select></label></div></div>' : '') +
     (data.view === "collection"
       ? profileCollectionControls(collectionFilters, e, {
           own,

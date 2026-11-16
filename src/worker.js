@@ -306,8 +306,9 @@ export class Game extends DurableObject {
       "quiz-next",
     ].includes(path);
     const quizRun = path === "quiz-run" && !post;
+    const quizPreference = path === "quiz-favorite" && post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !quizPreference && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1296,6 +1297,16 @@ export class Game extends DurableObject {
         () => e.action(session.player, path, b),
       );
       return json({ ...result, gameState: e.gameState(session.player) });
+    }
+    if (quizPreference) {
+      if (!session) fail("Sign in to favorite quizzes.", 401);
+      this.bursts.take("play:" + session.player);
+      return json(e.mutate(
+        session.player + ":" + path,
+        request.headers.get("Idempotency-Key"),
+        b,
+        () => e.action(session.player, path, b),
+      ));
     }
     const next = this.maintainMarket();
     if (!(await this.ctx.storage.getAlarm()))

@@ -2951,6 +2951,39 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 28px;
 }
+.quiz-tile { position: relative; }
+.quiz-favorite {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid #ffffff45;
+  border-radius: 50%;
+  background: #14151ee8;
+  color: #fff;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+.quiz-favorite.is-selected { color: var(--accent, #f47a96); border-color: currentColor; }
+.quiz-favorite:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+.quiz-favorite:disabled { opacity: .6; cursor: wait; }
+.quiz-favorites-filter { white-space: nowrap; margin: 0; }
+.quiz-working-titles { cursor: help; text-decoration: underline dotted #ffffff40; text-underline-offset: 3px; }
+.quiz-working-titles:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
+.profile-wishlist-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.profile-wishlist-sort { display: flex; justify-content: flex-end; margin: 0; }
+.profile-wishlist-sort select { min-width: 200px; }
+@media (max-width: 600px) {
+  .quiz-favorites-filter { min-height: 40px; }
+  .profile-wishlist-toolbar > .profile-wishlist-sort { width: 100%; }
+  .profile-wishlist-sort label, .profile-wishlist-sort select { width: 100%; min-width: 0; }
+}
 .quiz-tile > img,
 .quiz-cover-placeholder {
   width: 100%;
@@ -5603,22 +5636,13 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .quiz-hotkey-hints kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid var(--border); background: #ffffff0a; font-size: 11px; font-family: inherit; }
 .profile-wishlist-kind, .trade-kind-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
 .profile-wishlist-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  min-height: 44px;
+  min-height: 36px;
 }
 .profile-wishlist-header > h2 { margin: 0; }
-.profile-wishlist-header > .profile-wishlist-kind { grid-column: 2; grid-row: 1; }
-.profile-wishlist-header > .text-button { grid-column: 3; grid-row: 1; justify-self: end; }
-@media (max-width: 720px) {
-  .profile-wishlist-header {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 36px auto;
-  }
-  .profile-wishlist-header > .profile-wishlist-kind { grid-column: 1 / -1; grid-row: 2; }
-  .profile-wishlist-header > .text-button { grid-column: 2; }
-}
 
 
 /* bop XP: a separate target-miss currency; compact alongside ordinary draws. */

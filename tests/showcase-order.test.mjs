@@ -106,6 +106,8 @@ test("editor escapes card names, labels keyboard controls and enables saving onl
     feature.profileExtras(profile, false),
     /data-action="showcase-arrange"/,
   );
+  assert.match(feature.profileExtras(profile, true), /data-action="showcase-toggle" data-id="a">Remove From Showcase/);
+  assert.doesNotMatch(feature.profileExtras(profile, false), /data-action="showcase-toggle"/);
   assert.match(feature.profileExtras(profile, false), /data-action="wishlist-toggle" data-id="b" aria-pressed="true"/);
   assert.match(feature.profileExtras(profile, false), /data-action="wishlist-toggle" data-id="a" aria-pressed="false"/);
   viewer.me = null;
