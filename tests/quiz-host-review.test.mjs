@@ -1,4 +1,5 @@
 import test from "node:test";
+import {quizReviewWarnings,sortQuizReview} from '../public/quiz-review.js';
 import assert from "node:assert/strict";
 import {
   quizHostPanel,
@@ -67,6 +68,23 @@ test("song review escapes metadata and shows matched titles, artist, anime and s
   ])
     assert.ok(html.includes(text));
   assert.doesNotMatch(html, /<Song>|<Artist>|<Anime>|<Missing>/);
+});
+
+test('automod distinguishes repeated song titles from shared anime answers and sorts without changing source rows or audio actions',()=>{
+  const songs=[{title:'Song 10',artist:'Beta',answers:['Same Anime'],link:{working:true},audio:'a'},
+    {title:'Song 2',artist:'',answers:['Same Anime'],link:{working:false,message:'HTTP 404'},audio:'b'},
+    {title:' song   2 ',artist:'Alpha',answers:['Other Anime'],link:{working:true},audio:'c'},
+    {title:'Song 2',skipped:true,audio:'d'}];
+  const issues=quizReviewWarnings(songs);assert.equal(issues.duplicates.length,1);assert.deepEqual(issues.broken,[1]);assert.deepEqual(issues.duplicates[0].rows.map(r=>r.index),[1,2]);
+  assert.equal(quizReviewWarnings([{title:'Unique',audio:'a'}],[{title:'Unique',audio:'a'}]).duplicates.length,0,'append deduplicates identical audio');
+  assert.equal(quizReviewWarnings([{title:'Unique'}],[{title:'unique',reviewIndex:9}]).duplicates[0].rows[1].index,9);
+  const entries=songs.slice(0,3).map((song,index)=>({index,title:song.title,artist:song.artist}));
+  assert.deepEqual(sortQuizReview(entries,{key:'title',ascending:true}).map(r=>r.index),[1,2,0]);
+  assert.deepEqual(sortQuizReview(entries,{key:'artist',ascending:false}).map(r=>r.index),[0,2,1]);
+  const html=quizSongReview({songs},e,{key:'title',ascending:true});
+  assert.match(html,/1 broken or unverified link/);assert.match(html,/1 duplicate song title/);assert.match(html,/data-quiz-audio-index="1"/);
+  assert.ok(html.indexOf('data-review-index="1"')<html.indexOf('data-review-index="0"'));assert.match(html,/aria-sort="ascending"/);
+  assert.deepEqual(entries.map(r=>r.index),[0,1,2]);
 });
 test("file review blocks premature save, renders server matches and clears on removing the file", async () => {
   const f = fixture(file([{ annId: 1 }]));

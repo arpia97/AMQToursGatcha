@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## In Progress — Quiz Upload Automod and Review Sorting
+
+November 16. Codex owns `public/quiz-host-ui.js`, a focused shared review helper, the host event wiring, scoped styles and existing review tests. Add explicit broken/unverified-link and duplicate-song-title warnings to upload review; keep duplicate warnings nonblocking and existing link replace/skip/save validation. Add stable ascending/descending Song/Artist/Anime sorting with original row/action indices preserved. No scoring, rewards, account or database changes; premium title preview remains unapplied.
+
 ## Completed — Profile Quiz Statistics and Larger Showcases
 
 November 16. Runtime `9866cfbc510eff761051270ea34d07d78e80f09f` is pushed/deployed on original `amqtours-gatcha`, version `eeca039b-65e2-4dd7-a04c-94ec94700c59`. Own/public profiles have Quiz after Listed: unique published quizzes played, max scores, average personal best, current #1 count, average recorded best time, and a #1 list with score/time/category and leaderboard shortcuts. Existing score/time/achievement/player-ID tiebreaks are preserved; drafts, previews, removed quizzes and unfinished attempts do not count. Untimed records are excluded from the time average. The bounded stats read runs only when the Quiz profile tab opens.

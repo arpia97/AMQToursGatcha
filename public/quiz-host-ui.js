@@ -1,5 +1,6 @@
 import { validQuizAudio } from "./quiz-rules.js";
 import {quizLibraryPanel} from './quiz-library-host-ui.js';
+import {quizReviewWarnings,quizAutomodHTML,sortQuizReview,reviewSortHeader,reviewSortKeys} from './quiz-review.js';
 function quizResetPanel(q, e) {
   return q
     ? `<form id="quiz-scores-reset" class="stack space-top"><input type="hidden" name="quiz" value="${e(q.id)}"><input type="hidden" name="quizName" value="${e(q.name)}"><p class="form-hint">Reset this quiz’s leaderboard, personal bests, active runs and completion titles. Existing credits stay, and previously claimed rewards remain protected.</p><button type="submit" class="button danger">Reset Scores & Completion Titles</button></form>`
@@ -78,27 +79,31 @@ export async function readQuizJSON(file) {
     throw Error("The song file is not valid JSON.");
   }
 }
-export function quizSongReview(result, e) {
+export function quizSongReview(result, e, sort={}, existing=[]) {
   const songs = result.songs || [],
     rejected = result.rejected || [];
+  const duplicateRows=new Set(quizReviewWarnings(songs,existing).duplicates.flatMap(g=>g.rows.filter(r=>!r.existing).map(r=>r.index)));
+  const entries=sortQuizReview(songs.map((song,index)=>({song,index,title:song.title,artist:song.artist,anime:song.answers?.[0]})),sort);
   return (
     '<section class="quiz-import-review"><h3>Song Review</h3><p>' +
     songs.length +
     " Matched Songs · " +
     rejected.length +
     ' Skipped Rows</p><p class="form-hint">Review these imported songs, then save the quiz. Duplicate MP3s are included once.</p>' +
+    quizAutomodHTML(songs,e,{existing})+
     (songs.length
-      ? '<div class="table-wrap quiz-song-list" role="region" aria-label="Imported Songs" tabindex="0"><table><thead><tr><th>#</th><th>Song</th><th>Artist</th><th>Anime</th><th>Audio Link</th></tr></thead><tbody>' +
-        songs
+      ? '<div class="table-wrap quiz-song-list" role="region" aria-label="Imported Songs" tabindex="0"><table data-quiz-review-table="upload" data-review-sort="'+(sort.key||'')+'" data-review-ascending="'+(sort.ascending!==false)+'"><thead><tr><th>#</th>'+reviewSortHeader('title','Song',sort)+reviewSortHeader('artist','Artist',sort)+reviewSortHeader('anime','Anime',sort)+'<th>Audio Link</th></tr></thead><tbody>' +
+        entries
           .map(
-            (song, i) =>
-              "<tr><td>" +
+            ({song,index:i}) =>
+              '<tr data-review-index="'+i+'"><td>' +
               (i + 1) +
-              "</td><td>" +
+              '</td><td data-review-value="title" data-sort-value="'+e(song.title)+'">' +
               e(song.title) +
-              "</td><td>" +
+              (duplicateRows.has(i)?'<small class="quiz-duplicate-warning">Duplicate Title</small>':'')+
+              '</td><td data-review-value="artist" data-sort-value="'+e(song.artist||'')+'">' +
               e(song.artist || "—") +
-              '</td><td title="' +
+              '</td><td data-review-value="anime" data-sort-value="'+e(song.answers?.[0]||'')+'" title="' +
               e((song.answers || []).join(" / ")) +
               '">' +
               e(song.answers?.[0] || "—") +
@@ -137,7 +142,7 @@ function audioReviewCell(song, index, e) {
     return (
       '<span class="subtext">Skipped</span>' + button("restore", "Restore Song")
     );
-  if (!song.link) return '<span class="subtext">Checking…</span>';
+  if (!song.link) return '<span class="subtext">Not Verified</span>';
   if (song.link.working)
     return (
       '<span class="quiz-link-working">✓ Working MP3</span>' +
@@ -160,15 +165,18 @@ function audioReviewCell(song, index, e) {
   );
 }
 const fileReviews = new WeakMap();
+const poolScans = new WeakMap();
 function syncAudioReview(token, e) {
   if (!token.current()) return;
+  const wrap=token.output.querySelector?.('.table-wrap'),top=wrap?.scrollTop||0,left=wrap?.scrollLeft||0;
+  const focus=token.output.querySelector?.(':focus')?.dataset?.quizReviewSort;
   const songs = token.review?.songs || [],
     active = songs.filter((s) => !s.skipped),
     bad = active.filter((s) => !s.link?.working);
   token.output.innerHTML =
-    quizSongReview(token.review, e) +
+    quizSongReview(token.review, e,token.sort,existingReviewSongs(token.form)) +
     (token.checking
-      ? '<p role="status">Checking MP3 Links · ' +
+      ? '<p role="status" data-quiz-audio-progress>Checking MP3 Links · ' +
         (token.checked || 0) +
         " / " +
         active.length +
@@ -192,10 +200,54 @@ function syncAudioReview(token, e) {
   );
   token.submit.disabled =
     token.checking || token.form.dataset?.poolLoading === "true";
+  const nextWrap=token.output.querySelector?.('.table-wrap');if(nextWrap){nextWrap.scrollTop=top;nextWrap.scrollLeft=left;}
+  if(focus)token.output.querySelector?.(`[data-quiz-review-sort="${focus}"]`)?.focus();
+}
+function existingReviewSongs(form){
+  if(form.elements?.songMode?.value!=='append')return [];
+  return poolReviewSongs(form);
+}
+function poolReviewSongs(form){return [...(form.querySelectorAll?.('[data-quiz-review-table="pool"] tbody tr')||[])].map(row=>({title:row.querySelector('[data-review-value="title"]')?.dataset.sortValue,audio:row.dataset.reviewAudio,reviewIndex:Number(row.dataset.reviewIndex),skipped:!!row.querySelector('[name="removeSongIds"]')?.checked}));}
+export function handleQuizReviewSort(event){
+  const button=event.target.closest('[data-quiz-review-sort]');if(!button)return false;
+  const key=button.dataset.quizReviewSort;if(!reviewSortKeys.includes(key))return false;
+  const table=button.closest('[data-quiz-review-table]');if(!table)return false;
+  const sort={key,ascending:table.dataset.reviewSort!==key||table.dataset.reviewAscending!=='true'};
+  const entries=[...table.querySelectorAll('tbody tr')].map(row=>({row,index:Number(row.dataset.reviewIndex),...Object.fromEntries(reviewSortKeys.map(k=>[k,row.querySelector(`[data-review-value="${k}"]`)?.dataset.sortValue||'']))}));
+  for(const {row}of sortQuizReview(entries,sort))table.querySelector('tbody').append(row);
+  table.dataset.reviewSort=key;table.dataset.reviewAscending=String(sort.ascending);
+  for(const header of table.querySelectorAll('[data-quiz-review-sort]')){const active=header.dataset.quizReviewSort===key;header.closest('th').setAttribute('aria-sort',active?(sort.ascending?'ascending':'descending'):'none');header.querySelector('span').textContent=active?(sort.ascending?'↑':'↓'):'↕';}
+  const input=button.closest('form')?.elements.songsFile,token=input&&fileReviews.get(input);
+  if(token?.current()&&table.dataset.quizReviewTable==='upload')token.sort=sort;
+  return true;
+}
+export function refreshQuizReviewWarnings(form,e){
+  const token=fileReviews.get(form?.elements.songsFile);
+  if(token?.current()&&token.review)syncAudioReview(token,e);
+  syncPoolReviewWarnings(form,e);
+}
+function syncPoolReviewWarnings(form,e){
+  const pool=form?.querySelector?.('[data-quiz-pool-warnings]'),scan=poolScans.get(form);
+  if(pool)pool.innerHTML=quizAutomodHTML(poolReviewSongs(form).map(s=>({...s,link:scan?.checks.get(s.reviewIndex)})),e,{links:!!scan,pool:true});
+}
+export async function checkQuizPoolLinks(event,call,e){
+  const button=event.target.closest('[data-quiz-pool-check]');if(!button||button.disabled)return false;
+  const form=button.closest('form'),table=form.querySelector('[data-quiz-review-table="pool"]');
+  const scan={checks:new Map()},songs=poolReviewSongs(form).filter(s=>!s.skipped);
+  const current=()=>form.isConnected&&table.isConnected&&poolScans.get(form)===scan;
+  poolScans.set(form,scan);button.disabled=true;syncPoolReviewWarnings(form,e);
+  try{for(let i=0;i<songs.length;i+=8){
+    const batch=songs.slice(i,i+8),result=await call('quiz-audio-check',{songs:batch.map(s=>({audio:s.audio})),force:true});
+    if(!current())return true;
+    if(!Array.isArray(result.checks)||result.checks.length!==batch.length||result.checks.some((r,n)=>r.audio!==batch[n].audio))throw Error('Audio validation returned an incomplete result. Run Automod again.');
+    result.checks.forEach((check,n)=>scan.checks.set(batch[n].reviewIndex,check));syncPoolReviewWarnings(form,e);
+  }}finally{if(current())button.disabled=false;}
+  return true;
 }
 async function checkReviewLinks(token, indices, call, e, force = false) {
   token.checking = true;
   token.checked = 0;
+  if(force)for(const index of indices)token.review.songs[index].link=null;
   syncAudioReview(token, e);
   try {
     for (let offset = 0; offset < indices.length; offset += 8) {
@@ -222,7 +274,7 @@ async function checkReviewLinks(token, indices, call, e, force = false) {
         if (check.working) song.audio = check.resolvedAudio || song.audio;
       }
       token.checked += positions.length;
-      const progress = token.output.querySelector?.('[role="status"]');
+      const progress = token.output.querySelector?.('[data-quiz-audio-progress]');
       if (progress)
         progress.textContent =
           "Checking MP3 Links · " + token.checked + " / " + indices.length;
@@ -292,6 +344,7 @@ export async function handleQuizAudioReview(event, call, e) {
         .filter((i) => i !== null),
       call,
       e,
+      true,
     );
     return true;
   }
@@ -336,19 +389,19 @@ export function quizPoolEditor(pool, e) {
     pool.updated +
     '"><details class="quiz-pool-editor" open><summary>Current Song Pool · ' +
     pool.songs.length +
-    ' Songs</summary><p class="form-hint">Check songs to remove, then Save Quiz. Uncheck to undo. A published quiz needs at least 20 songs.</p><div class="table-wrap quiz-song-list"><table><thead><tr><th>Remove</th><th>Song</th><th>Artist</th><th>Anime</th></tr></thead><tbody>' +
+    ' Songs</summary><p class="form-hint">Check songs to remove, then Save Quiz. Uncheck to undo. A published quiz needs at least 20 songs.</p><div data-quiz-pool-warnings>'+quizAutomodHTML(pool.songs,e,{links:false})+'</div><button type="button" class="button secondary" data-quiz-pool-check>Run Automod · Check Links</button><div class="table-wrap quiz-song-list"><table data-quiz-review-table="pool"><thead><tr><th>Remove</th>'+reviewSortHeader('title','Song')+reviewSortHeader('artist','Artist')+reviewSortHeader('anime','Anime')+'</tr></thead><tbody>' +
     pool.songs
       .map(
-        (song) =>
-          '<tr><td><input type="checkbox" name="removeSongIds" value="' +
+        (song,index) =>
+          '<tr data-review-index="'+index+'" data-review-audio="'+e(song.audio||'')+'"><td><input type="checkbox" name="removeSongIds" value="' +
           song.id +
           '" aria-label="Remove ' +
           e(song.title) +
-          '"></td><td>' +
+          '"><small>#'+(index+1)+'</small></td><td data-review-value="title" data-sort-value="'+e(song.title)+'">' +
           e(song.title) +
-          "</td><td>" +
+          '</td><td data-review-value="artist" data-sort-value="'+e(song.artist||'')+'">' +
           e(song.artist || "—") +
-          '</td><td title="' +
+          '</td><td data-review-value="anime" data-sort-value="'+e(song.answers[0]||'')+'" title="' +
           e(song.answers.join(" / ")) +
           '">' +
           e(song.answers[0]) +

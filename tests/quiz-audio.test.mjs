@@ -121,7 +121,7 @@ test("save requires cached working links and only permits replacements/skips for
   );
 });
 
-test("an explicit retry rechecks a recently failed link instead of repeating the cached failure", async () => {
+test("explicit retries recheck recently failed and previously working links instead of repeating cached results", async () => {
   const cache = new Map();
   let calls = 0,
     healthy = false;
@@ -147,4 +147,8 @@ test("an explicit retry rechecks a recently failed link instead of repeating the
     true,
   );
   assert.equal(calls, 2);
+  healthy=false;
+  assert.equal((await checkQuizAudio(songs,fetcher,cache,3000)).checks[0].working,true);
+  assert.equal((await checkQuizAudio(songs,fetcher,cache,3000,true)).checks[0].working,false);
+  assert.equal(calls,3);
 });

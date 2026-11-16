@@ -9,6 +9,9 @@ import {
   previewQuizFile,
   handleQuizAudioReview,
   quizPoolEditor,
+  handleQuizReviewSort,
+  refreshQuizReviewWarnings,
+  checkQuizPoolLinks,
 } from "./quiz-host-ui.js";
 import { TOUR_SIZES } from "./tour-rewards.js";
 import { createTourRewardEditor } from "./tour-rewards-ui.js";
@@ -1008,8 +1011,13 @@ document.addEventListener("change", (ev) => {
 });
 
 document.addEventListener("click", (event) => {
+  if(event.target.closest('[data-quiz-review-sort]'))handleQuizReviewSort(event);
+  if(event.target.closest('[data-quiz-pool-check]')&&!working)checkQuizPoolLinks(event,api,esc).catch(err=>report(err.message,true));
   if (event.target.closest("[data-quiz-audio-action]") && !working)
     handleQuizAudioReview(event, api, esc).catch((err) =>
       report(err.message, true),
     );
+});
+document.addEventListener('change',event=>{
+  if(['songMode','removeSongIds'].includes(event.target.name)&&formIdentifier(event.target.form)==='quiz-save')refreshQuizReviewWarnings(event.target.form,esc);
 });

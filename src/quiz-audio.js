@@ -98,7 +98,7 @@ export async function checkQuizAudio(
     const old = cache.get(audio);
     if (
       old &&
-      (!force || old.working) &&
+      !force &&
       now - old.at < (old.working ? 86400000 : 60000)
     )
       return old;
