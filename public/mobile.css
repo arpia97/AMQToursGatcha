@@ -31,6 +31,8 @@
  .top-actions{gap:12px;margin-left:auto;flex-wrap:nowrap}
  .wallet{padding:7px 10px;font-size:12px;gap:6px}.wallet>span:last-child{display:none}
  #account{width:36px;height:36px;min-width:36px;overflow:visible}
+ #account:has(.profile-avatar){background:transparent}
+ #account .profile-avatar.enhancement-frame{width:36px;height:36px;border-width:min(2px,var(--frame-width));flex-shrink:0}
  .topbar .card-size-control,.topbar .title-mode{display:none}
  #demo-banner{padding:7px 16px;font-size:9px;letter-spacing:1px;border:0;background:#b6e2c508;color:#98bba4;text-align:center}
  #demo-banner span,#reset-demo{display:none}
