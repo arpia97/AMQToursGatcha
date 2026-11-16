@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Favorite Heart and Unclipped Glows
+
+November16. Codex owns integration/deployment on main, base6573aa6. Scope: remove quiz favorite status dot; give avatar/card scroll lists sufficient halo room without changing effect strength, crop, saved state or scroll access. Focused existing tests and local desktop/mobile browser fixtures; no production mutations. No concurrent task claimed.
+
+Implemented locally. Removed only the SVG status circle and its unused CSS; selected heart styling and favorite persistence remain intact. Reproduced the screenshot in Friends (0px left clearance) and Collection pop-ups (10px). Added horizontal bleed and internal scroll padding, plus person-row insets (40px clearance), and matching gutters in trade picker, trade notices and legacy order lists. Vertical padding stays inside each bounded scroll viewport, preventing content from overlapping pager controls. Frame colors, strength, animation and avatar crop unchanged. No backend/schema/economy change.
+
+Validation:39 focused existing Quiz/Trades UI/Showcase tests pass (no new cases),249 syntax checks, Wrangler dry-run and diff checks pass. Desktop/mobile local browser at1280/390 covers Friends, Collection, Rankings comparison, trade picker/notices and order list, all last items reachable, no overflow/errors. Actual application/SQLite at1440/390 verifies heart-only SVG and saving favorites without changing balance/inventory. Evidence: surrounding work/glow-{before,after}-*.png, glow-after-proof.json and heart-no-dot-proof.json. Release verification pending.
+
 ## Completed — Wishlist Toolbar and Bidirectional Sorts
 
 November16. Codex owns integration/deployment on main, baseb5694da. Scope: shared profile card filters/Wishlist search, rarity, role and Exclude Owned; server filtering/pagination/privacy; opposite numeric/date/name/role sort choices across Gacha browsing and order editors, with demo parity and focused checks. Exclude Owned uses the wishlist profile owner’s inventory/escrow, while private ownership stays hidden. Preserve wallets/cards/receipts and existing order; all QA mutations local only. No concurrent work claimed.

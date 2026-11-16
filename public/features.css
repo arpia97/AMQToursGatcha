@@ -77,8 +77,8 @@
 }
 .showcase-order-list {
   list-style: none;
-  margin: 0;
-  padding: 3px;
+  padding: 20px;
+  margin: 0 -17px;
   max-height: min(52vh, 480px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2328,8 +2328,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .trade-notice-list {
   max-height: min(55dvh, 520px);
   overflow-y: auto;
-  margin: 20px 0;
-  padding: 5px;
+  margin: 20px -15px;
+  padding: 20px;
 }
 .trade-notice {
   display: flex;
@@ -2633,8 +2633,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   gap: 12px;
   max-height: 50vh;
   overflow-y: auto;
-  padding: 6px;
-  margin: 0 -6px 18px;
+  padding: 20px;
+  margin: 0 -20px 18px;
 }
 .trade-picker-card {
   display: flex;
@@ -2971,9 +2971,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 }
 .quiz-favorite svg { width:36px; height:36px; overflow:visible; }
 .quiz-favorite-heart { stroke:currentColor; fill:none; stroke-width:1.45; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
-.quiz-favorite-light { fill:#65728a; stroke:none; }
 .quiz-favorite.is-selected { color:#f280a4; }
-.quiz-favorite.is-selected .quiz-favorite-light { fill:#f280a4; filter:drop-shadow(0 0 3px #f280a4c0); }
 .quiz-favorite.is-selected .quiz-favorite-heart { fill:#f280a40d; filter:drop-shadow(0 0 3px #f280a42f); }
 .quiz-favorite:hover { filter:brightness(1.2); }
 .quiz-favorite:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
@@ -5222,12 +5220,16 @@ dialog.avatar-editor-modal {
   }
 }
 
+/* Scroll gutters let enhancement halos fade out inside the scroll boundary.
+   Horizontal negative margins preserve column widths. Vertical padding stays
+   inside the viewport, keeping partially scrolled rows clear of list controls. */
 /* On-demand collector lists keep catalogue cards uncluttered. */
 .collector-people {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin: 20px 0;
+  margin: 20px -20px;
+  padding: 20px;
   max-height: 52vh;
   overflow: auto;
 }
@@ -5235,7 +5237,7 @@ dialog.avatar-editor-modal {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 10px;
+  padding: 10px 20px;
   border-radius: 10px;
   background: var(--surface, #1b1c25);
   min-width: 0;
@@ -5686,10 +5688,10 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .profile-tile-link { display:flex; align-items:center; gap:16px; flex:1; min-width:0; color:inherit; text-decoration:none; }
 .profile-tile-link > div { min-width:0; }
 .profile-tile-link h3 { overflow-wrap:anywhere; }
-.friend-row { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); }
+.friend-row { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px 20px; border-bottom:1px solid var(--border); }
 .friend-row > a { display:flex; gap:12px; align-items:center; color:var(--text); min-width:0; }
 .friend-row > a > span { overflow-wrap:anywhere; }
-.friends-list { max-height:55vh; overflow:auto; margin-bottom:18px; scrollbar-width:none; }
+.friends-list { max-height:55vh; overflow:auto; padding:20px; margin:0 -20px 18px; scrollbar-width:none; }
 .friends-list::-webkit-scrollbar { display:none; }
 .friends-modal { width:min(620px,calc(100% - 32px)); }
 .friends-panel > .tabs { display:flex; flex-direction:row; align-items:center; width:fit-content; margin-bottom:16px; }

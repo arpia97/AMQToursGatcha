@@ -769,7 +769,7 @@ export function createQuizUI({
                   (getState().me ? 'data-quiz-favorite="' + e(q.id) + '"' : 'data-action="account"') +
                   ' aria-pressed="' + !!q.favorited + '" aria-label="' + e((q.favorited ? 'Unfavorite ' : 'Favorite ') + q.name) +
                   '" title="' + (q.favorited ? 'Remove From Favorites' : 'Add to Favorites') + '" ' +
-                  (favoritePending.has(q.id) ? 'disabled' : '') + '><svg viewBox="0 0 40 40" aria-hidden="true"><path class="quiz-favorite-heart" d="m20 28-8.4-7.9a5 5 0 0 1 7-7.1l1.4 1.4 1.4-1.4a5 5 0 0 1 7 7.1Z"/><circle class="quiz-favorite-light" cx="31.5" cy="9" r="1.55"/></svg></button>' +
+                  (favoritePending.has(q.id) ? 'disabled' : '') + '><svg viewBox="0 0 40 40" aria-hidden="true"><path class="quiz-favorite-heart" d="m20 28-8.4-7.9a5 5 0 0 1 7-7.1l1.4 1.4 1.4-1.4a5 5 0 0 1 7 7.1Z"/></svg></button>' +
                   (q.cover
                     ? '<img src="' +
                       e(q.cover) +
