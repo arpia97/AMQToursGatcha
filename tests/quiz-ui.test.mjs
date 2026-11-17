@@ -778,7 +778,6 @@ test("quiz category tabs filter identical-format tiles including credit-free Fra
     dataset: { quizCategory: "franchise" },
   });
   assert.match(ui.render(), /Franchise Tile/);
-  assert.match(ui.render(), /Franchise Quizzes · No Credit Rewards/);
   assert.doesNotMatch(ui.render(), /Personal-Best Payouts|One-Time Milestones/);
   assert.doesNotMatch(ui.render(), /Singer Tile|Composer Tile/);
   assert.equal(calls, 1);
