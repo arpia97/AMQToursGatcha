@@ -29,7 +29,7 @@ export function advanceMatch(state,now=Date.now()) {
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
     if(active.every(p=>p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:10},(_,i)=>i).every(i=>p.loaded.includes(i))))) {
-      state.phase='guess';state.startsAt=now+3000;state.until=state.startsAt+20000;
+      state.phase='guess';state.startsAt=now+3000;state.until=state.startsAt+30000;
     } else if(now>=state.until){state.phase='cancelled';state.reason='Not all players could load the audio in time.';state.until=now+86400000;}
   } else if(state.phase==='guess'&&(now>=state.until||(now>=state.startsAt&&active.every(p=>p.locked))))gradeRound(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {

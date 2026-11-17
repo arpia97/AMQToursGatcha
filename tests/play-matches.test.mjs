@@ -26,7 +26,7 @@ test('matches preload all ten, share only team answers, score categories once an
   for(const p of s.players){move(p.id,{type:'loaded',indices:Array.from({length:9},(_,i)=>i)});move(p.id,{type:'ready'});}
   assert.equal(s.phase,'loading');
   for(const p of s.players)move(p.id,{type:'loaded',indices:[9]});
-  assert.equal(s.phase,'guess');assert.equal(s.startsAt,now+3000);
+  assert.equal(s.phase,'guess');assert.equal(s.startsAt,now+3000);assert.equal(s.until-s.startsAt,30000);
   assert.throws(()=>move('0',{type:'answer',index:0,answers:{anime:'Anime',song:'Song',artist:'Artist'}}),/no longer/);
   now=s.startsAt;
   const p=s.players[0],teammate=s.players.find(x=>x.id!==p.id&&x.team===p.team),opponent=s.players.find(x=>x.team!==p.team);

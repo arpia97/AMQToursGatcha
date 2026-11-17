@@ -12,7 +12,7 @@ The original Quiz tab still uses its existing quiz transport and rewards.
 - Each match selects 20 distinct AMQ+ song groups with MP3 audio. All players
   receive the same order. Anime alternatives come from the active AMQ+ cache;
   song-name variants are merged across that song's occurrences.
-- 20 seconds per song, following a shared 3-second countdown; reveal lasts
+- 30 seconds per song, following a shared 3-second countdown; reveal lasts
   5 seconds. Everyone locking early reveals early. The server grades answers.
 - Each correct anime, song and artist gives one point. Teams can earn at most
   3 points per song / 60 per match. Each player also earns their own correct
