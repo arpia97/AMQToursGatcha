@@ -1,4 +1,5 @@
 import { routeHref } from "./site-navigation.js";
+import {playReviewPanel,mountPlayReview} from './play-review-ui.js';
 import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
@@ -129,6 +130,7 @@ function render() {
     .querySelectorAll(".host-tabs button")
     .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
   let html = "";
+  if(tab==='play-review')html=playReviewPanel();
   if (tab === "quiz")
     html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool,quizLibraryStatus);
   if (tab === "rewards")
@@ -229,6 +231,7 @@ function render() {
   matchDraft = null;
   managedTour = null;
   $("#host-content").innerHTML = html;
+  if(tab==='play-review')mountPlayReview($('#host-content .play-review'),state,api,esc);
   if (tab === "rewards") updateRewardDefaults($("#grant"));
 }
 function updateQuizLibraryPanel(status) {
@@ -255,7 +258,7 @@ async function pollQuizLibrary() {
 let loadVersion = 0;
 async function load(section = tab) {
   const version = ++loadVersion;
-  const next = section === "quiz"
+  const next = section === 'play-review' ? await api('play-review') : section === "quiz"
     ? await api("quizzes")
     : await api("state?section=" + encodeURIComponent(section));
   if (version !== loadVersion) return false;

@@ -98,6 +98,7 @@ export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
   return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
+    audioIndex:state.audioPool?state.audioPool.findIndex(s=>s.round===state.index):state.index,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist})):state.history.map(({index,anime,song,artist})=>({index,anime,song,artist})),
     players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

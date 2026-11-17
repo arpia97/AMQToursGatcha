@@ -1,5 +1,7 @@
 import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
+import {DatabaseSync} from 'node:sqlite';
+import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits,REVIEW_RETENTION} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildArtistLibrary,artistMatches,submittedArtists} from '../src/play-artists.js';
@@ -30,6 +32,39 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
 });
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));
 const players=Array.from({length:6},(_,i)=>({id:String(i),name:'Player '+i}));
+
+test('unused audio never becomes a round; review suppresses shared answers and preserves server receipts with bounded private retention',()=>{
+  const state=makeMatch('local','1v1',players.slice(0,2),structuredClone(songs));
+  const decoy={audio:'https://example.test/unused.mp3',anime:'Unused Anime',title:'Unused Song',artist:'Unused Artist',answers:{anime:['unused anime'],song:['unused song'],artist:['Unused Artist']}};
+  prepareAudioPool(state,[decoy]);const manifest=audioManifest(state);
+  assert.equal(manifest.audio.length,21);assert.equal(manifest.total,20);assert.equal(manifest.preload,11);
+  assert.equal(manifest.decoys,undefined);assert.equal(manifest.audioPool,undefined);
+  assert.equal(matchView(state,'0').audioPool,undefined);assert.equal(matchView(state,'0').decoys,undefined);
+  assert.equal(manifest.audio[matchView(state,'0').audioIndex],songs[0].audio);
+  const decoyIndex=manifest.audio.indexOf(decoy.audio);
+  assert.ok(decoyIndex<manifest.preload);assert.deepEqual(loadedRounds(state,[decoyIndex]),[]);
+  assert.deepEqual(loadedRounds(state,Array.from({length:manifest.preload},(_,i)=>i)).sort((a,b)=>a-b),Array.from({length:10},(_,i)=>i));
+  assert.equal(loadedRounds(state,[21]),null);
+  assert.equal(decoyHits(state,{anime:'Unused Anime'}).length,1);
+  state.songs[19].answers.anime.push('unused anime');assert.deepEqual(decoyHits(state,{anime:'Unused Anime'}),[]);
+  state.songs[19].answers.anime.pop();
+  const db=new DatabaseSync(':memory:');try{
+    const log=new MatchReview({sql:{exec:(sql,...args)=>db.prepare(sql).all(...args)}});log.initialize(state);
+    const before={index:0,phase:'guess',startsAt:500,locked:false};
+    state.players.find(p=>p.id==='0').answers={anime:'Unused Anime'};
+    log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true,clientAt:1},before,null,900);
+    log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true},{...before,locked:true},null,901);
+    log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true},before,{status:409,message:'Too late'},902);
+    log.activity(state,'1',{event:'visibility',visibility:'hidden',focused:false,clientAt:10},903);
+    const review=log.page();assert.equal(review.expires,state.created+REVIEW_RETENTION);
+    const submitted=review.events.find(e=>e.kind==='submit');assert.equal(submitted.at,900);assert.equal(submitted.data.elapsedMs,400);assert.equal(submitted.data.clientAt,1);assert.equal(submitted.data.flags.length,1);
+    assert.ok(review.events.filter(e=>e.kind==='answer-draft').every(e=>!e.data.accepted&&!e.data.flags.length));
+    assert.equal(log.page({player:'1'}).events.length,1);
+    assert.ok(log.page({before:submitted.seq}).events.length===0);
+    db.prepare('UPDATE review_counts SET n=4001 WHERE player=?').run('0');log.add(state,'0','connected');log.add(state,'1','connected');assert.equal(log.page().events.length,5);
+    db.prepare('UPDATE review_meta SET expires=1').run();assert.equal(log.page(),null);
+  }finally{db.close();}
+});
 test('matches preload all ten, share only team answers, score categories once and resume without duplicate points',()=>{
   let now=100000;const s=makeMatch('local','3v3',players,songs,now);
   const move=(id,message)=>matchMove(s,id,message,now);

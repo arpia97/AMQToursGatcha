@@ -314,7 +314,7 @@ export class Game extends DurableObject {
     const friendsRead = path === "friends" && !post;
     const playRead = ["play-state", "play-connect"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -389,6 +389,15 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      if(path==='host/play-review'&&!post){
+        const queue=this.env.PLAY_QUEUE?.getByName('play-queues-v1');
+        if(!queue)fail('Match review is unavailable.',503);
+        const id=url.searchParams.get('match');
+        if(!id){const result=await queue.reviews(Object.fromEntries(url.searchParams));requireHost();return json(result);}
+        if(!/^[a-f0-9-]{36}$/.test(id)||!await queue.hasReview(id))fail('Match review not found or expired.',404);
+        const result=await this.env.PLAY_MATCHES.getByName(id).review(Object.fromEntries(url.searchParams));
+        requireHost();if(!result)fail('Match review not ready or expired.',404);return json(result);
+      }
       const requireOwner = () => {
         requireHost();
         if (!hostTokenValid && e.hostIdentity(sessionHash) !== "368")
@@ -1171,7 +1180,7 @@ export class Game extends DurableObject {
       const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
       if(match&&!await queue.canAccess(session.player,match))fail('You are not in this match.',403);
       const playPlayer=e.player(session.player);
-      const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:playPlayer.name,avatar:playAvatar(e,playPlayer),expires:Math.min(session.expires,Date.now()+30*60000)})});
+      const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:playPlayer.name,avatar:playAvatar(e,playPlayer),protocol:Number(url.searchParams.get('protocol'))||1,expires:Math.min(session.expires,Date.now()+30*60000)})});
       return (match?this.env.PLAY_MATCHES.getByName(match):queue).fetch(new Request('https://play.internal/socket',{headers}));
     }
     if (playRead) {

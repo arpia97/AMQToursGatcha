@@ -160,3 +160,39 @@ WebSocket cleanup normalizes reserved received close codes before replying.
 
 Validation uses disposable SQLite/Workers and browser sessions only. Never use
 real production accounts for invented matchmaking activity.
+
+## Multiplayer Integrity Review
+
+New NGMC and Song/Artist matches retain a host-only review for 30 days from
+creation, available under Gacha Host Console → Match Review. Hosts can search
+player names/IDs or a match ID, select a player, and page through server receipt
+times, submissions/drafts/artist edits, rejected or ignored submissions, scored
+round outcomes, connection changes and game phases. Browser visibility/focus,
+page lifecycle and client timestamps are explicitly client-reported, untrusted
+observations. No other-tab URLs, clipboard, screenshots or device contents are
+collected. The queue lobby discloses this logging. Solo Gacha Quiz is unchanged.
+
+The library optionally supplies up to three verified, real, unused audio tracks.
+They are mixed into the initial preload candidates, without a decoy label or
+answer key. Future playback order stays on the server; state identifies only
+the current audio candidate. These tracks never become scored rounds, ratings
+data or Song List entries. The real-song preload requirements remain 12 for
+NGMC and 10 for Song/Artist; clients also download the extra candidates. If no
+extra working tracks are available, the match proceeds without them.
+
+Explicit submissions and server-scored answers matching an unused track are
+flagged for review only when that answer is not accepted anywhere in the real
+match. Shared anime names/artists therefore do not generate those flags. There
+are no automatic bans, credit changes or score penalties. Current-track URL
+matching, audio fingerprinting and second devices remain possible; this is an
+investigation aid, not proof that a player cheated or a cheat-proof client.
+
+WebSocket protocol 2 supports candidate indices. Old clients receive a refresh
+instruction before joining new matches; existing pre-update rooms keep their
+ordered manifests. Activity uses the existing authenticated, rate-limited room
+socket and does not broadcast/re-render gameplay. Event retention is capped at
+4,000 events per player plus a visible limit marker, and 36,000 per room. Room
+gameplay state still expires after a day; review metadata/events are removed by
+an alarm at 30 days, with reads also enforcing expiry. The queue retains only a
+bounded-by-age match index. Review endpoints require host authorization and are
+not publicly cached. No historical activity is reconstructed or backfilled.

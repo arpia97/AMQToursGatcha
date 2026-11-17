@@ -3,6 +3,7 @@ import { ngmcRatings } from './ngmc-ratings.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
+import {REVIEW_RETENTION} from './play-integrity.js';
 // Only matchmaking lives here; every match has its own isolated actor.
 export class PlayQueue extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;
@@ -14,11 +15,19 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_results(id TEXT PRIMARY KEY,data TEXT NOT NULL,created INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS recent(player TEXT,match TEXT,expires INTEGER,PRIMARY KEY(player,match))');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_reviews(id TEXT PRIMARY KEY,created INTEGER NOT NULL,format TEXT NOT NULL,players TEXT NOT NULL,status TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
   status(player){const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];if(!row&&this.joinRequests.has(player))return {type:'joining',format:'ngmc-ranked'};return row?.match?{type:'matched',match:row.match}:row?{type:'queued',format:row.format,waiting:this.rows('SELECT COUNT(*) AS n FROM queue WHERE format=? AND match IS NULL AND expires>?',row.format,Date.now())[0].n,needed:PLAY_FORMATS[row.format].size}:{type:'idle'};}
   broadcast(){for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,this.status(who.id));}}
   canAccess(player,id){return !!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
+  hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=? AND created>?',id,Date.now()-REVIEW_RETENTION)[0];}
+  reviews({before=Date.now()+1,search=''}={}){
+    const query=String(search).slice(0,100).replace(/[\\%_]/g,'\\$&');
+    const rows=this.rows("SELECT * FROM match_reviews WHERE created>? AND created<? AND (players LIKE ? ESCAPE '\\' OR id=?) ORDER BY created DESC LIMIT 51",Date.now()-REVIEW_RETENTION,Number(before)||Date.now()+1,'%'+query+'%',search);
+    return {matches:rows.slice(0,50).map(r=>({...r,players:JSON.parse(r.players)})),next:rows.length>50?rows[49].created:null};
+  }
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}
   loadTourRate(player){return loadTourRate(player);}
   async rating(player){
@@ -39,7 +48,7 @@ export class PlayQueue extends DurableObject {
     });
     return ratings;
   }
-  async complete(id,result=null){const ratings=result?.mode==='ngmc-ranked'?this.settle(id,result):null;this.ctx.storage.sql.exec('DELETE FROM queue WHERE match=?',id);this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',id);this.broadcast();return ratings;}
+  async complete(id,result=null,status='cancelled'){const ratings=result?.mode==='ngmc-ranked'?this.settle(id,result):null;this.ctx.storage.sql.exec('UPDATE match_reviews SET status=? WHERE id=?',status,id);this.ctx.storage.sql.exec('DELETE FROM queue WHERE match=?',id);this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',id);this.broadcast();return ratings;}
   async prepare(row){
     try{await this.env.PLAY_MATCHES.getByName(row.id).initialize(row.id,row.format,JSON.parse(row.players));this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',row.id);this.broadcast();}
     catch {if(Date.now()-row.started>180000){for(const p of JSON.parse(row.players))for(const ws of this.ctx.getWebSockets(p.id))send(ws,{type:'error',message:'Song loading failed. Please queue again.'});await this.complete(row.id);}}
@@ -49,11 +58,13 @@ export class PlayQueue extends DurableObject {
     if(rows.length!==PLAY_FORMATS[format].size)return;
     const id=crypto.randomUUID(),players=rows.map(row=>{const rating=format==='ngmc-ranked'?this.rows('SELECT * FROM ngmc_players WHERE player=?',row.player)[0]:null;return {id:row.player,name:row.name,avatar:row.avatar?JSON.parse(row.avatar):null,...(rating?{elo:rating.elo,guessRate:rating.seen?100*rating.correct/rating.seen:rating.seed_rate}:{})};});
     this.ctx.storage.transactionSync(()=>{for(const row of rows){this.ctx.storage.sql.exec('UPDATE queue SET match=?,expires=? WHERE player=?',id,Date.now()+(format==='ngmc-ranked'?7200000:3600000),row.player);this.ctx.storage.sql.exec('INSERT INTO recent VALUES(?,?,?)',row.player,id,Date.now()+86400000);}this.ctx.storage.sql.exec('INSERT INTO preparing VALUES(?,?,?,?)',id,format,JSON.stringify(players),Date.now());});
+    this.ctx.storage.sql.exec('INSERT OR IGNORE INTO match_reviews VALUES(?,?,?,?,?)',id,Date.now(),format,JSON.stringify(players.map(({id,name})=>({id,name}))),'active');
     await this.prepare({id,format,players:JSON.stringify(players),started:Date.now()});
   }
   async fetch(request){try{if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const who=identity(request);const {server,response}=accept(this.ctx,who);send(server,this.status(who.id));await this.ctx.storage.setAlarm(Date.now()+30000);return response;}catch(error){return Response.json({error:error.status?error.message:'Unable to join queue.'},{status:error.status||503});}}
   async webSocketMessage(ws,raw){try{const input=receive(ws,raw);if(!input)return;const {who,message}=input;
     if(message.type==='join'){
+      if(who.protocol!==2)fail('Refresh Play to load the updated match player.',409);
       if(!Object.hasOwn(PLAY_FORMATS,message.format)||(message.format==='ngmc-ranked'?message.mode!=='ngmc-ranked':message.mode!=='song-artist'))fail('Choose a valid match format.');
       const token=crypto.randomUUID();this.joinRequests.set(who.id,token);
       if(message.format==='ngmc-ranked'){send(ws,{type:'joining',format:message.format});try{await this.rating(who.id);}catch(error){if(this.joinRequests.get(who.id)!==token)return;this.joinRequests.delete(who.id);send(ws,this.status(who.id));throw error;}}
@@ -73,10 +84,11 @@ export class PlayQueue extends DurableObject {
   async alarm(){
     this.ctx.storage.sql.exec('DELETE FROM queue WHERE expires<?',Date.now());
     this.ctx.storage.sql.exec('DELETE FROM recent WHERE expires<?',Date.now());
+    this.ctx.storage.sql.exec('DELETE FROM match_reviews WHERE created<=?',Date.now()-REVIEW_RETENTION);
     for(const row of this.rows('SELECT * FROM preparing'))await this.prepare(row);
     for(const format of Object.keys(PLAY_FORMATS))await this.match(format);
     this.broadcast();
     if(this.rows('SELECT COUNT(*) AS n FROM queue')[0].n||this.ctx.getWebSockets().length)await this.ctx.storage.setAlarm(Date.now()+30000);
-    else {const next=this.rows('SELECT MIN(expires) AS at FROM recent')[0]?.at;if(next)await this.ctx.storage.setAlarm(next);}
+    else {const recent=this.rows('SELECT MIN(expires) AS at FROM recent')[0]?.at,review=this.rows('SELECT MIN(created) AS at FROM match_reviews')[0]?.at;const next=Math.min(recent||Infinity,review?review+REVIEW_RETENTION:Infinity);if(Number.isFinite(next))await this.ctx.storage.setAlarm(next);}
   }
 }

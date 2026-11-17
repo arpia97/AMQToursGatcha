@@ -50,16 +50,29 @@ export class PlayLibrary {
       if(selected.size!==35)throw Object.assign(Error('Not enough verified MP3s. Please try again shortly.'),{status:503});
     }
     while(mode!=='ngmc-ranked'&&selected.size<20) {crypto.getRandomValues(random);const limit=Math.floor(4294967296/data.groups.length)*data.groups.length;if(random[0]<limit)selected.add(random[0]%data.groups.length);}
-    const ids=[...selected].flatMap(index=>data.groups[index]);
+    // Small, real, unused audio sample for host integrity review. Never part of
+    // the scored song list. Check these links even in Song/Artist mode.
+    const extras=data.groups.map((_,i)=>i).filter(i=>!selected.has(i));
+    // Partial shuffle: only twelve draws, not tens of thousands of RNG calls.
+    for(let i=0;i<Math.min(12,extras.length);i++){crypto.getRandomValues(random);const j=i+random[0]%(extras.length-i);[extras[i],extras[j]]=[extras[j],extras[i]];}
+    const candidates=extras.slice(0,12);
+    const ids=[...selected,...candidates].flatMap(index=>data.groups[index]);
     const result=await this.core.lookup({annSongIds:ids});
     const byId=new Map(result.songs.map(song=>[song.annSongId,song]));
-    const songs=[...selected].map(index=>{
+    const buildSong=index=>{
       const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>s.audio), amq=data.artist.songs[song.amqSongId];
       const artists=[...new Set([amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
       return {audio:verifiedAudio.get(index)||song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
         answers:{anime:[...new Set(variants.flatMap(s=>s.titles).map(answerKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(answerKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
-    });
-    return {version:data.version,songs};
+    };
+    const songs=[...selected].map(buildSong),decoys=[];
+    const used=new Set(songs.map(s=>s.audio));
+    for(let i=0;i<candidates.length&&decoys.length<3;i+=3){
+      const batch=candidates.slice(i,i+3).map(buildSong).filter(s=>!used.has(s.audio));
+      const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
+      batch.forEach((s,j)=>{if(checks[j].working&&!used.has(checks[j].resolvedAudio)&&decoys.length<3){s.audio=checks[j].resolvedAudio;decoys.push(s);used.add(s.audio);}});
+    }
+    return {version:data.version,songs,decoys};
   }
 }

@@ -32,6 +32,8 @@ export async function playRuntimeFixture({groups=false}={}){
       }
     }
     export class PlayMatch extends OriginalMatch{
+      fixtureInfo(){return {decoys:this.read().decoys};}
+      async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
       forcePhase(){const s=this.read();if(s.phase==='guess')s.startsAt=Date.now()-1;else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
       expire(){const s=this.read();s.until=Date.now()-1;this.write(s);return this.alarm();}
     }
@@ -39,6 +41,8 @@ export async function playRuntimeFixture({groups=false}={}){
       const url=new URL(request.url);
       if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase();return Response.json({ok:true});}
       if(url.pathname==='/api/__expire'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expire();return Response.json({ok:true});}
+      if(url.pathname==='/api/__fixture-info')return Response.json(await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureInfo());
+      if(url.pathname==='/api/__expire-review')return Response.json({tables:await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expireReview()});
       if(url.pathname==='/api/__fake-proxy'){const original=new Request('https://amqtours.app/gacha/api/play-connect'+url.search,request);return proxy.fetch(original,{GAME_SITE:{fetch:r=>worker.fetch(r,env,ctx)}});}
       return worker.fetch(request,env,ctx);
     }};
