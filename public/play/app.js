@@ -76,7 +76,7 @@ function resetQuiz() {
 function nav() {
   document.title = PLAY_MODES.find((item) => item.id === mode).name + " · AMQ Tours Play";
   for (const mobile of [false, true]) {
-    $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.map((item) => '<a href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"' + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && !["quiz","song-artist","ngmc-ranked"].includes(item.id) ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
+    $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.map((item) => '<a ' + (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && item.disabled ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
   }
 }
 function renderMode() {
@@ -96,6 +96,7 @@ function renderQuiz({ questionOnly = false } = {}) {
 }
 async function openMode(id, push = true) {
   if (!PLAY_MODES.some((item) => item.id === id)) return;
+  if (PLAY_MODES.find((item) => item.id === id).disabled) { id = PLAY_MODES[0].id; history.replaceState(null, "", playHref(id)); }
   const version = ++viewVersion;
   if (mode === "quiz" && id !== "quiz") quiz.leave();
   if (['song-artist','ngmc-ranked'].includes(mode)) songArtist.leave();

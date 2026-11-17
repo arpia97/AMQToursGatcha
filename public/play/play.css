@@ -122,3 +122,5 @@
   .play-site .quiz-list-header { align-items:center; }
 }
 @media (prefers-reduced-motion:reduce) { .play-site #play-nav a { transition:none; } }
+
+#play-nav a[aria-disabled=true],#play-mobile-nav a[aria-disabled=true] { opacity:.4;cursor:not-allowed;background:none;border-color:transparent;color:var(--muted); }
