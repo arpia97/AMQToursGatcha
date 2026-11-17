@@ -1,8 +1,10 @@
 # Shared Status and Handoff
 
-## Verified Locally — Quiz Category Title Colors
+## Completed — Quiz Category Title Colors
 
-Codex owns src/quiz.js title projection, public/title-ui.js and features.css category palettes, existing title tests. Composer violet/rose premium; Franchise green/emerald-gold premium; existing Singers aqua/gold preserved. Premium remains perfect 20/20 strictly under 60 seconds. Existing earned titles derive category at read time, no migration or economy mutation. Preserved motion performance controls. All 528 tests, 278 syntax checks and dry-run pass. Desktop/mobile browser verifies six distinct standard/premium colors, no errors/overflow. Evidence work/category-title-{browser-proof.json,full-tests.log,check.log,build.log} and category-title-{960,390}.png. Awaiting deployment.
+Codex owns src/quiz.js title projection, public/title-ui.js and features.css category palettes, existing title tests. Composer violet/rose premium; Franchise green/emerald-gold premium; existing Singers aqua/gold preserved. Premium remains perfect 20/20 strictly under 60 seconds. Existing earned titles derive category at read time, no migration or economy mutation. Preserved motion performance controls. All 528 tests, 278 syntax checks and dry-run pass. Desktop/mobile browser verifies six distinct standard/premium colors, no errors/overflow. Evidence work/category-title-{browser-proof.json,full-tests.log,check.log,build.log} and category-title-{960,390}.png.
+
+Runtime 98ae8400ac166e03130857eb156eabf6755cd22c deployed to original Worker version e1d2ee70-7f9e-422c-b326-9aa5d6a73eb2. Live title-ui/features assets byte-match; no production writes. Verify 44106040050 and demo 44106039515 passed. Evidence work/category-title-{deploy.log,live-proof.json,ci.log}. Ownership released.
 
 ## Completed — Play Answer Tiles and Lock Times
 
