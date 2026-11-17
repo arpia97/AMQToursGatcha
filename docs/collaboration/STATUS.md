@@ -1,8 +1,10 @@
 # Shared Status and Handoff
 
-## Verified Locally — Initial Quiz Upload Removals
+## Completed — Initial Quiz Upload Removals
 
-Codex owns public/quiz-host-ui.js and quiz-ui.js: Remove/Restore controls for every matched upload song before first save, included/removed counts, immediate automod refresh, removed Franchise list reward caption. Reuses existing skipAudio save behavior; no server/economy changes. Existing review tests extended; focused review/audio tests, 278 syntax checks and dry-run pass. Real host UI with local API fixtures at 1280/390 verifies working-song removal, duplicate warnings disappearing/restoring, broken-song removal, save payload before any save, sort identity, replacement links and append/pool regressions; no errors/overflow. Evidence work/quiz-upload-remove-{browser-proof.json,tests.log,build.log}, desktop/mobile screenshots. Awaiting deployment.
+Remove/Restore controls for every matched upload song before first save, included/removed counts, immediate automod refresh, removed Franchise list reward caption. Reuses existing skipAudio save behavior; no server/economy changes. Eleven focused review/audio tests, 27 quiz UI tests, 278 syntax checks and dry-run pass. Real host UI with local API fixtures at 1280/390 verifies working-song removal, duplicate warnings disappearing/restoring, broken-song removal, save payload before any save, sort identity, replacement links and append/pool regressions; no errors/overflow. Evidence work/quiz-upload-remove-{browser-proof.json,tests.log,ui-tests.log,build.log}, desktop/mobile screenshots.
+
+Runtime 52060c7a72f5265ff89b4abc66581abbb393b0ad deployed to original Worker version 72657802-3529-4843-b689-9e2d189f2eed. Live changed assets byte-match, removed caption absent, health 200; no production quiz writes. Evidence work/quiz-upload-remove-{deploy.log,live-proof.json}. First Verify failed only because an old quiz UI assertion required the removed caption; removed that obsolete assertion in test-only 71c571d (runtime unchanged). Demo 44103329149 passed. Follow-up Verify 44103605680 and demo 44103605618 both passed; no redeployment required for test/docs changes. Ownership released.
 
 ## Completed — Play Reliability and Artist Lists
 
