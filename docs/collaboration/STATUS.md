@@ -1,10 +1,10 @@
 # Shared Status and Handoff
 
-## Validated Locally — Hide Tradeables and Perfect Quizzes
+## Completed — Hide Tradeables and Perfect Quizzes
 
 November17. Codex owns alchemy material-picker checkbox, Quiz Hide20/20 filter, app wiring and responsive styles. Hide Tradeables defaults off, composes with Hide Protected/search/type/rarity before material pagination, and hides cards explicitly marked for_trade (the broad Collection definition includes every unprotected card and would hide all usable materials). The user was asked for preference; marked-only is the stated default assumption. It does not alter the queue, Auto Refine or economic protections. Quiz Hide20/20 defaults off, saves a browser preference, composes with search/category/sort/Favorites First, and leaves completion totals unchanged. Generic filtered-empty status avoids an empty search quote.
 
-41 existing Quiz/Alchemy UI/search tests pass with existing cases extended; syntax/diff and Wrangler dry-run pass. Actual app/disposable SQLite at1440/390/360 verifies both controls, marked-only/material protection combinations, quiz search/favorites, persistence on reload, unchanged completion totals and wallet/inventory, with no errors/overflow. No new test count or backend/data changes. Evidence: surrounding work/hide-perfect-tradeables-proof.json and hide-{perfect,tradeables}-*.png. Deployment pending.
+41 existing Quiz/Alchemy UI/search tests pass with existing cases extended; syntax/diff and Wrangler dry-run pass. Actual app/disposable SQLite at1440/390/360 verifies both controls, marked-only/material protection combinations, quiz search/favorites, persistence on reload, unchanged completion totals and wallet/inventory, with no errors/overflow. No new test count or backend/data changes. Evidence: surrounding work/hide-perfect-tradeables-proof.json and hide-{perfect,tradeables}-*.png. Runtime `dc4d156` pushed/deployed to original Worker, version `c7565664-bd21-414f-ac8c-a5ce4b76a332`. All5 changed assets return200 and byte-match source; no production preference/gameplay writes. Evidence: hide-perfect-tradeables-live-proof.json. Existing bindings/state preserved; ownership released.
 
 
 ## Completed — Mobile Shell Stylesheet Recovery
