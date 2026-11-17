@@ -8,7 +8,9 @@ export async function playRuntimeFixture(){
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
     import {PlayMatch as OriginalMatch} from './src/play-match.js';
-    export {PlayQueue,QuizLibrary,QuizSession} from './src/worker.js';
+    export {QuizLibrary,QuizSession} from './src/worker.js';
+    import {PlayQueue as OriginalQueue} from './src/play-queue.js';
+    export class PlayQueue extends OriginalQueue{async loadTourRate(id){return [7,8,19,28,40,50,15,30][(Number(id)-1)%8];}}
     export class Game extends OriginalGame{
       async handle(request){
         if(new URL(request.url).pathname==='/api/__test-session'){
@@ -34,7 +36,7 @@ export async function playRuntimeFixture(){
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});
-  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
+  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
   const manifest={schema:1,version:'play-fixture',count:40,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
   const asset=async request=>{
     const path=new URL(request.url).pathname;

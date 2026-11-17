@@ -1,7 +1,7 @@
 # AMQ Tours Play
 
-The `/play/song-artist` mode shares the existing Gacha login. NGMC Ranked,
-2v2 Arena and Speed Showdown remain placeholders until their rules are defined.
+The `/play/song-artist` and `/play/ngmc-ranked` modes share the existing Gacha
+login. 2v2 Arena and Speed Showdown remain placeholders.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
 ## Song / Artist
@@ -28,6 +28,47 @@ The original Quiz tab still uses its existing quiz transport and rewards.
 - Downloads are in-memory blob URLs, released on leaving. EU/NAE/NAW changes the
   mirror, not the selected songs. Broken downloads show a retry; they do not
   silently start an unbuffered round.
+
+## NGMC Ranked
+
+- Eight-player arrival queue; enumerate all 35 distinct 4v4 partitions and use
+  the smallest total Elo difference. All players begin at 1,000 NGMC Elo.
+- Two teams start with five lives. Each song permits one correct eligible player
+  per team to spend one guess. One eligible team takes a life; both eligible
+  teams spend a guess without damage; neither eligible team changes lives.
+  Correct answers from players with zero guesses cannot attack or block.
+- Per-team guesses refill once all four reach zero. Initial allowances by GR:
+  <8% = 1, 8–<19% = 2, 19–<28% = 3, 28–<40% = 4, >=40% = 5.
+- Seed GR once from the canonical account ID's Usual tour correct/encounter
+  totals at the public Tour profile endpoint. No history means three guesses.
+  After an NGMC match, use cumulative NGMC hits/songs exclusively. A temporary
+  Tour lookup failure prevents joining instead of silently inventing a seed.
+- Each team may volunteer a counter during the initial two-minute window. Both
+  counters plus audio readiness can start early. Missing counters use automatic
+  counting. A counter has eight seconds after reveal to choose an eligible
+  teammate; timeout uses lowest starting Elo, then canonical ID as a tie-break.
+- 35 distinct recordings, sampled uniformly by anime, then available OP/ED/IN
+  category, then song. First 12 download before start, remaining tracks download
+  in pairs. The existing shared 30-second answer clock applies. Only each
+  player's own draft is visible until reveal. Lives reaching zero ends play;
+  after song 35, most lives wins and equal lives is a draw.
+- Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
+  TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is
+  displayed as 1,000 (scale 50); global sigma .25, beta .125, tau .0025,
+  draw probability .8. The configured environment is explicitly supplied to
+  rate_1vs1, repairing the Python free-function call's implicit-default issue.
+  All pair deltas use the song's starting ratings, then apply simultaneously.
+  All-correct/all-miss songs do not affect ratings. Match victory itself adds
+  no separate rating bonus, consistent with the supplied script.
+- `ngmc_players` and durable `ngmc_results` receipts live in the queue actor,
+  separate from all tour ratings and wallets. Completion transactionally records
+  Elo/GR once per match. Failed settlement retries by alarm before room deletion.
+  Partial played history also settles when a later buffering failure cancels a
+  match. Leaving keeps a ranked queue reservation until match completion;
+  a fully departed team forfeits. Unplayed cancelled rooms do not affect ratings.
+- Lives, spent guesses, resets, counters and final Elo deltas are server-owned.
+  Browser download progress is coalesced and deduplicated so 35 preloads do not
+  exhaust the socket's gameplay message allowance.
 
 ## Answer Metadata and Search
 
@@ -56,7 +97,7 @@ that client-side preloading prevents cheating.
 
 - Original Worker / GAME identities, bindings and migration history are retained.
 - Additive `v4-play-matches` creates `PlayQueue` and `PlayMatch` SQLite actors.
-- `PLAY_QUEUE` named `play-queues-v1` only coordinates matchmaking. One
+- `PLAY_QUEUE` named `play-queues-v1` coordinates matchmaking and NGMC ratings. One
   `PLAY_MATCHES` actor per UUID handles that match's timers, answers and scoring.
 - `/api/play-connect` authenticates the existing cookie and account lock in Game,
   requires a same-origin WebSocket upgrade, and checks queue membership before
@@ -69,8 +110,8 @@ that client-side preloading prevents cheating.
   sent; alarms and immutable locked answers prevent duplicate scoring.
 - Completed/cancelled rooms and membership authorization expire after a day.
   No wallets, inventory, quiz scores or legacy records are copied or reset.
-- The `play` proxy must preserve the WebSocket on a 101 response; deploy its
-  small proxy change as well as the original Worker for this release.
+- The existing `play` proxy preserves WebSockets on a 101 response. NGMC only
+  requires the original Worker deployment; no proxy or binding change.
 
 Validation uses disposable SQLite/Workers and browser sessions only. Never use
 real production accounts for invented matchmaking activity.

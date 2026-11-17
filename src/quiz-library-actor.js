@@ -39,13 +39,13 @@ export class QuizLibrary extends DurableObject {
       if (request.method === "GET" && path === "/status")
         return Response.json(await this.core.status());
       if(request.method==='GET' && path==='/play-catalog')return Response.json(await this.play.catalog());
-      if(request.method==='POST' && path==='/play-sample')return Response.json(await this.play.sample());
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });
       const raw = await request.text();
       if (raw.length > 1000000)
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
+      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode));
       if (path === "/lookup")
         return Response.json(await this.core.lookup(body));
       if (path === "/refresh") {
