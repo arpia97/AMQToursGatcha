@@ -351,6 +351,16 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
     true,
   );
   await post("host/players",{players:[{id:"3",name:"Code Test"},{id:"4",name:"Other Identity"}]},host);
+  assert.equal((await post("host/invite",{player:"4",code:"local-code"},{Cookie:hostCookie})).status,403);
+  assert.equal((await post("host/invite",{player:"4",code:"abc"},host)).status,400);
+  const custom=await post("host/invite",{player:"4",code:"local-code"},host);
+  assert.equal(custom.status,200);
+  const customBody=await custom.json();assert.equal(customBody.code,"local-code");
+  const retry=await post("host/invite",{player:"4",code:"local-code"},host);
+  assert.equal((await retry.json()).expiresAt,customBody.expiresAt);
+  assert.equal((await post("register",{player:"3",password:"local-test-password",code:customBody.code})).status,401);
+  assert.equal((await post("register",{player:"4",password:"local-test-password",code:customBody.code})).status,200);
+  assert.equal((await post("host/invite",{player:"4",code:"local-code"},host)).status,400);
   const issued=await post("host/invite",{player:"3"},host),oneUse=(await issued.json()).code;
   assert.equal((await post("register",{player:"3",password:"local-test-password",code:"wrong-code"})).status,401);
   const joined=await post("register",{player:"3",password:"local-test-password",code:oneUse});

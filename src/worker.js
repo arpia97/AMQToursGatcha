@@ -1014,20 +1014,29 @@ export class Game extends DurableObject {
         e.assertAccountUnlocked(id);
         if (e.one("SELECT password FROM players WHERE id=?", id).password)
           fail("This player already registered. Use account reset instead.");
-        const code = token(),
-          hash = await digest(code);
+        const custom = b.code !== undefined;
+        if (custom) requireOwner();
+        const code = custom ? text(b.code, 128) : token();
+        if (code.length < 4) fail("Use at least four characters for a one-use code.");
+        const hash = await digest(code);
         requireHost();
-        if (e.player(id).is_admin) requireOwner();
-        e.run(
-          "UPDATE players SET invite=?,invite_expires=? WHERE id=?",
-          hash,
-          Date.now() + 7 * 86400000,
-          p.id,
-        );
+        const expiresAt = e.tx(() => {
+          e.assertAccountUnlocked(id);
+          const current = e.one("SELECT password,is_admin,invite,invite_expires FROM players WHERE id=?", id);
+          if (current.password) fail("This player already registered. Use account reset instead.");
+          if (current.is_admin || custom) requireOwner();
+          // Retrying the same owner-issued code must not extend its lifetime.
+          if (custom && equal(current.invite, hash) && current.invite_expires > Date.now())
+            return current.invite_expires;
+          const expires = Date.now() + 7 * 86400000;
+          e.run("UPDATE players SET invite=?,invite_expires=? WHERE id=?", hash, expires, p.id);
+          return expires;
+        });
         return json({
           message: "One-use code created. It expires in seven days.",
           code,
           player: id,
+          expiresAt,
         });
       }
       if (path === "host/reset") {
