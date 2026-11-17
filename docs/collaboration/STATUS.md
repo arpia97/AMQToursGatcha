@@ -1,8 +1,10 @@
 # Shared Status and Handoff
 
-## Verified Locally — Play Answer Tiles and Lock Times
+## Completed — Play Answer Tiles and Lock Times
 
-NGMC Locked (x.xxxs) from server-recorded receipt time since shared song start, immutable on retries and cleared each song; padded self row. Removed 1v1 Team Answers; three Song/Artist answer tiles, mirrored 1v1/3v3 scoreboards, reaction counts below fixed-size buttons. Existing NGMC test extended for timing, client-supplied timing rejection and reset. All 528 tests, 278 syntax checks, dry-run and diff checks pass. Local browser multiplayer all four formats at 1440/390 verifies timings, tiles, mirrored panels, reactions without button movement, retained artist controls/colors, no errors/overflow. Evidence work/play-tiles-{tests.log,full-tests.log,check.log,build.log,browser-proof.json}; screenshots work/play-tiles-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png. No production gameplay QA writes. Awaiting deployment.
+NGMC Locked (x.xxxs) from server-recorded receipt time since shared song start, immutable on retries and cleared each song; padded self row. Removed 1v1 Team Answers; three Song/Artist answer tiles, mirrored 1v1/3v3 scoreboards, reaction counts below fixed-size buttons. Existing NGMC test extended for timing, client-supplied timing rejection and reset. All 528 tests, 278 syntax checks, dry-run and diff checks pass. Local browser multiplayer all four formats at 1440/390 verifies timings, tiles, mirrored panels, reactions without button movement, retained artist controls/colors, no errors/overflow. Evidence work/play-tiles-{tests.log,full-tests.log,check.log,build.log,browser-proof.json}; screenshots work/play-tiles-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png. No production gameplay QA writes.
+
+Runtime 6d5561b40e2a3311460d8fc576766197cded39b3 pushed/deployed to original Worker version 760c311b-c409-4f62-b89d-98ed9c8e1f6f. Verify 44104994694 and demo 44104994787 passed. Live guest desktop/mobile checks pass; ten assets byte-match, no errors/overflow, authentication gates intact and no production writes. Evidence work/play-tiles-{deploy.log,live-proof.json,ci.log}. No proxy deployment or economy changes. Ownership released.
 
 ## Completed — Initial Quiz Upload Removals
 
