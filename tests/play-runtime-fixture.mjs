@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture(){
+export async function playRuntimeFixture({groups=false}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -43,13 +43,13 @@ export async function playRuntimeFixture(){
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});
-  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
+  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
   const manifest={schema:1,version:'play-fixture',count:40,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
   const asset=async request=>{
     const path=new URL(request.url).pathname;
     if(path==='/quiz-library/manifest.json')return Response.json(manifest);
     if(path==='/quiz-library/0.json')return Response.json(songs);
-    if(path==='/play-artists.json')return Response.json({names:Object.values(songs).map(s=>s.artist),rules:{},songs:{}});
+    if(path==='/play-artists.json')return Response.json({names:Object.values(songs).flatMap(s=>groups?[s.artist,'Singer A '+s.annSongId,'Singer B '+s.annSongId]:[s.artist]),rules:groups?Object.fromEntries(Object.values(songs).map(s=>[s.annSongId+' group',{names:[s.annSongId+' group'],members:[[s.annSongId+' a singer'],[s.annSongId+' b singer']]}])):{},songs:{}});
     const local=path==='/play/'?'play/index.html':path.slice(1);
     if(local.includes('..'))return new Response(null,{status:404});
     try {const bytes=await readFile(new URL('../public/'+local,import.meta.url));return new Response(bytes,{headers:{'Content-Type':local.endsWith('.js')?'text/javascript':local.endsWith('.css')?'text/css':local.endsWith('.html')?'text/html':local.endsWith('.json')?'application/json':'application/octet-stream'}});}catch{return new Response('not found',{status:404});}

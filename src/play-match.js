@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
 import { makeMatch,advanceMatch,matchMove,matchView,fail } from './play-match-rules.js';
-import {accept,identity,receive,send,socketError} from './play-sockets.js';
+import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 export class PlayMatch extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');}
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
@@ -39,7 +39,7 @@ export class PlayMatch extends DurableObject {
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
   }
-  webSocketClose(ws,code,reason){ws.close(code,reason);}
+  webSocketClose(ws,code,reason){closeSocket(ws,code,reason);}
   webSocketError(ws){ws.close(1011,'Reconnect to resume.');}
   async alarm(){const state=this.read();if(!state)return;if(['finished','cancelled'].includes(state.phase)){try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}if(Date.now()<state.until){await this.schedule();return;}for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');await this.ctx.storage.deleteAll();return;}advanceMatch(state);this.write(state);this.broadcast();try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();}
 }

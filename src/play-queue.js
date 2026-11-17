@@ -1,7 +1,8 @@
+import {loadTourRate} from './play-tour-rate.js';
 import { ngmcRatings } from './ngmc-ratings.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
-import {accept,identity,receive,send,socketError} from './play-sockets.js';
+import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 // Only matchmaking lives here; every match has its own isolated actor.
 export class PlayQueue extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;
@@ -9,27 +10,23 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS queue_format ON queue(format,match,joined)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS preparing(id TEXT PRIMARY KEY,format TEXT,players TEXT,started INTEGER)');
     if(![...ctx.storage.sql.exec('PRAGMA table_info(queue)')].some(c=>c.name==='avatar'))ctx.storage.sql.exec('ALTER TABLE queue ADD COLUMN avatar TEXT');
-    this.joinRequests=new Map();
+    this.joinRequests=new Map();this.ratingRequests=new Map();
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_results(id TEXT PRIMARY KEY,data TEXT NOT NULL,created INTEGER NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS recent(player TEXT,match TEXT,expires INTEGER,PRIMARY KEY(player,match))');
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
-  status(player){const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];return row?.match?{type:'matched',match:row.match}:row?{type:'queued',format:row.format,waiting:this.rows('SELECT COUNT(*) AS n FROM queue WHERE format=? AND match IS NULL AND expires>?',row.format,Date.now())[0].n,needed:PLAY_FORMATS[row.format].size}:{type:'idle'};}
+  status(player){const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];if(!row&&this.joinRequests.has(player))return {type:'joining',format:'ngmc-ranked'};return row?.match?{type:'matched',match:row.match}:row?{type:'queued',format:row.format,waiting:this.rows('SELECT COUNT(*) AS n FROM queue WHERE format=? AND match IS NULL AND expires>?',row.format,Date.now())[0].n,needed:PLAY_FORMATS[row.format].size}:{type:'idle'};}
   broadcast(){for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,this.status(who.id));}}
   canAccess(player,id){return !!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}
-  async loadTourRate(player){
-    const response=await fetch('https://amqtours.app/api/archive/profile?id='+encodeURIComponent(player)+'&mode=usual',{signal:AbortSignal.timeout(15000),redirect:'error'});
-    if(response.status===404)return null;
-    if(!response.ok)fail('Tour guess rates are unavailable. Please retry.',503);
-    const data=await response.json(),row=data.modes?.find(m=>m.mode==='usual');
-    if(!Array.isArray(data.modes))fail('Tour guess rates are unavailable. Please retry.',503);
-    return row&&Number.isFinite(row.correct)&&Number.isFinite(row.encounters)&&row.encounters>0?Math.max(0,Math.min(100,100*row.correct/row.encounters)):null;
-  }
+  loadTourRate(player){return loadTourRate(player);}
   async rating(player){
     let row=this.rows('SELECT * FROM ngmc_players WHERE player=?',player)[0];
-    if(!row){const seed=await this.loadTourRate(player);this.ctx.storage.sql.exec('INSERT OR IGNORE INTO ngmc_players(player,seed_rate) VALUES(?,?)',player,seed);row=this.rows('SELECT * FROM ngmc_players WHERE player=?',player)[0];}
+    if(!row){
+      if(!this.ratingRequests.has(player))this.ratingRequests.set(player,(async()=>{const seed=await this.loadTourRate(player);this.ctx.storage.sql.exec('INSERT OR IGNORE INTO ngmc_players(player,seed_rate) VALUES(?,?)',player,seed);})().finally(()=>this.ratingRequests.delete(player)));
+      await this.ratingRequests.get(player);row=this.rows('SELECT * FROM ngmc_players WHERE player=?',player)[0];
+    }
     return {elo:row.elo,guessRate:row.seen?100*row.correct/row.seen:row.seed_rate};
   }
   settle(id,result){
@@ -59,9 +56,9 @@ export class PlayQueue extends DurableObject {
     if(message.type==='join'){
       if(!Object.hasOwn(PLAY_FORMATS,message.format)||(message.format==='ngmc-ranked'?message.mode!=='ngmc-ranked':message.mode!=='song-artist'))fail('Choose a valid match format.');
       const token=crypto.randomUUID();this.joinRequests.set(who.id,token);
-      if(message.format==='ngmc-ranked')await this.rating(who.id);
-      if(this.joinRequests.get(who.id)!==token||ws.readyState!==1)return;
-      this.joinRequests.delete(who.id);
+      if(message.format==='ngmc-ranked'){send(ws,{type:'joining',format:message.format});try{await this.rating(who.id);}catch(error){if(this.joinRequests.get(who.id)!==token)return;this.joinRequests.delete(who.id);send(ws,this.status(who.id));throw error;}}
+      if(this.joinRequests.get(who.id)!==token)return;
+      this.joinRequests.delete(who.id);if(ws.readyState!==1)return;
       const old=this.rows('SELECT * FROM queue WHERE player=?',who.id)[0];
       if(old?.match){send(ws,this.status(who.id));return;}
       this.ctx.storage.sql.exec('INSERT OR REPLACE INTO queue(player,name,format,joined,expires,match,avatar) VALUES(?,?,?,?,?,NULL,?)',who.id,who.name,message.format,old?.format===message.format?old.joined:Date.now(),Date.now()+60000,JSON.stringify(who.avatar||null));
@@ -70,8 +67,8 @@ export class PlayQueue extends DurableObject {
     else if(message.type==='ping'){this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);send(ws,this.status(who.id));}
     else fail('Unknown queue action.');
     await this.ctx.storage.setAlarm(Date.now()+30000);
-  }catch(error){socketError(ws,error);}}
-  webSocketClose(ws,code,reason){ws.close(code,reason);/* A short lease lets refresh/reconnect retain queue position. */}
+  }catch(error){if(!error.status)console.error('Play queue action failed',{name:error.name,message:String(error.message).slice(0,200)});socketError(ws,error);}}
+  webSocketClose(ws,code,reason){closeSocket(ws,code,reason);/* A short lease lets refresh/reconnect retain queue position. */}
   webSocketError(ws){ws.close(1011,'Reconnect to resume.');}
   async alarm(){
     this.ctx.storage.sql.exec('DELETE FROM queue WHERE expires<?',Date.now());

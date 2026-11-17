@@ -23,3 +23,9 @@ export function receive(ws,raw) {
   return {who,message};
 }
 export const socketError=(ws,error)=>send(ws,{type:'error',message:error.status?error.message:'Connection interrupted. Please retry.'});
+
+export function closeSocket(ws,code=1000,reason='') {
+  // 1005/1006/1015 describe received closure states; they cannot be sent.
+  const safe=(code>=1000&&code<=1014&&![1004,1005,1006].includes(code)||code>=3000&&code<=4999)?code:1000;
+  try{ws.close(safe,reason);}catch{try{ws.close();}catch{}}
+}

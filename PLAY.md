@@ -121,6 +121,19 @@ that client-side preloading prevents cheating.
 
 ## Runtime and Operations
 
+Audio server selection persists in the browser using the same EU/NAE/NAW
+preference as Quiz. Artist answers can be submitted one name at a time, with
+removable chips until the deadline (or final lock in 1v1). A group name is
+accepted directly, or its exact complete membership can be submitted using
+known aliases. Missing or additional members fail. Individual names containing
+commas remain one entry. Submitted team fields stay yellow until reveal, then
+turn green/red. Group membership must exist in the masterlist metadata.
+
+First-time NGMC rating lookup coalesces repeated requests, retries transient
+Tour API failures once with a 30-second timeout per attempt, and displays a
+cancellable loading state. A failed lookup never invents a guess rate.
+WebSocket cleanup normalizes reserved received close codes before replying.
+
 - Original Worker / GAME identities, bindings and migration history are retained.
 - Additive `v4-play-matches` creates `PlayQueue` and `PlayMatch` SQLite actors.
 - `PLAY_QUEUE` named `play-queues-v1` coordinates matchmaking and NGMC ratings. One

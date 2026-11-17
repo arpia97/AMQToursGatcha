@@ -39,10 +39,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const song=Number(manifest.audio[0].match(/local-(\d+)/)[1]);
     const teamFields=['1-team','3v3'].includes(format),counts={};
     for(let i=0;i<rooms.length;i++){
-      if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,answer:{anime:'Alternative '+song,song:'Song '+song,artist:'Artist '+song}[field]});}
+      if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,...(field==='artist'?{artists:['Artist '+song]}:{answer:{anime:'Alternative '+song,song:'Song '+song}[field]})});}
       else rooms[i].send({type:'answer',index:0,answers:{anime:ngmc&&i>=4?'wrong':'Alternative '+song,song:'Song '+song,artist:'Artist '+song},lock:true});
     }
-    if(teamFields){await rooms[0].wait(m=>m.state?.players.filter(p=>p.team===roster[0].team).every(p=>p.field));await mf.dispatchFetch(base+'/api/__expire?match='+id);}
+    if(teamFields){for(const r of rooms)await r.wait(m=>m.state?.players.filter(p=>p.team===m.state.players.find(p=>p.id===m.state.me).team).every(p=>p.field));await mf.dispatchFetch(base+'/api/__expire?match='+id);}
 
     if(ngmc){await rooms[0].wait(m=>m.state?.phase==='counting'||m.state?.phase==='reveal');await mf.dispatchFetch(base+'/api/__expire?match='+id);}
     const reveal=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;

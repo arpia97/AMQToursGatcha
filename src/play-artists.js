@@ -39,13 +39,25 @@ export function buildArtistLibrary(master) {
   return {version:master.masterListId,names:[...labels].sort(),rules,songs};
 }
 export function artistMatches(expected, submitted, rules = {}) {
-  const key=artistKey(submitted); if(!key)return false;
+  const list=Array.isArray(submitted)?submitted:null;
+  const key=artistKey(list?list.length===1?list[0]:'':submitted);
   const rule=rules[artistKey(expected)];
-  if(artistKey(expected)===key||rule?.names.includes(key))return true;
+  if(key&&(artistKey(expected)===key||rule?.names.includes(key)))return true;
   if(!rule?.members)return false;
-  const parts=String(submitted).split(',').map(artistKey).filter(Boolean);
+  const parts=(list||String(submitted??'').split(',')).map(artistKey).filter(Boolean);
   if(parts.length!==rule.members.length)return false;
-  // Backtracking avoids a shared alias greedily consuming another member.
-  const match=(i,remaining)=>i===rule.members.length||remaining.some((part,j)=>rule.members[i].includes(part)&&match(i+1,remaining.filter((_,k)=>k!==j)));
-  return match(0,parts);
+  // One-to-one bipartite matching handles overlapping aliases without factorial work.
+  const assigned=Array(parts.length).fill(-1);
+  const visit=(member,seen)=>parts.some((part,j)=>{
+    if(seen.has(j)||!rule.members[member].includes(part))return false;
+    seen.add(j);
+    if(assigned[j]===-1||visit(assigned[j],seen)){assigned[j]=member;return true;}
+    return false;
+  });
+  return rule.members.every((_,i)=>visit(i,new Set()));
+}
+export function submittedArtists(value){
+  if(!Array.isArray(value)||value.length>50||value.some(name=>typeof name!=='string'||!name.trim()||name.length>300)||JSON.stringify(value).length>3500)
+    throw Object.assign(Error('Submit individual artist names, up to 50 entries.'),{status:400});
+  return value.map(name=>name.trim());
 }

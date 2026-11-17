@@ -1,6 +1,8 @@
+import {loadTourRate} from '../src/play-tour-rate.js';
+import {closeSocket} from '../src/play-sockets.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildArtistLibrary,artistMatches} from '../src/play-artists.js';
+import {buildArtistLibrary,artistMatches,submittedArtists} from '../src/play-artists.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
 test('artist aliases, equivalent groups, directed solo groups and full member answers',()=>{
@@ -12,6 +14,14 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.equal(artistMatches('Duo','Other Duo',library.rules),true);
   assert.equal(artistMatches('Duo','Eir Aoi, Manaka Iwami',library.rules),true);
   assert.equal(artistMatches('Duo','Manaka Iwami',library.rules),false);
+  assert.equal(artistMatches('Duo',['Iwami, Manaka','Éir Aoi'],library.rules),true);
+  assert.equal(artistMatches('Duo',['Duo'],library.rules),true);
+  assert.equal(artistMatches('Duo',['Iwami, Manaka'],library.rules),false);
+  assert.equal(artistMatches('Duo',['Iwami, Manaka','Éir Aoi','LiSA'],library.rules),false);
+  assert.equal(artistMatches('Duo',['Iwami, Manaka','Manaka Iwami'],library.rules),false);
+  assert.equal(artistMatches('Duo',[],library.rules),false);
+  assert.throws(()=>submittedArtists(['']),/individual/);
+  assert.throws(()=>submittedArtists(Array(51).fill('Artist')),/individual/);
   assert.equal(artistMatches('LiSA',''),false);
   assert.equal(artistMatches('水樹奈々','花澤香菜'),false);
   const index=answerSearchIndex({artist:['Iwami, Manaka','Éir Aoi'],anime:['Anime Alt','Anime Name'],song:Array.from({length:100},(_,i)=>'Song '+i)});
@@ -41,6 +51,12 @@ test('matches preload all ten, share only team answers, score categories once an
   assert.throws(()=>move(p.id,{type:'answer',index:0,field:'song',answer:'Song'}),/another field/);
   assert.equal(p.answers.anime,'Alternate');
   for(const team of [0,1])s.players.filter(x=>x.team===team).forEach((other,i)=>{const field=['anime','song','artist'][i];move(other.id,{type:'answer',index:0,field,answer:answers[field]});});
+  const artistOwner=s.players.find(p=>p.team===0&&p.field==='artist');
+  move(artistOwner.id,{type:'answer',index:0,field:'artist',artists:['Artist','Extra']});
+  assert.deepEqual(artistOwner.artists,['Artist','Extra']);
+  move(artistOwner.id,{type:'answer',index:0,field:'artist',artists:[]});
+  assert.equal(artistOwner.field,'artist');assert.equal(artistOwner.answers.artist,'');
+  move(artistOwner.id,{type:'answer',index:0,field:'artist',artists:['Artist']});
   assert.equal(s.phase,'guess'); // Owners may revise until the deadline.
   const resumed=JSON.parse(JSON.stringify(s));assert.equal(matchView(resumed,p.id,now).players.find(x=>x.id===p.id).field,'anime');
   now=s.until;advanceMatch(s,now);
@@ -71,4 +87,11 @@ test('one-team match handles full completion, a buffering timeout and departed p
   assert.equal(legacy.phase,'reveal');assert.ok(legacy.players.every(p=>p.score===3));
   const timeout=makeMatch('timeout','1v1',players.slice(0,2),songs,now);advanceMatch(timeout,timeout.until);assert.equal(timeout.phase,'cancelled');
   const left=makeMatch('left','1v1',players.slice(0,2),songs,now);for(const p of left.players)matchMove(left,p.id,{type:'leave'},now);assert.equal(left.phase,'cancelled');
+});
+
+test('NGMC seed lookup retries transient failures and reserved socket closures are normalized',async()=>{
+  let calls=0;assert.equal(await loadTourRate('local',async()=>{calls++;if(calls===1)throw new TypeError('network reset');return Response.json({modes:[{mode:'usual',correct:11,encounters:50}]});}),22);assert.equal(calls,2);
+  assert.equal(await loadTourRate('local',async()=>new Response(null,{status:404})),null);
+  await assert.rejects(loadTourRate('local',async()=>Response.json({error:'invalid'})),error=>error.status===503&&/guess rates/.test(error.message));
+  for(const code of [1005,1006,1015]){let sent;closeSocket({close:value=>{sent=value;}},code);assert.equal(sent,1000);}
 });
