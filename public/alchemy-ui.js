@@ -29,6 +29,7 @@ export function createAlchemyUI(h) {
     kind = "",
     wishlistOnly = false,
     hideProtected = false,
+    hideTradeables = false,
     grade = "",
     page = 1,
     targetTier = "D",
@@ -518,6 +519,7 @@ export function createAlchemyUI(h) {
             (i) =>
               i.c &&
               (!hideProtected || !i.protected) &&
+              (!hideTradeables || !i.for_trade) &&
               (!kind || i.c.kind === kind) &&
               (!grade || i.c.rarity === grade) &&
               matches(cardSearchText(i.c)),
@@ -663,7 +665,9 @@ export function createAlchemyUI(h) {
           ).join("") +
           '</select></label><label class="alchemy-wishlist-filter"><input id="alchemy-hide-protected" type="checkbox" ' +
           (hideProtected ? "checked" : "") +
-          ">Hide Protected Cards</label>"
+          ">Hide Protected Cards</label>" +
+          '<label class="alchemy-wishlist-filter" title="Hide cards marked for trade"><input id="alchemy-hide-tradeables" type="checkbox" ' +
+          (hideTradeables ? "checked" : "") + ">Hide Tradeables</label>"
         : "") +
       '</div><div id="alchemy-picker-results">' +
       results +
@@ -772,6 +776,7 @@ export function createAlchemyUI(h) {
       if (field === "kind") kind = value;
       if (field === "wishlist") wishlistOnly = value === true;
       if (field === "hideProtected") hideProtected = value === true;
+      if (field === "hideTradeables") hideTradeables = value === true;
       if (field === "grade") grade = value;
       page = 1;
     },

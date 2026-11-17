@@ -339,6 +339,17 @@ test("Hide Protected Cards filters material choices and Auto Refine respects pro
   f.ui.autoSelect(1, "D");
   assert.equal(f.ui.request().card, "d");
   assert.match(f.ui.autoForm(), /Maximum Rarity/);
+  f.ui.filter('hideProtected',false);
+  f.state.inventory[1].for_trade=1;
+  assert.match(f.ui.renderPicker(),/Hide Tradeables/);
+  f.ui.filter('hideTradeables',true);
+  assert.doesNotMatch(f.ui.renderPicker(true),/data-id="d"/);
+  assert.match(f.ui.renderPicker(true),/data-id="a"/);
+  f.ui.filter('hideProtected',true);
+  assert.doesNotMatch(f.ui.renderPicker(true),/data-id="[ad]"/);
+  f.ui.filter('hideTradeables',false);
+  assert.match(f.ui.renderPicker(true),/data-id="d"/);
+  f.ui.openPicker('target','D');assert.doesNotMatch(f.ui.renderPicker(),/alchemy-hide-tradeables/);
 });
 
 test("draw results stay in a covered-card popup and reveal locally once without issuing another draw", () => {

@@ -101,6 +101,7 @@ export function createQuizUI({
     quizSort = "recent",
     quizSearch = "",
     favoritesFirst = false,
+    hidePerfect = false,
     category = "singers";
   const favoritePending = new Set();
   let sampleStart = 0,
@@ -124,6 +125,7 @@ export function createQuizUI({
   try {
     storage = storage || globalThis.localStorage;
     favoritesFirst = storage?.getItem("amqtours-quiz-favorites-first") === "1";
+    hidePerfect = storage?.getItem("amqtours-quiz-hide-perfect") === "1";
     const savedServer = storage?.getItem("amqtours-quiz-server");
     if (QUIZ_SERVERS.includes(savedServer)) server = savedServer;
     const saved = storage?.getItem("amqtours-quiz-volume");
@@ -686,9 +688,8 @@ export function createQuizUI({
           "</select></label>"
         : "";
       const needle = searchKey(quizSearch);
-      const matchingQuizzes = needle
-        ? visibleQuizzes.filter((q) => searchKey(q.name).includes(needle))
-        : visibleQuizzes;
+      const matchingQuizzes = visibleQuizzes.filter(q =>
+        (!hidePerfect || q.best !== 20) && (!needle || searchKey(q.name).includes(needle)));
       const searchState = !needle
         ? ""
         : matchingQuizzes.length
@@ -713,12 +714,13 @@ export function createQuizUI({
         `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
         '<div class="quiz-toolbar-filters">' +
         searchControl +
-        '<label class="check-label quiz-favorites-filter"><input type="checkbox" id="quiz-favorites-first" ' + (favoritesFirst ? 'checked' : '') + '> Favorites First</label>' +
+        '<div class="quiz-browse-toggles"><label class="check-label quiz-favorites-filter"><input type="checkbox" id="quiz-favorites-first" ' + (favoritesFirst ? 'checked' : '') + '> Favorites First</label>' +
+        '<label class="check-label quiz-hide-perfect"><input type="checkbox" id="quiz-hide-perfect" ' + (hidePerfect ? 'checked' : '') + '> Hide 20/20</label></div>' +
         sortControl +
         "</div>" +
         "</div>" +
         (visibleQuizzes.length && !matchingQuizzes.length
-          ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +
+          ? !needle ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match These Filters.</p>' : '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +
             e(quizSearch.trim()) +
             "”.</p>"
           : matchingQuizzes.length
@@ -1514,6 +1516,11 @@ export function createQuizUI({
     setFavoritesFirst(value) {
       favoritesFirst = !!value;
       try { storage?.setItem("amqtours-quiz-favorites-first", favoritesFirst ? "1" : "0"); } catch {}
+      onRender();
+    },
+    setHidePerfect(value) {
+      hidePerfect = !!value;
+      try { storage?.setItem("amqtours-quiz-hide-perfect", hidePerfect ? "1" : "0"); } catch {}
       onRender();
     },
     setSort(value) {

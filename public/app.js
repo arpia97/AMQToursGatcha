@@ -4522,18 +4522,21 @@ document.addEventListener("change", async (ev) => {
       "fusion-rarity",
       "alchemy-wishlist",
       "alchemy-hide-protected",
+      "alchemy-hide-tradeables",
     ].includes(ev.target.id)
   )
     return;
   alchemyUI.filter(
-    ev.target.id === "alchemy-hide-protected"
+    ev.target.id === "alchemy-hide-tradeables"
+      ? "hideTradeables"
+      : ev.target.id === "alchemy-hide-protected"
       ? "hideProtected"
       : ev.target.id === "alchemy-wishlist"
         ? "wishlist"
         : ev.target.id === "fusion-kind"
           ? "kind"
           : "grade",
-    ["alchemy-wishlist", "alchemy-hide-protected"].includes(ev.target.id)
+    ["alchemy-wishlist", "alchemy-hide-protected", "alchemy-hide-tradeables"].includes(ev.target.id)
       ? ev.target.checked
       : ev.target.value,
   );
@@ -4623,6 +4626,10 @@ document.addEventListener("change", (ev) => {
   if (ev.target.id === "quiz-favorites-first") {
     quizUI.setFavoritesFirst(ev.target.checked);
     $("#quiz-favorites-first")?.focus();
+  }
+  if (ev.target.id === "quiz-hide-perfect") {
+    quizUI.setHidePerfect(ev.target.checked);
+    $("#quiz-hide-perfect")?.focus();
   }
   if (["profile-wishlist-sort","profile-wishlist-rarity","profile-wishlist-role","profile-wishlist-exclude-owned"].includes(ev.target.id)) {
     const field=ev.target.id.replace("profile-wishlist-", "");

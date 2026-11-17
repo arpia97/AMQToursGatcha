@@ -4268,6 +4268,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   flex: 1 1 420px;
   min-width: 0;
 }
+.quiz-browse-toggles { display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px; }
+.quiz-hide-perfect { white-space:nowrap;margin:0; }
 .quiz-search-control {
   display: flex;
   align-self: stretch;

@@ -1300,6 +1300,10 @@ test("favorite priority composes with quiz sorting/search/category and saves acc
   await ui.load();ui.setSort("pool-desc");ui.setFavoritesFirst(true);
   assert.deepEqual(order(),["b","c","a"]);
   ui.setSort("name");assert.deepEqual(order(),["b","c","a"]);
+  ui.setHidePerfect(true);assert.deepEqual(order(),['b','a']);
+  assert.match(ui.render(),/id="quiz-hide-perfect" checked/);
+  ui.setSearch('Gamma');assert.match(ui.render(),/No Quizzes Match/);assert.deepEqual(order(),[]);
+  ui.setSearch('');ui.setHidePerfect(false);assert.deepEqual(order(),['b','c','a']);
   ui.setSearch("Alpha");assert.deepEqual(order(),["a"]);
   ui.setSearch("");ui.setFavoritesFirst(false);assert.deepEqual(order(),["a","b","c"]);
   ui.setFavoritesFirst(true);gate=pending();
@@ -1313,4 +1317,9 @@ test("favorite priority composes with quiz sorting/search/category and saves acc
   await ui.load();assert.deepEqual(order(),["a","b","c"]);
   await ui.click(button("data-quiz-category","composers"));assert.deepEqual(order(),["d"]);
   assert.equal(storage.get("amqtours-quiz-favorites-first"),"1");
+  ui.setHidePerfect(true);assert.deepEqual(order(),['d']);
+  assert.equal(storage.get('amqtours-quiz-hide-perfect'),'1');
+  const restored=createQuizUI({escape,getState:()=>({me:{id:'p'}}),onRender:()=>{},storage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},api:async()=>({quizzes:structuredClone(quizzes)})});
+  await restored.load();assert.doesNotMatch(restored.render(),/data-quiz-open="c"/);
+  assert.match(restored.render(),/id="quiz-hide-perfect" checked/);
 });

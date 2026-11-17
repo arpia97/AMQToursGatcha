@@ -1,5 +1,12 @@
 # Shared Status and Handoff
 
+## Validated Locally — Hide Tradeables and Perfect Quizzes
+
+November17. Codex owns alchemy material-picker checkbox, Quiz Hide20/20 filter, app wiring and responsive styles. Hide Tradeables defaults off, composes with Hide Protected/search/type/rarity before material pagination, and hides cards explicitly marked for_trade (the broad Collection definition includes every unprotected card and would hide all usable materials). The user was asked for preference; marked-only is the stated default assumption. It does not alter the queue, Auto Refine or economic protections. Quiz Hide20/20 defaults off, saves a browser preference, composes with search/category/sort/Favorites First, and leaves completion totals unchanged. Generic filtered-empty status avoids an empty search quote.
+
+41 existing Quiz/Alchemy UI/search tests pass with existing cases extended; syntax/diff and Wrangler dry-run pass. Actual app/disposable SQLite at1440/390/360 verifies both controls, marked-only/material protection combinations, quiz search/favorites, persistence on reload, unchanged completion totals and wallet/inventory, with no errors/overflow. No new test count or backend/data changes. Evidence: surrounding work/hide-perfect-tradeables-proof.json and hide-{perfect,tradeables}-*.png. Deployment pending.
+
+
 ## Completed — Mobile Shell Stylesheet Recovery
 
 November17. Codex owns mobile-navigation.js/mobile.css/index.html in both apps. Reproduced screenshot failure with mobile.css blocked:128px natural logo, old navigation and unstyled new brand. Logo now has intrinsic26px dimensions plus explicit maximum size. Mobile shell builds only after its stylesheet marker is applied; pre-ready renders queue safely. One failed-style retry uses a distinct query; persistent failure keeps legacy navigation without inserting unstyled shell. Mobile stylesheet gets v2 URL and precedes Gacha app module. No reload loop, service worker, storage or gameplay change.

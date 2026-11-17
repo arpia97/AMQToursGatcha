@@ -80,6 +80,9 @@
  .quiz-toolbar .quiz-categories{width:100%}
  .quiz-categories .tab{flex:1}
  .quiz-toolbar-filters{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px;width:100%}
+ .quiz-browse-toggles{flex-direction:column;align-items:flex-start;gap:0}
+ .quiz-browse-toggles .check-label{min-height:28px;font-size:11px;gap:7px;align-self:flex-start}
+ .quiz-browse-toggles input{width:15px;height:15px}
  .quiz-search-control{grid-column:1/-1;width:100%;margin:0}
  .quiz-search-control input{height:42px;padding:10px 12px;font-size:16px}
  .quiz-favorites-filter{font-size:11px;gap:7px;align-self:end;min-height:40px}
