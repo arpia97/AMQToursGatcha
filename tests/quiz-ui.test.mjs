@@ -366,10 +366,17 @@ test("title suggestions put shorter matching titles first and normalize accents 
   assert.deepEqual(quizAnswerOptions(["ぼっち・ざ・ろっく！"], "ぼっち"), [
     "ぼっち・ざ・ろっく！",
   ]);
+  const bank=["Iwami, Manaka Long Alias","Manaka Iwami"];
+  assert.deepEqual(quizAnswerOptions(bank,"iwami manaka"),["Manaka Iwami","Iwami, Manaka Long Alias"]);
+  bank.push("Iwami");assert.deepEqual(quizAnswerOptions(bank,"iwami",1),["Iwami"]);
+  assert.deepEqual(quizAnswerOptions(bank,"no match"),[]);
+  assert.deepEqual(quizAnswerOptions(bank,"iwami",0),[]);
 });
 test("quiz starts at 30% volume, waits two seconds, autoplays, and submits the typed answer once after20 seconds", async (t) => {
   const f = fixture(t);
   await f.start();
+  assert.equal(f.calls.find(c=>c.path==="quiz-start").b.fastSession,true,"normal quizzes request isolated sessions");
+  assert.equal(f.calls.find(c=>c.path==="quiz-start").b.competitive,undefined,"normal playback does not download the full pool");
   assert.equal(f.audios[0].volume, 0.3);
   assert.equal(f.audios[0].plays, 0);
   assert.match(f.node("quiz-time-left").textContent, /Starts in 2s/);
@@ -1262,16 +1269,25 @@ test("fast session starts buffered next audio before acknowledgment without repl
   assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
   assert.match(f.ui.render(), /is-current" aria-label="Song 2: Current Song/);
   assert.equal(f.node("quiz-answer").disabled,false,"typing is available immediately");
+  assert.equal(f.node("quiz-lock-answer").disabled,false,"submission is available before Next acknowledgment");
   f.node("quiz-answer").value="Boku";
   await f.ui.input(f.node("quiz-answer"));
   const renderCount=f.renders.length;
+  await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
+  await f.ui.submit({elements:{answer:{value:"Changed"}}});
+  assert.ok(nextAudio.paused>0,"queued lock pauses playback immediately");
+  assert.equal(f.node("quiz-lock-answer").disabled,true,"one queued submission is immutable");
   gate.release();
   await transition;
-  assert.equal(f.renders.length,renderCount,"acknowledgment must not replace the focused textbox");
-  assert.equal(f.node("quiz-answer").value,"Boku");
+  await flush();
+  assert.equal(f.renders.length,renderCount+1,"only the queued answer reveal replaces the textbox");
+  assert.equal(f.calls.filter(c=>c.b?.action==="quiz-answer"&&c.b.index===1).length,1);
+  assert.equal(f.calls.find(c=>c.b?.action==="quiz-answer"&&c.b.index===1).b.answer,"Bocchi the Rock!");
   assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
   assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && c.b.action==="quiz-answer"));
   assert.equal(f.calls.filter(c=>c.path==="quiz-answer").length,0);
+  const prefetched2=f.audios.at(-1);await prefetched2.emit("loadedmetadata");await prefetched2.emit("canplay");
+  await f.ui.click(f.button("data-quiz-action","quiz-next"));
   f.loseAnswerResponse();
   await f.ui.submit({elements:{answer:{value:"Bocchi the Rock!"}}});
   assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && !c.b),"lost acknowledgment uses the isolated saved reveal");

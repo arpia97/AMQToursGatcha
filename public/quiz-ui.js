@@ -1049,10 +1049,16 @@ export function createQuizUI({
     const el = document.getElementById("quiz-inline-error");
     if (el) el.textContent = errorMessage;
   }
+  const nextPending = () => working && pendingAction === "quiz-next" && run?.transport === "session" && !run.answered && !run.finished;
+  const answerPending = () => !!queuedAnswer || (working && !nextPending());
   async function mutate(action, answer, skip = false) {
     if (working) {
-      if (action === "quiz-answer" && pendingAction === "quiz-next" && run?.transport === "session")
-        queuedAnswer ||= { answer, skip };
+      if (action === "quiz-answer" && nextPending() && !queuedAnswer) {
+        queuedAnswer = { answer, skip };
+        audio?.pause();
+        closeSuggestions();
+        tick();
+      }
       return;
     }
     working = true;
@@ -1062,7 +1068,7 @@ export function createQuizUI({
       quiz: selected,
       ...(["quiz-start", "quiz-restart"].includes(action) && competitive ? { competitive: true } : {}),
       ...(run ? { run: run.id, index: run.index } : {}),
-      ...(run?.transport === "session" ? { fastSession: true } : {}),
+      ...(["quiz-start", "quiz-restart"].includes(action) || run?.transport === "session" ? { fastSession: true } : {}),
       ...(answer !== undefined ? { answer } : {}),
       ...(skip ? { skip: true } : {}),
       ...(action === "quiz-next" &&
@@ -1259,16 +1265,16 @@ export function createQuizUI({
       : 0;
     const input = document.getElementById("quiz-answer"),
       lock = document.getElementById("quiz-lock-answer");
-    if (input) input.disabled = !started || (working && !(pendingAction === "quiz-next" && run.transport === "session"));
+    if (input) input.disabled = !started || answerPending();
     if (lock) {
-      lock.disabled = !started || working;
+      lock.disabled = !started || answerPending();
       text(
         lock,
-        pendingAction === "quiz-answer" ? "Locking Answer…" : "Lock Answer →",
+        pendingAction === "quiz-answer" || queuedAnswer ? "Locking Answer…" : "Lock Answer →",
       );
     }
     const skip = document.querySelector("[data-quiz-skip]");
-    if (skip) skip.disabled = working;
+    if (skip) skip.disabled = answerPending();
     const active = document.activeElement;
     const focusFellToPage = !active || active === document.body ||
       active === document.documentElement || active.isConnected === false;
@@ -1320,13 +1326,13 @@ export function createQuizUI({
     }
     if (run.endsAt && remaining <= 0) {
       audio?.pause();
-      if (!working && !timeoutAttempted) {
+      if (!answerPending() && !timeoutAttempted) {
         timeoutAttempted = true;
         mutate("quiz-answer", input?.value ?? draft).catch(showError);
       }
       return;
     }
-    if (started && audio && audioState !== "loading" && audioState !== "error")
+    if (started && !queuedAnswer && audio && audioState !== "loading" && audioState !== "error")
       attemptPlay();
   }
   function mount({ direct = false } = {}) {
@@ -1758,7 +1764,7 @@ export function createQuizUI({
           run &&
           !run.finished &&
           !run.answered &&
-          !working &&
+          !answerPending() &&
           !leaderboardOnly
         ) {
           event.preventDefault?.();
@@ -1842,7 +1848,7 @@ export function createQuizUI({
         !run ||
         run.finished ||
         run.answered ||
-        working ||
+        answerPending() ||
         event.target.disabled
       )
         return;

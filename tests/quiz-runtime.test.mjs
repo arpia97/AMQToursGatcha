@@ -817,8 +817,9 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(timedAnswer.correct,false,"client body/header timestamps cannot backdate a late answer");
   assert.equal(timedAnswer.timedOut,true);
 
-  // Competitive sessions bypass Game entirely between setup and settlement.
-  response = await post("quiz-restart", {quiz:"test",run:timedRun.id,index:0,competitive:true}, auth);
+  // Normal playback can use the same isolated session without downloading the pool.
+  // All 20 moves below must bypass Game; Competitive setup/restart is covered after settlement.
+  response = await post("quiz-restart", {quiz:"test",run:timedRun.id,index:0,fastSession:true}, auth);
   assert.equal(response.status,200,await response.clone().text());
   let fast = (await response.json()).run;
   assert.equal(fast.transport,"session");

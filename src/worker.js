@@ -1294,7 +1294,7 @@ export class Game extends DurableObject {
             quizAnswerReceivedAt: path === "quiz-answer"
               ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
           });
-          if (["quiz-start", "quiz-restart"].includes(path) && b.competitive === true && this.env.QUIZ_SESSIONS && this.env.HOST_TOKEN?.length >= 32) {
+          if (["quiz-start", "quiz-restart"].includes(path) && (b.competitive === true || b.fastSession === true) && this.env.QUIZ_SESSIONS && this.env.HOST_TOKEN?.length >= 32) {
             const next = e.quiz.run(session.player, q.id);
             if (!next.finished && !next.timing && !next.answers.length) {
               next.fast = true;
