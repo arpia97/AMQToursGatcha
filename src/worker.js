@@ -6,6 +6,8 @@ import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, ret
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
 import { playState } from "./play-state.js";
+export { PlayQueue } from './play-queue.js';
+export { PlayMatch } from './play-match.js';
 import { cachedQuizCover } from "./quiz-cover-cache.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { alchemyCompensation } from "./alchemy-compensation.js";
@@ -310,7 +312,7 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
-    const playRead = path === "play-state" && !post;
+    const playRead = ["play-state", "play-connect"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
@@ -1156,6 +1158,21 @@ export class Game extends DurableObject {
     if (path === "account" && !post) {
       return json({ account: e.account(session?.player) });
     }
+    if(path==='play-connect' && !post){
+      if(!session)fail('Sign in to play.',401);
+      e.assertAccountUnlocked(session.player);
+      if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')fail('WebSocket required.',426);
+      if(request.headers.get('Origin')!==url.origin)fail('Cross-origin requests are not allowed.',403);
+      this.bursts.take('play-connect:'+session.player,12,1);
+      const match=url.searchParams.get('match');
+      if(match&&!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(match))fail('Choose a valid match.');
+      if(!this.env.PLAY_QUEUE||!this.env.PLAY_MATCHES)fail('Matchmaking is updating. Try again shortly.',503);
+      // Room IDs are authorized against the queue before allocating a room.
+      const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+      if(match&&!await queue.canAccess(session.player,match))fail('You are not in this match.',403);
+      const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:e.player(session.player).name,expires:Math.min(session.expires,Date.now()+30*60000)})});
+      return (match?this.env.PLAY_MATCHES.getByName(match):queue).fetch(new Request('https://play.internal/socket',{headers}));
+    }
     if (playRead) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(playState(e, session?.player));
@@ -1689,6 +1706,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
+      if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog');
+        const saved=await cache?.match(key);if(saved)return saved;
+        try{const data=await quizLibraryRequest(env,'/play-catalog');if(!data)return json({error:'Song library unavailable.'},503);
+          const response=Response.json(data,{headers:{'Cache-Control':'public,max-age=600','X-Content-Type-Options':'nosniff'}});
+          if(cache)ctx.waitUntil(cache.put(key,response.clone()));return response;
+        }catch{return json({error:'Song library is warming up. Please retry.'},503);}
+      }
       if (
         url.pathname === "/api/registration-policy" &&
         request.method === "GET"

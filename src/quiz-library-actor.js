@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
+import { PlayLibrary } from './play-library.js';
 export class QuizLibrary extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -16,6 +17,7 @@ export class QuizLibrary extends DurableObject {
       },
       env.ASSETS,
     );
+    this.play = new PlayLibrary(this.core);
   }
   async schedule() {
     const next = this.core.nextAlarm();
@@ -36,6 +38,8 @@ export class QuizLibrary extends DurableObject {
       const path = new URL(request.url).pathname;
       if (request.method === "GET" && path === "/status")
         return Response.json(await this.core.status());
+      if(request.method==='GET' && path==='/play-catalog')return Response.json(await this.play.catalog());
+      if(request.method==='POST' && path==='/play-sample')return Response.json(await this.play.sample());
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });
       const raw = await request.text();

@@ -25,7 +25,7 @@ export default {
       }
       const cookie=headers.get('set-cookie');
       if(cookie?.startsWith('amq_session='))headers.set('set-cookie',cookie.replace(/; Path=\/(;|$)/i,'; Path=/gacha$1'));
-      return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      return new Response(response.body,{status:response.status,statusText:response.statusText,headers,...(response.webSocket?{webSocket:response.webSocket}:{})});
     }
     if(url.pathname==='/tours')return Response.redirect(url.origin+'/tours/'+url.search,308);
     const tourResponse=await publicTourHub(request,env);

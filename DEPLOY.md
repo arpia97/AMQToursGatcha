@@ -18,6 +18,12 @@ As checked on 2026-10-24, Cloudflare documents 100,000 Worker requests/day and f
 
 ## Current deployment
 
+Song/Artist adds `PLAY_QUEUE` / `PlayQueue` and `PLAY_MATCHES` / `PlayMatch`
+through the additive `v4-play-matches` migration in the original Worker.
+Deploy the original Worker first, then `wrangler.play.jsonc` so its proxy
+preserves WebSocket upgrade responses. No existing namespaces are replaced.
+See [PLAY.md](PLAY.md) for readiness, retention, autocomplete and metadata refresh.
+
 Live game: https://amqtours.app/gacha/ (previous address: https://play.amqtours-gatcha.workers.dev/)
 
 Host console: https://amqtours.app/gacha/host

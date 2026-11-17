@@ -10,6 +10,7 @@ import { avatarCropStyle } from "../avatar-crop.js";
 import { titleBadges } from "../title-ui.js";
 import { installTitleMotion } from "../title-motion.js";
 import { installDetailPopovers } from "../detail-popover.js";
+import { createSongArtistUI } from '../play-song-ui.js';
 
 installTitleMotion();
 installDetailPopovers(document);
@@ -20,7 +21,7 @@ const assets = new URL("../", import.meta.url);
 const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
 let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || PLAY_MODES[0].id;
-let viewVersion = 0, quiz, accountError = "", titleMode = "romaji", toastTimer;
+let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
 $("#play-title-mode").value = titleMode;
 const icon = (path) => '<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg>';
@@ -75,7 +76,7 @@ function resetQuiz() {
 function nav() {
   document.title = PLAY_MODES.find((item) => item.id === mode).name + " · AMQ Tours Play";
   for (const mobile of [false, true]) {
-    $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.map((item) => '<a href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"' + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && item.id !== "quiz" ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
+    $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.map((item) => '<a href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"' + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && !["quiz","song-artist"].includes(item.id) ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
   }
 }
 function renderMode() {
@@ -97,14 +98,18 @@ async function openMode(id, push = true) {
   if (!PLAY_MODES.some((item) => item.id === id)) return;
   const version = ++viewVersion;
   if (mode === "quiz" && id !== "quiz") quiz.leave();
+  if (mode === 'song-artist') songArtist.leave();
   mode = id; if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
+  if(mode==='song-artist'){await accountReady;if(version===viewVersion)songArtist.enter();return;}
   if (mode !== "quiz") { renderMode(); return; }
   $("#main").innerHTML = '<p class="loading">Loading Quizzes…</p>';
   try { await accountReady; await quiz.load(); if (version === viewVersion) renderQuiz(); }
   catch (error) { if (version === viewVersion) $("#main").innerHTML = '<section class="play-quiz-error"><h1>Quiz</h1><p>' + escape(error.message) + '</p><button class="button secondary" data-action="retry-quiz">Retry</button></section>'; }
 }
 resetQuiz();
+songArtist=createSongArtistUI({root:$('#main'),apiBase,getPlayer:()=>state.me,escape,animeTitle:song=>quizAnimeTitle(song,titleMode),onError:fail});
+loadQuizTitleDisplay();
 const accountReady = refreshAccount();
 openMode(mode, false);
 window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || PLAY_MODES[0].id, false));
@@ -122,7 +127,7 @@ document.addEventListener("click", async (event) => {
     else if (action === "recovery-form") auth("recover");
     else if (action === "retry-quiz") await openMode("quiz", false);
     else if (action === "logout") {
-      await api("logout", {}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (mode === "quiz") await openMode("quiz", false);
+      await api("logout", {}); songArtist.leave(); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist"].includes(mode)) await openMode(mode, false);
     } else if (mode === "quiz" && $("#main").contains(button)) await quiz.click(button);
   } catch (error) { fail(error); }
 });
@@ -133,7 +138,7 @@ document.addEventListener("submit", async (event) => {
   event.preventDefault(); const button = form.querySelector('[type="submit"]'); button.disabled = true;
   try {
     const { mode: action, ...body } = Object.fromEntries(new FormData(form));
-    await api(action, body); resetQuiz(); await refreshAccount(); $("#modal").close(); if (mode === "quiz") await openMode("quiz", false);
+    await api(action, body); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist"].includes(mode)) await openMode(mode, false);
   } catch (error) { form.querySelector(".form-error").textContent = error.message; }
   finally { button.disabled = false; }
 });
@@ -149,7 +154,7 @@ document.addEventListener("change", async (event) => {
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";
     try { storage.setItem("amqtours-title-mode", titleMode); } catch {}
-    $("#play-title-mode").value = titleMode; if (mode === "quiz") renderQuiz(); return;
+    $("#play-title-mode").value = titleMode; if (mode === "quiz") renderQuiz(); if(mode==='song-artist')songArtist.render(); return;
   }
   if (mode !== "quiz") return;
   try {
@@ -163,4 +168,5 @@ document.addEventListener("change", async (event) => {
 });
 document.addEventListener("keydown", (event) => { if (mode === "quiz" && !$("#modal").open) quiz.key(event); });
 document.addEventListener("focusin", (event) => { if (mode === "quiz" && event.target.id === "quiz-answer") quiz.focus(event.target); });
-window.addEventListener("pagehide", () => quiz.leave());
+window.addEventListener("pagehide", () => {quiz.leave();songArtist.leave();});
+window.addEventListener('pageshow',event=>{if(event.persisted)openMode(mode,false);});
