@@ -64,14 +64,15 @@ export class PlayMatch extends DurableObject {
   webSocketClose(ws,code,reason){const state=this.read();if(state&&!['finished','cancelled'].includes(state.phase))this.reviewLog.add(state,ws.deserializeAttachment()?.id,'disconnected',{code});closeSocket(ws,code,reason);}
   webSocketError(ws){ws.close(1011,'Reconnect to resume.');}
   async alarm(){
-    const expiry=this.reviewLog.expires(),state=this.read();
-    if(!state){if(expiry&&Date.now()<expiry)await this.ctx.storage.setAlarm(expiry);else await this.ctx.storage.deleteAll();return;}
+    const state=this.read();
+    // Old review-expiry alarms may still fire after deployment. Preserve the audit.
+    if(!state)return;
     if(['finished','cancelled'].includes(state.phase)){
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
       if(Date.now()<state.until){await this.schedule();return;}
       for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');
       this.ctx.storage.sql.exec('DELETE FROM match_state');
-      if(expiry&&expiry>Date.now())await this.ctx.storage.setAlarm(expiry);else await this.ctx.storage.deleteAll();return;
+      return;
     }
     const phase=state.phase,index=state.index,historyLength=state.history.length;advanceMatch(state);
     if(state.history.length>historyLength)this.reviewLog.round(state);

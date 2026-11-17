@@ -183,14 +183,14 @@ real production accounts for invented matchmaking activity.
 
 ## Multiplayer Integrity Review
 
-New NGMC and Song/Artist matches retain a host-only review for 30 days from
-creation, available under Gacha Host Console → Match Review. Hosts can search
+New NGMC and Song/Artist matches retain a host-only review indefinitely,
+available under Gacha Host Console → Match Review. Hosts can search
 player names/IDs or a match ID, select a player, and page through server receipt
 times, submissions/drafts/artist edits, rejected or ignored submissions, scored
 round outcomes, connection changes and game phases. Browser visibility/focus,
 page lifecycle and client timestamps are explicitly client-reported, untrusted
 observations. No other-tab URLs, clipboard, screenshots or device contents are
-collected. The queue lobby discloses this logging. Solo Gacha Quiz is unchanged.
+collected. Solo Gacha Quiz is unchanged.
 
 The library optionally supplies up to three verified, real, unused audio tracks.
 They are mixed into the initial preload candidates, without a decoy label or
@@ -212,7 +212,8 @@ instruction before joining new matches; existing pre-update rooms keep their
 ordered manifests. Activity uses the existing authenticated, rate-limited room
 socket and does not broadcast/re-render gameplay. Event retention is capped at
 4,000 events per player plus a visible limit marker, and 36,000 per room. Room
-gameplay state still expires after a day; review metadata/events are removed by
-an alarm at 30 days, with reads also enforcing expiry. The queue retains only a
-bounded-by-age match index. Review endpoints require host authorization and are
+gameplay state still expires after a day; review metadata/events and the queue
+match index have no time-based expiry. Legacy expiry values and scheduled review
+cleanup alarms no longer remove or hide saved reviews. Review endpoints require
+host authorization and are
 not publicly cached. No historical activity is reconstructed or backfilled.

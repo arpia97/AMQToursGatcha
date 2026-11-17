@@ -3,7 +3,6 @@ import { ngmcRatings } from './ngmc-ratings.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
-import {REVIEW_RETENTION} from './play-integrity.js';
 // Only matchmaking lives here; every match has its own isolated actor.
 export class PlayQueue extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;
@@ -22,10 +21,10 @@ export class PlayQueue extends DurableObject {
   status(player){const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];if(!row&&this.joinRequests.has(player))return {type:'joining',format:'ngmc-ranked'};return row?.match?{type:'matched',match:row.match}:row?{type:'queued',format:row.format,waiting:this.rows('SELECT COUNT(*) AS n FROM queue WHERE format=? AND match IS NULL AND expires>?',row.format,Date.now())[0].n,needed:PLAY_FORMATS[row.format].size}:{type:'idle'};}
   broadcast(){for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,this.status(who.id));}}
   canAccess(player,id){return !!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
-  hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=? AND created>?',id,Date.now()-REVIEW_RETENTION)[0];}
+  hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=?',id)[0];}
   reviews({before=Date.now()+1,search=''}={}){
     const query=String(search).slice(0,100).replace(/[\\%_]/g,'\\$&');
-    const rows=this.rows("SELECT * FROM match_reviews WHERE created>? AND created<? AND (players LIKE ? ESCAPE '\\' OR id=?) ORDER BY created DESC LIMIT 51",Date.now()-REVIEW_RETENTION,Number(before)||Date.now()+1,'%'+query+'%',search);
+    const rows=this.rows("SELECT * FROM match_reviews WHERE created<? AND (players LIKE ? ESCAPE '\\' OR id=?) ORDER BY created DESC LIMIT 51",Number(before)||Date.now()+1,'%'+query+'%',search);
     return {matches:rows.slice(0,50).map(r=>({...r,players:JSON.parse(r.players)})),next:rows.length>50?rows[49].created:null};
   }
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}
@@ -84,11 +83,10 @@ export class PlayQueue extends DurableObject {
   async alarm(){
     this.ctx.storage.sql.exec('DELETE FROM queue WHERE expires<?',Date.now());
     this.ctx.storage.sql.exec('DELETE FROM recent WHERE expires<?',Date.now());
-    this.ctx.storage.sql.exec('DELETE FROM match_reviews WHERE created<=?',Date.now()-REVIEW_RETENTION);
     for(const row of this.rows('SELECT * FROM preparing'))await this.prepare(row);
     for(const format of Object.keys(PLAY_FORMATS))await this.match(format);
     this.broadcast();
     if(this.rows('SELECT COUNT(*) AS n FROM queue')[0].n||this.ctx.getWebSockets().length)await this.ctx.storage.setAlarm(Date.now()+30000);
-    else {const recent=this.rows('SELECT MIN(expires) AS at FROM recent')[0]?.at,review=this.rows('SELECT MIN(created) AS at FROM match_reviews')[0]?.at;const next=Math.min(recent||Infinity,review?review+REVIEW_RETENTION:Infinity);if(Number.isFinite(next))await this.ctx.storage.setAlarm(next);}
+    else {const next=this.rows('SELECT MIN(expires) AS at FROM recent')[0]?.at;if(next)await this.ctx.storage.setAlarm(next);}
   }
 }

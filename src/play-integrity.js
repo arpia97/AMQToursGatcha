@@ -1,6 +1,5 @@
 import {answerKey,artistMatches} from './play-artists.js';
 
-export const REVIEW_RETENTION=30*86400000;
 const MAX_EVENTS=36000,MAX_PLAYER_EVENTS=4000;
 function shuffle(values){
   for(let i=values.length-1;i>0;i--){const n=new Uint32Array(1);crypto.getRandomValues(n);const j=n[0]%(i+1);[values[i],values[j]]=[values[j],values[i]];}
@@ -41,15 +40,15 @@ export function decoyHits(state,answers,artists){
 export class MatchReview {
   constructor(storage){
     this.storage=storage;this.sql=storage.sql;
+    // Keep the legacy expires column for existing databases; reviews no longer expire.
     this.sql.exec('CREATE TABLE IF NOT EXISTS review_meta(id INTEGER PRIMARY KEY,data TEXT NOT NULL,expires INTEGER NOT NULL)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS review_events(seq INTEGER PRIMARY KEY,at INTEGER NOT NULL,player TEXT NOT NULL,kind TEXT NOT NULL,data TEXT NOT NULL)');
     this.sql.exec('CREATE INDEX IF NOT EXISTS review_player ON review_events(player,seq)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS review_counts(player TEXT PRIMARY KEY,n INTEGER NOT NULL)');
   }
   initialize(state){
-    this.sql.exec('INSERT OR IGNORE INTO review_meta VALUES(1,?,?)',JSON.stringify({id:state.id,format:state.format,created:state.created,players:state.players.map(({id,name,team})=>({id,name,team}))}),state.created+REVIEW_RETENTION);
+    this.sql.exec('INSERT OR IGNORE INTO review_meta VALUES(1,?,?)',JSON.stringify({id:state.id,format:state.format,created:state.created,players:state.players.map(({id,name,team})=>({id,name,team}))}),0);
   }
-  expires(){return [...this.sql.exec('SELECT expires FROM review_meta WHERE id=1')][0]?.expires;}
   add(state,player,kind,data={},at=Date.now()){
     const count=[...this.sql.exec('SELECT n FROM review_counts WHERE player=?',String(player||''))][0]?.n||0;
     if(count>MAX_PLAYER_EVENTS)return;
@@ -91,8 +90,8 @@ export class MatchReview {
   }
   page({before=Infinity,player=''}={}){
     const meta=[...this.sql.exec('SELECT data,expires FROM review_meta WHERE id=1')][0];
-    if(!meta||meta.expires<=Date.now())return null;
+    if(!meta)return null;
     const rows=[...this.sql.exec('SELECT * FROM review_events WHERE seq<? '+(player?'AND player=? ':'')+'ORDER BY seq DESC LIMIT 101',Number(before)||Infinity,...(player?[String(player).slice(0,100)]:[]))];
-    return {...JSON.parse(meta.data),expires:meta.expires,events:rows.slice(0,100).map(r=>({...r,data:JSON.parse(r.data)})),next:rows.length>100?rows[99].seq:null};
+    return {...JSON.parse(meta.data),expires:null,events:rows.slice(0,100).map(r=>({...r,data:JSON.parse(r.data)})),next:rows.length>100?rows[99].seq:null};
   }
 }

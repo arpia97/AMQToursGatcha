@@ -1,7 +1,7 @@
 import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
 import {DatabaseSync} from 'node:sqlite';
-import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits,REVIEW_RETENTION} from '../src/play-integrity.js';
+import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildArtistLibrary,artistMatches,submittedArtists} from '../src/play-artists.js';
@@ -58,13 +58,13 @@ test('unused audio never becomes a round; review suppresses shared answers and p
     log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true},{...before,locked:true},null,901);
     log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true},before,{status:409,message:'Too late'},902);
     log.activity(state,'1',{event:'visibility',visibility:'hidden',focused:false,clientAt:10},903);
-    const review=log.page();assert.equal(review.expires,state.created+REVIEW_RETENTION);
+    const review=log.page();assert.equal(review.expires,null);
     const submitted=review.events.find(e=>e.kind==='submit');assert.equal(submitted.at,900);assert.equal(submitted.data.elapsedMs,400);assert.equal(submitted.data.clientAt,1);assert.equal(submitted.data.flags.length,1);
     assert.ok(review.events.filter(e=>e.kind==='answer-draft').every(e=>!e.data.accepted&&!e.data.flags.length));
     assert.equal(log.page({player:'1'}).events.length,1);
     assert.ok(log.page({before:submitted.seq}).events.length===0);
     db.prepare('UPDATE review_counts SET n=4001 WHERE player=?').run('0');log.add(state,'0','connected');log.add(state,'1','connected');assert.equal(log.page().events.length,5);
-    db.prepare('UPDATE review_meta SET expires=1').run();assert.equal(log.page(),null);
+    db.prepare('UPDATE review_meta SET expires=1').run();assert.equal(log.page().events.length,5);assert.equal(log.page().expires,null);
   }finally{db.close();}
 });
 test('matches preload all ten, share only team answers, score categories once and resume without duplicate points',()=>{

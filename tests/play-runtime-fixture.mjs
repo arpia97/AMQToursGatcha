@@ -12,7 +12,7 @@ export async function playRuntimeFixture({groups=false}={}){
     import {QuizLibrary as OriginalLibrary} from './src/quiz-library-actor.js';
     export class QuizLibrary extends OriginalLibrary{constructor(ctx,env){super(ctx,env);this.play.fetcher=async url=>new Response(null,{status:/local-[12]\\.mp3$/.test(url)?404:200,headers:{'Content-Type':'audio/mpeg','Content-Length':'100'}});}}
     import {PlayQueue as OriginalQueue} from './src/play-queue.js';
-    export class PlayQueue extends OriginalQueue{}
+    export class PlayQueue extends OriginalQueue{async ageReview(id){this.ctx.storage.sql.exec('UPDATE match_reviews SET created=? WHERE id=?',Date.now()-60*86400000,id);await this.alarm();}}
     export class Game extends OriginalGame{
       async handle(request){
         if(new URL(request.url).pathname==='/api/__test-session'){
@@ -42,7 +42,7 @@ export async function playRuntimeFixture({groups=false}={}){
       if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase();return Response.json({ok:true});}
       if(url.pathname==='/api/__expire'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expire();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-info')return Response.json(await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureInfo());
-      if(url.pathname==='/api/__expire-review')return Response.json({tables:await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expireReview()});
+      if(url.pathname==='/api/__expire-review'){const id=url.searchParams.get('match');await env.PLAY_QUEUE.getByName('play-queues-v1').ageReview(id);return Response.json({tables:await env.PLAY_MATCHES.getByName(id).expireReview()});}
       if(url.pathname==='/api/__fake-proxy'){const original=new Request('https://amqtours.app/gacha/api/play-connect'+url.search,request);return proxy.fetch(original,{GAME_SITE:{fetch:r=>worker.fetch(r,env,ctx)}});}
       return worker.fetch(request,env,ctx);
     }};

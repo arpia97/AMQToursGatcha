@@ -84,6 +84,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     for(const q of queues)q.ws.close();for(const r of all)r.ws.close();
     await mf.dispatchFetch(base+'/api/__expire?match='+id);
     assert.equal((await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders})).status,200,'review survives gameplay expiry');
-    assert.deepEqual(await (await mf.dispatchFetch(base+'/api/__expire-review?match='+id)).json(),{tables:0});
+    assert.deepEqual(await (await mf.dispatchFetch(base+'/api/__expire-review?match='+id)).json(),{tables:3});
+    const retained=await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders});
+    assert.equal(retained.status,200,'legacy expiry alarm preserves host access');
+    const saved=await retained.json();assert.equal(saved.expires,null);assert.deepEqual(saved.events,review.events);
+    const older=await (await mf.dispatchFetch(base+'/api/host/play-review?search='+id,{headers:auditHeaders})).json();
+    assert.ok(older.matches.some(m=>m.id===id),'60-day-old match remains searchable after queue cleanup');
   }
 });
