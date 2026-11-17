@@ -723,7 +723,6 @@ export function createQuizUI({
         sortControl +
         "</div>" +
         "</div>" +
-        (category === "franchise" ? '<p class="form-hint">Franchise Quizzes · No Credit Rewards</p>' : "") +
         (visibleQuizzes.length && !matchingQuizzes.length
           ? !needle ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match These Filters.</p>' : '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +
             e(quizSearch.trim()) +

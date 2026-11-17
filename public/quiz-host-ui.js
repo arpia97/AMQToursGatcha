@@ -89,10 +89,10 @@ export function quizSongReview(result, e, sort={}, existing=[]) {
     songs.length +
     " Matched Songs · " +
     rejected.length +
-    ' Skipped Rows</p><p class="form-hint">Review these imported songs, then save the quiz. Duplicate MP3s are included once.</p>' +
+    ' Skipped Rows · ' + songs.filter(s=>!s.skipped).length + ' Included · ' + songs.filter(s=>s.skipped).length + ' Removed</p><p class="form-hint">Remove unwanted songs before saving. Restore to undo. Duplicate MP3s are included once.</p>' +
     quizAutomodHTML(songs,e,{existing})+
     (songs.length
-      ? '<div class="table-wrap quiz-song-list" role="region" aria-label="Imported Songs" tabindex="0"><table data-quiz-review-table="upload" data-review-sort="'+(sort.key||'')+'" data-review-ascending="'+(sort.ascending!==false)+'"><thead><tr><th>#</th>'+reviewSortHeader('title','Song',sort)+reviewSortHeader('artist','Artist',sort)+reviewSortHeader('anime','Anime',sort)+'<th>Audio Link</th></tr></thead><tbody>' +
+      ? '<div class="table-wrap quiz-song-list" role="region" aria-label="Imported Songs" tabindex="0"><table data-quiz-review-table="upload" data-review-sort="'+(sort.key||'')+'" data-review-ascending="'+(sort.ascending!==false)+'"><thead><tr><th>#</th>'+reviewSortHeader('title','Song',sort)+reviewSortHeader('artist','Artist',sort)+reviewSortHeader('anime','Anime',sort)+'<th>Audio Link</th><th>Include</th></tr></thead><tbody>' +
         entries
           .map(
             ({song,index:i}) =>
@@ -109,7 +109,7 @@ export function quizSongReview(result, e, sort={}, existing=[]) {
               e(song.answers?.[0] || "—") +
               "</td><td>" +
               audioReviewCell(song, i, e) +
-              "</td></tr>",
+              '</td><td><button type="button" class="button secondary" data-quiz-audio-action="'+(song.skipped?'restore':'skip')+'" data-quiz-audio-index="'+i+'" aria-label="'+(song.skipped?'Restore ':'Remove ')+e(song.title)+'">'+(song.skipped?'Restore':'Remove')+'</button></td></tr>',
           )
           .join("") +
         "</tbody></table></div>"
@@ -139,9 +139,7 @@ function audioReviewCell(song, index, e) {
     label +
     "</button>";
   if (song.skipped)
-    return (
-      '<span class="subtext">Skipped</span>' + button("restore", "Restore Song")
-    );
+    return '<span class="subtext">Removed From Upload</span>';
   if (!song.link) return '<span class="subtext">Not Verified</span>';
   if (song.link.working)
     return (
@@ -160,8 +158,7 @@ function audioReviewCell(song, index, e) {
         '"></label>' +
         button("check", "Check Replacement")
       : button("replace", "Use Another MP3")) +
-    button("retry", "Retry Link") +
-    button("skip", "Skip Song")
+    button("retry", "Retry Link")
   );
 }
 const fileReviews = new WeakMap();

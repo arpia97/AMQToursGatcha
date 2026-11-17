@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — Initial Quiz Upload Removals
+
+Codex owns public/quiz-host-ui.js and quiz-ui.js: Remove/Restore controls for every matched upload song before first save, included/removed counts, immediate automod refresh, removed Franchise list reward caption. Reuses existing skipAudio save behavior; no server/economy changes. Existing review tests extended; focused review/audio tests, 278 syntax checks and dry-run pass. Real host UI with local API fixtures at 1280/390 verifies working-song removal, duplicate warnings disappearing/restoring, broken-song removal, save payload before any save, sort identity, replacement links and append/pool regressions; no errors/overflow. Evidence work/quiz-upload-remove-{browser-proof.json,tests.log,build.log}, desktop/mobile screenshots. Awaiting deployment.
+
 ## Completed — Play Reliability and Artist Lists
 
 Codex owns Play queue/socket recovery, persistent audio preference, artist entry lists and exact group matching, team reveal colors, NGMC lobby icon removal, and snapshots for all four formats. Production logs confirm invalid close codes 1005/1006 and queue calls reaching the former 15-second timeout; the original caught join exception was not logged, so its exact cause is not conclusively proven. Safe socket closure, retryable/coalesced Tour GR lookup, cancellable loading state and sanitized error logging are implemented. No production gameplay mutations or resets.

@@ -243,10 +243,14 @@ test("broken links prompt for a replacement or skip, and a checked working repla
   await action("recheck");
   assert.equal(f.input.validity, "");
   assert.match(f.output.innerHTML, /Replacement Link/);
+  assert.match(f.output.innerHTML, /data-quiz-audio-action="skip"[^>]*>Remove/);
   await action("skip");
   assert.match(f.input.validity, /No playable/);
+  assert.match(f.output.innerHTML, /0 Included · 1 Removed/);
+  assert.match(f.output.innerHTML, /data-quiz-audio-action="restore"[^>]*>Restore/);
   await action("restore");
   assert.equal(f.input.validity, "");
+  assert.match(f.output.innerHTML, /1 Included · 0 Removed/);
 });
 
 test("an old audio-check completion cannot replace a new file's review", async () => {
