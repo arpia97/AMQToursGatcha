@@ -5,7 +5,7 @@ import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
-import { playState } from "./play-state.js";
+import { playState, playAvatar } from "./play-state.js";
 export { PlayQueue } from './play-queue.js';
 export { PlayMatch } from './play-match.js';
 import { cachedQuizCover } from "./quiz-cover-cache.js";
@@ -1170,7 +1170,8 @@ export class Game extends DurableObject {
       // Room IDs are authorized against the queue before allocating a room.
       const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
       if(match&&!await queue.canAccess(session.player,match))fail('You are not in this match.',403);
-      const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:e.player(session.player).name,expires:Math.min(session.expires,Date.now()+30*60000)})});
+      const playPlayer=e.player(session.player);
+      const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:playPlayer.name,avatar:playAvatar(e,playPlayer),expires:Math.min(session.expires,Date.now()+30*60000)})});
       return (match?this.env.PLAY_MATCHES.getByName(match):queue).fetch(new Request('https://play.internal/socket',{headers}));
     }
     if (playRead) {

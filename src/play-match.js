@@ -23,7 +23,7 @@ export class PlayMatch extends DurableObject {
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
       matchView(state,who.id);
-      const player=state.players.find(p=>p.id===who.id);player.loaded=[];player.ready=false;
+      const player=state.players.find(p=>p.id===who.id);player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       advanceMatch(state);this.write(state);
       const {server,response}=accept(this.ctx,who);
       send(server,{type:'manifest',id:state.id,mode:state.mode||'song-artist',preload:state.mode==='ngmc-ranked'?12:10,audio:state.songs.map(s=>s.audio)});

@@ -18,7 +18,7 @@ test('NGMC uses exact thresholds, optimal balance and uniform anime/type/song dr
 test('NGMC gates 12 downloads and counter signup, counts once, excludes exhausted players, refills and ends at 35',()=>{
  const s=create();for(const p of s.players){p.ready=true;p.loaded=Array.from({length:11},(_,i)=>i);}
  advanceMatch(s,120000);assert.equal(s.phase,'loading');for(const p of s.players)p.loaded.push(11);
- advanceMatch(s,119999);assert.equal(s.phase,'loading');advanceMatch(s,120000);assert.equal(s.phase,'guess');
+ advanceMatch(s,119999);assert.equal(s.phase,'loading');advanceMatch(s,120000);assert.equal(s.phase,'guess');assert.equal(s.until-s.startsAt,20000);
  const a=s.players.filter(p=>p.team===0),b=s.players.filter(p=>p.team===1);
  s.counters=[a[0].id,b[0].id];answer(s,()=>true);assert.equal(s.phase,'counting');
  assert.equal(matchView(s,a[0].id).players.find(p=>p.id===a[1].id).answers,undefined);
@@ -31,6 +31,8 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  answer(s,p=>p.id===a[0].id||p.id===b[0].id);assert.deepEqual(s.teams,[5,4]);assert.ok(a.every(p=>p.guesses===p.initialGuesses));assert.deepEqual(s.history.at(-1).reset,[0]);
  s.index=34;advanceMatch(s,s.until);assert.equal(s.phase,'finished');
  const knockout=create();knockout.teams=[5,1];answer(knockout,p=>p.team===0);assert.deepEqual(knockout.teams,[5,0]);advanceMatch(knockout,knockout.until);assert.equal(knockout.phase,'finished');
+ const waiting=create();waiting.index=12;waiting.phase='buffering';waiting.counterDeadline=0;for(const p of waiting.players){p.ready=true;p.loaded=[12];}waiting.players[0].loaded=[];advanceMatch(waiting,1000);assert.equal(waiting.phase,'buffering');assert.equal(matchView(waiting,waiting.players[0].id).players[0].audioReady,false);matchMove(waiting,waiting.players[0].id,{type:'loaded',indices:[12]},1001);assert.equal(waiting.phase,'guess');
+ const early=create();early.phase='guess';early.startsAt=100;early.until=20100;early.players.forEach(p=>p.answers={anime:''});for(const p of early.players)matchMove(early,p.id,{type:'answer',index:0,answers:{anime:'Anime'},lock:true},101);assert.equal(early.phase,'reveal');assert.equal(early.history.length,1);
  const all=create();for(let i=0;i<35;i++){answer(all,()=>true);advanceMatch(all,all.until);}assert.equal(all.phase,'finished');assert.equal(all.history.length,35);assert.deepEqual(all.teams,[5,5]);
 });
 test('NGMC ratings match Python global TrueSkill and apply simultaneous per-song pair adjustments',()=>{

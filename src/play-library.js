@@ -1,8 +1,9 @@
+import {checkQuizAudio} from './quiz-audio.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
 import { answerKey, artistKey } from './play-artists.js';
 export class PlayLibrary {
-  constructor(core) { this.core=core; }
+  constructor(core,fetcher=(...args)=>globalThis.fetch(...args)) { this.core=core;this.fetcher=fetcher;this.audioChecks=new Map(); }
   async load() {
     const manifest=await this.core.active();
     if(this.version!==manifest.version){this.version=manifest.version;this.loading=null;}
@@ -33,10 +34,20 @@ export class PlayLibrary {
   async sample(mode='song-artist') {
     const data=await this.load();
     if(data.groups.length<20)throw Object.assign(Error('At least 20 playable songs are required.'),{status:503});
-    const selected=new Set(), random=new Uint32Array(1);
+    const selected=new Set(),verifiedAudio=new Map(), random=new Uint32Array(1);
     if(mode==='ngmc-ranked'){
       const groupById=new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index])));
-      for(const row of ngmcSongPool(data.ngmcRows))selected.add(groupById.get(row.annSongId));
+      const tried=new Set();
+      // Never publish a manifest containing a link we already detected as broken.
+      for(let pass=0;selected.size<35&&pass<3;pass++) {
+        const candidates=ngmcSongPool(data.ngmcRows.filter(r=>!tried.has(groupById.get(r.annSongId))),35-selected.size);
+        for(let i=0;i<candidates.length;i+=8) {
+          const batch=candidates.slice(i,i+8);
+          const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
+          batch.forEach((row,j)=>{const group=groupById.get(row.annSongId);tried.add(group);if(checks[j].working){selected.add(group);verifiedAudio.set(group,checks[j].resolvedAudio);}});
+        }
+      }
+      if(selected.size!==35)throw Object.assign(Error('Not enough verified MP3s. Please try again shortly.'),{status:503});
     }
     while(mode!=='ngmc-ranked'&&selected.size<20) {crypto.getRandomValues(random);const limit=Math.floor(4294967296/data.groups.length)*data.groups.length;if(random[0]<limit)selected.add(random[0]%data.groups.length);}
     const ids=[...selected].flatMap(index=>data.groups[index]);
@@ -45,7 +56,7 @@ export class PlayLibrary {
     const songs=[...selected].map(index=>{
       const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>s.audio), amq=data.artist.songs[song.amqSongId];
       const artists=[...new Set([amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
-      return {audio:song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
+      return {audio:verifiedAudio.get(index)||song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
         answers:{anime:[...new Set(variants.flatMap(s=>s.titles).map(answerKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(answerKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
     });

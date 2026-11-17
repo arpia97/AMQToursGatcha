@@ -12,3 +12,10 @@ export function playState(e, player) {
     titles: e.quiz.titles(player),
   };
 }
+
+// Only public avatar presentation crosses into multiplayer actors.
+export function playAvatar(e,me) {
+  const item=me.avatar_card?e.one('SELECT level FROM inventory WHERE player=? AND card=?',me.id,me.avatar_card):null;
+  const card=item?e.catalogStore.cards([me.avatar_card])[0]:null;
+  return card?{image:card.image,rarity:card.rarity,level:item.level,crop:me.avatar_crop}:null;
+}

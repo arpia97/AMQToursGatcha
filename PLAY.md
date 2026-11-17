@@ -49,9 +49,17 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   teammate; timeout uses lowest starting Elo, then canonical ID as a tie-break.
 - 35 distinct recordings, sampled uniformly by anime, then available OP/ED/IN
   category, then song. First 12 download before start, remaining tracks download
-  in pairs. The existing shared 30-second answer clock applies. Only each
+  in pairs. NGMC uses a shared 20-second answer clock and countdown bar. Only each
   player's own draft is visible until reveal. Lives reaching zero ends play;
   after song 35, most lives wins and equal lives is a draw.
+- Enter selects the highlighted anime and locks it. All active players locking
+  ends guessing early. Mirrored team cards show Gacha avatars, counter badges,
+  guesses remaining, and each submitted answer at reveal. Download counts stay
+  hidden; a missing next track pauses everyone before the shared countdown.
+- Before issuing the NGMC manifest, validate MP3 links with bounded HEAD/range
+  requests and replace detected failures using the same hierarchical sampler.
+  Checks cache successes for 24 hours and failures for one minute. A regional
+  download failure still shows retry and holds the shared readiness gate.
 - Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
   TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is
   displayed as 1,000 (scale 50); global sigma .25, beta .125, tau .0025,

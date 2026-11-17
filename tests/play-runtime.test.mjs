@@ -23,7 +23,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const matched=await queues[0].wait(m=>m.type==='matched'),id=matched.match;
     for(const q of queues)assert.equal((await q.wait(m=>m.type==='matched')).match,id);
     const rooms=[];for(let i=0;i<size;i++)rooms.push(await connect(i,id));
-    const manifest=await rooms[0].wait(m=>m.type==='manifest');assert.equal(manifest.audio.length,ngmc?35:20);assert.equal(new Set(manifest.audio).size,ngmc?35:20);assert.equal(manifest.answers,undefined);
+    const roster=(await rooms[0].wait(m=>m.type==='state')).state.players;
+    assert.equal(roster.find(p=>p.id==='1').avatar.image,'/amq-tours-logo.png');
+    assert.equal(roster.find(p=>p.id==='1').avatar.level,2);
+    assert.deepEqual(Object.keys(roster.find(p=>p.id==='1').avatar).sort(),['crop','image','level','rarity']);
+    if(ngmc)assert.equal(roster.find(p=>p.id==='8').avatar,null);
+    const manifest=await rooms[0].wait(m=>m.type==='manifest');assert.equal(manifest.audio.length,ngmc?35:20);assert.equal(new Set(manifest.audio).size,ngmc?35:20);assert.equal(manifest.answers,undefined);if(ngmc)assert.ok(manifest.audio.every(url=>!/local-[12]\.mp3$/.test(url)));
     if(ngmc){for(const team of [0,1]){const initial=(await rooms[0].wait(m=>m.type==='state')).state,p=initial.players.find(p=>p.team===team);rooms[Number(p.id)-1].send({type:'volunteer'});}}
     for(const r of rooms){r.send({type:'loaded',indices:Array.from({length:first-1},(_,i)=>i)});r.send({type:'ready'});}
     await sleep(80);assert.ok(!rooms[0].messages.some(m=>m.state?.phase==='guess'));

@@ -8,7 +8,9 @@ export async function playRuntimeFixture(){
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
     import {PlayMatch as OriginalMatch} from './src/play-match.js';
-    export {QuizLibrary,QuizSession} from './src/worker.js';
+    export {QuizSession} from './src/worker.js';
+    import {QuizLibrary as OriginalLibrary} from './src/quiz-library-actor.js';
+    export class QuizLibrary extends OriginalLibrary{constructor(ctx,env){super(ctx,env);this.play.fetcher=async url=>new Response(null,{status:/local-[12]\\.mp3$/.test(url)?404:200,headers:{'Content-Type':'audio/mpeg','Content-Length':'100'}});}}
     import {PlayQueue as OriginalQueue} from './src/play-queue.js';
     export class PlayQueue extends OriginalQueue{async loadTourRate(id){return [7,8,19,28,40,50,15,30][(Number(id)-1)%8];}}
     export class Game extends OriginalGame{
@@ -16,6 +18,11 @@ export async function playRuntimeFixture(){
         if(new URL(request.url).pathname==='/api/__test-session'){
           const e=this.engine,id=new URL(request.url).searchParams.get('id');
           e.run('INSERT OR IGNORE INTO players(id,name) VALUES(?,?)',id,'Local Player '+id);
+          if(id!=='8'){
+            e.run('INSERT OR IGNORE INTO catalog(id,kind,name,image) VALUES(?,?,?,?)','local-avatar','character','Local Avatar','/amq-tours-logo.png');
+            e.run('INSERT OR IGNORE INTO inventory(player,card,copies,level) VALUES(?,?,1,2)',id,'local-avatar');
+            e.run('UPDATE players SET avatar_card=?,avatar_crop=? WHERE id=?','local-avatar',JSON.stringify({x:.4,y:.3,zoom:1.2}),id);
+          }
           const raw=id.padStart(48,'a'),bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));
           const token=Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join('');
           e.run('INSERT OR REPLACE INTO sessions VALUES(?,?,?)',token,id,Date.now()+3600000);
