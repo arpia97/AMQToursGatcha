@@ -5197,11 +5197,11 @@ dialog.avatar-editor-modal {
 }
 /* Perfect quizzes completed in strictly less than one minute. */
 .equipped-title.quiz-earned-title.quiz-premium-title {
-  position:relative;isolation:isolate;overflow:hidden;color:#fff1c8;
-  background:linear-gradient(115deg,#31271b,#1b202d 60%,#34293c) padding-box,
-    linear-gradient(110deg,#dfb663,#ffedbd,#9fdcdd,#d7b7ef,#e5bd6b,#ffedbd,#dfb663) border-box;
-  box-shadow:0 0 10px #e7c37c24,inset 0 0 8px #f4d49510;
-  text-shadow:0 0 6px #ffdb8d44;
+  position:relative;isolation:isolate;overflow:hidden;color:#d7fff9;
+  background:linear-gradient(115deg,#123d40,#1b2d3b 60%,#253344) padding-box,
+    linear-gradient(110deg,#63dfd3,#e2fffb,#80e5ed,#c2dfff,#6debdc,#e2fffb,#63dfd3) border-box;
+  box-shadow:0 0 10px #7ce7dc30,inset 0 0 8px #bcfff210;
+  text-shadow:0 0 6px #a0fff044;
 }
 /* Category palettes share the existing lightweight premium gleam. */
 .equipped-title.quiz-earned-title.quiz-title-composers {
@@ -5210,9 +5210,9 @@ dialog.avatar-editor-modal {
   box-shadow:0 0 12px #b492ee28,inset 0 0 8px #be9eec09;
 }
 .equipped-title.quiz-earned-title.quiz-title-composers.quiz-premium-title {
-  color:#d5f4ff;background:linear-gradient(115deg,#123c60,#1c2749 60%,#21465a) padding-box,
-    linear-gradient(110deg,#559dff,#d7f8ff,#62c9ff,#a9c8ff,#559dff) border-box;
-  box-shadow:0 0 10px #78c9ff35,inset 0 0 8px #baeaff18;text-shadow:0 0 6px #a6e5ff55;
+  color:#eee0ff;background:linear-gradient(115deg,#38234f,#2b2143 60%,#3b294c) padding-box,
+    linear-gradient(110deg,#b58af5,#f3e8ff,#d4afff,#e7b9f2,#b58af5) border-box;
+  box-shadow:0 0 10px #be93ff35,inset 0 0 8px #dfc2ff18;text-shadow:0 0 6px #dfbaff55;
 }
 .equipped-title.quiz-earned-title.quiz-title-franchise {
   color:#c1edb0;background:linear-gradient(110deg,#203524,#192c2c) padding-box,
@@ -5220,9 +5220,9 @@ dialog.avatar-editor-modal {
   box-shadow:0 0 12px #8bd59b28,inset 0 0 8px #a6e7af09;
 }
 .equipped-title.quiz-earned-title.quiz-title-franchise.quiz-premium-title {
-  color:#ffe0cb;background:linear-gradient(115deg,#542c22,#3d2533 60%,#4c3520) padding-box,
-    linear-gradient(110deg,#ff9976,#ffe2b2,#ffb3b0,#ffc475,#ff9976) border-box;
-  box-shadow:0 0 10px #ffac8335,inset 0 0 8px #ffd2ac18;text-shadow:0 0 6px #ffc19755;
+  color:#e0ffd2;background:linear-gradient(115deg,#25452b,#20392c 60%,#34452a) padding-box,
+    linear-gradient(110deg,#8ed58a,#eeffe1,#b6ed96,#d3efa8,#8ed58a) border-box;
+  box-shadow:0 0 10px #a0e78b35,inset 0 0 8px #d6ffbd18;text-shadow:0 0 6px #c6ffa355;
 }
 .quiz-premium-title::after { content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 43%,#fff4d02b 49%,#fffbe148 50%,transparent 57%);

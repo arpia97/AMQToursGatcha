@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — Quiz Title Colour Families
+
+Codex owns public/features.css premium palettes only. Base ca7b6ae, clean checkout. Keep Singers aqua, Composers violet and Franchise green across standard/premium; brighter pearlescent highlights and existing lightweight gleam distinguish sub-minute achievements. No eligibility, animation mechanics or player data changes. Integration/deployment owner Codex. Desktop/mobile (960/390) six-title visual comparison passes, no errors/overflow; Worker dry-run and diff checks pass. CSS-only change; no new tests. Evidence work/category-title-family-{960,390}.png, browser-proof.json and build.log. Deployment pending.
+
 ## Completed — Multiplayer Match Review
 
 Codex owns Play room/library/queue audit and unused audio candidates, client activity reporting, host-only review UI/API, focused runtime tests and PLAY.md. Base 91708b7; clean checkout. Preserve current gameplay, economy and solo quizzes. Server-timestamped submissions plus explicitly client-reported visibility/focus events; decoy matches are review signals only, never automatic sanctions. Thirty-day bounded retention. Integration/deployment owner Codex.
