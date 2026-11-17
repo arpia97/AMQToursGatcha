@@ -42,8 +42,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const teamFields=['1-team','3v3'].includes(format),counts={};
     const firstAnswer=teamFields?{type:'answer',index:0,field:'anime',answer:'wrong'}:{type:'answer',index:0,answers:{anime:'wrong',song:'',artist:''},lock:true};
     rooms[0].send(firstAnswer);await rooms[0].wait(m=>m.state?.players.find(p=>p.id==='1')?.submittedFields?.includes('anime'));
+    const unlockCursor=rooms[0].messages.length;
     rooms[0].send({type:'unlock',index:0});
-    await rooms[0].wait(m=>m.state?.phase==='guess'&&m.state.players.find(p=>p.id==='1')?.submittedFields?.length===0);
+    await rooms[0].wait(m=>rooms[0].messages.indexOf(m)>=unlockCursor&&m.state?.phase==='guess'&&m.state.players.find(p=>p.id==='1')?.submittedFields?.length===0);
 
     for(let i=0;i<rooms.length;i++){
       if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,...(field==='artist'?{artists:['Artist '+song]}:{answer:{anime:'Alternative '+song,song:'Song '+song}[field]})});}
