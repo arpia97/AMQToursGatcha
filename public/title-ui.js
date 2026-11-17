@@ -15,7 +15,7 @@ function titleBadge(t, e) {
     '<span class="equipped-title ' +
     (card
       ? "card-earned-title tier-" + rarityClass(t.rarity)
-      : "quiz-earned-title"+(premium?" quiz-premium-title":"")) +
+      : "quiz-earned-title quiz-title-"+(["composers","franchise"].includes(t.category)?t.category:"singers")+(premium?" quiz-premium-title":"")) +
     '" title="' +
     e(label) +
     '">' +

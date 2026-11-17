@@ -5203,6 +5203,27 @@ dialog.avatar-editor-modal {
   box-shadow:0 0 10px #e7c37c24,inset 0 0 8px #f4d49510;
   text-shadow:0 0 6px #ffdb8d44;
 }
+/* Category palettes share the existing lightweight premium gleam. */
+.equipped-title.quiz-earned-title.quiz-title-composers {
+  color:#decaff;background:linear-gradient(110deg,#29213d,#211d35) padding-box,
+    linear-gradient(110deg,#a98af1,#dcc8ff,#d993cd) border-box;
+  box-shadow:0 0 12px #b492ee28,inset 0 0 8px #be9eec09;
+}
+.equipped-title.quiz-earned-title.quiz-title-composers.quiz-premium-title {
+  color:#ffe1f4;background:linear-gradient(115deg,#39243e,#26213e 60%,#3c2848) padding-box,
+    linear-gradient(110deg,#d895ee,#ffe1f2,#bdacff,#f6b5dc,#d895ee) border-box;
+  box-shadow:0 0 10px #dea6f02b,inset 0 0 8px #f1bee810;text-shadow:0 0 6px #edb9f044;
+}
+.equipped-title.quiz-earned-title.quiz-title-franchise {
+  color:#c1edb0;background:linear-gradient(110deg,#203524,#192c2c) padding-box,
+    linear-gradient(110deg,#84c98b,#c8e6a0,#78c6b4) border-box;
+  box-shadow:0 0 12px #8bd59b28,inset 0 0 8px #a6e7af09;
+}
+.equipped-title.quiz-earned-title.quiz-title-franchise.quiz-premium-title {
+  color:#eeffbc;background:linear-gradient(115deg,#253c2c,#1d3337 60%,#373b20) padding-box,
+    linear-gradient(110deg,#72e1b1,#e6ffb5,#91ecd9,#e9d786,#72e1b1) border-box;
+  box-shadow:0 0 10px #b8ec9a2b,inset 0 0 8px #e3f5af10;text-shadow:0 0 6px #c6fba844;
+}
 .quiz-premium-title::after { content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 43%,#fff4d02b 49%,#fffbe148 50%,transparent 57%);
   transform:translate3d(-110%,0,0);animation:quiz-title-gleam 8s ease-in-out infinite;animation-play-state:paused;

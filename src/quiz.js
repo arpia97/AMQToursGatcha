@@ -764,7 +764,7 @@ export class Quiz {
     const titles = [
       ...this.e
         .all(
-          "SELECT q.id AS quiz,q.title,q.name AS quizName,p.best_duration_ms AS durationMs,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
+          "SELECT q.id AS quiz,q.title,q.category,q.name AS quizName,p.best_duration_ms AS durationMs,COALESCE(t.hidden,0) AS hidden FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz LEFT JOIN profile_title_preferences t ON t.player=p.player AND t.quiz=p.quiz WHERE p.player=? AND p.best=20 AND q.title!='' ORDER BY p.at,q.id",
           player,
         )
         .map(({ hidden, ...title }) => ({ ...title, premium:Number.isSafeInteger(title.durationMs)&&title.durationMs>=0&&title.durationMs<60000,equipped: !hidden })),
@@ -883,7 +883,7 @@ export class Quiz {
               rarity: t.rarity,
               source: "card",
             }
-          : { quiz: t.quiz, title: t.title, premium:t.premium,durationMs:t.durationMs },
+          : { quiz: t.quiz, title: t.title, category:t.category, premium:t.premium,durationMs:t.durationMs },
       );
   }
 }

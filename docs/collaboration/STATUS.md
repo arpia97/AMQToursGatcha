@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — Quiz Category Title Colors
+
+Codex owns src/quiz.js title projection, public/title-ui.js and features.css category palettes, existing title tests. Composer violet/rose premium; Franchise green/emerald-gold premium; existing Singers aqua/gold preserved. Premium remains perfect 20/20 strictly under 60 seconds. Existing earned titles derive category at read time, no migration or economy mutation. Preserved motion performance controls. All 528 tests, 278 syntax checks and dry-run pass. Desktop/mobile browser verifies six distinct standard/premium colors, no errors/overflow. Evidence work/category-title-{browser-proof.json,full-tests.log,check.log,build.log} and category-title-{960,390}.png. Awaiting deployment.
+
 ## Completed — Play Answer Tiles and Lock Times
 
 NGMC Locked (x.xxxs) from server-recorded receipt time since shared song start, immutable on retries and cleared each song; padded self row. Removed 1v1 Team Answers; three Song/Artist answer tiles, mirrored 1v1/3v3 scoreboards, reaction counts below fixed-size buttons. Existing NGMC test extended for timing, client-supplied timing rejection and reset. All 528 tests, 278 syntax checks, dry-run and diff checks pass. Local browser multiplayer all four formats at 1440/390 verifies timings, tiles, mirrored panels, reactions without button movement, retained artist controls/colors, no errors/overflow. Evidence work/play-tiles-{tests.log,full-tests.log,check.log,build.log,browser-proof.json}; screenshots work/play-tiles-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png. No production gameplay QA writes.
