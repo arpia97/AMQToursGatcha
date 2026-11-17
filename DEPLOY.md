@@ -6,6 +6,8 @@
 
 Deploy original app code/assets with `pnpm run deploy`, verify read-only `/gacha/api/play-state` serves the updated handler, then deploy mount/proxy changes with `pnpm run deploy:short-url`. The Play document resolves shared assets/API under `/gacha/` on the canonical domain and `/` on the original Worker in development. API calls keep the existing `/gacha` session cookie scope; do not widen it or copy accounts. New modes are Coming Soon; Quiz reuses the existing module, pools, scores and rewards. A Play-only header read avoids full account inventory and gameplay settlement.
 
+Link the root as `/play/`, including when adding query parameters. Cloudflare exact path routes include the query string in matching, so bare `/play?x=1` does not match the exact `/play` route; `/play/?x=1` matches `/play/*`. Keep the mount narrow rather than using `/play*`, which would also capture unrelated `/players` paths. See [Cloudflare route matching](https://developers.cloudflare.com/workers/configuration/routing/routes/#matching-behavior).
+
 Recommended: **Cloudflare Workers Free with a SQLite-backed Durable Object**. GitHub stores the code and serves the demo. The live player site and host console should use the same Cloudflare origin so cookies and API requests remain same-origin.
 
 As checked on 2026-10-24, Cloudflare documents 100,000 Worker requests/day and free SQLite-backed Durable Objects, including 100,000 object requests/day, 5 million SQL rows read/day, 100,000 rows written/day, and 5 GB aggregate SQL storage. A single free-plan object has a smaller storage limit. Limits can change; consult the linked pricing/limits pages before launch. Free-plan quota exhaustion stops affected operations; it is not an unlimited service.
