@@ -92,6 +92,7 @@ test('one-team match handles full completion, a buffering timeout and departed p
 test('NGMC seed lookup retries transient failures and reserved socket closures are normalized',async()=>{
   let calls=0;assert.equal(await loadTourRate('local',async()=>{calls++;if(calls===1)throw new TypeError('network reset');return Response.json({modes:[{mode:'usual',correct:11,encounters:50}]});}),22);assert.equal(calls,2);
   assert.equal(await loadTourRate('local',async()=>new Response(null,{status:404})),null);
+  await assert.rejects(loadTourRate('local',async(url,options)=>{assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://wrong.test'}});}),error=>error.status===503);
   await assert.rejects(loadTourRate('local',async()=>Response.json({error:'invalid'})),error=>error.status===503&&/guess rates/.test(error.message));
   for(const code of [1005,1006,1015]){let sent;closeSocket({close:value=>{sent=value;}},code);assert.equal(sent,1000);}
 });

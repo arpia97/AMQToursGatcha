@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — NGMC Fetch Compatibility and Premium Contrast
+
+Production PlayQueue logs conclusively identify redirect:error throwing TypeError before network requests. Correct to manual, reject non-OK responses, keep retries and real GR; earlier timeout diagnosis was wrong. Preserve log message label with separate detail field. Test actual Workers fetch path. Composer premium changes violet to icy blue; Franchise premium green to coral/amber for stronger distinction. All 528 tests, 278 syntax checks and dry-run pass. The existing multiplayer Workers test now uses the real loadTourRate/global fetch with an outbound fixture instead of overriding the helper; it verifies all eight seed requests and preserved GR before matching. Redirect rejection is also covered. Desktop/mobile palette comparison passes with six distinct colors, no errors/overflow. Evidence work/ngmc-fetch-fix-{tests.log,full-tests.log,check.log,build.log} and work/category-title-contrast-{browser-proof.json,960.png,390.png}. Awaiting deployment; no Host changes or production matchmaking writes.
+
 ## Completed — Quiz Category Title Colors
 
 Codex owns src/quiz.js title projection, public/title-ui.js and features.css category palettes, existing title tests. Composer violet/rose premium; Franchise green/emerald-gold premium; existing Singers aqua/gold preserved. Premium remains perfect 20/20 strictly under 60 seconds. Existing earned titles derive category at read time, no migration or economy mutation. Preserved motion performance controls. All 528 tests, 278 syntax checks and dry-run pass. Desktop/mobile browser verifies six distinct standard/premium colors, no errors/overflow. Evidence work/category-title-{browser-proof.json,full-tests.log,check.log,build.log} and category-title-{960,390}.png.

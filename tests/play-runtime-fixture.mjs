@@ -12,7 +12,7 @@ export async function playRuntimeFixture({groups=false}={}){
     import {QuizLibrary as OriginalLibrary} from './src/quiz-library-actor.js';
     export class QuizLibrary extends OriginalLibrary{constructor(ctx,env){super(ctx,env);this.play.fetcher=async url=>new Response(null,{status:/local-[12]\\.mp3$/.test(url)?404:200,headers:{'Content-Type':'audio/mpeg','Content-Length':'100'}});}}
     import {PlayQueue as OriginalQueue} from './src/play-queue.js';
-    export class PlayQueue extends OriginalQueue{async loadTourRate(id){return [7,8,19,28,40,50,15,30][(Number(id)-1)%8];}}
+    export class PlayQueue extends OriginalQueue{}
     export class Game extends OriginalGame{
       async handle(request){
         if(new URL(request.url).pathname==='/api/__test-session'){
@@ -55,6 +55,14 @@ export async function playRuntimeFixture({groups=false}={}){
     try {const bytes=await readFile(new URL('../public/'+local,import.meta.url));return new Response(bytes,{headers:{'Content-Type':local.endsWith('.js')?'text/javascript':local.endsWith('.css')?'text/css':local.endsWith('.html')?'text/html':local.endsWith('.json')?'application/json':'application/octet-stream'}});}catch{return new Response('not found',{status:404});}
   };
   const names=['Game','QuizLibrary','QuizSession','PlayQueue','PlayMatch'],bindings={GAME:'Game',QUIZ_LIBRARY:'QuizLibrary',QUIZ_SESSIONS:'QuizSession',PLAY_QUEUE:'PlayQueue',PLAY_MATCHES:'PlayMatch'};
-  const mf=new Miniflare({workers:[{config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
+  const tourSeedRequests=[];
+  const outbound=async request=>{
+    const url=new URL(request.url);
+    if(url.origin!=='https://amqtours.app'||url.pathname!=='/api/archive/profile')throw Error('Unexpected fixture fetch: '+url.origin+url.pathname);
+    const id=url.searchParams.get('id');tourSeedRequests.push(id);
+    return Response.json({modes:[{mode:'usual',correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});
+  };
+  const mf=new Miniflare({workers:[{dev:{outboundService:{type:'fetcher',handler:outbound}},config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
+  mf.tourSeedRequests=tourSeedRequests;
   return mf;
 }
