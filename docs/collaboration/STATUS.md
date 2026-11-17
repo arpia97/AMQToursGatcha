@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Disable Unreleased Play Navigation
+
+Arena and Speed remain visible but dimmed, without href or navigation handlers and marked aria-disabled/tabindex -1 in desktop/mobile menus. Direct visits normalize to NGMC Ranked. Source 121cc15 deployed to original Worker c7fd87a6-e7bc-42ab-9826-953ca39309ed. Existing route test, syntax, dry-run and local/live browser checks at 1440/390 pass disabled mouse clicks, excluded keyboard focus, working Song/Artist navigation and direct-route fallback without errors/overflow. Initial live check reached old assets immediately after rollout; ordinary retry passed both sizes. Verify 44131095679 and demo 44131095665 succeeded. Evidence work/play-disabled-{browser-proof,live-browser}.json and {build,deploy,ci}.log. UI-only; no gameplay/data changes or proxy deployment. Ownership released.
+
 ## Completed — Song/Artist Input and Reveal Refinements
 
 Added private coalesced server drafts for timeout scoring (including typed final artist and existing chips), punctuation/spacing-tolerant complete-answer matching, Tab/Shift+Tab category cycling and remembered 1-Team category. Added 2-of-3 cancellable skip votes, shared per-song random sample fractions with full guess-window bounds, and hover/focus/tap artist member credits. Team reveal recap now uses team answers/correctness while preserving individual contributions. Artist library regenerated from the same cached master version; 33,748 names and 34,900 song mappings unchanged, added composition metadata. New rooms require protocol 3 so old clients cannot silently play from zero; old room sample positions remain zero. No economy changes.
