@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Play Footer Links
+
+Removed bottom-right Tours/Gacha footer links and their unused container CSS. Footer branding and sidebar navigation preserved. Source f306981 deployed to original Worker ebc82d28-f696-432d-ada9-9472467548db. Dry-run/diff checks and live browser at 1440/390 pass: no footer links, retained sidebar links/branding, no errors or overflow. Verify 44131621517 and demo 44131621331 succeeded. Evidence work/play-footer-{build,deploy,ci,demo}.log and live-proof.json. No gameplay/data changes or proxy deployment. Ownership released.
+
 ## Completed — Disable Unreleased Play Navigation
 
 Arena and Speed remain visible but dimmed, without href or navigation handlers and marked aria-disabled/tabindex -1 in desktop/mobile menus. Direct visits normalize to NGMC Ranked. Source 121cc15 deployed to original Worker c7fd87a6-e7bc-42ab-9826-953ca39309ed. Existing route test, syntax, dry-run and local/live browser checks at 1440/390 pass disabled mouse clicks, excluded keyboard focus, working Song/Artist navigation and direct-route fallback without errors/overflow. Initial live check reached old assets immediately after rollout; ordinary retry passed both sizes. Verify 44131095679 and demo 44131095665 succeeded. Evidence work/play-disabled-{browser-proof,live-browser}.json and {build,deploy,ci}.log. UI-only; no gameplay/data changes or proxy deployment. Ownership released.
