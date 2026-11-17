@@ -1,9 +1,10 @@
 # Shared Status and Handoff
 
-## Ready for Release — NGMC Gameplay Refinements
+## Completed — NGMC Gameplay Refinements
 
 November17. NGMC now has20-second answers, mirrored team cards, authenticated Gacha avatars, counter name badges, revealed per-player answers, Enter-to-lock and a timer bar. Download counts hidden; first12 and subsequent per-song readiness gates verified; remaining tracks continue in pairs. MP3 preflight rejects detected broken/empty/non-audio links before manifest, resampling replacements and caching checks. Only public avatar fields cross into queue/room actors; additive queue avatar column. No ratings/economy changes. All527 tests,275 syntax checks and dry-run passed; eight-browser desktop1440/mobile390 proves12 preloads,20s,Enter/all-lock early reveal,8 answers,7 real image fixtures+initials fallback,2 counter badges,no overflow/errors. Existing runtime test checks malformed audio exclusion and public avatar projection. Evidence surrounding work/ngmc-refinement-{browser-proof.json,game-1440.png,game-390.png,reveal-1440.png,full-tests.log,build.log}. Prior shared loading-bar preview remains local/unapproved and must not be included in this release. No production mutations used for QA.
 
+Runtime5d68e54811804b6b6a63b9f6e0de0227d6bcf46d pushed/deployed from a clean git-archive release artifact, original Worker version62ca0065-684f-4d51-a5e8-83247a5e6445. Unapproved loading-bar files/hunks explicitly excluded; they remain dirty locally. Same eight-player browser QA repeated against exact release; Song/Artist three-player regression passed. Live guest checks1440/390 confirm20s NGMC/30s SongArtist, sign-in gate,no errors/overflow, four JS/CSS assets byte-match; zero production writes. Evidence work/ngmc-refinement-live-proof.json and deploy.log. Verify44096640454 and demo44096640375 both succeeded. No proxy/binding changes. Allow normal deferred actor rollout for running rooms; no forced resets. Ownership released.
 
 ## Completed — NGMC Ranked
 
