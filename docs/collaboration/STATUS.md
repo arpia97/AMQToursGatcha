@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## In Progress — Franchise Quiz Category
+## Completed — Franchise Quiz Category
 
 November17. Codex owns quiz category/reward rules, quiz browsing/host/profile labels and focused existing quiz tests. Franchise is the third category in browsing and host creation/editing; shared category labels cover profile #1 tables and automod. Server settlement suppresses improvement/milestone credits while preserving scores, leaderboards, timings, favorites, titles and reward-history protection. Browsing/start/completion show No Credit Rewards; Franchise hides the credit payout guide. No schema migrations or historical credit changes.
 
-All519 tests passed with existing cases extended (no additional count),252 JS syntax checks and Wrangler dry-run passed. Final UI-only guide adjustment passed27 UI tests and repeat dry-run/browser checks. Local SQLite real app at1440/390/360 verifies category isolation,1/2 completion, credit-free start/results, selected host category, no JS errors or horizontal overflow. Reward tests cover first runs/improvements/repeats/score reset, unchanged wallet/earned/ledger, titles and leaderboard/profile scores. Evidence: surrounding work/franchise-browser.mjs, franchise-browser-proof.json, franchise-*.png, franchise-tests.log. Preparing original Worker deployment; no production test attempts or data writes.
+All519 tests passed with existing cases extended (no additional count),252 JS syntax checks and Wrangler dry-run passed. Final UI-only guide adjustment passed27 UI tests and repeat dry-run/browser checks. Local SQLite real app at1440/390/360 verifies category isolation,1/2 completion, credit-free start/results, selected host category, no JS errors or horizontal overflow. Reward tests cover first runs/improvements/repeats/score reset, unchanged wallet/earned/ledger, titles and leaderboard/profile scores. Evidence: surrounding work/franchise-browser.mjs, franchise-browser-proof.json, franchise-*.png, franchise-tests.log.
+
+Runtime5685240a2c5069c6efe4b56998d09c4593840816 pushed/deployed to original Worker at100%, version6932b4b6-152e-45f9-af4c-159acfbea843. Read-only live verification confirms all5 changed assets200 and byte-identical; guest mobile Franchise tab selects correctly with no errors/overflow. Cloudflare code download verifies the zero-credit policy and server category argument. Existing bindings/state preserved; no production test attempts or data writes. Evidence: work/franchise-live-proof.json. Ownership released; handoff newer than deployed runtime.
 
 ## Completed — Quiz Host Tools Illegal Invocation
 
