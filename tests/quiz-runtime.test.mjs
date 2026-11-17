@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { readFile } from "node:fs/promises";
 const require = createRequire(import.meta.url),
   { Miniflare, Response: RuntimeResponse } = createRequire(
     require.resolve("wrangler/package.json"),
@@ -103,6 +104,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
             QUIZ_LIBRARY:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizLibrary'},
             QUIZ_SESSIONS:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizSession'},
             ASSETS:{type:'fetcher',handler:async request=>{
+              if(new URL(request.url).pathname==='/play/') return new RuntimeResponse(await readFile(new URL('../public/play/index.html',import.meta.url),'utf8'),{headers:{'Content-Type':'text/html'}});
               const manifest={schema:1,version:'runtime-seed',source:'Fixture',generatedAt:'2026-11-01T00:00:00Z',count:1,requested:1,missing:[],shards:[97],amq:{90001:[50001]}};
               const data=new URL(request.url).pathname.endsWith('manifest.json')?manifest:{50001:{annSongId:50001,amqSongId:90001,annId:1,title:'Cached Song',artist:'Artist',audio:'https://example.com/cached.mp3',titles:['Cached Alternative']}};
               return new RuntimeResponse(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
@@ -168,6 +170,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     ],
   });
   t.after(() => mf.dispose());
+  for(const route of ['/play/','/play/ngmc-ranked','/play/2v2-arena','/play/song-artist','/play/speed-showdown','/play/quiz']){
+    const response=await mf.dispatchFetch('https://amqtours.app'+route);
+    assert.equal(response.status,200);
+    const html=await response.text();assert.match(html,/<base href="\/gacha\/">/);assert.match(html,/play\/app.js/);
+  }
+  const localPlay=await mf.dispatchFetch('http://game/play/quiz');assert.match(await localPlay.text(),/<base href="\/">/);
+  assert.equal((await mf.dispatchFetch('http://game/play/unknown')).status,404);
+  assert.equal((await mf.dispatchFetch('http://game/play/index.html',{redirect:'manual'})).status,308);
+  const guestPlay=await mf.dispatchFetch('http://game/api/play-state');assert.equal((await guestPlay.json()).me,null);
   const post = (path, body, headers = {}) =>
       mf.dispatchFetch("http://game/api/" + path, {
         method: "POST",
@@ -200,6 +211,11 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(response.status, 200, await response.clone().text());
   const cookie = response.headers.get("Set-Cookie").split(";")[0];
   const auth = { Cookie: cookie };
+  await mf.dispatchFetch('http://game/api/__quiz-probe',{method:'POST'});
+  const sharedPlay=await mf.dispatchFetch('http://game/api/play-state',{headers:auth});
+  assert.equal(sharedPlay.status,200);
+  const playAccount=await sharedPlay.json();assert.equal(playAccount.me.id,'1');assert.equal(playAccount.me.password,undefined);assert.equal(playAccount.me.invite,undefined);assert.equal(playAccount.avatar,null);assert.ok(Array.isArray(playAccount.titles));assert.equal(playAccount.inventory,undefined);
+  const playProbe=await (await mf.dispatchFetch('http://game/api/__quiz-probe')).json();assert.equal(playProbe.market,0);assert.equal(playProbe.schedule,0);assert.equal(playProbe.starters,0);
   assert.equal((await mf.dispatchFetch('http://game/api/notices?auctions=1')).status,401);
   const liveNotice=await mf.dispatchFetch('http://game/api/notices?auctions=1',{headers:auth});
   assert.equal(liveNotice.status,200);

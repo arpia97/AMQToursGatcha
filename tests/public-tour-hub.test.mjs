@@ -37,4 +37,12 @@ test('custom domain mounts Gacha at its prefix and isolates its session from the
   const r=await proxy.fetch(new Request(base+'/gacha/api/login?x=1',{method:'POST',headers:{Origin:base,Cookie:'site_login=private; amq_session='+token},body:'{}'}),env);
   assert.equal(r.headers.get('location'),'/gacha/host');
   assert.match(r.headers.get('set-cookie'),/Path=\/gacha;/);
+  assert.equal((await proxy.fetch(new Request(base+'/play?x=1'),{})).headers.get('location'),base+'/play/?x=1');
+  let forwarded;
+  const playResponse=await proxy.fetch(new Request(base+'/play/quiz',{headers:{Cookie:'site_login=private; amq_session='+token,Authorization:'private'}}),{GAME_SITE:{fetch:async request=>{forwarded=request;return new Response('Play');}}});
+  assert.equal(playResponse.status,200);
+  assert.equal(forwarded.url,base+'/play/quiz');
+  assert.equal(forwarded.headers.get('cookie'),'amq_session='+token);
+  assert.equal(forwarded.headers.get('authorization'),null);
+  assert.equal((await proxy.fetch(new Request(base+'/tour/profile'),{})).status,404);
 });

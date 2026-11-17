@@ -8,6 +8,7 @@ Curated on November 9, 2026 (Asia/Seoul). This is a maintained engineering hando
 | --- | --- | --- |
 | Gatcha repository | https://github.com/arpia97/AMQToursGatcha | This repository |
 | Live Gatcha | https://amqtours.app/gacha/ | Shared production economy; previous play address remains available |
+| Play | https://amqtours.app/play/ | This repo's `public/play/` shell;5 modes, shared Gacha Quiz and accounts |
 | Host console | https://amqtours.app/gacha/host | Gatcha host administration |
 | Original Worker address | https://amqtours-gatcha.amqtours-gatcha.workers.dev/ | Same economy; hostname-specific sessions |
 | GitHub Pages | https://arpia97.github.io/AMQToursGatcha/ | Browser-only demo, separate fictional state |
@@ -49,6 +50,7 @@ Registration requires an individual one-use host-issued code, using the same exp
 
 ## Current Product Rules
 
+- Play uses clean `/play/{mode}` routes with NGMC Ranked,2v2 Arena,Song/Artist,Speed Showdown and Quiz. First4 are Coming Soon by user decision; do not invent mode mechanics. Quiz imports the existing UI and uses `/gacha/api/` on the canonical domain, preserving its session cookie path, all pools, scores, rewards and titles. Compact `play-state` returns only the signed-in header identity/avatar/titles without full inventory or game settlement. Play assets and routing live in this repo, not a new Sites project or economy.
 - Quiz gameplay has20 centered square indicators directly above hotkeys, without a visible label/counter: submitted correct/incorrect green/red, current unanswered yellow, upcoming neutral. Both transports return only submitted outcome booleans for reloads. Restart clears the strip; finished results retain all20 outcomes.
 - Quiz categories: Singers, Composers and Franchise. Franchise uses the same run format, scores, leaderboards, favorites and completion titles but never awards improvement or milestone credits; settlement enforces this on the server. Hosts can choose Franchise when creating/editing pools.
 - Explicit owner-authorized credit recoveries may create negative wallets. Credits/refunds/sales then pay down the debt normally; ordinary spending must still leave a nonnegative balance. The AKINO-only retirement route migrates the legacy balance CHECK transactionally, preserving every account field and index. It is never a startup migration or automatic replay.

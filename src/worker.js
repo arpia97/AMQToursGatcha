@@ -4,6 +4,8 @@ export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
+import { playRoute } from "../public/play-navigation.js";
+import { playState } from "./play-state.js";
 import { cachedQuizCover } from "./quiz-cover-cache.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { alchemyCompensation } from "./alchemy-compensation.js";
@@ -308,8 +310,9 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
+    const playRead = path === "play-state" && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1153,6 +1156,10 @@ export class Game extends DurableObject {
     if (path === "account" && !post) {
       return json({ account: e.account(session?.player) });
     }
+    if (playRead) {
+      this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      return json(playState(e, session?.player));
+    }
     if (path === "quiz-cover" && !post) {
       const cover = e.quiz.cover(
         url.searchParams.get("quiz"),
@@ -1736,6 +1743,17 @@ export default {
       }
     }
     const route = url.pathname.slice(1).replace(/\/$/, "");
+    if (["GET", "HEAD"].includes(request.method) && playRoute(url.pathname)) {
+      const shell = await env.ASSETS.fetch(new Request(new URL("/play/", url), request));
+      const base = url.hostname === "amqtours.app" ? "/gacha/" : "/";
+      return new HTMLRewriter().on("head", {
+        element(head) { head.prepend(`<base href="${base}">`, { html: true }); },
+      }).transform(shell);
+    }
+    if (url.pathname === "/play/index.html" && ["GET", "HEAD"].includes(request.method))
+      return Response.redirect(url.origin + "/play/" + url.search, 308);
+    if (url.pathname.startsWith("/play/") && !["/play/app.js", "/play/play.css"].includes(url.pathname))
+      return new Response("Not Found", { status: 404 });
     if (["GET", "HEAD"].includes(request.method) && isPlayerRoute(route)) {
       const shell = await env.ASSETS.fetch(new Request(new URL("/", url), request));
       // Relative to the requested document, including when served behind /gacha/.

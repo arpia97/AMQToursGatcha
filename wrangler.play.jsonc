@@ -4,7 +4,9 @@
   "workers_dev": true,
   "routes": [
     { "pattern": "amqtours.app/gacha", "zone_name": "amqtours.app" },
-    { "pattern": "amqtours.app/gacha/*", "zone_name": "amqtours.app" }
+    { "pattern": "amqtours.app/gacha/*", "zone_name": "amqtours.app" },
+    { "pattern": "amqtours.app/play", "zone_name": "amqtours.app" },
+    { "pattern": "amqtours.app/play/*", "zone_name": "amqtours.app" }
   ],
   "main": "src/short-url.js",
   "compatibility_date": "2026-10-23",

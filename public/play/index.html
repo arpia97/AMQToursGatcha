@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101117">
+    <meta name="description" content="Play AMQ Tours. Explore NGMC Ranked, 2v2 Arena, Song/Artist, Speed Showdown and Quiz.">
+    <title>Play · AMQ Tours</title>
+    <link rel="icon" href="amq-tours-logo.png" type="image/png">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="features.css">
+    <link rel="stylesheet" href="card-frames.css">
+    <link rel="stylesheet" href="play/play.css">
+    <script type="module" src="play/app.js"></script>
+  </head>
+  <body class="play-site">
+    <aside class="play-sidebar">
+      <a class="play-brand" href="/play/" aria-label="AMQ Tours Play home"><img src="amq-tours-logo.png" width="28" height="28" alt=""><span>AMQ TOURS<small>PLAY</small></span></a>
+      <span class="play-nav-label">Game Modes</span>
+      <nav id="play-nav" aria-label="Game Modes"></nav>
+      <div class="play-crosslinks"><a href="/tour/profile">Tour Platform <span>↗</span></a><a href="/gacha/">Gacha <span>↗</span></a></div>
+    </aside>
+    <div class="play-workspace">
+      <header class="play-header">
+        <a class="play-mobile-brand" href="/play/" aria-label="AMQ Tours Play home"><img src="amq-tours-logo.png" width="26" height="26" alt=""><span>AMQ TOURS<small>PLAY</small></span></a>
+        <span class="play-header-label">AMQ TOURS <span>/</span> PLAY</span>
+        <div class="play-header-actions">
+          <label class="play-title-mode">Anime Titles<select id="play-title-mode"><option value="romaji">Romaji</option><option value="english">English</option></select></label>
+          <div id="play-account"><button class="button secondary" data-action="account">Sign In</button></div>
+        </div>
+      </header>
+      <main id="main" tabindex="-1"><p class="loading">Loading Play…</p></main>
+      <footer class="play-footer"><span>AMQ Tours</span><div><a href="/tour/profile">Tours ↗</a><a href="/gacha/">Gacha ↗</a></div></footer>
+    </div>
+    <nav id="play-mobile-nav" aria-label="Game Modes"></nav>
+    <dialog id="modal"><button type="button" class="dialog-close" aria-label="Close dialog">×</button><div id="modal-body"></div></dialog>
+    <div id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

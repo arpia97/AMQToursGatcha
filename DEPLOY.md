@@ -1,5 +1,11 @@
 # Deploy the live shared game for free
 
+## Play mount
+
+`https://amqtours.app/play/` is a separate shell served by the existing original Worker (`public/play/`, `public/play-navigation.js`). The `play` proxy mounts both `/gacha` and `/play` in `wrangler.play.jsonc`. Preserve all4 route patterns and the existing `GAME_SITE` service binding. The original asset config runs the Worker first for `/api/*` and `/play` paths so clean mode URLs receive the correct Play document/base. No new database, Durable Object namespace or Site is involved.
+
+Deploy original app code/assets with `pnpm run deploy`, verify read-only `/gacha/api/play-state` serves the updated handler, then deploy mount/proxy changes with `pnpm run deploy:short-url`. The Play document resolves shared assets/API under `/gacha/` on the canonical domain and `/` on the original Worker in development. API calls keep the existing `/gacha` session cookie scope; do not widen it or copy accounts. New modes are Coming Soon; Quiz reuses the existing module, pools, scores and rewards. A Play-only header read avoids full account inventory and gameplay settlement.
+
 Recommended: **Cloudflare Workers Free with a SQLite-backed Durable Object**. GitHub stores the code and serves the demo. The live player site and host console should use the same Cloudflare origin so cookies and API requests remain same-origin.
 
 As checked on 2026-10-24, Cloudflare documents 100,000 Worker requests/day and free SQLite-backed Durable Objects, including 100,000 object requests/day, 5 million SQL rows read/day, 100,000 rows written/day, and 5 GB aggregate SQL storage. A single free-plan object has a smaller storage limit. Limits can change; consult the linked pricing/limits pages before launch. Free-plan quota exhaustion stops affected operations; it is not an unlimited service.

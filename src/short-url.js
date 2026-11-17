@@ -5,9 +5,10 @@ export default {
   async fetch(request, env) {
     const url=new URL(request.url);
     if(url.hostname==='amqtours.app'){
-      if(url.pathname==='/gacha')return Response.redirect(url.origin+'/gacha/'+url.search,308);
-      if(!url.pathname.startsWith('/gacha/'))return new Response('Not Found',{status:404});
-      url.pathname=url.pathname.slice('/gacha'.length);
+      if(url.pathname==='/gacha'||url.pathname==='/play')return Response.redirect(url.origin+url.pathname+'/'+url.search,308);
+      const gacha=url.pathname.startsWith('/gacha/'),play=url.pathname.startsWith('/play/');
+      if(!gacha&&!play)return new Response('Not Found',{status:404});
+      if(gacha)url.pathname=url.pathname.slice('/gacha'.length);
       const upstream=new Request(url,request);
       // A player may also be signed in to Sites on this host. The game only needs its own cookie.
       const session=request.headers.get('cookie')?.match(/(?:^|;\s*)(amq_session=[a-f0-9]{48})(?:;|$)/)?.[1];
@@ -20,7 +21,7 @@ export default {
       const location=headers.get('location');
       if(location){
         const target=new URL(location,url);
-        if(target.origin===url.origin)headers.set('location','/gacha'+target.pathname+target.search+target.hash);
+        if(gacha&&target.origin===url.origin)headers.set('location','/gacha'+target.pathname+target.search+target.hash);
       }
       const cookie=headers.get('set-cookie');
       if(cookie?.startsWith('amq_session='))headers.set('set-cookie',cookie.replace(/; Path=\/(;|$)/i,'; Path=/gacha$1'));

@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## In Progress — AMQ Tours Play
+
+November17. User requested amqtours.app/play with NGMC Ranked,2v2 Arena,Song/Artist,Speed Showdown,Quiz; clarified layout first and new modes later. Codex owns new Play shell/navigation/state projection, worker shell route, short-url proxy and mount config, focused tests. Reuses existing Quiz module/API/account session through /gacha; preserves existing Gacha Quiz, scores/rewards, GAME identity, Host Platform and routes. First4 explicitly Coming Soon. Desktop sidebar/mobile5-button navigation, shared credits/avatar/crop/enhancement effects/titles, auth/recovery and English/Romaji preference. Compact `play-state` skips starter/market/settlement work and never returns inventory/password/code fields. Original assets route config runs Worker first on Play paths; proxy forwards them without stripping their prefix and keeps cookie isolation/Host-header stripping.
+
+All520 tests pass (one new route test; existing proxy/runtime tests extended),256 JS syntax checks, original+proxy dry-runs and diff checks pass. Real Workers runtime verifies6 Play URLs and dev/canonical base paths, invalid404/index redirect, guest/auth header scope and zero market/scheduler/starter calls. Actual app/disposable SQLite at1440/900/390/360 verifies navigation/back/forward, all categories, shared scoped session, preferences, search caret, boundedMAX avatar, playback/answer/progress, leave/resume/Stop and no overflow/errors or full-state reads. Preview evidence: work/play-home-*.png, play-quiz-*.png, play-browser-proof.json, play-runtime-tests.log, play-all-tests.log. Preparing original Worker then proxy/domain deployment. No production gameplay QA writes.
+
 ## Completed — Quiz Song Progress Squares
 
 User approved implementation/deployment. Codex scoped src/quiz-run-state.js, public/quiz-ui.js/features.css and focused existing tests. Approved strip is horizontally centered directly above hotkeys, no visible labels,20 squares, green/red/yellow/neutral. Server scoring unchanged; future answers remain private.
