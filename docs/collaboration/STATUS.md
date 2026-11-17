@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## In Progress — Quiz Song Progress Squares
+
+User approved implementation/deployment. Codex owns src/quiz-run-state.js, public/quiz-ui.js/features.css and focused existing tests. Approved strip is horizontally centered directly above hotkeys, no visible labels,20 squares, green/red/yellow/neutral. Preserve server scoring and avoid exposing future answers. Production writes remain read-only QA; deploy belongs to this task.
+
+November17. Implemented approved preview in actual gameplay and finished results. Shared quizRunView returns only already-submitted boolean outcomes for normal and competitive transports; no schema/state/scoring/reward changes. Fallback keeps already-seen results during old/new deployment overlap. Instant-next carries results forward; restart resets them. Styles match the final approved preview (centered, directly above hotkeys, no labels,20 squares in one row).
+
+All519 existing tests pass with cases extended (no added test count), including normal/competitive Workers runtime results.252 JS syntax checks and Wrangler dry-run pass;27 UI tests rechecked after extra optimistic-transition assertions. Actual app/disposable SQLite at1440/390/360 verifies exact layout, answer reveal, next, reload, skip and restart, with no overflow/errors. Evidence: work/quiz-progress-browser-proof.json, quiz-progress-implemented-*.png, quiz-progress-all-tests.log. Preparing original Worker deployment; no production attempts or state writes.
+
 ## Completed — Franchise Quiz Category
 
 November17. Codex owns quiz category/reward rules, quiz browsing/host/profile labels and focused existing quiz tests. Franchise is the third category in browsing and host creation/editing; shared category labels cover profile #1 tables and automod. Server settlement suppresses improvement/milestone credits while preserving scores, leaderboards, timings, favorites, titles and reward-history protection. Browsing/start/completion show No Credit Rewards; Franchise hides the credit payout guide. No schema migrations or historical credit changes.

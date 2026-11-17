@@ -661,6 +661,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   }
   assert.equal(run.score, 20);
   assert.equal(run.reward.total, 2900);
+  assert.deepEqual(run.results, Array(20).fill(true));
   assert.equal(run.history.length, 20);
   assert.ok(run.history.every((s) => s.correct && Number.isSafeInteger(s.elapsedMs)));
   assert.ok(run.history.every((s) => !("audio" in s) && !("answers" in s)));
@@ -828,11 +829,13 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   await post("__quiz-probe",{});
   for(let i=0;i<20;i++){
     assert.equal(fast.index,i);
+    assert.deepEqual(fast.results, Array(i).fill(true));
     assert.equal(fast.answer,undefined,"future/current keys are absent until the lock is durable");
     const body={run:fast.id,index:i,action:"quiz-answer",answer:"Anime Test"};
     const key="fast-lock-"+i;
     await fastMove("quiz-answer",{answer:"Anime Test"},key);
     assert.equal(fast.correct,true);
+    assert.deepEqual(fast.results, Array(i + 1).fill(true));
     assert.equal(fast.answer,"Anime Test");
     response=await post(endpoint,body,{...fastAuth,"Idempotency-Key":key});
     assert.equal(response.status,200);
@@ -853,6 +856,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(response.status,200,await response.clone().text());
   const settled=await response.json();
   assert.equal(settled.run.score,20,"settlement trusts only the actor snapshot");
+  assert.deepEqual(settled.run.results, Array(20).fill(true));
   assert.equal(settled.run.startedAt,startedAt);
   assert.ok(settled.run.durationMs>=0);
   const balance=settled.me.balance;

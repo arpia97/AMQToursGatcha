@@ -14,6 +14,7 @@ export function quizRunView(q, run, now) {
         id: run.id,
         index: 20,
         score,
+        results: run.answers.slice(0, 20).map((a) => !!a.correct),
         finished: true,
         startedAt: run.startedAt ?? null,
         durationMs: run.durationMs ?? null,
@@ -50,6 +51,8 @@ export function quizRunView(q, run, now) {
       ...(run.fast ? { transport: "session" } : {}),
       index: run.index,
       score,
+      // Only submitted outcomes; never expose upcoming song metadata or keys.
+      results: run.answers.slice(0, run.index + (answer ? 1 : 0)).map((a) => !!a.correct),
       finished: false,
       startedAt: run.startedAt ?? null,
       elapsedMs: quizElapsed(run.startedAt, run.completedAt ?? now),

@@ -178,6 +178,7 @@ function play(f, score, keyPrefix = crypto.randomUUID(), player = "p") {
       run: run.id,
       index: i,
     });
+    assert.deepEqual(ready.run.results, Array.from({ length: i }, (_, n) => n < score));
     f.advance(Math.max(0, ready.run.startsAt - f.e.now()));
     const stored = f.e.quiz.run(player, "test");
     const song = stored.songs[i];
@@ -190,6 +191,7 @@ function play(f, score, keyPrefix = crypto.randomUUID(), player = "p") {
     };
     const key = keyPrefix + "-a-" + i;
     const answer = f.action(player, "quiz-answer", b, key);
+    assert.deepEqual(answer.run.results, Array.from({ length: i + 1 }, (_, n) => n < score));
     assert.equal(answer.run.correct, i < score);
     assert.deepEqual(f.action(player, "quiz-answer", b, key), answer);
     assert.throws(() => f.action(player, "quiz-answer", b), /already locked/);
@@ -197,6 +199,7 @@ function play(f, score, keyPrefix = crypto.randomUUID(), player = "p") {
       nk = keyPrefix + "-n-" + i;
     result = f.action(player, "quiz-next", next, nk);
     run = result.run;
+    assert.deepEqual(run.results, Array.from({ length: i + 1 }, (_, n) => n < score));
     assert.deepEqual(f.action(player, "quiz-next", next, nk), result);
   }
   assert.equal(seen.size, 20);

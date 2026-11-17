@@ -1,5 +1,7 @@
 # Quiz Operations
 
+During play,20 centered progress squares sit directly above the hotkey hints without a visible label or counter. Submitted answers turn green/red, the current unanswered song is yellow, and upcoming songs are neutral. Server run views return only submitted outcome booleans, keeping the strip accurate after reloads in normal and competitive sessions without exposing future answers. Restart clears the strip; completed runs retain all20 outcomes.
+
 Quiz categories are **Singers**, **Composers** and **Franchise**, available both in browsing and host creation/editing. Franchise quizzes award **no credits**, including improvement and milestone bonuses; this is enforced during server settlement. Scores, timings, leaderboards, favorites and completion titles work normally. Reward history still prevents reissuing previously reached milestones after edits or score resets. Singers and Composers retain their existing rewards.
 
 Draft quizzes are visible and playable only to hosts, with a Draft · Hosts Only badge. Host previews never change personal bests, credits, milestone rewards or titles. Other players see only published quizzes; with none published, they see Coming Soon.

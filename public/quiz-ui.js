@@ -191,6 +191,14 @@ export function createQuizUI({
     }
   }
   function useRun(value) {
+    // Older responses during rollout still retain outcomes seen this visit.
+    if (value && !Array.isArray(value.results)) {
+      const results = value.finished && value.history
+        ? value.history.map((song) => !!song.correct)
+        : value.id === run?.id ? (run.results || []).slice(0, value.index) : [];
+      if (!value.finished && value.answered) results[value.index] = !!value.correct;
+      value = { ...value, results };
+    }
     if (value?.transport === "session" && value.id === run?.id && !value.sessionTicket)
       value = { ...value, sessionTicket: run.sessionTicket };
     run = value;
@@ -897,10 +905,22 @@ export function createQuizUI({
           '<div class="quiz-complete-actions">' +
           (run.history?.length ? '<button type="button" class="button secondary" data-quiz-recap>Songs Played →</button>' : '') +
           startControls("Play Again →") +
-          "</div></section>",
+          "</div>" + songProgressHTML() + "</section>",
       );
     }
     return withLeaderboard(questionHTML(q));
+  }
+  function songProgressHTML() {
+    return '<section class="quiz-song-progress" aria-label="Song Progress"><ol class="quiz-song-progress-track">' +
+      Array.from({ length: 20 }, (_, index) => {
+        const result = run.results?.[index];
+        const state = typeof result === "boolean" ? result ? "correct" : "incorrect"
+          : !run.finished && index === run.index ? "current" : "upcoming";
+        const label = "Song " + (index + 1) + ": " +
+          ({ correct: "Correct", incorrect: "Incorrect", current: "Current Song", upcoming: index < run.index ? "Result Not Recorded" : "Upcoming" })[state];
+        return '<li class="quiz-progress-square is-' + state + '" aria-label="' + label +
+          '" title="' + label + '"' + (state === "current" ? ' aria-current="step"' : '') + '></li>';
+      }).join("") + '</ol></section>';
   }
   function questionHTML(q) {
     const preview = !q.published || run?.preview;
@@ -950,6 +970,7 @@ export function createQuizUI({
         : "") +
       "</div>" +
       (run.answered ? result : answerForm) +
+      songProgressHTML() +
       hotkeyHintBar() +
       '<p id="quiz-inline-error" class="form-error" role="alert">' +
       e(errorMessage) +

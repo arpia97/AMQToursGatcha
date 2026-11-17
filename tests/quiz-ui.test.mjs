@@ -374,6 +374,9 @@ test("quiz starts at 30% volume, waits two seconds, autoplays, and submits the t
   assert.equal(f.audios[0].plays, 0);
   assert.match(f.node("quiz-time-left").textContent, /Starts in 2s/);
   assert.equal(f.node("quiz-answer").disabled, true);
+  assert.equal((f.ui.render().match(/class="quiz-progress-square /g) || []).length, 20);
+  assert.match(f.ui.render(), /is-current" aria-label="Song 1: Current Song/);
+  assert.doesNotMatch(f.ui.render(), /Song Progress<|8 \/ 20<\/strong>/);
   await f.advance(2000);
   assert.equal(f.audios[0].plays, 1);
   assert.equal(f.node("quiz-answer").disabled, false);
@@ -384,6 +387,8 @@ test("quiz starts at 30% volume, waits two seconds, autoplays, and submits the t
   assert.equal(answers.length, 1);
   assert.equal(answers[0].b.answer, "Bocchi the Rock!");
   assert.match(f.ui.render(), /Score<\/span><strong>1 \/ 20/);
+  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.doesNotMatch(f.ui.render(), /is-current/);
 });
 test("dropdown filters without per-keystroke requests, Enter locks the selected title, and volume persists including mute", async (t) => {
   const f = fixture(t, { saved: "0" });
@@ -511,8 +516,12 @@ test("new songs autofocus once, Enter advances the revealed answer once, and Res
   assert.equal(prevented, 1);
   assert.equal(f.calls.filter((c) => c.path === "quiz-next").length, 1);
   assert.match(f.ui.render(), /Song 2 of 20/);
+  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-current" aria-label="Song 2: Current Song/);
   await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
   assert.match(f.ui.render(), /Song 1 of 20/);
+  assert.match(f.ui.render(), /is-current" aria-label="Song 1: Current Song/);
+  assert.doesNotMatch(f.ui.render(), /quiz-progress-square is-correct|quiz-progress-square is-incorrect/);
 });
 test("leaderboard-only navigation never starts or resumes audio or a quiz run", async (t) => {
   const f = fixture(t);
@@ -1251,6 +1260,8 @@ test("fast session starts buffered next audio before acknowledgment without repl
   const transition=f.ui.click(f.button("data-quiz-action","quiz-next"));
   await flush();
   assert.equal(nextAudio.plays,1,"playback starts while the Next acknowledgment is still delayed");
+  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-current" aria-label="Song 2: Current Song/);
   assert.equal(f.node("quiz-answer").disabled,false,"typing is available immediately");
   f.node("quiz-answer").value="Boku";
   await f.ui.input(f.node("quiz-answer"));
@@ -1259,6 +1270,7 @@ test("fast session starts buffered next audio before acknowledgment without repl
   await transition;
   assert.equal(f.renders.length,renderCount,"acknowledgment must not replace the focused textbox");
   assert.equal(f.node("quiz-answer").value,"Boku");
+  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
   assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && c.b.action==="quiz-answer"));
   assert.equal(f.calls.filter(c=>c.path==="quiz-answer").length,0);
   f.loseAnswerResponse();
