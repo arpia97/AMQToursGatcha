@@ -49,6 +49,7 @@ Registration requires an individual one-use host-issued code, using the same exp
 
 ## Current Product Rules
 
+- Quiz gameplay has20 centered square indicators directly above hotkeys, without a visible label/counter: submitted correct/incorrect green/red, current unanswered yellow, upcoming neutral. Both transports return only submitted outcome booleans for reloads. Restart clears the strip; finished results retain all20 outcomes.
 - Quiz categories: Singers, Composers and Franchise. Franchise uses the same run format, scores, leaderboards, favorites and completion titles but never awards improvement or milestone credits; settlement enforces this on the server. Hosts can choose Franchise when creating/editing pools.
 - Explicit owner-authorized credit recoveries may create negative wallets. Credits/refunds/sales then pay down the debt normally; ordinary spending must still leave a nonnegative balance. The AKINO-only retirement route migrates the legacy balance CHECK transactionally, preserving every account field and index. It is never a startup migration or automatic replay.
 - Starting credits: 5,000. Daily credits: 300, explicitly claimed. Daily pack: five cards, explicitly claimed with Character/Seiyuu choice. Separate claim records reset at midnight Asia/Seoul. Refreshing must not claim either reward.

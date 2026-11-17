@@ -1,12 +1,14 @@
 # Shared Status and Handoff
 
-## In Progress — Quiz Song Progress Squares
+## Completed — Quiz Song Progress Squares
 
-User approved implementation/deployment. Codex owns src/quiz-run-state.js, public/quiz-ui.js/features.css and focused existing tests. Approved strip is horizontally centered directly above hotkeys, no visible labels,20 squares, green/red/yellow/neutral. Preserve server scoring and avoid exposing future answers. Production writes remain read-only QA; deploy belongs to this task.
+User approved implementation/deployment. Codex scoped src/quiz-run-state.js, public/quiz-ui.js/features.css and focused existing tests. Approved strip is horizontally centered directly above hotkeys, no visible labels,20 squares, green/red/yellow/neutral. Server scoring unchanged; future answers remain private.
 
 November17. Implemented approved preview in actual gameplay and finished results. Shared quizRunView returns only already-submitted boolean outcomes for normal and competitive transports; no schema/state/scoring/reward changes. Fallback keeps already-seen results during old/new deployment overlap. Instant-next carries results forward; restart resets them. Styles match the final approved preview (centered, directly above hotkeys, no labels,20 squares in one row).
 
-All519 existing tests pass with cases extended (no added test count), including normal/competitive Workers runtime results.252 JS syntax checks and Wrangler dry-run pass;27 UI tests rechecked after extra optimistic-transition assertions. Actual app/disposable SQLite at1440/390/360 verifies exact layout, answer reveal, next, reload, skip and restart, with no overflow/errors. Evidence: work/quiz-progress-browser-proof.json, quiz-progress-implemented-*.png, quiz-progress-all-tests.log. Preparing original Worker deployment; no production attempts or state writes.
+All519 existing tests pass with cases extended (no added test count), including normal/competitive Workers runtime results.252 JS syntax checks and Wrangler dry-run pass;27 UI tests rechecked after extra optimistic-transition assertions. Actual app/disposable SQLite at1440/390/360 verifies exact layout, answer reveal, next, reload, skip and restart, with no overflow/errors. Evidence: work/quiz-progress-browser-proof.json, quiz-progress-implemented-*.png, quiz-progress-all-tests.log.
+
+Runtimeac5f21ed4da4d6ed627d04f9a14d3a42124d44bd pushed/deployed to original Worker at100%, version75d4cc43-9f68-4820-a91f-c22b6bd2749b. Live quiz-ui.js/features.css return200 and byte-match source. Cloudflare code download confirms both submitted/finished results projection. Live frontend browser checks at1440/390/360 use intercepted API responses backed by local SQLite (no production quiz attempts/writes); all lifecycle/layout assertions pass. Evidence: work/quiz-progress-live-browser-proof.json. Existing bindings/state preserved. Ownership released; documentation handoff newer than runtime.
 
 ## Completed — Franchise Quiz Category
 
