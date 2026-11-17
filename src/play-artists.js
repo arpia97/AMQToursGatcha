@@ -1,7 +1,12 @@
 // Artist relationship rules adapted from the user's MIT-licensed AMQ Voicing
 // Mode 2.0.0 (4Lajf / Zolhungaj). Keep group -> solo acceptance directional.
 export const answerKey = value => String(value ?? '').normalize('NFKD')
-  .replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  .replace(/\p{M}/gu, '').toLowerCase().replace(/[’'`]/g,'').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+// Compare complete answers; tolerate punctuation/spacing, never partial names.
+export const titleKey = value => answerKey(value).replace(/\s+/g,'')||String(value??'').normalize('NFKC').replace(/\s+/g,'');
+export const titleMatches = (expected,value) => {
+  const key=titleKey(value);return !!key&&expected.some(answer=>titleKey(answer)===key);
+};
 export const artistKey = value => answerKey(value).split(/\s+/).sort().join(' ');
 const values = value => Array.isArray(value) ? value.flatMap(values) : value == null ? [] : typeof value !== 'object' ? [value]
   : ['name','artistName','artistId','songArtistId','id'].some(k => value[k] != null) ? [value]
@@ -32,7 +37,8 @@ export function buildArtistLibrary(master) {
     const memberNames=group.members.map(ref=>resolve(ref).flatMap(name=>rules[artistKey(name)]?.names||[artistKey(name)]));
     for(const name of group.ns) {
       const key=artistKey(name), rule=rules[key];
-      rules[key]=memberNames.length===1?{names:[...new Set([...rule.names,...memberNames[0]])]}:{...rule,members:memberNames};
+      const composition=group.members.map(ref=>resolve(ref)[0]).filter(Boolean);
+      rules[key]=memberNames.length===1?{names:[...new Set([...rule.names,...memberNames[0]])],composition}:{...rule,members:memberNames,composition};
     }
   }
   const songs=Object.fromEntries(Object.entries(master.songMap||{}).map(([id,s])=>[id,{title:s.name,artist:artists[s.songArtistId]?.name||groups[s.songGroupId]?.name||''}]));
@@ -42,14 +48,14 @@ export function artistMatches(expected, submitted, rules = {}) {
   const list=Array.isArray(submitted)?submitted:null;
   const key=artistKey(list?list.length===1?list[0]:'':submitted);
   const rule=rules[artistKey(expected)];
-  if(key&&(artistKey(expected)===key||rule?.names.includes(key)))return true;
+  if(key&&[artistKey(expected),...(rule?.names||[])].some(name=>titleMatches([name],key)))return true;
   if(!rule?.members)return false;
   const parts=(list||String(submitted??'').split(',')).map(artistKey).filter(Boolean);
   if(parts.length!==rule.members.length)return false;
   // One-to-one bipartite matching handles overlapping aliases without factorial work.
   const assigned=Array(parts.length).fill(-1);
   const visit=(member,seen)=>parts.some((part,j)=>{
-    if(seen.has(j)||!rule.members[member].includes(part))return false;
+    if(seen.has(j)||!titleMatches(rule.members[member],part))return false;
     seen.add(j);
     if(assigned[j]===-1||visit(assigned[j],seen)){assigned[j]=member;return true;}
     return false;

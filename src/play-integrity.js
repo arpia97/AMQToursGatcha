@@ -1,4 +1,4 @@
-import {answerKey,artistMatches} from './play-artists.js';
+import {titleMatches,artistMatches} from './play-artists.js';
 
 const MAX_EVENTS=36000,MAX_PLAYER_EVENTS=4000;
 function shuffle(values){
@@ -25,7 +25,7 @@ export function loadedRounds(state,indices){
   return [...new Set(indices.map(i=>state.audioPool[i].round).filter(i=>i!==null))];
 }
 function matches(song,field,value){
-  return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):song.answers[field].includes(answerKey(value));
+  return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):titleMatches(song.answers[field],value);
 }
 export function decoyHits(state,answers,artists){
   const fields=state.mode==='ngmc-ranked'?['anime']:['anime','song','artist'];
@@ -68,6 +68,7 @@ export class MatchReview {
     this.add(state,who,'activity',{event:message.event,visibility:message.visibility,focused:message.focused,clientAt:Number.isFinite(message.clientAt)?message.clientAt:null,source:'client-reported'},at);
   }
   submission(state,id,message,before,error,at=Date.now()){
+    if(message.type==='draft'){this.add({...state,index:before.index,phase:before.phase},id,'answer-draft',{answers:message.answers,artists:message.artists,field:message.field,accepted:!error&&!before.locked&&(!state.teamFields||!before.field||before.field==='artist'),source:'timeout-draft',clientAt:message.clientAt,error:error?.message||null},at);return;}
     if(!['answer','artists'].includes(message.type))return;
     const player=state.players.find(p=>p.id===id);
     const answers=message.type==='artists'?{artist:Array.isArray(message.artists)?message.artists.slice(0,50).map(x=>String(x).slice(0,300)).join(', ').slice(0,3500):''}:message.field?{[String(message.field).slice(0,20)]:String(message.answer??message.artists?.join?.(', ')??'').slice(0,3500)}:Object.fromEntries(['anime','song','artist'].filter(f=>message.answers?.[f]!==undefined).map(f=>[f,String(message.answers[f]).slice(0,3500)]));
@@ -85,7 +86,7 @@ export class MatchReview {
     const row=state.history.at(-1);if(!row)return;
     for(const result of row.results){
       const player=state.players.find(p=>p.id===result.id);
-      this.add(state,result.id,'round-result',{answers:result.answers,correct:result.correct,earned:result.earned,flags:decoyHits(state,result.answers,player?.artists)},at);
+      this.add(state,result.id,'round-result',{answers:result.answers,correct:result.correct,earned:result.earned,autoSubmitted:!!result.autoSubmitted,flags:decoyHits(state,result.answers,player?.artists)},at);
     }
   }
   page({before=Infinity,player=''}={}){

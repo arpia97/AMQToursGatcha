@@ -28,7 +28,7 @@ export class PlayMatch extends DurableObject {
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
       matchView(state,who.id);
-      if(state.audioPool&&who.protocol!==2)fail('Refresh Play to load the updated match player.',409);
+      if(state.samplePositions?who.protocol!==3:state.audioPool&&![2,3].includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
       const player=state.players.find(p=>p.id===who.id);player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
       const {server,response}=accept(this.ctx,who);
@@ -53,9 +53,10 @@ export class PlayMatch extends DurableObject {
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
+      if(message.type==='skip')this.reviewLog.add(state,input.who.id,'skip-vote',{vote:message.vote});
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
-      this.write(state);this.broadcast();
+      this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast();
       if(input.message.type==='leave'&&state.mode!=='ngmc-ranked')await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(input.who.id,state.id);
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}

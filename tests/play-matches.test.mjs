@@ -4,12 +4,22 @@ import {DatabaseSync} from 'node:sqlite';
 import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildArtistLibrary,artistMatches,submittedArtists} from '../src/play-artists.js';
+import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
+import {sampleStart} from '../public/play-sample.js';
+import {recapHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
 test('artist aliases, equivalent groups, directed solo groups and full member answers',()=>{
   const master={artistMap:{1:{name:'Manaka Iwami',altNameLinks:[2]},2:{name:'Iwami, Manaka'},3:{name:'Éir Aoi'}},groupMap:{1:{name:'Solo Project',artistMembers:[1]},2:{name:'Duo',artistMembers:[1,3]},3:{name:'Other Duo',artistMembers:[3,1]}}};
   const library=buildArtistLibrary(master);
+  assert.deepEqual([...library.rules.duo.composition].sort(),['Manaka Iwami','Éir Aoi'].sort());
+  assert.deepEqual(library.rules['project solo'].composition,['Manaka Iwami']);
+  assert.equal(titleMatches(['S.O.S.'], 'sos'),true);
+  assert.equal(titleMatches(["Don't Stop"], 'dont stop'),true);
+  assert.equal(titleMatches(['☆☆☆☆'], '☆☆☆☆'),true);
+  assert.equal(titleMatches(['☆☆☆☆'], ''),false);
+  assert.equal(titleMatches(['Anime Season 2'], 'Anime'),false);
+  assert.equal(artistMatches('LiSA',['LiSA','Another Artist']),false);
   assert.equal(artistMatches('Manaka Iwami','Iwami Manaka',library.rules),true);
   assert.equal(artistMatches('Solo Project','Manaka Iwami',library.rules),true);
   assert.equal(artistMatches('Manaka Iwami','Solo Project',library.rules),false);
@@ -142,4 +152,47 @@ test('NGMC seed lookup retries transient failures and reserved socket closures a
   await assert.rejects(loadTourRate('local',async(url,options)=>{assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://wrong.test'}});}),error=>error.status===503);
   await assert.rejects(loadTourRate('local',async()=>Response.json({error:'invalid'})),error=>error.status===503&&/guess rates/.test(error.message));
   for(const code of [1005,1006,1015]){let sent;closeSocket({close:value=>{sent=value;}},code);assert.equal(sent,1000);}
+});
+
+
+test('private current answers score at timeout; team skip needs two distinct votes and recap reflects teammates',()=>{
+  let now=1000;const s=makeMatch('drafts','1-team',players.slice(0,3),structuredClone(songs),now);
+  s.phase='guess';s.startsAt=now;s.until=now+30000;
+  const [a,b,c]=s.players;
+  assert.ok(s.samplePositions.every(n=>n>=0&&n<1));
+  const view=matchView(s,a.id);assert.equal(view.samplePosition,s.samplePositions[0]);assert.equal(view.samplePositions,undefined);assert.equal(view.artistMembers,undefined);
+  assert.equal(sampleStart(100,.5,30),34);assert.equal(sampleStart(20,.8,30),0);assert.equal(sampleStart(NaN,.8,30),0);
+  const draft=(field,answer)=>({type:'draft',index:0,field,answers:{anime:'',song:'',artist:'',[field]:answer},artists:field==='artist'?[answer]:[]});
+  matchMove(s,a.id,draft('anime','Anime'),now++);
+  matchMove(s,b.id,draft('anime','Alternate'),now++);
+  assert.equal(matchView(s,b.id).players.find(p=>p.id===a.id).draft,undefined);
+  assert.equal(matchView(s,a.id).myDraft.answers.anime,'Anime');assert.equal(a.field,undefined);
+  matchMove(s,b.id,draft('song','Song'),now++);
+  matchMove(s,c.id,draft('artist','Artist'),now++);
+  assert.equal(s.phase,'guess');advanceMatch(s,s.until);
+  assert.deepEqual(s.teams,[3]);assert.ok(s.players.every(p=>p.score===1&&p.autoSubmitted));
+  const html=recapHTML(matchView(s,a.id),String,x=>x.anime);
+  assert.equal((html.match(/class="correct"/g)||[]).length,3);assert.ok(html.includes('Team 3/3 · +1 Contributions'));assert.ok(html.includes('Artist Credits'));
+  const oldScore=s.teams[0];advanceMatch(s,s.until-1);assert.equal(s.teams[0],oldScore);
+  assert.throws(()=>matchMove(s,a.id,draft('anime','Late'),s.until-1),/no longer/);
+  // New round clears drafts and votes; repeated votes from one player are not a majority.
+  for(const p of s.players){p.ready=true;p.loaded=[0,1];}
+  now=s.until;advanceMatch(s,now);now=s.startsAt;
+  assert.ok(s.players.every(p=>!p.draft&&!p.skip&&!p.autoSubmitted));
+  matchMove(s,a.id,{type:'skip',index:1,vote:true},now);matchMove(s,a.id,{type:'skip',index:1,vote:true},now);
+  assert.equal(s.phase,'guess');assert.deepEqual(matchView(s,a.id).skipVotes,[a.id]);
+  matchMove(s,a.id,{type:'skip',index:1,vote:false},now);assert.deepEqual(matchView(s,a.id).skipVotes,[]);
+  matchMove(s,a.id,{type:'skip',index:1,vote:true},now);matchMove(s,b.id,{type:'skip',index:1,vote:true},now);assert.equal(s.phase,'reveal');assert.equal(s.history.length,2);
+  // Conflicting timeout drafts claim a field once; an explicit claim wins over drafts.
+  const conflict=makeMatch('conflict','1-team',players.slice(0,3),structuredClone(songs),now);conflict.phase='guess';conflict.startsAt=now;conflict.until=now+30000;
+  matchMove(conflict,'0',draft('anime','wrong'),now);matchMove(conflict,'1',draft('anime','Anime'),now+1);
+  matchMove(conflict,'2',{type:'answer',index:0,field:'anime',answer:'Anime'},now+2);
+  advanceMatch(conflict,conflict.until);assert.deepEqual(conflict.teams,[1]);assert.equal(conflict.players.filter(p=>p.field==='anime').length,1);
+  const solo=makeMatch('solo','1v1',players.slice(0,2),structuredClone(songs),now);solo.phase='guess';solo.startsAt=now;solo.until=now+30000;
+  assert.throws(()=>matchMove(solo,'0',{type:'skip',index:0,vote:true},now),/unavailable/);
+  matchMove(solo,'0',{...draft('artist','Artist'),answers:{anime:'Anime',song:'Song',artist:'Artist'}},now);
+  assert.equal(matchView(solo,'1').myDraft,undefined);assert.equal(matchView(solo,'1').players.find(p=>p.id==='0').answers,undefined);
+  matchMove(solo,'0',{type:'artists',index:0,artists:['Artist']},now+1);
+  assert.equal(solo.players.find(p=>p.id==='0').draft.answers.anime,'Anime');
+  advanceMatch(solo,solo.until);assert.equal(solo.players.find(p=>p.id==='0').score,3);
 });

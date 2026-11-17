@@ -53,7 +53,7 @@ export async function playRuntimeFixture({groups=false}={}){
     const path=new URL(request.url).pathname;
     if(path==='/quiz-library/manifest.json')return Response.json(manifest);
     if(path==='/quiz-library/0.json')return Response.json(songs);
-    if(path==='/play-artists.json')return Response.json({names:Object.values(songs).flatMap(s=>groups?[s.artist,'Singer A '+s.annSongId,'Singer B '+s.annSongId]:[s.artist]),rules:groups?Object.fromEntries(Object.values(songs).map(s=>[s.annSongId+' group',{names:[s.annSongId+' group'],members:[[s.annSongId+' a singer'],[s.annSongId+' b singer']]}])):{},songs:{}});
+    if(path==='/play-artists.json')return Response.json({names:Object.values(songs).flatMap(s=>groups?[s.artist,'Singer A '+s.annSongId,'Singer B '+s.annSongId]:[s.artist]),rules:groups?Object.fromEntries(Object.values(songs).map(s=>[s.annSongId+' group',{names:[s.annSongId+' group'],members:[[s.annSongId+' a singer'],[s.annSongId+' b singer']],composition:['Singer A '+s.annSongId,'Singer B '+s.annSongId]}])):{},songs:{}});
     const local=path==='/play/'?'play/index.html':path.slice(1);
     if(local.includes('..'))return new Response(null,{status:404});
     try {const bytes=await readFile(new URL('../public/'+local,import.meta.url));return new Response(bytes,{headers:{'Content-Type':local.endsWith('.js')?'text/javascript':local.endsWith('.css')?'text/css':local.endsWith('.html')?'text/html':local.endsWith('.json')?'application/json':'application/octet-stream'}});}catch{return new Response('not found',{status:404});}

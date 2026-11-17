@@ -7,8 +7,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const base='http://game',cookies=[];
   for(let i=1;i<=8;i++){const response=await mf.dispatchFetch(base+'/api/__test-session?id='+i);assert.equal(response.status,200,await response.clone().text());cookies.push((await response.json()).cookie);}
   const connect=async(i,match='',proxy=false)=>{
-    let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=2'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
-    for(let tries=0;r.status===429&&tries<3;tries++){await sleep(1100);r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=2'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});}
+    let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=3'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
+    for(let tries=0;r.status===429&&tries<3;tries++){await sleep(1100);r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=3'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});}
     assert.equal(r.status,101,r.status===101?'':await r.text());const ws=r.webSocket;const messages=[];ws.addEventListener('message',e=>messages.push(JSON.parse(e.data)));ws.accept();
     const wait=async predicate=>{for(let n=0;n<250;n++){const found=messages.find(predicate);if(found)return found;await sleep(20);}throw Error('No matching socket message: '+JSON.stringify(messages.slice(-4)));};
     t.after(()=>{if(ws.readyState===1)ws.close();});return {ws,messages,wait,send:value=>ws.send(JSON.stringify(value))};
@@ -29,7 +29,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.deepEqual(Object.keys(roster.find(p=>p.id==='1').avatar).sort(),['crop','image','level','rarity']);
     if(ngmc){assert.equal(roster.find(p=>p.id==='8').avatar,null);assert.deepEqual([...mf.tourSeedRequests].sort(),['1','2','3','4','5','6','7','8']);assert.equal(roster.find(p=>p.id==='5').guessRate,40);}
     const manifest=await rooms[0].wait(m=>m.type==='manifest');assert.equal(manifest.audio.length,ngmc?38:23);assert.equal(new Set(manifest.audio).size,manifest.audio.length);assert.equal(manifest.total,ngmc?35:20);assert.equal(manifest.preload,first+3);assert.equal(manifest.answers,undefined);if(ngmc)assert.ok(manifest.audio.every(url=>!/local-[12]\.mp3$/.test(url)));
-    if(format==='1v1')assert.equal((await mf.dispatchFetch(base+'/api/play-connect?match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
+    if(format==='1v1')assert.equal((await mf.dispatchFetch(base+'/api/play-connect?protocol=2&match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
     if(ngmc){for(const team of [0,1]){const initial=(await rooms[0].wait(m=>m.type==='state')).state,p=initial.players.find(p=>p.team===team);rooms[Number(p.id)-1].send({type:'volunteer'});}}
     for(const r of rooms){r.send({type:'loaded',indices:Array.from({length:manifest.preload},(_,i)=>i).filter(i=>i!==(rooms[0].messages.find(m=>m.type==='state').state.audioIndex))});r.send({type:'ready'});}
     await sleep(80);assert.ok(!rooms[0].messages.some(m=>m.state?.phase==='guess'));
@@ -47,10 +47,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     await rooms[0].wait(m=>rooms[0].messages.indexOf(m)>=unlockCursor&&m.state?.phase==='guess'&&m.state.players.find(p=>p.id==='1')?.submittedFields?.length===0);
 
     for(let i=0;i<rooms.length;i++){
-      if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,...(field==='artist'?{artists:['Artist '+song]}:{answer:{anime:'Alternative '+song,song:'Song '+song}[field]})});}
+      if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];if(format==='1-team'&&field==='artist'){rooms[i].send({type:'draft',index:0,field,answers:{anime:'',song:'',artist:'Artist '+song},artists:['Artist '+song]});await rooms[i].wait(m=>m.type==='draft-saved');}else rooms[i].send({type:'answer',index:0,field,...(field==='artist'?{artists:['Artist '+song]}:{answer:{anime:'Alternative '+song,song:'Song '+song}[field]})});}
       else rooms[i].send({type:'answer',index:0,answers:{anime:ngmc&&i>=4?'wrong':'Alternative '+song,song:'Song '+song,artist:'Artist '+song},lock:true});
     }
-    if(teamFields){for(const r of rooms)await r.wait(m=>m.state?.players.filter(p=>p.team===m.state.players.find(p=>p.id===m.state.me).team).every(p=>p.field));await mf.dispatchFetch(base+'/api/__expire?match='+id);}
+    if(teamFields){if(format!=='1-team')for(const r of rooms)await r.wait(m=>m.state?.players.filter(p=>p.team===m.state.players.find(p=>p.id===m.state.me).team).every(p=>p.field));await mf.dispatchFetch(base+'/api/__expire?match='+id);}
 
     if(ngmc){await rooms[0].wait(m=>m.state?.phase==='counting'||m.state?.phase==='reveal');await mf.dispatchFetch(base+'/api/__expire?match='+id);}
     const reveal=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;

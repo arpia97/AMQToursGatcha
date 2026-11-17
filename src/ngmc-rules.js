@@ -1,4 +1,4 @@
-import { answerKey } from "./play-artists.js";
+import { titleMatches } from "./play-artists.js";
 export function ngmcGuesses(rate) {
   if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw Error('A valid guess rate is required.');
   return rate >= 40 ? 5 : rate >= 28 ? 4 : rate >= 19 ? 3 : rate >= 8 ? 2 : 1;
@@ -23,11 +23,11 @@ export function eligibleNgmc(state, team) {
 export function gradeNgmc(state,now) {
   const song=state.songs[state.index];
   const results=state.players.map(p=>{
-    const hit=!p.left&&song.answers.anime.includes(answerKey(p.answers.anime));
+    const hit=!p.left&&titleMatches(song.answers.anime,p.answers.anime);
     p.score+=Number(hit);
     return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit)};
   });
-  state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,results});
+  state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
   state.counts=[null,null];state.phase='counting';state.until=now+8000;
   for(let team=0;team<2;team++) {
     const candidates=eligibleNgmc(state,team),counter=state.players.find(p=>p.id===state.counters[team]);

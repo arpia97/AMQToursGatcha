@@ -1,7 +1,7 @@
 import {checkQuizAudio} from './quiz-audio.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
-import { answerKey, artistKey } from './play-artists.js';
+import { titleKey, artistKey } from './play-artists.js';
 export class PlayLibrary {
   constructor(core,fetcher=(...args)=>globalThis.fetch(...args)) { this.core=core;this.fetcher=fetcher;this.audioChecks=new Map(); }
   async load() {
@@ -63,7 +63,8 @@ export class PlayLibrary {
       const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>s.audio), amq=data.artist.songs[song.amqSongId];
       const artists=[...new Set([amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
       return {audio:verifiedAudio.get(index)||song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
-        answers:{anime:[...new Set(variants.flatMap(s=>s.titles).map(answerKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(answerKey))],artist:artists},
+        artistMembers:data.artist.rules[artistKey(amq?.artist||song.artist)]?.composition||[amq?.artist||song.artist],
+        answers:{anime:[...new Set(variants.flatMap(s=>s.titles).map(titleKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
     };
     const songs=[...selected].map(buildSong),decoys=[];

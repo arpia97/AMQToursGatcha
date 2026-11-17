@@ -2,6 +2,20 @@ import {avatarCropStyle} from './avatar-crop.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
 export const scoreBadge=(points,total=3)=>'<b class="sa-round-score" title="This Song" data-score="'+points+'">'+points+'/'+total+'</b>';
+export function artistCreditsHTML(row,esc){
+  const names=row.artistMembers?.length?row.artistMembers:[row.artist];
+  return '<span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false" aria-label="Artist credits for '+esc(row.artist)+'">'+esc(row.artist)+'</button><span class="sa-artist-tooltip" role="tooltip"><small>Artist Credits</small>'+names.map(name=>'<span>'+esc(name)+'</span>').join('')+'</span></span>';
+}
+export function recapHTML(match,esc,animeTitle){
+  const row=match.history.at(-1);if(!row)return '';
+  const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
+  const keys=match.mode==='ngmc-ranked'?['anime']:Object.keys(fields);
+  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(match.mode==='ngmc-ranked'?' Correct':match.format==='1v1'?' Points':' Contributions')+'</span>'+keys.map(field=>{
+    const result=match.teamFields?row.results.find(r=>team.some(p=>p.id===r.id)&&Object.hasOwn(r.answers,field)):mine;
+    const owner=match.players.find(p=>p.id===result?.id),correct=!!result?.correct[field];
+    return '<div class="'+(correct?'correct':'incorrect')+'"><small>'+fields[field]+'</small><strong>'+(field==='artist'?artistCreditsHTML(row,esc):esc(field==='anime'?animeTitle({anime:row.anime}):row[field]))+'</strong><span>'+esc(result?.answers[field]||'No answer')+(match.teamFields&&owner?' <small>· '+esc(owner.name)+'</small>':'')+'</span></div>';
+  }).join('')+'</section>';
+}
 export function songTeamsHTML(match,esc){
   const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1',last=match.history.at(-1);
   return '<div class="sa-team-list">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>{

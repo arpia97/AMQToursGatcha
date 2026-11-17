@@ -106,6 +106,25 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   Reduced-motion preferences disable the animation.
 - Already-running team matches without the persisted `teamFields` flag keep their
   prior answer protocol until they finish, avoiding a mid-match rules change.
+- Tab/Shift+Tab cycles available Anime, Song and Artist inputs. 1-Team remembers
+  the chosen category between songs and visits, falling back if a teammate owns it.
+- Current text is saved privately while typing (coalesced at 250ms), including
+  the last typed artist alongside added chips. At reveal/timeout the server scores
+  its last received draft, without a deadline network round trip. Explicit claims
+  win; competing team drafts for an unclaimed field resolve by first draft receipt
+  for that category, then player ID. One field/player and exact group membership
+  remain enforced. Cancelling clears the saved submission until further editing.
+- 1-Team Skip Song requires two distinct active players. Votes can be cancelled;
+  the second vote reveals and scores current answers, then continues normally.
+- New rooms choose a random fraction per song; clients seek to that same fraction
+  of the usable MP3 duration, preserving the entire guess window plus a two-second
+  tail. Short clips start at zero. Only the current position is exposed; old rooms
+  keep their original start. New rooms require sample-aware protocol 3 clients.
+- Team reveal colours and submitted text reflect the whole team; personal
+  contributions remain separate. Artist names in reveals support hover/focus/tap
+  credit popovers with individual group members when the AMQ library provides them.
+  Full-title recognition tolerates punctuation/spacing and accent differences,
+  with explicit protection against blank answers matching symbolic titles.
 
 ## Answer Metadata and Search
 
@@ -207,7 +226,8 @@ are no automatic bans, credit changes or score penalties. Current-track URL
 matching, audio fingerprinting and second devices remain possible; this is an
 investigation aid, not proof that a player cheated or a cheat-proof client.
 
-WebSocket protocol 2 supports candidate indices. Old clients receive a refresh
+WebSocket protocol 3 supports candidate indices, timeout drafts and shared random
+sample positions. Old clients receive a refresh
 instruction before joining new matches; existing pre-update rooms keep their
 ordered manifests. Activity uses the existing authenticated, rate-limited room
 socket and does not broadcast/re-render gameplay. Event retention is capped at
