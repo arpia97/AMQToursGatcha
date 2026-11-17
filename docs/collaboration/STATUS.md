@@ -1,8 +1,8 @@
 # Shared Status and Handoff
 
-## In Progress — Requested Account Registration
+## Completed — Requested Account Registration
 
-Codex owns host/invite optional owner-specified one-use codes and existing registration runtime coverage, followed by the explicitly requested single-account setup. Credentials and actual code remain outside source/docs. Base 2f9a27c; clean checkout. Preserve registration password choice, expiry, account locks and default random codes. Integration/deployment owner Codex.
+Codex owns host/invite optional owner-specified one-use codes and existing registration runtime coverage, followed by the explicitly requested single-account setup. Credentials and actual code remain outside source/docs. Base 2f9a27c; clean checkout. Preserve registration password choice, expiry, account locks and default random codes. Integration/deployment owner Codex. Optional custom code is owner-only, hashed, account-bound, single-use and seven-day expiry; same-code retries preserve expiry, registration/lock state rechecked after hashing. Existing random host codes preserved. Full 529 tests, 282 syntax checks and dry-run pass. Runtime 8c21f7c deployed to original Worker ca89f906-91c3-4cd9-979e-92ef68097c87; Verify 44119993068 and demo 44119993098 succeeded. Requested registration identity and alias created without setting a password. Exact requested invite confirmed only after normal deferred actor rollout (earlier requests reached old random-code handler). Local private proof work/account-stick-setup-proof.json excludes code/credentials. No other accounts changed; password selection remains with the registrant. Evidence work/custom-invite-{tests,full-tests,check,build,deploy,ci}.log. Ownership released.
 
 ## Completed — Play Ready, Submission and Answer UX
 
