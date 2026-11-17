@@ -1,5 +1,12 @@
 # Shared Status and Handoff
 
+## Validated Locally — Premium Title Scroll Performance
+
+November17. Codex owns mirrored premium-title CSS and title-motion.js only. Removed per-frame gradient-angle animation and oversized shimmer texture; gold/opal border remains static, smaller glow and a transform-only8s shimmer preserve premium styling. IntersectionObserver runs shimmer only in view, pauses during document/nested scrolling and hidden tabs, resumes after160ms idle; DOM additions/removals are batched and text-only updates ignored. System/On/Off semantics preserved. No title data, scores or rewards change.
+
+Local Chromium390px/DPR2/4×CPU120-title fixture: baseline idlePaint6292/635.2ms and scrollPaint5203/929.5ms; updated measured segments both0Paint. Scroll style updates fell1387.7ms→74.8ms. These are synthetic desktop-emulated traces, not measurements on the user’s phone. Both apps at390/1440 verify moving shimmer, scroll pause/resume, offscreen and hidden pause, dynamic insertion, motion settings and no overflow/errors.12 focused existing Gacha title tests plus Host identity test, JS syntax and Wrangler dry-run pass; no new repository tests or production QA writes. Evidence: surrounding work/premium-{before,after}-*-trace.json, premium-perf-{before,after}.json and premium-perf-behavior.json. Deployment pending.
+
+
 ## Completed — Hosting Reward and Title Motion
 
 November17. Codex owns participation UI/shared quote/server validation, currentHost metadata, browser-local title animation preference and related existing tests. Receive Host Credits defaults off and adds a fixed2,000 outside the batch multiplier to the authenticated host only; no client-selected recipient. Atomic batch, idempotency replay, one hosting reward per tour event and account-lock/admin checks preserved. Token-only tools cannot claim hosting credits. Signed-in account attribution takes priority when a legacy host token is also supplied. Hosting uses Other grant ledger plus hosting tour_events marker, with existing credit audit.

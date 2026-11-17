@@ -5194,21 +5194,19 @@ dialog.avatar-editor-modal {
   font-size: 12px;
 }
 /* Perfect quizzes completed in strictly less than one minute. */
-@property --quiz-title-turn { syntax:'<angle>'; initial-value:110deg; inherits:false; }
 .equipped-title.quiz-earned-title.quiz-premium-title {
   position:relative;isolation:isolate;overflow:hidden;color:#fff1c8;
   background:linear-gradient(115deg,#31271b,#1b202d 60%,#34293c) padding-box,
-    linear-gradient(var(--quiz-title-turn,110deg),#dfb663,#ffedbd,#9fdcdd,#d7b7ef,#e5bd6b,#ffedbd,#dfb663) border-box;
-  box-shadow:0 0 18px #e7c37c26,0 0 32px #b3d7ef0a,inset 0 0 13px #f4d49513;
-  text-shadow:0 0 12px #ffdb8d55;animation:quiz-title-halo 7s linear infinite;
+    linear-gradient(110deg,#dfb663,#ffedbd,#9fdcdd,#d7b7ef,#e5bd6b,#ffedbd,#dfb663) border-box;
+  box-shadow:0 0 10px #e7c37c24,inset 0 0 8px #f4d49510;
+  text-shadow:0 0 6px #ffdb8d44;
 }
-.quiz-premium-title::after { content:'';position:absolute;inset:-50% -90%;z-index:0;pointer-events:none;
+.quiz-premium-title::after { content:'';position:absolute;inset:0;z-index:0;pointer-events:none;
   background:linear-gradient(105deg,transparent 43%,#fff4d02b 49%,#fffbe148 50%,transparent 57%);
-  transform:translateX(-48%);animation:quiz-title-gleam 5s ease-in-out infinite;
+  transform:translate3d(-110%,0,0);animation:quiz-title-gleam 8s ease-in-out infinite;animation-play-state:paused;
 }
 .quiz-title-label { position:relative;z-index:1; }
-@keyframes quiz-title-halo { to { --quiz-title-turn:470deg; } }
-@keyframes quiz-title-gleam { 0%,40% { transform:translateX(-48%); } 75%,100% { transform:translateX(48%); } }
+@keyframes quiz-title-gleam { 0%,60% { transform:translate3d(-110%,0,0); } 85%,100% { transform:translate3d(110%,0,0); } }
 @media(prefers-reduced-motion:reduce){.equipped-title.quiz-premium-title { animation:none; }.quiz-premium-title::after { animation:none;display:none; }}
 .title-option > span {
   min-width: 0;
@@ -5760,8 +5758,13 @@ dialog.settings-modal { width: 600px; max-width: calc(100vw - 30px); }
 .role-title.title-ag > span { display:inline-block; }
 html[data-title-motion=on] :is(.role-title.title-ag,.equipped-title.card-earned-title.tier-ag),
 html[data-title-motion=on] .role-title.title-ag > span { animation:rainbow-flow 6s ease infinite!important; }
-html[data-title-motion=on] .equipped-title.quiz-premium-title { animation:quiz-title-halo 7s linear infinite!important; }
-html[data-title-motion=on] .quiz-premium-title::after { display:block!important;animation:quiz-title-gleam 5s ease-in-out infinite!important; }
+html[data-title-motion=on] .quiz-premium-title::after { display:block!important;animation:quiz-title-gleam 8s ease-in-out infinite!important; }
 html[data-title-motion=off] :is(.role-title,.equipped-title),
 html[data-title-motion=off] .role-title > span { animation:none!important; }
 html[data-title-motion=off] .quiz-premium-title::after { display:none!important;animation:none!important; }
+
+/* Premium effects only spend compositor work while visible and at rest. */
+.quiz-premium-title[data-premium-visible]::after { animation-play-state:running; }
+html[data-title-motion] .quiz-premium-title:not([data-premium-visible])::after,
+html[data-title-motion][data-title-scrolling] .quiz-premium-title::after,
+html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animation-play-state:paused!important; }
