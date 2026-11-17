@@ -31,15 +31,22 @@ test('matches preload all ten, share only team answers, score categories once an
   now=s.startsAt;
   const p=s.players[0],teammate=s.players.find(x=>x.id!==p.id&&x.team===p.team),opponent=s.players.find(x=>x.team!==p.team);
   const answers={anime:'Alternate',song:'Song',artist:'Artist'};
-  move(p.id,{type:'answer',index:0,answers,lock:true});
+  move(p.id,{type:'answer',index:0,field:'anime',answer:'wrong'});
+  move(p.id,{type:'answer',index:0,field:'anime',answer:answers.anime});
   assert.equal(matchView(s,teammate.id,now).players.find(x=>x.id===p.id).answers.anime,'Alternate');
   assert.equal(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).answers,undefined);
-  assert.equal(matchView(s,p.id,now).songs,undefined);assert.equal(matchView(s,p.id,now).history.length,0);
-  move(p.id,{type:'answer',index:0,answers:{anime:'wrong',song:'wrong',artist:'wrong'},lock:true});
+  assert.equal(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).field,undefined);
+  assert.equal(matchView(s,p.id,now).songs,undefined);assert.equal(matchView(s,p.id,now).songList.length,0);
+  assert.throws(()=>move(teammate.id,{type:'answer',index:0,field:'anime',answer:'steal'}),/already claimed/);
+  assert.throws(()=>move(p.id,{type:'answer',index:0,field:'song',answer:'Song'}),/another field/);
   assert.equal(p.answers.anime,'Alternate');
-  for(const other of s.players.filter(x=>x.id!==p.id))move(other.id,{type:'answer',index:0,answers,lock:true});
-  assert.equal(s.phase,'reveal');assert.deepEqual(s.teams,[3,3]);assert.ok(s.players.every(p=>p.score===3));
-  now=s.until;advanceMatch(s,now);assert.equal(s.index,1);
+  for(const team of [0,1])s.players.filter(x=>x.team===team).forEach((other,i)=>{const field=['anime','song','artist'][i];move(other.id,{type:'answer',index:0,field,answer:answers[field]});});
+  assert.equal(s.phase,'guess'); // Owners may revise until the deadline.
+  const resumed=JSON.parse(JSON.stringify(s));assert.equal(matchView(resumed,p.id,now).players.find(x=>x.id===p.id).field,'anime');
+  now=s.until;advanceMatch(s,now);
+  assert.equal(s.phase,'reveal');assert.deepEqual(s.teams,[3,3]);assert.ok(s.players.every(p=>p.score===1));
+  assert.equal(matchView(s,p.id,now).songList.length,1);
+  now=s.until;advanceMatch(s,now);assert.equal(s.index,1);assert.ok(s.players.every(p=>!p.field&&!Object.keys(p.answers).length));
   const copy=JSON.parse(JSON.stringify(s));advanceMatch(copy,now);assert.deepEqual(copy.teams,[3,3]);
   now=s.until;advanceMatch(s,now);assert.equal(s.history.length,2);assert.deepEqual(s.teams,[3,3]);
   assert.throws(()=>matchView(s,'stranger'),/not in/);
@@ -49,11 +56,19 @@ test('one-team match handles full completion, a buffering timeout and departed p
   for(const p of s.players){matchMove(s,p.id,{type:'loaded',indices:Array.from({length:20},(_,i)=>i)},now);matchMove(s,p.id,{type:'ready'},now);}
   for(let i=0;i<20;i++){
     now=s.startsAt;
-    for(const p of s.players)matchMove(s,p.id,{type:'answer',index:i,answers:{anime:'Anime',song:'Song',artist:'Artist'},lock:true},now);
+    s.players.forEach((p,index)=>{const field=['anime','song','artist'][index];matchMove(s,p.id,{type:'answer',index:i,field,answer:{anime:'Anime',song:'Song',artist:'Artist'}[field]},now);});
+    matchMove(s,s.players[1].id,{type:'reaction',index:i,field:'anime',value:'O'},now);
+    assert.equal(matchView(s,s.players[0].id,now).players[1].reactions.anime,'O');
+    assert.throws(()=>matchMove(s,s.players[1].id,{type:'reaction',index:i,field:'anime',value:'bad'},now),/valid/);
+    now=s.until;advanceMatch(s,now);
     now=s.until;advanceMatch(s,now);
   }
-  assert.equal(s.phase,'finished');assert.deepEqual(s.teams,[60]);assert.ok(s.players.every(p=>p.score===60));
+  assert.equal(s.phase,'finished');assert.equal(matchView(s,s.players[0].id,now).songList.length,20);assert.deepEqual(s.teams,[60]);assert.ok(s.players.every(p=>p.score===20));
   advanceMatch(s,now+1000);assert.equal(s.history.length,20);
+  const legacy=makeMatch('legacy','1-team',players.slice(0,3),songs,now);delete legacy.teamFields;
+  legacy.phase='guess';legacy.startsAt=now;legacy.until=now+30000;
+  for(const p of legacy.players)matchMove(legacy,p.id,{type:'answer',index:0,answers:{anime:'Anime',song:'Song',artist:'Artist'},lock:true},now);
+  assert.equal(legacy.phase,'reveal');assert.ok(legacy.players.every(p=>p.score===3));
   const timeout=makeMatch('timeout','1v1',players.slice(0,2),songs,now);advanceMatch(timeout,timeout.until);assert.equal(timeout.phase,'cancelled');
   const left=makeMatch('left','1v1',players.slice(0,2),songs,now);for(const p of left.players)matchMove(left,p.id,{type:'leave'},now);assert.equal(left.phase,'cancelled');
 });

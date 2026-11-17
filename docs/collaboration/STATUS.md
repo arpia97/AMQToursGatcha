@@ -1,10 +1,20 @@
 # Shared Status and Handoff
 
+## Ready for Release — Team Answer Roles and Approved Loading UI
+
+Codex owns play-match-rules, Play song UI/CSS, focused rules/runtime/browser coverage and approved loading UI. User approved deployment. Per-song first submission claims one team field; only that owner may revise it until deadline. Claims/reactions reset next song. Song-list dialog exposes revealed songs during play, full selection after finish. Existing matches preserve old rules via persisted teamFields opt-in. No economy changes.
+
+Verified:527 tests pass;277 syntax checks and dry-run pass. Existing rule/runtime tests cover exclusive field claims, other-field/teammate rejection, private opponents, editable owner answers, per-player1 contribution, full20-song scoring, reactions, reset and reconnect. Local browser1-Team (3 players),3v3 (6 players),1v1 (2 players) and NGMC (8 players) pass at1440/390:claim persistence,shared updates,role-disabled inputs,reactions,song-list hidden future entries,Enter submissions,no overflow/errors. Screenshot fixtures in surrounding work/team-roles{-3v3,-1v1}-game-1440.png and390; proof/logs similarly prefixed. Approved loader covers Gacha/Play Quiz, Song/Artist and NGMC waiting. No production mutations; original Worker/bindings retained.
+
 ## Completed — NGMC Gameplay Refinements
 
 November17. NGMC now has20-second answers, mirrored team cards, authenticated Gacha avatars, counter name badges, revealed per-player answers, Enter-to-lock and a timer bar. Download counts hidden; first12 and subsequent per-song readiness gates verified; remaining tracks continue in pairs. MP3 preflight rejects detected broken/empty/non-audio links before manifest, resampling replacements and caching checks. Only public avatar fields cross into queue/room actors; additive queue avatar column. No ratings/economy changes. All527 tests,275 syntax checks and dry-run passed; eight-browser desktop1440/mobile390 proves12 preloads,20s,Enter/all-lock early reveal,8 answers,7 real image fixtures+initials fallback,2 counter badges,no overflow/errors. Existing runtime test checks malformed audio exclusion and public avatar projection. Evidence surrounding work/ngmc-refinement-{browser-proof.json,game-1440.png,game-390.png,reveal-1440.png,full-tests.log,build.log}. Prior shared loading-bar preview remains local/unapproved and must not be included in this release. No production mutations used for QA.
 
 Runtime5d68e54811804b6b6a63b9f6e0de0227d6bcf46d pushed/deployed from a clean git-archive release artifact, original Worker version62ca0065-684f-4d51-a5e8-83247a5e6445. Unapproved loading-bar files/hunks explicitly excluded; they remain dirty locally. Same eight-player browser QA repeated against exact release; Song/Artist three-player regression passed. Live guest checks1440/390 confirm20s NGMC/30s SongArtist, sign-in gate,no errors/overflow, four JS/CSS assets byte-match; zero production writes. Evidence work/ngmc-refinement-live-proof.json and deploy.log. Verify44096640454 and demo44096640375 both succeeded. No proxy/binding changes. Allow normal deferred actor rollout for running rooms; no forced resets. Ownership released.
+
+## Approved — Loading Bar
+
+November17. Codex owns shared loading-bar UI, quiz download/preparing states and Play song download presentation. Adapt user-supplied Uiverse mrhyddenn3px white bar; real progress when total is known, looping preparation otherwise. Implemented locally in public/song-loading.js, styles.css, features.css, quiz-ui.js and play-song-ui.js. Competitive download bar uses real progress; normal quiz audio preparation loops, hiding once the timer starts; Play keeps the same bar node so transitions survive socket updates. Transform-only animation and reduced-motion fallback.31 existing quiz/audio tests pass, actual Song/Artist browser regression passes at1440/390, preview desktop/mobile no overflow/errors. Animated preview work/loading-bar-preview.gif; standalone work/loading-bar-preview.html and PNG/mobile screenshots. User approved deployment in current task.
 
 ## Completed — NGMC Ranked
 

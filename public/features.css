@@ -5440,10 +5440,6 @@ dialog.avatar-editor-modal {
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-.quiz-download progress {
-  width: 100%;
-  accent-color: var(--mint);
-}
 .quiz-download .button {
   justify-self: start;
 }

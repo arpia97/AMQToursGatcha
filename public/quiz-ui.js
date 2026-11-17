@@ -1,3 +1,4 @@
+import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import { routeHref } from "./site-navigation.js";
 import {
   QUIZ_SERVERS,
@@ -403,11 +404,9 @@ export function createQuizUI({
     ">Competitive</label>";
   function downloadHTML() {
     return preparing
-      ? '<section class="quiz-download" role="status"><strong>Loading Quiz Audio…</strong><progress id="quiz-download-progress" max="' +
-          (download?.total || 1) +
-          '" value="' +
-          (download?.loaded || 0) +
-          '"></progress><span id="quiz-download-label">' +
+      ? '<section class="quiz-download" role="status"><strong>Loading Quiz Audio…</strong>' +
+          songLoadingBar({id:'quiz-download-progress',label:'Quiz Audio Download',loaded:download?.loaded,total:download?.total}) +
+          '<span id="quiz-download-label">' +
           downloadLabel() +
           '</span><button type="button" class="button secondary" data-quiz-download-cancel>Cancel Loading</button></section>'
       : "";
@@ -457,10 +456,7 @@ export function createQuizUI({
             const label = document.getElementById("quiz-download-label"),
               bar = document.getElementById("quiz-download-progress");
             if (label) label.textContent = downloadLabel();
-            if (bar) {
-              bar.max = p.total;
-              bar.value = p.loaded;
-            }
+            updateSongLoadingBar(bar,p.loaded,p.total);
           },
         });
       } catch (error) {
@@ -964,6 +960,7 @@ export function createQuizUI({
       (!run.answered
         ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
         : "") +
+      (!run.answered ? '<div id="quiz-audio-loading" class="quiz-audio-loading"'+(run.endsAt?' hidden':'')+'>'+songLoadingBar({label:'Preparing Quiz Audio'})+'</div>' : '') +
       '<div class="quiz-audio-line">' +
       (!run.answered
         ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
@@ -1286,6 +1283,8 @@ export function createQuizUI({
       input.focus({ preventScroll: true });
       if (document.activeElement === input) answerFocusedInput = input;
     }
+    const audioLoading=document.getElementById('quiz-audio-loading');
+    if(audioLoading)audioLoading.hidden=!!run.endsAt||audioState==='error';
     const left = document.getElementById("quiz-time-left"),
       bar = document.getElementById("quiz-time-progress");
     text(

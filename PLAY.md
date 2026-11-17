@@ -13,12 +13,18 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   receive the same order. Anime alternatives come from the active AMQ+ cache;
   song-name variants are merged across that song's occurrences.
 - 30 seconds per song, following a shared 3-second countdown; reveal lasts
-  5 seconds. Everyone locking early reveals early. The server grades answers.
+  5 seconds. In 1v1, everyone submitting early reveals early. Team-field owners
+  may revise until time expires. The server grades answers.
 - Each correct anime, song and artist gives one point. Teams can earn at most
   3 points per song / 60 per match. Each player also earns their own correct
-  contribution count, even when teammates answer the same category correctly.
-- Teammates see each other's live submitted drafts in the middle. Opponents'
-  answers remain private until reveal. Locked answers cannot change. Drafts
+  contribution count. In 3v3/1-Team, each player owns at most one field per song:
+  the first explicit submission claims it, only its owner may revise it until
+  the 30-second deadline, and no other teammate can submit that field. Claims
+  reset for the next song. 1v1 still lets each player answer all three fields.
+- Team modes show three shared answer rows and their owners beneath the countdown
+  bar. 1-Team players can react to teammates’ answers with O, X, triangle or ?.
+  Reactions reset each song and do not affect scoring. Opponents'
+  answers remain private until reveal. Locked 1v1 answers cannot change. Drafts
   already received at the deadline are scored; client timestamps are not trusted.
 - All players must download the first 10 songs and enable audio before starting.
   Remaining songs download in pairs in the background. If someone lacks the next
@@ -77,6 +83,18 @@ The original Quiz tab still uses its existing quiz transport and rewards.
 - Lives, spent guesses, resets, counters and final Elo deltas are server-owned.
   Browser download progress is coalesced and deduplicated so 35 preloads do not
   exhaust the socket's gameplay message allowance.
+
+## Shared Presentation
+
+- Song List opens a dialog in every multiplayer mode. Only revealed tracks are
+  included while playing; the complete selection is available after the match
+  finishes or is cancelled. Existing Quiz song-list dialogs remain available.
+- Submit is the answer action; NGMC retains its immutable lock and early reveal.
+- Matchmaking text is centered. Play and Quiz use the approved thin white audio
+  loader, with actual progress when known and a preparation animation otherwise.
+  Reduced-motion preferences disable the animation.
+- Already-running team matches without the persisted `teamFields` flag keep their
+  prior answer protocol until they finish, avoiding a mid-match rules change.
 
 ## Answer Metadata and Search
 

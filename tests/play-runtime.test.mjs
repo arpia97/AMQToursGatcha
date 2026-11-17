@@ -37,10 +37,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(rooms[0].messages.find(m=>m.state?.phase==='guess').state.players.every(p=>p.loaded===first));
     await mf.dispatchFetch(base+'/api/__advance?match='+id);
     const song=Number(manifest.audio[0].match(/local-(\d+)/)[1]);
-    for(let i=0;i<rooms.length;i++)rooms[i].send({type:'answer',index:0,answers:{anime:ngmc&&i>=4?'wrong':'Alternative '+song,song:'Song '+song,artist:'Artist '+song},lock:true});
+    const teamFields=['1-team','3v3'].includes(format),counts={};
+    for(let i=0;i<rooms.length;i++){
+      if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,answer:{anime:'Alternative '+song,song:'Song '+song,artist:'Artist '+song}[field]});}
+      else rooms[i].send({type:'answer',index:0,answers:{anime:ngmc&&i>=4?'wrong':'Alternative '+song,song:'Song '+song,artist:'Artist '+song},lock:true});
+    }
+    if(teamFields){await rooms[0].wait(m=>m.state?.players.filter(p=>p.team===roster[0].team).every(p=>p.field));await mf.dispatchFetch(base+'/api/__expire?match='+id);}
+
     if(ngmc){await rooms[0].wait(m=>m.state?.phase==='counting'||m.state?.phase==='reveal');await mf.dispatchFetch(base+'/api/__expire?match='+id);}
     const reveal=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;
-    assert.ok(reveal.players.every(p=>p.score===(ngmc?Number(Number(p.id)<=4):3)));if(!ngmc)assert.ok(reveal.teams.every(p=>p===3));assert.equal(reveal.history.length,1);
+    assert.ok(reveal.players.every(p=>p.score===(ngmc?Number(Number(p.id)<=4):teamFields?1:3)));if(!ngmc)assert.ok(reveal.teams.every(p=>p===3));assert.equal(reveal.history.length,1);
     rooms[0].ws.close();const resumed=await connect(0,id);const snapshot=(await resumed.wait(m=>m.type==='state')).state;assert.deepEqual(snapshot.teams,reveal.teams);
     const all=[resumed,...rooms.slice(1)];for(const r of all)r.send({type:'leave'});
     await all[0].wait(m=>['finished','cancelled'].includes(m.state?.phase));
