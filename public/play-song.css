@@ -89,6 +89,40 @@
 .sa-artist-chip:not(:has(button)) { padding-right:9px; }
 .sa-artist-add { margin-top:8px; font-size:11px; }
 
+/* Team submissions are a shared display; personal editing stays below it. */
+.sa-team-answer-tiles { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0; }
+.sa-team-answer-tile { min-width:0;display:flex;flex-direction:column;gap:14px;padding:16px;border:1px solid var(--border);border-radius:10px;background:var(--bg); }
+.sa-team-answer-tile header { display:flex;flex-direction:column;gap:5px; }
+.sa-team-answer-tile h3 { margin:0;font-size:12px; }
+.sa-team-answer-tile [data-sa-owner] { color:var(--muted);font-size:10px;overflow-wrap:anywhere; }
+.sa-team-answer-value { min-height:44px;font-size:15px;font-weight:600;line-height:1.5;overflow-wrap:anywhere;color:var(--answer-color,var(--text)); }
+.sa-team-answer-value.is-empty { color:var(--muted);font-size:12px;font-weight:400; }
+.sa-team-answer-value[hidden],.sa-team-answer-tile .sa-artist-list:empty { display:none; }
+.sa-team-answer-tile[data-answer-state=pending] { --answer-color:#f2cf79; }
+.sa-team-answer-tile[data-answer-state=correct] { --answer-color:var(--mint);border-color:#b6e2c54d; }
+.sa-team-answer-tile[data-answer-state=incorrect] { --answer-color:#f28ba1;border-color:#f28ba14d; }
+.sa-song-panel .sa-field-claims { margin-top:20px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--panel); }
+.sa-song-panel .sa-field-claims .sa-answer-fields { display:block; }
+.sa-personal-heading { display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px; }
+.sa-personal-heading>strong { font-size:12px;white-space:nowrap; }
+.sa-input-categories { display:flex;gap:4px; }
+.sa-input-categories button { padding:7px 10px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted);font-size:11px;cursor:pointer; }
+.sa-input-categories button[aria-pressed=true] { color:var(--mint);border-color:#b6e2c536;background:#b6e2c510; }
+.sa-input-categories button:disabled { opacity:.4;cursor:default; }
+.sa-input-row { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:10px; }
+.sa-input-row[hidden] { display:none; }
+.sa-input-row>.sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
+.sa-input-row>.button { height:42px;min-width:94px;margin:0;padding:10px 16px; }
+@media(max-width:700px){
+  .sa-team-answer-tiles{grid-template-columns:1fr;gap:8px}
+  .sa-team-answer-tile{display:grid;grid-template-columns:92px minmax(0,1fr);grid-template-areas:"heading answer" "reactions reactions";align-items:center;gap:8px 12px;padding:12px}
+  .sa-team-answer-tile header{grid-area:heading}.sa-team-answer-value,.sa-team-answer-tile .sa-artist-list{grid-area:answer}
+  .sa-team-answer-value{min-height:0;font-size:13px}.sa-team-answer-tile .sa-reactions{grid-area:reactions}
+  .sa-song-panel .sa-field-claims{padding:12px}.sa-personal-heading{align-items:start;flex-direction:column;gap:8px}
+  .sa-input-categories{width:100%}.sa-input-categories button{flex:1;padding:8px 6px}
+  .sa-input-row{gap:7px}.sa-input-row>.button{min-width:76px;padding:10px;font-size:11px}
+}
+
 .sa-song-team { --team-accent:var(--mint); border-top:2px solid var(--team-accent); }
 .sa-song-team.rivals { --team-accent:#f28ba1; }
 .sa-song-team header>strong { color:var(--team-accent); }

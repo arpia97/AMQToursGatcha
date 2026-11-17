@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — Team Answer Display and Input Separation
+
+Codex owns public/play-team-ui.js, play-song-ui.js and play-song.css. Base 7ee9cd3, clean checkout. Song/Artist 3v3 and 1-Team get shared answer tiles above a separate personal input bar; preserve field claims, Enter submissions, artist edits, reactions and server scoring. 1v1/NGMC unchanged. Local multiplayer/browser verification, no production gameplay writes. Integration/deployment owner Codex. Nine focused gameplay/runtime tests, 281 syntax checks, dry-run and diff checks pass. Local browser checks all four formats at 1440/390; team formats rechecked after markup fix with full-width lower input, three non-input shared tiles, pending/reveal colours, claims, Enter, artist chip edits and fixed reaction counts. No errors/overflow. Evidence work/play-answer-separation-{tests,check,build,browser,team-browser}.log and game/reveal screenshots. Deployment pending.
+
 ## Completed — Quiz Title Colour Families
 
 Codex owns public/features.css premium palettes only. Base ca7b6ae, clean checkout. Keep Singers aqua, Composers violet and Franchise green across standard/premium; brighter pearlescent highlights and existing lightweight gleam distinguish sub-minute achievements. No eligibility, animation mechanics or player data changes. Integration/deployment owner Codex. Desktop/mobile (960/390) six-title visual comparison passes, no errors/overflow; Worker dry-run and diff checks pass. CSS-only change; no new tests. Evidence work/category-title-family-{960,390}.png, browser-proof.json and build.log. Runtime fbd3a1ecb672b099c4e3b026098a93a7c9540ed5 deployed to original Worker version 01963c4f-3418-4cb1-9739-e906b7db6d8a. Live features.css byte-matches; Verify 44112967568 and demo 44112967412 passed. No production data writes. Evidence work/category-title-family-{deploy.log,live-proof.json,ci.log}. Ownership released.

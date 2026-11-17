@@ -135,6 +135,15 @@ answers as `Locked (x.xxxs)`, measured from the shared song start to server
 receipt of the first lock. Retries preserve that duration; the next song clears
 it. This display does not alter scoring or Elo.
 
+In 3v3 and 1-Team, shared Anime/Song/Artist tiles display submitted team answers
+above a separate personal answer bar. Players choose a category in the lower
+bar before claiming it; their first submission keeps the bar on that category
+for the song. Teammates' answers never replace the user's private input text.
+Artist chips and owner-only removal controls remain in the shared Artist tile,
+along with 1-Team reactions. Pending answers are yellow, then green/red at
+reveal. The lower input retains autocomplete, Enter submission and owner edits.
+1v1 and NGMC retain their existing input layout.
+
 First-time NGMC rating lookup coalesces repeated requests, retries transient
 Tour API failures once with a 30-second timeout per attempt, and displays a
 cancellable loading state. A failed lookup never invents a guess rate.
