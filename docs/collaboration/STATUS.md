@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## In Progress — Quiz Host Tools Illegal Invocation
+
+November17. Codex owns src/quiz-library.js and the existing quiz-library test. Confirmed native fetch receives QuizLibraryCore as its receiver during masterlist refresh: isolated workerd reproduces the exact Illegal invocation error before outbound I/O, then returns200 with one mocked outbound request after wrapping the callback. Existing staged-refresh test now asserts an unbound receiver for both upstream calls and fails before the fix/passes after; all4 existing library tests pass,252 JS syntax checks and Wrangler dry-run pass. Evidence: surrounding work/quiz-library-native-fetch.mjs and quiz-library-fetch-{before,after}.json.24h observability search returned no matching events; do not claim production log confirmation (the job catches/persists upstream errors). Scope is callback invocation only; no changes to production masterlist, jobs, quizzes or gameplay state. Preparing original Worker deployment; no concurrent deployment.
+
 ## Completed — Hide Tradeables and Perfect Quizzes
 
 November17. Codex owns alchemy material-picker checkbox, Quiz Hide20/20 filter, app wiring and responsive styles. Hide Tradeables defaults off, composes with Hide Protected/search/type/rarity before material pagination, and hides cards explicitly marked for_trade (the broad Collection definition includes every unprotected card and would hide all usable materials). The user was asked for preference; marked-only is the stated default assumption. It does not alter the queue, Auto Refine or economic protections. Quiz Hide20/20 defaults off, saves a browser preference, composes with search/category/sort/Favorites First, and leaves completion totals unchanged. Generic filtered-empty status avoids an empty search quote.

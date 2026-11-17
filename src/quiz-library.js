@@ -55,7 +55,8 @@ export class QuizLibraryCore {
   constructor(db, assets, fetcher = fetch, now = Date.now) {
     this.db = db;
     this.assets = assets;
-    this.fetcher = fetcher;
+    // Native Workers fetch rejects the library instance as its receiver.
+    this.fetcher = (...args) => fetcher(...args);
     this.now = now;
     this.cache = new Map();
     db.run(

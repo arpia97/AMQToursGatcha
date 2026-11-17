@@ -80,7 +80,12 @@ function fixture(t, fetcher) {
 test("the staged masterlist refresh resumes after restart, respects spacing and Retry-After, keeps missing cached songs and publishes only after validation", async (t) => {
   let calls = 0,
     block = true;
-  const f = fixture(t, async (url, options) => {
+  const f = fixture(t, async function (url, options) {
+    assert.equal(
+      this,
+      undefined,
+      "fetch must not receive the library as its receiver",
+    );
     calls++;
     if (url === WORKING_TITLES_URL)
       return Response.json({
