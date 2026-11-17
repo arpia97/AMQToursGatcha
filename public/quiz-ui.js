@@ -5,7 +5,7 @@ import {
   createQuizAudioCache,
 } from "./quiz-audio-cache.js";
 import { quizDuration, quizElapsed } from "./quiz-time.js";
-import { quizRarity, QUIZ_SONG_MS } from "./quiz-rules.js";
+import { quizRarity, QUIZ_SONG_MS, QUIZ_CATEGORIES, quizCategoryLabel } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
 import {
@@ -711,7 +711,7 @@ export function createQuizUI({
         "</div>" +
         "</div>" +
         '<div class="quiz-toolbar">' +
-        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${["singers", "composers"].map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "singers" ? "Singers" : "Composers"}</button>`).join("")}</div>` +
+        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${QUIZ_CATEGORIES.map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${quizCategoryLabel(c)}</button>`).join("")}</div>` +
         '<div class="quiz-toolbar-filters">' +
         searchControl +
         '<div class="quiz-browse-toggles"><label class="check-label quiz-favorites-filter"><input type="checkbox" id="quiz-favorites-first" ' + (favoritesFirst ? 'checked' : '') + '> Favorites First</label>' +
@@ -719,6 +719,7 @@ export function createQuizUI({
         sortControl +
         "</div>" +
         "</div>" +
+        (category === "franchise" ? '<p class="form-hint">Franchise Quizzes · No Credit Rewards</p>' : "") +
         (visibleQuizzes.length && !matchingQuizzes.length
           ? !needle ? '<p class="notice quiz-search-empty" role="status">No Quizzes Match These Filters.</p>' : '<p class="notice quiz-search-empty" role="status">No Quizzes Match “' +
             e(quizSearch.trim()) +
@@ -808,7 +809,7 @@ export function createQuizUI({
               .join("") +
             "</div>"
           : '<section class="quiz-coming-soon"><span aria-hidden="true">♫</span><h2>Coming Soon</h2><p>Anime music quizzes are on the way.</p></section>') +
-        guide +
+        (category === "franchise" ? "" : guide) +
         songListModalHTML()
       );
     }
@@ -859,6 +860,7 @@ export function createQuizUI({
       stop();
       return withLeaderboard(
         "<p>20 Seconds Per Song · Two-Second Starting Countdown</p>" +
+          (q.category === "franchise" ? '<p class="form-hint">Franchise Quiz · No Credit Rewards</p>' : "") +
           (q.songs < 20
             ? '<p class="notice space-top">Add at least 20 songs before previewing this quiz.</p>'
             : startControls(preview ? "Start Preview →" : "Start Quiz →")),
@@ -880,13 +882,15 @@ export function createQuizUI({
             ? "<p>Test Score Only · No Credits Awarded</p>"
             : "<p>Personal Best: " +
               run.reward.best +
-              "/20</p><p>New Best Bonus: ✦ " +
+              '/20</p>' + (q.category === "franchise"
+              ? '<p>Franchise Quiz · No Credit Rewards</p>'
+              : "<p>New Best Bonus: ✦ " +
               run.reward.improvement +
               " · Milestones: ✦ " +
               run.reward.milestones +
               '</p><strong class="quiz-credit-gain">+' +
               run.reward.total +
-              " Credits</strong>") +
+              " Credits</strong>")) +
           (run.reward.title
             ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
             : "") +
@@ -1576,7 +1580,7 @@ export function createQuizUI({
       }
       if (button.hasAttribute("data-quiz-category")) {
         const next = button.dataset.quizCategory;
-        if (!["singers", "composers"].includes(next)) return true;
+        if (!QUIZ_CATEGORIES.includes(next)) return true;
         category = next;
         onRender();
         return true;

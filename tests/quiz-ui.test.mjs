@@ -731,9 +731,10 @@ test("quiz search filters tiles by name case- and accent-insensitively within th
   assert.equal(calls, 1);
 });
 
-test("Singers and Composers tabs filter identical-format quiz tiles without extra requests", async () => {
+test("quiz category tabs filter identical-format tiles including credit-free Franchise without extra requests", async () => {
   const list = [
     { id: "s", name: "Singer Tile", songs: 20, best: 4, published: 1 },
+    { id: "f", name: "Franchise Tile", category: "franchise", songs: 20, best: 0, published: 1 },
     {
       id: "c",
       name: "Composer Tile",
@@ -763,6 +764,14 @@ test("Singers and Composers tabs filter identical-format quiz tiles without extr
   });
   assert.match(ui.render(), /Composer Tile/);
   assert.doesNotMatch(ui.render(), /Singer Tile/);
+  await ui.click({
+    hasAttribute: (k) => k === "data-quiz-category",
+    dataset: { quizCategory: "franchise" },
+  });
+  assert.match(ui.render(), /Franchise Tile/);
+  assert.match(ui.render(), /Franchise Quizzes · No Credit Rewards/);
+  assert.doesNotMatch(ui.render(), /Personal-Best Payouts|One-Time Milestones/);
+  assert.doesNotMatch(ui.render(), /Singer Tile|Composer Tile/);
   assert.equal(calls, 1);
   ui.stop();
 });

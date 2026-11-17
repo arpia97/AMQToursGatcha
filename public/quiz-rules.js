@@ -3,6 +3,9 @@ export const QUIZ_SONG_MS = 20000;
 export const QUIZ_LEAD_IN_MS = 2000;
 export const QUIZ_ANSWER_GRACE_MS = 1000;
 export const QUIZ_LENGTH = 20;
+export const QUIZ_CATEGORIES = Object.freeze(["singers", "composers", "franchise"]);
+export const quizCategoryLabel = (category) =>
+  ({ singers: "Singers", composers: "Composers", franchise: "Franchise" })[category] || "Singers";
 export const QUIZ_MILESTONES = Object.freeze([
   { score: 5, credits: 100 },
   { score: 10, credits: 300 },
@@ -15,7 +18,7 @@ export const quizAnswerKey = (s) =>
     .trim()
     .toLocaleLowerCase("en-US")
     .replace(/\s+/g, " ");
-export function quizReward(previous, score) {
+export function quizReward(previous, score, category = "singers") {
   if (
     !Number.isInteger(score) ||
     score < 0 ||
@@ -28,8 +31,8 @@ export function quizReward(previous, score) {
   const best = Math.max(previous, score);
   return {
     best,
-    improvement: (best - previous) * 50,
-    milestones: QUIZ_MILESTONES.filter(
+    improvement: category === "franchise" ? 0 : (best - previous) * 50,
+    milestones: category === "franchise" ? 0 : QUIZ_MILESTONES.filter(
       (m) => m.score > previous && m.score <= best,
     ).reduce((s, m) => s + m.credits, 0),
   };

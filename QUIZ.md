@@ -1,5 +1,7 @@
 # Quiz Operations
 
+Quiz categories are **Singers**, **Composers** and **Franchise**, available both in browsing and host creation/editing. Franchise quizzes award **no credits**, including improvement and milestone bonuses; this is enforced during server settlement. Scores, timings, leaderboards, favorites and completion titles work normally. Reward history still prevents reissuing previously reached milestones after edits or score resets. Singers and Composers retain their existing rewards.
+
 Draft quizzes are visible and playable only to hosts, with a Draft · Hosts Only badge. Host previews never change personal bests, credits, milestone rewards or titles. Other players see only published quizzes; with none published, they see Coming Soon.
 
 Each quiz tile has a heart for the signed-in player's saved favorites. The separate **Favorites First** checkbox prioritizes favorites inside the current category/search results, retaining the selected sort within the favorite and remaining groups. It never hides matching nonfavorites. Favorites do not require a submitted score, survive score resets, follow canonical player identity changes, and are removed when the quiz or player gameplay is deleted/reset. Saving uses an authenticated, receipt-protected preference endpoint without loading full game state or triggering market/starter housekeeping.

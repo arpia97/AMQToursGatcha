@@ -151,6 +151,10 @@ test("personal bests pay only improvements and separately crossed milestones, ma
     milestones: 0,
   });
   const q = quizReward(0, 20);
+  assert.deepEqual(quizReward(0, 20, "composers"), q);
+  assert.deepEqual(quizReward(0, 20, "franchise"), {
+    best: 20, improvement: 0, milestones: 0,
+  });
   assert.equal(q.improvement + q.milestones, 2900);
   assert.deepEqual([0, 3, 5, 8, 10, 13, 15, 18, 20].map(quizRarity), [
     "D",
@@ -238,6 +242,26 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
   assert.equal(restart.quiz.view("p", "test").run.finished, true);
   assert.equal(restart.quiz.list("p")[0].best, 20);
   assert.equal(state.songs.length, 20);
+  // Franchise keeps competitive progress and titles, without wallet/ledger rewards.
+  f.save({ category: "franchise" });
+  const before = f.e.player("q");
+  const ledger = f.e.one("SELECT count(*) AS n FROM ledger WHERE player='q'").n;
+  for (const score of [5, 15, 20, 20]) {
+    const result = play(f, score, crypto.randomUUID(), "q");
+    assert.equal(result.run.reward.total, 0);
+    assert.equal(result.run.reward.improvement, 0);
+    assert.equal(result.run.reward.milestones, 0);
+    assert.equal(result.run.preview, false);
+  }
+  assert.equal(f.e.quiz.leaderboard("test", "q").me.best, 20);
+  assert.equal(f.e.quiz.profileStats("q").maxScores, 1);
+  assert.equal(f.e.profile("q").titles[0].title, "Perfect Listener");
+  assert.equal(f.e.player("q").balance, before.balance);
+  assert.equal(f.e.player("q").earned, before.earned);
+  assert.equal(f.e.one("SELECT count(*) AS n FROM ledger WHERE player='q'").n, ledger);
+  f.e.quiz.resetScores({ quiz: "test", confirmation: "RESET QUIZ SCORES AND TITLES" });
+  assert.equal(play(f, 20, crypto.randomUUID(), "q").run.reward.total, 0);
+  assert.equal(f.e.player("q").balance, before.balance);
 });
 test("pool updates preserve active run snapshot; invalid and under20 publication roll back", (t) => {
   const f = fixture(t);

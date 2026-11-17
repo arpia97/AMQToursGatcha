@@ -174,6 +174,9 @@ test("quiz count has no thirty-quiz cap, categories persist and existing quizzes
     18,
   );
   e.quiz.save({ id: "legacy", name: "Legacy" });
+  e.quiz.save({ id: "franchise", name: "Strike Witches", category: "franchise" });
+  assert.equal(e.quiz.list("p", true).find(q => q.id === "franchise").category, "franchise");
+  assert.throws(() => e.quiz.save({ id: "invalid", name: "Invalid", category: "unknown" }), /Choose Singers, Composers or Franchise/);
   assert.equal(
     e.one("SELECT category FROM quizzes WHERE id='legacy'").category,
     "singers",

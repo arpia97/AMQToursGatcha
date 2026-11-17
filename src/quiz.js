@@ -5,6 +5,7 @@ import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
   QUIZ_LENGTH,
+  QUIZ_CATEGORIES,
   quizAnswerKey,
   quizReward,
   validQuizAudio,
@@ -335,8 +336,8 @@ export class Quiz {
     )
       fail("Load the current pool before editing it.", 409);
     const category = b.category ?? existing?.category ?? "singers";
-    if (!["singers", "composers"].includes(category))
-      fail("Choose Singers or Composers.");
+    if (!QUIZ_CATEGORIES.includes(category))
+      fail("Choose Singers, Composers or Franchise.");
     const cover = b.cover ?? existing?.cover ?? "";
     if (
       typeof cover !== "string" ||
@@ -652,7 +653,7 @@ export class Quiz {
           )?.best ??
           previous?.best ??
           0;
-        const reward = quizReward(paid, score),
+        const reward = quizReward(paid, score, q.category),
           displayBest = Math.max(previous?.best || 0, score);
         const preview = !!run.preview || !q.published;
         if (!preview) {

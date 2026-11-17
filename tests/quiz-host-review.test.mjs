@@ -48,6 +48,11 @@ test("host quiz selector keeps selection and status beside New Quiz without a bu
   assert.match(html, /data-new-quiz>New Quiz/);
   assert.doesNotMatch(html, /data-edit-quiz/);
   assert.match(html, /data-quiz-song-review/);
+  assert.match(html, /value="franchise"/);
+  const franchise = quizHostPanel([{id:"f",name:"Franchise",category:"franchise"}],e,"f");
+  assert.match(franchise, /value="franchise" selected>Franchise/);
+  assert.doesNotMatch(franchise, /value="singers" selected/);
+  assert.match(franchise, /Franchise quizzes do not award credits/);
 });
 test("song review escapes metadata and shows matched titles, artist, anime and skipped rows", () => {
   const html = quizSongReview(
