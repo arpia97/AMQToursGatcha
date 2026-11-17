@@ -1,4 +1,4 @@
-const labels={anime:'Anime',song:'Song Name',artist:'Artist Name'};
+const labels={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 export function answerFieldsHTML(fields,team){
   return fields.map(field=>'<div class="sa-answer-row"><label for="sa-'+field+'">'+labels[field]+(team?'<small data-sa-owner="'+field+'">Unclaimed</small>':'')+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'</div>'+(team?'<button type="button" class="button mint" data-sa-submit="'+field+'">Submit</button><div class="sa-reactions" data-sa-reactions="'+field+'"></div>':field==='artist'?'<button type="button" class="button secondary sa-artist-add" data-sa-submit="artist">Add Artist</button>':'')+'</div>').join('');
 }
@@ -17,7 +17,7 @@ export function updateTeamFields(root,match,disabled,esc){
     reactions.hidden=match.format!=='1-team';
     if(match.format==='1-team')reactions.innerHTML=['O','X','△','?'].map(value=>{
       const voters=team.filter(p=>p.reactions?.[field]===value);
-      return '<button type="button" data-sa-react="'+field+'" data-reaction="'+value+'" aria-label="React '+value+' to '+labels[field]+'" aria-pressed="'+(me.reactions?.[field]===value)+'" title="'+esc(voters.map(p=>p.name).join(', ')||'React '+value)+'" '+(!owner||owner.id===me.id||!['guess','reveal'].includes(match.phase)?'disabled':'')+'>'+value+(voters.length?'<small>'+voters.length+'</small>':'')+'</button>';
+      return '<span class="sa-reaction"><button type="button" data-sa-react="'+field+'" data-reaction="'+value+'" aria-label="React '+value+' to '+labels[field]+'" aria-pressed="'+(me.reactions?.[field]===value)+'" title="'+esc(voters.map(p=>p.name).join(', ')||'React '+value)+'" '+(!owner||owner.id===me.id||!['guess','reveal'].includes(match.phase)?'disabled':'')+'>'+value+'</button><small aria-label="'+voters.length+' reactions">'+voters.length+'</small></span>';
     }).join('');
   }
 }

@@ -129,6 +129,12 @@ known aliases. Missing or additional members fail. Individual names containing
 commas remain one entry. Submitted team fields stay yellow until reveal, then
 turn green/red. Group membership must exist in the masterlist metadata.
 
+Song/Artist uses three answer tiles with mirrored 1v1/3v3 scoreboards and
+fixed-size reaction buttons with separate counts below. NGMC displays locked
+answers as `Locked (x.xxxs)`, measured from the shared song start to server
+receipt of the first lock. Retries preserve that duration; the next song clears
+it. This display does not alter scoring or Elo.
+
 First-time NGMC rating lookup coalesces repeated requests, retries transient
 Tour API failures once with a 30-second timeout per attempt, and displays a
 cancellable loading state. A failed lookup never invents a guess rate.

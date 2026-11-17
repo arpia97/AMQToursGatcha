@@ -42,7 +42,7 @@ export function advanceMatch(state,now=Date.now()) {
   else if(state.phase==='reveal'&&now>=state.until) {
     if(state.index===state.songs.length-1||ngmc&&state.teams.includes(0)){state.phase='finished';state.until=now+86400000;return;}
     state.index++;state.phase='buffering';state.until=now+90000;
-    for(const p of state.players){p.answers={};delete p.artists;p.locked=false;p.field=null;p.reactions={};}
+    for(const p of state.players){p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now);
   }
 }
@@ -90,7 +90,7 @@ export function matchMove(state,id,message,now=Date.now()) {
     for(const field of fields){if(typeof message.answers?.[field]!=='string'||message.answers[field].length>(field==='artist'&&player.artists?3500:300))fail('Keep each answer within 300 characters.');}
     if(player.artists&&message.answers.artist!==player.artists.join(', '))delete player.artists;
     player.answers=Object.fromEntries(fields.map(field=>[field,message.answers[field].trim()]));
-    if(message.lock===true)player.locked=true;
+    if(message.lock===true){player.locked=true;player.lockedElapsedMs=Math.max(0,now-state.startsAt);}
   } else fail('Unknown match action.');
   advanceMatch(state,now);
 }
@@ -99,5 +99,5 @@ export function matchView(state,id,now=Date.now()) {
   return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist})):state.history.map(({index,anime,song,artist})=>({index,anime,song,artist})),
-    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
+    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

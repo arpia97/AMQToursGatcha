@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Verified Locally — Play Answer Tiles and Lock Times
+
+NGMC Locked (x.xxxs) from server-recorded receipt time since shared song start, immutable on retries and cleared each song; padded self row. Removed 1v1 Team Answers; three Song/Artist answer tiles, mirrored 1v1/3v3 scoreboards, reaction counts below fixed-size buttons. Existing NGMC test extended for timing, client-supplied timing rejection and reset. All 528 tests, 278 syntax checks, dry-run and diff checks pass. Local browser multiplayer all four formats at 1440/390 verifies timings, tiles, mirrored panels, reactions without button movement, retained artist controls/colors, no errors/overflow. Evidence work/play-tiles-{tests.log,full-tests.log,check.log,build.log,browser-proof.json}; screenshots work/play-tiles-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png. No production gameplay QA writes. Awaiting deployment.
+
 ## Completed — Initial Quiz Upload Removals
 
 Remove/Restore controls for every matched upload song before first save, included/removed counts, immediate automod refresh, removed Franchise list reward caption. Reuses existing skipAudio save behavior; no server/economy changes. Eleven focused review/audio tests, 27 quiz UI tests, 278 syntax checks and dry-run pass. Real host UI with local API fixtures at 1280/390 verifies working-song removal, duplicate warnings disappearing/restoring, broken-song removal, save payload before any save, sort identity, replacement links and append/pool regressions; no errors/overflow. Evidence work/quiz-upload-remove-{browser-proof.json,tests.log,ui-tests.log,build.log}, desktop/mobile screenshots.

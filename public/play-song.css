@@ -27,7 +27,7 @@
 .ngmc-lives svg { width:100%; height:100%; fill:currentColor; stroke:currentColor; stroke-width:1.4; }
 .ngmc-lives .lost { color:#414653; }.ngmc-lives .lost svg { fill:transparent; }
 .ngmc-team.rivals header { flex-direction:row-reverse; }.ngmc-team.rivals header>div:first-child { text-align:right; }
-.ngmc-player { display:grid; grid-template-columns:38px minmax(0,1fr) 50px; grid-template-areas:"avatar name guesses" "answer answer answer"; gap:6px 10px; align-content:center; align-items:center; height:86px; border-bottom:1px solid #ffffff09; padding:8px 4px; }
+.ngmc-player { display:grid; grid-template-columns:38px minmax(0,1fr) 50px; grid-template-areas:"avatar name guesses" "answer answer answer"; gap:6px 10px; align-content:center; align-items:center; height:86px; border-bottom:1px solid #ffffff09; padding:8px 12px; }
 .ngmc-player:last-child { border:0; }.ngmc-player.self { background:#b6e2c509; border-radius:6px; }
 .ngmc-player-name { grid-area:name; min-width:0; display:grid; gap:5px; }.ngmc-player-name strong { display:flex; align-items:center; gap:5px; font-size:12px; overflow:hidden; white-space:nowrap; }.ngmc-player-name small { font-size:10px; }
 .ngmc-avatar.avatar-crop { grid-area:avatar; display:grid; place-items:center; width:36px; height:36px; border-radius:50%; border:1px solid var(--team-accent); overflow:hidden; background:#303744; color:var(--team-accent); font-size:11px; }
@@ -53,27 +53,31 @@
 .sa-game-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .sa-answer-row { min-width:0; }
 .sa-answer-row>label { display:block; margin-bottom:7px; }
-.sa-field-claims .sa-answer-fields { display:grid; grid-template-columns:1fr; gap:12px; }
-.sa-field-claims .sa-answer-row { display:grid; grid-template-columns:125px minmax(0,1fr) 88px; align-items:center; gap:10px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:10px; }
-.sa-field-claims .sa-answer-row>label { margin:0; font-size:12px; }
+.sa-song-panel .sa-answer-fields { grid-template-columns:repeat(3,minmax(0,1fr)); align-items:stretch; }
+.sa-song-panel .sa-answer-row { display:flex; flex-direction:column; gap:12px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:10px; }
+.sa-song-panel .sa-answer-row>label { margin:0; font-size:12px; }
 .sa-answer-row [data-sa-owner] { display:block; color:var(--muted); font-size:10px; margin-top:5px; overflow-wrap:anywhere; }
 .sa-field-claims .sa-combobox input { margin:0; height:42px; }
-.sa-field-claims .sa-answer-row>.button { margin:0; padding:10px; }
+.sa-song-panel .sa-answer-row>.button { margin:0; width:100%; padding:10px; }
 .sa-field-claims .sa-combobox input:disabled { opacity:1; color:var(--muted); }
-.sa-reactions { display:flex; gap:6px; grid-column:2 / -1; justify-content:flex-end; }
+.sa-reactions { display:flex; gap:10px; justify-content:center; margin-top:auto; padding-top:2px; }
+.sa-reaction { display:grid; grid-template-rows:30px 14px; justify-items:center; gap:4px; width:34px; }
+.sa-reaction>small { line-height:14px; color:var(--muted); font-variant-numeric:tabular-nums; }
 .sa-reactions:empty,.sa-reactions[hidden] { display:none; }
-.sa-reactions button { display:flex; align-items:center; justify-content:center; gap:6px; min-width:34px; height:30px; border:1px solid var(--border); border-radius:7px; background:var(--panel); color:var(--muted); cursor:pointer; }
+.sa-reactions button { display:flex; align-items:center; justify-content:center; width:34px; height:30px; padding:0; flex:none; border:1px solid var(--border); border-radius:7px; background:var(--panel); color:var(--muted); cursor:pointer; }
 .sa-reactions button[aria-pressed=true] { color:var(--mint); border-color:var(--mint); background:#b6e2c512; }
 .sa-reactions button:disabled { opacity:.35; cursor:default; }.sa-reactions small { font-size:10px; }
 .sa-song-dialog { width:min(900px,calc(100vw - 30px)); max-height:85vh; padding:22px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:14px; }
 .sa-song-dialog::backdrop { background:#080a10bb; }
 .sa-song-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }.sa-song-dialog h2 { margin:0; font-size:20px; }
 .sa-song-list-body { max-height:65vh; overflow:auto; }.sa-song-list-body table { width:100%; border-collapse:collapse; font-size:12px; }.sa-song-list-body th,.sa-song-list-body td { padding:12px; text-align:left; border-bottom:1px solid var(--border); }.sa-song-list-body th { color:var(--muted); white-space:nowrap; }.sa-song-list-body p { color:var(--muted); font-size:12px; }
-@media(max-width:600px){.sa-field-claims .sa-answer-row{grid-template-columns:minmax(0,1fr) 74px;gap:8px;padding:10px}.sa-field-claims .sa-answer-row>label{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:10px}.sa-answer-row [data-sa-owner]{margin:0}.sa-reactions{grid-column:1 / -1}.sa-game-actions{max-width:175px}.sa-game-actions .button{padding:8px 10px;font-size:11px}.sa-song-dialog{padding:15px}.sa-song-list-body th,.sa-song-list-body td{padding:9px}}
+@media(max-width:700px){.sa-song-panel .sa-answer-fields{grid-template-columns:1fr}.sa-song-panel .sa-answer-row{padding:12px}.sa-song-panel .sa-answer-row>label{display:flex;align-items:center;justify-content:space-between;gap:10px}.sa-answer-row [data-sa-owner]{margin:0}.ngmc-player{padding-inline:8px}.sa-game-actions{max-width:175px}.sa-game-actions .button{padding:8px 10px;font-size:11px}.sa-song-dialog{padding:15px}.sa-song-list-body th,.sa-song-list-body td{padding:9px}}
 
 .sa-lock[hidden] { display:none; }
 
-@media(min-width:1000px){.sa-team-panel .sa-field-claims .sa-answer-row:has(.sa-reactions:not([hidden])){grid-template-columns:125px minmax(0,1fr) 88px 165px}.sa-team-panel .sa-reactions{grid-column:auto}.sa-team-panel .sa-combobox{margin-top:0}}
+.sa-song-panel .sa-combobox { margin-top:0; flex:1; }
+.sa-song-panel .sa-suggestions:not(:empty) { top:47px; }
+.sa-song-panel .sa-suggestions.above:not(:empty) { top:auto; bottom:calc(100% + 4px); }
 
 .sa-answer-row[data-answer-state=pending],.sa-artist-list[data-answer-state=pending] { --answer-color:#f2cf79; }
 .sa-answer-row[data-answer-state=correct],.sa-artist-list[data-answer-state=correct] { --answer-color:var(--mint); }
@@ -84,3 +88,11 @@
 .sa-artist-chip button { position:absolute; right:2px; top:0; width:20px; height:20px; padding:0; border:0; background:transparent; color:inherit; font-size:15px; cursor:pointer; }
 .sa-artist-chip:not(:has(button)) { padding-right:9px; }
 .sa-artist-add { margin-top:8px; font-size:11px; }
+
+.sa-song-team { --team-accent:var(--mint); border-top:2px solid var(--team-accent); }
+.sa-song-team.rivals { --team-accent:#f28ba1; }
+.sa-song-team header>strong { color:var(--team-accent); }
+.sa-song-team.rivals header,.sa-song-team.rivals .sa-player { flex-direction:row-reverse; }
+.sa-song-team.rivals .sa-player { text-align:right; }
+.sa-song-team.rivals .sa-player>strong { margin-left:0; margin-right:auto; }
+.sa-song-team .sa-player { min-height:40px; }

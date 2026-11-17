@@ -33,6 +33,12 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  const knockout=create();knockout.teams=[5,1];answer(knockout,p=>p.team===0);assert.deepEqual(knockout.teams,[5,0]);advanceMatch(knockout,knockout.until);assert.equal(knockout.phase,'finished');
  const waiting=create();waiting.index=12;waiting.phase='buffering';waiting.counterDeadline=0;for(const p of waiting.players){p.ready=true;p.loaded=[12];}waiting.players[0].loaded=[];advanceMatch(waiting,1000);assert.equal(waiting.phase,'buffering');assert.equal(matchView(waiting,waiting.players[0].id).players[0].audioReady,false);matchMove(waiting,waiting.players[0].id,{type:'loaded',indices:[12]},1001);assert.equal(waiting.phase,'guess');
  const early=create();early.phase='guess';early.startsAt=100;early.until=20100;early.players.forEach(p=>p.answers={anime:''});for(const p of early.players)matchMove(early,p.id,{type:'answer',index:0,answers:{anime:'Anime'},lock:true},101);assert.equal(early.phase,'reveal');assert.equal(early.history.length,1);
+ const timed=create();timed.phase='guess';timed.startsAt=1000;timed.until=21000;
+ const locked=timed.players[0],submit={type:'answer',index:0,answers:{anime:'Anime'},lock:true,lockedElapsedMs:1};
+ matchMove(timed,locked.id,submit,2234);assert.equal(locked.lockedElapsedMs,1234);
+ matchMove(timed,locked.id,submit,4567);assert.equal(locked.lockedElapsedMs,1234,'retry cannot change recorded lock time');
+ assert.equal(matchView(timed,timed.players[1].id).players.find(p=>p.id===locked.id).lockedElapsedMs,1234);
+ gradeRound(timed,21000);advanceMatch(timed,timed.until);assert.equal(locked.lockedElapsedMs,undefined,'new song clears lock time');
  const all=create();for(let i=0;i<35;i++){answer(all,()=>true);advanceMatch(all,all.until);}assert.equal(all.phase,'finished');assert.equal(all.history.length,35);assert.deepEqual(all.teams,[5,5]);
 });
 test('NGMC ratings match Python global TrueSkill and apply simultaneous per-song pair adjustments',()=>{
