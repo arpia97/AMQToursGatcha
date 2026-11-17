@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## Verified Locally — Play Reliability and Artist Lists
+## Completed — Play Reliability and Artist Lists
 
 Codex owns Play queue/socket recovery, persistent audio preference, artist entry lists and exact group matching, team reveal colors, NGMC lobby icon removal, and snapshots for all four formats. Production logs confirm invalid close codes 1005/1006 and queue calls reaching the former 15-second timeout; the original caught join exception was not logged, so its exact cause is not conclusively proven. Safe socket closure, retryable/coalesced Tour GR lookup, cancellable loading state and sanitized error logging are implemented. No production gameplay mutations or resets.
 
-All 528 tests, 278 syntax checks, dry-run build and diff checks pass. Local multiplayer browser checks cover NGMC (8), 1v1 (2), 3v3 (6), 1-Team (3), desktop 1440/mobile 390: server preference survives reload, exact artist members add/remove/re-add, pending yellow and reveal green/red, no editing after reveal, no overflow/errors. Evidence: surrounding work/play-artists-{browser-proof.json,tests.log,check.log,build.log}; screenshots work/play-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png. Awaiting commit/deploy/live read-only checks.
+All 528 tests, 278 syntax checks, dry-run build and diff checks pass. Local multiplayer browser checks cover NGMC (8), 1v1 (2), 3v3 (6), 1-Team (3), desktop 1440/mobile 390: server preference survives reload, exact artist members add/remove/re-add, pending yellow and reveal green/red, no editing after reveal, no overflow/errors. Evidence: surrounding work/play-artists-{browser-proof.json,tests.log,check.log,build.log}; screenshots work/play-{ngmc-ranked,1v1,3v3,1-team}-game-{1440,390}.png.
+
+Runtime 394133e28e65ae4980fd0ea00c8762421b2ff8be pushed/deployed to original Worker version a848f2cd-e8d3-4be4-95e0-fc5e18bb0afe. Verify 44102354997 and demo 44102355020 succeeded. Live guest checks at 1440/390 verify persisted NAW after reload, removed lobby hearts, authorization gate, no errors/overflow; ten assets byte-match and public Tour GR source returns 200. Evidence work/play-artists-{deploy.log,live-proof.json,live.log}. No live matchmaking writes, proxy deployment or economy changes. Exact production join error remains unconfirmed until real-player retry; added logs support diagnosis if it recurs. Ownership released; handoff newer than runtime.
 
 ## Completed — Team Answer Roles and Approved Loading UI
 
