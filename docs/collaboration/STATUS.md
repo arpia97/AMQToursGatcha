@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Song/Artist Lobby Cleanup and 30-Second Guesses
+
+November17. Removed the three requested explanatory lines from Song/Artist lobby; rule summary and server round deadline now30 seconds. Countdown/reveal/download behavior retained. Extended the existing duration assertion; all4 focused match/rules/Workers runtime tests pass, changed UI syntax/build/diff checks pass. Runtimee1bb504 pushed and deployed to original Worker, versionf4d92a20-9859-4c8f-aa01-200367433676. Live UI asset byte-matches source; read-only browser1440/390 confirms removed text,30s label, no errors/overflow. Evidence work/song-artist-30s-live-proof.json. Existing active round deadlines are persisted; subsequent rounds use the new duration after normal actor rollout. No proxy deployment or production gameplay QA writes. Ownership released; handoff newer than deployed runtime.
+
 ## Completed — Song/Artist Multiplayer
 
 November17. Codex owns new public/play-song-* and src/play-* modules, Play shell integration, quiz-library sampling/catalogue extension, worker authentication/WS routing, additive Durable Object bindings, focused runtime/UI checks. User confirmed 1v1,3v3 and three-player one-team; shared teammate answers, team up to3 points/song plus individual correct contributions,20 random AMQ+ songs, first10 downloaded by everyone before start. Other new modes remain placeholders. Preserve Gacha/Host state and quiz behavior. No other collaborator edits observed at start.
