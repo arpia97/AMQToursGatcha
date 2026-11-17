@@ -1,3 +1,4 @@
+:root{--mobile-ui-ready:1}
 .mobile-nav,.mobile-brand,.mobile-sheet,.mobile-filter-button,.mobile-collection-title{display:none}
 @media(max-width:850px){
   .mobile-sheet[open]{display:flex;flex-direction:column;position:fixed;inset:auto 0 0;width:100%;max-width:600px;max-height:88dvh;margin:0 auto;border:1px solid #353843;border-bottom:0;border-radius:22px 22px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom));background:#191b23;color:var(--text);box-shadow:0 -16px 64px #0005;overflow:hidden}

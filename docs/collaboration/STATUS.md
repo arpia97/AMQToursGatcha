@@ -1,5 +1,12 @@
 # Shared Status and Handoff
 
+## Validated Locally — Mobile Shell Stylesheet Recovery
+
+November17. Codex owns mobile-navigation.js/mobile.css/index.html in both apps. Reproduced screenshot failure with mobile.css blocked:128px natural logo, old navigation and unstyled new brand. Logo now has intrinsic26px dimensions plus explicit maximum size. Mobile shell builds only after its stylesheet marker is applied; pre-ready renders queue safely. One failed-style retry uses a distinct query; persistent failure keeps legacy navigation without inserting unstyled shell. Mobile stylesheet gets v2 URL and precedes Gacha app module. No reload loop, service worker, storage or gameplay change.
+
+Local fixtures in both apps reproduce baseline and verify normal/reloaded, delayed, initial failure/recovery and persistent failure (exactly2requests). Logo remains26px even when stylesheet is disabled after shell creation. Actual Gacha/SQLite browser360/390/430/850/900/1440 passes menus/preferences/filters and desktop pixel comparisons; no page errors/overflow or balance/inventory changes. Focused existing route/preference checks, JS syntax, diff and dry-run pass. No added repository tests; production QA remains read-only. Evidence: work/mobile-logo-proof.json and mobile-gacha-checks.json. Deployment pending.
+
+
 ## Completed — Premium Title Scroll Performance
 
 November17. Codex owns mirrored premium-title CSS and title-motion.js only. Removed per-frame gradient-angle animation and oversized shimmer texture; gold/opal border remains static, smaller glow and a transform-only8s shimmer preserve premium styling. IntersectionObserver runs shimmer only in view, pauses during document/nested scrolling and hidden tabs, resumes after160ms idle; DOM additions/removals are batched and text-only updates ignored. System/On/Off semantics preserved. No title data, scores or rewards change.

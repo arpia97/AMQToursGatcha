@@ -1,11 +1,36 @@
 // Page-lifetime mobile shell. Existing navigation remains the source of access/URLs.
-export function installMobileNavigation({ bottom, groups, route, brand, secondary, preferences = [], extraLinks = () => [], additionalLinks = () => [] }) {
+export function installMobileNavigation(options) {
+  let controller, retried = false, pendingUpdate = false;
+  const link = [...document.querySelectorAll('link[rel=stylesheet]')].find(el => new URL(el.href).pathname.endsWith('/mobile.css'));
+  const ready = () => getComputedStyle(document.documentElement).getPropertyValue('--mobile-ui-ready').trim() === '1';
+  const activate = () => {
+    if (!controller && ready()) { controller = createMobileNavigation(options); }
+    if (controller) { if (pendingUpdate) { pendingUpdate = false; controller.update(); } link?.removeEventListener('load', activate); link?.removeEventListener('error', retry); window.removeEventListener('load', retry); window.removeEventListener('pageshow', activate); }
+  };
+  const retry = () => {
+    activate();
+    if (!controller && link && !retried) {
+      retried = true;
+      const url = new URL(link.href); url.searchParams.set('mobile-retry', '1'); link.href = url.href;
+    }
+  };
+  link?.addEventListener('load', activate);
+  link?.addEventListener('error', retry);
+  window.addEventListener('pageshow', activate);
+  window.addEventListener('load', retry);
+  activate();
+  if (document.readyState === 'complete') retry();
+  return { update() { pendingUpdate = true; activate(); }, close() { controller?.close(); } };
+}
+function createMobileNavigation({ bottom, groups, route, brand, secondary, preferences = [], extraLinks = () => [], additionalLinks = () => [] }) {
   const source = document.querySelector('#navigation');
   const media = matchMedia('(max-width:850px)');
   const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
   const brandLink = document.createElement('a');
   brandLink.className = 'mobile-brand'; brandLink.href = brand.href;
   const logo = document.createElement('img'); logo.src = brand.logo; logo.alt = '';
+  logo.width = 26; logo.height = 26;
+  Object.assign(logo.style, {width:'26px',height:'26px',maxWidth:'26px',maxHeight:'26px',flexShrink:'0',objectFit:'contain'});
   brandLink.append(logo, document.createTextNode('AMQ TOURS'));
   document.querySelector('.topbar').prepend(brandLink);
   const nav = document.createElement('nav'); nav.className = 'mobile-nav'; nav.setAttribute('aria-label', 'Mobile navigation');
