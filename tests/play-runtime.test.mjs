@@ -40,6 +40,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const song=Number(manifest.audio[rooms[0].messages.find(m=>m.type==='state').state.audioIndex].match(/local-(\d+)/)[1]);
     rooms[0].send({type:'activity',event:'visibility',visibility:'hidden',focused:false,clientAt:123});
     const teamFields=['1-team','3v3'].includes(format),counts={};
+    const firstAnswer=teamFields?{type:'answer',index:0,field:'anime',answer:'wrong'}:{type:'answer',index:0,answers:{anime:'wrong',song:'',artist:''},lock:true};
+    rooms[0].send(firstAnswer);await rooms[0].wait(m=>m.state?.players.find(p=>p.id==='1')?.submittedFields?.includes('anime'));
+    rooms[0].send({type:'unlock',index:0});
+    await rooms[0].wait(m=>m.state?.phase==='guess'&&m.state.players.find(p=>p.id==='1')?.submittedFields?.length===0);
+
     for(let i=0;i<rooms.length;i++){
       if(teamFields){const team=roster.find(p=>p.id===String(i+1)).team,n=counts[team]||0;counts[team]=n+1;const field=['anime','song','artist'][n];rooms[i].send({type:'answer',index:0,field,...(field==='artist'?{artists:['Artist '+song]}:{answer:{anime:'Alternative '+song,song:'Song '+song}[field]})});}
       else rooms[i].send({type:'answer',index:0,answers:{anime:ngmc&&i>=4?'wrong':'Alternative '+song,song:'Song '+song,artist:'Artist '+song},lock:true});
@@ -66,6 +71,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const auditHeaders={Authorization:'Bearer local-only-test-host-token-123456789'};
     assert.equal((await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:{Cookie:cookies[0]}})).status,401);
     const reviewResponse=await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders});assert.equal(reviewResponse.status,200,await reviewResponse.clone().text());const review=await reviewResponse.json();
+    assert.ok(review.events.some(e=>e.kind==='unlock'&&e.data.accepted&&e.player==='1'));
     assert.ok(review.events.some(e=>e.kind==='activity'&&e.player==='1'&&e.data.clientAt===123&&e.at>123));
     assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.accepted&&e.data.answers.anime));
     if(format==='1v1'){

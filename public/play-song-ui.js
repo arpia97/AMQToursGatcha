@@ -1,3 +1,4 @@
+import {songTeamsHTML,answerSideHTML,versusHTML,songResultsHTML,readyHTML} from './play-round-ui.js';
 import {createPlayActivity} from './play-activity.js';
 import {answerFieldsHTML,teamAnswerTilesHTML,updateTeamFields,updateArtistChips} from './play-team-ui.js';
 import {createSongListDialog} from './play-song-dialog.js';
@@ -12,10 +13,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   const songDialog=createSongListDialog(esc,animeTitle);
   let active=false,format='1v1',server='EU',queue=null,room=null,match=null,queueStatus={type:'idle'},worker=null,searchReady=false,searchError='',searchId=0,searchItems=[],searchKind='',selected=-1;
   let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,playingIndex=-1,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
-  let selectedField='anime',draft={anime:'',song:'',artist:''},chosen={},pendingLock=false,structure='',loadGeneration=0,connecting=false,unlocking=false,lastLoaded='',progressTimer=null,pendingArtistKey=null;
+  let selectedField='anime',draft={anime:'',song:'',artist:''},chosen={},pendingLock=false,pendingUnlock=false,volume=30,structure='',loadGeneration=0,connecting=false,unlocking=false,lastLoaded='',progressTimer=null,pendingArtistKey=null;
   function savedServer(){try{const saved=localStorage.getItem('amqtours-quiz-server');if(['EU','NAE','NAW'].includes(saved))server=saved;}catch{}}
   savedServer();
-  audio.preload='auto';audio.volume=.7;
+  function savedVolume(){try{const value=localStorage.getItem('amqtours-quiz-volume');if(value!==null&&Number.isFinite(Number(value)))volume=Math.min(100,Math.max(0,Math.round(Number(value))));}catch{}audio.volume=volume/100;}
+  savedVolume();audio.preload='auto';
+  const volumeHTML=()=>'<label class="quiz-volume-control sa-volume">Volume<input id="sa-volume" type="range" min="0" max="100" step="1" value="'+volume+'" aria-label="Game Volume"><output id="sa-volume-value">'+volume+'%</output></label>';
   const player=()=>match?.players.find(p=>p.id===match.me);
   const send=(socket,value)=>{if(socket?.readyState===1){socket.send(JSON.stringify(['answer','artists'].includes(value.type)?{...value,clientAt:Date.now()}:value));return true;}return false;};
   const activity=createPlayActivity(message=>{if(active&&match&&!['finished','cancelled'].includes(match.phase))send(room,message);});
@@ -42,7 +45,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     room?.close();const ws=room=new WebSocket(socketURL(id));ws.matchId=id;
     ws.onopen=()=>{activity.snapshot();roomDelay=1000;send(ws,{type:'ping',sentAt:Date.now()});};
     ws.onmessage=({data})=>{if(room!==ws||!active)return;const msg=JSON.parse(data);
-      if(msg.type==='error'){pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
+      if(msg.type==='error'){pendingArtistKey=null;pendingLock=false;pendingUnlock=false;error(msg.message);render();return;}
       if(msg.type==='pong'&&msg.sentAt){offset=msg.now-(msg.sentAt+Date.now())/2;clockReady=true;return;}
       if(msg.type==='manifest'){
         mode=msg.mode||'song-artist';onMatchMode(mode);fields=ranked()?['anime']:['anime','song','artist'];firstSongs=msg.preload||10;totalSongs=msg.total||msg.audio.length;
@@ -53,13 +56,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         const previous=match;match=msg.state;if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
         if(previous?.index!==match.index||previous?.id!==match.id){selectedField='anime';draft={...player().answers,anime:player().answers?.anime||'',song:player().answers?.song||'',artist:player().answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
+        if(!player().locked&&!player().field||match.phase!=='guess')pendingUnlock=false;
         if(pendingArtistKey===JSON.stringify(player().artists||[]))pendingArtistKey=null;
         if(match.phase!=='guess'&&!unlocking)audio.pause();
         if(['finished','cancelled'].includes(match.phase)){downloads?.abort();}
         render();tick();
       }
     };
-    ws.onclose=event=>{if(room!==ws)return;room=null;pendingLock=false;if(active&&event.code!==4001&&match?.phase!=='finished'&&match?.phase!=='cancelled'){roomRetry=setTimeout(()=>connectRoom(id),roomDelay);roomDelay=Math.min(15000,roomDelay*2);}render();};
+    ws.onclose=event=>{if(room!==ws)return;room=null;pendingLock=false;pendingUnlock=false;if(active&&event.code!==4001&&match?.phase!=='finished'&&match?.phase!=='cancelled'){roomRetry=setTimeout(()=>connectRoom(id),roomDelay);roomDelay=Math.min(15000,roomDelay*2);}render();};
   }
   function loaded(){return sources.flatMap((source,i)=>cache.url(source,server)?[i]:[]);}
   async function preload(){
@@ -84,14 +88,22 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function choose(i){const item=searchItems[i];if(!item)return;const input=root.querySelector('#sa-'+searchKind);draft[searchKind]=searchKind==='anime'?animeTitle({anime:item}):item;chosen[searchKind]=item;input.value=draft[searchKind];hideSuggestions();input.focus({preventScroll:true});scheduleDraft();}
   function scheduleDraft(){if(teamFields())return;clearTimeout(draftTimer);draftTimer=setTimeout(()=>submit(false),300);}
   function artistList(list){
-    if(!match||match.phase!=='guess'||player()?.locked||pendingArtistKey!==null||Date.now()+offset<match.startsAt)return;
+    if(!match||match.phase!=='guess'||pendingUnlock||player()?.locked||pendingArtistKey!==null||Date.now()+offset<match.startsAt)return;
     if(teamFields()&&player().field&&player().field!=='artist')return;
     const message=teamFields()?{type:'answer',field:'artist',artists:list}:{type:'artists',artists:list};
     if(send(room,{...message,index:match.index})){pendingArtistKey=JSON.stringify(list);draft.artist='';delete chosen.artist;root.querySelector('#sa-artist').value='';hideSuggestions();render();}
     else error('Reconnecting… Retry adding the artist once connected.');
   }
   function addArtist(){const name=String(chosen.artist||draft.artist||'').trim();if(!name)return;const list=player()?.artists||[];if(list.some(x=>x.toLowerCase()===name.toLowerCase()))return;artistList([...list,name]);}
+  function cancelSubmit(){
+    if(!match||match.phase!=='guess'||pendingLock||pendingUnlock||pendingArtistKey!==null||Date.now()+offset>=match.until)return;
+    clearTimeout(draftTimer);
+    if(send(room,{type:'unlock',index:match.index})){pendingUnlock=true;hideSuggestions();render();}
+    else error('Reconnecting… Retry cancelling once connected.');
+  }
   function submit(lock,field){
+    if(lock&&!teamFields()&&player()?.locked){cancelSubmit();return;}
+    if(pendingUnlock)return;
     if(field==='artist'){addArtist();return;}
     if(!match||match.phase!=='guess'||player()?.locked||pendingLock||pendingArtistKey!==null||Date.now()+offset<match.startsAt)return;
     if(teamFields()){
@@ -104,12 +116,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(send(room,{type:'answer',index:match.index,answers,lock})){if(lock){pendingLock=true;hideSuggestions();render();}}
     else error('Reconnecting… Your answers are kept. Retry locking once connected.');
   }
-  function teamHTML(){if(ranked())return ngmcTeams(match,esc);const me=player();return '<div class="sa-team-list">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(i=>'<section class="sa-team sa-song-team '+(i===me.team?'allies':'rivals')+'"><header><span>'+(match.teams.length===1?'Your Team':i===me.team?'Your Team':'Opponents')+'</span><strong>'+match.teams[i]+'<small> / 60</small></strong></header>'+match.players.filter(p=>p.team===i).map(p=>'<div class="sa-player"><span>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</span><strong>'+p.score+' <small>contributions</small></strong><small>'+(p.left?'Left':match.phase==='loading'?p.loaded+'/20 downloaded · '+(p.ready?'Ready':'Not Ready'):p.locked?'Locked':'')+'</small></div>').join('')+'</section>').join('')+'</div>';}
+  function teamHTML(){return ranked()?ngmcTeams(match,esc):songTeamsHTML(match,esc);}
   function sharedHTML(){if(teamFields()||match.format==='1v1')return '';if(ranked())return ngmcControls(match,esc);const me=player();return '<section class="sa-shared"><h3>Team Answers</h3><div class="sa-shared-head"><span>Player</span>'+fields.map(f=>'<span>'+labels[f]+'</span>').join('')+'</div>'+match.players.filter(p=>p.team===me.team).map(p=>'<div class="sa-shared-row"><strong>'+esc(p.name)+'</strong>'+fields.map(f=>'<span>'+esc(p.answers?.[f]||'—')+'</span>').join('')+'</div>').join('')+'</section>';}
-  function recapHTML(){const row=match.history.at(-1);if(!row)return '';const mine=row.results.find(p=>p.id===match.me);return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · +'+mine.earned+(ranked()?' Correct':' Contributions')+'</span>'+fields.map(field=>'<div class="'+(mine.correct[field]?'correct':'incorrect')+'"><small>'+labels[field]+'</small><strong>'+esc(field==='anime'?animeTitle({anime:row.anime}):row[field])+'</strong><span>'+esc(mine.answers[field]||'No answer')+'</span></div>').join('')+'</section>';}
+  function recapHTML(){const row=match.history.at(-1);if(!row)return '';const mine=row.results.find(p=>p.id===match.me);return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · +'+mine.earned+(ranked()?' Correct':match.format==='1v1'?' Points':' Contributions')+'</span>'+fields.map(field=>'<div class="'+(mine.correct[field]?'correct':'incorrect')+'"><small>'+labels[field]+'</small><strong>'+esc(field==='anime'?animeTitle({anime:row.anime}):row[field])+'</strong><span>'+esc(mine.answers[field]||'No answer')+'</span></div>').join('')+'</section>';}
   function lobbyHTML(){return '<section class="sa-lobby"><span class="sa-eyebrow">Matchmaking</span><h1>'+(ranked()?'NGMC Ranked':'Song / Artist')+'</h1>'+(ranked()?'':'<div class="sa-formats" role="group" aria-label="Match Format">'+Object.entries(formats).map(([id,name])=>'<button type="button" data-sa-format="'+id+'" class="'+(format===id?'selected':'')+'" '+(queueStatus.type!=='idle'?'disabled':'')+'><strong>'+name+'</strong><small>'+(id==='1v1'?'Head to Head':id==='3v3'?'Two Teams of Three':'Three Players · One Team')+'</small></button>').join('')+'</div>')+'<div class="sa-rules">'+(ranked()?'<span><strong>4v4</strong> Ranked</span><span><strong>5</strong> Lives</span><span><strong>35</strong> Songs</span>':'<span><strong>20</strong> Random Songs</span><span><strong>3</strong> Points per Song</span>')+'<span><strong>'+(ranked()?'20s':'30s')+'</strong> to Answer</span></div><div class="sa-queue-controls"><label>Audio Server<select id="sa-server" '+(queueStatus.type!=='idle'?'disabled':'')+'>'+['EU','NAE','NAW'].map(s=>'<option '+(s===server?'selected':'')+'>'+s+'</option>').join('')+'</select></label><button class="button mint" type="button" data-sa-action="queue" '+(!searchReady||connecting||!getPlayer()||queue?.readyState!==1?'disabled':'')+'>'+(queueStatus.type==='joining'?'Cancel Matchmaking':queueStatus.type==='queued'?'Leave Queue':queueStatus.type==='matched'?'Preparing Match…':'Find Match')+'</button></div><p class="sa-status" role="status">'+(!getPlayer()?'Sign in above to join a queue.':searchError?esc(searchError):!searchReady?'Loading answer lists…':connecting?'Connecting…':queueStatus.type==='joining'?'Loading Your NGMC Rating…':queueStatus.type==='queued'?'Finding Players · '+queueStatus.waiting+' / '+queueStatus.needed:queueStatus.type==='matched'?'Selecting songs for your match…':'')+'</p><p class="form-hint">Match activity and submitted answers are recorded for host review for 30 days.</p>'+(searchError?'<button class="button secondary" type="button" data-sa-action="search-retry">Retry Answer Lists</button>':'')+'</section>';}
-  function gameHTML(){const me=player(),done=['finished','cancelled'].includes(match.phase);return '<div class="sa-game-heading"><div><span class="sa-eyebrow">'+(ranked()?'NGMC Ranked · 4v4':'Song / Artist · '+formats[match.format])+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':'Song '+(match.index+1)+' <small>/ '+totalSongs+'</small>')+'</h1></div><div class="sa-game-actions"><button type="button" class="button secondary" data-sa-action="songs">Song List</button><button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Play Again':'Leave Match')+'</button></div></div><div class="sa-scoreboard"></div>'+(done?'<p>'+esc(match.reason||winnerText())+'</p><div class="sa-results">'+match.history.map(row=>{const mine=row.results.find(p=>p.id===match.me);return '<div><span>'+(row.index+1)+'</span><strong>'+esc(row.song)+'</strong><span>'+esc(row.artist)+'</span><b>'+mine.earned+'/'+(teamFields()?1:fields.length)+'</b></div>';}).join('')+'</div>':'<div class="sa-play-panel '+(ranked()?'ngmc-panel':'sa-song-panel')+'"><div class="sa-round-status"></div><div class="sa-timer" role="timer" aria-label="Time remaining"></div>'+'<div class="ngmc-time-track" role="progressbar" aria-label="Guess Time Remaining" aria-valuemin="0" aria-valuemax="'+(ranked()?20:30)+'" aria-valuenow="'+(ranked()?20:30)+'"><span></span></div>'+'<div class="sa-download-status"></div>'+(teamFields()?teamAnswerTilesHTML()+'<div class="sa-reveal-wrap"></div>':'')+'<div class="sa-shared-wrap"></div><form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form>'+(teamFields()?'':'<div class="sa-reveal-wrap"></div>')+(ranked()?ngmcProgress(match):'')+'</div>');}
-  function winnerText(){if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' / 60.';const mine=match.teams[player().team],other=match.teams[1-player().team];return mine===other?'A tie!':mine>other?'Your team wins!':'The other team wins.';}
+  function gameHTML(){
+    const done=['finished','cancelled'].includes(match.phase);
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+(ranked()?'NGMC Ranked · 4v4':'Song / Artist · '+formats[match.format])+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':'Song '+(match.index+1)+' <small>/ '+totalSongs+'</small>')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button><button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Play Again':'Leave Match')+'</button></div></div>';
+    if(done)return heading+'<div class="sa-scoreboard"></div><p class="sa-match-outcome">'+esc(match.reason||winnerText())+'</p>'+(ranked()?'<div class="sa-results">'+match.history.map(row=>'<div><span>'+(row.index+1)+'</span><strong>'+esc(row.song)+'</strong><span>'+esc(row.artist)+'</span><b>'+row.results.find(p=>p.id===match.me).earned+'/1</b></div>').join('')+'</div>':songResultsHTML(match,esc,animeTitle));
+    const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
+    return heading+'<div class="sa-ready-wrap"></div><div class="sa-scoreboard"></div><div class="sa-play-panel '+(ranked()?'ngmc-panel':'sa-song-panel')+'"><div class="sa-round-status"></div><div class="sa-timer" role="timer" aria-label="Time remaining"></div><div class="ngmc-time-track" role="progressbar" aria-label="Guess Time Remaining" aria-valuemin="0" aria-valuemax="'+(ranked()?20:30)+'"><span></span></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+'<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form><div class="sa-reveal-wrap"></div>'+(ranked()?ngmcProgress(match):'')+'</div>';
+  }
+  function winnerText(){if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' / 60.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=match.format==='1v1'?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
     if(!active)return;
     if(match)songDialog.update(match);
@@ -122,16 +140,25 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const me=player(),loadedCount=loaded().length;
     status.textContent=match.phase==='loading'?'Getting Everyone Ready':match.phase==='buffering'?'Waiting for Audio':match.phase==='counting'?'Counting Guesses':match.phase==='reveal'?'Answers Revealed':'Listen & Answer';
     const downloadStatus=root.querySelector('.sa-download-status'),downloadBar=downloadStatus.querySelector('.song-loading-bar');
-    downloadStatus.innerHTML=(ranked()?(['loading','buffering'].includes(match.phase)?'<span>Waiting Until Everyone Is Ready</span>'+songLoadingBar({label:'Waiting for Audio'}):''):loadedCount<sources.length||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+'Loading Audio</span><strong>'+Math.round(100*loadedCount/sources.length)+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:sources.length})+'</div>':'')+(downloadError?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'')+(!ready&&loadedCount>=firstSongs?'<button type="button" class="button mint" data-sa-action="ready">Ready · Enable Audio</button>':'')+(ready&&!me.ready?'<small>Waiting for ready confirmation…</small>':'');
+    downloadStatus.innerHTML=(ranked()?(['loading','buffering'].includes(match.phase)?'<span>Waiting Until Everyone Is Ready</span>'+songLoadingBar({label:'Waiting for Audio'}):''):loadedCount<sources.length||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+'Loading Audio</span><strong>'+Math.round(100*loadedCount/sources.length)+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:sources.length})+'</div>':'')+(downloadError?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
     if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,ranked()?null:loadedCount,ranked()?null:sources.length);}
     root.querySelector('.sa-shared-wrap').innerHTML=sharedHTML();
-    const form=root.querySelector('#sa-answer-form');form.hidden=!teamFields()&&['reveal','counting'].includes(match.phase);
-    const disabled=match.phase!=='guess'||me.locked||pendingLock||pendingArtistKey!==null||!room||Date.now()+offset<match.startsAt;
+    const waiting=['loading','buffering'].includes(match.phase)||!ready;
+    const readyWrap=root.querySelector('.sa-ready-wrap');readyWrap.hidden=!waiting;
+    const readyMarkup=waiting?readyHTML(match,loadedCount>=firstSongs,ready,esc):'';
+    if(readyWrap.innerHTML!==readyMarkup)readyWrap.innerHTML=readyMarkup;
+    const liveSides=root.querySelector('.sa-live-answer-sides');if(liveSides)liveSides.hidden=waiting;
+    const form=root.querySelector('#sa-answer-form');form.hidden=waiting||['reveal','counting'].includes(match.phase);
+    const disabled=match.phase!=='guess'||me.locked||pendingLock||pendingUnlock||pendingArtistKey!==null||!room||!ready||Date.now()+offset<match.startsAt;
     if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField,animeTitle);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=disabled;
     updateArtistChips(root,match,disabled,esc);
     form.classList.toggle('sa-field-claims',teamFields());form.querySelector('.sa-lock').hidden=teamFields();
-    form.querySelector('.sa-lock').textContent=me.locked?'Submitted':pendingLock?'Submitting…':!room?'Reconnecting…':'Submit';
-    root.querySelector('.sa-reveal-wrap').innerHTML=['reveal','counting'].includes(match.phase)?recapHTML():'';
+    const lockButton=form.querySelector('.sa-lock');
+    lockButton.disabled=match.phase!=='guess'||!ready||pendingLock||pendingUnlock||pendingArtistKey!==null||room?.readyState!==1||Date.now()+offset<match.startsAt||Date.now()+offset>=match.until;
+    lockButton.textContent=pendingUnlock?'Cancelling…':me.locked?'Locked · Cancel Submission':pendingLock?'Submitting…':!room?'Reconnecting…':'Submit';
+    const last=match.history.at(-1),revealed=['reveal','counting'].includes(match.phase)&&last?.index===match.index;
+    const opponents=root.querySelector('.sa-opponent-answers');if(opponents)opponents.innerHTML=answerSideHTML(match,revealed?last:null,1-me.team,esc,animeTitle);
+    root.querySelector('.sa-reveal-wrap').innerHTML=revealed?(ranked()||teamFields()?recapHTML():versusHTML(match,last,esc,animeTitle)+recapHTML()):'';
   }
   function tick(){
     clearTimeout(raf);if(!active||!match||['finished','cancelled'].includes(match.phase))return;
@@ -143,12 +170,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(timer){const ms=match.phase==='guess'&&now<match.startsAt?match.startsAt-now:match.until-now;const value=['guess','reveal','counting'].includes(match.phase)?Math.max(0,Math.ceil(ms/1000))+'s':'';if(timer.textContent!==value)timer.textContent=value;}
     if(match.phase==='guess'&&now>=match.startsAt&&now<match.until){
       const input=root.querySelector('#sa-'+(teamFields()?selectedField:'anime'));
-      if(input?.disabled&&!player().locked&&!pendingLock&&room?.readyState===1){render();if(!document.querySelector('dialog[open]'))input.focus({preventScroll:true});}
+      if(input?.disabled&&!player().locked&&(!teamFields()||!player().field||player().field==='artist')&&!pendingLock&&!pendingUnlock&&pendingArtistKey===null&&ready&&room?.readyState===1){render();if(!document.querySelector('dialog[open]'))input.focus({preventScroll:true});}
       if(ready&&playingIndex!==match.index&&preparedIndex===match.index){playingIndex=match.index;audio.currentTime=Math.max(0,(now-match.startsAt)/1000);audio.play().catch(()=>{playingIndex=-1;ready=false;render();error('Tap Ready · Enable Audio to allow playback.');});}
     }else if(!unlocking&&(match.phase!=='guess'||now>=match.until))audio.pause();
     raf=setTimeout(tick,100);
   }
-  root.addEventListener('input',event=>{const field=event.target.dataset.saField;if(!field)return;draft[field]=event.target.value;delete chosen[field];searchKind=field;searchItems=[];selected=-1;const id=++searchId;clearTimeout(searchTimer);searchTimer=setTimeout(()=>worker?.postMessage({type:'search',id,kind:field,query:draft[field]}),70);scheduleDraft();});
+  root.addEventListener('input',event=>{if(event.target.id==='sa-volume'){volume=Math.min(100,Math.max(0,Number(event.target.value)||0));audio.volume=volume/100;root.querySelector('#sa-volume-value').textContent=volume+'%';try{localStorage.setItem('amqtours-quiz-volume',String(volume));}catch{}return;}const field=event.target.dataset.saField;if(!field)return;draft[field]=event.target.value;delete chosen[field];searchKind=field;searchItems=[];selected=-1;const id=++searchId;clearTimeout(searchTimer);searchTimer=setTimeout(()=>worker?.postMessage({type:'search',id,kind:field,query:draft[field]}),70);scheduleDraft();});
   root.addEventListener('focusin',event=>{const field=event.target.dataset.saField;if(field&&field!==searchKind){hideSuggestions();searchKind=field;}});
   root.addEventListener('keydown',event=>{const field=event.target.dataset.saField;if(!field)return;
     if(searchItems.length&&searchKind===field&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();selected=(selected+(event.key==='ArrowDown'?1:-1)+searchItems.length)%searchItems.length;showSuggestions();root.querySelector('#sa-option-'+selected)?.scrollIntoView({block:'nearest'});}
@@ -161,7 +188,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const button=event.target.closest('button');if(!active||!button)return;
     if(button.dataset.saInputField){selectedField=button.dataset.saInputField;hideSuggestions();render();root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});return;}
     if(button.dataset.saRemoveArtist!==undefined){artistList((player().artists||[]).filter((_,i)=>i!==Number(button.dataset.saRemoveArtist)));return;}
-    if(button.dataset.saSubmit){submit(true,button.dataset.saSubmit);return;}
+    if(button.dataset.saAddArtist!==undefined){addArtist();return;}
+    if(button.dataset.saSubmit){if(teamFields()&&player()?.field===button.dataset.saSubmit)cancelSubmit();else submit(true,button.dataset.saSubmit);return;}
     if(button.dataset.saReact){send(room,{type:'reaction',index:match.index,field:button.dataset.saReact,value:button.dataset.reaction});return;}
     if(button.dataset.saCount){send(room,{type:'count',index:match.index,player:button.dataset.saCount});return;}
     if(button.dataset.saOption!=null){choose(Number(button.dataset.saOption));return;}
@@ -180,7 +208,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   });
   root.addEventListener('change',event=>{if(event.target.id==='sa-server'){if(!['EU','NAE','NAW'].includes(event.target.value))return;server=event.target.value;try{localStorage.setItem('amqtours-quiz-server',server);}catch{}}});
   return {
-    enter(nextMode='song-artist'){savedServer();pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];firstSongs=ranked()?12:10;totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queueStatus={type:'idle'};render();if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
+    enter(nextMode='song-artist'){savedServer();savedVolume();pendingUnlock=false;pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];firstSongs=ranked()?12:10;totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queueStatus={type:'idle'};render();if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
     render,
     leave(){activity.stop();songDialog.close();active=false;send(queue,{type:'cancel'});queue?.close();room?.close();queue=null;room=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},
   };

@@ -26,8 +26,10 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.throws(()=>submittedArtists(Array(51).fill('Artist')),/individual/);
   assert.equal(artistMatches('LiSA',''),false);
   assert.equal(artistMatches('水樹奈々','花澤香菜'),false);
-  const index=answerSearchIndex({artist:['Iwami, Manaka','Éir Aoi'],anime:['Anime Alt','Anime Name'],song:Array.from({length:100},(_,i)=>'Song '+i)});
-  assert.deepEqual(searchAnswers(index,'artist','manaka iwami'),['Iwami, Manaka']);
+  const index=answerSearchIndex({artist:['Iwami, Manaka','Éir Aoi','Iwami','Manaka Iwami Long Alias'],anime:['Anime Alt','Anime Name'],song:Array.from({length:100},(_,i)=>'Song '+i)});
+  assert.deepEqual(searchAnswers(index,'artist','manaka iwami'),['Iwami, Manaka','Manaka Iwami Long Alias']);
+  assert.deepEqual(searchAnswers(index,'artist','iwami',1),['Iwami']);
+  assert.ok(library.names.includes('Éir Aoi')); // Individual group members remain selectable.
   assert.equal(searchAnswers(index,'song','song').length,20);
 });
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));
@@ -78,6 +80,10 @@ test('matches preload all ten, share only team answers, score categories once an
   const answers={anime:'Alternate',song:'Song',artist:'Artist'};
   move(p.id,{type:'answer',index:0,field:'anime',answer:'wrong'});
   move(p.id,{type:'answer',index:0,field:'anime',answer:answers.anime});
+  assert.equal(p.answers.anime,'wrong','submitted fields require explicit unlock');
+  assert.deepEqual(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).submittedFields,['anime']);
+  move(p.id,{type:'unlock',index:0});assert.equal(p.field,null);assert.deepEqual(p.answers,{});
+  move(p.id,{type:'answer',index:0,field:'anime',answer:answers.anime});
   assert.equal(matchView(s,teammate.id,now).players.find(x=>x.id===p.id).answers.anime,'Alternate');
   assert.equal(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).answers,undefined);
   assert.equal(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).field,undefined);
@@ -95,7 +101,7 @@ test('matches preload all ten, share only team answers, score categories once an
   assert.equal(s.phase,'guess'); // Owners may revise until the deadline.
   const resumed=JSON.parse(JSON.stringify(s));assert.equal(matchView(resumed,p.id,now).players.find(x=>x.id===p.id).field,'anime');
   now=s.until;advanceMatch(s,now);
-  assert.equal(s.phase,'reveal');assert.deepEqual(s.teams,[3,3]);assert.ok(s.players.every(p=>p.score===1));
+  assert.equal(s.phase,'reveal');assert.throws(()=>move(p.id,{type:'unlock',index:0}),/no longer/);assert.deepEqual(s.teams,[3,3]);assert.ok(s.players.every(p=>p.score===1));
   assert.equal(matchView(s,p.id,now).songList.length,1);
   now=s.until;advanceMatch(s,now);assert.equal(s.index,1);assert.ok(s.players.every(p=>!p.field&&!Object.keys(p.answers).length));
   const copy=JSON.parse(JSON.stringify(s));advanceMatch(copy,now);assert.deepEqual(copy.teams,[3,3]);
@@ -111,6 +117,11 @@ test('one-team match handles full completion, a buffering timeout and departed p
     matchMove(s,s.players[1].id,{type:'reaction',index:i,field:'anime',value:'O'},now);
     assert.equal(matchView(s,s.players[0].id,now).players[1].reactions.anime,'O');
     assert.throws(()=>matchMove(s,s.players[1].id,{type:'reaction',index:i,field:'anime',value:'bad'},now),/valid/);
+    if(i===0){
+      matchMove(s,s.players[0].id,{type:'unlock',index:i},now);
+      assert.equal(s.players[1].reactions.anime,undefined);
+      matchMove(s,s.players[0].id,{type:'answer',index:i,field:'anime',answer:'Anime'},now);
+    }
     now=s.until;advanceMatch(s,now);
     now=s.until;advanceMatch(s,now);
   }
@@ -119,6 +130,7 @@ test('one-team match handles full completion, a buffering timeout and departed p
   const legacy=makeMatch('legacy','1-team',players.slice(0,3),songs,now);delete legacy.teamFields;
   legacy.phase='guess';legacy.startsAt=now;legacy.until=now+30000;
   for(const p of legacy.players)matchMove(legacy,p.id,{type:'answer',index:0,answers:{anime:'Anime',song:'Song',artist:'Artist'},lock:true},now);
+  assert.throws(()=>matchMove(legacy,legacy.players[0].id,{type:'unlock',index:0},now),/no longer/);
   assert.equal(legacy.phase,'reveal');assert.ok(legacy.players.every(p=>p.score===3));
   const timeout=makeMatch('timeout','1v1',players.slice(0,2),songs,now);advanceMatch(timeout,timeout.until);assert.equal(timeout.phase,'cancelled');
   const left=makeMatch('left','1v1',players.slice(0,2),songs,now);for(const p of left.players)matchMove(left,p.id,{type:'leave'},now);assert.equal(left.phase,'cancelled');

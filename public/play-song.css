@@ -130,3 +130,40 @@
 .sa-song-team.rivals .sa-player { text-align:right; }
 .sa-song-team.rivals .sa-player>strong { margin-left:0; margin-right:auto; }
 .sa-song-team .sa-player { min-height:40px; }
+
+/* Readiness, solo scorecards and reveal-only opponent answers. */
+.sa-ready-panel { display:grid;justify-items:center;gap:12px;padding:26px 16px;border:1px solid #b6e2c54d;border-radius:12px;background:#b6e2c508;text-align:center;margin:18px 0; }
+.sa-ready-panel h2 { margin:0;font-size:23px; }.sa-ready-panel p { margin:0;color:var(--muted);font-size:11px;line-height:1.6; }
+.sa-ready-panel .sa-ready-button { min-width:230px;min-height:52px;font-size:16px;box-shadow:0 4px 20px #b6e2c51a; }
+.sa-ready-wrap[hidden],.sa-live-answer-sides[hidden],#sa-answer-form[hidden],.sa-input-row>[hidden] { display:none; }
+.sa-game-actions { display:grid;grid-template-columns:repeat(2,auto);gap:8px;max-width:none;flex:none; }
+.sa-game-heading>div:first-child { min-width:0; }.sa-game-heading .sa-eyebrow { display:block;overflow-wrap:anywhere; }
+.sa-game-actions .sa-volume { grid-column:1/-1;width:auto;max-width:none;display:grid;grid-template-columns:auto minmax(45px,1fr) 34px;margin:0;gap:8px; }
+.sa-volume input { width:100%;min-width:0;max-width:none; }.sa-volume output { min-width:34px; }
+.sa-game-actions .button { white-space:nowrap; }
+.sa-song-player { display:flex;align-items:center;gap:10px;min-height:65px;padding:8px;border-radius:7px; }.sa-song-player.self { background:#b6e2c509; }
+.sa-song-player .ngmc-avatar { flex:none; }.sa-song-player-info { display:grid;gap:7px;min-width:0;flex:1;font-size:12px;overflow-wrap:anywhere; }
+.sa-song-player-info small { line-height:1.5; }.sa-player-points { display:grid;justify-items:end;gap:5px;flex:none; }
+.sa-song-team.rivals .sa-song-player { flex-direction:row-reverse;text-align:right; }.sa-song-team.rivals .sa-player-points { justify-items:start; }
+.sa-song-team.sa-solo header { gap:12px;min-height:48px; }.sa-solo header>span { overflow-wrap:anywhere;font-weight:650; }.sa-solo header small { display:block;margin-top:4px; }.sa-solo header>strong { flex:none; }
+.sa-round-score { color:#f28ba1;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap; }
+.sa-round-score[data-score="1"] { color:#f0b477; }.sa-round-score[data-score="2"] { color:#a8c7ff; }.sa-round-score[data-score="3"] { color:var(--mint); }
+.sa-live-answer-sides.is-versus,.sa-answer-sides { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:20px 0;align-items:start; }
+.sa-side-heading { display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;font-size:12px; }
+.sa-live-answer-sides.is-versus .sa-team-answer-tiles,.sa-answer-summary { display:grid;grid-template-columns:1fr;gap:8px;margin:0; }
+.sa-live-answer-sides.is-versus .sa-team-answer-tile,.sa-answer-summary .sa-team-answer-tile { display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px;align-items:center;min-height:83px;padding:12px; }
+.sa-live-answer-sides.is-versus .sa-team-answer-tile header,.sa-answer-summary .sa-team-answer-tile header { grid-area:auto; }
+.sa-live-answer-sides.is-versus .sa-team-answer-value,.sa-live-answer-sides.is-versus .sa-artist-list,.sa-answer-summary .sa-team-answer-value { grid-area:auto;min-height:0;font-size:13px; }
+.sa-answer-summary header small { color:var(--muted);font-size:10px;overflow-wrap:anywhere; }
+.sa-input-row:has([data-sa-add-artist]:not([hidden])) { grid-template-columns:minmax(0,1fr) auto auto; }
+.sa-match-outcome { font-size:24px;font-weight:650;text-align:center;margin:26px 0; }
+.sa-match-results { border:1px solid var(--border);border-radius:12px;background:var(--panel);overflow:hidden; }
+.sa-result-columns,.sa-match-results summary { display:grid;grid-template-columns:minmax(0,1fr) 85px 85px;align-items:center;gap:12px;padding:14px 18px;font-size:12px; }
+.sa-result-columns { color:var(--muted);font-size:10px; }.sa-match-results details { border-top:1px solid var(--border); }.sa-match-results summary { cursor:pointer;list-style:none; }.sa-match-results summary::-webkit-details-marker { display:none; }.sa-match-results summary>span { overflow-wrap:anywhere; }.sa-match-results summary small { color:var(--muted);margin-right:12px; }.sa-match-results summary>span::after { content:' ⌄';color:var(--muted); }
+.sa-match-results .sa-answer-sides { padding:0 18px; }.sa-result-key { margin:0;padding:0 18px;color:var(--muted);font-size:11px; }
+@media(max-width:700px){
+ .sa-song-player{gap:6px;flex-wrap:wrap;padding:6px}.sa-song-player-info{font-size:11px}.sa-song-player .ngmc-avatar{width:28px;height:28px}.sa-player-points{width:100%;display:flex;justify-content:space-between;align-items:center}.sa-song-team.rivals .sa-player-points{flex-direction:row-reverse}
+ .sa-live-answer-sides.is-versus,.sa-answer-sides{gap:9px}.sa-live-answer-sides.is-versus .sa-team-answer-tile,.sa-answer-summary .sa-team-answer-tile{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:10px;min-height:117px}.sa-team-answer-value{font-size:12px}.sa-side-heading{font-size:11px}
+ .sa-input-row:has([data-sa-add-artist]:not([hidden])){grid-template-columns:1fr 1fr}.sa-input-row:has([data-sa-add-artist]:not([hidden]))>.sa-combobox{grid-column:1/-1}.sa-input-row>.button{white-space:normal}
+ .sa-result-columns,.sa-match-results summary{grid-template-columns:minmax(0,1fr) 58px 58px;gap:8px;padding:12px}.sa-match-results .sa-answer-sides{padding:0 10px}.sa-solo header>strong{font-size:19px}
+}

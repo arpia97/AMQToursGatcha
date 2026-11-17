@@ -38,6 +38,9 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  matchMove(timed,locked.id,submit,2234);assert.equal(locked.lockedElapsedMs,1234);
  matchMove(timed,locked.id,submit,4567);assert.equal(locked.lockedElapsedMs,1234,'retry cannot change recorded lock time');
  assert.equal(matchView(timed,timed.players[1].id).players.find(p=>p.id===locked.id).lockedElapsedMs,1234);
+ matchMove(timed,locked.id,{type:'unlock',index:0},5000);assert.equal(locked.locked,false);assert.equal(locked.lockedElapsedMs,undefined);
+ assert.throws(()=>matchMove(timed,locked.id,{type:'unlock',index:1},5001),/no longer/);
+ matchMove(timed,locked.id,submit,6000);assert.equal(locked.lockedElapsedMs,5000,'relocking records the new server receipt');
  gradeRound(timed,21000);advanceMatch(timed,timed.until);assert.equal(locked.lockedElapsedMs,undefined,'new song clears lock time');
  const all=create();for(let i=0;i<35;i++){answer(all,()=>true);advanceMatch(all,all.until);}assert.equal(all.phase,'finished');assert.equal(all.history.length,35);assert.deepEqual(all.teams,[5,5]);
 });

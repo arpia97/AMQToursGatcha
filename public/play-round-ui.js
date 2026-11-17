@@ -1,0 +1,37 @@
+import {avatarCropStyle} from './avatar-crop.js';
+const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
+const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
+export const scoreBadge=(points,total=3)=>'<b class="sa-round-score" title="This Song" data-score="'+points+'">'+points+'/'+total+'</b>';
+export function songTeamsHTML(match,esc){
+  const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1',last=match.history.at(-1);
+  return '<div class="sa-team-list">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>{
+    const roster=match.players.filter(p=>p.team===team);
+    const title=solo?esc(roster[0].name)+(team===me.team?' <small>You</small>':' <small>Opponent</small>'):team===me.team?'Your Team':'Opponents';
+    return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'<small> / 60</small></strong></header>'+roster.map(p=>{
+      const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
+      const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Locked'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Locked · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
+      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned):'')+'<small>'+p.score+(solo?' Points':' Contributions')+'</small></strong></div>';
+    }).join('')+'</section>';
+  }).join('')+'</div>';
+}
+export function answerSideHTML(match,row,team,esc,animeTitle){
+  const roster=match.players.filter(p=>p.team===team),solo=match.format==='1v1';
+  return '<div class="sa-answer-summary">'+Object.entries(fields).map(([field,label])=>{
+    const result=row?.results.find(r=>roster.some(p=>p.id===r.id)&&(solo||Object.hasOwn(r.answers,field)));
+    const owner=row?roster.find(p=>p.id===result?.id):roster.find(p=>p.submittedFields?.includes(field));
+    const answer=result?.answers[field],correct=!!result?.correct[field];
+    return '<article class="sa-team-answer-tile" data-answer-state="'+(row?(correct?'correct':'incorrect'):owner?'pending':'')+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+(row?'<span aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓ ':'✕ ')+'</span>'+esc(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No Answer'):owner?'Locked':'Awaiting Submission')+'</div></article>';
+  }).join('')+'</div>';
+}
+export function versusHTML(match,row,esc,animeTitle){
+  const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1';
+  return '<div class="sa-answer-sides">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>'<section><h3 class="sa-side-heading">'+(solo?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
+}
+export function songResultsHTML(match,esc,animeTitle){
+  const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1';
+  return '<div class="sa-match-results"><div class="sa-result-columns"><span>Song</span><span>'+(solo?'You':'Your Team')+'</span>'+(match.teams.length>1?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(row.song)+'</span>'+scoreBadge(row.points?.[me.team]??0)+(match.teams.length>1?scoreBadge(row.points?.[1-me.team]??0):'')+'</summary><p class="sa-result-key">'+esc(animeTitle({anime:row.anime}))+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
+}
+export function readyHTML(match,canReady,ready,esc){
+  const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.audioReady).length;
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?'Waiting for Everyone':'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.audioReady).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p></section>';
+}

@@ -72,13 +72,14 @@ export class MatchReview {
     if(!['answer','artists'].includes(message.type))return;
     const player=state.players.find(p=>p.id===id);
     const answers=message.type==='artists'?{artist:Array.isArray(message.artists)?message.artists.slice(0,50).map(x=>String(x).slice(0,300)).join(', ').slice(0,3500):''}:message.field?{[String(message.field).slice(0,20)]:String(message.answer??message.artists?.join?.(', ')??'').slice(0,3500)}:Object.fromEntries(['anime','song','artist'].filter(f=>message.answers?.[f]!==undefined).map(f=>[f,String(message.answers[f]).slice(0,3500)]));
-    const accepted=!error&&!before.locked;
+    const alreadyLocked=before.locked||state.teamFields&&before.field&&before.field===message.field&&message.field!=='artist';
+    const accepted=!error&&!alreadyLocked;
     const final=accepted&&(state.teamFields&&message.type==='answer'||message.lock===true);
     const flags=final?decoyHits(state,player.answers,player.artists):[];
     this.add({...state,index:before.index,phase:before.phase},id,final?'submit':message.type==='artists'?'artist-edit':'answer-draft',{
       answers,accepted,locked:!!player?.locked,requestedRound:Number.isInteger(message.index)?message.index+1:null,
       elapsedMs:before.startsAt?at-before.startsAt:null,clientAt:Number.isFinite(message.clientAt)?message.clientAt:null,
-      ...(error?{error:error.status?error.message:'Request failed.'}:before.locked?{error:'Already locked; submission ignored.'}:{}),flags
+      ...(error?{error:error.status?error.message:'Request failed.'}:alreadyLocked?{error:'Already locked; submission ignored.'}:{}),flags
     },at);
   }
   round(state,at=Date.now()){

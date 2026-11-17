@@ -22,7 +22,7 @@ export function quizAnswerOptions(answers, query, limit = 20) {
       return { title, index, rank };
     })
     .filter((row) => row.rank < 3)
-    .sort((a, b) => a.rank - b.rank || a.index - b.index)
+    .sort((a, b) => a.title.length - b.title.length || a.title.localeCompare(b.title) || a.index - b.index)
     .slice(0, limit)
     .map((row) => row.title);
 }

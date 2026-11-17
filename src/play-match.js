@@ -44,12 +44,13 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='activity'){
         this.reviewLog.activity(state,input.who.id,input.message);return;
       }
-      const before={index:state.index,phase:state.phase,startsAt:state.startsAt,historyLength:state.history.length,locked:state.players.find(p=>p.id===input.who.id)?.locked},at=Date.now();
+      const before={index:state.index,phase:state.phase,startsAt:state.startsAt,historyLength:state.history.length,locked:state.players.find(p=>p.id===input.who.id)?.locked,field:state.players.find(p=>p.id===input.who.id)?.field},at=Date.now();
       let message=input.message;
       if(message.type==='loaded'){const indices=loadedRounds(state,message.indices);if(!indices)fail('Invalid download progress.');message={...message,indices};}
       let failure;
       try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
+      if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');

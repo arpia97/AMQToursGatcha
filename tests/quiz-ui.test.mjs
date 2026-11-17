@@ -351,13 +351,13 @@ function fixture(
     },
   };
 }
-test("title suggestions rank immediate prefix matches and normalize accents without dropping native titles", () => {
+test("title suggestions put shorter matching titles first and normalize accents without dropping native titles", () => {
   assert.deepEqual(
     quizAnswerOptions(
       ["My Hero Academia", "Boku no Hero Academia", "Bocchi the Rock!"],
       "bo",
     ),
-    ["Boku no Hero Academia", "Bocchi the Rock!"],
+    ["Bocchi the Rock!", "Boku no Hero Academia"],
   );
   assert.deepEqual(
     quizAnswerOptions(["Pokémon", "ぼっち・ざ・ろっく！"], "pokemon"),

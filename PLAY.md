@@ -14,17 +14,18 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   song-name variants are merged across that song's occurrences.
 - 30 seconds per song, following a shared 3-second countdown; reveal lasts
   5 seconds. In 1v1, everyone submitting early reveals early. Team-field owners
-  may revise until time expires. The server grades answers.
+  may cancel their submission and claim a field again until time expires. The server grades answers.
 - Each correct anime, song and artist gives one point. Teams can earn at most
   3 points per song / 60 per match. Each player also earns their own correct
   contribution count. In 3v3/1-Team, each player owns at most one field per song:
-  the first explicit submission claims it, only its owner may revise it until
-  the 30-second deadline, and no other teammate can submit that field. Claims
+  the first explicit submission claims it; cancel submission releases it to
+  teammates until the 30-second deadline. Anime/song edits require cancellation;
+  the artist owner can still add/remove individual members. Claims
   reset for the next song. 1v1 still lets each player answer all three fields.
 - Team modes show three shared answer rows and their owners beneath the countdown
   bar. 1-Team players can react to teammates’ answers with O, X, triangle or ?.
   Reactions reset each song and do not affect scoring. Opponents'
-  answers remain private until reveal. Locked 1v1 answers cannot change. Drafts
+  answers remain private until reveal. Submitted 1v1 answers require explicit cancellation to edit. Drafts
   already received at the deadline are scored; client timestamps are not trusted.
 - All players must download the first 10 songs and enable audio before starting.
   Remaining songs download in pairs in the background. If someone lacks the next
@@ -89,7 +90,17 @@ The original Quiz tab still uses its existing quiz transport and rewards.
 - Song List opens a dialog in every multiplayer mode. Only revealed tracks are
   included while playing; the complete selection is available after the match
   finishes or is cancelled. Existing Quiz song-list dialogs remain available.
-- Submit is the answer action; NGMC retains its immutable lock and early reveal.
+- Submit locks an answer; pressing the button again cancels it while guessing
+  remains open. An all-locked early reveal closes cancellation immediately.
+  Unlocks are recorded in host review; NGMC re-lock times use the new server receipt.
+- The prominent ready panel precedes the roster. Inputs stay hidden until all
+  players are ready; buffering hides them again. Volume shares Quiz's saved setting.
+- Song/Artist uses solo scorecards for 1v1 and mirrored team panels for 3v3.
+  Opponent submission status is public during guessing, answers only at reveal.
+  Results compare both sides per song with expandable answers and coloured scores.
+- Quiz/Play suggestions match words in either order without requiring commas,
+  and list shortest matching names first. All artist-map individuals and aliases
+  remain in the catalogue, including group members.
 - Matchmaking text is centered. Play and Quiz use the approved thin white audio
   loader, with actual progress when known and a preparation animation otherwise.
   Reduced-motion preferences disable the animation.

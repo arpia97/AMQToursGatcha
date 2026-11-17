@@ -1,6 +1,6 @@
 const labels={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 export function answerFieldsHTML(fields,team){
-  if(team)return '<div class="sa-personal-heading"><strong>Your Answer</strong><div class="sa-input-categories" role="group" aria-label="Answer category">'+fields.map(field=>'<button type="button" data-sa-input-field="'+field+'" aria-pressed="false">'+labels[field]+'</button>').join('')+'</div></div><div class="sa-personal-fields">'+fields.map(field=>'<div class="sa-input-row" data-sa-input-row="'+field+'" hidden><label for="sa-'+field+'" class="sr-only">'+labels[field]+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div></div><button type="button" class="button mint" data-sa-submit="'+field+'">Submit</button></div>').join('')+'</div>';
+  if(team)return '<div class="sa-personal-heading"><strong>Your Answer</strong><div class="sa-input-categories" role="group" aria-label="Answer category">'+fields.map(field=>'<button type="button" data-sa-input-field="'+field+'" aria-pressed="false">'+labels[field]+'</button>').join('')+'</div></div><div class="sa-personal-fields">'+fields.map(field=>'<div class="sa-input-row" data-sa-input-row="'+field+'" hidden><label for="sa-'+field+'" class="sr-only">'+labels[field]+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div></div>'+(field==='artist'?'<button type="button" class="button secondary" data-sa-add-artist hidden>Add Artist</button>':'')+'<button type="button" class="button mint" data-sa-submit="'+field+'">Submit</button></div>').join('')+'</div>';
   return fields.map(field=>'<div class="sa-answer-row"><label for="sa-'+field+'">'+labels[field]+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'</div>'+(field==='artist'?'<button type="button" class="button secondary sa-artist-add" data-sa-submit="artist">Add Artist</button>':'')+'</div>').join('');
 }
 export function teamAnswerTilesHTML(){
@@ -13,8 +13,9 @@ export function updateTeamFields(root,match,disabled,esc,selected='anime',animeT
   for(const field of ['anime','song','artist']){
     const owner=team.find(p=>p.field===field),input=root.querySelector('#sa-'+field),button=root.querySelector('[data-sa-submit="'+field+'"]');
     const unavailable=!!(me.field&&me.field!==field||owner&&owner.id!==me.id);
-    input.disabled=button.disabled=disabled||unavailable;
-    root.querySelector('[data-sa-owner="'+field+'"]').textContent=owner?owner.name+(owner.id===me.id?' · You':''):'Unclaimed';
+    button.disabled=disabled||unavailable;input.disabled=disabled||unavailable||!!(owner?.id===me.id&&field!=='artist');
+    if(field==='artist'){const add=root.querySelector('[data-sa-add-artist]');add.hidden=owner?.id!==me.id;add.disabled=disabled||unavailable;}
+    root.querySelector('[data-sa-owner="'+field+'"]').textContent=owner?owner.name+(owner.id===me.id?' · You':'')+(match.phase==='guess'?' · Locked':''):'Unclaimed';
     const row=root.querySelector('[data-sa-input-row="'+field+'"]'),choice=root.querySelector('[data-sa-input-field="'+field+'"]');
     row.hidden=selected!==field;choice.disabled=unavailable;choice.setAttribute('aria-pressed',String(selected===field));
     const value=root.querySelector('[data-sa-value="'+field+'"]');
@@ -24,7 +25,7 @@ export function updateTeamFields(root,match,disabled,esc,selected='anime',animeT
     value.classList.toggle('is-empty',!answer);
     const last=match.history.at(-1),result=last?.index===match.index&&['reveal','finished'].includes(match.phase)?last.results.find(p=>p.id===owner?.id):null;
     root.querySelector('[data-sa-tile="'+field+'"]').dataset.answerState=owner?(result?result.correct[field]?'correct':'incorrect':'pending'):'';
-    button.textContent=field==='artist'?'Add Artist':owner?.id===me.id?'Update':'Submit';
+    button.textContent=owner?.id===me.id?'Cancel Submission':'Submit';
     const reactions=root.querySelector('[data-sa-reactions="'+field+'"]');
     reactions.hidden=match.format!=='1-team';
     if(match.format==='1-team'){

@@ -64,7 +64,14 @@ export function matchMove(state,id,message,now=Date.now()) {
     if(!Array.isArray(message.indices)||message.indices.length>state.songs.length||message.indices.some(i=>!Number.isInteger(i)||i<0||i>=state.songs.length))fail('Invalid download progress.');
     player.loaded=[...new Set([...player.loaded,...message.indices])];
   } else if(message.type==='ready')player.ready=true;
-  else if(message.type==='artists') {
+  else if(message.type==='unlock') {
+    if(state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('This song is no longer accepting changes.',409);
+    player.locked=false;delete player.lockedElapsedMs;
+    if(state.teamFields&&player.field){
+      const field=player.field;player.field=null;player.answers={};delete player.artists;
+      for(const teammate of state.players)if(teammate.team===player.team&&teammate.reactions)delete teammate.reactions[field];
+    }
+  } else if(message.type==='artists') {
     if(state.mode==='ngmc-ranked'||state.teamFields||state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('Artist entries cannot be changed now.',409);
     if(player.locked)return;
     player.artists=submittedArtists(message.artists);player.answers.artist=player.artists.join(', ');
@@ -81,8 +88,9 @@ export function matchMove(state,id,message,now=Date.now()) {
       if(!FIELDS.includes(field)||artists===null&&(typeof message.answer!=='string'||!message.answer.trim()||message.answer.length>300)||artists&&!artists.length&&!player.field)fail('Submit one answer within 300 characters.');
       if(player.field&&player.field!==field)fail('You already claimed another field for this song.',409);
       if(state.players.some(p=>p.team===player.team&&p.id!==id&&p.field===field))fail('A teammate already claimed this field.',409);
+      if(player.field===field&&field!=='artist')return; // Unlock before replacing a submitted answer.
       player.field=field;player.answers={[field]:artists?artists.join(', '):message.answer.trim()};if(field==='artist')player.artists=artists||[message.answer.trim()];
-      return; // Claims stay editable by their owner until the shared deadline.
+      return; // Artist members remain editable; other fields require an explicit unlock.
     }
     // Locked answers are immutable and duplicate retries cannot score twice.
     if(player.locked)return;
@@ -100,5 +108,5 @@ export function matchView(state,id,now=Date.now()) {
     teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
     audioIndex:state.audioPool?state.audioPool.findIndex(s=>s.round===state.index):state.index,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist})):state.history.map(({index,anime,song,artist})=>({index,anime,song,artist})),
-    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
+    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(state.mode==='ngmc-ranked'?['anime']:FIELDS):[],...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }
