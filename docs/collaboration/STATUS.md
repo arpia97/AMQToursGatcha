@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## Completed — Quiz Transition Performance
+
+Recent Play commits did not change Quiz timing/answers; normal Quiz still used shared Game while Competitive alone used isolated sessions. Current UI now requests fastSession for normal starts/restarts too; same existing actor setup/auth/retry/reward path, Competitive remains the optional full-pool download. Older attempts retain transport. Next confirmation no longer disables Lock/Skip/suggestion keyboard handling: one queued answer pauses audio immediately and sends once after confirmation; retries cannot replace it. Cached WeakMap title indexes remove per-keystroke normalization/full sorting without changing shortest-title ordering. No score/credit migrations or future answer exposure.
+
+Full 530 tests, 284 syntax checks, dry-run and diff checks pass. Extended existing UI/runtime cases prove normal session routing, all 20 questions with zero shared Game SQL/housekeeping, private keys, immutable queued submission, late-answer protection, retry/restart and one-time reward settlement. Real Worker/browser at 1280/390, 4x CPU slowdown, compares pinned df0f5ac UI with 400ms simulated shared queue plus 1200ms Next-response delay: normal Next usable 1876/1894ms before vs 58/72ms after; answer reveal 898/861ms vs 103/95ms. Competitive Next 81/85ms; Play Quiz 72/79ms. Simulated figures, not live latency claims. Normal/Competitive/Play all pass queued Enter submissions, reload resume, stop and no page errors/overflow. Autocomplete 13,816-title benchmark retained identical results: 15.65ms/query before, .423ms cached after. Evidence work/quiz-perf-{focused,tests,check,build,browser,play-browser,deploy,ci}.log and {browser,play-browser,autocomplete}-proof.json.
+
+Runtime 5aa7c47 pushed/deployed to original Worker 1f628c4f-114a-475c-a0bb-cf7b9c60a0aa. Verify 44195148452 and demo 44195148781 passed. Both changed JS assets byte-match live; health 200, unauthenticated run/session 401; Gacha/Play Quiz lists render at 1280/390 without errors/overflow. No production attempts or proxy/Host deployment. Live proof work/quiz-perf-{live-proof,live-browser}.json. Ownership released.
+
 ## Completed — Play Footer Links
 
 Removed bottom-right Tours/Gacha footer links and their unused container CSS. Footer branding and sidebar navigation preserved. Source f306981 deployed to original Worker ebc82d28-f696-432d-ada9-9472467548db. Dry-run/diff checks and live browser at 1440/390 pass: no footer links, retained sidebar links/branding, no errors or overflow. Verify 44131621517 and demo 44131621331 succeeded. Evidence work/play-footer-{build,deploy,ci,demo}.log and live-proof.json. No gameplay/data changes or proxy deployment. Ownership released.

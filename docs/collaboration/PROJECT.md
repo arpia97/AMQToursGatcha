@@ -89,9 +89,9 @@ The owner-approved historical target-miss backfill is a one-time owner-operated 
 
 Both draw buttons warn if no target is saved. Normal XP random draws remain possible after review; bop requires a target. The one-time historical target-miss compensation bop-target-miss-backfill-2026-11-15-v1 completed on November 15: 337,310 bop XP across 122 players, excluding reset/reverted history. Never replay it; GET the owner receipt when auditing.
 
-## Competitive Quiz Session Path
+## Isolated Quiz Session Path
 
-New competitive runs preload pool audio and use one small SQLite QuizSession actor per run for ready/lock/reveal/Next. Game retains setup, resume, stop/restart and final transactional rewards. See QUIZ.md. Preserve QUIZ_SESSIONS / QuizSession and the additive v3-quiz-sessions migration alongside the original economy and QuizLibrary. Answers remain server-only until locked; this is online verification, not an encrypted offline answer key. Buffered Next may start locally before acknowledgment; all score/timing/reward authority stays on the server. Cookie-bound HMAC tickets are verified before routing to actors. Do not log tickets or secret keys. No past rewards/scores are changed.
+New normal and Competitive runs from the current UI use one small SQLite QuizSession actor per run for ready/lock/reveal/Next. Competitive additionally preloads the full pool; normal playback buffers as needed. Older runs keep their transport until restarted. Game retains setup, resume, stop/restart and final transactional rewards. See QUIZ.md. Preserve QUIZ_SESSIONS / QuizSession and the additive v3-quiz-sessions migration alongside the original economy and QuizLibrary. Answers remain server-only until locked; this is online verification, not an encrypted offline answer key. Buffered Next may start locally before acknowledgment; all score/timing/reward authority stays on the server. Cookie-bound HMAC tickets are verified before routing to actors. Do not log tickets or secret keys. No past rewards/scores are changed.
 
 ## November 15 Settings and UX Integration
 
