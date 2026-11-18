@@ -4,9 +4,16 @@ The `/play/song-artist` and `/play/ngmc-ranked` modes share the existing Gacha
 login. 2v2 Arena and Speed Showdown remain placeholders.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
+Play Rankings includes NGMC Ranked, Song/Artist 1v1, Song/Artist 3v3 and Quiz.
+Each column sorts the full leaderboard. Rank preserves a player's position in
+the default standings. Quiz average time uses timed personal bests on published
+quizzes, one per player and quiz.
+
 ## Song / Artist
 
 - Separate queues: 1v1 (2 people), 3v3 (6 people), 1-Team (3 people).
+  Cooperative 1-Team shows individual contributions and grants no Rating or
+  ranked ready-timeout penalties.
 - Queues match in arrival order; teams are randomly assigned. One active match
   per account. This release has no Elo, credit rewards or paid entry.
 - Each match selects 20 distinct recordings with verified MP3 audio. All players

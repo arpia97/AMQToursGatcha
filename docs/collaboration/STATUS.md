@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Play rankings and lobby actions — deployed
+
+Source `3bc8c3b` is live at 100% as `a668197e-2e31-41af-b055-09e742694951`. Column headers sort all ranked players before paging. Quiz averages each player's timed personal bests across published quizzes. Song/Artist 1-Team is unranked and its ready timeout cancels the match without a Rating deduction or leave strike.
+
+All 542 tests, syntax checks and the Worker dry run passed. Live Chrome checks verified both sort directions for Quiz average time, removal of the 1-Team selector, and top-right lobby actions in both modes at desktop and phone widths. Three matchmaking redesigns are local previews awaiting the owner's selection.
+
 ## Integrated Play catalogue — deployed
 
 Source `62790b2` deployed at 100% as `faad315b-e691-4b04-91ca-2ed0597b28d0`. The live Play catalogue reported 34,306 recordings eligible for audio verification, including 667 additional recordings from the sheet and 27 from published quizzes. The production catalogue used sheet version `master-e8df07b47bcb18c4` and quiz revision `fbbcd1bade12b050`. Both the direct Worker and amqtours.app returned the integrated catalogue after the Durable Objects completed their rollout.
