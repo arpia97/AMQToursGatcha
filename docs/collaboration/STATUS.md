@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Exact Fragment Suggestion Priority
+
+Added contiguous query-text ranking between complete-word and prefix matching. Queries ge r / enge r prefer both Masamune-kun Revenge R titles above the shorter base titles; Shana S complete-word ranking, word-order names and shortest-first ties remain. Shared helper changes suggestions only, no grading/timing/data changes. Existing 33 Quiz UI/Play tests, 285 syntax checks, dry-run/diff checks pass. Local browser at 1280/390 in both Gacha/Play Quiz and actual multiplayer search worker confirms Revenge R first without errors/overflow. Source dbf2bb23b684d7d96beac6890645b87ff3d7c319 deployed to original Worker b963a157-4c15-4c3e-ae05-c5f360e7f9c8. Changed asset byte-matches live; same-origin browser Quiz/multiplayer imports return both Revenge R alternatives first. Verify 44241070381 and demo 44241070373 passed. Evidence work/answer-fragment-{tests,check,build,browser,deploy,ci}.log, browser-proof.json and live-proof.json. No production attempts or Host/proxy deployment. Ownership released.
+
 ## Completed — Paid Special Card Packs
 
 Released Character and Seiyuu Special Card Packs at 3,000 credits for ten cards: nine unchanged premium draws plus one tier-weighted guaranteed S+ (S/SS/SSS/Ubers/AG 60/24/8/7/1%), uniform card within the selected tier/type. New paid purchase uses special:true, mutually exclusive with premium:true; ledger/receipt metadata distinguishes it from the legacy bonus gift. Empty guarantee tiers reject/roll back rather than weakening odds. Existing wallet/receipt/auto-sell/overflow and multi-pack behavior preserved. UI name Special Card Pack, type eyebrow, and only description “Guarantees one S and over.” Repeat purchase preserves Special selection/count/price. Demo parity and catalogue documentation updated. Settings advertise readiness before UI enables the product; default 3000 rows are additive/idempotent, no player migrations.
