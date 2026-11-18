@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Gacha host console and Broadcast Play layouts
+
+Source `c7fd61b` is live on the Gacha/Play Worker, version `858ebb5f-9612-4403-b479-3bf2dcbd606f` at 100%. The host console groups tools by task, preserves reward drafts when switching between tour batches, individual grants and deductions, and shows portraits repaired during the existing 15-day rarity scan. Custom Song/Artist and NGMC rooms and the Play rankings page use Broadcast layouts.
+
+All 543 tests passed. Local Chrome checks covered 1440px and 390px layouts, a 24-player reward review, catalogue and player controls, ranking sorts and mode selection, lobby creation, settings and leaving. Verified the public host, rankings and both multiplayer routes, the rankings API and all eight changed JavaScript/CSS assets. Local screenshots are in `outputs/host-play-ui-nov19` in the workspace.
+
 ## Gacha card portrait recovery
 
 Source `0be35e7` is deployed at 100% on Worker `406845dc-ed9b-4bfa-bf0a-dab6f4bebfc5`. A check of 480 live MAL card portraits found one confirmed 404, Akiba, Megumi. The repair updates the old URL in both catalogue representations. Future favourites refreshes check changed MAL URLs and preserve healthy alternate artwork. The browser also recovers failed portraits by card ID. Verified on the production Gacha page that two copies of the broken portrait made one lookup and both rendered at 450 × 700. All 543 tests passed.
