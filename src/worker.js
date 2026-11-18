@@ -473,7 +473,7 @@ export class Game extends DurableObject {
         return json(e.mutate("host:quiz-countdown", key, b, () => applyQuizCountdown(e, b)));
       }
       if (path === "host/paid-special-refunds") {
-        if (!post) return json({ buyers: paidSpecialRefundPlan(e) });
+        if (!post) return json({ buyers: paidSpecialRefundPlan(e, Number(url.searchParams.get("revision") || 1)) });
         const key = text(request.headers.get("Idempotency-Key"), 100);
         return json(e.mutate("host:paid-special-refunds", key, b, () => applyPaidSpecialRefund(e, b)));
       }

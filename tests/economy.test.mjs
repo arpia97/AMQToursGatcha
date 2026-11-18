@@ -5,6 +5,7 @@ import { SHOP_PRICES } from "../src/economy.js";
 import { Engine, WEEK } from "../src/engine.js";
 import { AliasSync, sheetPlayers } from "../src/aliases.js";
 import { applyPaidSpecialRefund, paidSpecialRefundPlan } from "../src/paid-special-refund.js";
+import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 
 test("numeric aliases stay separate from canonical player IDs", () => {
   const f = fixture(),
@@ -1205,22 +1206,31 @@ test("prior Special Pack refunds reverse only original copies and auto-sales and
   t.after(() => f.db.close());
   f.tick(Date.parse("2026-11-18T05:00:00Z") - e.now());
   const low = { id: "mal-character-1", rarity: "D" };
-  const high = { id: "mal-character-2", rarity: "S" };
+  const high = { id: "community-test-refund-s", rarity: "S" };
+  e.host("catalog", { cards: [{ id: high.id, kind: "character", name: "Refund Material", fixedRarity: "S" }] });
   e.addCard("buyer", high.id);
   e.run("UPDATE players SET autosell_below='S' WHERE id='buyer'");
   const buy = (key, revision) => e.mutate("buyer:pack", key, { special: true }, () => {
     e.wallet("buyer", -3000, "Special character pack");
-    return { ...e.grantPackPulls("buyer", [...Array(9).fill(low), high]),
+    const cards = revision ? [...Array(9).fill(low), high] : [...Array(8).fill(low), high, high];
+    return { ...e.grantPackPulls("buyer", cards),
       packType: "special", packCount: 1, cost: 3000, ...(revision && { specialPackRevision: revision }) };
   });
   const original = buy("old", 0);
   buy("new", 2);
   f.tick(10);
   f.act("buyer", "list-card", { venue: "shop", card: high.id, price: 500, variant: "extra" });
+  const refine = f.act("buyer", "alchemy-feed", { materials: [{ card: high.id, variant: "extra", expectedRarity: "S", expectedLevel: 1 }],
+    confirmed: true, expectedVersion: 0, enhancementRevision: ENHANCEMENT_REVISION });
   const plan = paidSpecialRefundPlan(e)[0];
   assert.deepEqual(plan.problems, []);
   assert.deepEqual(plan.orders.map(order => order.key), ["old"]);
-  assert.equal(plan.autoSaleCredits, 225);
+  assert.deepEqual(paidSpecialRefundPlan(e, 2)[0].orders.map(order => order.key), ["new"]);
+  assert.equal(plan.autoSaleCredits, 200);
+  assert.equal(plan.xpRecovery, refine.xpGained);
+  e.run("UPDATE card_alchemy SET xp=0 WHERE player='buyer'");
+  assert.ok(paidSpecialRefundPlan(e)[0].problems.includes("Refinement XP was spent and needs review"));
+  e.run("UPDATE card_alchemy SET xp=? WHERE player='buyer'", refine.xpGained);
   const body = { plan };
   const refund = key => e.mutate("host:paid-special-refunds", key, body, () => applyPaidSpecialRefund(e, body));
   const sale = original.cards[0].autoSoldId;
@@ -1229,10 +1239,12 @@ test("prior Special Pack refunds reverse only original copies and auto-sales and
   e.run("UPDATE pack_auto_sales SET cancelled=0 WHERE id=?", sale);
   const before = e.player("buyer").balance;
   assert.equal(refund("apply").refund, 3000);
-  assert.equal(refund("apply").copiesRemoved, 1);
+  assert.equal(refund("apply").copiesRemoved, 2);
+  assert.equal(refund("apply").xpRecovered, refine.xpGained);
   assert.equal(refund("apply").listingsCancelled, 1);
   assert.equal(e.one("SELECT status FROM market_listings").status, "cancelled");
-  assert.equal(e.player("buyer").balance - before, 2775);
+  assert.equal(e.player("buyer").balance - before, 2800);
+  assert.deepEqual({ ...e.economy.alchemy.read("buyer") }, { xp: 0, refinements: 0, version: 2 });
   assert.equal(e.one("SELECT copies FROM inventory WHERE player='buyer' AND card=?", high.id).copies, 2);
   assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 9);
   assert.equal(paidSpecialRefundPlan(e)[0].orders.length, 0);
