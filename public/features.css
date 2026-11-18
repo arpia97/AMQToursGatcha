@@ -5447,6 +5447,10 @@ dialog.avatar-editor-modal {
   gap: 8px;
   font-size: 13px;
 }
+.quiz-competitive-help {
+  padding:0; border:0; border-bottom:1px dotted var(--muted); border-radius:0;
+  background:none; color:inherit; font:inherit; cursor:help;
+}
 .quiz-competitive input,
 .trade-wishlist-filter input {
   width: auto;

@@ -397,11 +397,13 @@ export function createQuizUI({
     ).join("") +
     "</select></label>";
   const competitiveControl = () =>
-    '<label class="quiz-competitive"><input id="quiz-competitive" type="checkbox" ' +
+    '<div class="quiz-competitive"><input id="quiz-competitive" type="checkbox" aria-label="Competitive" ' +
     (competitive ? "checked" : "") +
     " " +
     (working || preparing ? "disabled" : "") +
-    ">Competitive</label>";
+    '><button type="button" class="quiz-competitive-help" data-detail-popup="' +
+    e("Competitive preloads the entire song pool before starting. Audio stays in this tab until it is closed or reloaded.") +
+    '" aria-expanded="false">Competitive</button></div>';
   function downloadHTML() {
     return preparing
       ? '<section class="quiz-download" role="status"><strong>Loading Quiz Audio…</strong>' +
@@ -427,7 +429,7 @@ export function createQuizUI({
     label +
     "</button>" +
     competitiveControl() +
-    '</div><p class="form-hint">Competitive preloads the entire song pool before starting. Audio stays in this tab until it is closed or reloaded.</p>' +
+    '</div>' +
     downloadHTML() +
     '<p class="form-error" id="quiz-inline-error" role="alert">' +
     e(errorMessage) +
