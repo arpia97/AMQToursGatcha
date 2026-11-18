@@ -366,6 +366,12 @@ test("title suggestions put shorter matching titles first and normalize accents 
   assert.deepEqual(quizAnswerOptions(["ぼっち・ざ・ろっく！"], "ぼっち"), [
     "ぼっち・ざ・ろっく！",
   ]);
+  const shana=["Shakugan no Shana","Burning-Eyed Shana","Shakugan no Shana S"];
+  assert.deepEqual(quizAnswerOptions(shana,"shana s"),["Shakugan no Shana S","Shakugan no Shana","Burning-Eyed Shana"]);
+  assert.deepEqual(quizAnswerOptions(shana,"s shana",1),["Shakugan no Shana S"]);
+  assert.deepEqual(quizAnswerOptions(["Shana Special","Shakugan no Shana S"],"shana s"),["Shakugan no Shana S","Shana Special"]);
+  assert.deepEqual(quizAnswerOptions(["Shana S","Shakugan no Shana S"],"shana s"),["Shana S","Shakugan no Shana S"]);
+  assert.deepEqual(quizAnswerOptions(["Manaka Iwami","Iwami Manaka Longer"],"iwami manaka"),["Manaka Iwami","Iwami Manaka Longer"]);
   const bank=["Iwami, Manaka Long Alias","Manaka Iwami"];
   assert.deepEqual(quizAnswerOptions(bank,"iwami manaka"),["Manaka Iwami","Iwami, Manaka Long Alias"]);
   bank.push("Iwami");assert.deepEqual(quizAnswerOptions(bank,"iwami",1),["Iwami"]);

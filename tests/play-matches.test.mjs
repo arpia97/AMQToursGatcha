@@ -41,6 +41,11 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.deepEqual(searchAnswers(index,'artist','iwami',1),['Iwami']);
   assert.ok(library.names.includes('Éir Aoi')); // Individual group members remain selectable.
   assert.equal(searchAnswers(index,'song','song').length,20);
+  const shana=answerSearchIndex({anime:['Shakugan no Shana','Burning-Eyed Shana','Shakugan no Shana S']});
+  assert.deepEqual(searchAnswers(shana,'anime','shana s'),['Shakugan no Shana S','Shakugan no Shana','Burning-Eyed Shana']);
+  assert.deepEqual(searchAnswers(shana,'anime','s shana',1),['Shakugan no Shana S']);
+  assert.deepEqual(searchAnswers(shana,'anime','shana',0),[]);
+
 });
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));
 const players=Array.from({length:6},(_,i)=>({id:String(i),name:'Player '+i}));

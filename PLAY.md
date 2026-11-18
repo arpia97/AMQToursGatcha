@@ -99,7 +99,8 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   Opponent submission status is public during guessing, answers only at reveal.
   Results compare both sides per song with expandable answers and coloured scores.
 - Quiz/Play suggestions match words in either order without requiring commas,
-  and list shortest matching names first. All artist-map individuals and aliases
+  and prefer exact/complete-word matches, then word prefixes and substrings;
+  shortest names come first within each relevance tier. All artist-map individuals and aliases
   remain in the catalogue, including group members.
 - Matchmaking text is centered. Play and Quiz use the approved thin white audio
   loader, with actual progress when known and a preparation animation otherwise.

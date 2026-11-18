@@ -119,3 +119,5 @@ November16 UI: Song List and recap anime labels open a fixed hover/focus/tap pop
 The host form checks Quiz Name against other quizzes already in the protected host index, across Singers/Composers and Draft/Published. Unicode width, letter case and repeated whitespace do not hide a match; the edited quiz itself is excluded. The warning updates while typing and during pool automod checks, and remains advisory so deliberate same-name category overlaps can still be saved. Song-title, audio-link and import checks are unchanged.
 
 Autocomplete reuses a WeakMap index of each bank’s normalized, shortest-first titles. Bank growth rebuilds the index; queries scan until 20 matches without re-normalizing or sorting every title for each keystroke.
+
+Quiz and multiplayer answer suggestions rank exact names first, then distinct complete query words, then word prefixes, then substring matches. Within the same relevance tier, shorter titles remain first. Word order and comma-free name search still work. For example, `shana s` prefers `Shakugan no Shana S` over the shorter `Shakugan no Shana`. Matching ranks suggestions only; grading still uses saved accepted answers.
