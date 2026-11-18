@@ -27,11 +27,11 @@ function createMobileNavigation({ bottom, groups, route, brand, secondary, prefe
   const media = matchMedia('(max-width:850px)');
   const icon = path => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${path}"/></svg>`;
   const brandLink = document.createElement('a');
-  brandLink.className = 'mobile-brand'; brandLink.href = brand.href;
+  brandLink.className = 'mobile-brand amq-wordmark amq-wordmark--compact'; brandLink.href = brand.href;
   const logo = document.createElement('img'); logo.src = brand.logo; logo.alt = '';
   logo.width = 26; logo.height = 26;
   Object.assign(logo.style, {width:'26px',height:'26px',maxWidth:'26px',maxHeight:'26px',flexShrink:'0',objectFit:'contain'});
-  brandLink.append(logo, document.createTextNode('AMQ TOURS'));
+  brandLink.append(logo, document.querySelector('.sidebar .brand > span').cloneNode(true));
   document.querySelector('.topbar').prepend(brandLink);
   const nav = document.createElement('nav'); nav.className = 'mobile-nav'; nav.setAttribute('aria-label', 'Mobile navigation');
   const more = document.createElement('button'); more.type = 'button'; more.id = 'mobile-more';

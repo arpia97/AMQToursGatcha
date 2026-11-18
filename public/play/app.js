@@ -66,6 +66,34 @@ async function refreshAccount() {
   catch (error) { accountError = error.message; }
   header();
 }
+const multiplayerRoot = document.createElement('div');
+const queueLabels = {'ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
+const modeForQueue = format => format.startsWith('ngmc-') ? 'ngmc-ranked' : 'song-artist';
+const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
+let currentQueue;
+function savedQueue(){
+  try{const value=sessionStorage.getItem(queueKey());return Object.hasOwn(queueLabels,value)?value:null;}catch{return null;}
+}
+function showQueue(status){
+  const box=$('#play-current-queue'),format=status?.format;
+  if(currentQueue?.format!==format&&state.me){
+    try{if(format)sessionStorage.setItem(queueKey(),format);else sessionStorage.removeItem(queueKey());}catch{}
+  }
+  const wasQueued=!!currentQueue;
+  currentQueue=status;
+  box.hidden=!format;
+  if(!format){
+    if(wasQueued&&!multiplayerRoot.isConnected)queueMicrotask(()=>{
+      if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'))songArtist?.leave();
+    });
+    return;
+  }
+  $('#play-queue-mode').textContent=queueLabels[format];
+  const text=!status.connected?'Reconnecting…':status.type==='matched'?'Match found':status.type==='queued'?
+    'In queue · '+status.waiting+' / '+status.needed:'Joining queue…';
+  if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;
+  box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||status.type==='matched';
+}
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
@@ -73,11 +101,15 @@ const loadMultiplayer = loadOnce(async () => {
     import("../play-song-ui.js"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
-    root: $("#main"), apiBase, getPlayer: () => state.me, escape,
+    root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
     animeTitle: song => quizAnimeTitle(song, titleMode), prepareTitles: loadQuizTitleDisplay,
-    onError: fail,
+    onError: fail, onQueueChange: showQueue,
     onMatchMode(id) {
-      if (mode !== id) {
+      if (mode !== id || !multiplayerRoot.isConnected) {
+        viewVersion++;
+        if(mode==='quiz')quiz?.leave();
+        $('#modal').close();
+        $('#main').replaceChildren(multiplayerRoot);
         mode = id;
         history.replaceState(null, "", playHref(id));
         nav();
@@ -112,6 +144,14 @@ function renderQuiz({ questionOnly = false } = {}) {
     if (input && !input.disabled) { input.focus({ preventScroll: true }); if (input.setSelectionRange && focus.start !== null) { try { input.setSelectionRange(focus.start, focus.end); } catch {} } }
   }
 }
+async function resumeBackgroundQueue(version){
+  await accountReady;
+  if(version!==viewVersion||!state.me||songArtist?.waiting())return;
+  const saved=savedQueue();
+  if(!saved)return;
+  const multiplayer=await loadMultiplayer();
+  if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved),saved);
+}
 async function openMode(id, push = true) {
   const requested = PLAY_MODES.find(item => item.id === id);
   if (!requested) return;
@@ -128,12 +168,13 @@ async function openMode(id, push = true) {
   }
   const version = ++viewVersion;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
-  if (mode !== "quiz") songArtist?.leave();
+  if (!songArtist?.waiting()) songArtist?.leave();
   mode = id;
   if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
   $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":"Loading Matchmaking…") + '</p>';
   try {
+    if(id==='rankings'||id==='quiz')resumeBackgroundQueue(version).catch(fail);
     if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage;
       const [{rankingsHTML},data] = await Promise.all([import("../play-rankings.js"),api(path)]);
@@ -146,7 +187,10 @@ async function openMode(id, push = true) {
       if (version === viewVersion) renderQuiz();
     } else {
       const [, multiplayer] = await Promise.all([accountReady, loadMultiplayer()]);
-      if (version === viewVersion) multiplayer.enter(id);
+      if (version === viewVersion){
+        $('#main').replaceChildren(multiplayerRoot);
+        multiplayer.enter(id,state.me?savedQueue():null);
+      }
     }
   } catch (error) {
     if (version !== viewVersion) return;
@@ -163,6 +207,8 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button"); if (!button) return;
   try {
     const action = button.dataset.action;
+    if(action==='view-queue'&&currentQueue){await openMode(modeForQueue(currentQueue.format));return;}
+    if(action==='leave-queue'){songArtist?.cancelQueue();return;}
     if(mode==="rankings" && button.hasAttribute("data-rank-page")){
       rankingPage=Number(button.dataset.rankPage);
       await openMode(mode,false);
@@ -175,7 +221,7 @@ document.addEventListener("click", async (event) => {
     else if (action === "retry-mode") await openMode(mode, false);
     else if (action === "logout") {
       if(songArtist&&!songArtist.confirmNavigation())return;
-      await api("logout", {}); songArtist?.leave(); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked"].includes(mode)) await openMode(mode, false);
+      await api("logout", {}); songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked"].includes(mode)) await openMode(mode, false);
     } else if (mode === "quiz" && quiz && $("#main").contains(button)) await quiz.click(button);
   } catch (error) { fail(error); }
 });
@@ -222,5 +268,5 @@ document.addEventListener("focusin", (event) => { if (mode === "quiz" && event.t
 window.addEventListener("beforeunload",event=>{
   if(songArtist?.rankedAtRisk()){event.preventDefault();event.returnValue="";}
 });
-window.addEventListener("pagehide", () => { viewVersion++; quiz?.leave(); songArtist?.leave(); });
+window.addEventListener("pagehide", () => { viewVersion++; quiz?.leave(); songArtist?.leave({preserveQueue:true}); });
 window.addEventListener('pageshow',event=>{if(event.persisted)openMode(mode,false);});

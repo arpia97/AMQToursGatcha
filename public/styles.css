@@ -126,30 +126,7 @@ p {
   padding: 32px 20px 22px;
   z-index: 5;
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 800;
-  letter-spacing: 1.5px;
-  font-size: 13px;
-  margin: 0 8px 46px;
-}
-.brand small {
-  display: block;
-  font-size: 9px;
-  letter-spacing: 3px;
-  margin-top: 5px;
-  font-weight: 600;
-}
-.brand-mark {
-  display: block;
-  flex-shrink: 0;
-  width: 43px;
-  height: 43px;
-  border-radius: 13px;
-  object-fit: contain;
-}
+.brand { display: flex; margin: 0 8px 46px; }
 nav {
   display: flex;
   flex-direction: column;

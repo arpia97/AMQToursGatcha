@@ -27,8 +27,7 @@
  .sidebar{display:none}.workspace{margin-left:0;padding-bottom:0}
  .topbar{position:sticky;top:0;z-index:20;height:64px;min-height:64px;padding:0 16px;background:#101117f5;backdrop-filter:blur(12px);flex-wrap:nowrap}
  .topbar>div:not(.top-actions){display:none}
- .mobile-brand{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:750;letter-spacing:-.3px;white-space:nowrap}
- .mobile-brand img{width:26px;height:26px;object-fit:contain}
+ .mobile-brand{display:flex}
  .top-actions{gap:12px;margin-left:auto;flex-wrap:nowrap}
  .wallet{padding:7px 10px;font-size:12px;gap:6px}.wallet>span:last-child{display:none}
  #account{width:36px;height:36px;min-width:36px;overflow:visible}
