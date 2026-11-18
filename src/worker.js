@@ -1,5 +1,6 @@
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
+import { paidSpecialRefundPlan, applyPaidSpecialRefund } from "./paid-special-refund.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
@@ -315,7 +316,8 @@ export class Game extends DurableObject {
     const friendsRead = path === "friends" && !post;
     const playRead = ["play-state", "play-connect"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && path !== "host/quiz-countdown" && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
+    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -410,6 +412,7 @@ export class Game extends DurableObject {
       if (
         [
           "host/quiz-countdown",
+          "host/paid-special-refunds",
           "host/quiz-retirement-preview",
           "host/quiz-retirement",
           "host/quiz-retirement-receipt",
@@ -465,9 +468,14 @@ export class Game extends DurableObject {
         );
       }
       if (path === "host/quiz-countdown") {
-        if (!post) return json(quizCountdownPlan(e, integer(url.searchParams.get("after") || 0, 0)));
+        if (!post) return json(quizCountdownPlan(e, integer(Number(url.searchParams.get("after") || 0), 0)));
         const key = text(request.headers.get("Idempotency-Key"), 100);
         return json(e.mutate("host:quiz-countdown", key, b, () => applyQuizCountdown(e, b)));
+      }
+      if (path === "host/paid-special-refunds") {
+        if (!post) return json({ buyers: paidSpecialRefundPlan(e) });
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        return json(e.mutate("host:paid-special-refunds", key, b, () => applyPaidSpecialRefund(e, b)));
       }
       if (path === "host/quiz-retirement-preview" && !post)
         return json(e.tx(() => quizRetirementPreview(e)));

@@ -1,3 +1,4 @@
+import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import {installTitleMotion} from "./title-motion.js";
 const titleMotion = installTitleMotion();
 import {installMobileNavigation} from "./mobile-navigation.js";
@@ -1370,7 +1371,7 @@ function daily() {
 }
 function specialPackPanel(kind){
   const price=state.settings['special_'+kind+'_price'];if(!price)return '';
-  return `<article class="pack-panel ${kind} special-paid"><span class="eyebrow">${kind==='character'?'Characters':'Seiyuus'}</span><h3>Special Card Pack</h3><p>Guarantees one S and over.</p>${btn('<span class="coin">✦</span> '+number(price)+' <span>· Open pack →</span>','pack',`data-kind="${kind}" data-special="true"`,'secondary')}<div class="pack-object" aria-hidden="true">✦<span class="pack-caption">${kind==='character'?'CHARACTER':'SEIYUU'} / 10</span></div></article>`;
+  return `<article class="pack-panel ${kind} special-paid"><span class="eyebrow">${kind==='character'?'Characters':'Seiyuus'}</span><h3>Special Card Pack</h3><p>${SPECIAL_PACK_DESCRIPTION}</p>${btn('<span class="coin">✦</span> '+number(price)+' <span>· Open pack →</span>','pack',`data-kind="${kind}" data-special="true"`,'secondary')}<div class="pack-object" aria-hidden="true">✦<span class="pack-caption">${kind==='character'?'CHARACTER':'SEIYUU'} / 10</span></div></article>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
@@ -3902,7 +3903,7 @@ async function handleFeatureClick(a, t) {
             ? Math.min(maxAffordable, Math.max(1, Number(t.dataset.count) || 1))
             : 0;
       modal(
-        `<h2>${special ? "Special Card Pack" : premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>${special ? "Guarantees one S and over." : `Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}`}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${special?'<input type="hidden" name="special" value="true">':''}${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}${special?'':'<p class="form-hint">5 cards per pack.</p>'}<div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
+        `<h2>${special ? "Special Card Pack" : premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>${special ? SPECIAL_PACK_DESCRIPTION : `Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}`}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${special?'<input type="hidden" name="special" value="true">':''}${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}${special?'':'<p class="form-hint">5 cards per pack.</p>'}<div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
       );
       return true;
     }

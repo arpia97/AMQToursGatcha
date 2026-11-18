@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { premiumPool, drawPremium, specialPool, drawSpecialGuaranteed, drawSpecialPack } from "../public/pack-odds.js";
+import { premiumPool, drawPremium, specialPool, drawSpecialPack } from "../public/pack-odds.js";
 
 test("premium exactly doubles every S-through-AG card, funding it only from D", () => {
   const cards = [
@@ -50,13 +50,17 @@ test("premium works with Pending cards, permits all-D mass to be reassigned, and
 });
 
 
-test('paid Special packs preserve nine premium draws and exactly weight the guaranteed S-and-over slot',()=>{
-  const cards=[...Array(10).fill('D'),'A','S','SS','SSS','Ubers','AG'].map((rarity,i)=>({id:String(i),rarity})),pool=specialPool(cards),counts={};
-  for(let roll=0;roll<100;roll++){const rolls=[roll,0],card=drawSpecialGuaranteed(pool,()=>rolls.shift());counts[card.rarity]=(counts[card.rarity]||0)+1;}
-  assert.deepEqual(counts,{S:60,SS:24,SSS:8,Ubers:7,AG:1});
-  const rng=()=>{let n=0;return max=>(n++*71)%max;},a=rng(),b=rng();
-  const expected=Array.from({length:9},()=>drawPremium(pool.premium,a));const result=drawSpecialPack(pool,b);
-  assert.deepEqual(result.slice(0,9),expected);assert.equal(result.length,10);assert.ok(['S','SS','SSS','Ubers','AG'].includes(result[9].rarity));
-  assert.throws(()=>specialPool(cards.filter(c=>c.rarity!=='AG')),/every S-and-over/);
-  const multi=specialPool([...cards,{id:'second-S',rarity:'S'}]);assert.equal(drawSpecialGuaranteed(multi,max=>max===100?0:1).id,'second-S');
+test("paid Special packs include four normal, four premium and two guaranteed S draws", () => {
+  const cards = ["D", "D", "D", "D", "S", "SS", "S"].map((rarity, i) => ({ id: i, rarity }));
+  const pool = specialPool(cards);
+  // D draws stay D in the normal slots and redirect to SS in the premium slots.
+  const rolls = [0, 1, 2, 3, ...Array(4).fill([0, 0, 1]).flat(), 0, 1];
+  const result = drawSpecialPack(pool, max => {
+    const roll = rolls.shift();
+    assert.ok(roll >= 0 && roll < max);
+    return roll;
+  });
+  assert.deepEqual(result.map(c => c.id), [0, 1, 2, 3, 5, 5, 5, 5, 4, 6]);
+  assert.deepEqual(rolls, []);
+  assert.throws(() => specialPool(cards.filter(c => c.rarity !== "S")), /the S pool is empty/);
 });

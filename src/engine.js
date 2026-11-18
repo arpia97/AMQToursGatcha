@@ -499,6 +499,7 @@ export class Engine {
         cards: outcome.cards,
         packCount: count,
         packType:special?'special':premium?'premium':'normal',
+        ...(special ? { specialPackRevision: SPECIAL_PACK_RULE.revision } : {}),
         cardsPerPack:special?SPECIAL_PACK_RULE.cards:5,
         cost: price * count,
         autoSoldCount: outcome.autoSoldCount,

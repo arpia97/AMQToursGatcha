@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { SHOP_PRICES } from "../src/economy.js";
 import { Engine, WEEK } from "../src/engine.js";
 import { AliasSync, sheetPlayers } from "../src/aliases.js";
+import { applyPaidSpecialRefund, paidSpecialRefundPlan } from "../src/paid-special-refund.js";
 
 test("numeric aliases stay separate from canonical player IDs", () => {
   const f = fixture(),
@@ -1186,15 +1187,50 @@ test('paid Special packs charge 3000 per ten cards, keep each type/guarantee, re
   assert.equal(e.state('buyer').settings.special_character_price,3000);assert.equal(e.state('buyer').settings.special_seiyuu_price,3000);
   const purchase={kind:'character',special:true,count:1,price:1};
   const first=f.act('buyer','pack',purchase,'paid-special-once');assert.equal(first.cost,3000);assert.equal(first.cards.length,10);assert.equal(first.cardsPerPack,10);assert.equal(first.packType,'special');
-  assert.ok(first.cards.every(c=>c.kind==='character'));assert.equal(first.cards[9].rarity,'S');assert.equal(e.player('buyer').balance,7000);
+  assert.ok(first.cards.every(c=>c.kind==='character'));assert.deepEqual(first.cards.slice(8).map(c=>c.rarity),['S','S']);assert.equal(first.specialPackRevision,2);assert.equal(e.player('buyer').balance,7000);
   assert.deepEqual(f.act('buyer','pack',purchase,'paid-special-once'),first);assert.equal(e.player('buyer').balance,7000);
   assert.throws(()=>f.act('buyer','pack',{...purchase,kind:'seiyuu'},'paid-special-once'),/used/);
-  const two=f.act('buyer','pack',{kind:'seiyuu',special:true,count:2});assert.equal(two.cards.length,20);assert.equal(two.cost,6000);assert.ok(two.cards.every(c=>c.kind==='seiyuu'));assert.equal(two.cards[9].rarity,'S');assert.equal(two.cards[19].rarity,'S');assert.equal(e.player('buyer').balance,1000);
+  const two=f.act('buyer','pack',{kind:'seiyuu',special:true,count:2});assert.equal(two.cards.length,20);assert.equal(two.cost,6000);assert.ok(two.cards.every(c=>c.kind==='seiyuu'));assert.deepEqual([8,9,18,19].map(i=>two.cards[i].rarity),['S','S','S','S']);assert.equal(e.player('buyer').balance,1000);
   for(const body of [{...purchase,premium:true},{...purchase,special:'true'},{...purchase,kind:'both'},{...purchase,count:0},{...purchase,count:101}])assert.throws(()=>f.act('buyer','pack',body));
   assert.throws(()=>f.act('buyer','pack',purchase),/enough/);assert.equal(e.player('buyer').balance,1000);
   e.run("UPDATE players SET balance=3000,autosell_below='S' WHERE id='buyer'");
-  const sold=f.act('buyer','pack',purchase);assert.equal(sold.autoSoldCount,9);assert.equal(sold.autoSoldCredits,1800);assert.equal(sold.cards.filter(c=>c.autoSold).length,9);assert.equal(sold.cards[9].autoSold,false);assert.equal(e.player('buyer').balance,1800);
+  const sold=f.act('buyer','pack',purchase);assert.equal(sold.autoSoldCount,8);assert.equal(sold.autoSoldCredits,1600);assert.equal(sold.cards.filter(c=>c.autoSold).length,8);assert.equal(sold.cards[9].autoSold,false);assert.equal(e.player('buyer').balance,1600);
   assert.equal(e.one('SELECT count(*) AS n FROM special_packs').n,0,'paid packs never issue or consume the one-time bonus gift');
   const pool=e.catalogStore.pool;e.catalogStore.pool=()=>({cards:Array.from({length:6},(_,i)=>({id:String(i),rarity:'D'}))});e.run("UPDATE players SET balance=5000 WHERE id='buyer'");
-  assert.throws(()=>f.act('buyer','pack',purchase),/every S-and-over/);assert.equal(e.player('buyer').balance,5000);e.catalogStore.pool=pool;
+  assert.throws(()=>f.act('buyer','pack',purchase),/the S pool is empty/);assert.equal(e.player('buyer').balance,5000);e.catalogStore.pool=pool;
+});
+
+test("prior Special Pack refunds reverse only original copies and auto-sales and cannot repeat", t => {
+  const f = fixture(), { e } = f;
+  t.after(() => f.db.close());
+  f.tick(Date.parse("2026-11-18T05:00:00Z") - e.now());
+  const low = { id: "mal-character-1", rarity: "D" };
+  const high = { id: "mal-character-2", rarity: "S" };
+  e.addCard("buyer", high.id);
+  e.run("UPDATE players SET autosell_below='S' WHERE id='buyer'");
+  const buy = (key, revision) => e.mutate("buyer:pack", key, { special: true }, () => {
+    e.wallet("buyer", -3000, "Special character pack");
+    return { ...e.grantPackPulls("buyer", [...Array(9).fill(low), high]),
+      packType: "special", packCount: 1, cost: 3000, ...(revision && { specialPackRevision: revision }) };
+  });
+  const original = buy("old", 0);
+  buy("new", 2);
+  const plan = paidSpecialRefundPlan(e)[0];
+  assert.deepEqual(plan.problems, []);
+  assert.deepEqual(plan.orders.map(order => order.key), ["old"]);
+  assert.equal(plan.autoSaleCredits, 225);
+  const body = { plan };
+  const refund = key => e.mutate("host:paid-special-refunds", key, body, () => applyPaidSpecialRefund(e, body));
+  const sale = original.cards[0].autoSoldId;
+  e.run("UPDATE pack_auto_sales SET cancelled=1 WHERE id=?", sale);
+  assert.throws(() => refund("stale"), /changed or needs review/);
+  e.run("UPDATE pack_auto_sales SET cancelled=0 WHERE id=?", sale);
+  const before = e.player("buyer").balance;
+  assert.equal(refund("apply").refund, 3000);
+  assert.equal(refund("apply").copiesRemoved, 1);
+  assert.equal(e.player("buyer").balance - before, 2775);
+  assert.equal(e.one("SELECT copies FROM inventory WHERE player='buyer' AND card=?", high.id).copies, 2);
+  assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 9);
+  assert.equal(paidSpecialRefundPlan(e)[0].orders.length, 0);
+  assert.throws(() => refund("duplicate"), /changed or needs review/);
 });

@@ -1,3 +1,4 @@
+import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { routeHref } from "./site-navigation.js";
 import { rarityRank, rarityClass } from "./card-display.js";
 import { collectorsButton } from "./card-collectors.js";
@@ -104,7 +105,7 @@ export function createPackReveal({
     )[0];
     const tier = rarityClass(best?.rarity);
     modal(
-      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.special ? "SPECIAL BONUS PACK" : pack.paidSpecial ? "SPECIAL CARD PACK" : pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>${pack.special ? "A Special Gift For You." : pack.paidSpecial ? "Special Card Pack" : "A Little Light. A New Favourite."}</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your ${result.cards.length} cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">${pack.special ? "Your 5 special cards (1 AG guaranteed!) are waiting." : pack.paidSpecial ? "Guarantees one S and over." : result.autoSoldCount > 0 ? `${number(result.cards.length - result.autoSoldCount)} cards added to your collection · ${number(result.autoSoldCount)} auto-sold (+✦ ${number(result.autoSoldCredits)}).` : `Your ${result.cards.length} cards are already safely in your collection.`}</p>${creditsLeftMarkup(result)}<button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
+      `<section class="pack-cinematic aura-${tier}">${motionControl()}<span class="eyebrow">${pack.special ? "SPECIAL BONUS PACK" : pack.paidSpecial ? "SPECIAL CARD PACK" : pack.daily ? "YOUR DAILY GIFT" : pack.premium ? "PREMIUM SUMMON" : "FIVE NEW POSSIBILITIES"}</span><h2>${pack.special ? "A Special Gift For You." : pack.paidSpecial ? "Special Card Pack" : "A Little Light. A New Favourite."}</h2><button class="sealed-pack" data-action="reveal-pack" aria-label="Reveal your ${result.cards.length} cards"><span class="pack-seal">✦</span><span>AMQ TOURS<br><strong>GATCHA</strong></span><small>TAP TO REVEAL</small></button><p class="form-hint">${pack.special ? "Your 5 special cards (1 AG guaranteed!) are waiting." : pack.paidSpecial ? SPECIAL_PACK_DESCRIPTION : result.autoSoldCount > 0 ? `${number(result.cards.length - result.autoSoldCount)} cards added to your collection · ${number(result.autoSoldCount)} auto-sold (+✦ ${number(result.autoSoldCredits)}).` : `Your ${result.cards.length} cards are already safely in your collection.`}</p>${creditsLeftMarkup(result)}<button class="text-button" data-action="reveal-pack">Skip animation · show cards →</button></section>`,
       true,
     );
   }

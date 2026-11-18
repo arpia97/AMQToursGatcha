@@ -936,5 +936,10 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     (await post("host/quiz-delete", { quiz: "test", confirmation: "DELETE QUIZ" }, host)).status,
     404,
   );
+  const countdown = "http://game/api/host/quiz-countdown?after=1";
+  assert.equal((await mf.dispatchFetch(countdown)).status, 401);
+  response = await mf.dispatchFetch(countdown, { headers: host });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { changes: [], verified: 0, missing: [], next: null });
 
 });
