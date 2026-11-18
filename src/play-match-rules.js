@@ -1,23 +1,27 @@
+import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
+import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn} from './play-lobby-votes.js';
 import { playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
 import {saveDraft,applyTimeoutDrafts} from './play-drafts.js';
-export const PLAY_FORMATS=Object.freeze({'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1}});
+export const PLAY_FORMATS=Object.freeze({'ngmc-3v3':{size:6,teams:2},'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1}});
 export const FIELDS=['anime','song','artist'];
 export const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
-export function makeMatch(id,format,players,songs,now=Date.now()) {
-  const rules=PLAY_FORMATS[format];
-  if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||songs.length!==(format==='ngmc-ranked'?35:20))fail('Invalid match setup.');
-  const ngmc=format==='ngmc-ranked';
+export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
+  const ngmc=['ngmc-ranked','ngmc-3v3'].includes(format);
+  const custom=lobby&&['lobby-team','lobby-ffa'].includes(format)&&players.length>=1&&players.length<=8;
+  const rules=custom?{size:players.length,teams:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
+  if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||songs.length!==(custom?lobby.songs:ngmc?35:20))fail('Invalid match setup.');
+
   let roster=[...players];
   for(let i=roster.length-1;i>0;i--){const x=new Uint32Array(1);crypto.getRandomValues(x);const j=x[0]%(i+1);[roster[i],roster[j]]=[roster[j],roster[i]];}
   if(ngmc)roster=balanceNgmc(roster);
   const samples=new Uint32Array(songs.length);crypto.getRandomValues(samples);
-  return {id,format,samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),mode:ngmc?'ngmc-ranked':'song-artist',...(ngmc?{counters:[null,null],counterDeadline:now+120000}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc?p.team:i%rules.teams,...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],ready:false,left:false,answers:{},locked:false}))};
+  return {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),mode:ngmc?'ngmc-ranked':'song-artist',...(ngmc?{counters:[null,null],counterDeadline:now+120000}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc?p.team:i%rules.teams,...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,answers:{},locked:false}))};
 }
 export function gradeRound(state,now) {
   if(state.phase!=='guess')return;
-  applyTimeoutDrafts(state);
+  if(state.format==='lobby-team')selectWinners(state);else applyTimeoutDrafts(state);
   if(state.mode==='ngmc-ranked'){gradeNgmc(state,now);return;}
   const song=state.songs[state.index],teamHits=state.teams.map(()=>new Set());
   const results=state.players.map(player=>{
@@ -34,27 +38,60 @@ export function gradeRound(state,now) {
 export function advanceMatch(state,now=Date.now()) {
   if(['finished','cancelled'].includes(state.phase))return;
   const ngmc=state.mode==='ngmc-ranked';
+  for(const p of state.players){
+    if(!p.left && p.disconnectedAt!=null && now>=p.disconnectedAt+RECONNECT_MS && activeRankedGame(state,now)){
+      p.left=true;p.rankedLeftAt=p.disconnectedAt+RECONNECT_MS;delete p.disconnectedAt;
+    }
+  }
   const active=state.players.filter(p=>!p.left);
+  if(state.phase==='loading'&&state.readyDeadline<=now){
+    const missing=active.filter(p=>!p.acceptedReady&&!p.ready);
+    if(missing.length){
+      for(const p of missing){
+        p.left=true;
+        if(state.format==='ngmc-ranked')p.rankedLeftAt=state.readyDeadline;
+      }
+      state.phase='cancelled';state.readyForfeit=true;state.reason='Match cancelled. '+missing.map(p=>p.name).join(', ')+' did not ready up in time.';
+      state.until=now+86400000;return;
+    }
+  }
+  if(checkReturn(state,now))return;
   if(ngmc&&state.history.length&&state.teams.some((_,team)=>!active.some(p=>p.team===team))){if(state.phase==='counting')finishNgmcCount(state,Infinity);for(let team=0;team<2;team++)if(!active.some(p=>p.team===team))state.teams[team]=0;state.phase='finished';state.reason='A team left the match.';state.until=now+86400000;return;}
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
     if((!ngmc||state.counters.every(Boolean)||now>=state.counterDeadline)&&active.every(p=>playerAudioReady(state,p))) {
-      state.phase='guess';state.startsAt=now+3000;state.until=state.startsAt+(ngmc?20000:30000);
+      state.phase='guess';state.startsAt=now+3000;
+      if(state.index===0)for(const p of active)if(p.disconnectedAt!=null)p.disconnectedAt=state.startsAt;
+      state.until=state.lobby?.seconds===0?8.64e15:state.startsAt+(state.lobby?.seconds??(ngmc?20:30))*1000;
     } else if(now>=state.until){state.phase='cancelled';state.reason='Not all players could load the audio in time.';state.until=now+86400000;}
-  } else if(state.phase==='guess'&&(now>=state.until||(now>=state.startsAt&&active.every(p=>p.locked))))gradeRound(state,now);
+  } else if(state.phase==='guess'&&(now>=state.until||(now>=state.startsAt&&(state.format==='lobby-team'?ballotsComplete(state):active.every(p=>p.locked)))))gradeRound(state,now);
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
     if(state.index===state.songs.length-1||ngmc&&state.teams.includes(0)){state.phase='finished';state.until=now+86400000;return;}
     state.index++;state.phase='buffering';state.until=now+90000;
-    for(const p of state.players){delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
+    delete state.ballot;
+    for(const p of state.players){delete p.votes;delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now);
   }
 }
 export function matchMove(state,id,message,now=Date.now()) {
   const player=state.players.find(p=>p.id===id);if(!player)fail('You are not in this match.',403);
   advanceMatch(state,now);
-  if(message.type==='leave'){player.left=true;advanceMatch(state,now);return;}
+  if(message.type==='leave'){
+    if(player.left||['finished','cancelled'].includes(state.phase))return;
+    if(activeRankedGame(state,now))player.rankedLeftAt=now;
+    player.left=true;delete player.disconnectedAt;advanceMatch(state,now);return;
+  }
+  if(state.readyForfeit)return;
+  if(message.type==='accept-ready'&&state.phase==='loading'&&!player.left){player.acceptedReady=true;return;}
   if(player.left)fail('You left this match.',409);
+  if(state.lobby&&['return-request','return-vote'].includes(message.type)){
+    returnVote(state,player,message);checkReturn(state,now);return;
+  }
+  if(state.format==='lobby-team'&&!['loaded','ready'].includes(message.type)){
+    if(!['propose','vote'].includes(message.type)||state.phase!=='guess'||state.index!==message.index||now<state.startsAt||now>=state.until)fail('Voting is unavailable.',409);
+    proposeOrVote(state,player,message);advanceMatch(state,now);return;
+  }
   if(message.type==='volunteer'&&state.mode==='ngmc-ranked'){
     if(state.phase!=='loading'||now>=state.counterDeadline)fail('The counter signup period has ended.',409);
     if(state.counters[player.team]&&state.counters[player.team]!==id)fail('Your team already has a counter.',409);
@@ -68,7 +105,7 @@ export function matchMove(state,id,message,now=Date.now()) {
     const slots=state.audioSealed?state.audioPool.length:state.songs.length;
     if(!Array.isArray(message.indices)||message.indices.length>slots||message.indices.some(i=>!Number.isInteger(i)||i<0||i>=slots))fail('Invalid download progress.');
     player.loaded=[...new Set([...player.loaded,...message.indices])];
-  } else if(message.type==='ready')player.ready=true;
+  } else if(message.type==='ready'){player.acceptedReady=true;player.ready=true;}
   else if(message.type==='draft'){
     if(state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('This song is no longer accepting answers.',409);
     saveDraft(state,player,message,now);
@@ -119,9 +156,11 @@ export function matchMove(state,id,message,now=Date.now()) {
 }
 export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
-  return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
+  return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...playbackView(state,me,now),skipVotes:state.format==='1-team'?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
+    lobby:state.lobby,returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
+    voteCounts:state.ballot?Object.fromEntries(FIELDS.flatMap(f=>state.ballot[f].map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[f]===o.id).length]))):undefined,
     myDraft:me.draft,teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),
-    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(state.mode==='ngmc-ranked'?['anime']:FIELDS):[],...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
+    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,acceptedReady:p.acceptedReady||p.ready,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(state.mode==='ngmc-ranked'?['anime']:FIELDS):[],...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

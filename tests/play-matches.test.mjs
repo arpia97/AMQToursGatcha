@@ -181,7 +181,7 @@ test('private current answers score at timeout; team skip needs two distinct vot
   assert.equal(s.phase,'guess');advanceMatch(s,s.until);
   assert.deepEqual(s.teams,[3]);assert.ok(s.players.every(p=>p.score===1&&p.autoSubmitted));
   const html=recapHTML(matchView(s,a.id),String,x=>x.anime);
-  assert.equal((html.match(/class="correct"/g)||[]).length,3);assert.ok(html.includes('Team 3/3 · +1 Contributions'));assert.ok(html.includes('Artist Credits'));
+  assert.equal((html.match(/class="correct"/g)||[]).length,3);assert.ok(html.includes('Team 3/3 · +1 Point'));assert.ok(html.includes('Artist Credits'));
   const oldScore=s.teams[0];advanceMatch(s,s.until-1);assert.equal(s.teams[0],oldScore);
   assert.throws(()=>matchMove(s,a.id,draft('anime','Late'),s.until-1),/no longer/);
   // New round clears drafts and votes; repeated votes from one player are not a majority.
@@ -204,4 +204,24 @@ test('private current answers score at timeout; team skip needs two distinct vot
   matchMove(solo,'0',{type:'artists',index:0,artists:['Artist']},now+1);
   assert.equal(solo.players.find(p=>p.id==='0').draft.answers.anime,'Anime');
   advanceMatch(solo,solo.until);assert.equal(solo.players.find(p=>p.id==='0').score,3);
+});
+
+test('custom team ballots reject duplicate proposals, settle early and credit the selected owner',()=>{
+  const players=['a','b'].map(id=>({id,name:id}));
+  const song={anime:'Alpha',title:'First',artist:'Singer',answers:{anime:['alpha'],song:['first'],artist:['Singer']}};
+  const state=makeMatch('room','lobby-team',players,[song],0,{songs:1,seconds:0});
+  state.phase='guess';state.startsAt=1;state.until=8.64e15;
+  const move=(id,type,field,extra)=>matchMove(state,id,{type,index:0,field,...extra},100);
+  move('a','propose','anime',{answer:'Alpha'});
+  assert.throws(()=>move('b','propose','anime',{answer:'AL-PHA'}),/already/);
+  move('b','propose','anime',{answer:'Beta'});
+  move('b','propose','song',{answer:'First'});
+  for(const id of ['a','b']){
+    move(id,'vote','anime',{choice:state.ballot.anime[0].id});
+    move(id,'vote','song',{choice:null});
+    move(id,'vote','artist',{choice:null});
+  }
+  assert.equal(state.phase,'reveal');
+  assert.deepEqual(state.teams,[2]);
+  assert.ok(state.players.every(p=>p.score===1));
 });

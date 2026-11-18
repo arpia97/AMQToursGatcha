@@ -10,10 +10,10 @@ export function recapHTML(match,esc,animeTitle){
   const row=match.history.at(-1);if(!row)return '';
   const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
   const keys=match.mode==='ngmc-ranked'?['anime']:Object.keys(fields);
-  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(match.mode==='ngmc-ranked'?' Correct':match.format==='1v1'?' Points':' Contributions')+'</span>'+keys.map(field=>{
-    const result=match.teamFields?row.results.find(r=>team.some(p=>p.id===r.id)&&Object.hasOwn(r.answers,field)):mine;
+  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(mine.earned===1?' Point':' Points')+'</span>'+keys.map(field=>{
+    const result=(match.teamFields||match.format==='lobby-team')?row.results.find(r=>team.some(p=>p.id===r.id)&&Object.hasOwn(r.answers,field)):mine;
     const owner=match.players.find(p=>p.id===result?.id),correct=!!result?.correct[field];
-    return '<div class="'+(correct?'correct':'incorrect')+'"><small>'+fields[field]+'</small><strong>'+(field==='artist'?artistCreditsHTML(row,esc):esc(field==='anime'?animeTitle({anime:row.anime}):row[field]))+'</strong><span>'+esc(result?.answers[field]||'No answer')+(match.teamFields&&owner?' <small>· '+esc(owner.name)+'</small>':'')+'</span></div>';
+    return '<div class="'+(correct?'correct':'incorrect')+'"><small>'+fields[field]+'</small><strong>'+(field==='artist'?artistCreditsHTML(row,esc):esc(field==='anime'?animeTitle({anime:row.anime}):row[field]))+'</strong><span>'+esc(result?.answers[field]||'No answer')+((match.teamFields||match.format==='lobby-team')&&owner?' <small>· '+esc(owner.name)+'</small>':'')+'</span></div>';
   }).join('')+'</section>';
 }
 export function songTeamsHTML(match,esc){
@@ -21,10 +21,10 @@ export function songTeamsHTML(match,esc){
   return '<div class="sa-team-list">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>{
     const roster=match.players.filter(p=>p.team===team);
     const title=solo?esc(roster[0].name)+(team===me.team?' <small>You</small>':' <small>Opponent</small>'):team===me.team?'Your Team':'Opponents';
-    return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'<small> / 60</small></strong></header>'+roster.map(p=>{
+    return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
       const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Locked'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Locked · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
-      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned):'')+'<small>'+p.score+(solo?' Points':' Contributions')+'</small></strong></div>';
+      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }
@@ -46,6 +46,6 @@ export function songResultsHTML(match,esc,animeTitle){
   return '<div class="sa-match-results"><div class="sa-result-columns"><span>Song</span><span>'+(solo?'You':'Your Team')+'</span>'+(match.teams.length>1?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(row.song)+'</span>'+scoreBadge(row.points?.[me.team]??0)+(match.teams.length>1?scoreBadge(row.points?.[1-me.team]??0):'')+'</summary><p class="sa-result-key">'+esc(animeTitle({anime:row.anime}))+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
 }
 export function readyHTML(match,canReady,ready,esc){
-  const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.audioReady).length;
-  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?'Waiting for Everyone':'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.audioReady).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p></section>';
+  const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?'Waiting for Everyone':'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p></section>';
 }

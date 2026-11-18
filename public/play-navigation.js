@@ -4,6 +4,7 @@ export const PLAY_MODES = Object.freeze([
   { id: "song-artist", name: "Song/Artist", short: "Song/Artist", icon: "M9 18V5l12-2v13M9 7l12-2M9 18c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2ZM21 16c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2Z" },
   { id: "speed-showdown", disabled: true, name: "Speed Showdown", short: "Speed", icon: "m13 2-9 12h7l-1 8L21 9h-8l1-7Z" },
   { id: "quiz", name: "Quiz", short: "Quiz", icon: "M9 18V5l12-2v13M9 7l12-2M9 18c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2ZM21 16c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2Z" },
+  { id: "rankings", name: "Rankings", short: "Rankings", icon: "M4 21V12h4v9m2 0V4h4v17m2 0V9h4v12" },
 ]);
 export function playRoute(pathname) {
   if (pathname === "/play" || pathname === "/play/") return PLAY_MODES[0].id;

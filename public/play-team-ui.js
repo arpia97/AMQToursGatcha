@@ -4,7 +4,7 @@ export function answerFieldsHTML(fields,team){
   return (fields.length>1?'<small class="sa-tab-hint"><kbd>Tab ↹</kbd> Switch Answer</small>':'')+fields.map(field=>'<div class="sa-answer-row"><label for="sa-'+field+'">'+labels[field]+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'</div>'+(field==='artist'?'<button type="button" class="button secondary sa-artist-add" data-sa-submit="artist">Add Artist</button>':'')+'</div>').join('');
 }
 export function teamAnswerTilesHTML(){
-  return '<section class="sa-team-answer-tiles" aria-label="Team answers">'+Object.entries(labels).map(([field,label])=>'<article class="sa-team-answer-tile" data-sa-tile="'+field+'"><header><h3>'+label+'</h3><small data-sa-owner="'+field+'">Unclaimed</small></header><div class="sa-team-answer-value" data-sa-value="'+field+'" aria-live="polite">Awaiting answer</div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'<div class="sa-reactions" data-sa-reactions="'+field+'"></div></article>').join('')+'</section>';
+  return '<section class="sa-team-answer-tiles" aria-label="Team answers">'+Object.entries(labels).map(([field,label])=>'<article class="sa-team-answer-tile" data-sa-tile="'+field+'"><header><h3><button type="button" class="sa-tile-select" data-sa-select="'+field+'">'+label+'</button></h3><small data-sa-owner="'+field+'">Unclaimed</small></header><div class="sa-team-answer-value" data-sa-value="'+field+'" aria-live="polite">Awaiting answer</div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'<div class="sa-reactions" data-sa-reactions="'+field+'"></div></article>').join('')+'</section>';
 }
 export function updateTeamFields(root,match,disabled,esc,selected='anime',animeTitle=s=>s.anime){
   const me=match.players.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
@@ -18,6 +18,11 @@ export function updateTeamFields(root,match,disabled,esc,selected='anime',animeT
     root.querySelector('[data-sa-owner="'+field+'"]').textContent=owner?owner.name+(owner.id===me.id?' · You':'')+(match.phase==='guess'?' · Locked':''):'Unclaimed';
     const row=root.querySelector('[data-sa-input-row="'+field+'"]'),choice=root.querySelector('[data-sa-input-field="'+field+'"]');
     row.hidden=selected!==field;choice.disabled=unavailable;choice.setAttribute('aria-pressed',String(selected===field));
+    const tile=root.querySelector('[data-sa-tile="'+field+'"]');
+    const selector=tile.querySelector('.sa-tile-select');
+    selector.disabled=disabled||unavailable;
+    selector.setAttribute('aria-pressed',String(selected===field&&!disabled));
+    tile.classList.toggle('sa-active-tile',selected===field&&!disabled);
     const value=root.querySelector('[data-sa-value="'+field+'"]');
     const answer=owner?.answers?.[field];
     value.textContent=answer?(field==='anime'?animeTitle({anime:answer}):answer):owner?'No answer submitted':'Awaiting answer';

@@ -20,6 +20,7 @@ const assets = new URL("../", import.meta.url);
 const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
 let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || PLAY_MODES[0].id;
+let rankingFormat = "ngmc-ranked", rankingPage = 0;
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
 $("#play-title-mode").value = titleMode;
@@ -118,15 +119,26 @@ async function openMode(id, push = true) {
     id = PLAY_MODES[0].id;
     history.replaceState(null, "", playHref(id));
   }
+  if(songArtist?.rankedAtRisk()){
+    if(id===mode)return;
+    if(!songArtist.confirmNavigation()){
+      if(!push)history.pushState(null,"",playHref(mode));
+      return;
+    }
+  }
   const version = ++viewVersion;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
   if (mode !== "quiz") songArtist?.leave();
   mode = id;
   if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
-  $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : "Loading Matchmaking…") + '</p>';
+  $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":"Loading Matchmaking…") + '</p>';
   try {
-    if (id === "quiz") {
+    if (id === "rankings") {
+      const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage;
+      const [{rankingsHTML},data] = await Promise.all([import("../play-rankings.js"),api(path)]);
+      if(version===viewVersion)$("#main").innerHTML=rankingsHTML(rankingFormat,rankingPage,data,escape);
+    } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
       quiz ??= createQuizController(createQuizUI);
@@ -151,7 +163,10 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button"); if (!button) return;
   try {
     const action = button.dataset.action;
-    if (button.classList.contains("dialog-close")) $("#modal").close();
+    if(mode==="rankings" && button.hasAttribute("data-rank-page")){
+      rankingPage=Number(button.dataset.rankPage);
+      await openMode(mode,false);
+    } else if (button.classList.contains("dialog-close")) $("#modal").close();
     else if (action === "account") account();
     else if (action === "settings") settings();
     else if (action === "signin-form") auth();
@@ -159,6 +174,7 @@ document.addEventListener("click", async (event) => {
     else if (action === "recovery-form") auth("recover");
     else if (action === "retry-mode") await openMode(mode, false);
     else if (action === "logout") {
+      if(songArtist&&!songArtist.confirmNavigation())return;
       await api("logout", {}); songArtist?.leave(); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked"].includes(mode)) await openMode(mode, false);
     } else if (mode === "quiz" && quiz && $("#main").contains(button)) await quiz.click(button);
   } catch (error) { fail(error); }
@@ -183,6 +199,9 @@ document.addEventListener("input", async (event) => {
 });
 document.addEventListener("change", async (event) => {
   const input = event.target;
+  if(mode==="rankings" && input.id==="play-ranking-format"){
+    rankingFormat=input.value; rankingPage=0; await openMode(mode,false); return;
+  }
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";
     try { storage.setItem("amqtours-title-mode", titleMode); } catch {}
@@ -200,5 +219,8 @@ document.addEventListener("change", async (event) => {
 });
 document.addEventListener("keydown", (event) => { if (mode === "quiz" && !$("#modal").open) quiz?.key(event); });
 document.addEventListener("focusin", (event) => { if (mode === "quiz" && event.target.id === "quiz-answer") quiz?.focus(event.target); });
+window.addEventListener("beforeunload",event=>{
+  if(songArtist?.rankedAtRisk()){event.preventDefault();event.returnValue="";}
+});
 window.addEventListener("pagehide", () => { viewVersion++; quiz?.leave(); songArtist?.leave(); });
 window.addEventListener('pageshow',event=>{if(event.persisted)openMode(mode,false);});

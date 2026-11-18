@@ -1,3 +1,5 @@
+import {DatabaseSync} from 'node:sqlite';
+import {RankedLeaves} from '../src/ngmc-leaves.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ngmcGuesses,balanceNgmc} from '../src/ngmc-rules.js';
@@ -53,4 +55,52 @@ test('NGMC ratings match Python global TrueSkill and apply simultaneous per-song
  for(let i=0;i<8;i++)assert.ok(Math.abs(ratings[i].delta-(i<4?1:-1)*4*9.4477360038514)<.00001);
  assert.ok(Math.abs(ratings.reduce((sum,p)=>sum+p.delta,0))<1e-8);
  const unanimous=[{results:roster.map(p=>({id:p.id,correct:{anime:true}}))}];assert.ok(ngmcRatings(roster,unanimous).every(p=>p.delta===0));
+});
+
+test('ranked leave receipts deduct once per match and apply a timed ban at three active strikes',()=>{
+ const db=new DatabaseSync(':memory:');
+ const sql={exec:(query,...args)=>db.prepare(query).all(...args)};
+ const leaves=new RankedLeaves({sql,transactionSync:fn=>{db.exec('BEGIN');try{fn();db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}}});
+ db.exec("CREATE TABLE ngmc_players(player TEXT PRIMARY KEY,elo REAL); INSERT INTO ngmc_players VALUES('a',1000); CREATE TABLE queue(player TEXT,match TEXT)");
+ const day=86400000;
+ leaves.record('old','a',day);
+ leaves.record('one','a',15*day);
+ leaves.record('two','a',16*day);
+ leaves.record('two','a',16*day+1);
+ assert.equal(leaves.banUntil('a'),null);
+ leaves.record('three','a',17*day);
+ assert.equal(leaves.banUntil('a'),20*day);
+ leaves.record('three','a',19*day);
+ assert.equal(leaves.banUntil('a'),20*day);
+ assert.equal(sql.exec('SELECT elo FROM ngmc_players')[0].elo,900);
+ assert.equal(leaves.banUntil('b'),null);db.close();
+});
+test('only active ranked departures count, including disconnects beyond reconnect grace',()=>{
+ const state=create(),p=state.players[0];
+ state.phase='guess';state.startsAt=1000;state.until=200000;
+ p.disconnectedAt=1000;
+ advanceMatch(state,120999);assert.equal(p.left,false);
+ advanceMatch(state,121000);assert.equal(p.rankedLeftAt,121000);
+ matchMove(state,p.id,{type:'leave'},121005);assert.equal(p.rankedLeftAt,121000);
+ for(const [format,phase] of [['ngmc-3v3','guess'],['ngmc-ranked','loading'],['ngmc-ranked','finished']]){
+   const match=create();match.format=format;match.phase=phase;match.startsAt=1;match.until=200000;
+   matchMove(match,match.players[0].id,{type:'leave'},1234);assert.equal(match.players[0].rankedLeftAt,undefined);
+ }
+});
+
+test('matchmaking ready checks distinguish a missed confirmation from slow audio',()=>{
+  for(const format of ['ngmc-ranked','ngmc-3v3','1v1']){
+    const state=create();state.format=format;
+    const [late,...others]=state.players;
+    for(const p of others)matchMove(state,p.id,{type:'accept-ready'},89999);
+    advanceMatch(state,89999);assert.equal(state.phase,'loading');
+    matchMove(state,late.id,{type:'accept-ready'},90000);
+    assert.equal(state.phase,'cancelled');assert.equal(late.left,true);
+    assert.equal(late.rankedLeftAt,format==='ngmc-ranked'?90000:undefined);
+    assert.ok(others.every(p=>!p.left&&p.rankedLeftAt==null));
+  }
+  const slow=create();
+  for(const p of slow.players)matchMove(slow,p.id,{type:'accept-ready'},1);
+  advanceMatch(slow,90000);assert.equal(slow.phase,'loading');
+  assert.ok(slow.players.every(p=>!p.left&&!p.loaded.length));
 });

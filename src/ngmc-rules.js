@@ -3,16 +3,18 @@ export function ngmcGuesses(rate) {
   if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw Error('A valid guess rate is required.');
   return rate >= 40 ? 5 : rate >= 28 ? 4 : rate >= 19 ? 3 : rate >= 8 ? 2 : 1;
 }
-// Enumerate all 35 distinct 4v4 partitions; minimize the team Elo-total gap.
+// Keep the first player on one side to skip mirrored partitions.
 export function balanceNgmc(players) {
-  if (players.length !== 8 || players.some(p => !Number.isFinite(p.elo))) throw Error('Eight rated players are required.');
-  const total = players.reduce((sum,p) => sum + p.elo, 0);
-  let best, gap = Infinity;
-  for (let a = 1; a < 6; a++) for (let b = a + 1; b < 7; b++) for (let c = b + 1; c < 8; c++) {
-    const indices = [0,a,b,c], difference = Math.abs(total - 2 * indices.reduce((sum,i) => sum + players[i].elo, 0));
-    if (difference < gap) { gap = difference; best = new Set(indices); }
+  if (![6,8].includes(players.length) || players.some(p=>!Number.isFinite(p.elo))) throw Error('A full rated roster is required.');
+  const total=players.reduce((n,p)=>n+p.elo,0);
+  let best, gap=Infinity;
+  for(let mask=1;mask<(1<<players.length);mask+=2){
+    const team=players.filter((_,i)=>mask&(1<<i));
+    if(team.length!==players.length/2)continue;
+    const difference=Math.abs(total-2*team.reduce((n,p)=>n+p.elo,0));
+    if(difference<gap){gap=difference;best=mask;}
   }
-  return players.map((player,i) => ({...player,team:best.has(i) ? 0 : 1}));
+  return players.map((p,i)=>({...p,team:best&(1<<i)?0:1}));
 }
 
 export function eligibleNgmc(state, team) {

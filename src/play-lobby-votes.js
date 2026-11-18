@@ -1,0 +1,57 @@
+import {titleKey,artistKey} from './play-artists.js';
+
+const fields=['anime','song','artist'];
+const reject=message=>{throw Object.assign(Error(message),{status:409});};
+export function proposeOrVote(state,player,message){
+  const field=message.field;
+  if(!fields.includes(field))reject('Choose an answer category.');
+  state.ballot??={anime:[],song:[],artist:[]};
+  const options=state.ballot[field];
+  if(message.type==='propose'){
+    const answer=typeof message.answer==='string'?message.answer.trim():'';
+    const key=field==='artist'?artistKey(answer):titleKey(answer);
+    if(!key||answer.length>300)reject('Enter an answer within 300 characters.');
+    if(options.some(option=>option.key===key))reject('That answer has already been submitted.');
+    if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
+    options.push({id:crypto.randomUUID(),owner:player.id,answer,key});
+  }else{
+    if(message.choice!==null&&!options.some(o=>o.id===message.choice))reject('Choose an available answer.');
+    player.votes??={};player.votes[field]=message.choice;
+  }
+}
+export function ballotsComplete(state){
+  return state.players.filter(p=>!p.left).every(p=>fields.every(field=>Object.hasOwn(p.votes||{},field)));
+}
+export function selectWinners(state){
+  const active=state.players.filter(p=>!p.left);
+  for(const p of state.players){p.answers={};delete p.artists;delete p.draft;}
+  for(const field of fields){
+    const options=(state.ballot?.[field]||[]).filter(o=>active.some(p=>p.id===o.owner));
+    if(!options.length)continue;
+    const counts=options.map(o=>active.filter(p=>p.votes?.[field]===o.id).length);
+    const max=Math.max(...counts),leaders=options.filter((_,i)=>counts[i]===max);
+    const chosen=leaders[Math.floor(Math.random()*leaders.length)];
+    active.find(p=>p.id===chosen.owner).answers[field]=chosen.answer;
+  }
+}
+export function returnVote(state,player,message){
+  if(['finished','cancelled'].includes(state.phase))reject('Match has ended.');
+  if(message.type==='return-request'){
+    if(state.returnPoll)reject('A return vote is already open.');
+    state.returnPoll={id:crypto.randomUUID(),votes:{[player.id]:true}};
+  }else{
+    if(!state.returnPoll||message.poll!==state.returnPoll.id||typeof message.yes!=='boolean')reject('This vote has ended.');
+    state.returnPoll.votes[player.id]=message.yes;
+  }
+}
+export function checkReturn(state,now){
+  if(!state.returnPoll)return false;
+  const active=state.players.filter(p=>!p.left);
+  const votes=active.map(p=>state.returnPoll.votes[p.id]);
+  if(votes.filter(v=>v===true).length>active.length/2){
+    state.phase='cancelled';state.reason='Returned to Lobby';state.until=now+86400000;
+    delete state.returnPoll;return true;
+  }
+  if(votes.filter(v=>v===false).length>=Math.ceil(active.length/2))delete state.returnPoll;
+  return false;
+}

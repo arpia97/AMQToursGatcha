@@ -32,13 +32,13 @@ function combine(a, b) {
   return result;
 }
 
-export async function sealPlayAudio(state, secret) {
+export async function sealPlayAudio(state, secret, issuedAt=state.created) {
   const cipher = await ticketKey(secret, "encrypt");
-  const expires = state.created + 3 * 3600000;
+  const expires = issuedAt + 3 * 3600000;
   await Promise.all(state.audioPool.map(async entry => {
     const source = playAudioSource(entry.audio);
     if (!source) throw Error("Unsupported Play audio source.");
-    const key = audioBase64(random(32));
+    const key = entry.key ?? audioBase64(random(32));
     const position = entry.round === null ? new DataView(random(4).buffer).getUint32(0) / 4294967296 : state.samplePositions[entry.round];
     const iv = random(PLAY_AUDIO_IV_BYTES);
     const data = encoder.encode(JSON.stringify([source, key, position, state.mode, expires]));

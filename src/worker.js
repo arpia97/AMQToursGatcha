@@ -316,6 +316,15 @@ export class Game extends DurableObject {
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
     const playRead = ["play-state", "play-connect"].includes(path) && !post;
+    if(path==='quiz-play-rankings'&&!post){
+      const page=Number(url.searchParams.get('page'));
+      if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
+      const rows=e.all(`SELECT coalesce(u.display_name,u.name) AS name,sum(p.best) AS correct,
+        count(*)*20 AS seen,count(*) AS matches FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz
+        JOIN players u ON u.id=p.player WHERE q.published=1 GROUP BY p.player
+        ORDER BY correct DESC,matches DESC,p.player LIMIT 51 OFFSET ?`,page*50);
+      return json({rows:rows.slice(0,50),more:rows.length>50});
+    }
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
     if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
@@ -1742,6 +1751,12 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
+      if(url.pathname==='/api/play-rankings'&&request.method==='GET'){
+        const format=url.searchParams.get('format')||'ngmc-ranked';
+        const page=Number(url.searchParams.get('page'));
+        if(!['ngmc-ranked','1v1','3v3','1-team'].includes(format)||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
+        return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page));
+      }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
         const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog');
         const saved=await cache?.match(key);if(saved)return saved;

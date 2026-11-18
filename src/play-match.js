@@ -4,50 +4,94 @@ import { makeMatch,advanceMatch,matchMove,matchView,fail } from './play-match-ru
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,playbackView} from './play-integrity.js';
 import {sealPlayAudio} from './play-media.js';
+import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
+import {ngmcRatings} from './ngmc-ratings.js';
 import {PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 export class PlayMatch extends DurableObject {
-  constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);}
+  constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
-  async initialize(id,format,players) {
+  async initialize(id,format,players,lobby=null) {
     if(this.read())return;
-    if(!this.initializing)this.initializing=(async()=>{const library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='ngmc-ranked'?'ngmc-ranked':'song-artist'});if(!library)fail('The song library is unavailable.',503);if(!this.read()){
-      const state=makeMatch(id,format,players,library.songs);
+    if(!this.initializing)this.initializing=(async()=>{const library=await quizLibraryRequest(this.env,'/play-sample',{mode:format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs});if(!library)fail('The song library is unavailable.',503);if(!this.read()){
+      const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
       prepareAudioPool(state,library.decoys,true);
       await sealPlayAudio(state,this.env.HOST_TOKEN);
       this.reviewLog.initialize(state);this.reviewLog.add(state,'','created');this.write(state);
     }await this.schedule();})();
     try{await this.initializing;}finally{this.initializing=null;}
   }
+  pendingRankedLeaves(state){
+    if(!state.players.some(p=>p.rankedLeftAt!=null))return [];
+    const sent=new Set([...this.ctx.storage.sql.exec('SELECT player FROM reported_leaves')].map(r=>r.player));
+    return state.players.filter(p=>p.rankedLeftAt!=null&&!sent.has(p.id));
+  }
+  async reportRankedLeaves(state){
+    for(const p of this.pendingRankedLeaves(state)){
+      await this.env.PLAY_QUEUE.getByName('play-queues-v1').recordRankedLeave(state.id,p.id,p.rankedLeftAt);
+      this.ctx.storage.sql.exec('INSERT OR IGNORE INTO reported_leaves VALUES(?)',p.id);
+    }
+  }
   async schedule(){
     const state = this.read(), now = Date.now();
     if (!state) return;
-    let next = state.until;
+    let next = this.pendingRankedLeaves(state).length?Math.min(now+1000,state.until):state.until;
+    if(state.phase==='loading'&&state.readyDeadline&&state.players.some(p=>!p.left&&!p.acceptedReady&&!p.ready))next=Math.min(next,state.readyDeadline);
     if (state.mode === 'ngmc-ranked' && state.phase === 'loading' && state.counterDeadline > now)
       next = Math.min(next, state.counterDeadline);
     if (state.audioSealed && state.phase === 'guess' && state.startsAt > now)
       next = Math.min(next,state.startsAt);
-    await this.ctx.storage.setAlarm(next);
+    if(activeRankedGame(state,now))for(const p of state.players){
+      if(!p.left&&p.disconnectedAt!=null)next=Math.min(next,p.disconnectedAt+RECONNECT_MS);
+    }
+    await this.ctx.storage.setAlarm(Math.min(next,now+86400000));
   }
   broadcast(){const state=this.read();if(!state)return;for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,{type:'state',state:matchView(state,who.id)});}}
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;
-    if(!state.reviewFinished){this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
-    const ratings=await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,state.mode==='ngmc-ranked'?{mode:state.mode,players:state.players,history:state.history}:null,state.phase);
-    if(ratings&&!state.ratings){state.ratings=ratings;this.write(state);this.broadcast();}
+    if(state.rankingsSettled)return;
+    if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
+    const result={
+      mode:state.mode,format:state.format,
+      players:state.players.map(({id,name,elo,rankedLeftAt})=>({id,name,elo,rankedLeftAt})),
+      history:state.history.map(round=>({results:round.results.map(({id,earned})=>({id,earned}))}))
+    };
+    const legacy=state.mode!=='ngmc-ranked'&&!state.recordSongRating;
+    const ratings=await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,legacy?null:result,state.phase);
+    if(ratings)state.ratings=ratings;
+    // Previously completed unranked rooms can reopen in any order.
+    if(legacy&&state.phase==='finished')state.ratings=ngmcRatings(result.players.map(p=>({...p,elo:1000})),result.history);
+    state.rankingsSettled=true;
+    this.write(state);
+    this.broadcast();
+  }
+  async depart(id){
+    const state=this.read();
+    if(!state?.lobby||['finished','cancelled'].includes(state.phase))return;
+    const player=state.players.find(p=>p.id===id);
+    if(!player||player.left)return;
+    matchMove(state,id,{type:'leave'});this.write(state);this.broadcast();
+    await this.schedule();await this.finish(state);
   }
   async fetch(request) {
     try {
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
       matchView(state,who.id);
-      const player=state.players.find(p=>p.id===who.id);player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
+      const player=state.players.find(p=>p.id===who.id);
+      const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
+      player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       const supported = state.audioSealed ? [PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3, PLAY_AUDIO_PROTOCOL] : [2, 3, PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
       const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
       const {server,response}=accept(this.ctx,who);
       this.reviewLog.initialize(state);this.reviewLog.add(state,who.id,'connected');
-      send(server,audioManifest(state));
+      // A long custom match may outlive the original download tickets. Renew only
+    // this connection's manifest, retaining the keys for already buffered audio.
+    const mediaState=state.lobby&&state.audioSealed&&Date.now()-state.created>=2*3600000
+      ? {...state,audioPool:state.audioPool.map(entry=>({...entry}))} : state;
+    if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
+    send(server,audioManifest(mediaState));
       send(server,{type:'state',state:matchView(state,who.id)});try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return response;}await this.schedule();return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
   }
@@ -72,6 +116,7 @@ export class PlayMatch extends DurableObject {
       let failure;
       try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
+      if(['propose','vote','return-vote','return-request'].includes(message.type))this.reviewLog.add(state,input.who.id,message.type,{index:state.index,field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure});
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
@@ -79,17 +124,36 @@ export class PlayMatch extends DurableObject {
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
       this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast();
+      if(input.message.type==='leave'&&state.format==='ngmc-ranked'){
+        const departed=state.players.find(p=>p.id===input.who.id);
+        if(departed.rankedLeftAt!=null){await this.schedule();await this.reportRankedLeaves(state);}
+        else if(departed.left)await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(departed.id,state.id);
+      }
       if(input.message.type==='leave'&&state.mode!=='ngmc-ranked')await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(input.who.id,state.id);
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
   }
   review(options){return this.reviewLog.page(options);}
-  webSocketClose(ws,code,reason){const state=this.read();if(state&&!['finished','cancelled'].includes(state.phase))this.reviewLog.add(state,ws.deserializeAttachment()?.id,'disconnected',{code});closeSocket(ws,code,reason);}
+  async webSocketClose(ws,code,reason){
+    const state=this.read(),id=ws.deserializeAttachment()?.id,now=Date.now();
+    if(state&&!['finished','cancelled'].includes(state.phase)){
+      this.reviewLog.add(state,id,'disconnected',{code});
+      const p=state.players.find(p=>p.id===id);
+      if(p&&!p.left&&state.format==='ngmc-ranked'&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
+        p.disconnectedAt??=now;this.write(state);await this.schedule();
+      }
+    }
+    closeSocket(ws,code,reason);
+  }
   webSocketError(ws){ws.close(1011,'Reconnect to resume.');}
   async alarm(){
     const state=this.read();
     // Old review-expiry alarms may still fire after deployment. Preserve the audit.
     if(!state)return;
+    if(this.pendingRankedLeaves(state).length){
+      try{await this.reportRankedLeaves(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
+      return this.schedule();
+    }
     if(['finished','cancelled'].includes(state.phase)){
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
       if(Date.now()<state.until){await this.schedule();return;}

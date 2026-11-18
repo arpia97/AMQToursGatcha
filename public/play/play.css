@@ -66,7 +66,7 @@
   #play-account { gap:12px; }
   .play-site #main { padding:25px 20px 32px; }
   .play-footer { padding:20px; }
-  #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }
+  #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }
   #play-mobile-nav a { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; padding:8px 2px; min-height:50px; color:var(--muted); font-size:9px; border-radius:10px; white-space:nowrap; }
   #play-mobile-nav a[aria-current=page] { color:var(--mint); background:#b6e2c50b; }
   #play-mobile-nav .play-icon { width:21px; height:21px; }
@@ -85,3 +85,13 @@
 @media (prefers-reduced-motion:reduce) { .play-site #play-nav a { transition:none; } }
 
 #play-nav a[aria-disabled=true],#play-mobile-nav a[aria-disabled=true] { opacity:.4;cursor:not-allowed;background:none;border-color:transparent;color:var(--muted); }
+
+.play-leaderboard { padding:clamp(14px,3vw,28px); border:1px solid var(--border); background:var(--panel); border-radius:12px; }
+.play-leaderboard label { display:grid; gap:5px; max-width:220px; }
+.play-table-wrap { overflow-x:auto; margin:16px 0; }
+.play-rank-table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.play-rank-table th,.play-rank-table td { padding:10px; text-align:right; border-bottom:1px solid var(--border); white-space:nowrap; }
+.play-rank-table th:first-child,.play-rank-table td:first-child { text-align:left; }
+.play-final-scores { display:flex; flex-wrap:wrap; gap:8px 20px; color:var(--muted); }
+.play-mvp { color:var(--mint); margin-left:6px; font-size:.75em; }
+.play-ranking-pages { display:flex; gap:8px; }

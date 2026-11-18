@@ -32,9 +32,10 @@ export class PlayLibrary {
     return {version:manifest.version,artist,ngmcRows,catalog:{version:manifest.version,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:[...playable.entries()].filter(([key])=>withAudio.has(key)).map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
-  async sample(mode='song-artist') {
+  async sample(mode='song-artist',count=20) {
     const data=await this.load();
-    if(data.groups.length<20)throw Object.assign(Error('At least 20 playable songs are required.'),{status:503});
+    if(!Number.isInteger(count)||count<1||count>100)throw Error('Invalid song count.');
+    if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
     const selected=new Set(),verifiedAudio=new Map(), random=new Uint32Array(1);
     if(mode==='ngmc-ranked'){
       const groupById=new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index])));
@@ -50,7 +51,7 @@ export class PlayLibrary {
       }
       if(selected.size!==35)throw Object.assign(Error('Not enough verified MP3s. Please try again shortly.'),{status:503});
     }
-    while(mode!=='ngmc-ranked'&&selected.size<20) {crypto.getRandomValues(random);const limit=Math.floor(4294967296/data.groups.length)*data.groups.length;if(random[0]<limit)selected.add(random[0]%data.groups.length);}
+    while(mode!=='ngmc-ranked'&&selected.size<count) {crypto.getRandomValues(random);const limit=Math.floor(4294967296/data.groups.length)*data.groups.length;if(random[0]<limit)selected.add(random[0]%data.groups.length);}
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.
     const extras=data.groups.map((_,i)=>i).filter(i=>!selected.has(i));

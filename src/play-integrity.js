@@ -6,7 +6,7 @@ function shuffle(values){
   return values;
 }
 const laterBatchSize = 4;
-const firstRounds = state => state.mode === 'ngmc-ranked' ? 12 : 10;
+const firstRounds = state => Math.min(state.songs.length,state.mode === 'ngmc-ranked' ? 12 : 10);
 
 export function prepareAudioPool(state,decoys=[],sealed=false){
   const first=firstRounds(state);
