@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Broadcast Song/Artist gameplay and Play results
+
+Source `a54d57b` is deployed at 100% as `bd01602a-d849-498c-8e82-24cb841aff22`. Song/Artist uses a central round clock and answer console with team or player score panels. NGMC and Song/Artist results lead with the outcome and scores, then the leaderboard and expandable round history.
+
+All 542 tests, syntax checks and the Worker dry run passed. Local browser matches covered 1v1, 3v3, 1-Team, custom co-op, free-for-all and NGMC Ranked on desktop and phone viewports. Both public routes and six deployed assets passed read-only verification.
+
 ## NGMC Broadcast gameplay
 
 The owner selected option 2. Source `357202a` is live at 100% on Worker version `5d8f2bff-08f8-411d-b71f-e8c4ba7b0565`. NGMC centers the answer field and round clock between compact mirrored team rosters. On phones, both rosters sit below the controls. The center panel displays recording details once the round is graded.
