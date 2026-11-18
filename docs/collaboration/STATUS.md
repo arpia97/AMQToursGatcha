@@ -1,5 +1,25 @@
 # Shared Status and Handoff
 
+## Play lobby readiness and pending multiplayer release — live
+
+Released source 47d31a5 to amqtours-gatcha, Worker version 28b62019-0b17-4f92-aed2-f207778d6043. This includes the previously local Play rankings, custom lobbies, NGMC 3v3, counter controls, individual lobby return and ranked leave policy. Custom lobbies default to 20 songs, allow host setting edits, and require every member to ready. Auto-ready persists per account in the browser across Play modes. Matchmaking reminds at 30 seconds and cancels at 90 seconds if anyone has not confirmed. The ranked leave penalty applies in NGMC Ranked. Audio buffering is separate from confirmation. All 538 tests, syntax checks and Worker dry run passed. Local browser sessions verified lobby settings and readiness and exercised the real 30/90-second timers with eight players. Production NGMC, Song/Artist and Rankings routes returned 200 and the changed UI modules matched source.
+
+
+## NGMC Ranked departures and custom lobby results — verified locally
+
+The counter controls are compact. At the end of a custom Song/Artist match, each player chooses Leave Lobby or Return to Lobby. Only returning players enter the next roster. Leaving an active ranked match costs 25 Rating once, with a two-minute reconnect window for disconnects. A third active leave within 14 days blocks ranked matchmaking for 72 hours. Eight browser sessions verified the warning, cancellation, three exits from 1,000 to 925 Rating, the ban and subsequent unranked matchmaking. Custom lobby browser checks, all 537 tests, syntax checks and the Worker dry run passed. Pending deployment.
+
+
+## NGMC 3v3 and Song/Artist custom lobbies — verified locally
+
+NGMC 3v3 draws from ranked ratings and guess allowances, balances six players, and skips rating settlement. Song/Artist custom code lobbies support 1–8 players, host succession, 1–100 songs, finite or unlimited guess time, cooperative proposal voting or FFA, and a majority vote to return. Browser matches exercised counter signup, voting, attribution, both lobby formats, return and unranked NGMC completion. Additional checks covered capacity, final departure, host-only controls and eight-player FFA scoring. All 535 tests passed, plus syntax, diff and Worker dry-run checks. The working tree and screenshots in ../custom-play-preview are local.
+
+
+## Play rankings and match results — local verification
+
+The local working tree adds per-format Song/Artist ratings, existing NGMC totals, published Quiz personal-best rankings, match MVPs and selectable team answer tiles. Song/Artist rating histories begin with newly settled matches. MVP performance is the rating delta per scored song with points as a tiebreaker. All 534 tests, 294 syntax checks and the Worker dry-run passed. Browser fixtures completed all four multiplayer formats, verified the final leaderboard and rankings and checked mobile rankings width. Screenshots are in the surrounding outputs/play-rating-preview directory. Uncommitted, verified locally.
+
+
 ## Completed — Encrypted Multiplayer Audio
 
 New Song/Artist and NGMC rooms use protocol 4. Real clips and up to three decoys preload from Play through sealed equal-length tickets and fixed-size AES-GCM packets. The Worker clips a server-selected random segment from an approved AMQ mirror, and the encrypted edge cache contains no clear audio. The Ready control unlocks the audio element with silence. The public room state omits clip identity and sample position through the countdown. Batch readiness prevents a per-track download probe, and each active player gets the current key at the server start. Reconnects receive the same current key and deadline. Future and decoy keys stay private. Final recaps contain names without source URLs. Existing rooms keep their prior playback format.
