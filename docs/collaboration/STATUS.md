@@ -1,5 +1,21 @@
 # Shared Status and Handoff
 
+## Play release — deployed
+
+Source `0d584ff` is live at 100% on `amqtours-gatcha` as `13f929cf-3aa6-4584-917c-acd338b46ec9`. The Play routes, public lobby directory, all five changed client assets and the catalogue version were verified on amqtours.app. The answer mapping is available to the Worker through the asset binding and returns 404 over the public route.
+
+Multiplayer and new Quiz imports now match against 29,392 AMQ master-sheet exports. All source rows resolved, and the richest accepted-title list was verified across 1,946 duplicate groups. Published quizzes and scores were preserved. To refresh the bundled snapshot, run `python tools/build-master-song-answers.py`, verify, and deploy.
+
+## Play lobby directory and passwords — deployed
+
+Song/Artist and NGMC have separate live lobby lists, public and password-protected creation, joining by code, and host password changes. Existing lobbies default to public. Custom NGMC uses the existing Rating and guess-rate inputs for balanced 3v3 or 4v4, with no ranked results. Local browser matches verified both sizes, a completed 4v4, return to lobby, guest browsing, password enforcement and responsive layout. All 540 tests, syntax checks and the Worker dry-run build passed.
+
+Play hides native spinner arrows on all number inputs. Verified keyboard increments and minimum validation in Chrome for song count and guess time.
+
+## Solo Song/Artist 1-Team keyboard navigation — deployed
+
+In a custom 1-Team lobby with one active player, forward Tab wraps from Artist to Anime. Shift+Tab at Anime leaves the fields. Verified the full cycle with autocomplete open at desktop and phone widths, plus FFA and matchmade 1-Team keyboard navigation. Syntax checks passed.
+
 Song/Artist keyboard navigation now lets Tab leave the last answer and Shift+Tab leave the first. Starting audio respects that focus choice. Verified with autocomplete open in local Chrome matches for custom FFA and matchmade 1-Team.
 
 ## Play match flow and autocomplete — deployed

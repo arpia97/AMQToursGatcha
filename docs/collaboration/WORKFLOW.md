@@ -40,6 +40,8 @@ Browser QA should cover the changed interaction at desktop and narrow mobile wid
 
 ## Integration and Deployment
 
+For completed AMQ Tours Play changes, the owner requests automatic production deployment after validation. Include the pending Play changes and verify the relevant live routes. An explicit preview-only or hold request takes precedence.
+
 One collaborator owns integration and deployment for a task. Review the combined diff, resolve conflicts intentionally, and verify the final integrated commit. Recheck remote HEAD and local work immediately before pushing. A non-fast-forward push requires integration, not a force push.
 
 The repository CI verifies the app and publishes the GitHub Pages **demo**. It does not itself prove deployment of the shared Worker. Check runs must correspond to the actual final SHA.
