@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play ranking mode tabs
+
+Source `9858e60` is live on Worker `7cd3baf4-dc7e-4e1b-be25-7ce87705132f`. Verified all four header tabs, keyboard switching and the default Quiz points order in production Chrome at 1440px and 390px.
+
 ## Play artist autocomplete and Quiz rankings
 
 Source `a82bdfd` is live at 100% on Worker `7b855a45-85cf-4ff2-912d-72bb7a638d0e`. The production artist catalogue contains all 18,095 AMQ+ credited performer names and aliases and all 33,748 names from the bundled AMQ artist directory, for 34,209 distinct suggestions. Compared with the preceding live list, 321 names were added. A live browser verified AKI (SweetS), AZKi, and Aika Kawashima (also found in reverse name order). The Quiz Rankings UI and default API order were verified highest cumulative personal-best points first. Local match dropdown selection, 543 tests, syntax checks and the Worker build passed.
