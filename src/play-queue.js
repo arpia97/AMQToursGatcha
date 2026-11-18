@@ -1,3 +1,4 @@
+import {playRankingPage} from './play-ranking-query.js';
 import {PlayRecords} from './play-records.js';
 import {RankedLeaves} from './ngmc-leaves.js';
 import {RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
@@ -124,27 +125,21 @@ export class PlayQueue extends DurableObject {
     });
     return ratings;
   }
-  async rankings(format,page){
+  async rankings(format,page,sort,dir){
     if(this.records.pending()){
       const alarm=await this.ctx.storage.getAlarm();
       if(alarm===null||alarm>Date.now()+30000)await this.ctx.storage.setAlarm(Date.now()+1000);
     }
-    const offset=page*50;
-    const rows=format.startsWith('ngmc-')?this.rows(
-      `SELECT p.player,coalesce(n.name,(SELECT json_extract(j.value,'$.name') FROM match_reviews m,json_each(m.players) j
-        WHERE m.format='ngmc-ranked' AND json_extract(j.value,'$.id')=p.player ORDER BY m.created DESC LIMIT 1),p.player) AS name,
-        elo AS rating,correct,seen,matches FROM ngmc_players p LEFT JOIN play_names n ON n.player=p.player
-        WHERE matches>0 ORDER BY elo DESC,correct DESC,p.player LIMIT 51 OFFSET ?`,offset)
-      :this.rows('SELECT player,name,rating,correct,seen,matches FROM song_ratings WHERE format=? ORDER BY rating DESC,correct DESC,player LIMIT 51 OFFSET ?',format,offset);
-    const pageRows=rows.slice(0,50);
-    const records=new Map();
-    if(format!=='1-team'&&pageRows.length){
-      const ids=pageRows.map(r=>r.player);
-      const totals=this.rows(`SELECT player,SUM(outcome='W') AS wins,SUM(outcome='L') AS losses,SUM(outcome='T') AS ties
-        FROM play_records WHERE format=? AND player IN (${ids.map(()=>'?').join(',')}) GROUP BY player`,format,...ids);
-      for(const total of totals)records.set(total.player,[total.wins,total.losses,total.ties]);
-    }
-    return {rows:pageRows.map(({player,...row})=>({...row,record:records.get(player)||null})),more:rows.length>50};
+    const ngmc=format==='ngmc-ranked';
+    const stats=ngmc?`SELECT p.player,coalesce(n.name,(SELECT json_extract(j.value,'$.name')
+      FROM match_reviews m,json_each(m.players) j WHERE m.format='ngmc-ranked' AND json_extract(j.value,'$.id')=p.player
+      ORDER BY m.created DESC LIMIT 1),p.player) AS name,elo AS rating,correct,seen,matches
+      FROM ngmc_players p LEFT JOIN play_names n ON n.player=p.player WHERE matches>0`
+      :'SELECT player,name,rating,correct,seen,matches FROM song_ratings WHERE format=?';
+    const source=`SELECT s.*,r.wins,r.losses,r.ties FROM (${stats}) s LEFT JOIN
+      (SELECT player,SUM(outcome='W') AS wins,SUM(outcome='L') AS losses,SUM(outcome='T') AS ties
+       FROM play_records WHERE format=? GROUP BY player) r ON r.player=s.player`;
+    return playRankingPage(this.rows.bind(this),source,ngmc?[format]:[format,format],{page,sort,dir});
   }
   async complete(id,result=null,status='cancelled'){
     let ratings=null;
@@ -152,7 +147,7 @@ export class PlayQueue extends DurableObject {
       for(const p of result.players)if(p.rankedLeftAt!=null)this.recordSongReadyLeave(id,result.format,p.id,p.name,p.rankedLeftAt);
     }
     if(result?.mode==='ngmc-ranked'&&!['lobby-ngmc','ngmc-3v3'].includes(result.format))ratings=this.settle(id,result);
-    else if(result&&status==='finished'&&!result.format?.startsWith('lobby-')&&result.format!=='ngmc-3v3')
+    else if(status==='finished'&&Object.hasOwn(songRatingPools,result?.format))
       ratings=this.settleSongs(id,result);
     if(status==='finished'&&['1v1','3v3','ngmc-ranked'].includes(result?.format)){
       if(result.records?.length)this.records.save(id,result.format,result.records);

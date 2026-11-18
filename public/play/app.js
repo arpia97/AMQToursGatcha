@@ -21,6 +21,7 @@ const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
 let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || PLAY_MODES[0].id;
 let rankingFormat = "ngmc-ranked", rankingPage = 0;
+let rankingSort='rank',rankingDirection='asc';
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
 $("#play-title-mode").value = titleMode;
@@ -177,8 +178,8 @@ async function openMode(id, push = true) {
     if(id==='rankings'||id==='quiz')resumeBackgroundQueue(version).catch(fail);
     if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage;
-      const [{rankingsHTML},data] = await Promise.all([import("../play-rankings.js"),api(path)]);
-      if(version===viewVersion)$("#main").innerHTML=rankingsHTML(rankingFormat,rankingPage,data,escape);
+      const [{rankingsHTML},data] = await Promise.all([import("../play-rankings.js"),api(path+'&sort='+rankingSort+'&dir='+rankingDirection)]);
+      if(version===viewVersion)$("#main").innerHTML=rankingsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection);
     } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
@@ -207,6 +208,13 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button"); if (!button) return;
   try {
     const action = button.dataset.action;
+    if(mode==='rankings'&&button.dataset.rankSort){
+      const field=button.dataset.rankSort;
+      rankingDirection=field===rankingSort?(rankingDirection==='asc'?'desc':'asc'):(['rank','name','time'].includes(field)?'asc':'desc');
+      rankingSort=field;rankingPage=0;await openMode(mode,false);
+      if(mode==='rankings'&&rankingSort===field)document.querySelector('[data-rank-sort="'+field+'"]')?.focus({preventScroll:true});
+      return;
+    }
     if(action==='view-queue'&&currentQueue){await openMode(modeForQueue(currentQueue.format));return;}
     if(action==='leave-queue'){songArtist?.cancelQueue();return;}
     if(mode==="rankings" && button.hasAttribute("data-rank-page")){
@@ -246,7 +254,7 @@ document.addEventListener("input", async (event) => {
 document.addEventListener("change", async (event) => {
   const input = event.target;
   if(mode==="rankings" && input.id==="play-ranking-format"){
-    rankingFormat=input.value; rankingPage=0; await openMode(mode,false); return;
+    rankingFormat=input.value; rankingPage=0;rankingSort='rank';rankingDirection='asc'; await openMode(mode,false); return;
   }
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";

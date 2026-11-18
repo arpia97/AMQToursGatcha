@@ -1,11 +1,16 @@
+import {quizDuration} from './quiz-time.js';
 const formats = {
   "ngmc-ranked": "NGMC Ranked", "1v1": "Song/Artist 1v1", "3v3": "Song/Artist 3v3",
-  "1-team": "Song/Artist 1-Team", quiz: "Quiz"
+  quiz: "Quiz"
 };
 
-function table(headers, rows) {
+function table(headers, rows,sort,dir) {
   return '<div class="play-table-wrap"><table class="play-rank-table"><thead><tr>' +
-    headers.map(label => '<th scope="col">' + label + '</th>').join('') +
+    headers.map(label => {
+      if(!Array.isArray(label))return '<th scope="col">'+label+'</th>';
+      const [key,title,hint]=label,active=key===sort;
+      return '<th scope="col"'+(active?' aria-sort="'+(dir==='asc'?'ascending':'descending')+'"':'')+'><button class="play-sort" data-rank-sort="'+key+'"'+(hint?' title="'+hint+'"':'')+'>'+title+' <span aria-hidden="true">'+(active?(dir==='asc'?'↑':'↓'):'↕')+'</span></button></th>';
+    }).join('') +
     '</tr></thead><tbody>' + rows.map(cells => '<tr>' +
       cells.map(cell => '<td>' + cell + '</td>').join('') + '</tr>').join('') +
     '</tbody></table></div>';
@@ -35,7 +40,7 @@ export function matchLeaderboard(match, esc) {
     ])) + '<small>Performance is the rating change per song.</small></section>';
 }
 
-export function rankingsHTML(format,page,data,esc) {
+export function rankingsHTML(format,page,data,esc,sort='rank',dir='asc') {
   const quiz = format === 'quiz';
   const select = '<label>Mode<select id="play-ranking-format">' + Object.entries(formats).map(([id,name]) =>
     '<option value="'+id+'" '+(id===format?'selected':'')+'>'+name+'</option>').join('')+'</select></label>';
@@ -45,10 +50,13 @@ export function rankingsHTML(format,page,data,esc) {
     const count=row.record.reduce((sum,n)=>sum+n,0);
     return '<span title="'+count+' of '+row.matches+' matches with a recorded outcome">'+row.record.join('–')+'</span>';
   }
-  const columns = ['Rank','Player',...(quiz?[]:['Rating']),quiz?'Best-score accuracy':'Guess Rate',quiz?'Quizzes Played':'Matches',...(versus?['<abbr title="Wins – Losses – Ties">W-L-T</abbr>']:[]),'Points'];
-  const rows = data.rows.map((row,i) => [page*50+i+1, esc(row.name), ...(quiz?[]:[Math.round(row.rating)]),
-    row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—',row.matches,...(versus?[recordCell(row)]:[]),row.correct]);
-  return '<section class="play-leaderboard"><h1>Rankings</h1>'+select+(rows.length?table(columns,rows):'<p>No ranked results yet.</p>')+
+  const columns = [['rank','Rank'],['name','Player'],...(quiz?[]:[['rating','Rating']]),['accuracy',quiz?'Best-score accuracy':'Guess Rate'],
+    ['matches',quiz?'Quizzes Played':'Matches'],...(versus?[['record','W-L-T','Wins, then fewer losses, then ties']]:[]),['points','Points'],
+    ...(quiz?[['time','Average Time','Average duration of timed personal bests on published quizzes']]:[])];
+  const rows = data.rows.map((row,i) => [row.rank??page*50+i+1, esc(row.name), ...(quiz?[]:[Math.round(row.rating)]),
+    row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—',row.matches,...(versus?[recordCell(row)]:[]),row.correct,
+    ...(quiz?[row.avgTimeMs==null?'—':quizDuration(Math.round(row.avgTimeMs))]:[])]);
+  return '<section class="play-leaderboard"><h1>Rankings</h1>'+select+(rows.length?table(columns,rows,sort,dir):'<p>No ranked results yet.</p>')+
     (page||data.more?'<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
     '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>':'')+'</section>';
 }

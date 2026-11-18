@@ -2,7 +2,7 @@ const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked'};
 export function lobbyDirectoryHTML(lobbies,ngmc,enabled,esc){
   const rooms=lobbies?.filter(room=>(room.format==='lobby-ngmc')===ngmc),disabled=enabled?'':' disabled';
-  return '<aside class="play-lobby-directory"><h2>Lobbies</h2><div class="play-directory-actions"><button class="button mint" data-lobby-action="create"'+disabled+'>Create Lobby</button><button class="button secondary" data-lobby-action="join"'+disabled+'>Join by Code</button></div>'+
+  return '<aside class="play-lobby-directory"><header class="play-directory-header"><h2>Lobbies</h2><div class="play-directory-actions"><button class="button mint" data-lobby-action="create"'+disabled+'>Create Lobby</button><button class="button secondary" data-lobby-action="join"'+disabled+'>Join by Code</button></div></header>'+
     (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/8 · '+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=8?'disabled':disabled)+'>'+(room.players>=8?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
 export function lobbyDialog(action,ngmc,room,send){

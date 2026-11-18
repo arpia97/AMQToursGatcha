@@ -3,6 +3,10 @@
 .play-lobby-browser>.sa-lobby {width:100%;max-width:none;margin:0;}
 .play-lobby-directory {min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;}
 .play-lobby-directory h2,.play-lobby-dialog h2 {margin:0 0 14px;font-size:20px;}
+.play-directory-header {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px;}
+.play-directory-header h2 {margin:0;}
+.play-directory-header .play-directory-actions {margin-inline-start:auto;justify-content:flex-end;}
+.play-directory-header .button {padding:8px 10px;font-size:11px;}
 .play-directory-actions,.play-lobby-dialog footer {display:flex;flex-wrap:wrap;gap:8px;}
 .play-directory-room {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
 .play-directory-room strong,.play-directory-room small {display:block;overflow-wrap:anywhere;}

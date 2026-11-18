@@ -2,9 +2,23 @@ import {archivedRecords} from '../src/play-records.js';
 import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
 import {DatabaseSync} from 'node:sqlite';
+import {playRankingPage} from '../src/play-ranking-query.js';
 import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+test('Quiz ranking sorts across pages, retains overall ranks and places untimed players last',()=>{
+  const db=new DatabaseSync(':memory:');
+  try {
+    db.exec('CREATE TABLE standings_fixture(player INTEGER,name TEXT,correct INTEGER,seen INTEGER,matches INTEGER,avgTimeMs REAL)');
+    const insert=db.prepare('INSERT INTO standings_fixture VALUES(?,?,?,?,?,?)');
+    for(let i=1;i<=52;i++)insert.run(i,'Player '+i,53-i,100,5,i===1?null:53000-i*1000);
+    const page=(index,dir)=>playRankingPage((sql,...args)=>db.prepare(sql).all(...args),
+      'SELECT * FROM standings_fixture',[],{quiz:true,page:index,sort:'time',dir});
+    assert.equal(page(0,'asc').rows[0].rank,52);
+    assert.deepEqual(page(1,'asc').rows.map(r=>r.rank),[2,1]);
+    assert.deepEqual(page(1,'desc').rows.map(r=>r.rank),[52,1]);
+  } finally {db.close();}
+});
 import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
