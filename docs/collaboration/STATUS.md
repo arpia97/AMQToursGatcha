@@ -1,5 +1,19 @@
 # Shared Status and Handoff
 
+Play release `8e5816b` deployed to the shared Gatcha Worker as `11e01878-a4df-4907-a562-a092436c1f08` at 100% traffic. All 539 tests passed. Verified all five changed assets on the public domain against the tested source and checked the Song/Artist, NGMC, Gacha and Tour routes.
+
+## Song/Artist 1-Team gameplay
+
+Custom 1-Team lobbies support majority skip, owner-only guess withdrawal and reversible votes. Match results now lead with the preferred anime title. Updated match spacing and controls, added automatic audio retries for missing downloads and server-side fallback across all three AMQ mirrors. Two local Chrome sessions verified vote cleanup, skip scoring, anime results, desktop/mobile layout and recovery from an injected HTTP 502. A separate media check recovered via the third mirror. All 539 tests, syntax checks and the Worker dry-run build passed.
+
+## Play header avatar
+
+Restored the shared Gacha portrait layout in the Play account button and reduced the level badge overlap. Local Chrome checks at 320, 390 and 1440 pixels verified that portrait artwork fills the 32-pixel circle, saved crops apply, initials render, and the account button opens.
+
+## Play queue badge
+
+Removed the divider beside the leave-queue button. Verified the computed border and button click at 390px and 1440px locally.
+
 ## Shared branding and persistent queue — deployed
 
 Gatcha and Play source 4e9db05 deployed to amqtours-gatcha as f97e2e7c-f77e-4a23-b9fe-8f128cdcaaa8. The Tour Site deployed public version 92 (source a9906491639f87eeb4da8cb9997d9e249dcc8d34). Production browser checks on Gatcha, Play and Tour verified identical logo dimensions, corners, wordmark typography, colors and subtitle spacing at 1440, 390 and 320 pixels. Public Play queue assets matched the locally tested release. Both suites passed (539 + 113 tests), as did the 65-second queue persistence check and both builds.
