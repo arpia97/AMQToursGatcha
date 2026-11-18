@@ -15,14 +15,10 @@
       <header class="host-header">
         <div>
           <span class="eyebrow">AMQ TOURS / HOST TOOLS</span>
-          <h1 class="space-top">Behind the Collection.</h1>
+          <h1 class="space-top">Gacha Host Console</h1>
         </div>
         <a class="button secondary" href="./">Player Site ↗</a>
       </header>
-      <div class="notice">
-        A separate console for AMQ hosts. Credits, account recovery, and pick’em
-        results are authorized by the backend. Keep your host token private.
-      </div>
       <div
         id="result"
         class="host-result"
@@ -59,20 +55,27 @@
         <p class="form-hint">Host access is assigned by arpia97.</p>
       </section>
       <section id="console" hidden>
-        <div class="toolbar host-toolbar">
-          <nav class="host-tabs" aria-label="Host console tabs">
-            <button data-tab="rewards" class="active">Credit Rewards</button
-            ><button data-tab="players">Players &amp; Access</button
-            ><button data-tab="pickems">Pick’ems</button
-            ><button data-tab="catalog">Catalog &amp; Prices</button
-            ><button data-tab="quiz">Quiz</button
-            ><button data-tab="play-review">Match Review</button
-            ><button data-tab="credit-audit">Credit Audit</button
-            ><button data-tab="activity">Activity</button
-            ><button data-tab="resets">Reset Tools</button>
+        <aside class="host-toolbar">
+          <label class="host-mobile-section">Workspace<select id="host-section"></select></label>
+          <nav class="host-tabs" aria-label="Host tools">
+            <div><h2>Tour Operations</h2>
+              <button data-tab="rewards" class="active">Credit Rewards</button>
+              <button data-tab="pickems">Pick’ems</button>
+            </div>
+            <div><h2>Content &amp; Review</h2>
+              <button data-tab="catalog">Catalogue &amp; Prices</button>
+              <button data-tab="quiz">Quiz</button>
+              <button data-tab="play-review">Match Review</button>
+            </div>
+            <div><h2>Administration</h2>
+              <button data-tab="players">Players &amp; Access</button>
+              <button data-tab="credit-audit">Credit Audit</button>
+              <button data-tab="activity">Activity</button>
+              <button data-tab="resets">Reset Tools</button>
+            </div>
           </nav>
-          <button class="text-button" id="lock">Lock console</button>
-        </div>
+          <button class="text-button" id="lock">Lock Console</button>
+        </aside>
         <div id="host-content"></div>
       </section>
     </main>

@@ -36,7 +36,7 @@ import {
   localDeadline,
 } from "./pickem-management.js";
 import { updateRewardDefaults } from "./host-defaults.js";
-import { accessPanel, participationPanel } from "./host-panels.js";
+import { accessPanel, participationPanel, rewardWorkspace, organizeHostTools } from "./host-panels.js";
 let deductionDraft = null,
   quizSelection = null,
   quizPool = null;
@@ -78,6 +78,7 @@ const $ = (s) => document.querySelector(s),
 let adminSession = false,
   state,
   tab = "rewards",
+  rewardTool = "tour",
   working = false;
 function report(message, error = false, form = null) {
   $("#result").textContent = message;
@@ -124,17 +125,30 @@ const players = (filter = () => true) =>
     .join("");
 const input = (label, name, type = "text", attrs = "") =>
   `<label>${label}<input name="${name}" type="${type}" ${name === "note" ? "" : "required"} ${attrs}></label>`;
+const hostSection = $("#host-section");
+for (const group of document.querySelectorAll(".host-tabs > div")) {
+  const options = document.createElement("optgroup");
+  options.label = group.querySelector("h2").textContent;
+  for (const button of group.querySelectorAll("[data-tab]"))
+    options.append(new Option(button.textContent, button.dataset.tab));
+  hostSection.append(options);
+}
 function render() {
+  hostSection.value = tab;
   deductionDraft = null;
   document
     .querySelectorAll(".host-tabs button")
-    .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    .forEach(b => {
+      b.classList.toggle("active", b.dataset.tab === tab);
+      if (b.dataset.tab === tab) b.setAttribute("aria-current", "page");
+      else b.removeAttribute("aria-current");
+    });
   let html = "";
   if(tab==='play-review')html=playReviewPanel();
   if (tab === "quiz")
     html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool,quizLibraryStatus);
   if (tab === "rewards")
-    html = `<section class="host-panel"><h2>Reward the Work Behind the Tour.</h2><p>All host-awarded categories are here: reporting, counting, and tour participation. Each successful grant appears in the audit ledger and counts toward lifetime earnings.</p><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize">${TOUR_SIZES.map((size) => `<option value="${size}" ${size === 16 ? "selected" : ""}>${size} Players</option>`).join("")}</select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32 or more. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
+    html = `<section class="host-panel"><h2>Individual Grant</h2><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize">${TOUR_SIZES.map((size) => `<option value="${size}" ${size === 16 ? "selected" : ""}>${size} Players</option>`).join("")}</select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32 or more. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
     html = `<section class="host-panel"><h2>New Account Codes</h2><p>Issue an individual one-use code for a new player. It expires in seven days and is consumed when they set their password.</p><form id="registration-code" class="stack"><label>Player<select name="player" required><option value="">Choose an unregistered player</option>${players(p => !p.registered && !p.account_locked)}</select></label><button class="button secondary" type="submit">Issue One-Use Code →</button></form></section><section class="host-panel"><h2>Recover Account Access</h2><p>Reset an existing account’s access while preserving its credits and cards. Existing sessions are revoked. The replacement recovery code can be used once and expires in seven days.</p><form id="access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${players()}</select></label><button class="button secondary" type="submit">Reset Account Access →</button></form></section><div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Access</th><th>Aliases</th></tr></thead><tbody>${state.players
       .map(
@@ -184,7 +198,7 @@ function render() {
         : '<form id="appearance-control"><button class="button secondary" name="operation" value="anime-appearances-start" type="submit">Enrich Anime Appearances</button></form>') +
       "</section>";
     const f = state.seiyuuImport?.favorites;
-    html += `<section class="host-panel"><h2>MAL Favorites &amp; Rarity</h2><p>Separate character and seiyuu percentiles. AG top 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D remainder. Equal counts share a tier. Normal packs are uniform; premium doubles S-and-higher chances by reducing D. Enhancement levels are independent.</p><p>Scan: ${esc(f?.status || "Not started")} · ${f?.scannedEntries || 0} profiles checked${f?.lastCompletedAt ? " · Last completed " + esc(new Date(f.lastCompletedAt).toLocaleString()) : ""}${f?.nextRefreshAt ? " · Next refresh " + esc(new Date(f.nextRefreshAt).toLocaleString()) : ""}</p><form id="favorites-refresh" class="stack"><label>Days between completed scans<input name="intervalDays" type="number" min="1" max="90" value="${f?.intervalDays || 15}" required></label><button class="button secondary" type="submit">Refresh favorites / save interval →</button></form><p class="form-hint">Scans up to 100 profiles per request, saves progress, and retries outages. Catalogue data cannot be cleared by any host reset.</p></section>`;
+    html += `<section class="host-panel"><h2>Rarity &amp; Portrait Scan</h2><p>Separate character and seiyuu percentiles. AG top 0.1% · Ubers 0.5% · SSS 1% · SS 2.5% · S 5% · A 10% · B 20% · C 40% · D remainder. Equal counts share a tier. Normal packs are uniform; premium doubles S-and-higher chances by reducing D. Enhancement levels are independent.</p><p>Scan: ${esc(f?.status || "Not started")} · ${f?.scannedEntries || 0} profiles checked · ${f?.portraitsRepaired || 0} portraits repaired${f?.lastCompletedAt ? " · Last completed " + esc(new Date(f.lastCompletedAt).toLocaleString()) : ""}${f?.nextRefreshAt ? " · Next refresh " + esc(new Date(f.nextRefreshAt).toLocaleString()) : ""}</p><form id="favorites-refresh" class="stack"><label>Days between completed scans<input name="intervalDays" type="number" min="1" max="90" value="${f?.intervalDays || 15}" required></label><button class="button secondary" type="submit">Save Interval / Refresh Scan →</button></form><p class="form-hint">Each scan updates rarity and checks for replacement portraits using the same character and seiyuu profiles.</p></section>`;
     if (state.catalogSummary?.source?.provider === "ACDB")
       html += `<section class="host-panel danger-panel"><h2>Replace the Retired ACDB Catalogue</h2><p class="warning-copy">Removes ACDB cards from collections and auctions, clears affected avatars, and refunds unclaimed auction holds. Other gameplay and accounts remain. Starts the MAL character import on Tenrai.</p><form id="replace-acdb" class="stack"><label>Type REPLACE ACDB WITH TENRAI<input name="confirmation" required autocomplete="off"></label><button class="button danger" type="submit">Replace ACDB with Tenrai</button></form></section>`;
   }
@@ -219,7 +233,7 @@ function render() {
       html;
   }
   if (tab === "rewards")
-    html = participationPanel() + html + deductionPanel(state, esc);
+    html = rewardWorkspace({ tour: participationPanel(), grant: html, deduct: deductionPanel(state, esc) }, rewardTool);
   if (tab === "players") html = accessPanel(state, esc) + html;
   if (tab === "pickems")
     html =
@@ -231,6 +245,7 @@ function render() {
   matchDraft = null;
   managedTour = null;
   $("#host-content").innerHTML = html;
+  organizeHostTools(tab);
   if(tab==='play-review')mountPlayReview($('#host-content .play-review'),state,api,esc);
   if (tab === "rewards") updateRewardDefaults($("#grant"));
 }
@@ -802,6 +817,12 @@ document.addEventListener(
   true,
 );
 document.addEventListener("change", (ev) => {
+  if (ev.target === hostSection) {
+    const next = hostSection.value;
+    hostSection.value = tab;
+    document.querySelector('.host-tabs [data-tab="' + next + '"]').click();
+    return;
+  }
   rememberSettlement(ev.target);
   if (ev.target.dataset.deadlineTarget) {
     const target = ev.target.form.elements.namedItem(
@@ -823,9 +844,17 @@ document.addEventListener("change", (ev) => {
 });
 document.addEventListener("click", async (ev) => {
   const t = ev.target.closest(
-    "[data-tab],[data-audit-page],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh],[data-cancel-deduction]",
+    "[data-tab],[data-reward-tool],[data-audit-page],#lock,#export-ledger,[data-pickem-edit],[data-settlement-tour],[data-settlement-refresh],[data-cancel-deduction]",
   );
   if (!t || working) return;
+  if (t.dataset.rewardTool) {
+    rewardTool = t.dataset.rewardTool;
+    for (const button of document.querySelectorAll("[data-reward-tool]"))
+      button.setAttribute("aria-pressed", button === t);
+    for (const panel of document.querySelectorAll("[data-reward-panel]"))
+      panel.hidden = panel.dataset.rewardPanel !== rewardTool;
+    return;
+  }
   if (t.hasAttribute("data-cancel-deduction")) {
     deductionDraft = null;
     $("#deduction-review").innerHTML = "";

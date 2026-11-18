@@ -29,16 +29,43 @@ export function lobbyDialog(action,ngmc,room,send){
   document.body.append(dialog);dialog.showModal();return dialog;
 }
 export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="checkbox" data-auto-ready '+(checked?'checked':'')+'> Auto-ready</label>';
-export function roomLobby(lobby,me,esc,autoReady,draft){
-  const settings=draft||lobby,mine=lobby.players.find(p=>p.id===me);
-  const ngmc=lobby.format==='lobby-ngmc',canStart=!ngmc||[6,8].includes(lobby.players.length);
-  const host=lobby.host===me&&!lobby.busy,disabled=host?'':' disabled';
-  return '<section class="custom-lobby"><header><div><small>'+(ngmc?'NGMC Unranked':'Song / Artist')+'</small><h1>Custom Lobby</h1></div><span>Lobby Code <strong>'+esc(lobby.code)+'</strong> · '+(lobby.locked?'Password protected':'Public')+'</span></header><div class="custom-lobby-grid"><section><h2>Players <small>'+lobby.players.length+' · 8 max</small></h2>'+
-    lobby.players.map(p=>'<div class="lobby-member"><strong>'+esc(p.name)+'</strong><small>'+(p.id===lobby.host?'Host':'')+(p.id===me?' · You':'')+'</small><span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></div>').join('')+
-    '</section><section><h2>Match Settings</h2>'+(ngmc?'<p>3v3 with 6 players · 4v4 with 8 players</p><p>35 songs · 20 seconds</p>':'<label>Mode<select id="sa-lobby-format"'+disabled+'>'+Object.entries(lobbyModeNames).filter(([id])=>id!=='lobby-ngmc').map(([id,name])=>'<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+name+'</option>').join('')+
-    '</select></label><div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+(settings.songs===20?'':settings.songs)+'"'+disabled+'></label><label>Guess Time (Seconds)<input type="number" min="1" placeholder="Unlimited" id="sa-lobby-time" value="'+(settings.seconds||'')+'"'+disabled+'></label></div>'+(host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':''))+(host?'<button class="button secondary" data-lobby-action="password">Set Password</button>':'')+'</section></div><footer><button class="button secondary" data-lobby-action="leave">Leave Lobby</button>'+
-    autoReadyHTML(autoReady)+(!lobby.busy?'<button class="button secondary" data-lobby-action="ready" aria-pressed="'+!!mine?.ready+'">'+(mine?.ready?'✓ Ready':'Ready')+'</button>':'')+
-    (host?'<button class="button mint" data-lobby-action="start" '+(!canStart||draft||!lobby.players.every(p=>p.id===me||p.ready)?'disabled':'')+ '>'+ (ngmc&&canStart?'Start '+lobby.players.length/2+'v'+lobby.players.length/2:'Start Match')+'</button>':(lobby.busy?'<span>Match in Progress</span>':'<span>Waiting for Host</span>'))+'</footer></section>';
+function lobbySettings(lobby, settings, host, draft, esc) {
+  if (lobby.format === 'lobby-ngmc') {
+    return '<dl class="room-rules"><div><dt>Teams</dt><dd>3v3 or 4v4</dd></div><div><dt>Songs</dt><dd>35</dd></div><div><dt>Guess Time</dt><dd>20 seconds</dd></div></dl>';
+  }
+  const disabled = host ? '' : ' disabled';
+  const options = ['lobby-team','lobby-ffa'].map(id =>
+    '<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+lobbyModeNames[id]+'</option>'
+  ).join('');
+  return '<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>'+
+    '<div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+esc(settings.songs===20?'':settings.songs)+'"'+disabled+'></label>'+
+    '<label>Guess Time (Seconds)<input type="number" min="1" id="sa-lobby-time" placeholder="Unlimited" value="'+esc(settings.seconds||'')+'"'+disabled+'></label></div>'+
+    (host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'');
+}
+
+export function roomLobby(lobby, me, esc, autoReady, draft) {
+  const mine = lobby.players.find(p=>p.id===me);
+  const ngmc = lobby.format==='lobby-ngmc';
+  const canStart = !ngmc || [6,8].includes(lobby.players.length);
+  const host = lobby.host===me && !lobby.busy;
+  const ready = lobby.players.filter(p=>p.ready).length;
+  const players = lobby.players.map(p=>{
+    const role = [p.id===lobby.host?'Host':'',p.id===me?'You':''].filter(Boolean).join(' · ');
+    return '<li class="room-player"><span><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span>'+
+      '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
+  }).join('');
+  const startDisabled = !canStart || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
+  const startLabel = ngmc && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
+  return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
+    '<header class="room-masthead"><div><small>'+(ngmc?'NGMC Unranked':'Song / Artist · '+lobbyModeNames[lobby.format])+'</small><h1>Custom Lobby</h1></div>'+
+    '<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div></header>'+
+    '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+lobby.players.length+' / 8 seats</span></header>'+
+    '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready</span></div></section>'+
+    '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+
+    (host?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
+    '<footer class="room-controls"><button class="button secondary" data-lobby-action="leave">Leave Lobby</button><div>'+autoReadyHTML(autoReady)+
+    (!lobby.busy?'<button class="button secondary" data-lobby-action="ready" aria-pressed="'+!!mine?.ready+'">'+(mine?.ready?'✓ Ready':'Ready')+'</button>':'')+
+    (host?'<button class="button mint" data-lobby-action="start" '+(startDisabled?'disabled':'')+'>'+startLabel+'</button>':'<span>'+(lobby.busy?'Match in Progress':'Waiting for Host')+'</span>')+'</div></footer></section>';
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));

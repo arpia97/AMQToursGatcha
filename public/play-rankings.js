@@ -5,7 +5,7 @@ const formats = {
 };
 
 function table(headers, rows,sort,dir) {
-  return '<div class="play-table-wrap"><table class="play-rank-table"><thead><tr>' +
+  return '<div class="play-table-wrap"'+(sort?' role="region" aria-label="Sortable player rankings" tabindex="0"':'')+'><table class="play-rank-table"><thead><tr>' +
     headers.map(label => {
       if(!Array.isArray(label))return '<th scope="col">'+label+'</th>';
       const [key,title,hint]=label,active=key===sort;
@@ -45,15 +45,26 @@ export function rankingsHTML(format,page,data,esc,sort='rank',dir='asc') {
   function recordCell(row){
     if(!row.record)return '<span title="No recorded match outcomes">—</span>';
     const count=row.record.reduce((sum,n)=>sum+n,0);
-    return '<span title="'+count+' of '+row.matches+' matches with a recorded outcome">'+row.record.join('–')+'</span>';
+    return '<span class="ranking-record" title="'+count+' of '+row.matches+' matches with a recorded outcome">'+row.record.map((n,i)=>'<span>'+n+'</span>').join('–')+'</span>';
   }
   const columns = [['rank','Rank'],['name','Player'],...(quiz?[]:[['rating','Rating']]),['accuracy',quiz?'Best-score accuracy':'Guess Rate'],
     ['matches',quiz?'Quizzes Played':'Matches'],...(versus?[['record','W-L-T','Wins, then fewer losses, then ties']]:[]),['points','Points'],
     ...(quiz?[['time','Average Time','Average duration of timed personal bests on published quizzes']]:[])];
-  const rows = data.rows.map((row,i) => [row.rank??page*50+i+1, esc(row.name), ...(quiz?[]:[Math.round(row.rating)]),
-    row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—',row.matches,...(versus?[recordCell(row)]:[]),row.correct,
-    ...(quiz?[row.avgTimeMs==null?'—':quizDuration(Math.round(row.avgTimeMs))]:[])]);
-  return '<section class="play-leaderboard"><h1>Rankings</h1>'+select+(rows.length?table(columns,rows,sort,dir):'<p>No ranked results yet.</p>')+
-    (page||data.more?'<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
-    '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>':'')+'</section>';
+  const rows = data.rows.map((row,i) => {
+    const rank = row.rank ?? page*50+i+1;
+    return [
+      '<span class="ranking-position" data-place="'+rank+'">'+rank+'</span>',
+      '<strong>'+esc(row.name)+'</strong>', ...(quiz?[]:[Math.round(row.rating).toLocaleString("en-US")]),
+      row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—', row.matches,
+      ...(versus?[recordCell(row)]:[]), row.correct,
+      ...(quiz?[row.avgTimeMs==null?'—':quizDuration(Math.round(row.avgTimeMs))]:[])
+    ];
+  });
+  const navigation = page || data.more
+    ? '<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
+      '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>'
+    : '';
+  return '<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1>'+select+'</header>'+
+    (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">No ranked results yet for '+formats[format]+'.</p>')+
+    (rows.length||navigation?'<footer><small>Page '+(page+1)+'</small>'+navigation+'</footer>':'')+'</section>';
 }

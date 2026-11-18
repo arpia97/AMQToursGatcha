@@ -15,5 +15,45 @@ export function accessPanel(state, e) {
   }</section>`;
 }
 export function participationPanel() {
-  return `<section class="host-panel"><h2>Reward a Whole Tour</h2><p>Paste team results (<code>name (score) name (score) | Total = … | Guesses = […]</code>) or a comma-separated signup list (<code>HaruUrara (A), xeyz (B-), LordGrond (C)</code>). Scores and ranks are ignored. Aliases resolve to AMQ Tours IDs; repeated players receive one reward. Review each player’s rounds and Count / Report checkboxes before awarding. Substitutes can be selected from the full player pool.</p><form id="participation-preview" class="stack"><label>Team Results or Signup List<textarea name="text" rows="7" maxlength="60000" required placeholder="sabetin (98.893) thjalago (83.829) xeyz (82.686) ilffam (73.115) | Total = 338.523 | Guesses = [5454]"></textarea></label><div class="form-grid"><label>Unique tour identifier<input name="event" maxlength="240" placeholder="usual-2026-10-27-1" required></label></div><label>Audit note<input name="note" maxlength="240" placeholder="Tour participation"></label><button class="button secondary" type="submit">Review participants →</button></form><div id="participation-preview-result"></div><p class="form-hint space-top">A tour identifier can reward each player’s participation only once. Unknown aliases block the whole batch.</p></section>`;
+  return `<section class="host-panel"><h2>Tour Participation</h2>
+    <form id="participation-preview" class="stack">
+      <label>Team Results or Signup List<textarea name="text" rows="3" maxlength="60000" required placeholder="HaruUrara (A), xeyz (B-), LordGrond (C)"></textarea></label>
+      <div class="form-grid"><label>Tour Identifier<input name="event" maxlength="240" placeholder="usual-2026-10-27-1" required></label><label>Audit Note <small>(optional)</small><input name="note" maxlength="240" placeholder="Tour participation"></label></div>
+      <div class="host-review-actions"><button class="button mint" type="submit">Review Participants →</button><details><summary>Accepted formats</summary><p>Paste team results or a comma-separated signup list. Scores and ranks are ignored. Each player can receive participation credits once per tour identifier. Resolve unknown aliases before awarding.</p></details></div>
+    </form><div id="participation-preview-result"></div></section>`;
+}
+
+const rewardTools = [
+  ["tour", "Tour Batch"], ["grant", "Individual Grant"], ["deduct", "Deduct Credits"],
+];
+
+export function rewardWorkspace(panels, selected) {
+  return '<div class="host-reward-tools" role="group" aria-label="Credit reward tools">' + rewardTools.map(([key, label]) =>
+    `<button type="button" data-reward-tool="${key}" aria-controls="reward-tool-${key}" aria-pressed="${key === selected}">${label}</button>`
+  ).join("") + '</div>' + rewardTools.map(([key]) =>
+    `<div id="reward-tool-${key}" data-reward-panel="${key}" ${key === selected ? "" : "hidden"}>${panels[key]}</div>`
+  ).join("");
+}
+
+// Preserve the host's open tools when the catalogue polling refreshes the view.
+const expandedTools = new Map();
+export function organizeHostTools(tab) {
+  if (tab !== "catalog" && tab !== "players") return;
+  for (const panel of document.querySelectorAll("#host-content > .host-panel, #host-content > .table-wrap")) {
+    const heading = panel.querySelector(":scope > h2");
+    if (!heading && tab !== "players") continue;
+    const title = heading?.textContent || "Player Directory";
+    const key = tab + "/" + title;
+    const group = document.createElement("details");
+    const summary = document.createElement("summary");
+    group.className = "host-tool-disclosure";
+    group.open = expandedTools.get(key) ?? ["New Account Codes", "Rarity & Portrait Scan"].includes(title);
+    panel.before(group);
+    if (heading) summary.append(heading);
+    else summary.textContent = title;
+    group.append(summary, panel);
+    group.addEventListener("toggle", () => {
+      if (group.isConnected) expandedTools.set(key, group.open);
+    });
+  }
 }

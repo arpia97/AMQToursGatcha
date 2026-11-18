@@ -132,6 +132,7 @@ export class JikanImport {
         kind: "character",
         page: 1,
         scannedEntries: 0,
+        portraitsRepaired: 0,
         requests: 0,
         intervalDays: 15,
       },
@@ -211,6 +212,7 @@ export class JikanImport {
       kind: "character",
       page: 1,
       scannedEntries: 0,
+      portraitsRepaired: 0,
       requests: 0,
       intervalDays: days,
     };
@@ -301,6 +303,7 @@ export class JikanImport {
           kind: "character",
           page: 1,
           scannedEntries: 0,
+          portraitsRepaired: 0,
           requests: 0,
         };
       }
@@ -372,7 +375,7 @@ export class JikanImport {
             throw new Error("Invalid favorites pagination.");
           const f = s.favorites,
             prefix = f.kind === "character" ? "mal-character-" : "mal-person-";
-          savePortraitRepairs(this.e, portraitRepairs);
+          f.portraitsRepaired = (f.portraitsRepaired || 0) + savePortraitRepairs(this.e, portraitRepairs);
           this.e.catalogStore.popularity.sync(
             f.kind,
             data.data
