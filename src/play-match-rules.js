@@ -64,7 +64,7 @@ export function advanceMatch(state,now=Date.now()) {
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
     if((!ngmc||state.counters.every(Boolean)||now>=state.counterDeadline)&&active.every(p=>playerAudioReady(state,p))) {
-      state.phase='guess';state.startsAt=now+3000;
+      state.phase='guess';state.startsAt=now;
       if(state.index===0)for(const p of active)if(p.disconnectedAt!=null)p.disconnectedAt=state.startsAt;
       state.until=state.lobby?.seconds===0?8.64e15:state.startsAt+(state.lobby?.seconds??(ngmc?20:30))*1000;
     } else if(now>=state.until){state.phase='cancelled';state.reason='Not all players could load the audio in time.';state.until=now+86400000;}
@@ -131,7 +131,6 @@ export function matchMove(state,id,message,now=Date.now()) {
     }
   } else if(message.type==='artists') {
     if(state.mode==='ngmc-ranked'||state.teamFields||state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('Artist entries cannot be changed now.',409);
-    if(player.locked)return;
     player.artists=submittedArtists(message.artists);player.answers.artist=player.artists.join(', ');
     if(player.draft){player.draft.artists=player.artists;player.draft.answers.artist='';}
   } else if(message.type==='reaction') {
@@ -147,17 +146,17 @@ export function matchMove(state,id,message,now=Date.now()) {
       if(!FIELDS.includes(field)||artists===null&&(typeof message.answer!=='string'||!message.answer.trim()||message.answer.length>300)||artists&&!artists.length&&!player.field)fail('Submit one answer within 300 characters.');
       if(player.field&&player.field!==field)fail('You already claimed another field for this song.',409);
       if(state.players.some(p=>p.team===player.team&&p.id!==id&&p.field===field))fail('A teammate already claimed this field.',409);
-      if(player.field===field&&field!=='artist')return; // Unlock before replacing a submitted answer.
       delete player.draft;player.field=field;player.answers={[field]:artists?artists.join(', '):message.answer.trim()};if(field==='artist')player.artists=artists||[message.answer.trim()];
-      return; // Artist members remain editable; other fields require an explicit unlock.
+      return;
     }
-    // Locked answers are immutable and duplicate retries cannot score twice.
-    if(player.locked)return;
+    if(player.locked&&message.lock!==true)return;
     const fields=state.mode==='ngmc-ranked'?['anime']:FIELDS;
     for(const field of fields){if(typeof message.answers?.[field]!=='string'||message.answers[field].length>(field==='artist'&&(player.artists||message.artists)?3500:300))fail('Keep each answer within 300 characters.');}
     if(state.mode!=='ngmc-ranked'&&message.artists!==undefined){const artists=submittedArtists(message.artists);if(message.answers.artist!==artists.join(', '))fail('Artist list does not match the answer.');player.artists=artists;}
     else if(player.artists&&message.answers.artist!==player.artists.join(', '))delete player.artists;
-    delete player.draft;player.answers=Object.fromEntries(fields.map(field=>[field,message.answers[field].trim()]));
+    const answers=Object.fromEntries(fields.map(field=>[field,message.answers[field].trim()]));
+    if(player.locked&&fields.every(field=>player.answers[field]===answers[field]))return;
+    delete player.draft;player.answers=answers;
     if(message.lock===true){player.locked=true;player.lockedElapsedMs=Math.max(0,now-state.startsAt);}
   } else fail('Unknown match action.');
   advanceMatch(state,now);

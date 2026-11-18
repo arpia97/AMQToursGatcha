@@ -73,16 +73,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     for(const r of rooms){r.send({type:'loaded',revision,indices:preload.slice(1)});r.send({type:'ready'});}
     await sleep(80);assert.ok(!rooms[0].messages.some(m=>m.state?.phase==='guess'));
     for(const r of rooms)r.send({type:'loaded',revision,indices:[0]});
-    const countdown=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
-    assert.ok(countdown.players.every(p=>p.loaded===manifest.preload));
-    assert.equal(countdown.playback,undefined);
-    assert.equal(countdown.audioIndex,undefined);
-    assert.equal(countdown.samplePosition,undefined);
-    rooms[0].send({type:'playback',index:0});
-    await sleep(30);
-    assert.ok(!rooms[0].messages.some(m=>m.state?.playback||m.type==='playback'));
-    if(format!=='1v1')await mf.dispatchFetch(base+'/api/__advance?match='+id);
-    const started=(await rooms[0].wait(m=>m.state?.playback)).state;
+    const started=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
+    assert.ok(started.players.every(p=>p.loaded===manifest.preload));
+    assert.ok(started.playback);
+    assert.equal(started.audioIndex,undefined);
+    assert.equal(started.samplePosition,undefined);
     assert.ok(started.now>=started.startsAt);
     rooms[0].send({type:'playback',index:1});
     await sleep(30);

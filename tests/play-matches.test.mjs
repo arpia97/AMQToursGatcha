@@ -47,6 +47,9 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.deepEqual(searchAnswers(shana,'anime','shana s'),['Shakugan no Shana S','Shakugan no Shana','Burning-Eyed Shana']);
   assert.deepEqual(searchAnswers(shana,'anime','s shana',1),['Shakugan no Shana S']);
   assert.deepEqual(searchAnswers(shana,'anime','shana',0),[]);
+  const bilingual=answerSearchIndex({anime:['Starmyu','Koukou Hoshi Kageki']});
+  assert.deepEqual(searchAnswers(bilingual,'anime','starmuy'),['Starmyu']);
+  assert.deepEqual(searchAnswers(bilingual,'anime','kageki'),['Koukou Hoshi Kageki']);
   const revenge=answerSearchIndex({anime:["Masamune-kun's Revenge","Masamune-kun no Revenge","Masamune-kun's Revenge R","Masamune-kun no Revenge R"]});
   assert.deepEqual(searchAnswers(revenge,'anime','ge r',1),["Masamune-kun's Revenge R"]);
   assert.deepEqual(searchAnswers(revenge,'anime','enge r').slice(0,2),["Masamune-kun's Revenge R","Masamune-kun no Revenge R"]);
@@ -80,7 +83,7 @@ test('unused audio never becomes a round; review suppresses shared answers and p
     log.submission(state,'0',{type:'answer',index:0,answers:{anime:'Unused Anime'},lock:true},before,{status:409,message:'Too late'},902);
     log.activity(state,'1',{event:'visibility',visibility:'hidden',focused:false,clientAt:10},903);
     const review=log.page();assert.equal(review.expires,null);
-    const submitted=review.events.find(e=>e.kind==='submit');assert.equal(submitted.at,900);assert.equal(submitted.data.elapsedMs,400);assert.equal(submitted.data.clientAt,1);assert.equal(submitted.data.flags.length,1);
+    const submitted=review.events.find(e=>e.kind==='submit'&&e.at===900);assert.ok(review.events.some(e=>e.kind==='submit'&&e.at===901&&e.data.accepted));assert.equal(submitted.data.elapsedMs,400);assert.equal(submitted.data.clientAt,1);assert.equal(submitted.data.flags.length,1);
     assert.ok(review.events.filter(e=>e.kind==='answer-draft').every(e=>!e.data.accepted&&!e.data.flags.length));
     assert.equal(log.page({player:'1'}).events.length,1);
     assert.ok(log.page({before:submitted.seq}).events.length===0);
@@ -94,14 +97,14 @@ test('matches preload all ten, share only team answers, score categories once an
   for(const p of s.players){move(p.id,{type:'loaded',indices:Array.from({length:9},(_,i)=>i)});move(p.id,{type:'ready'});}
   assert.equal(s.phase,'loading');
   for(const p of s.players)move(p.id,{type:'loaded',indices:[9]});
-  assert.equal(s.phase,'guess');assert.equal(s.startsAt,now+3000);assert.equal(s.until-s.startsAt,30000);
-  assert.throws(()=>move('0',{type:'answer',index:0,answers:{anime:'Anime',song:'Song',artist:'Artist'}}),/no longer/);
+  assert.equal(s.phase,'guess');assert.equal(s.startsAt,now);assert.equal(s.until-s.startsAt,30000);
+  assert.throws(()=>move('0',{type:'answer',index:1,answers:{anime:'Anime',song:'Song',artist:'Artist'}}),/no longer/);
   now=s.startsAt;
   const p=s.players[0],teammate=s.players.find(x=>x.id!==p.id&&x.team===p.team),opponent=s.players.find(x=>x.team!==p.team);
   const answers={anime:'Alternate',song:'Song',artist:'Artist'};
   move(p.id,{type:'answer',index:0,field:'anime',answer:'wrong'});
   move(p.id,{type:'answer',index:0,field:'anime',answer:answers.anime});
-  assert.equal(p.answers.anime,'wrong','submitted fields require explicit unlock');
+  assert.equal(p.answers.anime,'Alternate','the owner can directly revise a submitted field');
   assert.deepEqual(matchView(s,opponent.id,now).players.find(x=>x.id===p.id).submittedFields,['anime']);
   move(p.id,{type:'unlock',index:0});assert.equal(p.field,null);assert.deepEqual(p.answers,{});
   move(p.id,{type:'answer',index:0,field:'anime',answer:answers.anime});

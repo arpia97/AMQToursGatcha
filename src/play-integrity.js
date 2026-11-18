@@ -105,7 +105,7 @@ export class MatchReview {
     if(!['answer','artists'].includes(message.type))return;
     const player=state.players.find(p=>p.id===id);
     const answers=message.type==='artists'?{artist:Array.isArray(message.artists)?message.artists.slice(0,50).map(x=>String(x).slice(0,300)).join(', ').slice(0,3500):''}:message.field?{[String(message.field).slice(0,20)]:String(message.answer??message.artists?.join?.(', ')??'').slice(0,3500)}:Object.fromEntries(['anime','song','artist'].filter(f=>message.answers?.[f]!==undefined).map(f=>[f,String(message.answers[f]).slice(0,3500)]));
-    const alreadyLocked=before.locked||state.teamFields&&before.field&&before.field===message.field&&message.field!=='artist';
+    const alreadyLocked=before.locked&&message.type==='answer'&&!state.teamFields&&message.lock!==true;
     const accepted=!error&&!alreadyLocked;
     const final=accepted&&(state.teamFields&&message.type==='answer'||message.lock===true);
     const flags=final?decoyHits(state,player.answers,player.artists):[];

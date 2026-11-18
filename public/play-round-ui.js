@@ -10,7 +10,7 @@ export function recapHTML(match,esc,animeTitle){
   const row=match.history.at(-1);if(!row)return '';
   const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
   const keys=match.mode==='ngmc-ranked'?['anime']:Object.keys(fields);
-  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(mine.earned===1?' Point':' Points')+'</span>'+keys.map(field=>{
+  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(mine.earned===1?' Point':' Points')+'</span> <span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false">Song &amp; Artist</button><span class="sa-artist-tooltip" role="tooltip"><small>Song</small><span>'+esc(row.song)+'</span><small>Artist</small><span>'+esc(row.artist)+'</span></span></span>'+keys.map(field=>{
     const result=(match.teamFields||match.format==='lobby-team')?row.results.find(r=>team.some(p=>p.id===r.id)&&Object.hasOwn(r.answers,field)):mine;
     const owner=match.players.find(p=>p.id===result?.id),correct=!!result?.correct[field];
     return '<div class="'+(correct?'correct':'incorrect')+'"><small>'+fields[field]+'</small><strong>'+(field==='artist'?artistCreditsHTML(row,esc):esc(field==='anime'?animeTitle({anime:row.anime}):row[field]))+'</strong><span>'+esc(result?.answers[field]||'No answer')+((match.teamFields||match.format==='lobby-team')&&owner?' <small>· '+esc(owner.name)+'</small>':'')+'</span></div>';
@@ -23,7 +23,7 @@ export function songTeamsHTML(match,esc){
     const title=solo?esc(roster[0].name)+(team===me.team?' <small>You</small>':' <small>Opponent</small>'):team===me.team?'Your Team':'Opponents';
     return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
-      const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Locked'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Locked · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
+      const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
       return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
@@ -34,7 +34,7 @@ export function answerSideHTML(match,row,team,esc,animeTitle){
     const result=row?.results.find(r=>roster.some(p=>p.id===r.id)&&(solo||Object.hasOwn(r.answers,field)));
     const owner=row?roster.find(p=>p.id===result?.id):roster.find(p=>p.submittedFields?.includes(field));
     const answer=result?.answers[field],correct=!!result?.correct[field];
-    return '<article class="sa-team-answer-tile" data-answer-state="'+(row?(correct?'correct':'incorrect'):owner?'pending':'')+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+(row?'<span aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓ ':'✕ ')+'</span>'+esc(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No Answer'):owner?'Locked':'Awaiting Submission')+'</div></article>';
+    return '<article class="sa-team-answer-tile" data-answer-state="'+(row?(correct?'correct':'incorrect'):owner?'pending':'')+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+(row?'<span aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓ ':'✕ ')+'</span>'+esc(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No Answer'):owner?'Submitted':'Awaiting Submission')+'</div></article>';
   }).join('')+'</div>';
 }
 export function versusHTML(match,row,esc,animeTitle){
@@ -50,5 +50,5 @@ export function songResultsHTML(match,esc,animeTitle){
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;
-  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?(count===active.length?'Preparing Audio':'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?(count===active.length?(active.every(p=>p.audioReady)&&match.counters?.some(id=>!id)&&match.now<match.counterDeadline?'Choosing Counters':'Preparing Audio'):'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
 }

@@ -237,3 +237,25 @@
 
 .sa-formats .sa-queue-count{justify-self:center;padding:2px 8px;border-radius:99px;background:var(--panel);font-variant-numeric:tabular-nums}
 .sa-formats .sa-queue-count[data-waiting="true"]{color:var(--mint);background:#b6e2c518}
+
+.sa-ready-wrap .ngmc-counter, .ngmc-count-options {
+  justify-content:center;
+  width:fit-content;
+  max-width:100%;
+  margin:12px auto;
+  padding:8px 14px;
+  border:1px solid #8a7249;
+  border-radius:12px;
+  background:#29251e;
+  color:#ffe0a3;
+  text-align:center;
+}
+.ngmc-count-options .button, .ngmc-counter .button { color:#ffe0a3; border-color:#79643f; }
+.sa-reveal, .ngmc-round-outcome { text-align:center; }
+.sa-team-answer-tile:is([data-answer-state="correct"],[data-answer-state="incorrect"]) .sa-team-answer-value { text-align:center; font-size:16px; }
+.sa-play-panel:has(.sa-reveal) .sa-timer { position:static; text-align:center; margin-top:6px; font-size:16px; }
+.sa-play-panel:has(.sa-reveal) .sa-round-status { text-align:center; }
+.sa-reveal > div { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.sa-reveal > div > strong { font-size:clamp(16px,2vw,22px); line-height:1.3; overflow-wrap:anywhere; }
+.sa-reveal > div > span { font-size:13px; }
+.sa-reveal .sa-artist-tooltip { left:50%; transform:translateX(-50%); }

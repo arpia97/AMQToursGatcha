@@ -81,7 +81,7 @@ export class PlayLobbies {
       });
       return;
     }
-    if(!players.every(p=>p.ready))fail('Every player must be ready before starting.');
+    if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
     const settings=JSON.parse(row.settings);
     const match=crypto.randomUUID(),now=Date.now(),roster=players.map(p=>({...p,avatar:JSON.parse(p.avatar)}));
     const pending={id:match,format:settings.format,players:JSON.stringify(roster),started:now};
@@ -90,7 +90,7 @@ export class PlayLobbies {
       this.sql.exec('UPDATE lobby_members SET last_match=? WHERE code=? AND last_match IS NULL',match,row.code);
       this.sql.exec('INSERT INTO preparing VALUES(?,?,?,?)',match,pending.format,pending.players,now);
       for(const p of roster)this.sql.exec('INSERT INTO recent VALUES(?,?,?)',p.id,match,now+86400000);
-      this.sql.exec('INSERT INTO match_reviews VALUES(?,?,?,?,?)',match,now,settings.format,JSON.stringify(players.map(({id,name,ready})=>({id,name,ready:!!ready}))),'active');
+      this.sql.exec('INSERT INTO match_reviews VALUES(?,?,?,?,?)',match,now,settings.format,JSON.stringify(players.map(({id,name,ready})=>({id,name,ready:id===who.id||!!ready}))),'active');
     });
     await this.queue.prepare(pending);
   }

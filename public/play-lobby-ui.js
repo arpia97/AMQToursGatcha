@@ -7,12 +7,12 @@ export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="c
 export function roomLobby(lobby,me,esc,autoReady,draft){
   const settings=draft||lobby,mine=lobby.players.find(p=>p.id===me);
   const host=lobby.host===me&&!lobby.busy,disabled=host?'':' disabled';
-  return '<section class="custom-lobby"><header><div><small>Song / Artist</small><h1>Custom Lobby</h1></div><span>Lobby Code <strong>'+esc(lobby.code)+'</strong></span></header><div class="custom-lobby-grid"><section><h2>Players <small>'+lobby.players.length+' / 8</small></h2>'+
+  return '<section class="custom-lobby"><header><div><small>Song / Artist</small><h1>Custom Lobby</h1></div><span>Lobby Code <strong>'+esc(lobby.code)+'</strong></span></header><div class="custom-lobby-grid"><section><h2>Players <small>'+lobby.players.length+' · 8 max</small></h2>'+
     lobby.players.map(p=>'<div class="lobby-member"><strong>'+esc(p.name)+'</strong><small>'+(p.id===lobby.host?'Host':'')+(p.id===me?' · You':'')+'</small><span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></div>').join('')+
     '</section><section><h2>Match Settings</h2><label>Mode<select id="sa-lobby-format"'+disabled+'>'+Object.entries(lobbyModeNames).map(([id,name])=>'<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+name+'</option>').join('')+
     '</select></label><div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+(settings.songs===20?'':settings.songs)+'"'+disabled+'></label><label>Guess Time (Seconds)<input type="number" min="1" placeholder="Unlimited" id="sa-lobby-time" value="'+(settings.seconds||'')+'"'+disabled+'></label></div>'+(host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'')+'</section></div><footer><button class="button secondary" data-lobby-action="leave">Leave Lobby</button>'+
     autoReadyHTML(autoReady)+(!lobby.busy?'<button class="button secondary" data-lobby-action="ready" aria-pressed="'+!!mine?.ready+'">'+(mine?.ready?'✓ Ready':'Ready')+'</button>':'')+
-    (host?'<button class="button mint" data-lobby-action="start" '+(draft||!lobby.players.every(p=>p.ready)?'disabled':'')+'>Start Match</button>':(lobby.busy?'<span>Match in Progress</span>':'<span>Waiting for Host</span>'))+'</footer></section>';
+    (host?'<button class="button mint" data-lobby-action="start" '+(draft||!lobby.players.every(p=>p.id===me||p.ready)?'disabled':'')+'>Start Match</button>':(lobby.busy?'<span>Match in Progress</span>':'<span>Waiting for Host</span>'))+'</footer></section>';
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
