@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture({groups=false}={}){
+export async function playRuntimeFixture({groups=false,media}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -32,7 +32,7 @@ export async function playRuntimeFixture({groups=false}={}){
       }
     }
     export class PlayMatch extends OriginalMatch{
-      fixtureInfo(){return {decoys:this.read().decoys};}
+      fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index]};}
       async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
       forcePhase(){const s=this.read();if(s.phase==='guess')s.startsAt=Date.now()-1;else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
       expire(){const s=this.read();s.until=Date.now()-1;this.write(s);return this.alarm();}
@@ -62,6 +62,15 @@ export async function playRuntimeFixture({groups=false}={}){
   const tourSeedRequests=[];
   const outbound=async request=>{
     const url=new URL(request.url);
+    const localSong=/^\/local-(\d+)\.mp3$/.exec(url.pathname);
+    if(localSong&&/^(eu|nae|naw)dist\.animemusicquiz\.com$/.test(url.hostname)){
+      let bytes=media;
+      if(!bytes){
+        bytes=new Uint8Array(417*80).fill(Number(localSong[1]));
+        for(let offset=0;offset<bytes.length;offset+=417)bytes.set([0xff,0xfb,0x90,0x64],offset);
+      }
+      return new Response(bytes,{headers:{'Content-Type':'audio/mpeg','Content-Length':String(bytes.byteLength)}});
+    }
     if(url.origin!=='https://amqtours.app'||url.pathname!=='/api/archive/profile')throw Error('Unexpected fixture fetch: '+url.origin+url.pathname);
     const id=url.searchParams.get('id');tourSeedRequests.push(id);
     return Response.json({modes:[{mode:'usual',correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});

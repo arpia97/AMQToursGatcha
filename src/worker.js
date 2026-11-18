@@ -8,6 +8,7 @@ import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, ret
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
 import { playState, playAvatar } from "./play-state.js";
+import { playAudioResponse } from "./play-media.js";
 export { PlayQueue } from './play-queue.js';
 export { PlayMatch } from './play-match.js';
 import { cachedQuizCover } from "./quiz-cover-cache.js";
@@ -1740,6 +1741,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
+      if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
         const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog');
         const saved=await cache?.match(key);if(saved)return saved;

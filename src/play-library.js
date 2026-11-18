@@ -1,3 +1,4 @@
+import {playAudioSource} from './play-media.js';
 import {checkQuizAudio} from './quiz-audio.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
@@ -19,11 +20,11 @@ export class PlayLibrary {
         if(row.title)songs.add(row.title);
         if(row.artist)artists.add(row.artist);
         if(!row.title||!row.artist||!row.titles?.length)continue;
-        if(row.audio&&row.titles?.length)ngmcRows.push({annId:row.annId,annSongId:row.annSongId,amqSongId:row.amqSongId,audio:row.audio,type:row.type});
+        if(playAudioSource(row.audio)&&row.titles?.length)ngmcRows.push({annId:row.annId,annSongId:row.annSongId,amqSongId:row.amqSongId,audio:row.audio,type:row.type});
         const key=String(row.amqSongId||row.audio||'ann:'+row.annSongId);
         if(!playable.has(key))playable.set(key,[]);
         playable.get(key).push(row.annSongId);
-        if(row.audio)withAudio.add(key);
+        if(playAudioSource(row.audio))withAudio.add(key);
       }
     }
     // Names are independent lists. No per-song answer mapping goes to clients.
@@ -44,7 +45,7 @@ export class PlayLibrary {
         for(let i=0;i<candidates.length;i+=8) {
           const batch=candidates.slice(i,i+8);
           const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
-          batch.forEach((row,j)=>{const group=groupById.get(row.annSongId);tried.add(group);if(checks[j].working){selected.add(group);verifiedAudio.set(group,checks[j].resolvedAudio);}});
+          batch.forEach((row,j)=>{const group=groupById.get(row.annSongId);tried.add(group);if(checks[j].working&&playAudioSource(checks[j].resolvedAudio)){selected.add(group);verifiedAudio.set(group,checks[j].resolvedAudio);}});
         }
       }
       if(selected.size!==35)throw Object.assign(Error('Not enough verified MP3s. Please try again shortly.'),{status:503});
@@ -60,7 +61,7 @@ export class PlayLibrary {
     const result=await this.core.lookup({annSongIds:ids});
     const byId=new Map(result.songs.map(song=>[song.annSongId,song]));
     const buildSong=index=>{
-      const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>s.audio), amq=data.artist.songs[song.amqSongId];
+      const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>playAudioSource(s.audio)), amq=data.artist.songs[song.amqSongId];
       const artists=[...new Set([amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
       return {audio:verifiedAudio.get(index)||song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
         artistMembers:data.artist.rules[artistKey(amq?.artist||song.artist)]?.composition||[amq?.artist||song.artist],
@@ -72,7 +73,7 @@ export class PlayLibrary {
     for(let i=0;i<candidates.length&&decoys.length<3;i+=3){
       const batch=candidates.slice(i,i+3).map(buildSong).filter(s=>!used.has(s.audio));
       const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
-      batch.forEach((s,j)=>{if(checks[j].working&&!used.has(checks[j].resolvedAudio)&&decoys.length<3){s.audio=checks[j].resolvedAudio;decoys.push(s);used.add(s.audio);}});
+      batch.forEach((s,j)=>{if(checks[j].working&&playAudioSource(checks[j].resolvedAudio)&&!used.has(checks[j].resolvedAudio)&&decoys.length<3){s.audio=checks[j].resolvedAudio;decoys.push(s);used.add(s.audio);}});
     }
     return {version:data.version,songs,decoys};
   }

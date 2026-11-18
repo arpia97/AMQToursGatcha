@@ -1,3 +1,4 @@
+import { playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
 import {saveDraft,applyTimeoutDrafts} from './play-drafts.js';
@@ -37,7 +38,7 @@ export function advanceMatch(state,now=Date.now()) {
   if(ngmc&&state.history.length&&state.teams.some((_,team)=>!active.some(p=>p.team===team))){if(state.phase==='counting')finishNgmcCount(state,Infinity);for(let team=0;team<2;team++)if(!active.some(p=>p.team===team))state.teams[team]=0;state.phase='finished';state.reason='A team left the match.';state.until=now+86400000;return;}
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
-    if((!ngmc||state.counters.every(Boolean)||now>=state.counterDeadline)&&active.every(p=>p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:ngmc?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))))) {
+    if((!ngmc||state.counters.every(Boolean)||now>=state.counterDeadline)&&active.every(p=>playerAudioReady(state,p))) {
       state.phase='guess';state.startsAt=now+3000;state.until=state.startsAt+(ngmc?20000:30000);
     } else if(now>=state.until){state.phase='cancelled';state.reason='Not all players could load the audio in time.';state.until=now+86400000;}
   } else if(state.phase==='guess'&&(now>=state.until||(now>=state.startsAt&&active.every(p=>p.locked))))gradeRound(state,now);
@@ -64,7 +65,8 @@ export function matchMove(state,id,message,now=Date.now()) {
     if(!eligibleNgmc(state,player.team).some(p=>p.id===message.player))fail('Choose a correct teammate with guesses remaining.');
     state.counts[player.team]=message.player;finishNgmcCount(state,now);
   } else if(message.type==='loaded') {
-    if(!Array.isArray(message.indices)||message.indices.length>state.songs.length||message.indices.some(i=>!Number.isInteger(i)||i<0||i>=state.songs.length))fail('Invalid download progress.');
+    const slots=state.audioSealed?state.audioPool.length:state.songs.length;
+    if(!Array.isArray(message.indices)||message.indices.length>slots||message.indices.some(i=>!Number.isInteger(i)||i<0||i>=slots))fail('Invalid download progress.');
     player.loaded=[...new Set([...player.loaded,...message.indices])];
   } else if(message.type==='ready')player.ready=true;
   else if(message.type==='draft'){
@@ -118,9 +120,8 @@ export function matchMove(state,id,message,now=Date.now()) {
 export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
   return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
-    samplePosition:state.samplePositions?.[state.index]??0,skipVotes:state.format==='1-team'?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
+    ...playbackView(state,me,now),skipVotes:state.format==='1-team'?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
     myDraft:me.draft,teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
-    audioIndex:state.audioPool?state.audioPool.findIndex(s=>s.round===state.index):state.index,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),
-    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:p.ready&&p.loaded.includes(state.index)&&(state.index>0||Array.from({length:state.mode==='ngmc-ranked'?12:10},(_,i)=>i).every(i=>p.loaded.includes(i))),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(state.mode==='ngmc-ranked'?['anime']:FIELDS):[],...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
+    players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(state.mode==='ngmc-ranked'?['anime']:FIELDS):[],...((state.mode==='ngmc-ranked'?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

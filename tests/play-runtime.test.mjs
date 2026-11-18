@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
+import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 test('multiplayer Workers authenticate sockets, form all formats, preload, score and survive reconnect through the proxy',async t=>{
   const mf=await playRuntimeFixture();t.after(()=>mf.dispose());
   const base='http://game',cookies=[];
   for(let i=1;i<=8;i++){const response=await mf.dispatchFetch(base+'/api/__test-session?id='+i);assert.equal(response.status,200,await response.clone().text());cookies.push((await response.json()).cookie);}
   const connect=async(i,match='',proxy=false)=>{
-    let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=3'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
-    for(let tries=0;r.status===429&&tries<3;tries++){await sleep(1100);r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol=3'+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});}
+    let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
+    for(let tries=0;r.status===429&&tries<3;tries++){await sleep(1100);r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});}
     assert.equal(r.status,101,r.status===101?'':await r.text());const ws=r.webSocket;const messages=[];ws.addEventListener('message',e=>messages.push(JSON.parse(e.data)));ws.accept();
     const wait=async predicate=>{for(let n=0;n<250;n++){const found=messages.find(predicate);if(found)return found;await sleep(20);}throw Error('No matching socket message: '+JSON.stringify(messages.slice(-4)));};
     t.after(()=>{if(ws.readyState===1)ws.close();});return {ws,messages,wait,send:value=>ws.send(JSON.stringify(value))};
@@ -28,16 +29,63 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(roster.find(p=>p.id==='1').avatar.level,2);
     assert.deepEqual(Object.keys(roster.find(p=>p.id==='1').avatar).sort(),['crop','image','level','rarity']);
     if(ngmc){assert.equal(roster.find(p=>p.id==='8').avatar,null);assert.deepEqual([...mf.tourSeedRequests].sort(),['1','2','3','4','5','6','7','8']);assert.equal(roster.find(p=>p.id==='5').guessRate,40);}
-    const manifest=await rooms[0].wait(m=>m.type==='manifest');assert.equal(manifest.audio.length,ngmc?38:23);assert.equal(new Set(manifest.audio).size,manifest.audio.length);assert.equal(manifest.total,ngmc?35:20);assert.equal(manifest.preload,first+3);assert.equal(manifest.answers,undefined);if(ngmc)assert.ok(manifest.audio.every(url=>!/local-[12]\.mp3$/.test(url)));
-    if(format==='1v1')assert.equal((await mf.dispatchFetch(base+'/api/play-connect?protocol=2&match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
+    const manifest=await rooms[0].wait(m=>m.type==='manifest');
+    assert.equal(manifest.sealed,true);
+    assert.equal(manifest.audio.length,ngmc?38:23);
+    assert.equal(new Set(manifest.audio).size,manifest.audio.length);
+    assert.ok(manifest.audio.every(ticket=>/^[A-Za-z0-9_-]{379}$/.test(ticket)));
+    assert.equal(manifest.total,ngmc?35:20);
+    assert.equal(manifest.preload,first+3);
+    assert.equal(manifest.answers,undefined);
+    const preload=Array.from({length:manifest.preload},(_,i)=>i);
+    if(format==='1v1') {
+      assert.equal((await mf.dispatchFetch(base+'/api/play-connect?protocol=3&match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
+      const path=base+'/api/play-audio/';
+      const broken=(manifest.audio[0][0]==='A'?'B':'A')+manifest.audio[0].slice(1);
+      assert.equal((await mf.dispatchFetch(path+broken)).status,404);
+      const media=await mf.dispatchFetch(path+manifest.audio[0]);
+      assert.equal(media.status,200);
+      assert.equal(media.headers.get('Location'),null);
+      assert.match(media.headers.get('Content-Type'),/application\/octet-stream/);
+      assert.match(media.headers.get('Cache-Control'),/no-store/);
+      await media.arrayBuffer();
+    }
     if(ngmc){for(const team of [0,1]){const initial=(await rooms[0].wait(m=>m.type==='state')).state,p=initial.players.find(p=>p.team===team);rooms[Number(p.id)-1].send({type:'volunteer'});}}
-    for(const r of rooms){r.send({type:'loaded',indices:Array.from({length:manifest.preload},(_,i)=>i).filter(i=>i!==(rooms[0].messages.find(m=>m.type==='state').state.audioIndex))});r.send({type:'ready'});}
+    for(const r of rooms){r.send({type:'loaded',indices:preload.slice(1)});r.send({type:'ready'});}
     await sleep(80);assert.ok(!rooms[0].messages.some(m=>m.state?.phase==='guess'));
-    for(const r of rooms)r.send({type:'loaded',indices:[rooms[0].messages.find(m=>m.type==='state').state.audioIndex]});
-    await rooms[0].wait(m=>m.state?.phase==='guess');
-    assert.ok(rooms[0].messages.find(m=>m.state?.phase==='guess').state.players.every(p=>p.loaded===first));
-    await mf.dispatchFetch(base+'/api/__advance?match='+id);
-    const song=Number(manifest.audio[rooms[0].messages.find(m=>m.type==='state').state.audioIndex].match(/local-(\d+)/)[1]);
+    for(const r of rooms)r.send({type:'loaded',indices:[0]});
+    const countdown=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
+    assert.ok(countdown.players.every(p=>p.loaded===manifest.preload));
+    assert.equal(countdown.playback,undefined);
+    assert.equal(countdown.audioIndex,undefined);
+    assert.equal(countdown.samplePosition,undefined);
+    rooms[0].send({type:'playback',index:0});
+    await sleep(30);
+    assert.ok(!rooms[0].messages.some(m=>m.state?.playback||m.type==='playback'));
+    if(format!=='1v1')await mf.dispatchFetch(base+'/api/__advance?match='+id);
+    const started=(await rooms[0].wait(m=>m.state?.playback)).state;
+    assert.ok(started.now>=started.startsAt);
+    rooms[0].send({type:'playback',index:1});
+    await sleep(30);
+    assert.ok(!rooms[0].messages.some(m=>m.type==='playback'&&m.index===1));
+    const {song:fixtureSong}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
+    const song=Number(fixtureSong.audio.match(/local-(\d+)/)[1]);
+    if(format==='1v1'){
+      const {slot,key}=started.playback,path=base+'/api/play-audio/';
+      const wrong=(slot+1)%manifest.audio.length;
+      const [selected,other]=await Promise.all([slot,wrong].map(async i=>new Uint8Array(await (await mf.dispatchFetch(path+manifest.audio[i])).arrayBuffer())));
+      assert.equal(selected.length,other.length);
+      const material=await crypto.subtle.importKey('raw',audioBytes(key),'AES-GCM',false,['decrypt']);
+      const decrypt=bytes=>crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.subarray(0,PLAY_AUDIO_IV_BYTES)},material,bytes.subarray(PLAY_AUDIO_IV_BYTES));
+      const clip=new Uint8Array(await decrypt(selected));
+      assert.equal(clip[8],song);
+      await assert.rejects(decrypt(other),{name:'OperationError'});
+      rooms[1].ws.close();
+      rooms[1]=await connect(1,id);
+      assert.deepEqual((await rooms[1].wait(m=>m.state?.playback)).state.playback,started.playback);
+      rooms[1].send({type:'loaded',indices:preload});
+      rooms[1].send({type:'ready'});
+    }
     rooms[0].send({type:'activity',event:'visibility',visibility:'hidden',focused:false,clientAt:123});
     const teamFields=['1-team','3v3'].includes(format),counts={};
     const firstAnswer=teamFields?{type:'answer',index:0,field:'anime',answer:'wrong'}:{type:'answer',index:0,answers:{anime:'wrong',song:'',artist:''},lock:true};
@@ -64,6 +112,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       const second=(await rooms[0].wait(m=>m.state?.history?.length===2)).state;
       assert.equal(second.history[1].results.find(p=>p.id==='1').correct.anime,false);
       assert.equal(second.songList.length,2);assert.ok(!JSON.stringify(second).includes('decoy'));
+      assert.equal(second.playback,undefined);
+      assert.ok(!JSON.stringify(second.songList).includes('.mp3'));
     }
     rooms[0].ws.close();const resumed=await connect(0,id);const snapshot=(await resumed.wait(m=>m.type==='state')).state;assert.deepEqual(snapshot.teams,reveal.teams);
     const all=[resumed,...rooms.slice(1)];for(const r of all)r.send({type:'leave'});

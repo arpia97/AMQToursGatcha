@@ -1,3 +1,4 @@
+import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
 import { ngmcRatings } from './ngmc-ratings.js';
 import { DurableObject } from 'cloudflare:workers';
@@ -63,7 +64,7 @@ export class PlayQueue extends DurableObject {
   async fetch(request){try{if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const who=identity(request);const {server,response}=accept(this.ctx,who);send(server,this.status(who.id));await this.ctx.storage.setAlarm(Date.now()+30000);return response;}catch(error){return Response.json({error:error.status?error.message:'Unable to join queue.'},{status:error.status||503});}}
   async webSocketMessage(ws,raw){try{const input=receive(ws,raw);if(!input)return;const {who,message}=input;
     if(message.type==='join'){
-      if(who.protocol!==3)fail('Refresh Play to load the updated match player.',409);
+      if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to load the updated match player.',409);
       if(!Object.hasOwn(PLAY_FORMATS,message.format)||(message.format==='ngmc-ranked'?message.mode!=='ngmc-ranked':message.mode!=='song-artist'))fail('Choose a valid match format.');
       const token=crypto.randomUUID();this.joinRequests.set(who.id,token);
       if(message.format==='ngmc-ranked'){send(ws,{type:'joining',format:message.format});try{await this.rating(who.id);}catch(error){if(this.joinRequests.get(who.id)!==token)return;this.joinRequests.delete(who.id);send(ws,this.status(who.id));throw error;}}

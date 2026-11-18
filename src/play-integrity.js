@@ -5,24 +5,57 @@ function shuffle(values){
   for(let i=values.length-1;i>0;i--){const n=new Uint32Array(1);crypto.getRandomValues(n);const j=n[0]%(i+1);[values[i],values[j]]=[values[j],values[i]];}
   return values;
 }
-// Only the current candidate index is published. Future round order and unused
-// candidates remain server-side; no answer key is shipped to the browser.
-export function prepareAudioPool(state,decoys=[]){
-  const first=state.mode==='ngmc-ranked'?12:10;
+const laterBatchSize = 4;
+const firstRounds = state => state.mode === 'ngmc-ranked' ? 12 : 10;
+
+export function prepareAudioPool(state,decoys=[],sealed=false){
+  const first=firstRounds(state);
   state.decoys=decoys.filter(d=>!state.songs.some(s=>s.audio===d.audio)).slice(0,3);
   const entries=state.songs.map((s,round)=>({audio:s.audio,round}));
   const initial=shuffle([...entries.slice(0,first),...state.decoys.map(d=>({audio:d.audio,round:null}))]);
-  state.audioPool=[...initial,...shuffle(entries.slice(first))];
+  const later = entries.slice(first);
+  state.audioPool = [...initial];
+  if (sealed) {
+    // Only whole batches can gate playback. Download acknowledgments cannot
+    // reveal the specific clip that made a round ready.
+    for (let offset = 0; offset < later.length; offset += laterBatchSize)
+      state.audioPool.push(...shuffle(later.slice(offset, offset + laterBatchSize)));
+  } else state.audioPool.push(...shuffle(later));
   state.audioPreload=initial.length;
 }
 export function audioManifest(state){
   return {type:'manifest',id:state.id,mode:state.mode||'song-artist',total:state.songs.length,
-    preload:state.audioPreload||(state.mode==='ngmc-ranked'?12:10),audio:(state.audioPool||state.songs).map(s=>s.audio)};
+    preload:state.audioPreload||firstRounds(state),
+    ...(state.audioSealed ? { sealed: true } : {}),
+    audio:(state.audioPool||state.songs).map(s=>state.audioSealed ? s.ticket : s.audio)};
 }
 export function loadedRounds(state,indices){
   if(!state.audioPool)return indices;
   if(!Array.isArray(indices)||indices.length>state.audioPool.length||indices.some(i=>!Number.isInteger(i)||i<0||i>=state.audioPool.length))return null;
+  if(state.audioSealed)return indices;
   return [...new Set(indices.map(i=>state.audioPool[i].round).filter(i=>i!==null))];
+}
+
+export function playerAudioReady(state, player) {
+  if (!player.ready) return false;
+  const first = firstRounds(state);
+  if (!state.audioSealed)
+    return player.loaded.includes(state.index) && (state.index > 0 || Array.from({ length: first }, (_, i) => i).every(i => player.loaded.includes(i)));
+  const later = Math.ceil(Math.max(0, state.index + 1 - first) / laterBatchSize) * laterBatchSize;
+  const required = Math.min(state.audioPool.length, state.audioPreload + later);
+  const loaded = new Set(player.loaded);
+  for (let i = 0; i < required; i++) if (!loaded.has(i)) return false;
+  return true;
+}
+
+export function playbackView(state, player, now) {
+  if (!state.audioSealed) return {
+    samplePosition: state.samplePositions?.[state.index] ?? 0,
+    audioIndex: state.audioPool ? state.audioPool.findIndex(s => s.round === state.index) : state.index,
+  };
+  if (player.left || state.phase !== 'guess' || now < state.startsAt || now >= state.until) return {};
+  const slot = state.audioPool.findIndex(entry => entry.round === state.index);
+  return { playback: { slot, key: state.audioPool[slot].key } };
 }
 function matches(song,field,value){
   return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):titleMatches(song.answers[field],value);

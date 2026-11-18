@@ -27,14 +27,16 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   Reactions reset each song and do not affect scoring. Opponents'
   answers remain private until reveal. Submitted 1v1 answers require explicit cancellation to edit. Drafts
   already received at the deadline are scored; client timestamps are not trusted.
-- All players must download the first 10 songs and enable audio before starting.
-  Remaining songs download in pairs in the background. If someone lacks the next
-  song, the whole match waits before its countdown. Initial readiness expires
+- All players must download the encrypted first batch, which includes 10 songs
+  and any decoys, and enable audio before starting. Remaining clips download in
+  pairs in the background. Players missing the next batch wait together before
+  its countdown. Initial readiness expires
   after 3 minutes; later buffering after 90 seconds. A reconnect does not extend
   a running song's clock. Leaving forfeits future contributions; teammates continue.
-- Downloads are in-memory blob URLs, released on leaving. EU/NAE/NAW changes the
-  mirror, not the selected songs. Broken downloads show a retry; they do not
-  silently start an unbuffered round.
+- Encrypted downloads stay in memory and are released on leaving. The browser
+  creates a playable blob only after the current round's key arrives. EU/NAE/NAW
+  selects the server's source mirror. A failed mirror can fall back to the
+  verified source, and unresolved errors keep the shared readiness gate closed.
 
 ## NGMC Ranked
 
@@ -117,10 +119,10 @@ The original Quiz tab still uses its existing quiz transport and rewards.
   remain enforced. Cancelling clears the saved submission until further editing.
 - 1-Team Skip Song requires two distinct active players. Votes can be cancelled;
   the second vote reveals and scores current answers, then continues normally.
-- New rooms choose a random fraction per song; clients seek to that same fraction
-  of the usable MP3 duration, preserving the entire guess window plus a two-second
-  tail. Short clips start at zero. Only the current position is exposed; old rooms
-  keep their original start. New rooms require sample-aware protocol 3 clients.
+- New rooms choose a random sample per song on the server. The server strips MP3
+  metadata and clips audio frames for the 20- or 30-second guess window. Short
+  sources use their available audio. Existing rooms keep their original sample
+  behavior. New rooms require protocol 4.
 - Team reveal colours and submitted text reflect the whole team; personal
   contributions remain separate. Artist names in reveals support hover/focus/tap
   credit popovers with individual group members when the AMQ library provides them.
@@ -212,25 +214,27 @@ page lifecycle and client timestamps are explicitly client-reported, untrusted
 observations. No other-tab URLs, clipboard, screenshots or device contents are
 collected. Solo Gacha Quiz is unchanged.
 
-The library optionally supplies up to three verified, real, unused audio tracks.
-They are mixed into the initial preload candidates, without a decoy label or
-answer key. Future playback order stays on the server; state identifies only
-the current audio candidate. These tracks never become scored rounds, ratings
-data or Song List entries. The real-song preload requirements remain 12 for
-NGMC and 10 for Song/Artist; clients also download the extra candidates. If no
-extra working tracks are available, the match proceeds without them.
+The library optionally supplies up to three verified unused audio tracks. The
+initial batch contains 12 real NGMC tracks or 10 real Song/Artist tracks, plus
+the available decoys. All candidates use fixed-length sealed tickets and equally
+sized AES-GCM packets within a mode. Downloads use same-origin `/api/play-audio/`
+and encrypted edge caching. Only the Worker sees the AMQ MP3 URLs. The ready
+button enables audio with silence, and readiness checks whole batches. At the
+server's round start each active player receives the current clip's slot and
+key. Future keys, decoy keys, and the original MP3 URLs are absent from player
+responses and recaps. Decoys never become scored rounds, rating data or Song List
+entries.
 
 Explicit submissions and server-scored answers matching an unused track are
 flagged for review only when that answer is not accepted anywhere in the real
 match. Shared anime names/artists therefore do not generate those flags. There
-are no automatic bans, credit changes or score penalties. Current-track URL
-matching, audio fingerprinting and second devices remain possible; this is an
-investigation aid, not proof that a player cheated or a cheat-proof client.
+are no automatic bans, credit changes or score penalties. After key release, the
+now-playable audio can still be recognized through fingerprinting or a second
+device. Decoy flags remain evidence for host review.
 
-WebSocket protocol 3 supports candidate indices, timeout drafts and shared random
-sample positions. Old clients receive a refresh
-instruction before joining new matches; existing pre-update rooms keep their
-ordered manifests. Activity uses the existing authenticated, rate-limited room
+WebSocket protocol 4 adds sealed audio and timed key release. Older tabs receive
+a refresh instruction before joining new matches. Existing rooms can continue
+using their previous playback format. Activity uses the existing authenticated, rate-limited room
 socket and does not broadcast/re-render gameplay. Event retention is capped at
 4,000 events per player plus a visible limit marker, and 36,000 per room. Room
 gameplay state still expires after a day; review metadata/events and the queue
