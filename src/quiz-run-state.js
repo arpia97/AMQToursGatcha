@@ -17,6 +17,7 @@ export function quizRunView(q, run, now) {
         results: run.answers.slice(0, 20).map((a) => !!a.correct),
         finished: true,
         startedAt: run.startedAt ?? null,
+        ...(run.fast || run.clockFromAudio ? { clockFromAudio: true } : {}),
         durationMs: run.durationMs ?? null,
         reward: run.reward,
         preview: !!run.preview || !q.published,
@@ -55,6 +56,7 @@ export function quizRunView(q, run, now) {
       results: run.answers.slice(0, run.index + (answer ? 1 : 0)).map((a) => !!a.correct),
       finished: false,
       startedAt: run.startedAt ?? null,
+      timingPending: run.clockFromAudio === true && run.startedAt == null,
       elapsedMs: quizElapsed(run.startedAt, run.completedAt ?? now),
       audio: song.audio,
       sample: song.sample,
@@ -87,7 +89,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
     if (!run.answers[run.index] && run.timing?.index !== run.index) {
       const startsAt = now + (run.index === 0 ? QUIZ_LEAD_IN_MS : 0);
       run.timing = { index: run.index, startsAt, endsAt: startsAt + QUIZ_SONG_MS };
-      if (run.fast && run.startedAt == null) run.startedAt = startsAt;
+      if ((run.fast || run.clockFromAudio) && run.startedAt == null) run.startedAt = startsAt;
     }
     return;
   }
@@ -98,7 +100,8 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
     if (!b.skip && run.timing?.index !== run.index) reject("Wait for the audio to load.");
     if (!b.skip && receivedAt < run.timing.startsAt) reject("Wait for the starting countdown.");
     const timedOut = !b.skip && receivedAt > run.timing.endsAt + QUIZ_ANSWER_GRACE_MS;
-    if (run.fast && (run.startedAt == null || (b.skip && receivedAt < run.startedAt))) run.startedAt = receivedAt;
+    if ((run.fast || run.clockFromAudio) && (run.startedAt == null || (b.skip && receivedAt < run.startedAt)))
+      run.startedAt = receivedAt;
     const submittedAnswer = b.skip ? "" : String(b.answer || "").slice(0, 300);
     const answer = timedOut ? "" : submittedAnswer;
     run.answers.push({

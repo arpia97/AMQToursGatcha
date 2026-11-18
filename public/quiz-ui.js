@@ -5,7 +5,7 @@ import {
   quizAudioUrl,
   createQuizAudioCache,
 } from "./quiz-audio-cache.js";
-import { quizDuration, quizElapsed } from "./quiz-time.js";
+import { quizDuration } from "./quiz-time.js";
 import { quizRarity, QUIZ_SONG_MS, QUIZ_CATEGORIES, quizCategoryLabel } from "./quiz-rules.js";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
@@ -137,14 +137,16 @@ export function createQuizUI({
   const serverNow = () => serverAnchor
     ? serverAnchor.server + monotonicNow() - serverAnchor.local
     : time.now();
-  const elapsed = () =>
-    run?.index === 19 && run?.answered
-      ? run.elapsedMs
-      : quizElapsed(run?.startedAt, Math.round(serverNow()));
+  const elapsed = () => {
+    if (run?.index === 19 && run?.answered) return run.elapsedMs;
+    if (Number.isSafeInteger(run?.startedAt))
+      return Math.max(0, Math.round(serverNow()) - run.startedAt);
+    return run?.transport === "session" || run?.timingPending ? 0 : null;
+  };
   const elapsedControl = () =>
-    run && !run.finished && (Number.isSafeInteger(run.startedAt) || run.transport === "session")
+    run && !run.finished && (Number.isSafeInteger(run.startedAt) || run.transport === "session" || run.timingPending)
       ? '<span class="quiz-elapsed">Elapsed <strong id="quiz-elapsed" role="timer" aria-label="Elapsed Quiz Time">' +
-        quizDuration(elapsed() ?? (run?.transport === "session" ? 0 : null), false) +
+        quizDuration(elapsed(), false) +
         "</strong></span>"
       : "";
   async function call(path, body, key) {
@@ -955,7 +957,7 @@ export function createQuizUI({
       (!preview
         ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
         : "") +
-      (!Number.isSafeInteger(run.startedAt)
+      (!Number.isSafeInteger(run.startedAt) && !run.timingPending && run.transport !== "session"
         ? '<p class="form-hint">This run predates completion timing. Restart Quiz to record a time.</p>'
         : "") +
       (!run.answered
@@ -1245,7 +1247,7 @@ export function createQuizUI({
     }
     const clock = document.getElementById("quiz-elapsed");
     if (clock && run && !run.finished)
-      text(clock, quizDuration(elapsed() ?? (run?.transport === "session" ? 0 : null), false));
+      text(clock, quizDuration(elapsed(), false));
     if (locallyStopped) {
       for (const id of ["quiz-answer", "quiz-lock-answer"]) {
         const control = document.getElementById(id);

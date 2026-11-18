@@ -1,3 +1,4 @@
+import { correctQuizClock, correctQuizReceipt } from "./quiz-countdown.js";
 import { quizRunView, advanceQuizRun } from "./quiz-run-state.js";
 import { titleOrderKey } from "../public/title-order.js";
 import {mergeQuizAnswers} from '../public/quiz-answer-index.js';
@@ -482,7 +483,7 @@ export class Quiz {
       player,
       id,
     );
-    return r ? JSON.parse(r.data) : null;
+    return r ? correctQuizClock(this.e, player, id, JSON.parse(r.data)) : null;
   }
   persist(player, id, run) {
     this.e.run(
@@ -495,6 +496,9 @@ export class Quiz {
   view(player, id) {
     const q = this.definition(id, player);
     return this.runView(q, this.run(player, q.id));
+  }
+  receiptView(player, quiz, result) {
+    return correctQuizReceipt(this.e, player, quiz, result);
   }
   runView(q, run) {
     return quizRunView(q, run, this.e.now());
@@ -614,7 +618,8 @@ export class Quiz {
       if (pool.length < 20) fail("This quiz needs at least 20 songs.");
       run = {
         id: crypto.randomUUID(),
-        startedAt: e.now(),
+        startedAt: null,
+        clockFromAudio: true,
         index: 0,
         songs: pool
           .slice(0, 20)

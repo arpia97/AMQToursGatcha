@@ -1,4 +1,5 @@
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
+import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
@@ -314,7 +315,7 @@ export class Game extends DurableObject {
     const friendsRead = path === "friends" && !post;
     const playRead = ["play-state", "play-connect"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
-    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
+    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && path !== "host/quiz-countdown" && path !== "host/bop-xp-compensation") e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -408,6 +409,7 @@ export class Game extends DurableObject {
       };
       if (
         [
+          "host/quiz-countdown",
           "host/quiz-retirement-preview",
           "host/quiz-retirement",
           "host/quiz-retirement-receipt",
@@ -461,6 +463,11 @@ export class Game extends DurableObject {
             ),
           ),
         );
+      }
+      if (path === "host/quiz-countdown") {
+        if (!post) return json(quizCountdownPlan(e, integer(url.searchParams.get("after") || 0, 0)));
+        const key = text(request.headers.get("Idempotency-Key"), 100);
+        return json(e.mutate("host:quiz-countdown", key, b, () => applyQuizCountdown(e, b)));
       }
       if (path === "host/quiz-retirement-preview" && !post)
         return json(e.tx(() => quizRetirementPreview(e)));
@@ -1225,7 +1232,7 @@ export class Game extends DurableObject {
             quizAnswerReceivedAt: path === "quiz-answer"
               ? Number(request.headers.get(QUIZ_ARRIVAL_HEADER)) : undefined,
           }));
-        return json({ ...result, now: e.now() });
+        return json({ ...e.quiz.receiptView(session.player, b.quiz, result), now: e.now() });
       }
       if (post) {
         const saved = e.one("SELECT input,result FROM receipts WHERE scope=? AND key=?",
@@ -1241,7 +1248,7 @@ export class Game extends DurableObject {
             const view = await this.openQuizSession(session, sessionHash, q, active);
             return json({ ...result, ...view, now: e.now() });
           }
-          return json({ ...result, now: e.now() });
+          return json({ ...e.quiz.receiptView(session.player, b.quiz, result), now: e.now() });
         }
       }
       const id = post ? b.quiz : url.searchParams.get("quiz");

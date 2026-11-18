@@ -1,3 +1,4 @@
+import { applyQuizCountdown, quizCountdownPlan } from "../src/quiz-countdown.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "../src/quiz-ingress.js";
 import { cachedQuizCover } from "../src/quiz-cover-cache.js";
 import { AliasSync } from "../src/aliases.js";
@@ -854,16 +855,18 @@ test("host edits append or remove songs with version checks, deduplicate MP3s an
   assert.equal(f.e.quiz.hostSongs("test").songs.length, 0);
 });
 
-function timedPlay(f, score, player = "p", delay = 1000, finishDelay = 0) {
+function timedPlay(f, score, player = "p", delay = 1000, finishDelay = 0, firstLoadDelay = 0) {
   let result = f.action(player, "quiz-start", { quiz: "test" }),
     run = result.run;
-  const startedAt = run.startedAt;
+  let startedAt;
+  f.advance(firstLoadDelay);
   for (let i = 0; i < 20; i++) {
     const ready = f.action(player, "quiz-ready", {
       quiz: "test",
       run: run.id,
       index: i,
     });
+    if (i === 0) startedAt = ready.run.startsAt;
     f.advance(Math.max(0, ready.run.startsAt - f.e.now()) + delay);
     const song = f.e.quiz.run(player, "test").songs[i];
     const body = {
@@ -889,10 +892,10 @@ function timedPlay(f, score, player = "p", delay = 1000, finishDelay = 0) {
 }
 test("quiz clocks are server-owned, persisted and stop at the last answer rather than the Finish button", (t) => {
   const f = fixture(t),
-    { result, startedAt } = timedPlay(f, 20, "p", 1234, 90000);
-  assert.equal(result.run.durationMs, 2000 + 20 * 1234);
+    { result, startedAt } = timedPlay(f, 20, "p", 1234, 90000, 7000);
+  assert.equal(result.run.durationMs, 20 * 1234);
   assert.equal(result.run.startedAt, startedAt);
-  assert.equal(result.run.history[0].elapsedMs, 2000 + 1234);
+  assert.equal(result.run.history[0].elapsedMs, 1234);
   assert.equal(result.run.history[0].responseMs, 1234);
   assert.equal(result.run.history[19].elapsedMs, result.run.durationMs);
   assert.equal(
@@ -905,6 +908,42 @@ test("quiz clocks are server-owned, persisted and stop at the last answer rather
     result.run.durationMs,
   );
   assert.equal(f.e.player("p").earned, 2900);
+});
+
+test("countdown repair updates only recorded pre-audio time and verifies the corrected best on repeat", (t) => {
+  const { e } = fixture(t);
+  const saveScore = (player, quiz, duration) => e.run(
+    "INSERT INTO quiz_progress(player,quiz,best,at,best_at,best_duration_ms) VALUES(?,?,20,168000,161000,?)",
+    player, quiz, duration,
+  );
+  const finish = (player, run) => e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", `${player}:quiz-next`,
+    run.id, JSON.stringify({ quiz: "test", run: run.id, index: 19 }),
+    JSON.stringify({ run: { finished: true, score: 20, ...run } }), 168000);
+  saveScore("p", "test", 61000);
+  saveScore("q", "test", 60000);
+  saveScore("p", "untimed", null);
+  saveScore("p", "no-receipt", 61000);
+  finish("p", { id: "legacy", startedAt: 100000, durationMs: 61000 });
+  e.run("INSERT INTO receipts VALUES(?,?,?,?,?)", "p:quiz-ready", "first-ready",
+    JSON.stringify({ quiz: "test", run: "legacy", index: 0 }), JSON.stringify({ run: { startsAt: 102500 } }), 100500);
+  finish("q", { id: "session", startedAt: 101000, durationMs: 60000,
+    history: [{ elapsedMs: 1200, responseMs: 1200, answerReceivedAt: 102200 }] });
+  assert.equal(e.quiz.leaderboard("test").rows[0].id, "q");
+  const plan = quizCountdownPlan(e);
+  assert.deepEqual(plan.changes.map(row => row.corrected), [58500]);
+  assert.equal(plan.verified, 1);
+  assert.deepEqual(plan.missing.map(row => row.quiz), ["no-receipt"]);
+  const body = { after: 0, changes: plan.changes };
+  assert.throws(() => e.mutate("host:quiz-countdown", "stale", { ...body, changes: [] },
+    () => applyQuizCountdown(e, { ...body, changes: [] })), /Preview this batch again/);
+  const apply = () => e.mutate("host:quiz-countdown", "repair", body, () => applyQuizCountdown(e, body));
+  assert.equal(apply().updated, 1);
+  assert.equal(apply().updated, 1);
+  assert.deepEqual(e.quiz.leaderboard("test").rows.map(row => [row.id, row.best, row.durationMs]),
+    [["p", 20, 58500], ["q", 20, 60000]]);
+  assert.equal(e.player("p").earned, 0);
+  assert.equal(quizCountdownPlan(e).verified, 2);
+  assert.deepEqual(quizCountdownPlan(e).changes, []);
 });
 
 test("difficulty averages one personal-best score per player, ignoring retries and preview receipts, and clears on score reset", (t) => {
@@ -960,10 +999,10 @@ test("leaderboard ties use fastest matching score, then first set; slower/lower 
   timedPlay(f, 20, "p", 500);
   const fastest = f.e.quiz.leaderboard("test").rows[0];
   assert.equal(fastest.id, "p");
-  assert.equal(fastest.durationMs, 12000);
+  assert.equal(fastest.durationMs, 10000);
   timedPlay(f, 20, "p", 3000);
   timedPlay(f, 19, "p", 0);
-  assert.equal(f.e.quiz.leaderboard("test").rows[0].durationMs, 12000);
+  assert.equal(f.e.quiz.leaderboard("test").rows[0].durationMs, 10000);
   assert.equal(f.e.quiz.leaderboard("test").rows[0].bestAt, fastest.bestAt);
   timedPlay(f, 20, "q", 500);
   assert.deepEqual(
@@ -982,6 +1021,7 @@ test("legacy scores and in-flight runs remain untimed rather than receiving inve
   let r = f.action("p", "quiz-start", { quiz: "test" }).run;
   const old = f.e.quiz.run("p", "test");
   delete old.startedAt;
+  delete old.clockFromAudio;
   f.e.quiz.persist("p", "test", old);
   assert.equal(timedPlay(f, 20, "p", 100).result.run.durationMs, null);
   timedPlay(f, 20, "q", 500);
@@ -1001,7 +1041,10 @@ test("legacy scores and in-flight runs remain untimed rather than receiving inve
     run: restarted.id,
     index: 0,
   }).run;
-  assert.ok(fresh.startedAt > restarted.startedAt);
+  assert.equal(fresh.startedAt, null);
+  assert.equal(fresh.timingPending, true);
+  const ready = f.action("p", "quiz-ready", { quiz: "test", run: fresh.id, index: 0 }).run;
+  assert.equal(ready.startedAt, ready.startsAt);
   assert.notEqual(fresh.id, restarted.id);
 });
 
@@ -1183,9 +1226,9 @@ test("displacing the #1 quiz leader notifies the previous #1 player on score or 
     byId: "q",
     byName: "Other",
     score: 20,
-    durationMs: 22000,
+    durationMs: 20000,
     previousScore: 19,
-    previousDurationMs: 22000,
+    previousDurationMs: 20000,
   });
   assert.deepEqual(f.e.gameState("q").notices, []);
 
@@ -1196,9 +1239,9 @@ test("displacing the #1 quiz leader notifies the previous #1 player on score or 
   assert.equal(qNotices[0].metadata.byId, "p");
   assert.equal(qNotices[0].metadata.byName, "Player");
   assert.equal(qNotices[0].metadata.score, 20);
-  assert.equal(qNotices[0].metadata.durationMs, 12000);
+  assert.equal(qNotices[0].metadata.durationMs, 10000);
   assert.equal(qNotices[0].metadata.previousScore, 20);
-  assert.equal(qNotices[0].metadata.previousDurationMs, 22000);
+  assert.equal(qNotices[0].metadata.previousDurationMs, 20000);
 
   f.e.host("players", { players: [{ id: "368", name: "Owner" }] });
   f.e.run("UPDATE players SET is_admin=1 WHERE id='368'");
