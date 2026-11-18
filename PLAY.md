@@ -9,9 +9,12 @@ The original Quiz tab still uses its existing quiz transport and rewards.
 - Separate queues: 1v1 (2 people), 3v3 (6 people), 1-Team (3 people).
 - Queues match in arrival order; teams are randomly assigned. One active match
   per account. This release has no Elo, credit rewards or paid entry.
-- Each match selects 20 distinct AMQ+ song groups with MP3 audio. All players
-  receive the same order. Anime alternatives come from the active AMQ+ cache;
-  song-name variants are merged across that song's occurrences.
+- Each match selects 20 distinct recordings with verified MP3 audio. All players
+  receive the same order. Song/Artist, NGMC and new Quiz imports use the master
+  sheet, published Gacha quizzes, AMQ+, then the official AMQ song list. The
+  sheet's most complete export supplies the accepted anime titles for a recording.
+  Published quiz changes refresh the Play pool on the next catalogue check.
+  Metadata-only entries can supply names and IDs until a playable source is available.
 - 30 seconds per song, following a shared 3-second countdown; reveal lasts
   5 seconds. In 1v1, everyone submitting early reveals early. Team-field owners
   may cancel their submission and claim a field again until time expires. The server grades answers.

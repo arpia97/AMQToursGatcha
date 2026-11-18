@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Integrated Play catalogue — deployed
+
+Source `62790b2` deployed at 100% as `faad315b-e691-4b04-91ca-2ed0597b28d0`. The live Play catalogue reported 34,306 recordings eligible for audio verification, including 667 additional recordings from the sheet and 27 from published quizzes. The production catalogue used sheet version `master-e8df07b47bcb18c4` and quiz revision `fbbcd1bade12b050`. Both the direct Worker and amqtours.app returned the integrated catalogue after the Durable Objects completed their rollout.
+
+All 541 tests, syntax checks, and the deployment dry run passed. Three newly included sheet recordings passed real MP3 probes. No saved quiz pools, attempts, or scores were rewritten. Refresh the sheet with `python tools/build-master-song-answers.py`. Play detects published quiz revisions on use, at most once per minute. The public autocomplete catalogue can remain edge-cached for ten minutes.
+
 ## Play release — deployed
 
 Source `0d584ff` is live at 100% on `amqtours-gatcha` as `13f929cf-3aa6-4584-917c-acd338b46ec9`. The Play routes, public lobby directory, all five changed client assets and the catalogue version were verified on amqtours.app. The answer mapping is available to the Worker through the asset binding and returns 404 over the public route.
