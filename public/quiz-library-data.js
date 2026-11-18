@@ -12,6 +12,20 @@ export const libraryTitles = (values) => [
       .map((s) => s.trim()),
   ),
 ];
+// AnisongDB stores the credited lineup under members, including nested groups.
+// groups lists other affiliations and does not describe performers on this song.
+export function creditedArtistNames(artists) {
+  const names = [];
+  function visit(credits) {
+    if (!Array.isArray(credits)) return;
+    for (const credit of credits) {
+      if (Array.isArray(credit?.names)) names.push(credit.names);
+      visit(credit?.members);
+    }
+  }
+  visit(artists);
+  return libraryTitles(names);
+}
 export function compactLibrarySong(row, working = []) {
   const annSongId = libraryId(row?.annSongId);
   if (!annSongId) return null;
@@ -19,12 +33,15 @@ export function compactLibrarySong(row, working = []) {
     .trim()
     .slice(0, 200);
   if (!title) return null;
+  const artistNames = Array.isArray(row.artists)
+    ? creditedArtistNames(row.artists) : libraryTitles([row.artistNames || []]);
   return {
     annSongId,
     amqSongId: libraryId(row.amqSongId),
     annId: libraryId(row.annId),
     title,
     artist: String(row.songArtist || row.artist || "").slice(0, 200),
+    ...(artistNames.length ? {artistNames} : {}),
     audio: resolveQuizAudio(row.audio),
     titles: libraryTitles([
       working,

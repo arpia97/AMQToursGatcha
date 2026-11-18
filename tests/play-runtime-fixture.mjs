@@ -54,6 +54,7 @@ export async function playRuntimeFixture({groups=false,media}={}){
     if(path==='/quiz-library/master-answers.json')return Response.json({version:'fixture-master',records:[[1,'Sheet Anime 1','Alternative 1']],keys:{'a:1001':0}});
     if(path==='/quiz-library/manifest.json')return Response.json(manifest);
     if(path==='/quiz-library/0.json')return Response.json(songs);
+    if(path==='/quiz-library/artist-names.json')return Response.json(['Featured Singer']);
     if(path==='/play-artists.json')return Response.json({names:Object.values(songs).flatMap(s=>groups?[s.artist,'Singer A '+s.annSongId,'Singer B '+s.annSongId]:[s.artist]),rules:groups?Object.fromEntries(Object.values(songs).map(s=>[s.annSongId+' group',{names:[s.annSongId+' group'],members:[[s.annSongId+' a singer'],[s.annSongId+' b singer']],composition:['Singer A '+s.annSongId,'Singer B '+s.annSongId]}])):{},songs:{}});
     const local=path==='/play/'?'play/index.html':path.slice(1);
     if(local.includes('..'))return new Response(null,{status:404});

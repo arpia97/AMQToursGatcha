@@ -12,6 +12,8 @@ test('Quiz ranking sorts across pages, retains overall ranks and places untimed 
     db.exec('CREATE TABLE standings_fixture(player INTEGER,name TEXT,correct INTEGER,seen INTEGER,matches INTEGER,avgTimeMs REAL)');
     const insert=db.prepare('INSERT INTO standings_fixture VALUES(?,?,?,?,?,?)');
     for(let i=1;i<=52;i++)insert.run(i,'Player '+i,53-i,100,5,i===1?null:53000-i*1000);
+    const defaults=playRankingPage((sql,...args)=>db.prepare(sql).all(...args),'SELECT * FROM standings_fixture',[],{quiz:true});
+    assert.deepEqual(defaults.rows.slice(0,3).map(r=>r.correct),[52,51,50]);
     const page=(index,dir)=>playRankingPage((sql,...args)=>db.prepare(sql).all(...args),
       'SELECT * FROM standings_fixture',[],{quiz:true,page:index,sort:'time',dir});
     assert.equal(page(0,'asc').rows[0].rank,52);

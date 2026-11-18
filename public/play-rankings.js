@@ -37,7 +37,7 @@ export function matchLeaderboard(match, esc) {
     ])) + '<small>Performance is the rating change per song.</small></section>';
 }
 
-export function rankingsHTML(format,page,data,esc,sort='rank',dir='asc') {
+export function rankingsHTML(format,page,data,esc,sort=format==='quiz'?'points':'rank',dir=sort==='points'?'desc':'asc') {
   const quiz = format === 'quiz';
   const select = '<label>Mode<select id="play-ranking-format">' + Object.entries(formats).map(([id,name]) =>
     '<option value="'+id+'" '+(id===format?'selected':'')+'>'+name+'</option>').join('')+'</select></label>';
@@ -48,7 +48,8 @@ export function rankingsHTML(format,page,data,esc,sort='rank',dir='asc') {
     return '<span class="ranking-record" title="'+count+' of '+row.matches+' matches with a recorded outcome">'+row.record.map((n,i)=>'<span>'+n+'</span>').join('–')+'</span>';
   }
   const columns = [['rank','Rank'],['name','Player'],...(quiz?[]:[['rating','Rating']]),['accuracy',quiz?'Best-score accuracy':'Guess Rate'],
-    ['matches',quiz?'Quizzes Played':'Matches'],...(versus?[['record','W-L-T','Wins, then fewer losses, then ties']]:[]),['points','Points'],
+    ['matches',quiz?'Quizzes Played':'Matches'],...(versus?[['record','W-L-T','Wins, then fewer losses, then ties']]:[]),
+    ['points',quiz?'Cumulative Points':'Points',quiz?'Sum of personal bests across published quizzes':null],
     ...(quiz?[['time','Average Time','Average duration of timed personal bests on published quizzes']]:[])];
   const rows = data.rows.map((row,i) => {
     const rank = row.rank ?? page*50+i+1;

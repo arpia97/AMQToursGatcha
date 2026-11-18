@@ -254,7 +254,11 @@ document.addEventListener("input", async (event) => {
 document.addEventListener("change", async (event) => {
   const input = event.target;
   if(mode==="rankings" && input.id==="play-ranking-format"){
-    rankingFormat=input.value; rankingPage=0;rankingSort='rank';rankingDirection='asc'; await openMode(mode,false); return;
+    rankingFormat=input.value;
+    rankingPage=0;
+    rankingSort=rankingFormat==='quiz'?'points':'rank';
+    rankingDirection=rankingFormat==='quiz'?'desc':'asc';
+    await openMode(mode,false); return;
   }
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";

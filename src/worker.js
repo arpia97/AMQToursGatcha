@@ -1811,11 +1811,13 @@ export default {
         return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page,url.searchParams.get('sort'),url.searchParams.get('dir')));
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v1');
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v2');
         const saved=await cache?.match(key);if(saved)return saved;
         try{const data=await quizLibraryRequest(env,'/play-catalog');if(!data)return json({error:'Song library unavailable.'},503);
-          const response=Response.json(data,{headers:{'Cache-Control':'public,max-age=600','X-Content-Type-Options':'nosniff'}});
-          if(cache)ctx.waitUntil(cache.put(key,response.clone()));return response;
+          // The library actor can still be serving its previous version during rollout.
+          const current=Number.isInteger(data.coverage?.seedArtistNames);
+          const response=Response.json(data,{headers:{'Cache-Control':current?'public,max-age=600':'no-store','X-Content-Type-Options':'nosniff'}});
+          if(cache&&current)ctx.waitUntil(cache.put(key,response.clone()));return response;
         }catch{return json({error:'Song library is warming up. Please retry.'},503);}
       }
       if (

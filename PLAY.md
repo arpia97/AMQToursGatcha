@@ -156,6 +156,10 @@ unresolved group memberships are not guessed.
 
 Autocomplete downloads independent name lists once, builds normalized indices
 in a module Web Worker, debounces typing by 70ms, and renders at most 20 options.
+Artist suggestions include AMQ's artist directory and AMQ+ performer names and
+aliases from nested member credits. The seed build writes a flat name list to
+`public/quiz-library/artist-names.json`. Later masterlist refreshes retain new
+performer names in refreshed song shards for the next Play catalogue build.
 Tokens can be typed in any order, including comma-separated names. Arrow keys
 choose an option; Enter selects the highlighted option (first by default).
 The lists expose no per-match answer mapping. Public media URLs/metadata still

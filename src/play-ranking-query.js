@@ -1,13 +1,14 @@
 // Assign the mode's usual rank before applying the viewer's sort and page.
-export function playRankingPage(read, source, args, {quiz=false, page=0, sort='rank', dir='asc'}={}) {
-  const order=dir==='desc'?'DESC':'ASC';
-  const reverse=order==='ASC'?'DESC':'ASC';
+export function playRankingPage(read, source, args, {quiz=false, page=0, sort, dir}={}) {
+  const defaultSort=quiz?'points':'rank';
   const columns={
     rank:'rank', name:'name COLLATE NOCASE', matches:'matches', points:'correct',
     accuracy:'1.0 * correct / NULLIF(seen,0)',
     ...(quiz?{time:'avgTimeMs'}:{rating:'rating',record:'wins'})
   };
-  const field=Object.hasOwn(columns,sort)?sort:'rank';
+  const field=Object.hasOwn(columns,sort)?sort:defaultSort;
+  const order=dir==='desc'||(dir==null&&quiz&&field==='points')?'DESC':'ASC';
+  const reverse=order==='ASC'?'DESC':'ASC';
   const ordering=field==='record'
     ? 'wins '+order+' NULLS LAST, losses '+reverse+', ties '+order
     : columns[field]+' '+order+' NULLS LAST';

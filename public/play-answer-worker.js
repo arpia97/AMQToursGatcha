@@ -3,7 +3,7 @@ let index;
 self.onmessage=async({data})=>{
   try{
     if(data.type==='load'){
-      const response=await fetch(new URL('api/play-catalog',import.meta.url),{signal:AbortSignal.timeout(90000)});
+      const response=await fetch(new URL('api/play-catalog?source=integrated-v2',import.meta.url),{signal:AbortSignal.timeout(90000)});
       if(!response.ok)throw Error('Could not load the answer lists. Please retry.');
       const catalog=await response.json();index=answerSearchIndex(catalog);
       self.postMessage({type:'ready',count:Object.fromEntries(Object.entries(index).map(([k,v])=>[k,v.length]))});

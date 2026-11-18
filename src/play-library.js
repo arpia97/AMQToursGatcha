@@ -29,8 +29,11 @@ export class PlayLibrary {
   }
   async build(manifest,quizzes,quizVersion) {
     const master=await loadMasterSongAnswers(this.core.assets);
-    const artist=await libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/play-artists.json')),16000000);
-    const anime=new Set(),songs=new Set(),artists=new Set(artist.names),playable=new Map(),withAudio=new Map(),ngmcRows=[];
+    const readAsset=async (file,limit)=>libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/'+file)),limit);
+    const [artist,creditedNames]=await Promise.all([
+      readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
+    ]);
+    const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames]),playable=new Map(),withAudio=new Map(),ngmcRows=[];
     const extras=new Map(), officialById=new Map(), matchedSheet=new Set(),matchedQuiz=new Set(),alternates=new Map();
     for(const [amq,ann,animeId,type,title,performer,titles] of master.official||[]){
       const meta={annId:animeId,type,title,artist:performer,titles};
@@ -44,6 +47,7 @@ export class PlayLibrary {
       for(const title of titles)anime.add(title);
       if(row.title)songs.add(row.title);
       if(row.artist)artists.add(row.artist);
+      for(const name of row.artistNames||[])artists.add(name);
       const title=sheet?.title||quiz?.title||row.title,performer=sheet?.artist||quiz?.artist||row.artist;
       if(title)songs.add(title);if(performer)artists.add(performer);
       const source=playAudioSource(sheet?.audio)||playAudioSource(quiz?.audio)||playAudioSource(row.audio);
@@ -89,7 +93,7 @@ export class PlayLibrary {
     for(const song of Object.values(artist.songs))if(song.title)songs.add(song.title);
     const available=[...playable.entries()].filter(([key])=>withAudio.has(key));
     const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion;
-    const coverage={playableRecordings:available.length,sheetAdded,quizAdded};
+    const coverage={playableRecordings:available.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
     return {version,master,quizzes,artist,extras,ngmcRows,alternates:available.map(([key])=>alternates.get(key)),sources:available.map(([key])=>withAudio.get(key)),catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
