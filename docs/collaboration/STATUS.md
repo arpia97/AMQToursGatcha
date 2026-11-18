@@ -1,5 +1,15 @@
 # Shared Status and Handoff
 
+## Shared branding and persistent queue — deployed
+
+Gatcha and Play source 4e9db05 deployed to amqtours-gatcha as f97e2e7c-f77e-4a23-b9fe-8f128cdcaaa8. The Tour Site deployed public version 92 (source a9906491639f87eeb4da8cb9997d9e249dcc8d34). Production browser checks on Gatcha, Play and Tour verified identical logo dimensions, corners, wordmark typography, colors and subtitle spacing at 1440, 390 and 320 pixels. Public Play queue assets matched the locally tested release. Both suites passed (539 + 113 tests), as did the 65-second queue persistence check and both builds.
+
+
+## Persistent Play queue — locally verified
+
+While waiting, the header shows the queued format, live player count, a shortcut to matchmaking and a leave control. The same queue connection and heartbeat survive internal navigation. Reloads in the same browser tab reconnect through the existing server lease. A match found while browsing opens its ready screen. Local desktop and mobile browser sessions covered Quiz, Rankings, cross-mode navigation, reload, cancellation and a successful match after 65 seconds on Rankings. All 539 tests, 300 syntax checks and the Worker dry run passed. Deployment pending.
+
+
 ## Queue counts, W-L-T and Song/Artist ready forfeits — live
 
 Source 18adece deployed to amqtours-gatcha as Worker 18154243-1e5f-408b-9505-e8d7787e39e2. Play shows per-format waiting counts and competitive standings record finished outcomes. Earlier matches recover from receipts, retained final state or complete Song/Artist reviews when available. Song/Artist 1v1, 3v3 and 1-Team have independent 25-Rating ready timeout penalties, rolling strikes and 72-hour queue restrictions. Verified 539 tests, syntax, dry build, mobile queue indicators, and a real 90-second 1v1 timeout using local browser sessions. Public Play pages, changed assets, queue counts and the standings API were verified after deployment.
