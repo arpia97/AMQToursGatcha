@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Gacha card portrait recovery
+
+Source `0be35e7` is deployed at 100% on Worker `406845dc-ed9b-4bfa-bf0a-dab6f4bebfc5`. A check of 480 live MAL card portraits found one confirmed 404, Akiba, Megumi. The repair updates the old URL in both catalogue representations. Future favourites refreshes check changed MAL URLs and preserve healthy alternate artwork. The browser also recovers failed portraits by card ID. Verified on the production Gacha page that two copies of the broken portrait made one lookup and both rendered at 450 × 700. All 543 tests passed.
+
+The live catalogue now returns `/images/characters/10/649291.jpg` for `mal-character-2973`. The file returned HTTP 200 and decoded at 450 × 700.
+
 ## Song/Artist grading and answer reveal
 
 Artist overlap grading is live in source `e882172`, Worker version `b13f90d9-7d3b-40c5-ac76-d280effa352a` at 100%. Verified TrySail and Amamiya Sora against the shipped catalogue. The full 542-test suite passed before deployment.
