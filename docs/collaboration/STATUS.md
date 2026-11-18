@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Revert Artist Sub-Minute Title
+
+Singers/Artist quiz titles now use the regular aqua style at every completion time. Read-time premium flag is restricted to Composer/Franchise; title UI also ignores stale premium flags for Artist badges/settings. Keeps title IDs, equipment, completion times, scores and wallets; no migration or production data mutation. Existing title test extended for a 59.999s Artist result and stale payload; all 12 focused tests, 284 syntax checks, dry-run/diff checks and local/live visual fixtures at 960/390 pass. The first live fixture replaced an active app body and hit a late callback; corrected fixture renders the live title asset in a standalone same-origin document, both sizes pass without errors. Runtime 03e136f deployed to original Worker 8a088ad6-e197-485f-864c-1b9a42aa09b5. Live title-ui.js byte-matches, health 200. Verify 44213596750 and demo 44213596831 passed. No Host/proxy deployment; shared identity responses also carry the corrected premium flag. Evidence work/artist-title-revert-{tests,check,build,deploy,ci}.log and {browser,live}-proof.json. Ownership released.
+
 ## Completed — Quiz Transition Performance
 
 Recent Play commits did not change Quiz timing/answers; normal Quiz still used shared Game while Competitive alone used isolated sessions. Current UI now requests fastSession for normal starts/restarts too; same existing actor setup/auth/retry/reward path, Competitive remains the optional full-pool download. Older attempts retain transport. Next confirmation no longer disables Lock/Skip/suggestion keyboard handling: one queued answer pauses audio immediately and sends once after confirmation; retries cannot replace it. Cached WeakMap title indexes remove per-keystroke normalization/full sorting without changing shortest-title ordering. No score/credit migrations or future answer exposure.
