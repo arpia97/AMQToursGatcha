@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## Completed — Gacha and Play Startup
+
+Pachinko rendering, actions, forms and history have a dedicated entry module. Gacha loads Quiz and Pachinko resources on route entry and requests featured cards only on Home. Play loads the controller for the selected route and guests can browse matchmaking without starting the search worker or a socket. Quiz title data is deferred until a run, song list or match needs it. Retired Play placeholder markup and styles were removed. The compact Gacha boot response omits the unused embedded leaderboard. The existing full state response remains available.
+
+Local cold-start JavaScript, CSS and JSON bytes dropped 31% on Gacha Home and Packs, 49% on Gacha Quiz, 64% on Play Quiz and 65% in the guest Song/Artist lobby. Local syntax validation went from 11.17s to 0.58s using Node's module parser in one process. The live compact guest API was 83,356 bytes versus 169,147 bytes for the full response.
+
+Runtime 08f95f2 is live on the original Worker version 0eef82cf-1e11-4066-b819-38167211e988. All 534 tests, 289 syntax checks, dry-run build and diff check passed. CI Verify 44251701812 and demo 44251701832 passed. Desktop and 390px runtime QA covered Mahjong and Blackjack, normal and Competitive Quiz lock/continue/refresh, Play route switches, guest/signed-in matchmaking and rapid navigation during a module load. Five live guest routes loaded the intended assets, five assets matched byte-for-byte and health returned 200. No production test mutations. Evidence is in the surrounding work directory under modularization-*. Ownership released.
+
 ## Completed — Quiz Timing and Special Pack Update
 
 The Quiz clock begins at the first authorized song start in normal and Competitive play. The two-second countdown stays visible. The saved result uses the final answer arrival. The owner-only repair corrected 5,847 distinct saved personal-best times across 179 quizzes using the original attempt evidence. Public leaderboard readback matched the corrected time and rank. A second scan found 6,712 verified timed records, two without sufficient start evidence, and zero remaining evidenced corrections. Points and quiz reward records were preserved.
