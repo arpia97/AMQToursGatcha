@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## NGMC Broadcast gameplay
+
+The owner selected option 2. Source `357202a` is live at 100% on Worker version `5d8f2bff-08f8-411d-b71f-e8c4ba7b0565`. NGMC centers the answer field and round clock between compact mirrored team rosters. On phones, both rosters sit below the controls. The center panel displays recording details once the round is graded.
+
+All 542 tests passed. A local eight-player browser match verified readiness, both counters, desktop and phone layouts, answer submission, counting and reveal. Both public matchmaking routes and the three deployed gameplay assets were verified read-only.
+
 ## Play matchmaking redesign
 
 Source `0c793eb` is live at 100% as `5d3b23f6-fff7-48fe-8fb0-bdb28cda274f`. NGMC Ranked and Song/Artist now use the Scoreboard banner above side-by-side Find Match and Lobbies panels. The panels stack on mobile. Song/Artist uses a single music note.
