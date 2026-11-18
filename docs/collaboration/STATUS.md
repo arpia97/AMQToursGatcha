@@ -1,5 +1,10 @@
 # Shared Status and Handoff
 
+## Queue counts, W-L-T and Song/Artist ready forfeits — live
+
+Source 18adece deployed to amqtours-gatcha as Worker 18154243-1e5f-408b-9505-e8d7787e39e2. Play shows per-format waiting counts and competitive standings record finished outcomes. Earlier matches recover from receipts, retained final state or complete Song/Artist reviews when available. Song/Artist 1v1, 3v3 and 1-Team have independent 25-Rating ready timeout penalties, rolling strikes and 72-hour queue restrictions. Verified 539 tests, syntax, dry build, mobile queue indicators, and a real 90-second 1v1 timeout using local browser sessions. Public Play pages, changed assets, queue counts and the standings API were verified after deployment.
+
+
 ## Play lobby readiness and pending multiplayer release — live
 
 Released source 47d31a5 to amqtours-gatcha, Worker version 28b62019-0b17-4f92-aed2-f207778d6043. This includes the previously local Play rankings, custom lobbies, NGMC 3v3, counter controls, individual lobby return and ranked leave policy. Custom lobbies default to 20 songs, allow host setting edits, and require every member to ready. Auto-ready persists per account in the browser across Play modes. Matchmaking reminds at 30 seconds and cancels at 90 seconds if anyone has not confirmed. The ranked leave penalty applies in NGMC Ranked. Audio buffering is separate from confirmation. All 538 tests, syntax checks and Worker dry run passed. Local browser sessions verified lobby settings and readiness and exercised the real 30/90-second timers with eight players. Production NGMC, Song/Artist and Rankings routes returned 200 and the changed UI modules matched source.
