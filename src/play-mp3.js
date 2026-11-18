@@ -18,12 +18,15 @@ function frame(bytes, offset) {
     : null;
 }
 
+export function mp3TagLength(bytes) {
+  if (bytes.length < 10 || bytes[0] !== 73 || bytes[1] !== 68 || bytes[2] !== 51) return 0;
+  return 10 + (bytes[6] << 21 | bytes[7] << 14 | bytes[8] << 7 | bytes[9]);
+}
+
 export function clipMp3(bytes, position, duration) {
   // Skip the leading ID3v2 tag. The clip contains only audio frames and starts
   // after the first frame when possible, omitting Xing/Info duration metadata.
-  let first = 0;
-  if (bytes[0] === 73 && bytes[1] === 68 && bytes[2] === 51 && bytes.length > 10)
-    first = 10 + (bytes[6] << 21 | bytes[7] << 14 | bytes[8] << 7 | bytes[9]);
+  let first = mp3TagLength(bytes);
   const limit = Math.min(bytes.length - 4, first + 65536);
   let head;
   for (; first < limit; first++) {

@@ -45,7 +45,7 @@ export class QuizLibrary extends DurableObject {
       if (raw.length > 1000000)
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
-      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode,body.count));
+      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode,body.count,body.exclude));
       if (path === "/lookup")
         return Response.json(await this.core.lookup(body));
       if (path === "/refresh") {

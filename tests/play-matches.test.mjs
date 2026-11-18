@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
+import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
 import {recapHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
@@ -259,4 +260,27 @@ test('historical W-L-T uses distinct scored fields per team and skips incomplete
     assert.deepEqual(archivedRecords(sql,'3v3',ratings),[]);
     assert.deepEqual(archivedRecords(sql,'ngmc-ranked',ratings),[]);
   }finally{db.close();}
+});
+
+test('a long MP3 yields a playable sealed sample using bounded range requests',async()=>{
+  const source='https://eudist.animemusicquiz.com/long.mp3',length=16*1024*1024;
+  const secret='local-audio-range-regression-key-only';
+  const state={mode:'ngmc-ranked',created:Date.now(),audioPool:[{audio:source,round:0}],samplePositions:[.7]};
+  await sealPlayAudio(state,secret);
+  const ranges=[];
+  const upstream=async(url,{headers})=>{
+    assert.equal(url,source);
+    const [,start,end]=/^bytes=(\d+)-(\d+)$/.exec(headers.Range).map(Number);
+    const size=Math.min(length-1,end)-start+1;
+    assert.ok(size<1024*1024);ranges.push(start);
+    const bytes=new Uint8Array(size);
+    for(let i=(417-start%417)%417;i+4<=size;i+=417)bytes.set([255,251,144,100],i);
+    return new Response(bytes,{status:206,headers:{'Content-Type':'audio/mpeg','Content-Range':'bytes '+start+'-'+(start+size-1)+'/'+length}});
+  };
+  const entry=state.audioPool[0],response=await playAudioResponse(new Request('https://game.test/api/play-audio/'+entry.ticket),{HOST_TOKEN:secret},{},upstream);
+  assert.equal(response.status,200);assert.equal(ranges.length,2);assert.ok(ranges[1]>10*1024*1024);
+  const bytes=new Uint8Array(await response.arrayBuffer());
+  const key=await crypto.subtle.importKey('raw',Buffer.from(entry.key,'base64url'),'AES-GCM',false,['decrypt']);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.subarray(0,12)},key,bytes.subarray(12));
+  assert.ok(new DataView(plain).getUint32(0)>0);
 });

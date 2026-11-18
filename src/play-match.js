@@ -4,7 +4,7 @@ import { quizLibraryRequest } from './quiz-library-actor.js';
 import { makeMatch,advanceMatch,matchMove,matchView,fail } from './play-match-rules.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,playbackView} from './play-integrity.js';
-import {sealPlayAudio} from './play-media.js';
+import {sealPlayAudio,verifiedClipFailure} from './play-media.js';
 import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
 import {ngmcRatings} from './ngmc-ratings.js';
 import {PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
@@ -98,10 +98,54 @@ export class PlayMatch extends DurableObject {
       send(server,{type:'state',state:matchView(state,who.id)});try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return response;}await this.schedule();return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
   }
+  async repairAudio(id, message) {
+    // Serialize repairs so two failed slots cannot draw the same replacement.
+    while(this.audioRepair)await this.audioRepair.catch(()=>{});
+    const state=this.read(),slot=message.slot;
+    if(!Number.isInteger(slot)||!state?.audioSealed||!state.players.some(p=>p.id===id&&!p.left))return;
+    const entry=state.audioPool[slot];
+    const replaceable=s=>!['finished','cancelled'].includes(s.phase)&&(entry.round!==s.index||['loading','buffering'].includes(s.phase));
+    if(!entry||(state.audioRevision||0)!==(message.revision||0)||!replaceable(state))return;
+    const repair=(async()=>{
+      if(!await verifiedClipFailure(this.env.HOST_TOKEN,entry.key,message.proof))return;
+      if((entry.replacements||0)>=4)fail('Several replacement recordings are unavailable. Retry audio shortly.',503);
+      const exclude=[...state.audioPool.map(e=>e.audio),...(state.failedAudio||[])];
+      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude});
+      const song=library?.songs[0];
+      if(!song)fail('No replacement audio is available yet.',503);
+      const next={round:entry.round,audio:song.audio,replacements:(entry.replacements||0)+1};
+      await sealPlayAudio({mode:state.mode,audioPool:[next],samplePositions:state.samplePositions},this.env.HOST_TOKEN,Date.now());
+      // Timers, departures, answers and load acknowledgments can advance during I/O.
+      const live=this.read();
+      if(!live||live.audioPool[slot]?.key!==entry.key||!replaceable(live))return;
+      if(entry.round===null){
+        const i=live.decoys.findIndex(s=>s.audio===entry.audio);
+        if(i>=0)live.decoys[i]=song;
+      }else if(entry.round>=live.index)live.songs[entry.round]=song; // Past rounds keep their original answers and scores.
+      (live.failedAudio??=[]).push(entry.audio);
+      live.audioPool[slot]=next;
+      live.audioRevision=(live.audioRevision||0)+1;
+      for(const p of live.players)p.loaded=p.loaded.filter(index=>index!==slot);
+      if(['loading','buffering'].includes(live.phase))live.until=Math.max(live.until,Date.now()+60000);
+      this.write(live);
+      for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires>Date.now())send(ws,{type:'audio-replaced',slot,ticket:next.ticket,revision:live.audioRevision});
+      this.broadcast();await this.schedule();return true;
+    })();
+    this.audioRepair=repair;
+    try{return await repair;}finally{if(this.audioRepair===repair)this.audioRepair=null;}
+  }
   async webSocketMessage(ws,raw) {
     try{const input=receive(ws,raw);if(!input)return;
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
+      if(input.message.type==='audio-failed'){
+        if(!await this.repairAudio(input.who.id,input.message))send(ws,{type:'audio-retry',revision:input.message.revision});
+        return;
+      }
+      if(input.message.type==='loaded'&&(input.message.revision??0)!==(state.audioRevision||0)){
+        if(input.message.revision===undefined)send(ws,{type:'error',message:'Reload Play to receive the replacement song.'});
+        return;
+      }
       if (input.message.type === 'playback') {
         const player = state.players.find(p => p.id === input.who.id);
         if (state.audioSealed && player && input.message.index === state.index) {

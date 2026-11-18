@@ -7,6 +7,7 @@ export function createSealedAudioCache(apiBase, mode) {
   return {
     has(ticket, server) { return files.has(cacheKey(ticket, server)); },
     clear() { files.clear(); },
+    discard(ticket, server) { files.delete(cacheKey(ticket, server)); },
     async prepare(tickets, server, { signal, onProgress }) {
       let cursor = 0, failed;
       const download = async () => {
@@ -19,14 +20,17 @@ export function createSealedAudioCache(apiBase, mode) {
           try {
             const response = await fetch(url, { signal, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
             const length = response.headers.get("Content-Length");
-            if (!response.ok || length !== null && Number(length) !== expected)
-              throw Error("Encrypted audio could not load.");
+            if (!response.ok || length !== null && Number(length) !== expected) {
+              const proof = response.headers.get("X-Play-Audio-Failure");
+              await response.body?.cancel();
+              throw Object.assign(Error("Encrypted audio could not load."), {ticket,proof});
+            }
             const bytes = new Uint8Array(await response.arrayBuffer());
             signal.throwIfAborted();
             if (bytes.byteLength !== expected) throw Error("Incomplete encrypted audio.");
             files.set(key, bytes);
             onProgress();
-          } catch (error) { failed = error; }
+          } catch (error) { if (!failed || error.proof) failed = error; }
         }
       };
       await Promise.all([download(), download()]);

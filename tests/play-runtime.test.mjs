@@ -41,13 +41,28 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(manifest.total,ngmc?35:20);
     assert.equal(manifest.preload,first+3);
     assert.equal(manifest.answers,undefined);
+    let revision=0;
     const preload=Array.from({length:manifest.preload},(_,i)=>i);
     if(format==='1v1') {
       assert.equal((await mf.dispatchFetch(base+'/api/play-connect?protocol=3&match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
       const path=base+'/api/play-audio/';
       const broken=(manifest.audio[0][0]==='A'?'B':'A')+manifest.audio[0].slice(1);
       assert.equal((await mf.dispatchFetch(path+broken)).status,404);
-      const media=await mf.dispatchFetch(path+manifest.audio[0]);
+      const fixture=()=>mf.dispatchFetch(base+'/api/__fixture-info?match='+id).then(r=>r.json());
+      const original=await fixture(),slot=original.slot;
+      mf.unavailableAudio.add(new URL(original.song.audio).pathname);
+      const unavailable=await mf.dispatchFetch(path+manifest.audio[slot]);
+      assert.equal(unavailable.status,502);
+      const proof=unavailable.headers.get('X-Play-Audio-Failure');
+      assert.ok(proof);
+      for(const r of rooms)r.send({type:'audio-failed',slot,revision,proof});
+      const replacement=await rooms[0].wait(m=>m.type==='audio-replaced');
+      assert.deepEqual(await rooms[1].wait(m=>m.type==='audio-replaced'),replacement);
+      assert.equal(replacement.slot,slot);revision=replacement.revision;
+      assert.equal(revision,1);assert.notEqual((await fixture()).song.audio,original.song.audio);
+      manifest.audio[slot]=replacement.ticket;
+      mf.unavailableAudio.clear();
+      const media=await mf.dispatchFetch(path+replacement.ticket);
       assert.equal(media.status,200);
       assert.equal(media.headers.get('Location'),null);
       assert.match(media.headers.get('Content-Type'),/application\/octet-stream/);
@@ -55,9 +70,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       await media.arrayBuffer();
     }
     if(ngmc){for(const team of [0,1]){const initial=(await rooms[0].wait(m=>m.type==='state')).state,p=initial.players.find(p=>p.team===team);rooms[Number(p.id)-1].send({type:'volunteer'});}}
-    for(const r of rooms){r.send({type:'loaded',indices:preload.slice(1)});r.send({type:'ready'});}
+    for(const r of rooms){r.send({type:'loaded',revision,indices:preload.slice(1)});r.send({type:'ready'});}
     await sleep(80);assert.ok(!rooms[0].messages.some(m=>m.state?.phase==='guess'));
-    for(const r of rooms)r.send({type:'loaded',indices:[0]});
+    for(const r of rooms)r.send({type:'loaded',revision,indices:[0]});
     const countdown=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
     assert.ok(countdown.players.every(p=>p.loaded===manifest.preload));
     assert.equal(countdown.playback,undefined);
@@ -87,7 +102,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       rooms[1].ws.close();
       rooms[1]=await connect(1,id);
       assert.deepEqual((await rooms[1].wait(m=>m.state?.playback)).state.playback,started.playback);
-      rooms[1].send({type:'loaded',indices:preload});
+      rooms[1].send({type:'loaded',revision,indices:preload});
       rooms[1].send({type:'ready'});
     }
     rooms[0].send({type:'activity',event:'visibility',visibility:'hidden',focused:false,clientAt:123});

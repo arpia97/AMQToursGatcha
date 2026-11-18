@@ -1,5 +1,4 @@
-import {playAudioSource} from './play-media.js';
-import {checkQuizAudio} from './quiz-audio.js';
+import {playAudioSource,playableMirror} from './play-media.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
@@ -12,7 +11,7 @@ export class PlayLibrary {
   }
   async build(manifest) {
     const artist=await libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/play-artists.json')),16000000);
-    const anime=new Set(),songs=new Set(),artists=new Set(artist.names),playable=new Map(),withAudio=new Set(),ngmcRows=[];
+    const anime=new Set(),songs=new Set(),artists=new Set(artist.names),playable=new Map(),withAudio=new Map(),ngmcRows=[];
     for(const bucket of manifest.shards) {
       const rows=await this.core.shard(manifest,bucket);
       for(const row of Object.values(rows)) {
@@ -24,37 +23,61 @@ export class PlayLibrary {
         const key=String(row.amqSongId||row.audio||'ann:'+row.annSongId);
         if(!playable.has(key))playable.set(key,[]);
         playable.get(key).push(row.annSongId);
-        if(playAudioSource(row.audio))withAudio.add(key);
+        if(!withAudio.has(key)&&playAudioSource(row.audio))withAudio.set(key,row.audio);
       }
     }
     // Names are independent lists. No per-song answer mapping goes to clients.
     for(const song of Object.values(artist.songs))if(song.title)songs.add(song.title);
-    return {version:manifest.version,artist,ngmcRows,catalog:{version:manifest.version,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:[...playable.entries()].filter(([key])=>withAudio.has(key)).map(([,ids])=>ids)};
+    const available=[...playable.entries()].filter(([key])=>withAudio.has(key));
+    return {version:manifest.version,artist,ngmcRows,sources:available.map(([key])=>withAudio.get(key)),catalog:{version:manifest.version,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
-  async sample(mode='song-artist',count=20) {
+  async verifiedSource(source){
+    const cached=this.audioChecks.get(source);
+    if(cached&&cached.expires>Date.now())return cached.url;
+    const url=await playableMirror(source,this.fetcher);
+    this.audioChecks.set(source,{url,expires:Date.now()+(url?3600000:60000)});
+    if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
+    return url;
+  }
+  async sample(mode='song-artist',count=20,exclude=null) {
     const data=await this.load();
     if(!Number.isInteger(count)||count<1||count>100)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
-    const selected=new Set(),verifiedAudio=new Map(), random=new Uint32Array(1);
-    if(mode==='ngmc-ranked'){
-      const groupById=new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index])));
-      const tried=new Set();
-      // Never publish a manifest containing a link we already detected as broken.
-      for(let pass=0;selected.size<35&&pass<3;pass++) {
-        const candidates=ngmcSongPool(data.ngmcRows.filter(r=>!tried.has(groupById.get(r.annSongId))),35-selected.size);
-        for(let i=0;i<candidates.length;i+=8) {
-          const batch=candidates.slice(i,i+8);
-          const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
-          batch.forEach((row,j)=>{const group=groupById.get(row.annSongId);tried.add(group);if(checks[j].working&&playAudioSource(checks[j].resolvedAudio)){selected.add(group);verifiedAudio.set(group,checks[j].resolvedAudio);}});
-        }
-      }
-      if(selected.size!==35)throw Object.assign(Error('Not enough verified MP3s. Please try again shortly.'),{status:503});
+    const selected=new Set(),verifiedAudio=new Map(),random=new Uint32Array(1);
+    const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
+    const filename=url=>url.slice(url.lastIndexOf('/')+1);
+    const excludedPaths=new Set((exclude||[]).map(filename));
+    const excluded=new Set(),available=[];
+    for(let i=0;i<data.groups.length;i++){
+      if(exclude&&excludedPaths.has(filename(data.sources[i])))excluded.add(i);
+      else available.push(i);
     }
-    while(mode!=='ngmc-ranked'&&selected.size<count) {crypto.getRandomValues(random);const limit=Math.floor(4294967296/data.groups.length)*data.groups.length;if(random[0]<limit)selected.add(random[0]%data.groups.length);}
+    const groupById=ranked?new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index]))):null;
+    const tried=new Set(),pool=ranked?[]:[...available];
+    const draw=()=>{
+      crypto.getRandomValues(random);
+      const i=Math.floor(random[0]/4294967296*pool.length),group=pool[i];
+      pool[i]=pool[pool.length-1];pool.pop();return {group,source:data.sources[group]};
+    };
+    while(selected.size<target&&tried.size<target+32){
+      const needed=target-selected.size;
+      const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
+        .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
+        Array.from({length:Math.min(pool.length,needed)},draw);
+      if(!candidates.length)break;
+      for(let i=0;i<candidates.length;i+=4){
+        await Promise.all(candidates.slice(i,i+4).map(async({group,source})=>{
+          tried.add(group);const url=await this.verifiedSource(source);
+          if(url)verifiedAudio.set(group,url);
+        }));
+      }
+      for(const {group} of candidates)if(verifiedAudio.has(group))selected.add(group);
+    }
+    if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.
-    const extras=data.groups.map((_,i)=>i).filter(i=>!selected.has(i));
+    const extras=exclude?[]:available.filter(i=>!tried.has(i));
     // Partial shuffle: only twelve draws, not tens of thousands of RNG calls.
     for(let i=0;i<Math.min(12,extras.length);i++){crypto.getRandomValues(random);const j=i+random[0]%(extras.length-i);[extras[i],extras[j]]=[extras[j],extras[i]];}
     const candidates=extras.slice(0,12);
@@ -73,8 +96,8 @@ export class PlayLibrary {
     const used=new Set(songs.map(s=>s.audio));
     for(let i=0;i<candidates.length&&decoys.length<3;i+=3){
       const batch=candidates.slice(i,i+3).map(buildSong).filter(s=>!used.has(s.audio));
-      const {checks}=await checkQuizAudio(batch,(...args)=>this.fetcher(...args),this.audioChecks);
-      batch.forEach((s,j)=>{if(checks[j].working&&playAudioSource(checks[j].resolvedAudio)&&!used.has(checks[j].resolvedAudio)&&decoys.length<3){s.audio=checks[j].resolvedAudio;decoys.push(s);used.add(s.audio);}});
+      const urls=await Promise.all(batch.map(s=>this.verifiedSource(s.audio)));
+      batch.forEach((s,j)=>{if(urls[j]&&!used.has(urls[j])&&decoys.length<3){s.audio=urls[j];decoys.push(s);used.add(s.audio);}});
     }
     return {version:data.version,songs,decoys};
   }

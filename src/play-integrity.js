@@ -24,7 +24,7 @@ export function prepareAudioPool(state,decoys=[],sealed=false){
   state.audioPreload=initial.length;
 }
 export function audioManifest(state){
-  return {type:'manifest',id:state.id,mode:state.mode||'song-artist',total:state.songs.length,
+  return {type:'manifest',revision:state.audioRevision||0,id:state.id,mode:state.mode||'song-artist',total:state.songs.length,
     preload:state.audioPreload||firstRounds(state),
     ...(state.audioSealed ? { sealed: true } : {}),
     audio:(state.audioPool||state.songs).map(s=>state.audioSealed ? s.ticket : s.audio)};

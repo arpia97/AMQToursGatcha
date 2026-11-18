@@ -10,7 +10,7 @@ export async function playRuntimeFixture({groups=false,media}={}){
     import {PlayMatch as OriginalMatch} from './src/play-match.js';
     export {QuizSession} from './src/worker.js';
     import {QuizLibrary as OriginalLibrary} from './src/quiz-library-actor.js';
-    export class QuizLibrary extends OriginalLibrary{constructor(ctx,env){super(ctx,env);this.play.fetcher=async url=>new Response(null,{status:/local-[12]\\.mp3$/.test(url)?404:200,headers:{'Content-Type':'audio/mpeg','Content-Length':'100'}});}}
+    export class QuizLibrary extends OriginalLibrary {}
     import {PlayQueue as OriginalQueue} from './src/play-queue.js';
     export class PlayQueue extends OriginalQueue{async ageReview(id){this.ctx.storage.sql.exec('UPDATE match_reviews SET created=? WHERE id=?',Date.now()-60*86400000,id);await this.alarm();}}
     export class Game extends OriginalGame{
@@ -32,7 +32,7 @@ export async function playRuntimeFixture({groups=false,media}={}){
       }
     }
     export class PlayMatch extends OriginalMatch{
-      fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index]};}
+      fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index],slot:state.audioPool.findIndex(e=>e.round===state.index)};}
       async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
       forcePhase(){const s=this.read();if(s.phase==='guess')s.startsAt=Date.now()-1;else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
       expire(){const s=this.read();s.until=Date.now()-1;this.write(s);return this.alarm();}
@@ -59,11 +59,13 @@ export async function playRuntimeFixture({groups=false,media}={}){
     try {const bytes=await readFile(new URL('../public/'+local,import.meta.url));return new Response(bytes,{headers:{'Content-Type':local.endsWith('.js')?'text/javascript':local.endsWith('.css')?'text/css':local.endsWith('.html')?'text/html':local.endsWith('.json')?'application/json':'application/octet-stream'}});}catch{return new Response('not found',{status:404});}
   };
   const names=['Game','QuizLibrary','QuizSession','PlayQueue','PlayMatch'],bindings={GAME:'Game',QUIZ_LIBRARY:'QuizLibrary',QUIZ_SESSIONS:'QuizSession',PLAY_QUEUE:'PlayQueue',PLAY_MATCHES:'PlayMatch'};
-  const tourSeedRequests=[];
+  const tourSeedRequests=[],unavailableAudio=new Set();
   const outbound=async request=>{
     const url=new URL(request.url);
     const localSong=/^\/local-(\d+)\.mp3$/.exec(url.pathname);
     if(localSong&&/^(eu|nae|naw)dist\.animemusicquiz\.com$/.test(url.hostname)){
+      if(Number(localSong[1])===1||unavailableAudio.has(url.pathname))return new Response(null,{status:404});
+      if(Number(localSong[1])===2)return new Response('invalid audio',{headers:{'Content-Type':'audio/mpeg'}});
       let bytes=media;
       if(!bytes){
         bytes=new Uint8Array(417*80).fill(Number(localSong[1]));
@@ -76,6 +78,6 @@ export async function playRuntimeFixture({groups=false,media}={}){
     return Response.json({modes:[{mode:'usual',correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});
   };
   const mf=new Miniflare({workers:[{dev:{outboundService:{type:'fetcher',handler:outbound}},config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
-  mf.tourSeedRequests=tourSeedRequests;
+  mf.tourSeedRequests=tourSeedRequests;mf.unavailableAudio=unavailableAudio;
   return mf;
 }
