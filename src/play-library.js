@@ -2,6 +2,7 @@ import {playAudioSource,playableMirror} from './play-media.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
+import {loadMasterSongAnswers,bestMasterRecord} from './master-song-answers.js';
 export class PlayLibrary {
   constructor(core,fetcher=(...args)=>globalThis.fetch(...args)) { this.core=core;this.fetcher=fetcher;this.audioChecks=new Map(); }
   async load() {
@@ -10,12 +11,14 @@ export class PlayLibrary {
     return this.loading ||= this.build(manifest).catch(error=>{this.loading=null;throw error;});
   }
   async build(manifest) {
+    const master=await loadMasterSongAnswers(this.core.assets);
     const artist=await libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/play-artists.json')),16000000);
     const anime=new Set(),songs=new Set(),artists=new Set(artist.names),playable=new Map(),withAudio=new Map(),ngmcRows=[];
     for(const bucket of manifest.shards) {
       const rows=await this.core.shard(manifest,bucket);
       for(const row of Object.values(rows)) {
-        for(const title of row.titles||[])anime.add(title);
+        const matched=bestMasterRecord(master,[row]);
+        for(const title of matched===undefined?row.titles||[]:master.records[matched].slice(1))anime.add(title);
         if(row.title)songs.add(row.title);
         if(row.artist)artists.add(row.artist);
         if(!row.title||!row.artist||!row.titles?.length)continue;
@@ -29,7 +32,8 @@ export class PlayLibrary {
     // Names are independent lists. No per-song answer mapping goes to clients.
     for(const song of Object.values(artist.songs))if(song.title)songs.add(song.title);
     const available=[...playable.entries()].filter(([key])=>withAudio.has(key));
-    return {version:manifest.version,artist,ngmcRows,sources:available.map(([key])=>withAudio.get(key)),catalog:{version:manifest.version,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
+    const version=manifest.version+'+'+master.version;
+    return {version,master,artist,ngmcRows,sources:available.map(([key])=>withAudio.get(key)),catalog:{version,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
   async verifiedSource(source){
@@ -87,9 +91,11 @@ export class PlayLibrary {
     const buildSong=index=>{
       const variants=data.groups[index].map(id=>byId.get(id)).filter(Boolean),song=variants.find(s=>playAudioSource(s.audio)), amq=data.artist.songs[song.amqSongId];
       const artists=[...new Set([amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
-      return {audio:verifiedAudio.get(index)||song.audio,anime:song.titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
+      const matched=bestMasterRecord(data.master,variants);
+      const titles=matched===undefined?variants.flatMap(s=>s.titles):data.master.records[matched].slice(1);
+      return {audio:verifiedAudio.get(index)||song.audio,anime:matched===undefined?song.titles[0]:titles[0],title:amq?.title||song.title,artist:amq?.artist||song.artist,
         artistMembers:data.artist.rules[artistKey(amq?.artist||song.artist)]?.composition||[amq?.artist||song.artist],
-        answers:{anime:[...new Set(variants.flatMap(s=>s.titles).map(titleKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
+        answers:{anime:[...new Set(titles.map(titleKey))],song:[...new Set([amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
     };
     const songs=[...selected].map(buildSong),decoys=[];

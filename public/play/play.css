@@ -1,4 +1,7 @@
 .play-site { --play-sidebar:230px; min-height:100dvh; }
+.play-site input[type="number"] { appearance:textfield; }
+.play-site input[type="number"]::-webkit-inner-spin-button,
+.play-site input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .play-sidebar { position:fixed; inset:0 auto 0 0; width:var(--play-sidebar); display:flex; flex-direction:column; padding:32px 20px 20px; border-right:1px solid var(--border); background:#13151c; overflow-y:auto; scrollbar-width:none; }
 .play-sidebar::-webkit-scrollbar { display:none; }
 .play-brand { display:flex; padding:0 8px; margin-bottom:52px; }

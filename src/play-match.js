@@ -14,7 +14,7 @@ export class PlayMatch extends DurableObject {
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
   async initialize(id,format,players,lobby=null) {
     if(this.read())return;
-    if(!this.initializing)this.initializing=(async()=>{const library=await quizLibraryRequest(this.env,'/play-sample',{mode:format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs});if(!library)fail('The song library is unavailable.',503);if(!this.read()){
+    if(!this.initializing)this.initializing=(async()=>{const library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs});if(!library)fail('The song library is unavailable.',503);if(!this.read()){
       const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
       prepareAudioPool(state,library.decoys,true);
       await sealPlayAudio(state,this.env.HOST_TOKEN);

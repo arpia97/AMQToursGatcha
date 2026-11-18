@@ -12,9 +12,9 @@ function skipMajority(state){
 }
 export const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
-  const ngmc=['ngmc-ranked','ngmc-3v3'].includes(format);
-  const custom=lobby&&['lobby-team','lobby-ffa'].includes(format)&&players.length>=1&&players.length<=8;
-  const rules=custom?{size:players.length,teams:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
+  const ngmc=['ngmc-ranked','ngmc-3v3','lobby-ngmc'].includes(format);
+  const custom=lobby&&(['lobby-team','lobby-ffa'].includes(format)||format==='lobby-ngmc'&&[6,8].includes(players.length))&&players.length>=1&&players.length<=8;
+  const rules=custom?{size:players.length,teams:ngmc?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
   if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||songs.length!==(custom?lobby.songs:ngmc?35:20))fail('Invalid match setup.');
 
   let roster=[...players];

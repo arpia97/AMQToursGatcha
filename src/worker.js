@@ -1,5 +1,6 @@
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
+import {loadMasterSongAnswers,masterImportAnswers} from './master-song-answers.js';
 import { paidSpecialRefundPlan, applyPaidSpecialRefund } from "./paid-special-refund.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
@@ -811,7 +812,10 @@ export class Game extends DurableObject {
               Date.now(),
               library.songs,
             );
-            prepared = prepareQuizSongs(rows, this.quizMaster.data,library);
+            const sheet=await loadMasterSongAnswers(this.env.ASSETS);
+            const matched=masterImportAnswers(sheet,rows);
+            prepared = prepareQuizSongs(rows, this.quizMaster.data,library,matched);
+            if(matched.size)prepared.masterListId+=' + '+sheet.version;
           } catch (err) {
             fail(err.message, err.status || 400);
           }
@@ -1749,13 +1753,15 @@ export class Game extends DurableObject {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if(url.pathname==='/quiz-library/master-answers.json')return new Response(null,{status:404});
     if (url.pathname.startsWith("/api/")) {
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
-      if(url.pathname==='/api/play-queue-counts'&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-queue-counts');
+      if(['/api/play-queue-counts','/api/play-lobbies'].includes(url.pathname)&&request.method==='GET'){
+        const cache=globalThis.caches?.default,key=new Request(url.origin+url.pathname);
         const hit=await cache?.match(key);if(hit)return hit;
-        const counts=await env.PLAY_QUEUE.getByName('play-queues-v1').queueCounts();
-        const response=json(counts,200,{'Cache-Control':'public, max-age=10'});
+        const queue=env.PLAY_QUEUE.getByName('play-queues-v1');
+        const data=url.pathname==='/api/play-lobbies'?await queue.lobbyDirectory():await queue.queueCounts();
+        const response=json(data,200,{'Cache-Control':'public, max-age=10'});
         if(cache)ctx.waitUntil(cache.put(key,response.clone()));
         return response;
       }
@@ -1766,7 +1772,7 @@ export default {
         return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page));
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog');
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=amq-master-v1');
         const saved=await cache?.match(key);if(saved)return saved;
         try{const data=await quizLibraryRequest(env,'/play-catalog');if(!data)return json({error:'Song library unavailable.'},503);
           const response=Response.json(data,{headers:{'Cache-Control':'public,max-age=600','X-Content-Type-Options':'nosniff'}});

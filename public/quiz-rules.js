@@ -74,6 +74,10 @@ export function resolveQuizAudio(value) {
       : link,
   );
 }
+export function quizRowAudio(row) {
+  return [row.audio,row.audioUrl,row.audio_url,row.mp3,row.songLink,row.videoUrl]
+    .map(resolveQuizAudio).find(Boolean)||null;
+}
 export function quizImportRows(input) {
   const rows = Array.isArray(input) ? input : input?.songs;
   if (!Array.isArray(rows) || rows.length > 2000)
@@ -94,6 +98,9 @@ export function quizImportRows(input) {
         row.audio_url,
         row.mp3,
         row.songLink,
+        row.songLinks?.primary,
+        row.songLinks?.playedSrc,
+        row.songLinks?.catboxAudio,
         info.audio,
         info.audioUrl,
         info.mp3,
@@ -105,7 +112,7 @@ export function quizImportRows(input) {
     };
   });
 }
-export function prepareQuizSongs(input, master, library = {}) {
+export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new Map()) {
   const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
@@ -118,18 +125,12 @@ export function prepareQuizSongs(input, master, library = {}) {
       rejected.push({ row: index + 1, reason: "Invalid song record" });
       continue;
     }
-    const audio =
-      [
-        row.audio,
-        row.audioUrl,
-        row.audio_url,
-        row.mp3,
-        row.songLink,
-        row.videoUrl,
-      ]
-        .map(resolveQuizAudio)
-        .find(Boolean) || null;
+    const audio = quizRowAudio(row);
     const resolved = indexer.resolve(row);
+    if(sheetAnswers.has(audio)){
+      const titles=sheetAnswers.get(audio);
+      Object.assign(resolved,{answers:titles,workingTitles:titles,trustedAnswers:titles,answerSource:'amq-master-sheet'});
+    }
     if (!audio || !resolved.answers.length) {
       rejected.push({
         row: index + 1,

@@ -368,15 +368,16 @@ export class Quiz {
       const combined = new Map();
       for (const song of incoming) {
         const old = combined.get(song.audio);
+        const sheet=song.answerSource==='amq-master-sheet'?song:old?.answerSource==='amq-master-sheet'?old:null;
         combined.set(
           song.audio,
           old
             ? {
                 ...old,
                 ...song,
-                answers:mergeQuizAnswers(old,song),
-                answerSource:old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource,
-                workingTitles: [
+                answers:sheet?.answers??mergeQuizAnswers(old,song),
+                answerSource:sheet?.answerSource??(old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource),
+                workingTitles: sheet?.workingTitles??[
                   ...new Set([
                     ...(old.workingTitles || []),
                     ...(song.workingTitles || []),

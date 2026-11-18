@@ -33,6 +33,12 @@ export class PlayQueue extends DurableObject {
     const rows=this.rows('SELECT format,COUNT(*) AS waiting FROM queue WHERE match IS NULL AND expires>? GROUP BY format',Date.now());
     return Object.fromEntries(rows.map(row=>[row.format,row.waiting]));
   }
+  lobbyDirectory(){return this.lobbies.directory();}
+  clientStatus(player,counts,directory){
+    const status=this.status(player,counts);
+    if(status.type==='idle')status.lobbies=directory||this.lobbyDirectory();
+    return status;
+  }
   status(player,counts){
     const lobby=this.lobbies.forPlayer(player);
     if(lobby)return this.lobbies.status(lobby);
@@ -43,11 +49,11 @@ export class PlayQueue extends DurableObject {
     return row?{type:'queued',format:row.format,waiting:counts[row.format]||0,needed:PLAY_FORMATS[row.format].size,counts}:{type:'idle',counts};
   }
   broadcast(){
-    const counts=this.queueCounts();
+    const counts=this.queueCounts(),directory=this.lobbyDirectory();
     for(const ws of this.ctx.getWebSockets()){
       const who=ws.deserializeAttachment();
       if(who.expires<=Date.now())ws.close(4003,'Session expired.');
-      else send(ws,this.status(who.id,counts));
+      else send(ws,this.clientStatus(who.id,counts,directory));
     }
   }
   canAccess(player,id){return this.lobbies.forPlayer(player)?.last_match===id||!!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
@@ -145,7 +151,7 @@ export class PlayQueue extends DurableObject {
     if(Object.hasOwn(songRatingPools,result?.format)&&status==='cancelled'){
       for(const p of result.players)if(p.rankedLeftAt!=null)this.recordSongReadyLeave(id,result.format,p.id,p.name,p.rankedLeftAt);
     }
-    if(result?.mode==='ngmc-ranked'&&result.format!=='ngmc-3v3')ratings=this.settle(id,result);
+    if(result?.mode==='ngmc-ranked'&&!['lobby-ngmc','ngmc-3v3'].includes(result.format))ratings=this.settle(id,result);
     else if(result&&status==='finished'&&!result.format?.startsWith('lobby-')&&result.format!=='ngmc-3v3')
       ratings=this.settleSongs(id,result);
     if(status==='finished'&&['1v1','3v3','ngmc-ranked'].includes(result?.format)){
@@ -166,6 +172,7 @@ export class PlayQueue extends DurableObject {
       const custom=row.format.startsWith('lobby-');
       const lobby=custom&&this.rows('SELECT * FROM play_lobbies WHERE match=?',row.id)[0];
       if(custom&&!lobby){await this.complete(row.id);return;}
+      if(row.format==='lobby-ngmc')await Promise.all(players.map(async player=>Object.assign(player,await this.rating(player.id))));
       await match.initialize(row.id,row.format,players,lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null);
       if(lobby){
         const remaining=this.lobbies.roster(lobby.code);
@@ -196,11 +203,13 @@ export class PlayQueue extends DurableObject {
     this.ctx.storage.sql.exec('INSERT OR IGNORE INTO match_reviews VALUES(?,?,?,?,?)',id,Date.now(),format,JSON.stringify(players.map(({id,name})=>({id,name}))),'active');
     await this.prepare({id,format,players:JSON.stringify(players),started:Date.now()});
   }
-  async fetch(request){try{if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const who=identity(request);const {server,response}=accept(this.ctx,who);send(server,this.status(who.id));await this.ctx.storage.setAlarm(Date.now()+30000);return response;}catch(error){return Response.json({error:error.status?error.message:'Unable to join queue.'},{status:error.status||503});}}
+  async fetch(request){try{if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const who=identity(request);const {server,response}=accept(this.ctx,who);send(server,this.clientStatus(who.id));await this.ctx.storage.setAlarm(Date.now()+30000);return response;}catch(error){return Response.json({error:error.status?error.message:'Unable to join queue.'},{status:error.status||503});}}
   async webSocketMessage(ws,raw){try{const input=receive(ws,raw);if(!input)return;const {who,message}=input;
     if(typeof message.type==='string'&&message.type.startsWith('lobby-')){
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to use lobbies.');
-      await this.lobbies.action(who,message);this.broadcast();
+      await this.lobbies.action(who,message);
+      if(message.type==='lobby-password')send(ws,{type:'lobby-password-saved'});
+      this.broadcast();
     }else if(message.type==='join'){
       if(this.lobbies.forPlayer(who.id))fail('Leave your lobby first.');
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to load the updated match player.',409);
@@ -221,7 +230,7 @@ export class PlayQueue extends DurableObject {
       this.ctx.storage.sql.exec('INSERT OR REPLACE INTO queue(player,name,format,joined,expires,match,avatar) VALUES(?,?,?,?,?,NULL,?)',who.id,who.name,message.format,old?.format===message.format?old.joined:Date.now(),Date.now()+60000,JSON.stringify(who.avatar||null));
       this.broadcast();await this.match(message.format);
     }else if(message.type==='cancel'){this.joinRequests.delete(who.id);this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match IS NULL',who.id);this.broadcast();}
-    else if(message.type==='ping'){this.lobbies.heartbeat(who.id);this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);send(ws,this.status(who.id));}
+    else if(message.type==='ping'){this.lobbies.heartbeat(who.id);this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);send(ws,this.clientStatus(who.id));}
     else fail('Unknown queue action.');
     await this.ctx.storage.setAlarm(Date.now()+30000);
   }catch(error){if(!error.status)console.error('Play queue action failed',{name:error.name,message:String(error.message).slice(0,200)});socketError(ws,error);}}

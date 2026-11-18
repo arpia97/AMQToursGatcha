@@ -104,6 +104,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
             QUIZ_LIBRARY:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizLibrary'},
             QUIZ_SESSIONS:{type:'durable-object',worker:'quiz-runtime-test',exportName:'QuizSession'},
             ASSETS:{type:'fetcher',handler:async request=>{
+              if(new URL(request.url).pathname==='/quiz-library/master-answers.json')return RuntimeResponse.json({version:'test-master',records:[[1,'Export Title','Export Alias']],keys:{'f:sheet-example.mp3':0}});
               if(new URL(request.url).pathname==='/play/') return new RuntimeResponse(await readFile(new URL('../public/play/index.html',import.meta.url),'utf8'),{headers:{'Content-Type':'text/html'}});
               const manifest={schema:1,version:'runtime-seed',source:'Fixture',generatedAt:'2026-11-01T00:00:00Z',count:1,requested:1,missing:[],shards:[97],amq:{90001:[50001]}};
               const data=new URL(request.url).pathname.endsWith('manifest.json')?manifest:{50001:{annSongId:50001,amqSongId:90001,annId:1,title:'Cached Song',artist:'Artist',audio:'https://example.com/cached.mp3',titles:['Cached Alternative']}};
@@ -287,6 +288,15 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal((await response.json()).songs.length, 0);
   response = await post("host/quiz-preview", {}, host);
   assert.equal(response.status, 400);
+  const primaryPreview=await post("host/quiz-preview",{input:[
+    {songLinks:{primary:'https://eudist.animemusicquiz.com/sheet-example.mp3'},songInfo:{songName:'Sheet Song',artist:'Artist',animeNames:{romaji:'Stale Title'}}},
+    {audio:'https://eudist.animemusicquiz.com/sheet-example.mp3',annSongId:50001},
+  ]},host);
+  assert.equal(primaryPreview.status,200,await primaryPreview.clone().text());
+  const primarySongs=(await primaryPreview.json()).songs;
+  assert.equal(primarySongs.length,1);
+  assert.deepEqual(primarySongs[0].answers,['Export Title','Export Alias']);
+  assert.equal(primarySongs[0].answerSource,'amq-master-sheet');
   response = await post(
     "host/quiz-save",
     {
