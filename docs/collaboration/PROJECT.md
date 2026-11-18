@@ -22,7 +22,8 @@ Vanilla browser JavaScript ES modules and CSS, with a Cloudflare Worker and one 
 
 | Area | Start Here |
 | --- | --- |
-| Routing, screen composition | `public/app.js` and focused modules under `public/` |
+| Gacha shell and navigation | `public/app.js`, `public/site-navigation.js`, `public/route-resources.js` |
+| Play routes and matchmaking | `public/play/app.js`, `public/play-song-ui.js`, `src/play-queue.js`, `src/play-match.js` |
 | Shared card UI, sizes, hover actions, glow | `public/card-surface*`, `public/card-preferences.js`, existing card render helpers and CSS |
 | HTTP, authentication, Durable Object scheduling | `src/worker.js` |
 | Business operations, SQL and transaction boundaries | `src/engine.js` and feature modules in `src/` |
@@ -33,10 +34,13 @@ Vanilla browser JavaScript ES modules and CSS, with a Cloudflare Worker and one 
 | Marketplace, community selection, trades | `src/community-market.js`, `src/trades.js`, related engine/public modules |
 | Catalogue discovery and favorites | `src/jikan-import.js`, `src/tenrai-catalog.js`, `src/jikan.js`, `src/popularity.js`, `IMPORTER.md` |
 | Aliases | `src/aliases.js`, `src/registration.js`, `HOST-TOOLS.md` |
-| Games | `src/mahjong.js`, `horse-racing.js`, `gem.js`, `pachinko.js`, `blackjack.js`; `PACHINKO-GAMES.md`, `RACING.md` |
+| Pachinko page, game controls and history | `public/arcade-page.js`, `public/pachinko-ui.js`, `public/{mahjong,horse,adventure,blackjack}-ui.js` |
+| Game state and payouts | `src/mahjong.js`, `src/horse-racing.js`, `src/gem.js`, `src/pachinko.js`, `src/blackjack.js`, `PACHINKO-GAMES.md`, `RACING.md` |
 | Local/demo tooling | `tools/`, `public/demo*.js`, `tests/*.test.mjs` |
 
 Search for the current call sites before editing; filenames alone do not establish ownership of a behavior. Some compatibility modules intentionally retain old names.
+
+The Gacha shell loads Quiz and Pachinko code on route entry. Play loads either Quiz or multiplayer code for the active route. Quiz title metadata loads when needed for a run, song list or match. Startup uses `/api/state?view=compact`, and Rankings loads its own paginated data.
 
 ## Production Identity and Data
 

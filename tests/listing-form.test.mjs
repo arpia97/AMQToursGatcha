@@ -34,6 +34,7 @@ test("Trade marker clicks reach the inventory toggle instead of the trade-board 
   };
   const context = vm.createContext({
     busy: false,
+    arcadePage: null,
     state: { me: { id: "p" }, inventory: [item] },
     ui: {},
     saveCardAction: async (path, body) => calls.push({ path, ...body }),

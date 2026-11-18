@@ -8,7 +8,7 @@ import {ngmcTeams,ngmcControls,ngmcProgress} from './ngmc-ui.js';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 const labels={anime:'Anime',song:'Song Title',artist:'Artist'};
 const formats={'1v1':'1v1','3v3':'3v3','1-team':'1-Team'};
-export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,onError,onMatchMode=()=>{}}) {
+export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{}}) {
   let mode='song-artist',fields=['anime','song','artist'],firstSongs=10,totalSongs=20;
   const ranked=()=>mode==='ngmc-ranked',teamFields=()=>!!match?.teamFields;
   const songDialog=createSongListDialog(esc,animeTitle);
@@ -54,7 +54,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(msg.type==='pong'&&msg.sentAt){offset=msg.now-(msg.sentAt+Date.now())/2;clockReady=true;return;}
       if(msg.type==='manifest'){
         mode=msg.mode||'song-artist';onMatchMode(mode);fields=ranked()?['anime']:['anime','song','artist'];firstSongs=msg.preload||10;totalSongs=msg.total||msg.audio.length;
-        if(manifestId!==msg.id){clearAudio();manifestId=msg.id;sources=msg.audio;draft={anime:'',song:'',artist:''};chosen={};ready=false;}
+        if(manifestId!==msg.id){clearAudio();manifestId=msg.id;sources=msg.audio;draft={anime:'',song:'',artist:''};chosen={};ready=false;
+          prepareTitles().then(()=>{if(active&&manifestId===msg.id)render();}).catch(()=>{});
+        }
         lastLoaded=loaded().join(',');send(room,{type:'loaded',indices:loaded()});if(ready)send(room,{type:'ready'});preload();return;
       }
       if(msg.type==='state'){
@@ -234,7 +236,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   });
   root.addEventListener('change',event=>{if(event.target.id==='sa-server'){if(!['EU','NAE','NAW'].includes(event.target.value))return;server=event.target.value;try{localStorage.setItem('amqtours-quiz-server',server);}catch{}}});
   return {
-    enter(nextMode='song-artist'){savedServer();savedVolume();pendingUnlock=false;pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];firstSongs=ranked()?12:10;totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queueStatus={type:'idle'};render();if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
+    enter(nextMode='song-artist'){savedServer();savedVolume();pendingUnlock=false;pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];firstSongs=ranked()?12:10;totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queueStatus={type:'idle'};render();if(!getPlayer())return;if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
     render,
     leave(){activity.stop();songDialog.close();active=false;send(queue,{type:'cancel'});queue?.close();room?.close();queue=null;room=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},
   };

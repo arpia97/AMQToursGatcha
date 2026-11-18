@@ -363,7 +363,7 @@ export function createQuizUI({
     }
   }
   async function load() {
-    const [data] = await Promise.all([call("quizzes"), prepareTitles()]);
+    const data = await call("quizzes");
     quizzes = data.quizzes;
     if (!getState().me) friendsOnly = false;
     if (selected && !quizzes.some((q) => q.id === selected)) {
@@ -373,10 +373,12 @@ export function createQuizUI({
     }
     if (selected) {
       if (!leaderboardOnly) {
-        if (getState().me)
-          useRun(
-            (await call("quiz-run?quiz=" + encodeURIComponent(selected))).run,
-          );
+        if (getState().me) {
+          const [saved] = await Promise.all([
+            call("quiz-run?quiz=" + encodeURIComponent(selected)), prepareTitles(),
+          ]);
+          useRun(saved.run);
+        }
         else useRun(null);
         await loadBank(quizzes.find((q) => q.id === selected));
       } else {
@@ -1476,7 +1478,9 @@ export function createQuizUI({
     songListLoading = true;
     onRender();
     try {
-      const data = await call("quiz-songs?quiz=" + encodeURIComponent(id));
+      const [data] = await Promise.all([
+        call("quiz-songs?quiz=" + encodeURIComponent(id)), prepareTitles(),
+      ]);
       if (songListQuiz !== id) return true;
       songLists.set(data.id + ":" + data.updated, data);
       songListData = data;

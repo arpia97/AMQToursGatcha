@@ -350,6 +350,10 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
       typeof publicState.catalogSummary.importProgress === "object",
     true,
   );
+  const compactState = await (await mf.dispatchFetch("http://game/api/state?view=compact")).json();
+  assert.ok(Array.isArray(publicState.ranks));
+  assert.equal(Object.hasOwn(compactState, "ranks"), false);
+  assert.deepEqual(compactState.counts, publicState.counts);
   await post("host/players",{players:[{id:"3",name:"Code Test"},{id:"4",name:"Other Identity"}]},host);
   assert.equal((await post("host/invite",{player:"4",code:"local-code"},{Cookie:hostCookie})).status,403);
   assert.equal((await post("host/invite",{player:"4",code:"abc"},host)).status,400);

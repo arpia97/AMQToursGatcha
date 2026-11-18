@@ -1649,7 +1649,7 @@ export class Game extends DurableObject {
           e.economy.specialPack.ensureGranted(session.player);
         });
       return json({
-        ...e.state(session?.player),
+        ...e.state(session?.player, { includeRanks: url.searchParams.get("view") !== "compact" }),
         betaRegistration: false,
         openRegistration: true,
       });

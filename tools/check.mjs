@@ -1,7 +1,19 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import vm from "node:vm";
+
+// Parse with the same Node module grammar as --check, without launching Node
+// once for every file. A direct invocation still works without loader flags.
+if (!vm.SourceTextModule) {
+  const result = spawnSync(process.execPath, [
+    "--experimental-vm-modules", "--disable-warning=ExperimentalWarning",
+    fileURLToPath(import.meta.url),
+  ], { stdio: "inherit", windowsHide: true });
+  if (result.error) throw result.error;
+  process.exit(result.status ?? 1);
+}
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const generated = resolve(root, "public/vendor");
@@ -20,14 +32,12 @@ const files = ["src", "public", "tools", "tests"]
   .sort();
 
 for (const file of files) {
-  const result = spawnSync(process.execPath, ["--check", file], {
-    stdio: "inherit",
-    windowsHide: true,
-  });
-  if (result.error || result.status !== 0) {
-    console.error(`Syntax check failed: ${relative(root, file)}`);
-    if (result.error) console.error(result.error.message);
-    process.exit(result.status || 1);
+  const identifier = relative(root, file);
+  try {
+    new vm.SourceTextModule(readFileSync(file, "utf8"), { identifier });
+  } catch (error) {
+    console.error(`Syntax check failed: ${identifier}\n${error.message}`);
+    process.exit(1);
   }
 }
 console.log(`Syntax checked ${files.length} JavaScript source and test files.`);

@@ -998,13 +998,14 @@ test("Song List button next to Play Quiz opens a cached song-list popup and clos
     prepareTitles: async () => { prepared = true; },
   });
   await f.ui.load();
-  assert.equal(prepared, true);
+  assert.equal(prepared, false, "browsing the quiz list needs no anime-title table");
   const grid = f.ui.render();
   assert.match(
     grid,
     /<div class="quiz-tile-actions"><button class="button mint" data-quiz-open="q">Preview Quiz →<\/button><button type="button" class="button secondary" data-quiz-songs="q">Song List<\/button><\/div>/,
   );
   await f.ui.click(f.button("data-quiz-songs", "q"));
+  assert.equal(prepared, true);
   const popup = f.ui.render();
   assert.match(popup, /Draft Quiz · Song List/);
   assert.match(popup, /<button type="button" class="quiz-working-titles" data-detail-popup="All Working Titles/);

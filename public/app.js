@@ -42,10 +42,9 @@ import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import {profileQuizPanel} from './profile-quiz-ui.js';
 import {friendButton,friendsPanel} from './friends-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
-import { createQuizUI } from "./quiz-ui.js";
+import { loadOnce, loadStylesheet } from "./route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "./quiz-title-display.js";
 import { pageErrorHTML } from "./page-error.js";
-import { gamblingHistoryModalHTML } from "./gambling-history-ui.js";
 import { createTradesUI } from "./trades-ui.js";
 import { createShowcaseEditor } from "./showcase-order.js";
 import {
@@ -91,15 +90,6 @@ import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
-import { createMahjongUI } from "./mahjong-ui.js";
-import {
-  MAHJONG_START,
-  MAHJONG_RIICHI,
-  MAHJONG_DISCARD,
-  mahjongEntryFee,
-} from "./mahjong-rules.js";
-import { createPachinkoUI, savedPachinkoGame, rememberPachinkoGame } from "./pachinko-ui.js";
-import { createHorseUI } from "./horse-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
 import { auctionRefreshIds, applyAuctionRefresh, syncBidForm } from "./auction-live.js";
@@ -312,7 +302,6 @@ const ui = {
     sort: "rarity",
     page: 1,
   },
-  pachinkoGame: savedPachinkoGame(),
   rouletteDraft: { choice: "red", stake: 100 },
   mahjongHistoryOpen: false,
   mahjongHistoryPage: 1,
@@ -406,55 +395,6 @@ async function openAnimeChecklist(seriesKey, pageNumber = 1) {
   );
   $("#modal").scrollTop = 0;
 }
-async function openGamblingHistory(game = "all", page = 1) {
-  if (!state.me) {
-    auth();
-    return;
-  }
-  ui.gamblingHistory = {
-    game,
-    page,
-    loading: true,
-    data: ui.gamblingHistory?.game === game ? ui.gamblingHistory.data : null,
-  };
-  modal(
-    gamblingHistoryModalHTML(ui.gamblingHistory.data, true, game, {
-      escape,
-      number,
-    }),
-    true,
-    "gambling-history-dialog",
-  );
-  try {
-    const data = await api(
-      "gambling-history?game=" +
-        encodeURIComponent(game === "all" ? "" : game) +
-        "&page=" +
-        page,
-    );
-    ui.gamblingHistory = {
-      game,
-      page,
-      loading: false,
-      data,
-    };
-    modal(
-      gamblingHistoryModalHTML(data, false, game, { escape, number }),
-      true,
-      "gambling-history-dialog",
-    );
-  } catch (err) {
-    ui.gamblingHistory.loading = false;
-    modal(
-      gamblingHistoryModalHTML(null, false, game, { escape, number }) +
-        '<p class="form-error" role="alert">' +
-        escape(err.message || "Failed to load history.") +
-        "</p>",
-      true,
-      "gambling-history-dialog",
-    );
-  }
-}
 function empty(title, description, button = "") {
   return `<div class="empty"><div class="empty-icon">✦</div><h3>${title}</h3><p>${description}</p>${button}</div>`;
 }
@@ -495,7 +435,7 @@ function remaining(end) {
   return countdown(end);
 }
 function tickCountdowns() {
-  if (!state) return;
+  if (!state || document.hidden) return;
   const now = Date.now() + clockOffset;
   let expired = false;
   for (const el of document.querySelectorAll("[data-countdown-end]")) {
@@ -549,7 +489,7 @@ function showTradeNotices() {
     document.hidden ||
     $("#modal").open ||
     fusionOverlayOpen() ||
-    quizUI.active()
+    quizPlaying()
   )
     return;
   const notices = (state.notices || []).filter(
@@ -582,7 +522,7 @@ async function pollNotices(force=false) {
     !state?.me ||
     document.hidden ||
     isDemo ||
-    quizUI.active() ||
+    quizPlaying() ||
     !force&&Date.now()-lastNoticePoll<(fast?5000:30000)
   )
     return;
@@ -668,7 +608,7 @@ function showSpecialPack() {
     document.hidden ||
     $("#modal").open ||
     fusionOverlayOpen() ||
-    (typeof quizUI !== "undefined" && quizUI.active && quizUI.active())
+    quizPlaying()
   )
     return;
   showingSpecialPack = true;
@@ -747,20 +687,25 @@ function tabs() {
   return `<div class="tabs" role="group" aria-label="Card type">${choices.map(([id, label]) => `<button class="tab ${tab === id ? "active" : ""}" data-tab="${id}" aria-pressed="${tab === id}">${label}</button>`).join("")}</div>`;
 }
 const workingTitlePopovers = installDetailPopovers(document);
-const quizUI = createQuizUI({
-  api,
-  escape,
-  prepareTitles: loadQuizTitleDisplay,
-  animeTitle: (song) => quizAnimeTitle(song, titleMode),
-  getState: () => state,
-  onRender: (options) => {
-    if (page() === "quiz" && options?.questionOnly && quizUI.updateQuestion())
-      return;
-    render();
-  },
-  onWallet: (me) => {
-    state.me = me;
-  },
+let quizUI, arcadePage;
+const quizPlaying = () => page() === "quiz" && quizUI?.active();
+const loadQuizUI = loadOnce(async () => {
+  const { createQuizUI } = await import("./quiz-ui.js");
+  return quizUI = createQuizUI({
+    api,
+    escape,
+    prepareTitles: loadQuizTitleDisplay,
+    animeTitle: (song) => quizAnimeTitle(song, titleMode),
+    getState: () => state,
+    onRender: (options) => {
+      if (page() !== "quiz") return;
+      if (options?.questionOnly && quizUI.updateQuestion()) return;
+      render();
+    },
+    onWallet: (me) => {
+      state.me = me;
+    },
+  });
 });
 const alchemyUI = createAlchemyUI({
   escape,
@@ -773,31 +718,18 @@ const alchemyUI = createAlchemyUI({
   getState: () => state,
   empty,
 });
-const mahjongUI = createMahjongUI({
-  getState: () => state,
-  escape,
-  number,
-  getHistory: () => ({
-    open: ui.mahjongHistoryOpen,
-    data: ui.mahjongHistoryData,
-  }),
-});
-const horseUI = createHorseUI({
-  getState: () => state,
-  escape,
-  number,
-  now: () => Date.now() + clockOffset,
-  onFinish: () => refreshCurrent(),
-});
-const pachinkoUI = createPachinkoUI({
-  getState: () => state,
-  escape,
-  number,
-  ui,
-  mahjong: () => mahjongUI.render({ embedded: true }),
-  horse: () => horseUI.render(),
-  now: () => Date.now() + clockOffset,
-  onFinish: () => refreshCurrent(),
+const arcadeStyles = ["mahjong.css", "pachinko.css", "adventure.css", "horse-racing.css"].map(name =>
+  loadOnce(() => loadStylesheet(new URL(name, import.meta.url), document.querySelector('link[href="card-frames.css"]'))),
+);
+const loadArcadePage = loadOnce(async () => {
+  const [{ createArcadePage }] = await Promise.all([
+    import("./arcade-page.js"),
+    ...arcadeStyles.map(load => load()),
+  ]);
+  return arcadePage = createArcadePage({
+    ui, getState: () => state, api, auth, execute, loadDynamic, modal,
+    refreshCurrent, render, escape, number, now: () => Date.now() + clockOffset,
+  });
 });
 const tradesUI = createTradesUI(
   {
@@ -1558,9 +1490,6 @@ function pickems() {
 function ranks() {
   return features.ranks();
 }
-function arcade() {
-  return pachinkoUI.render();
-}
 function avatarHTML(p, large = false) {
   const item = (p.inventory || state.inventory).find(
       (i) => i.card === p.avatar_card,
@@ -1685,7 +1614,16 @@ async function loadDynamic() {
     ui.marketWishlistOnly = false;
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
   }
-  if (current === "quiz") await quizUI.load();
+  if (current === "home") await loadFeatured();
+  if (current === "quiz") {
+    await loadQuizUI();
+    if (version !== loadVersion) return;
+    await quizUI.load();
+  }
+  if (current === "arcade") {
+    await loadArcadePage();
+    if (version !== loadVersion) return;
+  }
   if (current === "catalog")
     data = await api(
       "catalog?" + new URLSearchParams({
@@ -1856,6 +1794,7 @@ async function loadDynamic() {
     if (current === "profile" || current === "player") profileData = data;
   }
 }
+const loadingPage = () => '<p class="loading">Loading…</p>';
 function render() {
   if (!state) return;
   workingTitlePopovers.dismiss();
@@ -1907,14 +1846,14 @@ function render() {
     home,
     collection,
     fusion: () => alchemyUI.render(),
-    quiz: () => quizUI.render(),
+    quiz: () => quizUI?.render() ?? loadingPage(),
     packs,
     catalog: catalogue,
     auctions,
     shop,
     pickems,
     ranks,
-    arcade,
+    arcade: () => arcadePage?.render() ?? loadingPage(),
     players,
     profile: myProfile,
     titles: myTitles,
@@ -1927,8 +1866,8 @@ function render() {
   mobileNavigation.update();
   mobileFilters.update();
   cardSurfaces.restore($("#main"), cardSurfaceState);
-  if (route === "quiz") quizUI.mount();
-  else quizUI.leave();
+  if (route === "quiz") quizUI?.mount();
+  else quizUI?.leave();
   if (searchFocus) {
     const input = document.getElementById(searchFocus.id);
     if (input && input.value === searchFocus.value) {
@@ -1975,8 +1914,7 @@ function render() {
   }
   tickCountdowns();
   ensureCollectorCounts();
-  horseUI.mount();
-  pachinkoUI.mount();
+  if (route === "arcade") arcadePage?.mount();
   document.title = title + " · AMQ Tours Gatcha";
 }
 function ensureCollectorCounts() {
@@ -2063,20 +2001,22 @@ async function api(path, body, key, { signal, headers: extraHeaders = {} } = {})
   }
 }
 
+const loadFeatured = loadOnce(async () => {
+  try {
+    heroCards = (await api("featured")).cards || [];
+    rememberCards(heroCards);
+  } catch {
+    heroCards = [];
+  }
+});
 let sharedRefreshNeeded = false;
 async function refresh() {
   const previousPlayer = state?.me?.id;
-  state = await api("state");
+  const refreshState = api(demo ? "state" : "state?view=compact");
+  if (page() === "home") loadFeatured();
+  state = await refreshState;
   sharedRefreshNeeded = false;
   clockOffset = state.now - Date.now();
-  if (heroCards === null) {
-    try {
-      heroCards = (await api("featured")).cards || [];
-      rememberCards(heroCards);
-    } catch {
-      heroCards = [];
-    }
-  }
   if (previousPlayer && previousPlayer !== state.me?.id) {
     titleDrag.cancel();
     titleEditor.close();
@@ -2523,20 +2463,6 @@ document.addEventListener("submit", async (ev) => {
     return;
   }
 
-  if (formIdentifier(f) === "blackjack-bet") {
-    ui.blackjackStake = Number(b.stake);
-    if (!state.me) {
-      auth();
-      return;
-    }
-    await execute(
-      "blackjack-start",
-      { stake: Number(b.stake), previousGame: state.blackjack?.id ?? null },
-      null,
-      f,
-    );
-    return;
-  }
   if (formIdentifier(f) === "daily-pack-form") {
     ui.dailyPackKind = b.kind;
     if (!state.me) {
@@ -2873,13 +2799,6 @@ document.addEventListener("change", (ev) => {
     );
   autoPick(predictionBody(Object.fromEntries(new FormData(form))), state.me.id);
 });
-document.addEventListener("change", (ev) => {
-  const form = ev.target.form;
-  if (form?.id !== "horse-ticket-form") return;
-  horseUI.change(Object.fromEntries(new FormData(form)));
-  if (ev.target.name === "kind") render();
-  else form.querySelector(".race-quote").innerHTML = horseUI.quote();
-});
 document.addEventListener(
   "error",
   (ev) => {
@@ -2912,6 +2831,7 @@ document.addEventListener("click", (e) => {
     $("#modal").close();
 });
 installNavigation(async () => {
+  const destination = currentRoute();
   titleDrag.cancel();
   titleEditor.close();
   wishlistDrag.cancel();
@@ -2940,12 +2860,13 @@ installNavigation(async () => {
     if (sharedRefreshNeeded && page() !== "arcade") await refresh();
     else {
       await loadDynamic();
-      render();
+      if (currentRoute() === destination) render();
     }
   } catch (err) {
-    $("#main").innerHTML = pageErrorHTML(err, page(), escape);
+    if (currentRoute() === destination)
+      $("#main").innerHTML = pageErrorHTML(err, page(), escape);
   }
-  window.scrollTo(0, 0);
+  if (currentRoute() === destination) window.scrollTo(0, 0);
 });
 let backgroundRefresh = null,
   lastBackgroundRefresh = 0,
@@ -2956,7 +2877,7 @@ function refreshInBackground() {
     busy ||
     $("#modal").open ||
     fusionOverlayOpen() ||
-    quizUI.active() ||
+    quizPlaying() ||
     backgroundRefresh ||
     Date.now() < backgroundRetryAt
   )
@@ -2993,11 +2914,6 @@ try {
     `<div class="notice warm">${escape(err.message)}</div><a class="button" href="?demo=1">Explore the demo ↗</a>`;
 }
 
-for (const event of ["input", "change"])
-  document.addEventListener(event, (ev) => {
-    const form = ev.target.closest("#roulette-form");
-    if (form) ui.rouletteDraft = Object.fromEntries(new FormData(form));
-  });
 const titleSelect = $("#title-mode");
 titleSelect
   .closest("label")
@@ -3076,7 +2992,7 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "quiz-notice-open") {
       $("#modal").close();
-      quizUI.openLeaderboard(t.dataset.quiz);
+      (await loadQuizUI()).openLeaderboard(t.dataset.quiz);
       if (page() !== "quiz") navigate("quiz");
       else {
         await loadDynamic();
@@ -3252,165 +3168,7 @@ async function handleFeatureClick(a, t) {
       render();
       return true;
     }
-    if (a === "pachinko-game") {
-      if (!rememberPachinkoGame(t.dataset.game)) return true;
-      ui.pachinkoGame = t.dataset.game;
-      render();
-      return true;
-    }
-    if (a === "roulette-refresh") {
-      await refreshCurrent();
-      return true;
-    }
-    if (a === "blackjack-hit" || a === "blackjack-stand") {
-      if (!state.me) {
-        auth();
-        return true;
-      }
-      await execute(a, {
-        game: Number(t.dataset.game),
-        version: Number(t.dataset.version),
-      });
-      return true;
-    }
-    if (a === "climb-start" || a === "climb-choose") {
-      if (!state.me) {
-        auth();
-        return true;
-      }
-      await execute(
-        a,
-        a === "climb-start"
-          ? { previousGame: state.climb?.id ?? null }
-          : {
-              game: Number(t.dataset.game),
-              version: Number(t.dataset.version),
-              option: Number(t.dataset.option),
-            },
-      );
-      return true;
-    }
-    if (a?.startsWith("horse-")) {
-      if (!state.me) {
-        auth();
-        return true;
-      }
-      if (a === "horse-remove") {
-        horseUI.remove(Number(t.dataset.index));
-        render();
-        return true;
-      }
-      if (a === "horse-refresh") {
-        await refreshCurrent();
-        return true;
-      }
-      if (a === "horse-prepare")
-        await execute(a, { previousRace: state.horseRace?.id ?? null });
-      if (a === "horse-start") await execute(a, horseUI.purchase());
-      return true;
-    }
-    if (a === "gem-start" || a === "gem-facet") {
-      if (!state.me) {
-        auth();
-        return true;
-      }
-      await execute(
-        a,
-        a === "gem-start"
-          ? { previousGame: state.gem?.id ?? null }
-          : {
-              game: Number(t.dataset.game),
-              version: Number(t.dataset.version),
-              row: t.dataset.row,
-            },
-      );
-      return true;
-    }
-    if (
-      a === "gambling-history" ||
-      a === "gambling-history-filter" ||
-      a === "gambling-history-prev" ||
-      a === "gambling-history-next"
-    ) {
-      let game = ui.gamblingHistory?.game || "all";
-      let page = ui.gamblingHistory?.page || 1;
-      if (a === "gambling-history" || a === "gambling-history-filter") {
-        game = t.dataset.game || "all";
-        page = 1;
-      } else if (a === "gambling-history-prev") {
-        page = Math.max(1, page - 1);
-      } else if (a === "gambling-history-next") {
-        page = page + 1;
-      }
-      await openGamblingHistory(game, page);
-      return true;
-    }
-    if (a?.startsWith("mahjong-")) {
-      if (!state.me) {
-        auth();
-        return true;
-      }
-      if (
-        a === "mahjong-history" ||
-        a === "mahjong-history-next" ||
-        a === "mahjong-history-prev"
-      ) {
-        if (a === "mahjong-history") {
-          ui.mahjongHistoryOpen = !ui.mahjongHistoryOpen;
-          ui.mahjongHistoryPage = 1;
-        } else
-          ui.mahjongHistoryPage = Math.max(
-            1,
-            ui.mahjongHistoryPage + (a.endsWith("next") ? 1 : -1),
-          );
-        await loadDynamic();
-        render();
-        return true;
-      }
-      if (a === "mahjong-select") {
-        const discard = mahjongUI.select(Number(t.dataset.index));
-        if (discard) {
-          await execute("mahjong-discard", discard);
-          return true;
-        }
-        render();
-        $(
-          "[data-action=mahjong-select][data-index='" + t.dataset.index + "']",
-        )?.focus();
-        return true;
-      }
-      if (a === "mahjong-start") {
-        modal(
-          `<h2>Take Your Seat?</h2><p>Pay <strong>✦ ${number(MAHJONG_START)} credits</strong> for a new Mahjong hand. Your seat will be randomly assigned.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-start"><input type="hidden" name="previousGame" value="${state.mahjong?.id ?? ""}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Start hand · ✦ ${number(MAHJONG_START)}</button></form>`,
-        );
-        return true;
-      }
-      const body = {
-        game: Number(t.dataset.game),
-        version: Number(t.dataset.version),
-      };
-      if (a === "mahjong-kan") {
-        body.tile = Number(t.dataset.tile);
-        await execute(a, body);
-        return true;
-      }
-      if (a === "mahjong-riichi") {
-        const index = Number(t.dataset.index);
-        modal(
-          `<h2>Declare ${state.mahjong.discards.length === 0 && !state.mahjong.melds?.length ? "Double Riichi" : "Riichi"}?</h2><p>Lock your hand, discard the selected tile and draw. Pay <strong>✦ ${number(MAHJONG_RIICHI)} Riichi stake + ✦ ${number(MAHJONG_DISCARD)} discard/draw fee</strong> (✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)} total). The stake returns on a winning tsumo. After declaring, only newly drawn tiles can be discarded.</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-riichi"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><input type="hidden" name="index" value="${index}"><div class="form-error" role="alert"></div><button class="button mint" type="submit">Declare & draw · ✦ ${number(MAHJONG_RIICHI + MAHJONG_DISCARD)}</button></form>`,
-        );
-        return true;
-      }
-      if (a === "mahjong-end") {
-        modal(
-          `<h2>${state.mahjong.remaining ? "End This Hand?" : "Settle as a Draw Instead?"}</h2><p>${state.mahjong.remaining ? "Your " + number(state.mahjong.cost) + " credits spent will not be refunded. You can leave this page and return later instead." : "This forgoes the available tsumo payout. Tenpai returns only the " + number(mahjongEntryFee(state.mahjong)) + "-credit entry fee; discard costs remain spent."}</p><form id="mahjong-confirm" class="stack"><input type="hidden" name="action" value="mahjong-end"><input type="hidden" name="game" value="${body.game}"><input type="hidden" name="version" value="${body.version}"><div class="form-error" role="alert"></div><button class="button secondary" type="submit">${state.mahjong.remaining ? "End hand" : "Settle draw"}</button></form>`,
-        );
-        return true;
-      }
-      if (a === "mahjong-discard") body.index = Number(t.dataset.index);
-      await execute(a, body);
-      return true;
-    }
+    if (arcadePage && await arcadePage.click(a, t)) return true;
     if (a?.startsWith("alchemy-") || a === "fusion-card") {
       if (!state.me) {
         auth();
@@ -4190,48 +3948,7 @@ async function handleFeatureSubmit(f, b) {
     );
     return true;
   }
-  if (formIdentifier(f) === "horse-ticket-form") {
-    try {
-      horseUI.add(b);
-      render();
-    } catch (err) {
-      f.querySelector(".form-error").textContent = err.message;
-    }
-    return true;
-  }
-  if (formIdentifier(f) === "roulette-form") {
-    if (!state.me) {
-      auth();
-      return true;
-    }
-    ui.rouletteDraft = { choice: b.choice, stake: b.stake };
-    await execute(
-      "roulette-start",
-      {
-        previousGame: state.roulette?.id ?? null,
-        choice: b.choice,
-        stake: Number(b.stake),
-      },
-      null,
-      f,
-    );
-    return true;
-  }
-  if (formIdentifier(f) === "mahjong-confirm") {
-    const { action } = b;
-    const body =
-      action === "mahjong-start"
-        ? {
-            previousGame: b.previousGame === "" ? null : Number(b.previousGame),
-          }
-        : {
-            game: Number(b.game),
-            version: Number(b.version),
-            ...(action === "mahjong-riichi" ? { index: Number(b.index) } : {}),
-          };
-    await execute(action, body);
-    return true;
-  }
+  if (arcadePage && await arcadePage.submit(f, b)) return true;
   if (formIdentifier(f) === "batch-sell-form") {
     if (!pendingBatchSale) throw Error("Review the batch first.");
     const result = await execute("sell-batch", pendingBatchSale);
@@ -4597,7 +4314,7 @@ document.addEventListener("click", async (ev) => {
     (ev.target.hasAttribute?.("data-quiz-songs-close") ? ev.target : null);
   if (!button || page() !== "quiz") return;
   try {
-    await quizUI.click(button);
+    await quizUI?.click(button);
   } catch (err) {
     toast(err.message, true);
   }
@@ -4693,7 +4410,7 @@ document.addEventListener("focusout", (ev) => {
 });
 document.addEventListener("pointerdown", (ev) => {
   if (ev.target.closest("[data-quiz-answer-option]")) ev.preventDefault();
-  else if (!ev.target.closest(".quiz-answer-field")) quizUI.closeSuggestions();
+  else if (page() === "quiz" && !ev.target.closest(".quiz-answer-field")) quizUI?.closeSuggestions();
 });
 document.addEventListener("keydown", (ev) => {
   if (ev.target?.classList?.contains("hotkey-capture")) {
@@ -4717,7 +4434,7 @@ document.addEventListener("keydown", (ev) => {
     ev.target.value = combo;
     return;
   }
-  if (page() === "quiz" && !$("#modal")?.open) quizUI.key(ev);
+  if (page() === "quiz" && !$("#modal")?.open) quizUI?.key(ev);
 });
 document.addEventListener("submit", (ev) => {
   if (ev.target.id !== "quiz-answer-form") return;

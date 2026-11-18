@@ -1215,7 +1215,7 @@ export class Engine {
       ]),
     };
   }
-  state(id) {
+  state(id, { includeRanks = true } = {}) {
     const now = this.now(),
       me = id ? this.player(id) : null;
     const summary = this.catalogStore.summary();
@@ -1235,9 +1235,9 @@ export class Engine {
           id,
         )
       : [];
-    const ranks = this.all(
+    const ranks = includeRanks ? this.all(
       "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 AND COALESCE(private_balance,0)=0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
-    );
+    ) : [];
     const references = new Set([
       ...auctions.map((a) => a.card),
       ...inventory.map((i) => i.card),
@@ -1318,7 +1318,7 @@ export class Engine {
           }))
         : [],
       recentTrades: id ? this.economy.trades.recent(id) : [],
-      ranks,
+      ...(includeRanks ? { ranks } : {}),
       shop,
       communityMarket: this.economy.community.info(),
       showcase,
