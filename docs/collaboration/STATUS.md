@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Completed — Encrypted Multiplayer Audio
+
+New Song/Artist and NGMC rooms use protocol 4. Real clips and up to three decoys preload from Play through sealed equal-length tickets and fixed-size AES-GCM packets. The Worker clips a server-selected random segment from an approved AMQ mirror, and the encrypted edge cache contains no clear audio. The Ready control unlocks the audio element with silence. The public room state omits clip identity and sample position through the countdown. Batch readiness prevents a per-track download probe, and each active player gets the current key at the server start. Reconnects receive the same current key and deadline. Future and decoy keys stay private. Final recaps contain names without source URLs. Existing rooms keep their prior playback format.
+
+Runtime fe5e7cb is live on original Worker version 86081261-6943-4bc4-8b52-14a9389c0469. All 534 tests, 293 syntax checks, dry-run and diff checks passed. CI Verify 44260549745 and demo 44260549771 passed. Workers runtime exercised all four formats, early/future key rejection, equal ciphertext lengths, wrong-key rejection, reconnect, scoring and private review. Desktop and 390px Chromium fixture played decoded clips after round start within 25–32ms locally and kept deadlines through reconnect. FFmpeg decoded 20 clips from 10 public AMQ MP3 samples. Live verified both mode packet sizes, a valid decrypt with an isolated probe ticket, invalid ticket rejection, all three asset bytes, mobile lobbies and health 200. No production test matches or account changes. Evidence is in the surrounding work directory under encrypted-play-*. Ownership released.
+
 ## Completed — Gacha and Play Startup
 
 Pachinko rendering, actions, forms and history have a dedicated entry module. Gacha loads Quiz and Pachinko resources on route entry and requests featured cards only on Home. Play loads the controller for the selected route and guests can browse matchmaking without starting the search worker or a socket. Quiz title data is deferred until a run, song list or match needs it. Retired Play placeholder markup and styles were removed. The compact Gacha boot response omits the unused embedded leaderboard. The existing full state response remains available.
