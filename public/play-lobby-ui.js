@@ -23,8 +23,11 @@ export function ballotHTML(match,esc){
   if(match.phase!=='guess')return '';
   return '<div class="lobby-ballot">'+Object.entries(names).map(([field,label])=>{
     const options=match.ballot?.[field]||[];
-    return '<section><h3>'+label+'</h3>'+options.map(o=>'<button class="button secondary" data-ballot="'+field+'" data-choice="'+esc(o.id)+'" aria-pressed="'+(match.myVotes?.[field]===o.id)+'">'+esc(o.answer)+' <small>'+esc(match.players.find(p=>p.id===o.owner)?.name)+' · '+match.voteCounts[o.id]+'</small></button>').join('')+
-      '<button class="button secondary" data-ballot="'+field+'" data-choice="" aria-pressed="'+(match.myVotes?.[field]===null)+'">Abstain</button></section>';
+    return '<section><h3>'+label+'</h3>'+options.map(o=>{
+      const selected=match.myVotes?.[field]===o.id;
+      const remove=o.owner===match.me?'<button type="button" class="ballot-withdraw" data-withdraw="'+field+'" data-choice="'+esc(o.id)+'" aria-label="Withdraw guess: '+esc(o.answer)+'" title="Withdraw your guess">×</button>':'';
+      return '<div class="ballot-option"><button type="button" class="button secondary" data-ballot="'+field+'" data-choice="'+esc(o.id)+'" aria-pressed="'+selected+'">'+esc(o.answer)+' <small>'+esc(match.players.find(p=>p.id===o.owner)?.name)+' · '+match.voteCounts[o.id]+'</small></button>'+remove+'</div>';
+    }).join('')+(options.length?'':'<small class="muted">No guesses yet</small>')+'</section>';
   }).join('')+'</div>';
 }
 export function updateReturnDialog(root,match,send){

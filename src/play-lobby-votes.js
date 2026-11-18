@@ -14,13 +14,20 @@ export function proposeOrVote(state,player,message){
     if(options.some(option=>option.key===key))reject('That answer has already been submitted.');
     if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
     options.push({id:crypto.randomUUID(),owner:player.id,answer,key});
+  }else if(message.type==='withdraw'){
+    const index=options.findIndex(option=>option.id===message.choice&&option.owner===player.id);
+    if(index<0)reject('Choose one of your own guesses.');
+    options.splice(index,1);
+    for(const voter of state.players)if(voter.votes?.[field]===message.choice)delete voter.votes[field];
   }else{
     if(message.choice!==null&&!options.some(o=>o.id===message.choice))reject('Choose an available answer.');
-    player.votes??={};player.votes[field]=message.choice;
+    player.votes??={};
+    if(message.choice===null)delete player.votes[field];
+    else player.votes[field]=message.choice;
   }
 }
 export function ballotsComplete(state){
-  return state.players.filter(p=>!p.left).every(p=>fields.every(field=>Object.hasOwn(p.votes||{},field)));
+  return state.players.filter(p=>!p.left).every(p=>fields.every(field=>p.votes?.[field]!=null));
 }
 export function selectWinners(state){
   const active=state.players.filter(p=>!p.left);

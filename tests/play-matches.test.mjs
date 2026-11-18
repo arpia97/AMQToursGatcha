@@ -217,11 +217,28 @@ test('custom team ballots reject duplicate proposals, settle early and credit th
   assert.throws(()=>move('b','propose','anime',{answer:'AL-PHA'}),/already/);
   move('b','propose','anime',{answer:'Beta'});
   move('b','propose','song',{answer:'First'});
+  const beta=state.ballot.anime[1].id;
+  move('a','vote','anime',{choice:beta});
+  assert.throws(()=>move('a','withdraw','anime',{choice:beta}),/your own/);
+  move('b','withdraw','anime',{choice:beta});
+  assert.equal(matchView(state,'a').myVotes.anime,undefined);
+  assert.throws(()=>move('a','vote','anime',{choice:beta}),/available/);
+  move('b','propose','artist',{answer:'Another Singer'});
   for(const id of ['a','b']){
     move(id,'vote','anime',{choice:state.ballot.anime[0].id});
-    move(id,'vote','song',{choice:null});
-    move(id,'vote','artist',{choice:null});
+    move(id,'vote','song',{choice:state.ballot.song[0].id});
   }
+  move('a','vote','song',{choice:null});
+  for(const id of ['a','b'])move(id,'vote','artist',{choice:state.ballot.artist[0].id});
+  assert.equal(state.phase,'guess');
+  const skipped=structuredClone(state);
+  for(const id of ['a','b']){
+    assert.equal(skipped.phase,'guess');
+    matchMove(skipped,id,{type:'skip',index:0,vote:true},100);
+  }
+  assert.equal(skipped.phase,'reveal');
+  assert.deepEqual(skipped.teams,[2]);
+  move('a','vote','song',{choice:state.ballot.song[0].id});
   assert.equal(state.phase,'reveal');
   assert.deepEqual(state.teams,[2]);
   assert.ok(state.players.every(p=>p.score===1));

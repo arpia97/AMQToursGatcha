@@ -39,13 +39,16 @@ export function answerSideHTML(match,row,team,esc,animeTitle){
 }
 export function versusHTML(match,row,esc,animeTitle){
   const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1';
-  return '<div class="sa-answer-sides">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>'<section><h3 class="sa-side-heading">'+(solo?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
+  const ffa=match.format==='lobby-ffa';
+  const teams=ffa?[me.team,...match.players.filter(p=>p.team!==me.team).map(p=>p.team)]:match.teams.length===1?[me.team]:[me.team,1-me.team];
+  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
 }
 export function songResultsHTML(match,esc,animeTitle){
-  const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1';
-  return '<div class="sa-match-results"><div class="sa-result-columns"><span>Song</span><span>'+(solo?'You':'Your Team')+'</span>'+(match.teams.length>1?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(row.song)+'</span>'+scoreBadge(row.points?.[me.team]??0)+(match.teams.length>1?scoreBadge(row.points?.[1-me.team]??0):'')+'</summary><p class="sa-result-key">'+esc(animeTitle({anime:row.anime}))+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
+  const me=match.players.find(p=>p.id===match.me),solo=['1v1','lobby-ffa'].includes(match.format);
+  const versus=match.teams.length===2&&match.format!=='lobby-ffa';
+  return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0)+(versus?scoreBadge(row.points?.[1-me.team]??0):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
 }
-export function readyHTML(match,canReady,ready,esc){
+export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;
-  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?'Waiting for Everyone':'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p></section>';
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?(count===active.length?'Preparing Audio':'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
 }

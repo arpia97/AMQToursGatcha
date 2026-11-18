@@ -14,7 +14,7 @@ import {PLAY_AUDIO_PROTOCOL} from './play-audio-format.js';
 const labels={anime:'Anime',song:'Song Title',artist:'Artist'};
 const formats={'1v1':'1v1','3v3':'3v3','1-team':'1-Team'};
 export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onQueueChange=()=>{}}) {
-  let mode='song-artist',fields=['anime','song','artist'],firstSongs=10,totalSongs=20;
+  let mode='song-artist',fields=['anime','song','artist'],totalSongs=20;
   const ranked=()=>mode==='ngmc-ranked',teamFields=()=>!!match?.teamFields;
   const songDialog=createSongListDialog(esc,animeTitle);
   let ngmcFormat='ngmc-ranked',dismissedMatch=null;
@@ -114,7 +114,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         return;
       }
       if(msg.type==='manifest'){
-        mode=msg.mode||'song-artist';onMatchMode(mode);fields=ranked()?['anime']:['anime','song','artist'];firstSongs=msg.preload||10;totalSongs=msg.total||msg.audio.length;
+        mode=msg.mode||'song-artist';onMatchMode(mode);fields=ranked()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
         if(manifestId!==msg.id||downloadError&&sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,mode):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
           prepareTitles().then(()=>{if(active&&manifestId===msg.id)render();}).catch(()=>{});
         }
@@ -142,10 +142,24 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const controller=downloads=new AbortController(),generation=loadGeneration,media=sealedCache||cache;downloadError='';render();
     const update=()=>{if(progressTimer||generation!==loadGeneration||!active)return;progressTimer=setTimeout(()=>{progressTimer=null;if(generation!==loadGeneration||!active)return;const indices=loaded(),key=indices.join(',');if(key!==lastLoaded&&send(room,{type:'loaded',indices})){lastLoaded=key;render();}},100);};
     try{
-      await media.prepare(sources.slice(0,firstSongs),server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(180000)]),onProgress:update});
-      update();
-      for(let i=firstSongs;i<sources.length;i+=2){await media.prepare(sources.slice(i,i+2),server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)]),onProgress:update});update();}
-    }catch(err){if(!controller.signal.aborted&&generation===loadGeneration){downloadError='Audio download interrupted. Retry or choose another server before queuing again.';render();}}
+      let incomplete=false;
+      for(let i=0;i<sources.length;i+=2){
+        const batch=sources.slice(i,i+2);
+        for(let attempt=0;attempt<3;attempt++){
+          if(attempt)await new Promise(resolve=>setTimeout(resolve,500*attempt));
+          if(controller.signal.aborted)return;
+          try{
+            await media.prepare(batch,server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)]),onProgress:update});
+            update();
+            break;
+          }catch{
+            if(controller.signal.aborted)return;
+            if(attempt===2)incomplete=true;
+          }
+        }
+      }
+      if(incomplete){downloadError='Some audio is still unavailable. Retry the missing downloads.';render();}
+    }
     finally{if(downloads===controller)downloads=null;}
   }
   function revokePlayback() {
@@ -290,14 +304,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function gameHTML(){
     const done=['finished','cancelled'].includes(match.phase);
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+(ranked()?(match.format==='ngmc-3v3'?'NGMC Unranked · 3v3':'NGMC Ranked · 4v4'):'Song / Artist · '+(lobbyModeNames[match.format]||formats[match.format]))+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':'Song '+(match.index+1)+' <small>/ '+totalSongs+'</small>')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?(match.lobby?'Return to Lobby':'Play Again'):'Leave Match')+'</button>')+'</div></div>';
-    if(done)return heading+'<div class="sa-scoreboard"></div><p class="sa-match-outcome">'+esc(match.reason||winnerText())+'</p>'+(ranked()?'<div class="sa-results">'+match.history.map(row=>'<div><span>'+(row.index+1)+'</span><strong>'+esc(row.song)+'</strong><span>'+esc(row.artist)+'</span><b>'+row.results.find(p=>p.id===match.me).earned+'/1</b></div>').join('')+'</div>':match.lobby?'':songResultsHTML(match,esc,animeTitle));
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+(ranked()?(match.format==='ngmc-3v3'?'NGMC Unranked · 3v3':'NGMC Ranked · 4v4'):'Song / Artist · '+(lobbyModeNames[match.format]||formats[match.format]))+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':'Song '+(match.index+1)+' <small>/ '+totalSongs+'</small>')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?(match.lobby?'Return to Lobby':'Play Again'):'Leave Match')+'</button>')+'</div></div></div>';
+    if(done)return heading+'<div class="sa-scoreboard"></div><p class="sa-match-outcome">'+esc(match.reason||winnerText())+'</p>'+(ranked()?'<div class="sa-results">'+match.history.map(row=>'<div><span>'+(row.index+1)+'</span><strong>'+esc(row.song)+'</strong><span>'+esc(row.artist)+'</span><b>'+row.results.find(p=>p.id===match.me).earned+'/1</b></div>').join('')+'</div>':songResultsHTML(match,esc,animeTitle));
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
-    return heading+'<div class="sa-ready-wrap"></div><div class="sa-scoreboard"></div><div class="sa-play-panel '+(ranked()?'ngmc-panel':'sa-song-panel')+'"><div class="sa-round-status"></div><div class="sa-timer" role="timer" aria-label="Time remaining"></div><div class="ngmc-time-track" role="progressbar" aria-label="Guess Time Remaining" aria-valuemin="0" aria-valuemax="'+(ranked()?20:30)+'"><span></span></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+'<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form><div class="sa-reveal-wrap"></div>'+(match.format==='1-team'?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song · 0/2</button></div>':'')+(ranked()?ngmcProgress(match):'')+'</div>';
+    return heading+'<div class="sa-ready-wrap"></div><div class="sa-scoreboard"></div><div class="sa-play-panel '+(ranked()?'ngmc-panel':'sa-song-panel')+'"><div class="sa-round-status"></div><div class="sa-timer" role="timer" aria-label="Time remaining"></div><div class="ngmc-time-track" role="progressbar" aria-label="Guess Time Remaining" aria-valuemin="0" aria-valuemax="'+(ranked()?20:30)+'"><span></span></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+'<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form><div class="sa-reveal-wrap"></div>'+(match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+(ranked()?ngmcProgress(match):'')+'</div>';
   }
   function winnerText(){if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=match.format==='1v1'?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
     if(!active)return;
+    root.classList.toggle('sa-match-layout',!!match);
     if(match)songDialog.update(match);
     if(!match){
       if(!root.isConnected)return;
@@ -326,7 +341,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     root.querySelector('.sa-shared-wrap').innerHTML=sharedHTML();
     const waiting=['loading','buffering'].includes(match.phase)||!ready;
     const readyWrap=root.querySelector('.sa-ready-wrap');readyWrap.hidden=!waiting;
-    const readyMarkup=waiting?readyHTML(match,true,ready,esc)+autoReadyHTML(autoReady)+(ranked()&&match.phase==='loading'?ngmcControls(match,esc):''):'';
+    const readyMarkup=waiting?readyHTML(match,true,ready,esc,autoReadyHTML(autoReady))+(ranked()&&match.phase==='loading'?ngmcControls(match,esc):''):'';
     if(readyWrap.innerHTML!==readyMarkup)readyWrap.innerHTML=readyMarkup;
     const liveSides=root.querySelector('.sa-live-answer-sides');if(liveSides)liveSides.hidden=waiting;
     const form=root.querySelector('#sa-answer-form');form.hidden=waiting||['reveal','counting'].includes(match.phase);
@@ -354,7 +369,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const opponents=root.querySelector('.sa-opponent-answers');if(opponents)opponents.innerHTML=answerSideHTML(match,revealed?last:null,1-me.team,esc,animeTitle);
     const recap=root.querySelector('.sa-reveal-wrap'),html=revealed?(ranked()||teamFields()||match.lobby?recapHTML(match,esc,animeTitle):versusHTML(match,last,esc,animeTitle)+recapHTML(match,esc,animeTitle)):'';
     if(recap.innerHTML!==html)recap.innerHTML=html;
-    const skip=root.querySelector('[data-sa-action=skip]');if(skip){const votes=match.skipVotes||[];skip.disabled=match.phase!=='guess'||Date.now()+offset<match.startsAt||!ready;skip.setAttribute('aria-pressed',String(votes.includes(match.me)));skip.textContent=(votes.includes(match.me)?'Cancel Skip':'Skip Song')+' · '+votes.length+'/2';}
+    const skip=root.querySelector('[data-sa-action=skip]');if(skip){const votes=match.skipVotes||[];skip.parentElement.hidden=match.phase!=='guess'||!ready;skip.disabled=Date.now()+offset<match.startsAt||room?.readyState!==1;skip.setAttribute('aria-pressed',String(votes.includes(match.me)));skip.textContent=(votes.includes(match.me)?'Cancel Skip':'Skip Song')+' · '+votes.length+'/'+match.skipRequired;}
   }
   function setAutoReady(value){
     autoReady=value;try{localStorage.setItem(preferenceKey(),value?'1':'0');}catch{}
@@ -422,7 +437,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(timer){const ms=match.phase==='guess'&&now<match.startsAt?match.startsAt-now:match.until-now;const value=duration===0&&match.phase==='guess'&&now>=match.startsAt?'∞':['guess','reveal','counting'].includes(match.phase)?Math.max(0,Math.ceil(ms/1000))+'s':'';if(timer.textContent!==value)timer.textContent=value;}
     if(match.phase==='guess'&&now>=match.startsAt&&now<match.until){
       if(draftDirty&&now>=match.until-1000)saveCurrentDraft();
-      const skip=root.querySelector('[data-sa-action=skip]');if(skip&&ready)skip.disabled=false;
+      const skip=root.querySelector('[data-sa-action=skip]');if(skip&&ready&&room?.readyState===1)skip.disabled=false;
       const input=root.querySelector('#sa-'+(teamFields()?selectedField:'anime'));
       if(input?.disabled&&!player().locked&&(!teamFields()||!player().field||player().field==='artist')&&!pendingLock&&!pendingUnlock&&pendingArtistKey===null&&ready&&room?.readyState===1){render();if(!document.querySelector('dialog[open]'))input.focus({preventScroll:true});}
       if(ready&&playingIndex!==match.index&&preparedIndex===match.index&&audio.readyState>=1){playingIndex=match.index;audio.currentTime=Math.min(Math.max(0,audio.duration-.05),(sealedCache?0:sampleStart(audio.duration,match.samplePosition,ranked()?20:30))+Math.max(0,(now-match.startsAt)/1000));audio.play().catch(()=>{playingIndex=-1;ready=false;render();error('Tap Ready · Enable Audio to allow playback.');});}
@@ -471,7 +486,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
     if(button.hasAttribute('data-return-request')){if(confirm('Vote to end this match and return everyone to the lobby?'))send(room,{type:'return-request'});return;}
     if(button.dataset.propose){submit(true,button.dataset.propose);return;}
-    if(button.dataset.ballot){send(room,{type:'vote',index:match.index,field:button.dataset.ballot,choice:button.dataset.choice||null});return;}
+    if(button.dataset.withdraw){send(room,{type:'withdraw',index:match.index,field:button.dataset.withdraw,choice:button.dataset.choice});return;}
+    if(button.dataset.ballot){const field=button.dataset.ballot,choice=button.dataset.choice;send(room,{type:'vote',index:match.index,field,choice:match.myVotes?.[field]===choice?null:choice});return;}
     if(button.hasAttribute('data-sa-artist-info')){button.setAttribute('aria-expanded',String(button.getAttribute('aria-expanded')!=='true'));return;}
     if(button.dataset.saInputField||button.dataset.saSelect){selectField(button.dataset.saInputField||button.dataset.saSelect);hideSuggestions();render();root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});scheduleDraft();return;}
     if(button.dataset.saRemoveArtist!==undefined){artistList((player().artists||[]).filter((_,i)=>i!==Number(button.dataset.saRemoveArtist)));return;}
@@ -501,7 +517,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   return {
     enter(nextMode='song-artist',restoreFormat=null){
       if(active&&waiting()){mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];render();return;}
-      lastCounts=null;autoReady=readAutoReady();savedServer();savedVolume();pendingUnlock=false;pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];firstSongs=ranked()?12:10;totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
+      lastCounts=null;autoReady=readAutoReady();savedServer();savedVolume();pendingUnlock=false;pendingArtistKey=null;mode=nextMode;fields=ranked()?['anime']:['anime','song','artist'];totalSongs=ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);heartbeat=setInterval(()=>{send(queue,{type:'ping'});send(room,{type:'ping',sentAt:Date.now()});},20000);},
     render,waiting,cancelQueue,rankedAtRisk,confirmNavigation,
     leave({preserveQueue=false,cancelQueue=false}={}){
       if(!active)return;

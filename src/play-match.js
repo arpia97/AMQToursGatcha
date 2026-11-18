@@ -119,7 +119,7 @@ export class PlayMatch extends DurableObject {
       let failure;
       try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
-      if(['propose','vote','return-vote','return-request'].includes(message.type))this.reviewLog.add(state,input.who.id,message.type,{index:state.index,field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure});
+      if(['propose','vote','withdraw','return-vote','return-request'].includes(message.type))this.reviewLog.add(state,input.who.id,message.type,{index:state.index,field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure});
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);

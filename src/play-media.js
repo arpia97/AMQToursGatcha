@@ -110,7 +110,7 @@ async function sourceBytes(response) {
 }
 
 async function encryptClip(ticket, server, fetcher) {
-  const sources = new Set([quizAudioUrl(ticket.source, server), ticket.source]);
+  const sources = new Set([quizAudioUrl(ticket.source, server), ticket.source, ...QUIZ_SERVERS.map(region => quizAudioUrl(ticket.source, region))]);
   const duration = ticket.mode === "ngmc-ranked" ? 20 : 30;
   for (const source of sources) {
     try {
@@ -124,7 +124,7 @@ async function encryptClip(ticket, server, fetcher) {
       const key = await crypto.subtle.importKey("raw", audioBytes(ticket.key), "AES-GCM", false, ["encrypt"]);
       const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, padded);
       return combine(iv, encrypted);
-    } catch { /* Try the verified original mirror if the preferred one fails. */ }
+    } catch { /* Try the next AMQ mirror for this same MP3. */ }
   }
   return null;
 }

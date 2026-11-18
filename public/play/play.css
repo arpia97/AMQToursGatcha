@@ -24,12 +24,10 @@
 .play-credits { display:flex; align-items:center; gap:8px; min-height:40px; padding:9px 15px; border:1px solid var(--border); border-radius:24px; background:#1b1d26; font-size:12px; color:var(--text); white-space:nowrap; }
 .play-credits>span { color:var(--yellow); font-size:16px; }
 .play-credits small { color:var(--muted); font-size:9px; }
-.play-profile-button { background:transparent; border:0; padding:0; color:var(--text); }
-.play-profile-button .profile-avatar { display:grid; place-items:center; width:36px; height:36px; margin:0; border-radius:50%; font-size:11px; }
+.play-profile-button { display:inline-flex; background:transparent; border:0; padding:0; color:var(--text); line-height:1; }
+.play-profile-button .profile-avatar { width:36px; height:36px; font-size:11px; }
 .play-profile-button .profile-avatar.enhancement-frame[class] { --frame-width:2px; --aura-scale:.35; }
-.play-profile-button .avatar-crop { width:100%; height:100%; border-radius:50%; overflow:hidden; }
-.play-profile-button .profile-avatar img { width:100%; height:100%; object-fit:cover; }
-.play-profile-button .profile-avatar>b { font-size:7px; padding:2px 4px; bottom:-4px; }
+.play-profile-button .profile-avatar>b { font-size:7px; line-height:1; padding:1px 3px; bottom:-5px; }
 .play-mobile-brand,#play-mobile-nav { display:none; }
 .play-site #main { width:100%; max-width:1580px; margin:0 auto; padding:40px; flex:1; }
 .play-footer { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; max-width:none; margin:0; color:var(--muted); padding:24px 40px; border-top:1px solid var(--border); font-size:10px; }
@@ -97,7 +95,7 @@
 #play-current-queue [data-action="view-queue"]{display:grid;gap:2px;padding:6px 10px;text-align:left}
 #play-current-queue strong{font-size:12px;white-space:nowrap}
 #play-current-queue small{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
-#play-current-queue [data-action="leave-queue"]{width:32px;align-self:stretch;border-left:1px solid #b6e2c52b;font-size:19px}
+#play-current-queue [data-action="leave-queue"]{width:32px;align-self:stretch;font-size:19px}
 #play-current-queue button:disabled{opacity:.55;cursor:default}
 @media(max-width:600px){
   .play-header:has(#play-current-queue:not([hidden])){height:auto;flex-wrap:wrap;gap:8px;padding-block:10px}
