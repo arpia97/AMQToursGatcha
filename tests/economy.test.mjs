@@ -1187,7 +1187,7 @@ test('paid Special packs charge 3000 per ten cards, keep each type/guarantee, re
   assert.equal(e.state('buyer').settings.special_character_price,3000);assert.equal(e.state('buyer').settings.special_seiyuu_price,3000);
   const purchase={kind:'character',special:true,count:1,price:1};
   const first=f.act('buyer','pack',purchase,'paid-special-once');assert.equal(first.cost,3000);assert.equal(first.cards.length,10);assert.equal(first.cardsPerPack,10);assert.equal(first.packType,'special');
-  assert.ok(first.cards.every(c=>c.kind==='character'));assert.deepEqual(first.cards.slice(8).map(c=>c.rarity),['S','S']);assert.equal(first.specialPackRevision,2);assert.equal(e.player('buyer').balance,7000);
+  assert.ok(first.cards.every(c=>c.kind==='character'));assert.deepEqual(first.cards.slice(8).map(c=>c.rarity),['S','S']);assert.equal(first.specialPackRevision,3);assert.equal(e.player('buyer').balance,7000);
   assert.deepEqual(f.act('buyer','pack',purchase,'paid-special-once'),first);assert.equal(e.player('buyer').balance,7000);
   assert.throws(()=>f.act('buyer','pack',{...purchase,kind:'seiyuu'},'paid-special-once'),/used/);
   const two=f.act('buyer','pack',{kind:'seiyuu',special:true,count:2});assert.equal(two.cards.length,20);assert.equal(two.cost,6000);assert.ok(two.cards.every(c=>c.kind==='seiyuu'));assert.deepEqual([8,9,18,19].map(i=>two.cards[i].rarity),['S','S','S','S']);assert.equal(e.player('buyer').balance,1000);
@@ -1197,7 +1197,7 @@ test('paid Special packs charge 3000 per ten cards, keep each type/guarantee, re
   const sold=f.act('buyer','pack',purchase);assert.equal(sold.autoSoldCount,8);assert.equal(sold.autoSoldCredits,1600);assert.equal(sold.cards.filter(c=>c.autoSold).length,8);assert.equal(sold.cards[9].autoSold,false);assert.equal(e.player('buyer').balance,1600);
   assert.equal(e.one('SELECT count(*) AS n FROM special_packs').n,0,'paid packs never issue or consume the one-time bonus gift');
   const pool=e.catalogStore.pool;e.catalogStore.pool=()=>({cards:Array.from({length:6},(_,i)=>({id:String(i),rarity:'D'}))});e.run("UPDATE players SET balance=5000 WHERE id='buyer'");
-  assert.throws(()=>f.act('buyer','pack',purchase),/the S pool is empty/);assert.equal(e.player('buyer').balance,5000);e.catalogStore.pool=pool;
+  assert.throws(()=>f.act('buyer','pack',purchase),/every S-or-higher tier needs cards/);assert.equal(e.player('buyer').balance,5000);e.catalogStore.pool=pool;
 });
 
 test("prior Special Pack refunds reverse only original copies and auto-sales and cannot repeat", t => {
@@ -1215,6 +1215,8 @@ test("prior Special Pack refunds reverse only original copies and auto-sales and
   });
   const original = buy("old", 0);
   buy("new", 2);
+  f.tick(10);
+  f.act("buyer", "list-card", { venue: "shop", card: high.id, price: 500, variant: "extra" });
   const plan = paidSpecialRefundPlan(e)[0];
   assert.deepEqual(plan.problems, []);
   assert.deepEqual(plan.orders.map(order => order.key), ["old"]);
@@ -1228,6 +1230,8 @@ test("prior Special Pack refunds reverse only original copies and auto-sales and
   const before = e.player("buyer").balance;
   assert.equal(refund("apply").refund, 3000);
   assert.equal(refund("apply").copiesRemoved, 1);
+  assert.equal(refund("apply").listingsCancelled, 1);
+  assert.equal(e.one("SELECT status FROM market_listings").status, "cancelled");
   assert.equal(e.player("buyer").balance - before, 2775);
   assert.equal(e.one("SELECT copies FROM inventory WHERE player='buyer' AND card=?", high.id).copies, 2);
   assert.equal(e.one("SELECT count(*) n FROM pack_auto_sales").n, 9);

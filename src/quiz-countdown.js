@@ -49,7 +49,7 @@ export function correctQuizReceipt(e, player, quiz, result) {
   };
 }
 
-const BATCH_SIZE = 40;
+const BATCH_SIZE = 100;
 
 // Match the saved personal best to its exact finish. Receipts from before a
 // score reset cannot reintroduce deleted scores or replace that attempt.
@@ -60,6 +60,7 @@ export function quizCountdownPlan(e, after = 0) {
   let verified = 0;
   for (const row of rows) {
     const receipt = e.one(`SELECT result FROM receipts WHERE scope=? AND at>=?
+      AND json_extract(input,'$.index')=19
       AND json_extract(input,'$.quiz')=? AND json_extract(result,'$.run.finished')=1
       AND COALESCE(json_extract(result,'$.run.preview'),0)=0
       AND json_extract(result,'$.run.score')=?
@@ -87,9 +88,9 @@ export function quizCountdownPlan(e, after = 0) {
 
 export function applyQuizCountdown(e, body) {
   const plan = quizCountdownPlan(e, integer(body.after, 0));
-  if (JSON.stringify(plan.changes) !== JSON.stringify(body.changes))
+  if (body.applyRecorded !== true && JSON.stringify(plan.changes) !== JSON.stringify(body.changes))
     fail("Quiz scores changed. Preview this batch again.", 409);
   for (const row of plan.changes)
     e.run("UPDATE quiz_progress SET best_duration_ms=? WHERE rowid=?", row.corrected, row.cursor);
-  return { updated: plan.changes.length, next: plan.next };
+  return { updated: plan.changes.length, next: plan.next, verified: plan.verified, missing: plan.missing, changes: plan.changes };
 }

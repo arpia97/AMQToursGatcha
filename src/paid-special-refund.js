@@ -40,11 +40,7 @@ export function paidSpecialRefundPlan(e) {
     }
     const inventory = [...cards.values()].map(row => ({ ...row, current: e.one(
       "SELECT copies,level,acquired_at FROM inventory WHERE player=? AND card=?", player, row.card) || null }));
-    for (const row of inventory) {
-      if (!row.current || row.current.copies < row.count ||
-          (row.current.copies === row.count && row.current.level !== 1))
-        problems.push("Copy count or enhancement needs review: " + row.card);
-    }
+    const listings = [];
     if (orders.length && cards.size) {
       const scopes = CARD_SPEND.map(action => `${player}:${action}`);
       const actions = e.all(`SELECT scope,key,input,result,at FROM receipts WHERE at>=?
@@ -52,8 +48,33 @@ export function paidSpecialRefundPlan(e) {
       for (const action of actions) {
         const affected = inventory.filter(row => row.at <= action.at &&
           [action.input, action.result].some(json => json.includes(JSON.stringify(row.card))));
-        if (affected.length) problems.push(action.scope.slice(player.length + 1) + " needs review: " + action.key);
+        if (!affected.length) continue;
+        const name = action.scope.slice(player.length + 1);
+        if (name === "list-card") {
+          const input = JSON.parse(action.input);
+          const row = affected.find(item => item.card === input.card);
+          if (input.venue === "shop" && row) {
+            const matching = e.all(`SELECT id,card,status FROM market_listings
+              WHERE seller=? AND card=? AND price=? AND level=1 AND extra_copies=0
+                AND created BETWEEN ? AND ?`, player, row.card, input.price,
+              Math.max(row.at, action.at - 1000), action.at);
+            const listing = matching.length === 1 && matching[0];
+            if (listing?.status === "cancelled") continue;
+            if (listing?.status === "open" && !listings.some(item => item.id === listing.id)) {
+              listings.push(listing);
+              continue;
+            }
+          }
+        }
+        problems.push(name + " needs review: " + action.key);
       }
+    }
+    for (const row of inventory) {
+      row.remove = row.count - listings.filter(listing => listing.card === row.card).length;
+      const copies = row.current?.copies || 0;
+      if (row.remove < 0 || row.remove > copies ||
+          (row.remove > 0 && row.remove === copies && row.current.level !== 1))
+        problems.push("Copy count or enhancement needs review: " + row.card);
     }
     const autoSaleCredits = sales.reduce((sum, sale) => sum + (sale.cancelled ? 0 : sale.price), 0);
     const balance = e.one("SELECT balance FROM players WHERE id=?", player)?.balance ?? null;
@@ -61,7 +82,7 @@ export function paidSpecialRefundPlan(e) {
       problems.push("Wallet needs review");
     return {
       player, orders: orders.map(({ key, at, packCount, cost }) => ({ key, at, packCount, cost })),
-      refunded: confirmed.length, refund, inventory, sales, autoSaleCredits, problems: [...new Set(problems)],
+      refunded: confirmed.length, refund, inventory, sales, listings, autoSaleCredits, problems: [...new Set(problems)],
     };
   });
 }
@@ -71,9 +92,12 @@ export function applyPaidSpecialRefund(e, body) {
   const plan = paidSpecialRefundPlan(e).find(row => row.player === body.plan?.player);
   if (!plan?.orders.length || plan.problems.length || JSON.stringify(plan) !== JSON.stringify(body.plan))
     fail("Special Pack activity changed or needs review. Preview it again.", 409);
+  for (const listing of plan.listings)
+    e.run("UPDATE market_listings SET status='cancelled' WHERE id=? AND seller=? AND status='open'", listing.id, plan.player);
   for (const row of plan.inventory) {
-    if (row.current.copies > row.count) {
-      e.run("UPDATE inventory SET copies=copies-? WHERE player=? AND card=?", row.count, plan.player, row.card);
+    if (row.remove === 0) continue;
+    if (row.current.copies > row.remove) {
+      e.run("UPDATE inventory SET copies=copies-? WHERE player=? AND card=?", row.remove, plan.player, row.card);
     } else {
       e.run("DELETE FROM inventory WHERE player=? AND card=?", plan.player, row.card);
       e.run("DELETE FROM profile_showcase WHERE player=? AND card=?", plan.player, row.card);
@@ -90,5 +114,6 @@ export function applyPaidSpecialRefund(e, body) {
     player: plan.player, purchases: plan.orders.length, packs: plan.orders.reduce((sum, order) => sum + order.packCount, 0),
     refund: plan.refund, autoSaleCredits: plan.autoSaleCredits,
     copiesRemoved: plan.inventory.reduce((sum, row) => sum + row.count, 0),
+    listingsCancelled: plan.listings.length,
   };
 }

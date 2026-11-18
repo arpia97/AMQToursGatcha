@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { premiumPool, drawPremium, specialPool, drawSpecialPack } from "../public/pack-odds.js";
+import { premiumPool, drawPremium, specialPool, drawSpecialGuaranteed, drawSpecialPack } from "../public/pack-odds.js";
 
 test("premium exactly doubles every S-through-AG card, funding it only from D", () => {
   const cards = [
@@ -50,17 +50,23 @@ test("premium works with Pending cards, permits all-D mass to be reassigned, and
 });
 
 
-test("paid Special packs include four normal, four premium and two guaranteed S draws", () => {
-  const cards = ["D", "D", "D", "D", "S", "SS", "S"].map((rarity, i) => ({ id: i, rarity }));
+test("paid Special packs include eight premium draws and two independently weighted guarantees", () => {
+  const cards = [...Array(10).fill("D"), "S", "SS", "SSS", "Ubers", "AG"].map((rarity, i) => ({ id: i, rarity }));
   const pool = specialPool(cards);
-  // D draws stay D in the normal slots and redirect to SS in the premium slots.
-  const rolls = [0, 1, 2, 3, ...Array(4).fill([0, 0, 1]).flat(), 0, 1];
+  const counts = {};
+  for (let rarityRoll = 0; rarityRoll < 100; rarityRoll++) {
+    const rolls = [rarityRoll, 0];
+    const { rarity } = drawSpecialGuaranteed(pool.guaranteed, () => rolls.shift());
+    counts[rarity] = (counts[rarity] || 0) + 1;
+  }
+  assert.deepEqual(counts, { S: 60, SS: 24, SSS: 8, Ubers: 7, AG: 1 });
+  const rolls = [...Array(8).fill([0, 0, 1]).flat(), 0, 0, 99, 0];
   const result = drawSpecialPack(pool, max => {
     const roll = rolls.shift();
     assert.ok(roll >= 0 && roll < max);
     return roll;
   });
-  assert.deepEqual(result.map(c => c.id), [0, 1, 2, 3, 5, 5, 5, 5, 4, 6]);
+  assert.deepEqual(result.map(c => c.rarity), [...Array(8).fill("SS"), "S", "AG"]);
   assert.deepEqual(rolls, []);
-  assert.throws(() => specialPool(cards.filter(c => c.rarity !== "S")), /the S pool is empty/);
+  assert.throws(() => specialPool(cards.filter(c => c.rarity !== "S")), /every S-or-higher tier needs cards/);
 });
