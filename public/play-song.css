@@ -296,3 +296,53 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-reveal > div > strong { font-size:clamp(16px,2vw,22px); line-height:1.3; overflow-wrap:anywhere; }
 .sa-reveal > div > span { font-size:13px; }
 .sa-reveal .sa-artist-tooltip { left:50%; transform:translateX(-50%); }
+
+/* NGMC Broadcast uses the available play area, including when the sidebar is open. */
+.ngmc-arena {
+  container-type:inline-size; display:grid; align-items:start; gap:8px;
+  grid-template-columns:minmax(175px,21%) minmax(0,1fr) minmax(175px,21%);
+  grid-template-areas:"home console away";
+}
+.ngmc-arena .sa-scoreboard,.ngmc-arena .ngmc-teams { display:contents; }
+.ngmc-arena .allies { grid-area:home; }.ngmc-arena .rivals { grid-area:away; }
+.ngmc-arena .ngmc-team { padding:0; border-radius:4px; }
+.ngmc-arena .ngmc-team header { height:auto; min-height:56px; margin:0; padding:8px 10px; flex-direction:row; align-items:center; gap:4px; background:#202d2a; }
+.ngmc-arena .rivals header { flex-direction:row-reverse; background:#30262c; }
+.ngmc-arena .ngmc-lives { gap:1px; }.ngmc-arena .ngmc-lives i { width:13px; height:13px; }
+.ngmc-arena .ngmc-team .ngmc-player {
+  padding:8px; height:auto; min-height:60px; gap:2px 6px; grid-template-columns:29px minmax(0,1fr) auto;
+  grid-template-areas:"avatar name guesses" "avatar answer answer";
+}
+.ngmc-arena .ngmc-team.rivals .ngmc-player { grid-template-columns:auto minmax(0,1fr) 29px; grid-template-areas:"guesses name avatar" "answer answer avatar"; }
+.ngmc-arena .ngmc-avatar { width:29px; height:29px; }
+.ngmc-arena .ngmc-player-name { gap:1px; }.ngmc-arena .ngmc-player-name strong { font-size:12px; }
+.ngmc-arena .ngmc-guesses { gap:2px; }.ngmc-arena .ngmc-guesses i { width:5px; height:7px; border-radius:1px; }
+.ngmc-arena .ngmc-panel { grid-area:console; min-width:0; padding:0; border-radius:4px; background:#181e24; }
+.ngmc-strip,.ngmc-on-air { display:flex; align-items:center; justify-content:space-between; gap:10px; border-bottom:1px solid var(--border); }
+.ngmc-strip { padding:9px 14px; background:#21292f; font:600 11px/1.3 Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; }
+.ngmc-strip .sa-round-status { font:inherit; color:var(--mint); text-align:right; }
+.ngmc-on-air { padding:16px; background:repeating-linear-gradient(90deg,transparent 0 35px,#ffffff05 35px 36px),#171f25; }
+.ngmc-track { min-width:0; overflow-wrap:anywhere; }
+.ngmc-track h2 { margin:4px 0 6px; font:700 clamp(20px,2vw,31px)/1.15 Consolas,monospace; }
+.ngmc-track small,.ngmc-dial small { font:10px/1.3 Consolas,monospace; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; }
+.ngmc-track-credits { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 15px; font-size:13px; }
+.ngmc-dial { flex:none; width:65px; height:65px; display:grid; align-content:center; justify-items:center; border-radius:50%;
+  background:radial-gradient(closest-side,#192127 87%,transparent 89%),conic-gradient(#b9e9ae var(--remaining,100%),#38424a 0); }
+.ngmc-dial[hidden] { display:none; }.ngmc-dial .sa-timer { position:static; font:700 22px/1.1 Consolas,monospace; color:var(--text); }
+.ngmc-dial small { font-size:8px; }
+.ngmc-console-body { padding:14px; }
+.ngmc-console-body #sa-answer-form:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; max-width:none; margin:0; }
+.ngmc-console-body .sa-lock { width:auto; margin:0; min-height:44px; border-radius:4px; }
+.ngmc-console-body .sa-combobox input { height:44px; }
+.ngmc-console-body .sa-download-status { margin:0 0 12px; }.ngmc-console-body .sa-download-status:empty { display:none; }
+.ngmc-submission { display:block; margin-top:6px; color:var(--muted); }.ngmc-submission:empty { display:none; }
+.ngmc-console-body .ngmc-progress { gap:2px; margin:14px 0 0; max-width:none; }
+.ngmc-console-body .ngmc-round-outcome { padding:10px; background:#21292e; border:1px solid var(--border); border-radius:4px; }
+.ngmc-round-outcome .ngmc-life-score { margin-left:10px; white-space:nowrap; color:var(--muted); font:12px Consolas,monospace; }
+@container (max-width:760px) {
+  .ngmc-arena .ngmc-panel { grid-area:1 / 1 / 2 / -1; }
+  .ngmc-arena .sa-scoreboard { display:block; grid-area:2 / 1 / 3 / -1; }
+  .ngmc-arena .ngmc-teams { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; grid-template-areas:"home away"; }
+  .ngmc-arena .ngmc-team header { flex-wrap:wrap; }
+}
+@media (max-width:650px) { .ngmc-arena { grid-template-columns:minmax(0,1fr); grid-template-areas:none; } }
