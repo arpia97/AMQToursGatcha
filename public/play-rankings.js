@@ -37,10 +37,26 @@ export function matchLeaderboard(match, esc) {
     ])) + '<small>Performance is the rating change per song.</small></section>';
 }
 
-export function rankingsHTML(format,page,data,esc,sort=format==='quiz'?'points':'rank',dir=sort==='points'?'desc':'asc') {
+export function rankingPanel(root,format) {
+  let panel=root.querySelector('#ranking-results');
+  if(!panel){
+    const tabs=Object.entries(formats).map(([id,name])=>
+      '<button type="button" role="tab" id="ranking-tab-'+id+'" data-rank-format="'+id+'" aria-controls="ranking-results">'+name+'</button>'
+    ).join('');
+    root.innerHTML='<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1><div class="ranking-mode-tabs" role="tablist" aria-label="Ranking mode">'+tabs+'</div></header><div id="ranking-results" role="tabpanel" tabindex="0"></div></section>';
+    panel=root.querySelector('#ranking-results');
+  }
+  for(const tab of root.querySelectorAll('[data-rank-format]')){
+    const selected=tab.dataset.rankFormat===format;
+    tab.setAttribute('aria-selected',String(selected));
+    tab.tabIndex=selected?0:-1;
+  }
+  panel.setAttribute('aria-labelledby','ranking-tab-'+format);
+  return panel;
+}
+
+export function rankingResultsHTML(format,page,data,esc,sort,dir) {
   const quiz = format === 'quiz';
-  const select = '<label>Mode<select id="play-ranking-format">' + Object.entries(formats).map(([id,name]) =>
-    '<option value="'+id+'" '+(id===format?'selected':'')+'>'+name+'</option>').join('')+'</select></label>';
   const versus=['1v1','3v3','ngmc-ranked'].includes(format);
   function recordCell(row){
     if(!row.record)return '<span title="No recorded match outcomes">—</span>';
@@ -65,7 +81,6 @@ export function rankingsHTML(format,page,data,esc,sort=format==='quiz'?'points':
     ? '<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
       '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>'
     : '';
-  return '<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1>'+select+'</header>'+
-    (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">No ranked results yet for '+formats[format]+'.</p>')+
-    (rows.length||navigation?'<footer><small>Page '+(page+1)+'</small>'+navigation+'</footer>':'')+'</section>';
+  return (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">No ranked results yet for '+formats[format]+'.</p>')+
+    (rows.length||navigation?'<footer><small>Page '+(page+1)+'</small>'+navigation+'</footer>':'');
 }

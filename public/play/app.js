@@ -173,13 +173,18 @@ async function openMode(id, push = true) {
   mode = id;
   if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
-  $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":"Loading Matchmaking…") + '</p>';
+  if(id!=='rankings'||!$('#ranking-results'))
+    $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":"Loading Matchmaking…") + '</p>';
   try {
     if(id==='rankings'||id==='quiz')resumeBackgroundQueue(version).catch(fail);
     if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage;
-      const [{rankingsHTML},data] = await Promise.all([import("../play-rankings.js"),api(path+'&sort='+rankingSort+'&dir='+rankingDirection)]);
-      if(version===viewVersion)$("#main").innerHTML=rankingsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection);
+      const {rankingPanel,rankingResultsHTML}=await import("../play-rankings.js");
+      if(version!==viewVersion)return;
+      const panel=rankingPanel($("#main"),rankingFormat);
+      panel.innerHTML='<p class="ranking-empty" role="status">Loading Rankings…</p>';
+      const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection);
+      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection);
     } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
@@ -196,7 +201,8 @@ async function openMode(id, push = true) {
   } catch (error) {
     if (version !== viewVersion) return;
     const title = PLAY_MODES.find(item => item.id === id).name;
-    $("#main").innerHTML = '<section class="play-quiz-error"><h1>' + escape(title) + '</h1><p>' + escape(error.message) + '</p><button class="button secondary" data-action="retry-mode">Retry</button></section>';
+    const panel=id==='rankings' && $('#ranking-results');
+    (panel || $("#main")).innerHTML = '<section class="play-quiz-error">' + (panel?'':'<h1>'+escape(title)+'</h1>') + '<p>' + escape(error.message) + '</p><button class="button secondary" data-action="retry-mode">Retry</button></section>';
   }
 }
 const accountReady = refreshAccount();
@@ -208,6 +214,14 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button"); if (!button) return;
   try {
     const action = button.dataset.action;
+    if(mode==='rankings' && button.dataset.rankFormat){
+      if(button.dataset.rankFormat===rankingFormat)return;
+      rankingFormat=button.dataset.rankFormat;
+      rankingPage=0;
+      rankingSort=rankingFormat==='quiz'?'points':'rank';
+      rankingDirection=rankingFormat==='quiz'?'desc':'asc';
+      await openMode(mode,false); return;
+    }
     if(mode==='rankings'&&button.dataset.rankSort){
       const field=button.dataset.rankSort;
       rankingDirection=field===rankingSort?(rankingDirection==='asc'?'desc':'asc'):(['rank','name','time'].includes(field)?'asc':'desc');
@@ -253,13 +267,6 @@ document.addEventListener("input", async (event) => {
 });
 document.addEventListener("change", async (event) => {
   const input = event.target;
-  if(mode==="rankings" && input.id==="play-ranking-format"){
-    rankingFormat=input.value;
-    rankingPage=0;
-    rankingSort=rankingFormat==='quiz'?'points':'rank';
-    rankingDirection=rankingFormat==='quiz'?'desc':'asc';
-    await openMode(mode,false); return;
-  }
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";
     try { storage.setItem("amqtours-title-mode", titleMode); } catch {}
@@ -275,7 +282,17 @@ document.addEventListener("change", async (event) => {
     else if (input.id === "quiz-hide-perfect") quiz.setHidePerfect(input.checked);
   } catch (error) { fail(error); }
 });
-document.addEventListener("keydown", (event) => { if (mode === "quiz" && !$("#modal").open) quiz?.key(event); });
+document.addEventListener("keydown", (event) => {
+  if (mode === "quiz" && !$("#modal").open) quiz?.key(event);
+  if(mode!=='rankings'||!event.target.matches('[data-rank-format]'))return;
+  const tabs=[...event.target.parentElement.querySelectorAll('[role=tab]')];
+  const index=tabs.indexOf(event.target);
+  const next={ArrowLeft:(index+tabs.length-1)%tabs.length,ArrowRight:(index+1)%tabs.length,Home:0,End:tabs.length-1}[event.key];
+  if(next===undefined)return;
+  event.preventDefault();
+  tabs[next].focus();
+  tabs[next].click();
+});
 document.addEventListener("focusin", (event) => { if (mode === "quiz" && event.target.id === "quiz-answer") quiz?.focus(event.target); });
 window.addEventListener("beforeunload",event=>{
   if(songArtist?.rankedAtRisk()){event.preventDefault();event.returnValue="";}

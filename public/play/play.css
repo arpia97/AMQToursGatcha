@@ -119,8 +119,12 @@
 .room-masthead h1,.ranking-masthead h1 { margin:0; font-size:clamp(26px,3.2vw,40px); letter-spacing:-.035em; line-height:1.1; }
 .ranking-board,.broadcast-room { max-width:1200px; min-width:0; margin:20px auto; }
 .ranking-board { overflow:hidden; background:var(--panel); border:1px solid var(--border); border-radius:6px; }
-.ranking-masthead label { display:grid; gap:4px; min-width:150px; color:var(--muted); font-size:11px; }
-.ranking-masthead select { width:100%; margin:0; }
+.ranking-masthead { flex-wrap:wrap; align-items:flex-end; }
+.ranking-mode-tabs { display:flex; flex-wrap:wrap; gap:3px; margin-inline-start:auto; padding:3px; border:1px solid var(--border); border-radius:6px; background:var(--bg); }
+.ranking-mode-tabs button { padding:8px 11px; color:var(--muted); background:transparent; border:0; border-radius:3px; font:inherit; font-size:12px; }
+.ranking-mode-tabs button:hover { color:var(--text); }
+.ranking-mode-tabs [aria-selected=true] { color:#15241d; background:var(--mint); font-weight:700; }
+.ranking-mode-tabs [aria-selected=true]:hover { color:#15241d; }
 .ranking-board .play-table-wrap { margin:0; }
 .ranking-board th { background:#20262d; color:var(--muted); font-size:12px; }
 .ranking-board :is(th,td) { padding:10px clamp(9px,1.4vw,18px); }
@@ -141,7 +145,7 @@
 @media(max-width:600px) {
   .ranking-board,.broadcast-room { margin:8px auto; }
   .ranking-masthead { flex-wrap:wrap; gap:10px; }
-  .ranking-masthead label { flex:1 1 150px; }
+  .ranking-mode-tabs { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
   .ranking-board :is(th,td):nth-child(2) { position:sticky; left:0; max-width:36vw; white-space:normal; overflow-wrap:anywhere; background:var(--panel); box-shadow:1px 0 var(--border); }
   .ranking-board th:nth-child(2) { background:#20262d; }
 }
