@@ -45,22 +45,27 @@ export function buildArtistLibrary(master) {
   return {version:master.masterListId,names:[...labels].sort(),rules,songs};
 }
 export function artistMatches(expected, submitted, rules = {}) {
-  const list=Array.isArray(submitted)?submitted:null;
-  const key=artistKey(list?list.length===1?list[0]:'':submitted);
   const rule=rules[artistKey(expected)];
-  if(key&&[artistKey(expected),...(rule?.names||[])].some(name=>titleMatches([name],key)))return true;
-  if(!rule?.members)return false;
-  const parts=(list||String(submitted??'').split(',')).map(artistKey).filter(Boolean);
-  if(parts.length!==rule.members.length)return false;
+  const names=[artistKey(expected),...(rule?.names||[])];
+  const isPerformer=part=>titleMatches(names,part);
+  if(typeof submitted==='string'&&isPerformer(artistKey(submitted)))return true;
+  const parts=[...new Set((Array.isArray(submitted)?submitted:String(submitted??'').split(',')).map(artistKey))];
+  if(!parts.length||parts.includes(''))return false;
+  const members=rule?.members||[];
+  const covered=part=>members.some(aliases=>titleMatches(aliases,part));
+  if(parts.some(isPerformer))return parts.every(part=>isPerformer(part)||covered(part));
+  // Redundant member aliases can remain unmatched, but every submitted artist
+  // must belong to the group and every member still needs a distinct answer.
+  if(!members.length||parts.length<members.length||!parts.every(covered))return false;
   // One-to-one bipartite matching handles overlapping aliases without factorial work.
   const assigned=Array(parts.length).fill(-1);
   const visit=(member,seen)=>parts.some((part,j)=>{
-    if(seen.has(j)||!titleMatches(rule.members[member],part))return false;
+    if(seen.has(j)||!titleMatches(members[member],part))return false;
     seen.add(j);
     if(assigned[j]===-1||visit(assigned[j],seen)){assigned[j]=member;return true;}
     return false;
   });
-  return rule.members.every((_,i)=>visit(i,new Set()));
+  return members.every((_,i)=>visit(i,new Set()));
 }
 export function submittedArtists(value){
   if(!Array.isArray(value)||value.length>50||value.some(name=>typeof name!=='string'||!name.trim()||name.length>300)||JSON.stringify(value).length>3500)

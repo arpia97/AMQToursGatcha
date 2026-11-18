@@ -44,6 +44,10 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.equal(artistMatches('Duo','Manaka Iwami',library.rules),false);
   assert.equal(artistMatches('Duo',['Iwami, Manaka','Éir Aoi'],library.rules),true);
   assert.equal(artistMatches('Duo',['Duo'],library.rules),true);
+  assert.equal(artistMatches('Duo',['Other Duo','Iwami, Manaka'],library.rules),true);
+  assert.equal(artistMatches('Duo',['Duo','LiSA'],library.rules),false);
+  assert.equal(artistMatches('Duo',['Manaka Iwami','Iwami, Manaka','Éir Aoi'],library.rules),true);
+  assert.equal(artistMatches('LiSA',['LiSA','LiSA']),true);
   assert.equal(artistMatches('Duo',['Iwami, Manaka'],library.rules),false);
   assert.equal(artistMatches('Duo',['Iwami, Manaka','Éir Aoi','LiSA'],library.rules),false);
   assert.equal(artistMatches('Duo',['Iwami, Manaka','Manaka Iwami'],library.rules),false);
