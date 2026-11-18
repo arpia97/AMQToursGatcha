@@ -369,15 +369,16 @@ export class Quiz {
       for (const song of incoming) {
         const old = combined.get(song.audio);
         const sheet=song.answerSource==='amq-master-sheet'?song:old?.answerSource==='amq-master-sheet'?old:null;
+        const preferred=sheet||(song.answerSource==='published-quiz'?song:old?.answerSource==='published-quiz'?old:null);
         combined.set(
           song.audio,
           old
             ? {
                 ...old,
                 ...song,
-                answers:sheet?.answers??mergeQuizAnswers(old,song),
-                answerSource:sheet?.answerSource??(old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource),
-                workingTitles: sheet?.workingTitles??[
+                answers:preferred?.answers??mergeQuizAnswers(old,song),
+                answerSource:preferred?.answerSource??(old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource),
+                workingTitles: preferred?.workingTitles??[
                   ...new Set([
                     ...(old.workingTitles || []),
                     ...(song.workingTitles || []),
@@ -421,6 +422,7 @@ export class Quiz {
           ...(s.answerSource?{answerSource:s.answerSource}:{}),
           title: text(s.title || "Unknown Song", 200),
           artist: String(s.artist || "").slice(0, 200),
+          ...(s.type?{type:String(s.type).slice(0,80)}:{}),
         });
       }
       e.run("DELETE FROM quiz_songs WHERE quiz=?", id);

@@ -43,6 +43,7 @@ def catalogue():
 def build(records):
     files, metadata, occurrences = catalogue()
     parents, winners, descriptions = {}, {}, defaultdict(set)
+    song_rows = []
 
     def root(key):
         parents.setdefault(key, key)
@@ -73,6 +74,7 @@ def build(records):
         keys = {key for link in [links.get("primary"), links.get("playedSrc"), *links.get("allLinks", [])]
                 if (key := media_key(link))}
         ids = info.get("siteIds") or {}
+        song_rows.append([info.get("songName"), info.get("artist"), ids.get("annId"), info.get("type")])
         for field, prefix in (("amqSongId", "a:"), ("annSongId", "n:")):
             value = export.get(field) or info.get(field) or ids.get(field)
             if str(value).isdigit() and int(value) > 0:
@@ -140,8 +142,41 @@ def build(records):
         matches = {root(key) if key in parents else None for key in groups | metadata.get((ann, song, artist), set())}
         if len(matches) == 1 and None not in matches:
             exact[f"m:{ann}\t{song}\t{artist}"] = index[winners[matches.pop()]]
+    recordings = [[*song_rows[row], None] for _, row, _ in chosen]
+    for key, idx in sorted(exact.items()):
+        if key.startswith("f:") and key.lower().endswith(".mp3") and not recordings[idx][-1]:
+            recordings[idx][-1] = key[2:]
+
+    # Official AMQ song links provide occurrence IDs and categories, but no audio.
+    # Bind unambiguous links to sheet recordings and retain missing AMQ+ entries
+    # so a quiz with audio can supply the missing media for an AMQ-only song.
+    amq = json.loads((ROOT.parent / "quiz-amq-master.json").read_text(encoding="utf-8"))
+    official = []
+    official_keys = defaultdict(set)
+    for ann, anime in amq["animeMap"].items():
+        names = list(dict.fromkeys(filter(None, [*(anime.get("mainNames") or {}).values(),
+                          *(n.get("name") for n in anime.get("names", []))])))
+        for kind, links in anime.get("songLinks", {}).items():
+            for link in links:
+                song_id, ann_song = link.get("songId"), link.get("annSongId")
+                song = amq["songMap"].get(str(song_id), {})
+                title, artist = song.get("name"), song.get("artist")
+                if not title or not artist:
+                    continue
+                scoped = f"m:{ann}\t{norm(title)}\t{norm(artist)}"
+                idx = exact.get(scoped, exact.get(f"m:\t{norm(title)}\t{norm(artist)}"))
+                if idx is not None and recordings[idx][2] == int(ann):
+                    if ann_song:
+                        official_keys["n:" + str(ann_song)].add(idx)
+                    if song_id:
+                        official_keys["a:" + str(song_id)].add(idx)
+                if "a:" + str(song_id) not in occurrences:
+                    official.append([song_id, ann_song, int(ann), "Insert" if kind == "INS" else kind, title, artist, names])
+    for key, matches in official_keys.items():
+        if len(matches) == 1:
+            exact.setdefault(key, next(iter(matches)))
     return {"sourceRows": total, "records": [[score, *titles] for score, _, titles in chosen],
-            "keys": dict(sorted(exact.items()))}
+            "recordings": recordings, "official": official, "keys": dict(sorted(exact.items()))}
 
 
 if __name__ == "__main__":

@@ -312,6 +312,14 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   );
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).songs, 20);
+  const publishedPreview=await post('host/quiz-preview',{input:[{
+    audio:input[0].audio,annSongId:50001,songInfo:{animeNames:{romaji:'Conflicting upload'}}
+  }]},host);
+  assert.equal(publishedPreview.status,200,await publishedPreview.clone().text());
+  const reused=(await publishedPreview.json()).songs[0];
+  assert.equal(reused.answerSource,'published-quiz');
+  assert.ok(reused.answers.includes('Anime Test'));
+  assert.ok(!reused.answers.includes('Cached Alternative')&&!reused.answers.includes('Conflicting upload'));
   const tile = (
     await (await mf.dispatchFetch("http://game/api/quizzes")).json()
   ).quizzes.find((q) => q.id === "test");

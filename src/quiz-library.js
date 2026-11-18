@@ -146,6 +146,40 @@ export class QuizLibraryCore {
       ...anns.map(Number),
       ...amqs.flatMap((id) => manifest.amq[id] || []),
     ]);
+    const references=query.recordings||[];
+    if(!Array.isArray(references)||references.length>2000)fail('Invalid recording references.');
+    const resolvedIds=[];
+    if(references.length){
+      const norm=v=>String(v||'').normalize('NFKC').toLowerCase().trim().replace(/\s+/g,' ');
+      const keys=row=>{
+        const name=norm(row.title),artist=norm(row.artist);
+        const audio=row.audio?.replace(/^https:\/\/(?:eu|nae|naw)dist\.animemusicquiz\.com\//i,'amq:');
+        return [audio&&'f:'+audio,name&&artist&&row.annId&&JSON.stringify([String(row.annId),name,artist]),name&&artist&&JSON.stringify([name,artist])].filter(Boolean);
+      };
+      if(this.referenceVersion!==manifest.version){
+        this.referenceIds=new Map();
+        this.referenceVersion=manifest.version;
+      }
+      const cache=this.referenceIds;
+      const wanted=new Map(references.flatMap(row=>keys(row).filter(k=>!cache.has(k)).map(k=>[k,undefined])));
+      for(const bucket of wanted.size?manifest.shards:[]){
+        for(const row of Object.values(await this.shard(manifest,bucket))){
+          for(const key of keys(row)){
+            if(!wanted.has(key))continue;
+            const prior=wanted.get(key),group=row.amqSongId||row.audio||row.annSongId;
+            if(prior===undefined)wanted.set(key,{group,id:row.annSongId});
+            else if(prior && prior.group!==group)wanted.set(key,null);
+          }
+        }
+      }
+      for(const reference of references){
+        const id=keys(reference).map(k=>wanted.has(k)?wanted.get(k)?.id:cache.get(k)).find(Boolean);
+        resolvedIds.push(id??null);
+        if(id)ids.add(id);
+      }
+      for(const [key,match] of wanted)cache.set(key,match?.id??null);
+      while(cache.size>8000)cache.delete(cache.keys().next().value);
+    }
     if (ids.size > 20000) fail("Song lookup is too large.");
     const grouped = new Map();
     for (const id of ids) {
@@ -158,7 +192,7 @@ export class QuizLibraryCore {
       const rows = await this.shard(manifest, b);
       for (const id of values) if (rows[id]) songs.push(rows[id]);
     }
-    return { version: manifest.version, songs };
+    return { version: manifest.version, songs,...(references.length?{resolvedIds}:{}) };
   }
   async status() {
     const m = await this.active(),

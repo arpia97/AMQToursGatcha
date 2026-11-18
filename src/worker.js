@@ -1,6 +1,6 @@
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
-import {loadMasterSongAnswers,masterImportAnswers} from './master-song-answers.js';
+import {loadMasterSongAnswers,masterImportAnswers,indexQuizRecordings,bestMasterRecord,sheetRecording} from './master-song-answers.js';
 import { paidSpecialRefundPlan, applyPaidSpecialRefund } from "./paid-special-refund.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
@@ -19,7 +19,7 @@ import { repairQuizAnswers } from "./quiz-answer-repair.js";
 import { checkQuizAudio, applyQuizAudioReview } from "./quiz-audio.js";
 import { loadQuizMaster } from "./quiz-source.js";
 import { resolveQuizImport } from "./quiz-import.js";
-import { prepareQuizSongs,quizImportRows } from "../public/quiz-rules.js";
+import { prepareQuizSongs,quizImportRows,quizRowAudio } from "../public/quiz-rules.js";
 import {libraryQuery} from '../public/quiz-library-data.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 import {syncQuizLibraryAnswers} from './quiz-library-sync.js';
@@ -218,9 +218,22 @@ export class Game extends DurableObject {
   }
   async quizAnswersMaster(){
     if(!this.quizMaster||Date.now()-this.quizMaster.at>86400000){
-      try{this.quizMaster={at:Date.now(),...await loadQuizMaster(fetch,this.env.ASSETS)};}
+      try{this.quizMaster={at:Date.now(),...await loadQuizMaster(fetch,this.env.ASSETS,true)};}
       catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
     }return this.quizMaster;
+  }
+  publishedQuizSongs(previousVersion) {
+    const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');
+    const version=JSON.stringify(quizzes.map(q=>[q.id,q.updated]));
+    if(previousVersion===version)return null;
+    const rows=[];
+    for(const quiz of quizzes){
+      for(const entry of this.engine.all('SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id',quiz.id)){
+        const {audio,title,artist,type,answers,sourceIds}=JSON.parse(entry.data);
+        rows.push({audio,title,artist,type,answers,sourceIds});
+      }
+    }
+    return {version,rows};
   }
   maintainMarket(force = false) {
     const now = this.engine.now();
@@ -802,8 +815,33 @@ export class Game extends DurableObject {
           await this.quizAnswersMaster();
           let prepared;
           try {
-            const importedRows=quizImportRows(b.input);
-            let library={songs:[]};try{library=await quizLibraryRequest(this.env,'/lookup',libraryQuery(importedRows))||library;}catch{ /* AMQ/export matching remains available if the cache is restarting. */ }
+            const sheet=await loadMasterSongAnswers(this.env.ASSETS);
+            const published=this.publishedQuizSongs(this.importQuizIndex?.version);
+            if(published)this.importQuizIndex={...indexQuizRecordings(published.rows),version:published.version};
+            const quizzes=this.importQuizIndex;
+            const official=new Map();
+            for(const entry of sheet.official||[]){
+              if(entry[0])official.set('a:'+entry[0],entry);
+              if(entry[1])official.set('n:'+entry[1],entry);
+            }
+            const importedRows=quizImportRows(b.input).map(row=>{
+              if(!row||typeof row!=='object')return row;
+              const top=sheetRecording(sheet,bestMasterRecord(sheet,[row]));
+              const saved=quizzes.rows[bestMasterRecord(quizzes,[row])];
+              const last=official.get('n:'+row.annSongId)||official.get('a:'+row.amqSongId);
+              return {...row,audio:quizRowAudio(row)||top?.audio||saved?.audio,
+                annId:row.annId??top?.annId??saved?.sourceIds?.annIds?.[0]??last?.[2],
+                songName:top?.title||saved?.title||row.songName||row.songTitle||last?.[4],
+                songArtist:top?.artist||saved?.artist||row.songArtist||row.artist||last?.[5],
+                songType:top?.type||saved?.type||row.songType||last?.[3]};
+            });
+            const query=libraryQuery(importedRows.filter(Boolean));
+            const unknown=importedRows.filter(row=>row&&!row.annSongId&&!row.amqSongId&&
+              (quizRowAudio(row)||((row.songName||row.songTitle)&&(row.artist||row.songArtist)))&&
+              bestMasterRecord(sheet,[row])===undefined&&bestMasterRecord(quizzes,[row])===undefined);
+            query.recordings=unknown.map(row=>({audio:quizRowAudio(row),title:row.songName||row.songTitle,artist:row.songArtist||row.artist,annId:row.annId}));
+            const library=await quizLibraryRequest(this.env,'/lookup',query)||{songs:[]};
+            for(const [i,id] of (library.resolvedIds||[]).entries())if(id)unknown[i].annSongId=id;
             this.quizAudioCache ||= new Map();
             const rows = await resolveQuizImport(
               importedRows,
@@ -812,9 +850,8 @@ export class Game extends DurableObject {
               Date.now(),
               library.songs,
             );
-            const sheet=await loadMasterSongAnswers(this.env.ASSETS);
             const matched=masterImportAnswers(sheet,rows);
-            prepared = prepareQuizSongs(rows, this.quizMaster.data,library,matched);
+            prepared = prepareQuizSongs(rows, this.quizMaster.data,library,matched,masterImportAnswers(quizzes,rows));
             if(matched.size)prepared.masterListId+=' + '+sheet.version;
           } catch (err) {
             fail(err.message, err.status || 400);
@@ -1772,7 +1809,7 @@ export default {
         return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page));
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=amq-master-v1');
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v1');
         const saved=await cache?.match(key);if(saved)return saved;
         try{const data=await quizLibraryRequest(env,'/play-catalog');if(!data)return json({error:'Song library unavailable.'},503);
           const response=Response.json(data,{headers:{'Cache-Control':'public,max-age=600','X-Content-Type-Options':'nosniff'}});

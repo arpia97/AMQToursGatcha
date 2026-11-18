@@ -17,7 +17,8 @@ export class QuizLibrary extends DurableObject {
       },
       env.ASSETS,
     );
-    this.play = new PlayLibrary(this.core);
+    this.play = new PlayLibrary(this.core,undefined,version=>
+      env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version));
   }
   async schedule() {
     const next = this.core.nextAlarm();

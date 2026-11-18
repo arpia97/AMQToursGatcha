@@ -1,8 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
+import {PlayLibrary} from '../src/play-library.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('integrated catalogue samples sheet-only and published recordings and updates after unpublishing',async()=>{
+  const audio=id=>'https://naedist.animemusicquiz.com/'+id+'.mp3';
+  const base=[1,2,3].map(id=>({annSongId:id,amqSongId:id,annId:id,type:'OP',audio:audio(id),title:'Song '+id,artist:'Artist',titles:['Plus '+id]}));
+  const sheet={version:'sheet',records:[[0,'Sheet 1'],[0,'Sheet 4']],keys:{'a:1':0,'f:4.mp3':1},
+    recordings:[['Song 1','Artist',1,'OP','1.mp3'],['Song 4','Artist',4,'ED','4.mp3']],
+    official:[[5,50,5,'OP','Song 5','Artist',['Official 5']],[6,60,6,'ED','Song 6','Artist',['Metadata only']]]};
+  const rows=[1,2,5].map(id=>({sourceIds:{amqSongIds:[id]},audio:audio(id),title:'Song '+id,artist:'Artist',answers:['Quiz '+id]}));
+  const core={active:async()=>({version:'base',shards:[0]}),shard:async()=>base,
+    lookup:async({annSongIds})=>({songs:base.filter(row=>annSongIds.includes(row.annSongId))}),
+    assets:{fetch:async req=>Response.json(req.url.endsWith('master-answers.json')?sheet:{names:[],songs:{},rules:{}})}};
+  let version='v1';
+  const lib=new PlayLibrary(core,undefined,previous=>previous===version?null:{version,rows:version==='v1'?rows:[]});
+  lib.verifiedSource=async url=>url;
+  const catalog=await lib.catalog();
+  assert.deepEqual(catalog.coverage,{playableRecordings:5,sheetAdded:1,quizAdded:1});
+  assert.ok(catalog.anime.includes('Metadata only'));
+  const sample=await lib.sample('song-artist',5);
+  assert.deepEqual(sample.songs.map(s=>s.anime).sort(),['Plus 3','Quiz 2','Quiz 5','Sheet 1','Sheet 4']);
+  assert.equal((await lib.load()).ngmcRows.length,5);
+  version='v2';lib.nextCheck=0;
+  const refreshed=await lib.catalog();
+  assert.notEqual(refreshed.version,catalog.version);
+  assert.equal(refreshed.coverage.playableRecordings,4);
+  assert.ok(refreshed.anime.includes('Plus 2')&&!refreshed.anime.includes('Quiz 2'));
+});
 test('multiplayer Workers authenticate sockets, form all formats, preload, score and survive reconnect through the proxy',async t=>{
   const mf=await playRuntimeFixture();t.after(()=>mf.dispose());
   const base='http://game',cookies=[];

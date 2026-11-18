@@ -112,7 +112,7 @@ export function quizImportRows(input) {
     };
   });
 }
-export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new Map()) {
+export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new Map(), quizAnswers = new Map()) {
   const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
@@ -127,9 +127,9 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
     }
     const audio = quizRowAudio(row);
     const resolved = indexer.resolve(row);
-    if(sheetAnswers.has(audio)){
-      const titles=sheetAnswers.get(audio);
-      Object.assign(resolved,{answers:titles,workingTitles:titles,trustedAnswers:titles,answerSource:'amq-master-sheet'});
+    const titles=sheetAnswers.get(audio)??quizAnswers.get(audio);
+    if(titles){
+      Object.assign(resolved,{answers:titles,workingTitles:titles,trustedAnswers:titles,answerSource:sheetAnswers.has(audio)?'amq-master-sheet':'published-quiz'});
     }
     if (!audio || !resolved.answers.length) {
       rejected.push({
@@ -177,6 +177,7 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
         200,
       ),
       artist: String(row.songArtist || row.artist || "").slice(0, 200),
+      type: String(row.songType||row.songInfo?.type||'').slice(0,80),
     });
     seen.set(audio, songs.at(-1));
     trustedByAudio.set(audio,resolved.trustedAnswers);

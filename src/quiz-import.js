@@ -46,8 +46,15 @@ export async function resolveQuizImport(
 ) {
   const byAnn=new Map(librarySongs.map(s=>[String(s.annSongId),s])),byAmq=new Map();
   for(const song of librarySongs)if(song.amqSongId&&!byAmq.has(String(song.amqSongId)))byAmq.set(String(song.amqSongId),song);
-  const rows = quizImportRows(input).map(row=>{if(!row||typeof row!=='object')return row;const song=byAnn.get(String(row.annSongId))||byAmq.get(String(row.amqSongId));return song?{...row,audio:resolveQuizAudio(row.audio)||song.audio,amqSongId:row.amqSongId??song.amqSongId,songName:row.songName||song.title,artist:row.songArtist||row.artist||song.artist}:row;}),
-    needed = { ann: new Set(), amq: new Set() };
+  const rows = quizImportRows(input).map(row=>{
+    if(!row || typeof row !== 'object')return row;
+    const song=byAnn.get(String(row.annSongId))||byAmq.get(String(row.amqSongId));
+    if(!song)return row;
+    return {...row,audio:resolveQuizAudio(row.audio)||song.audio,amqSongId:row.amqSongId??song.amqSongId,
+      annId:row.annId??song.annId,songType:row.songType||song.type,
+      songName:row.songName||song.title,artist:row.songArtist||row.artist||song.artist};
+  });
+  const needed = { ann: new Set(), amq: new Set() };
   const reference = (row) => {
     if (!row?.songInfo || resolveQuizAudio(row.audio)) return null;
     const ann = validID(row.annSongId);

@@ -15,7 +15,7 @@ export function loadMasterSongAnswers(assets){
   return snapshots.get(assets);
 }
 
-function fileKey(url){
+export function fileKey(url){
   if(typeof url!=='string')return null;
   const match=/^(?:https:\/\/(?:eu|nae|naw)dist\.animemusicquiz\.com\/)?([a-z0-9_-]+\.(?:mp3|webm|mp4))(?:[?#].*)?$/i.exec(url);
   return match?'f:'+match[1]:null;
@@ -33,7 +33,7 @@ export function bestMasterRecord(snapshot,rows){
   for(const row of rows){
     if(!row)continue;
     for(const audio of [row.audio,row.audioUrl,row.audio_url,row.mp3,row.songLink,row.videoUrl,row.songLinks?.primary,row.songLinks?.playedSrc]){
-      const key=fileKey(audio);if(key)consider(key);
+      const key=fileKey(audio);if(key)consider(key);else if(audio)consider('url:'+audio);
     }
     for(const id of [row.amqSongId??row.songId,...(Array.isArray(row.sourceIds?.amqSongIds)?row.sourceIds.amqSongIds:[])])if(id)consider('a:'+id);
     for(const id of [row.annSongId,...(Array.isArray(row.sourceIds?.annSongIds)?row.sourceIds.annSongIds:[])])if(id)consider('n:'+id);
@@ -50,6 +50,55 @@ export function bestMasterRecord(snapshot,rows){
     }
   }
   return best;
+}
+
+export function sheetRecording(master, id) {
+  const meta = master.recordings?.[id];
+  if (!meta) return null;
+  const [title, artist, annId, type, file] = meta;
+  return {title, artist, annId, type, audio:file && 'https://naedist.animemusicquiz.com/'+file, titles:master.records[id].slice(1)};
+}
+
+// Published song pools are the only player-facing data used here. Rows are in
+// quiz and song order so ties always select the same saved answer list.
+export function indexQuizRecordings(rows) {
+  const keys = Object.create(null), records = [], descriptions = new Map(), parents=[], winners=[];
+  function root(id){
+    while(parents[id]!==id){parents[id]=parents[parents[id]];id=parents[id];}
+    return id;
+  }
+  const norm = value => String(value || '').normalize('NFKC').toLowerCase().trim().replace(/\s+/g,' ');
+  for (const [id,row] of rows.entries()) {
+    const answers = [...new Set(row.answers || [])];
+    records.push([answers.length,...answers]);
+    parents[id]=id;winners[id]=id;
+    const audioKey=fileKey(row.audio) || 'url:'+row.audio;
+    const strong = [audioKey,...(row.sourceIds?.amqSongIds||[]).map(v=>'a:'+v),...(row.sourceIds?.annSongIds||[]).map(v=>'n:'+v)];
+    for(const key of strong){
+      if(keys[key]!==undefined){
+        const other=root(keys[key]);
+        if(other!==id){
+          const prior=winners[other],current=winners[id];
+          if(records[prior][0]>records[current][0]||(records[prior][0]===records[current][0]&&prior<current))winners[id]=prior;
+          parents[other]=id;
+        }
+      }
+      keys[key]=id;
+    }
+    if (!row.title || !row.artist) continue;
+    const suffix='\t'+norm(row.title)+'\t'+norm(row.artist);
+    for(const ann of ['',...(row.sourceIds?.annIds||[])]){
+      const key='m:'+ann+suffix;
+      if(!descriptions.has(key))descriptions.set(key,new Set());
+      descriptions.get(key).add(id);
+    }
+  }
+  for(const key of Object.keys(keys))keys[key]=winners[root(keys[key])];
+  for(const [key,ids] of descriptions){
+    const matches=new Set([...ids].map(id=>winners[root(id)]));
+    if(matches.size===1)keys[key]=matches.values().next().value;
+  }
+  return {records,rows,keys};
 }
 
 export function masterImportAnswers(snapshot,rows){

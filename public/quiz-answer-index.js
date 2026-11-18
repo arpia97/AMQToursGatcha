@@ -71,9 +71,9 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
         annSongs.add(id);
         for (const song of byAnnSong.get(id)) songs.add(song);
       }
-    if (!songs.size && legacy) {
+    if (!songs.size && !annSongs.size) {
       const found = byTitleArtist.get(
-        key(row.title) + "\0" + artistKey(row.artist),
+        key(row.songName||row.songTitle||row.title) + "\0" + artistKey(row.songArtist||row.artist),
       );
       if (found?.size === 1) for (const id of found) songs.add(id);
     }
@@ -89,6 +89,7 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
       ...list(row.altAnimeNamesAnswers),
       ...list(info.altAnimeNames),
       ...list(info.altAnimeNamesAnswers),
+      ...list(info.allAlternativeAnswers),
       ...list(info.animeNamesAnswers),
     ]
       .filter((n) => typeof n === "string" && n.trim())
@@ -97,16 +98,13 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
     const authoritative=row.answerSource==='amq-export'||!!row.songInfo&&(working.length>0||exportNames.length>0);
     const exactFallback=[...annSongs].map(id=>fallbackAnn.get(id)).filter(Boolean),fallback=exactFallback.length?exactFallback:[...songs].flatMap(id=>fallbackAmq.get(id)||[]);
     const amqAnswers=[...anns].flatMap(id=>titles(master.animeMap?.[id]));
-    const answers = [
-      ...new Set(
-        [...working,...exportNames,...amqAnswers,...(authoritative?[]:fallback.flatMap(s=>s.titles||[]))],
-      ),
-    ];
+    const cachedAnswers=fallback.flatMap(s=>s.titles||[]);
+    const answers=[...new Set([...working,...exportNames,...(authoritative||!cachedAnswers.length?amqAnswers:cachedAnswers)])];
     return {
       answers,
       trustedAnswers:[...new Set([...working,...exportNames,...amqAnswers])],
       workingTitles: [...new Set([...working,...exportNames])],
-      answerSource:authoritative?'amq-export':fallback.length?'amq-plus':'amq',
+      answerSource:authoritative?'amq-export':cachedAnswers.length?'amq-plus':'amq',
       sourceIds: {
         amqSongIds: [...songs],
         annSongIds: [...annSongs],
