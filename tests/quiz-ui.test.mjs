@@ -372,6 +372,10 @@ test("title suggestions put shorter matching titles first and normalize accents 
   assert.deepEqual(quizAnswerOptions(["Shana Special","Shakugan no Shana S"],"shana s"),["Shakugan no Shana S","Shana Special"]);
   assert.deepEqual(quizAnswerOptions(["Shana S","Shakugan no Shana S"],"shana s"),["Shana S","Shakugan no Shana S"]);
   assert.deepEqual(quizAnswerOptions(["Manaka Iwami","Iwami Manaka Longer"],"iwami manaka"),["Manaka Iwami","Iwami Manaka Longer"]);
+  const revenge=["Masamune-kun's Revenge","Masamune-kun no Revenge","Masamune-kun's Revenge R","Masamune-kun no Revenge R"];
+  assert.deepEqual(quizAnswerOptions(revenge,"ge r"),["Masamune-kun's Revenge R","Masamune-kun no Revenge R","Masamune-kun's Revenge","Masamune-kun no Revenge"]);
+  assert.deepEqual(quizAnswerOptions(revenge,"enge r",1),["Masamune-kun's Revenge R"]);
+  assert.deepEqual(quizAnswerOptions(revenge,"revenge",1),["Masamune-kun's Revenge"]);
   const bank=["Iwami, Manaka Long Alias","Manaka Iwami"];
   assert.deepEqual(quizAnswerOptions(bank,"iwami manaka"),["Manaka Iwami","Iwami, Manaka Long Alias"]);
   bank.push("Iwami");assert.deepEqual(quizAnswerOptions(bank,"iwami",1),["Iwami"]);

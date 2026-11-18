@@ -12,14 +12,15 @@ function matchesWords(words,tokens,prefix){
   });
   return tokens.every((_,index)=>visit(index,new Set()));
 }
+// A contiguous fragment can cross word boundaries: "ge r" matches Revenge R.
 // Rows are cached in shortest-first order. Buckets keep that order without
 // normalizing or sorting the full bank again for every keystroke.
 export function relevantAnswers(rows,key,limit=20){
   if(!key||limit<=0)return [];
-  const tokens=key.split(/\s+/),buckets=[[],[],[],[]];
+  const tokens=key.split(/\s+/),buckets=[[],[],[],[],[]];
   for(const row of rows){
     if(!tokens.every(token=>row.key.includes(token)))continue;
-    const rank=row.key===key?0:matchesWords(row.words,tokens,false)?1:matchesWords(row.words,tokens,true)?2:3;
+    const rank=row.key===key?0:matchesWords(row.words,tokens,false)?1:row.key.includes(key)?2:matchesWords(row.words,tokens,true)?3:4;
     if(buckets[rank].length<limit)buckets[rank].push(row.value);
   }
   return buckets.flat().slice(0,limit);

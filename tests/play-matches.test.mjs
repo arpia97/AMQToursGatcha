@@ -45,6 +45,10 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.deepEqual(searchAnswers(shana,'anime','shana s'),['Shakugan no Shana S','Shakugan no Shana','Burning-Eyed Shana']);
   assert.deepEqual(searchAnswers(shana,'anime','s shana',1),['Shakugan no Shana S']);
   assert.deepEqual(searchAnswers(shana,'anime','shana',0),[]);
+  const revenge=answerSearchIndex({anime:["Masamune-kun's Revenge","Masamune-kun no Revenge","Masamune-kun's Revenge R","Masamune-kun no Revenge R"]});
+  assert.deepEqual(searchAnswers(revenge,'anime','ge r',1),["Masamune-kun's Revenge R"]);
+  assert.deepEqual(searchAnswers(revenge,'anime','enge r').slice(0,2),["Masamune-kun's Revenge R","Masamune-kun no Revenge R"]);
+
 
 });
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));

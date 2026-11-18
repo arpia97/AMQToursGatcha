@@ -120,4 +120,6 @@ The host form checks Quiz Name against other quizzes already in the protected ho
 
 Autocomplete reuses a WeakMap index of each bank’s normalized, shortest-first titles. Bank growth rebuilds the index; queries scan until 20 matches without re-normalizing or sorting every title for each keystroke.
 
-Quiz and multiplayer answer suggestions rank exact names first, then distinct complete query words, then word prefixes, then substring matches. Within the same relevance tier, shorter titles remain first. Word order and comma-free name search still work. For example, `shana s` prefers `Shakugan no Shana S` over the shorter `Shakugan no Shana`. Matching ranks suggestions only; grading still uses saved accepted answers.
+Quiz and multiplayer answer suggestions rank exact names first, then distinct complete query words, then contiguous query text (including fragments across word boundaries), then word prefixes, then substring matches. Within the same relevance tier, shorter titles remain first. Word order and comma-free name search still work. For example, `shana s` prefers `Shakugan no Shana S` over the shorter `Shakugan no Shana`. Matching ranks suggestions only; grading still uses saved accepted answers.
+
+A query such as `ge r` or `enge r` ranks `Masamune-kun's Revenge R` ahead of `Masamune-kun's Revenge`, since only the sequel contains that contiguous text. This complements the complete-word priority for `shana s`.
