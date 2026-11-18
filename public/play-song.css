@@ -1,7 +1,29 @@
 .sa-lobby { max-width:850px; margin:30px auto; padding:38px; border:1px solid var(--border); border-radius:16px; background:var(--panel); }
-.play-lobby-browser {display:grid;grid-template-columns:minmax(0,1.65fr) minmax(250px,1fr);align-items:start;gap:18px;max-width:1200px;margin:30px auto;}
-.play-lobby-browser>.sa-lobby {width:100%;max-width:none;margin:0;}
-.play-lobby-directory {min-width:0;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:22px;}
+.play-lobby-browser {--queue-accent:#b7edba;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);align-items:start;gap:14px;max-width:1200px;margin:20px auto;}
+.play-lobby-browser.song-queue {--queue-accent:#ebc0d1;}
+.play-queue-banner {grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:24px clamp(18px,3vw,36px);border:1px solid #344249;border-radius:6px;background:repeating-linear-gradient(90deg,transparent 0 47px,#ffffff06 47px 48px),#172025;}
+.play-queue-banner .sa-eyebrow {color:var(--queue-accent);}
+.play-queue-banner h1 {margin:5px 0 8px;font-size:clamp(28px,4vw,44px);line-height:1.05;letter-spacing:-.035em;}
+.play-queue-banner p {margin:0;color:var(--muted);font-size:12px;}
+.score-formation {display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:clamp(52px,8vw,104px);}
+.score-formation i {height:8px;border:1px solid var(--queue-accent);background:var(--queue-accent);}
+.score-formation i:nth-child(n+5) {background:transparent;}
+.score-note {display:block;font:48px/1 "Segoe UI Symbol",sans-serif;color:var(--queue-accent);}
+.play-lobby-browser>.play-queue-card,.play-lobby-directory {width:100%;max-width:none;min-width:0;margin:0;padding:18px;background:var(--panel);border:1px solid var(--border);border-radius:6px;text-align:left;}
+.play-queue-card h2 {margin:0 0 14px;font-size:20px;}
+.score-formats {display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;gap:6px;}
+.score-formats button {display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;padding:10px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;cursor:pointer;font:inherit;text-align:left;}
+.score-formats button[aria-pressed=true] {border-color:var(--queue-accent);background:color-mix(in srgb,var(--queue-accent) 8%,var(--panel));}
+.score-formats button small {font-size:11px;color:var(--muted);}
+.score-formats .sa-queue-count {margin-top:auto;font-variant-numeric:tabular-nums;}
+.score-formats [data-waiting=true] {color:var(--queue-accent);}
+.score-settings {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:14px 0;}
+.score-settings label {width:auto;margin:0;}
+.score-settings label:first-child {display:flex;align-items:center;gap:8px;}
+.score-settings select {width:auto;min-width:65px;margin:0;padding-block:5px;}
+.play-queue-card .score-find {width:100%;border-radius:4px;color:#16211e;background:var(--queue-accent);}
+.play-queue-card .sa-status {min-height:0;margin:8px 0 0;}
+.play-queue-card .sa-status:empty {margin:0;}
 .play-lobby-directory h2,.play-lobby-dialog h2 {margin:0 0 14px;font-size:20px;}
 .play-directory-header {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 14px;}
 .play-directory-header h2 {margin:0;}
