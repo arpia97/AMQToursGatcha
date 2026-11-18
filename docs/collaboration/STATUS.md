@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Completed — Restore Gold Artist Premium Titles
+
+User clarified the earlier reversion meant restoring the gold colour. Artist/Singers perfect 20/20 saved times below 60,000ms again project premium:true and render the original gold palette (same values as existing Tour identity.css). Composer violet/Franchise green overrides remain. Existing titles/equipment/scores/times/wallets are unchanged; no migration. Existing 12 title tests, 285 syntax checks, dry-run/diff checks and local/live visual fixtures at 960/390 pass Artist gold rgb(255,241,200) with Composer/Franchise colours preserved. Source aae16d3ccc92c99b90eb9e0ad7acd4fa27ff08e0 deployed to original Worker cf527865-d946-45bd-a0a1-5600c409c493. Live JS/CSS byte-match, health 200; Verify 44224816015 and demo 44224815914 passed. Evidence work/artist-gold-{tests,check,build,browser,deploy,ci}.log, {browser,live}-proof.json and live-browser.json. No production data writes or Host/proxy deployment; shared identity response restores the premium flag there too. Ownership released.
+
 ## Completed — Answer Suggestion Relevance
 
 Shared Quiz/multiplayer suggestion rank now prefers exact normalized names, then distinct complete query words, then word prefixes, then partial substrings. Shortest-first cached row order breaks ties within each tier. Shana S outranks shorter Shana titles for shana s / s shana; comma-free word-order names and partial matching remain available. Ranking scans before applying the result limit, so stronger matches after many shorter rows are retained. No grading/answer-key or backend changes.
