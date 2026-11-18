@@ -1,4 +1,5 @@
 import { AnimeEnrichment } from "./anime-enrichment.js";
+import { findPortraitRepairs, savePortraitRepairs } from "./portrait-repairs.js";
 import {
   fetchJikan,
   voiceCards,
@@ -330,9 +331,11 @@ export class JikanImport {
       claimed.task === "appearances"
         ? claimed.appearances.queue[0]
         : claimed.queue[0];
-    let data, error;
+    let data, error, portraitRepairs = [];
     try {
       data = await this.get(claimed.lastRequestPath);
+      if (claimed.task === "favorites")
+        portraitRepairs = await findPortraitRepairs(this.e, claimed.favorites.kind, data?.data, claimed.favorites.portraitPass);
     } catch (err) {
       error = err;
     }
@@ -369,6 +372,7 @@ export class JikanImport {
             throw new Error("Invalid favorites pagination.");
           const f = s.favorites,
             prefix = f.kind === "character" ? "mal-character-" : "mal-person-";
+          savePortraitRepairs(this.e, portraitRepairs);
           this.e.catalogStore.popularity.sync(
             f.kind,
             data.data
@@ -384,6 +388,7 @@ export class JikanImport {
           } else {
             f.status = "idle";
             f.lastCompletedAt = now;
+            f.portraitPass = (f.portraitPass || 0) + 1;
             f.nextRefreshAt = now + f.intervalDays * 86400000;
           }
         } else if (title) {

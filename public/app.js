@@ -1,4 +1,5 @@
 import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
+import { replacementPortrait } from "./mal-portraits.js";
 import {installTitleMotion} from "./title-motion.js";
 const titleMotion = installTitleMotion();
 import {installMobileNavigation} from "./mobile-navigation.js";
@@ -358,7 +359,7 @@ const cardBy = (id) =>
   };
 const image = (c) =>
   c.image
-    ? `<img class="${c.id?.startsWith("acdb-") ? "acdb-portrait" : ""}" src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
+    ? `<img class="${c.id?.startsWith("acdb-") ? "acdb-portrait" : ""}" data-portrait-id="${escape(c.id || "")}" src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
     : `<div class="fallback-img" aria-label="No image">✦</div>`;
 function toast(message, error = false) {
   clearTimeout(toastTimer);
@@ -2801,14 +2802,29 @@ document.addEventListener("change", (ev) => {
 });
 document.addEventListener(
   "error",
-  (ev) => {
-    if (ev.target.tagName === "IMG")
-      ev.target.replaceWith(
-        Object.assign(document.createElement("div"), {
-          className: "fallback-img",
-          textContent: "✦",
-        }),
-      );
+  async (ev) => {
+    const img = ev.target;
+    if (img.tagName !== "IMG") return;
+    if (img.dataset.portraitId) {
+      const original = img.src;
+      const lookup = replacementPortrait(img.dataset.portraitId);
+      delete img.dataset.portraitId;
+      if (lookup) {
+        const url = await lookup;
+        if (!img.isConnected || img.src !== original) return;
+        if (url) {
+          img.src = url;
+          return;
+        }
+      }
+    }
+    img.replaceWith(
+      Object.assign(document.createElement("div"), {
+        className: "fallback-img",
+        textContent: "✦",
+        ariaLabel: img.alt || "No image",
+      }),
+    );
   },
   true,
 );

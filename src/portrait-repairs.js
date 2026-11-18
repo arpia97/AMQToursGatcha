@@ -1,4 +1,12 @@
+import { isSourcePortrait, sourcePortrait } from "../public/mal-portraits.js";
+
 export const PORTRAIT_REPAIRS_ID = "portrait-repairs-2026-11-16-v1";
+const NOV19_REPAIRS_ID = "portrait-repairs-2026-11-19";
+const NOV19_REPAIRS = [[
+  "mal-character-2973",
+  "https://cdn.myanimelist.net/images/characters/2/4006.jpg",
+  "https://cdn.myanimelist.net/images/characters/10/649291.jpg",
+]];
 
 export const CHARACTER_PORTRAIT_REPAIRS = [
   [
@@ -207,52 +215,71 @@ export const SEIYUU_PORTRAIT_REPAIRS = [
 ];
 
 export function applyPortraitRepairs(e) {
-  if (e.one("SELECT value FROM catalog_meta WHERE key=?", PORTRAIT_REPAIRS_ID))
-    return false;
+  let changed = false;
+  for (const [key, repairs] of [
+    [PORTRAIT_REPAIRS_ID, [...SEIYUU_PORTRAIT_REPAIRS, ...CHARACTER_PORTRAIT_REPAIRS]],
+    [NOV19_REPAIRS_ID, NOV19_REPAIRS],
+  ]) {
+    if (e.one("SELECT value FROM catalog_meta WHERE key=?", key)) continue;
+    e.tx(() => {
+      const updated = savePortraitRepairs(e, repairs);
+      e.run("INSERT INTO catalog_meta VALUES(?,?)", key, JSON.stringify({ at: e.now(), updated }));
+      if (updated) changed = true;
+    });
+  }
+  return changed;
+}
+
+// A host edit or a newer import can land while the network checks are running.
+export function savePortraitRepairs(e, repairs) {
   let updated = 0;
-  e.tx(() => {
-    for (const [id, oldUrl, newUrl] of SEIYUU_PORTRAIT_REPAIRS) {
-      const row = e.one("SELECT image FROM catalog WHERE id=?", id);
-      if (row?.image === oldUrl) {
-        e.run("UPDATE catalog SET image=? WHERE id=?", newUrl, id);
-        updated++;
-      }
-    }
-    for (const [id, oldUrl, newUrl] of CHARACTER_PORTRAIT_REPAIRS) {
-      const row = e.one("SELECT image FROM catalog WHERE id=?", id);
-      if (row?.image === oldUrl) {
-        e.run("UPDATE catalog SET image=? WHERE id=?", newUrl, id);
-        updated++;
-      }
-      const bucket = e.catalogStore.tenrai.bucket(id);
-      if (bucket !== null) {
-        const bRow = e.one(
-          "SELECT payload,main_count,other_count,search FROM tenrai_characters WHERE bucket=?",
-          bucket,
-        );
-        if (bRow) {
-          const data = JSON.parse(bRow.payload);
-          if (data[id]?.image === oldUrl) {
-            data[id].image = newUrl;
-            e.run(
-              "INSERT OR REPLACE INTO tenrai_characters VALUES(?,?,?,?,?)",
-              bucket,
-              JSON.stringify(data),
-              bRow.main_count,
-              bRow.other_count,
-              bRow.search,
-            );
-            updated++;
-          }
-        }
-      }
-    }
-    e.run(
-      "INSERT OR REPLACE INTO catalog_meta VALUES(?,?)",
-      PORTRAIT_REPAIRS_ID,
-      JSON.stringify({ at: e.now(), updated }),
+  for (const [id, oldUrl, newUrl] of repairs) {
+    const row = e.one("UPDATE catalog SET image=? WHERE id=? AND image IS ? RETURNING id", newUrl, id, oldUrl);
+    const bucket = e.catalogStore.tenrai.bucket(id);
+    const path = '$."' + id + '".image';
+    const packed = bucket !== null && e.one(
+      "UPDATE tenrai_characters SET payload=json_set(payload,?,?) WHERE bucket=? AND json_type(payload,?)='object' AND json_extract(payload,?) IS ? RETURNING bucket",
+      path, newUrl, bucket, '$."' + id + '"', path, oldUrl,
     );
-  });
-  if (updated > 0) e.catalogStore.invalidate();
-  return updated > 0;
+    if (row || packed) updated++;
+  }
+  if (updated) e.catalogStore.invalidate();
+  return updated;
+}
+
+export async function findPortraitRepairs(e, kind, entries, pass = 0, probe = fetch) {
+  if (!Array.isArray(entries) || entries.length > 100) return [];
+  const latest = new Map();
+  for (const entry of entries) {
+    const url = sourcePortrait(kind, entry?.images);
+    if (url && Number.isSafeInteger(entry.mal_id) && entry.mal_id > 0)
+      latest.set((kind === "character" ? "mal-character-" : "mal-person-") + entry.mal_id, url);
+  }
+  if (!latest.size) return [];
+  const changed = e.catalogStore.cards([...latest.keys()]).filter(
+    c => (!c.image || isSourcePortrait(kind, c.image)) && c.image !== latest.get(c.id),
+  );
+  // Bound CDN traffic and stay inside the importer's lease. Only replace a
+  // confirmed missing file with an available image. Healthy alternate art stays.
+  const repairs = [];
+  const offset = changed.length > 12 ? (pass * 12) % changed.length : 0;
+  const candidates = changed.slice(offset).concat(changed.slice(0, offset)).slice(0, 12);
+  for (let start = 0; start < candidates.length; start += 4) {
+    await Promise.all(candidates.slice(start, start + 4).map(async c => {
+      const head = url => probe(url, { method: "HEAD", redirect: "manual", signal: AbortSignal.timeout(3000) });
+      try {
+        if (c.image) {
+          const old = await head(c.image);
+          if (old.status !== 404 && old.status !== 410) return;
+        }
+        const url = latest.get(c.id);
+        const fresh = await head(url);
+        if (fresh.ok && /^image\/(jpeg|png|webp)\b/i.test(fresh.headers.get("Content-Type") || ""))
+          repairs.push([c.id, c.image ?? null, url]);
+      } catch {
+        // A transient CDN failure can be retried on the next catalogue pass.
+      }
+    }));
+  }
+  return repairs;
 }

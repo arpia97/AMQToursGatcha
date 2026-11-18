@@ -1,9 +1,10 @@
 // Jikan's public instance closed on 2026-10-01. Tenrai is a maintainer-listed
 // replacement with the same MAL IDs and Jikan v4 schema. Legacy export names
 // and host endpoint paths remain compatible with existing tooling.
+import { TENRAI_BASE_URL } from "../public/mal-portraits.js";
 export const VOICE_SOURCE = {
   name: "Tenrai",
-  baseUrl: "https://api.tenrai.org/v1",
+  baseUrl: TENRAI_BASE_URL,
   announcement: "https://github.com/jikan-me/jikan-rest/issues/613",
 };
 const redact = (value, key, limit) =>

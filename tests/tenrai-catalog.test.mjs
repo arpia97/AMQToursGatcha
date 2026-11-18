@@ -6,6 +6,8 @@ import { characterCards, animeTitles } from "../src/jikan.js";
 import { seriesTitle, rarityClass } from "../public/card-display.js";
 import {
   applyPortraitRepairs,
+  findPortraitRepairs,
+  savePortraitRepairs,
   CHARACTER_PORTRAIT_REPAIRS,
   SEIYUU_PORTRAIT_REPAIRS,
 } from "../src/portrait-repairs.js";
@@ -454,4 +456,25 @@ test("applyPortraitRepairs fixes stale MAL portraits once and Tenrai upsert refr
     },
   ]);
   assert.equal(c.card(charId).image, upgradedImg);
+});
+
+test("recurring portrait repair confirms both URLs and preserves concurrent card edits", async () => {
+  const { e } = fixture();
+  const ids = [2973, 2974, 2975, 2976];
+  e.catalogStore.tenrai.upsert(ids.map(id => card(id)));
+  e.host("catalog", { cards: [card(2973), card(2974)] });
+  const current = "https://cdn.myanimelist.net/images/characters/10/649291.jpg";
+  const entries = ids.map(mal_id => ({ mal_id, images: { jpg: { image_url: current } } }));
+  const verified = await findPortraitRepairs(e, "character", entries, 0, async url => {
+    const status = url === current || url === card(2975).image ? 200 : url === card(2976).image ? 503 : 404;
+    return new Response(null, { status, headers: { "Content-Type": "image/jpeg" } });
+  });
+  e.run("UPDATE catalog SET image=? WHERE id=?", "https://example.org/host.jpg", card(2974).id);
+  assert.equal(savePortraitRepairs(e, verified), 2);
+  assert.equal(e.catalogStore.card(card(2973).id).image, current);
+  assert.equal(e.catalogStore.tenrai.card(card(2973).id).image, current);
+  assert.equal(e.catalogStore.card(card(2974).id).image, "https://example.org/host.jpg");
+  assert.equal(e.catalogStore.card(card(2975).id).image, card(2975).image);
+  assert.equal(e.catalogStore.card(card(2976).id).image, card(2976).image);
+  assert.equal(savePortraitRepairs(e, verified), 0);
 });
