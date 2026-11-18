@@ -4,7 +4,7 @@
 
 Artist overlap grading is live in source `e882172`, Worker version `b13f90d9-7d3b-40c5-ac76-d280effa352a` at 100%. Verified TrySail and Amamiya Sora against the shipped catalogue. The full 542-test suite passed before deployment.
 
-The revised answer reveal is local pending design approval. Desktop and phone browser captures from 3v3, 1v1 and queued 1-Team are in the workspace's `outputs/song-answer-key-preview` directory. The preview puts the answer key above the guesses with a single verdict at the right of each tile.
+The approved answer reveal is live at 100% in source `95c71e5`, Worker version `7f87c020-cfc6-401a-8f4c-1b752c65db7d`. The answer key appears once above the guesses with a single verdict at the right of each tile. All 12 focused tests, syntax checks and the Worker dry run passed. The public Song/Artist route responded and all five changed assets matched the release. Desktop and phone examples are in `outputs/song-answer-key-preview` in the workspace.
 
 ## Broadcast Song/Artist gameplay and Play results
 
