@@ -21,14 +21,14 @@ export function artistCreditsHTML(row,esc){
   return '<span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false" aria-label="Artist credits for '+esc(row.artist)+'">'+esc(row.artist)+'</button><span class="sa-artist-tooltip" role="tooltip"><small>Artist Credits</small>'+names.map(name=>'<span>'+esc(name)+'</span>').join('')+'</span></span>';
 }
 export function recapHTML(match,esc,animeTitle){
-  const row=match.history.at(-1);if(!row)return '';
-  const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
-  const keys=match.mode==='ngmc-ranked'?['anime']:Object.keys(fields);
-  return '<section class="sa-reveal"><span class="sa-eyebrow">Song '+(row.index+1)+' · '+(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+mine.earned+(mine.earned===1?' Point':' Points')+'</span> <span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false">Song &amp; Artist</button><span class="sa-artist-tooltip" role="tooltip"><small>Song</small><span>'+esc(row.song)+'</span><small>Artist</small><span>'+esc(row.artist)+'</span></span></span>'+keys.map(field=>{
-    const result=(match.teamFields||match.format==='lobby-team')?row.results.find(r=>team.some(p=>p.id===r.id)&&Object.hasOwn(r.answers,field)):mine;
-    const owner=match.players.find(p=>p.id===result?.id),correct=!!result?.correct[field];
-    return '<div class="'+(correct?'correct':'incorrect')+'"><small>'+fields[field]+'</small><strong>'+(field==='artist'?artistCreditsHTML(row,esc):esc(field==='anime'?animeTitle({anime:row.anime}):row[field]))+'</strong><span>'+esc(result?.answers[field]||'No answer')+((match.teamFields||match.format==='lobby-team')&&owner?' <small>· '+esc(owner.name)+'</small>':'')+'</span></div>';
-  }).join('')+'</section>';
+  const row=match.history.at(-1);
+  if(!revealed(match,row))return '';
+  const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me);
+  const points=mine?.earned||0;
+  return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small>'+
+    (match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+'</small></header><dl>'+
+    '<div><dt>Anime</dt><dd>'+esc(animeTitle({anime:row.anime}))+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
+    '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl></section>';
 }
 export function songTeamsHTML(match,esc){
   const me=match.players.find(p=>p.id===match.me),solo=match.format==='1v1',last=match.history.at(-1);
@@ -42,13 +42,19 @@ export function songTeamsHTML(match,esc){
     }).join('')+'</section>';
   }).join('')+'</div>';
 }
+export function answerMark(correct){
+  return '<span class="sa-guess-mark" role="img" aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓':'✕')+'</span>';
+}
 export function answerSideHTML(match,row,team,esc,animeTitle){
   const roster=match.players.filter(p=>p.team===team),solo=match.format==='1v1';
   return '<div class="sa-answer-summary">'+Object.entries(fields).map(([field,label])=>{
     const result=row?.results.find(r=>roster.some(p=>p.id===r.id)&&(solo||Object.hasOwn(r.answers,field)));
     const owner=row?roster.find(p=>p.id===result?.id):roster.find(p=>p.submittedFields?.includes(field));
     const answer=result?.answers[field],correct=!!result?.correct[field];
-    return '<article class="sa-team-answer-tile" data-answer-state="'+(row?(correct?'correct':'incorrect'):owner?'pending':'')+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+(row?'<span aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓ ':'✕ ')+'</span>'+esc(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No Answer'):owner?'Submitted':'Awaiting Submission')+'</div></article>';
+    const state=row?(correct?'correct':'incorrect'):owner?'pending':'';
+    const display=row?(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No answer'):owner?'Submitted':'Awaiting submission';
+    return '<article class="sa-team-answer-tile" data-answer-state="'+state+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+esc(display)+'</div>'+
+      (row?answerMark(correct):'')+'</article>';
   }).join('')+'</div>';
 }
 export function versusHTML(match,row,esc,animeTitle){

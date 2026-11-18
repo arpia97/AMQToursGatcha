@@ -399,6 +399,24 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-round-history dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 12px; margin:0; padding:0 16px 14px; font-size:12px; }
 .ngmc-round-history dt { color:var(--muted); }.ngmc-round-history dd { margin:0; overflow-wrap:anywhere; }
 .ngmc-round-history .hit { color:var(--mint); }.ngmc-round-history .miss { color:#f2a3b6; }
+.sa-answer-key { padding:0 0 14px; margin:0 0 14px; border-bottom:1px solid var(--border); }
+.sa-answer-key header { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:10px; }
+.sa-answer-key header strong { font-size:13px; }.sa-answer-key header small { color:var(--muted); font-size:11px; }
+.sa-answer-key dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:0; background:#20302d; border:1px solid #39514a; border-radius:4px; }
+.sa-answer-key dl>div { min-width:0; padding:10px 12px; }.sa-answer-key dl>div+div { border-left:1px solid #39514a; }
+.sa-answer-key dt { color:var(--mint); font:10px/1.5 Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
+.sa-answer-key dd { margin:3px 0 0; font-size:15px; font-weight:650; overflow-wrap:anywhere; }.sa-answer-key .sa-artist-tooltip { left:auto; right:0; }
+.sa-team-answer-tile:has(.sa-guess-mark) { position:relative; padding-right:34px; border-color:var(--border); }
+.sa-team-answer-tile:has(.sa-guess-mark) .sa-team-answer-value { color:var(--text); text-align:left; font-size:14px; }
+.song-broadcast .is-versus .sa-team-answer-tile:has(.sa-guess-mark) { padding-right:34px; }
+.sa-guess-mark { position:absolute; top:50%; right:12px; transform:translateY(-50%); font-size:17px; font-weight:700; color:var(--mint); }
+[data-answer-state="incorrect"]>.sa-guess-mark { color:#f2a3b6; }
+@container (max-width:560px) {
+  .sa-answer-key dl { grid-template-columns:minmax(0,1fr); }
+  .sa-answer-key dl>div { display:grid; grid-template-columns:50px minmax(0,1fr); align-items:baseline; padding:6px 9px; }
+  .sa-answer-key dl>div+div { border-left:0; border-top:1px solid #39514a; }
+  .sa-answer-key dd { margin:0; }
+}
 @container (max-width:850px) {
   .song-broadcast.versus,.song-broadcast.cooperative { grid-template-columns:minmax(0,1fr); grid-template-areas:"console" "roster"; }
   .song-broadcast.versus .sa-scoreboard,.song-broadcast.cooperative .sa-scoreboard { display:block; grid-area:roster; }

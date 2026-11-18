@@ -42,8 +42,7 @@ export function roomLobby(lobby,me,esc,autoReady,draft){
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
-  const last=match.phase==='reveal'&&match.history.at(-1);
-  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong>'+(last&&match.format==='lobby-ffa'?'<small>'+Object.values(last.results.find(r=>r.id===p.id)?.answers||{}).map(esc).filter(Boolean).join(' · ')+'</small>':'')+'<span>'+p.score+' pts</span></div>').join('')+'</section>';
+  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong>'+'<span>'+p.score+' pts</span></div>').join('')+'</section>';
 }
 export function ballotHTML(match,esc){
   if(match.phase!=='guess')return '';

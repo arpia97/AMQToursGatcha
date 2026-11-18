@@ -1,3 +1,4 @@
+import {answerMark} from './play-round-ui.js';
 const labels={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 export function answerFieldsHTML(fields,team){
   if(team)return '<div class="sa-personal-heading"><strong>Your Answer <kbd title="Tab: next category · Shift+Tab: previous category">Tab ↹</kbd></strong><div class="sa-input-categories" role="group" aria-label="Answer category">'+fields.map(field=>'<button type="button" data-sa-input-field="'+field+'" aria-pressed="false">'+labels[field]+'</button>').join('')+'</div></div><div class="sa-personal-fields">'+fields.map(field=>'<div class="sa-input-row" data-sa-input-row="'+field+'" hidden><label for="sa-'+field+'" class="sr-only">'+labels[field]+'</label><div class="sa-combobox"><input id="sa-'+field+'" data-sa-field="'+field+'" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sa-options-'+field+'" autocomplete="off" maxlength="300" placeholder="Type '+labels[field].toLowerCase()+'…"><div id="sa-options-'+field+'" class="sa-suggestions" role="listbox"></div></div>'+'<button type="button" class="button mint" data-sa-submit="'+field+'">Submit</button></div>').join('')+'</div>';
@@ -27,8 +28,11 @@ export function updateTeamFields(root,match,disabled,esc,selected='anime',animeT
     value.textContent=answer?(field==='anime'?animeTitle({anime:answer}):answer):owner?'No answer submitted':'Awaiting answer';
     value.hidden=field==='artist'&&!!owner?.artists?.length;
     value.classList.toggle('is-empty',!answer);
-    const last=match.history.at(-1),result=last?.index===match.index&&['reveal','finished'].includes(match.phase)?last.results.find(p=>p.id===owner?.id):null;
-    root.querySelector('[data-sa-tile="'+field+'"]').dataset.answerState=owner?(result?result.correct[field]?'correct':'incorrect':'pending'):'';
+    const last=match.history.at(-1),revealed=last?.index===match.index&&match.phase==='reveal';
+    const result=revealed?last.results.find(p=>p.id===owner?.id):null;
+    if(revealed&&!answer)value.textContent='No answer';
+    tile.dataset.answerState=revealed?(result?.correct[field]?'correct':'incorrect'):owner?'pending':'';
+    if(revealed&&!tile.querySelector('.sa-guess-mark'))tile.insertAdjacentHTML('beforeend',answerMark(result?.correct[field]));
     button.textContent=owner?.id===me.id?(field==='artist'?'Add Artist':'Update Answer'):'Submit';
     const reactions=root.querySelector('[data-sa-reactions="'+field+'"]');
     reactions.hidden=match.format!=='1-team';

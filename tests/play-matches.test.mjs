@@ -204,7 +204,7 @@ test('private current answers score at timeout; team skip needs two distinct vot
   assert.equal(s.phase,'guess');advanceMatch(s,s.until);
   assert.deepEqual(s.teams,[3]);assert.ok(s.players.every(p=>p.score===1&&p.autoSubmitted));
   const html=recapHTML(matchView(s,a.id),String,x=>x.anime);
-  assert.equal((html.match(/class="correct"/g)||[]).length,3);assert.ok(html.includes('Team 3/3 · +1 Point'));assert.ok(html.includes('Artist Credits'));
+  assert.equal((html.match(/<dt>/g)||[]).length,3);assert.ok(html.includes('Team 3/3 · +1 Point'));assert.ok(html.includes('Artist Credits'));
   const oldScore=s.teams[0];advanceMatch(s,s.until-1);assert.equal(s.teams[0],oldScore);
   assert.throws(()=>matchMove(s,a.id,draft('anime','Late'),s.until-1),/no longer/);
   // New round clears drafts and votes; repeated votes from one player are not a majority.

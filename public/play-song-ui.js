@@ -358,8 +358,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const versus=!match.lobby&&match.teams.length===2;
     return heading+'<div class="sa-ready-wrap"></div><div class="song-broadcast '+(versus?'versus':'cooperative')+'"><div class="sa-scoreboard"></div>'+
       '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+totalSongs+'</small></h2></div>'+roundDialHTML+'</header>'+
-      '<div class="song-broadcast-body"><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
-      '<div class="sa-reveal-wrap"></div>'+(match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section></div>';
+      '<div class="song-broadcast-body"><div class="sa-reveal-wrap"></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
+      (match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section></div>';
   }
   function winnerText(){if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=match.format==='1v1'?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
@@ -422,7 +422,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       updateMarkup(root.querySelector('.ngmc-track'),ngmcTrack(revealed?last:null,esc,animeTitle));
       root.querySelector('.ngmc-submission').textContent=me.locked&&match.phase==='guess'&&Number.isFinite(me.lockedElapsedMs)?'Submitted \u00b7 '+(me.lockedElapsedMs/1000).toFixed(3)+'s':'';
     }else{
-      const recap=revealed?(!teamFields()&&!match.lobby?versusHTML(match,last,esc,animeTitle):'')+recapHTML(match,esc,animeTitle):'';
+      const recap=revealed?recapHTML(match,esc,animeTitle)+(teamFields()?'':versusHTML(match,last,esc,animeTitle)):'';
       updateMarkup(root.querySelector('.sa-reveal-wrap'),recap);
     }
     const skip=root.querySelector('[data-sa-action=skip]');if(skip){const votes=match.skipVotes||[];skip.parentElement.hidden=match.phase!=='guess'||!ready;skip.disabled=Date.now()+offset<match.startsAt||room?.readyState!==1;skip.setAttribute('aria-pressed',String(votes.includes(match.me)));skip.textContent=(votes.includes(match.me)?'Cancel Skip':'Skip Song')+' · '+votes.length+'/'+match.skipRequired;}
