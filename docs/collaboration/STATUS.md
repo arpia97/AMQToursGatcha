@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Song/Artist grading and answer reveal
+
+Artist overlap grading is live in source `e882172`, Worker version `b13f90d9-7d3b-40c5-ac76-d280effa352a` at 100%. Verified TrySail and Amamiya Sora against the shipped catalogue. The full 542-test suite passed before deployment.
+
+The revised answer reveal is local pending design approval. Desktop and phone browser captures from 3v3, 1v1 and queued 1-Team are in the workspace's `outputs/song-answer-key-preview` directory. The preview puts the answer key above the guesses with a single verdict at the right of each tile.
+
 ## Broadcast Song/Artist gameplay and Play results
 
 Source `a54d57b` is deployed at 100% as `bd01602a-d849-498c-8e82-24cb841aff22`. Song/Artist uses a central round clock and answer console with team or player score panels. NGMC and Song/Artist results lead with the outcome and scores, then the leaderboard and expandable round history.
