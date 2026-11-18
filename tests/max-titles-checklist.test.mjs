@@ -56,7 +56,7 @@ function fixture(t) {
 }
 test('premium quiz titles derive from saved perfect-score times and preserve title identity and equipment',t=>{
   const {e,make,act}=fixture(t);
-  const cases=[['fast',59999,20,true],['artist-fast',59999,20,false],['minute',60000,20,false],['slow',60001,20,false],['untimed',null,20,false],['invalid',-1,20,false],['partial',20000,19,false]];
+  const cases=[['fast',59999,20,true],['artist-fast',59999,20,true],['minute',60000,20,false],['slow',60001,20,false],['untimed',null,20,false],['invalid',-1,20,false],['partial',20000,19,false]];
   for(const [id,time,best]of cases){e.run('INSERT INTO quizzes(id,name,cover,title,published,source,updated) VALUES(?,?,\'\',?,1,\'\',1)',id,id,id);
     e.run('INSERT INTO quiz_progress(player,quiz,best,at,best_duration_ms) VALUES(\'p\',?,?,1,?)',id,best,time);}
   e.run("UPDATE quizzes SET category='composers' WHERE id='fast'");
@@ -64,14 +64,14 @@ test('premium quiz titles derive from saved perfect-score times and preserve tit
   const before=e.player('p'),titles=e.quiz.titleOptions('p');
   for(const [id,,best,premium]of cases){const t=titles.find(t=>t.quiz===id);if(best===20)assert.equal(t.premium,premium,id);else assert.equal(t,undefined);}
   assert.equal(make().quiz.titles('p').find(t=>t.quiz==='fast').durationMs,59999);
-  const html=titleBadges({titles:e.quiz.titles('p')},escape);assert.equal((html.match(/quiz-premium-title/g)||[]).length,1);assert.match(html,/Under 1 Minute/);assert.match(html,/quiz-title-composers quiz-premium-title/);assert.match(html,/quiz-title-franchise/);assert.equal(titles.find(t=>t.quiz==='minute').category,'franchise');
+  const html=titleBadges({titles:e.quiz.titles('p')},escape);assert.equal((html.match(/quiz-premium-title/g)||[]).length,2);assert.match(html,/Under 1 Minute/);assert.match(html,/quiz-title-composers quiz-premium-title/);assert.match(html,/quiz-title-franchise/);assert.equal(titles.find(t=>t.quiz==='minute').category,'franchise');
   assert.match(titleSettingsPanel(e.quiz.titleSettings('p'),escape),/20 \/ 20 · Under 1 Minute/);
-  act('equip-titles',{quizzes:titles.filter(t=>t.quiz!=='fast').map(t=>t.quiz),awards:[]});
+  act('equip-titles',{quizzes:titles.filter(t=>!t.premium).map(t=>t.quiz),awards:[]});
   assert.equal(e.quiz.titleOptions('p').find(t=>t.quiz==='fast').equipped,false);assert.doesNotMatch(titleBadges({titles:e.quiz.titles('p')},escape),/quiz-premium-title/);
   assert.equal(e.player('p').balance,before.balance);assert.equal(e.player('p').earned,before.earned);
   const artist=titles.find(t=>t.quiz==='artist-fast');assert.equal(artist.durationMs,59999);
-  assert.doesNotMatch(titleBadges({titles:[{...artist,premium:true}]},escape),/quiz-premium-title|Under 1 Minute/,'stale premium flags cannot style Artist titles');
-  assert.doesNotMatch(titleSettingsPanel({titles:[{...artist,premium:true}]},escape),/Under 1 Minute/);
+  assert.match(titleBadges({titles:[artist]},escape),/quiz-title-singers quiz-premium-title/);
+  assert.match(titleSettingsPanel({titles:[artist]},escape),/Under 1 Minute/);
 });
 
 test("MAX enhancement awards a rarity title atomically, once, and keeps it after the card leaves", (t) => {

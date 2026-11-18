@@ -5,7 +5,7 @@ import { titleOrderKey } from "./title-order.js";
 function isCard(t) {
   return t.source === "card" || !!t.card;
 }
-const isPremium = t => !isCard(t) && ["composers", "franchise"].includes(t.category) && t.premium === true;
+const isPremium = t => !isCard(t) && t.premium === true;
 function titleBadge(t, e) {
   const card = isCard(t);
   const premium=isPremium(t);
