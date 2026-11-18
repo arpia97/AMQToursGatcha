@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play artist autocomplete and Quiz rankings
+
+Source `a82bdfd` is live at 100% on Worker `7b855a45-85cf-4ff2-912d-72bb7a638d0e`. The production artist catalogue contains all 18,095 AMQ+ credited performer names and aliases and all 33,748 names from the bundled AMQ artist directory, for 34,209 distinct suggestions. Compared with the preceding live list, 321 names were added. A live browser verified AKI (SweetS), AZKi, and Aika Kawashima (also found in reverse name order). The Quiz Rankings UI and default API order were verified highest cumulative personal-best points first. Local match dropdown selection, 543 tests, syntax checks and the Worker build passed.
+
 ## Gacha host console and Broadcast Play layouts
 
 Source `c7fd61b` is live on the Gacha/Play Worker, version `858ebb5f-9612-4403-b479-3bf2dcbd606f` at 100%. The host console groups tools by task, preserves reward drafts when switching between tour batches, individual grants and deductions, and shows portraits repaired during the existing 15-day rarity scan. Custom Song/Artist and NGMC rooms and the Play rankings page use Broadcast layouts.
