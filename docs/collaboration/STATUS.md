@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Completed — Answer Suggestion Relevance
+
+Shared Quiz/multiplayer suggestion rank now prefers exact normalized names, then distinct complete query words, then word prefixes, then partial substrings. Shortest-first cached row order breaks ties within each tier. Shana S outranks shorter Shana titles for shana s / s shana; comma-free word-order names and partial matching remain available. Ranking scans before applying the result limit, so stronger matches after many shorter rows are retained. No grading/answer-key or backend changes.
+
+Existing 33 Quiz UI/Play tests, 285 syntax checks, dry-run/diff checks pass. Real local Worker browser at 1280/390 in Gacha/Play Quiz verifies Shakugan no Shana S first; actual multiplayer search worker returns same. 13,816-title cached query benchmark median .597ms / p95 .963ms. Source 97d024b deployed to original Worker 6e6ba020-3121-4faa-aafb-30b2897a94a0. Three live assets byte-match, health 200, same-origin browser imports confirm correct first result for Quiz and multiplayer without errors. Verify 44219730594 and demo 44219730653 passed. Evidence work/answer-relevance-{tests,check,build,browser,deploy,ci}.log, {browser,perf,live}-proof.json and live-browser.json. No production attempts, Host/proxy deployment or data mutations. Ownership released.
+
 ## Completed — Competitive Help Popover
 
 Moved the full preload/tab-lifetime description from below Start Quiz into the existing detail popover on Competitive text. Separate labelled checkbox and help button preserve checkbox selection while hover/focus/tap show help, Escape/outside click dismisses it. Shared Gacha/Play UI. Existing 27 quiz UI tests, dry-run/diff checks and real local Worker browser at 1280/390 for both surfaces pass hidden description, hover/focus/tap, dismissal, checkbox toggling and no errors/overflow. Runtime 788e86ba531dfd064560a9137bc951e0e9f1e127 deployed to original Worker bf09a54a-3470-48a9-9680-a32d048b5bb8. Live JS/CSS byte-match, health 200. Verify 44217503940 and demo 44217503994 passed. Evidence work/competitive-help-{browser,tests,build,deploy,ci}.log and {browser,live}-proof.json. UI only, no gameplay/data changes or Host/proxy deployment. Ownership released.
