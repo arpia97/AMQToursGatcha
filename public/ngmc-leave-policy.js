@@ -1,4 +1,5 @@
 export const RANKED_LEAVE_COST = 25;
+export const songRatingPools=Object.freeze({'1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'});
 export const RECONNECT_MS = 2 * 60_000;
 export function activeRankedGame(match, now) {
   if (match?.format !== 'ngmc-ranked') return false;

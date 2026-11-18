@@ -1,5 +1,6 @@
+import {PlayRecords} from './play-records.js';
 import {RankedLeaves} from './ngmc-leaves.js';
-import {RANKED_LEAVE_COST} from '../public/ngmc-leave-policy.js';
+import {RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {PlayLobbies} from './play-lobbies.js';
 import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
@@ -25,10 +26,30 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS recent(player TEXT,match TEXT,expires INTEGER,PRIMARY KEY(player,match))');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_reviews(id TEXT PRIMARY KEY,created INTEGER NOT NULL,format TEXT NOT NULL,players TEXT NOT NULL,status TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
+    this.records=new PlayRecords(this);
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
-  status(player){const lobby=this.lobbies.forPlayer(player);if(lobby)return this.lobbies.status(lobby);const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];if(!row&&this.joinRequests.has(player))return {type:'joining',format:'ngmc-ranked'};return row?.match?{type:'matched',match:row.match}:row?{type:'queued',format:row.format,waiting:this.rows('SELECT COUNT(*) AS n FROM queue WHERE format=? AND match IS NULL AND expires>?',row.format,Date.now())[0].n,needed:PLAY_FORMATS[row.format].size}:{type:'idle'};}
-  broadcast(){for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,this.status(who.id));}}
+  queueCounts(){
+    const rows=this.rows('SELECT format,COUNT(*) AS waiting FROM queue WHERE match IS NULL AND expires>? GROUP BY format',Date.now());
+    return Object.fromEntries(rows.map(row=>[row.format,row.waiting]));
+  }
+  status(player,counts){
+    const lobby=this.lobbies.forPlayer(player);
+    if(lobby)return this.lobbies.status(lobby);
+    const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];
+    if(row?.match)return {type:'matched',match:row.match};
+    counts??=this.queueCounts();
+    if(!row&&this.joinRequests.has(player))return {type:'joining',format:'ngmc-ranked',counts};
+    return row?{type:'queued',format:row.format,waiting:counts[row.format]||0,needed:PLAY_FORMATS[row.format].size,counts}:{type:'idle',counts};
+  }
+  broadcast(){
+    const counts=this.queueCounts();
+    for(const ws of this.ctx.getWebSockets()){
+      const who=ws.deserializeAttachment();
+      if(who.expires<=Date.now())ws.close(4003,'Session expired.');
+      else send(ws,this.status(who.id,counts));
+    }
+  }
   canAccess(player,id){return this.lobbies.forPlayer(player)?.last_match===id||!!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
   hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=?',id)[0];}
   reviews({before=Date.now()+1,search=''}={}){
@@ -47,9 +68,15 @@ export class PlayQueue extends DurableObject {
     return {elo:row.elo,guessRate:row.seen?100*row.correct/row.seen:row.seed_rate};
   }
   recordRankedLeave(match,player,at){
-    const receipt=this.rankedLeaves.record(match,player,at);
+    this.notifyDeparture(player,'ngmc-ranked',this.rankedLeaves.record(match,player,at));
+  }
+  recordSongReadyLeave(match,format,player,name,at){
+    if(!Object.hasOwn(songRatingPools,format))throw Error('Unknown Song/Artist format.');
+    this.notifyDeparture(player,format,this.rankedLeaves.record(match,player,at,format,name));
+  }
+  notifyDeparture(player,format,receipt){
     if(receipt){
-      for(const ws of this.ctx.getWebSockets(player))send(ws,{type:'ranked-departure',...receipt});
+      for(const ws of this.ctx.getWebSockets(player))send(ws,{type:'ranked-departure',format,...receipt});
       this.broadcast();
     }
   }
@@ -91,17 +118,48 @@ export class PlayQueue extends DurableObject {
     });
     return ratings;
   }
-  rankings(format,page){
+  async rankings(format,page){
+    if(this.records.pending()){
+      const alarm=await this.ctx.storage.getAlarm();
+      if(alarm===null||alarm>Date.now()+30000)await this.ctx.storage.setAlarm(Date.now()+1000);
+    }
     const offset=page*50;
     const rows=format.startsWith('ngmc-')?this.rows(
-      `SELECT coalesce(n.name,(SELECT json_extract(j.value,'$.name') FROM match_reviews m,json_each(m.players) j
+      `SELECT p.player,coalesce(n.name,(SELECT json_extract(j.value,'$.name') FROM match_reviews m,json_each(m.players) j
         WHERE m.format='ngmc-ranked' AND json_extract(j.value,'$.id')=p.player ORDER BY m.created DESC LIMIT 1),p.player) AS name,
         elo AS rating,correct,seen,matches FROM ngmc_players p LEFT JOIN play_names n ON n.player=p.player
         WHERE matches>0 ORDER BY elo DESC,correct DESC,p.player LIMIT 51 OFFSET ?`,offset)
-      :this.rows('SELECT name,rating,correct,seen,matches FROM song_ratings WHERE format=? ORDER BY rating DESC,correct DESC,player LIMIT 51 OFFSET ?',format,offset);
-    return {rows:rows.slice(0,50),more:rows.length>50};
+      :this.rows('SELECT player,name,rating,correct,seen,matches FROM song_ratings WHERE format=? ORDER BY rating DESC,correct DESC,player LIMIT 51 OFFSET ?',format,offset);
+    const pageRows=rows.slice(0,50);
+    const records=new Map();
+    if(format!=='1-team'&&pageRows.length){
+      const ids=pageRows.map(r=>r.player);
+      const totals=this.rows(`SELECT player,SUM(outcome='W') AS wins,SUM(outcome='L') AS losses,SUM(outcome='T') AS ties
+        FROM play_records WHERE format=? AND player IN (${ids.map(()=>'?').join(',')}) GROUP BY player`,format,...ids);
+      for(const total of totals)records.set(total.player,[total.wins,total.losses,total.ties]);
+    }
+    return {rows:pageRows.map(({player,...row})=>({...row,record:records.get(player)||null})),more:rows.length>50};
   }
-  async complete(id,result=null,status='cancelled'){const ratings=result?.format==='ngmc-3v3'||result?.format?.startsWith('lobby-')?null:result?.mode==='ngmc-ranked'?this.settle(id,result):result&&status==='finished'?this.settleSongs(id,result):null;this.ctx.storage.sql.exec('UPDATE play_lobbies SET match=NULL WHERE match=?',id);this.ctx.storage.sql.exec('UPDATE match_reviews SET status=? WHERE id=?',status,id);this.ctx.storage.sql.exec('DELETE FROM queue WHERE match=?',id);this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',id);this.broadcast();return ratings;}
+  async complete(id,result=null,status='cancelled'){
+    let ratings=null;
+    if(Object.hasOwn(songRatingPools,result?.format)&&status==='cancelled'){
+      for(const p of result.players)if(p.rankedLeftAt!=null)this.recordSongReadyLeave(id,result.format,p.id,p.name,p.rankedLeftAt);
+    }
+    if(result?.mode==='ngmc-ranked'&&result.format!=='ngmc-3v3')ratings=this.settle(id,result);
+    else if(result&&status==='finished'&&!result.format?.startsWith('lobby-')&&result.format!=='ngmc-3v3')
+      ratings=this.settleSongs(id,result);
+    if(status==='finished'&&['1v1','3v3','ngmc-ranked'].includes(result?.format)){
+      if(result.records?.length)this.records.save(id,result.format,result.records);
+      else this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending_play_records VALUES(?,?)',id,result.format);
+    }
+    const sql=this.ctx.storage.sql;
+    sql.exec('UPDATE play_lobbies SET match=NULL WHERE match=?',id);
+    sql.exec('UPDATE match_reviews SET status=? WHERE id=?',status,id);
+    sql.exec('DELETE FROM queue WHERE match=?',id);
+    sql.exec('DELETE FROM preparing WHERE id=?',id);
+    this.broadcast();
+    return ratings;
+  }
   async prepare(row){
     try{
       const players=JSON.parse(row.players),match=this.env.PLAY_MATCHES.getByName(row.id);
@@ -151,11 +209,11 @@ export class PlayQueue extends DurableObject {
       if(message.format.startsWith('ngmc-')){send(ws,{type:'joining',format:message.format});try{await this.rating(who.id);}catch(error){if(this.joinRequests.get(who.id)!==token)return;this.joinRequests.delete(who.id);send(ws,this.status(who.id));throw error;}}
       if(this.joinRequests.get(who.id)!==token)return;
       this.joinRequests.delete(who.id);if(ws.readyState!==1)return;
-      if(message.format==='ngmc-ranked'){
-        const until=this.rankedLeaves.banUntil(who.id);
+      if(message.format==='ngmc-ranked'||Object.hasOwn(songRatingPools,message.format)){
+        const until=this.rankedLeaves.banUntil(who.id,message.format);
         if(until>Date.now()){
           send(ws,this.status(who.id));
-          fail('NGMC Ranked is locked until '+new Date(until).toUTCString()+' after three active leaves.',403);
+          fail((songRatingPools[message.format]||'NGMC Ranked')+' is locked until '+new Date(until).toUTCString()+' after three active leaves.',403);
         }
       }
       const old=this.rows('SELECT * FROM queue WHERE player=?',who.id)[0];
@@ -176,7 +234,8 @@ export class PlayQueue extends DurableObject {
     for(const row of this.rows('SELECT * FROM preparing'))await this.prepare(row);
     for(const format of Object.keys(PLAY_FORMATS))await this.match(format);
     this.broadcast();
-    if(this.rows('SELECT 1 FROM lobby_members LIMIT 1').length||this.rows('SELECT COUNT(*) AS n FROM queue')[0].n||this.ctx.getWebSockets().length)await this.ctx.storage.setAlarm(Date.now()+30000);
+    if(this.records.pending())await this.records.recoverBatch();
+    if(this.records.pending()||this.rows('SELECT 1 FROM lobby_members LIMIT 1').length||this.rows('SELECT COUNT(*) AS n FROM queue')[0].n||this.ctx.getWebSockets().length)await this.ctx.storage.setAlarm(Date.now()+30000);
     else {const next=this.rows('SELECT MIN(expires) AS at FROM recent')[0]?.at;if(next)await this.ctx.storage.setAlarm(next);}
   }
 }

@@ -1,4 +1,4 @@
-import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
+import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn} from './play-lobby-votes.js';
 import { playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
@@ -49,7 +49,7 @@ export function advanceMatch(state,now=Date.now()) {
     if(missing.length){
       for(const p of missing){
         p.left=true;
-        if(state.format==='ngmc-ranked')p.rankedLeftAt=state.readyDeadline;
+        if(state.format==='ngmc-ranked'||Object.hasOwn(songRatingPools,state.format))p.rankedLeftAt=state.readyDeadline;
       }
       state.phase='cancelled';state.readyForfeit=true;state.reason='Match cancelled. '+missing.map(p=>p.name).join(', ')+' did not ready up in time.';
       state.until=now+86400000;return;

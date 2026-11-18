@@ -39,9 +39,15 @@ export function rankingsHTML(format,page,data,esc) {
   const quiz = format === 'quiz';
   const select = '<label>Mode<select id="play-ranking-format">' + Object.entries(formats).map(([id,name]) =>
     '<option value="'+id+'" '+(id===format?'selected':'')+'>'+name+'</option>').join('')+'</select></label>';
-  const columns = ['Rank','Player',...(quiz?[]:['Rating']),quiz?'Best-score accuracy':'Guess Rate',quiz?'Quizzes Played':'Matches','Points'];
+  const versus=['1v1','3v3','ngmc-ranked'].includes(format);
+  function recordCell(row){
+    if(!row.record)return '<span title="No recorded match outcomes">—</span>';
+    const count=row.record.reduce((sum,n)=>sum+n,0);
+    return '<span title="'+count+' of '+row.matches+' matches with a recorded outcome">'+row.record.join('–')+'</span>';
+  }
+  const columns = ['Rank','Player',...(quiz?[]:['Rating']),quiz?'Best-score accuracy':'Guess Rate',quiz?'Quizzes Played':'Matches',...(versus?['<abbr title="Wins – Losses – Ties">W-L-T</abbr>']:[]),'Points'];
   const rows = data.rows.map((row,i) => [page*50+i+1, esc(row.name), ...(quiz?[]:[Math.round(row.rating)]),
-    row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—',row.matches,row.correct]);
+    row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—',row.matches,...(versus?[recordCell(row)]:[]),row.correct]);
   return '<section class="play-leaderboard"><h1>Rankings</h1>'+select+(rows.length?table(columns,rows):'<p>No ranked results yet.</p>')+
     (page||data.more?'<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
     '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>':'')+'</section>';

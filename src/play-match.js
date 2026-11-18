@@ -1,3 +1,4 @@
+import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
 import { makeMatch,advanceMatch,matchMove,matchView,fail } from './play-match-rules.js';
@@ -28,7 +29,9 @@ export class PlayMatch extends DurableObject {
   }
   async reportRankedLeaves(state){
     for(const p of this.pendingRankedLeaves(state)){
-      await this.env.PLAY_QUEUE.getByName('play-queues-v1').recordRankedLeave(state.id,p.id,p.rankedLeftAt);
+      const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+      if(state.format==='ngmc-ranked')await queue.recordRankedLeave(state.id,p.id,p.rankedLeftAt);
+      else await queue.recordSongReadyLeave(state.id,state.format,p.id,p.name,p.rankedLeftAt);
       this.ctx.storage.sql.exec('INSERT OR IGNORE INTO reported_leaves VALUES(?)',p.id);
     }
   }
@@ -52,7 +55,7 @@ export class PlayMatch extends DurableObject {
     if(state.rankingsSettled)return;
     if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
     const result={
-      mode:state.mode,format:state.format,
+      mode:state.mode,format:state.format,records:matchRecords(state),
       players:state.players.map(({id,name,elo,rankedLeftAt})=>({id,name,elo,rankedLeftAt})),
       history:state.history.map(round=>({results:round.results.map(({id,earned})=>({id,earned}))}))
     };
@@ -132,6 +135,10 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='leave'&&state.mode!=='ngmc-ranked')await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(input.who.id,state.id);
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
+  }
+  historicalRecords(format,ratings){
+    const state=this.read();
+    return state?.phase==='finished'?matchRecords(state):archivedRecords(this.ctx.storage.sql,format,ratings);
   }
   review(options){return this.reviewLog.page(options);}
   async webSocketClose(ws,code,reason){

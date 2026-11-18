@@ -1751,6 +1751,14 @@ export default {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
+      if(url.pathname==='/api/play-queue-counts'&&request.method==='GET'){
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-queue-counts');
+        const hit=await cache?.match(key);if(hit)return hit;
+        const counts=await env.PLAY_QUEUE.getByName('play-queues-v1').queueCounts();
+        const response=json(counts,200,{'Cache-Control':'public, max-age=10'});
+        if(cache)ctx.waitUntil(cache.put(key,response.clone()));
+        return response;
+      }
       if(url.pathname==='/api/play-rankings'&&request.method==='GET'){
         const format=url.searchParams.get('format')||'ngmc-ranked';
         const page=Number(url.searchParams.get('page'));

@@ -217,3 +217,6 @@
 .custom-entry #sa-create-songs{max-width:6rem}
 .custom-lobby footer,.sa-queue-controls{flex-wrap:wrap}
 .custom-lobby [data-lobby-action=settings]{margin-top:.65rem}
+
+.sa-formats .sa-queue-count{justify-self:center;padding:2px 8px;border-radius:99px;background:var(--panel);font-variant-numeric:tabular-nums}
+.sa-formats .sa-queue-count[data-waiting="true"]{color:var(--mint);background:#b6e2c518}

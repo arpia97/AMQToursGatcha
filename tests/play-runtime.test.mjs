@@ -20,7 +20,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   for(const [format,size] of [['1v1',2],['1-team',3],['3v3',6],['ngmc-ranked',8]]){
     const ngmc=format==='ngmc-ranked',first=ngmc?12:10;
-    const queues=[];for(let i=0;i<size;i++){const q=await connect(i,'',i===0);queues.push(q);q.send({type:'join',mode:ngmc?'ngmc-ranked':'song-artist',format});}
+    const queues=[];for(let i=0;i<size;i++){const q=await connect(i,'',i===0);queues.push(q);
+      if(i===1){
+        await q.wait(m=>m.type==='idle'&&m.counts?.[format]===1);
+      }
+      q.send({type:'join',mode:ngmc?'ngmc-ranked':'song-artist',format});}
     const matched=await queues[0].wait(m=>m.type==='matched'),id=matched.match;
     for(const q of queues)assert.equal((await q.wait(m=>m.type==='matched')).match,id);
     const rooms=[];for(let i=0;i<size;i++)rooms.push(await connect(i,id));
@@ -118,7 +122,13 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     rooms[0].ws.close();const resumed=await connect(0,id);const snapshot=(await resumed.wait(m=>m.type==='state')).state;assert.deepEqual(snapshot.teams,reveal.teams);
     const all=[resumed,...rooms.slice(1)];for(const r of all)r.send({type:'leave'});
     await all[0].wait(m=>['finished','cancelled'].includes(m.state?.phase));
-    if(ngmc){const rated=(await all[0].wait(m=>m.state?.ratings?.length===8)).state;assert.ok(rated.ratings.every(r=>Number.isFinite(r.after)&&r.seen===1));const again=await connect(0,id);assert.deepEqual((await again.wait(m=>m.state?.ratings?.length===8)).state.ratings,rated.ratings);again.ws.close();}
+    if(ngmc){const rated=(await all[0].wait(m=>m.state?.ratings?.length===8)).state;const standings=await (await mf.dispatchFetch(base+'/api/play-rankings?format=ngmc-ranked')).json();
+      for(const row of standings.rows){
+        const p=rated.players.find(p=>p.name===row.name),rating=rated.ratings.find(r=>r.id===p.id);
+        const delta=rated.teams[p.team]-rated.teams[1-p.team];
+        assert.deepEqual(row.record,rating.forfeited||delta<0?[0,1,0]:delta>0?[1,0,0]:[0,0,1]);
+      }
+      assert.ok(rated.ratings.every(r=>Number.isFinite(r.after)&&r.seen===1));const again=await connect(0,id);assert.deepEqual((await again.wait(m=>m.state?.ratings?.length===8)).state.ratings,rated.ratings);again.ws.close();}
     const auditHeaders={Authorization:'Bearer local-only-test-host-token-123456789'};
     assert.equal((await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:{Cookie:cookies[0]}})).status,401);
     const reviewResponse=await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders});assert.equal(reviewResponse.status,200,await reviewResponse.clone().text());const review=await reviewResponse.json();

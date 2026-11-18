@@ -73,6 +73,12 @@ test('ranked leave receipts deduct once per match and apply a timed ban at three
  leaves.record('three','a',19*day);
  assert.equal(leaves.banUntil('a'),20*day);
  assert.equal(sql.exec('SELECT elo FROM ngmc_players')[0].elo,900);
+ assert.equal(leaves.banUntil('b'),null);
+ db.exec('CREATE TABLE song_ratings(format TEXT,player TEXT,name TEXT,rating REAL,correct INTEGER,seen INTEGER,matches INTEGER,PRIMARY KEY(format,player))');
+ for(const [match,format] of [['s1','1v1'],['s1','1v1'],['s2','1v1'],['s3','1v1'],['six','3v3']])
+   leaves.record(match,'b',day,format,'Bee');
+ assert.deepEqual(sql.exec('SELECT rating FROM song_ratings ORDER BY format').map(r=>r.rating),[925,975]);
+ assert.equal(leaves.banUntil('b','1v1'),4*day);assert.equal(leaves.banUntil('b','3v3'),null);
  assert.equal(leaves.banUntil('b'),null);db.close();
 });
 test('only active ranked departures count, including disconnects beyond reconnect grace',()=>{
@@ -96,7 +102,7 @@ test('matchmaking ready checks distinguish a missed confirmation from slow audio
     advanceMatch(state,89999);assert.equal(state.phase,'loading');
     matchMove(state,late.id,{type:'accept-ready'},90000);
     assert.equal(state.phase,'cancelled');assert.equal(late.left,true);
-    assert.equal(late.rankedLeftAt,format==='ngmc-ranked'?90000:undefined);
+    assert.equal(late.rankedLeftAt,format!=='ngmc-3v3'?90000:undefined);
     assert.ok(others.every(p=>!p.left&&p.rankedLeftAt==null));
   }
   const slow=create();

@@ -1,3 +1,4 @@
+import {archivedRecords} from '../src/play-records.js';
 import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
 import {DatabaseSync} from 'node:sqlite';
@@ -224,4 +225,21 @@ test('custom team ballots reject duplicate proposals, settle early and credit th
   assert.equal(state.phase,'reveal');
   assert.deepEqual(state.teams,[2]);
   assert.ok(state.players.every(p=>p.score===1));
+});
+
+test('historical W-L-T uses distinct scored fields per team and skips incomplete reviews',()=>{
+  const db=new DatabaseSync(':memory:'),sql={exec:(query,...args)=>db.prepare(query).all(...args)};
+  try{
+    const players=Array.from({length:6},(_,i)=>({id:String(i),team:i%2}));
+    const ratings=players.map(p=>({id:p.id,seen:1,correct:1}));
+    assert.deepEqual(archivedRecords(sql,'1v1',ratings.slice(0,2)).map(p=>p.outcome),['T','T']);
+    const review=new MatchReview({sql});
+    const state={id:'match',format:'3v3',players,index:0,phase:'reveal'};
+    review.initialize(state);
+    for(const p of players)review.add(state,p.id,'round-result',{correct:p.id==='1'?{song:true}:p.team===0?{anime:true}:{artist:true}});
+    assert.deepEqual(archivedRecords(sql,'3v3',ratings).map(p=>p.outcome),['L','W','L','W','L','W']);
+    sql.exec("DELETE FROM review_events WHERE player='0'");
+    assert.deepEqual(archivedRecords(sql,'3v3',ratings),[]);
+    assert.deepEqual(archivedRecords(sql,'ngmc-ranked',ratings),[]);
+  }finally{db.close();}
 });
