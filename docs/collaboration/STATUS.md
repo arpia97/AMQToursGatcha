@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Play matchmaking redesign
+
+Source `0c793eb` is live at 100% as `5d3b23f6-fff7-48fe-8fb0-bdb28cda274f`. NGMC Ranked and Song/Artist now use the Scoreboard banner above side-by-side Find Match and Lobbies panels. The panels stack on mobile. Song/Artist uses a single music note.
+
+All 542 tests, syntax checks and the Worker dry run passed. Browser checks covered both public routes at desktop and mobile widths and local signed-in format, server and lobby controls. Three NGMC gameplay designs are awaiting selection.
+
 ## Play rankings and lobby actions — deployed
 
 Source `3bc8c3b` is live at 100% as `a668197e-2e31-41af-b055-09e742694951`. Column headers sort all ranked players before paging. Quiz averages each player's timed personal bests across published quizzes. Song/Artist 1-Team is unranked and its ready timeout cancels the match without a Rating deduction or leave strike.
