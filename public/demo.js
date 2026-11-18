@@ -6,7 +6,7 @@ import { enhancementCost, MAX_CARD_LEVEL, shouldAutosellRarity, instantSalePrice
 import { DAILY_CREDITS } from "./site-defaults.js";
 import { pickemOutcome } from "./pickem-formats.js";
 import { drawFeatured } from "./auction-odds.js";
-import { premiumPool, drawPremium } from "./pack-odds.js";
+import { premiumPool, drawPremium, specialPool, drawSpecialPack } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
 import { demoFeatures } from "./demo-features.js";
 import { blackjackView } from "./blackjack-rules.js";
@@ -272,14 +272,15 @@ export class Demo {
       const count = b.count ?? 1;
       if (!Number.isInteger(count) || count < 1 || count > 100)
         throw Error("Choose 1 to 100 packs.");
+      if(!['character','seiyuu'].includes(b.kind)||b.premium!==undefined&&typeof b.premium!=='boolean'||b.special!==undefined&&typeof b.special!=='boolean'||b.special&&b.premium)throw Error('Invalid pack type.');
       const pool = s.catalog.filter((c) => c.kind === b.kind);
-      const enhanced = b.premium ? premiumPool(pool) : null;
+      const special=b.special===true,enhanced=special?specialPool(pool):b.premium?premiumPool(pool):null;
       this.wallet(
-        -s.settings[(b.premium ? "premium_" : "") + b.kind + "_price"] * count,
-        `${b.premium ? "Premium " : ""}${b.kind} pack`,
+        -s.settings[(special ? "special_" : b.premium ? "premium_" : "") + b.kind + "_price"] * count,
+        `${special ? "Special " : b.premium ? "Premium " : ""}${b.kind} pack`,
       );
       const rand = (n) => Math.floor(Math.random() * n);
-      const cards = Array.from({ length: 5 * count }, () =>
+      const cards = special?Array.from({length:count},()=>drawSpecialPack(enhanced,rand)).flat():Array.from({ length: 5 * count }, () =>
         enhanced ? drawPremium(enhanced, rand) : pool[rand(pool.length)],
       );
       const outcome = this.grantPackPulls(cards);
@@ -288,6 +289,7 @@ export class Demo {
         message: cards.length + " new demo cards.",
         ...outcome,
         packCount: count,
+        packType:special?'special':b.premium?'premium':'normal',cardsPerPack:special?10:5,
       };
     } else if (path === "profile") {
       if (b.autosellBelow !== undefined) {

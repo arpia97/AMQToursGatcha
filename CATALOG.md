@@ -52,6 +52,12 @@ The retired ACDB snapshot is no longer deployed or used. The one-time protected 
 
 [Tenrai's terms](https://tenrai.org/terms) permit collecting, caching, transforming and displaying API responses within applications while preserving third-party rights and access limits. This app does not expose a raw Tenrai database dump or competing API. Portraits remain on MAL CDN URLs; API access does not transfer artwork or portrait rights. No biographies are retained. The older adapted ACDB download is removed from the deployed site; historical attribution remains in Git history. AniList bulk collection is not used.
 
+## Special Card Packs
+
+Paid Special Card Packs cost 3,000 credits for either Character or Seiyuu. Each pack draws nine cards with the existing premium probabilities, then one guaranteed S-or-higher card: S 60%, SS 24%, SSS 8%, Ubers 7%, AG 1%. The guaranteed tier is selected first, then a card uniformly within that tier and chosen type. Draws are with replacement. Bulk purchases repeat all ten slots per pack and keep one guarantee per pack. If any guaranteed tier is empty or the premium boost cannot be funded, the transaction fails without charging.
+
+The existing pack purchase action accepts `special:true` (mutually exclusive with `premium:true`), uses the saved special-kind price, and retains idempotent receipts, account locks, capacity overflow and auto-sell handling. Ledger reasons start with Special; responses identify packType special/cardsPerPack 10. This is independent of historical `special_packs` bonus gifts. The UI advertises the paid product only when the backend settings expose its price, so deferred actor rollout cannot silently buy an old five-card pack. The description is only “Guarantees one S and over.” Existing normal, premium and daily packs retain their rules.
+
 ## Card Alchemy
 
 Instant selling returns 50% of the weekly shop price for the current rarity, multiplied by the base card's total investment, 1/2/4/7/11/16 by level. A level-4 D sells for 25 × 7 = 175 credits. Extra copies are level 1. Pending uses D pricing. Quotes reject changed terms before consumption.

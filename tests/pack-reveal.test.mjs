@@ -73,6 +73,9 @@ test("pack reveals keep highest-rarity effects, duplicate controls, paid-pack id
   assert.match(views.at(-1), /Auto-sold <strong>1<\/strong>/);
   assert.match(views.at(-1), /Credits left:.*75/);
   assert.match(views.at(-1), /data-auto-sold-id="sale-0"><button[^>]*data-action="wishlist-toggle"/);
+  reveal.show({cards:cards.slice(0,10),balance:3000},{kind:'character',paidSpecial:true,count:2});
+  assert.match(views.at(-1),/SPECIAL CARD PACK/);assert.match(views.at(-1),/Guarantees one S and over/);assert.doesNotMatch(views.at(-1),/1 AG guaranteed/);
+  reveal.reveal();assert.match(views.at(-1),/data-special="true"/);assert.match(views.at(-1),/2 more packs.*6,?000/);
   reveal.show({ cards: cards.slice(0, 5) }, { daily: true });
   reveal.reveal();
   assert.match(views.at(-1), /DAILY PACK CLAIMED/);

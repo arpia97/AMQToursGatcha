@@ -27,3 +27,23 @@ export function drawPremium({ cards, high, d }, rand) {
     c = high[rand(high.length)];
   return c;
 }
+
+// Paid Special Card Pack; independent of the historical one-time bonus gift.
+export const SPECIAL_PACK_RULE = Object.freeze({price:3000,cards:10,premiumDraws:9,
+  guaranteed:Object.freeze({S:60,SS:24,SSS:8,Ubers:7,AG:1})});
+export function specialPool(cards){
+  const premium=premiumPool(cards),tiers=Object.fromEntries(Object.keys(SPECIAL_PACK_RULE.guaranteed).map(rarity=>[rarity,cards.filter(card=>card.rarity===rarity)]));
+  if(Object.values(tiers).some(pool=>!pool.length))throw Object.assign(Error('Special Card Packs are temporarily unavailable: every S-and-over rarity must have cards.'),{status:409});
+  return {premium,tiers};
+}
+export function drawSpecialGuaranteed({tiers},rand){
+  let roll=rand(100);
+  for(const [rarity,weight] of Object.entries(SPECIAL_PACK_RULE.guaranteed)){
+    if(roll<weight){const pool=tiers[rarity];return pool[rand(pool.length)];}
+    roll-=weight;
+  }
+  throw Error('Invalid Special Card Pack roll.');
+}
+export function drawSpecialPack(pool,rand){
+  return [...Array.from({length:SPECIAL_PACK_RULE.premiumDraws},()=>drawPremium(pool.premium,rand)),drawSpecialGuaranteed(pool,rand)];
+}

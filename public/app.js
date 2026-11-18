@@ -1368,6 +1368,10 @@ function daily() {
   if (claimed) return "";
   return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>A Little Something for Showing Up.</h3><p>Daily check-in · 300 credits</p></div>${btn("+ Claim 300", "daily", "", "mint")}</div>`;
 }
+function specialPackPanel(kind){
+  const price=state.settings['special_'+kind+'_price'];if(!price)return '';
+  return `<article class="pack-panel ${kind} special-paid"><span class="eyebrow">${kind==='character'?'Characters':'Seiyuus'}</span><h3>Special Card Pack</h3><p>Guarantees one S and over.</p>${btn('<span class="coin">✦</span> '+number(price)+' <span>· Open pack →</span>','pack',`data-kind="${kind}" data-special="true"`,'secondary')}<div class="pack-object" aria-hidden="true">✦<span class="pack-caption">${kind==='character'?'CHARACTER':'SEIYUU'} / 10</span></div></article>`;
+}
 function packPanel(kind, premium = false) {
   const char = kind === "character",
     price =
@@ -1478,13 +1482,13 @@ function collection() {
 function packs() {
   return (
     intro(
-      "Five Cards. One Little Thrill.",
+      "Find Your Next Favourite.",
       "Characters, husbandos, waifus, and the voices you know by heart.",
       packMotionControl(),
     ) +
     dailyPack() +
     `<div class="two-col">${packPanel("character")}${packPanel("seiyuu")}</div>
-    <div class="section-head"><h2>Premium Packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div><div class="rules-grid"><div class="rule"><strong>05</strong><h3>Five Independent Draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
+    <div class="section-head"><h2>Premium Packs</h2><span class="subtext">Double chances S and above</span></div><div class="two-col">${packPanel("character", true)}${packPanel("seiyuu", true)}</div>${state.settings.special_character_price&&state.settings.special_seiyuu_price?'<div class="section-head"><h2>Special Card Packs</h2></div><div class="two-col">'+specialPackPanel('character')+specialPackPanel('seiyuu')+'</div>':''}<div class="rules-grid"><div class="rule"><strong>05 / 10</strong><h3>Independent Draws</h3><p>Duplicates can appear in the same pack and are saved as extra copies.</p></div>
     <div class="rule"><strong>＝</strong><h3>Every Card, Equal Chances</h3><p>Normal packs are uniform within the chosen character or seiyuu pool.</p></div>
     <div class="rule"><strong>↑</strong><h3>Duplicates Go Further</h3><p>Enhance with 1, 2, 3, 4 and 5 extra copies, keeping one base card. Level 6 is MAX.</p></div></div>`
   );
@@ -2611,12 +2615,14 @@ document.addEventListener("submit", async (ev) => {
       {
         kind: b.kind,
         premium: b.premium === "true",
+        ...(b.special==='true'?{special:true}:{}),
         count: Number(b.count || 1),
       },
       (result) =>
         packReveal.show(result, {
           kind: b.kind,
           premium: b.premium === "true",
+          paidSpecial:b.special==='true',
           count: Number(b.count || 1),
         }),
     );
@@ -3886,17 +3892,17 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "pack") {
       const kind = t.dataset.kind,
-        premium = t.dataset.premium === "true",
+        premium = t.dataset.premium === "true",special=t.dataset.special==='true',
         price =
-          state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
-          (premium ? 1000 : 500),
+          state.settings[(special ? "special_" : premium ? "premium_" : "") + kind + "_price"] ||
+          (special ? 3000 : premium ? 1000 : 500),
         maxAffordable = Math.max(0, Math.min(100, Math.floor((state.me?.balance || 0) / price))),
         initialCount =
           maxAffordable > 0
             ? Math.min(maxAffordable, Math.max(1, Number(t.dataset.count) || 1))
             : 0;
       modal(
-        `<h2>${premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}<p class="form-hint">5 cards per pack.</p><div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
+        `<h2>${special ? "Special Card Pack" : premium ? "A Rarer Kind of Luck." : "A New Favourite Could Be Inside."}</h2><p>${special ? "Guarantees one S and over." : `Five independent ${kind === "character" ? "character" : "seiyuu"} cards for <strong>${number(price)} credits</strong>. ${premium ? "AG, Ubers, SSS, SS and S each have double their normal chances." : "Normal pack odds apply."}`}</p><form id="pack-form" data-pack-price="${price}"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="premium" value="${premium}">${special?'<input type="hidden" name="special" value="true">':''}${quantityInput({ id: "pack-quantity", name: "count", label: "Packs to Open", min: maxAffordable > 0 ? 1 : 0, max: maxAffordable, value: initialCount })}${special?'':'<p class="form-hint">5 cards per pack.</p>'}<div class="form-error" role="alert"></div><button class="button full" type="submit" data-pack-total ${initialCount < 1 ? "disabled" : ""}>${initialCount < 1 ? "Insufficient credits" : `✦ Open for ${number(price * initialCount)} credits`}</button></form>`,
       );
       return true;
     }

@@ -5830,3 +5830,7 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
   .quiz-song-progress-track { gap: 4px; }
   .quiz-progress-square { border-radius: 2px; }
 }
+
+.pack-panel.special-paid { border-color:#81c9bc66;background:radial-gradient(ellipse at top right,#63c8b81c,transparent 70%),#191e25; }
+.pack-panel.special-paid .eyebrow { color:#b6e2c5; }
+.pack-panel.special-paid .pack-object { color:#1d4e46;border-color:#89c8b7;box-shadow:0 0 24px #70d6bf20; }

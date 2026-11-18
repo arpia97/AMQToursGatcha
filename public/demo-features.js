@@ -650,6 +650,8 @@ export function demoFeatures(d, path, b) {
     s.premiumPriceRevision = 1;
   }
   s.settings.premium_character_price ??= 1000;
+  s.settings.special_character_price ??= 3000;
+  s.settings.special_seiyuu_price ??= 3000;
   const starterReceived = s.starterAmount || (s.starterGranted ? 1000 : 0);
   if (starterReceived < 5000) {
     d.wallet(

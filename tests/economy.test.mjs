@@ -1176,3 +1176,25 @@ test("auction state and seller myListings include bidder and seller usernames in
   assert.equal(wonAuction.winner_name, "BidderUser");
   assert.equal(wonAuction.seller_name, "SellerUser");
 });
+
+
+test('paid Special packs charge 3000 per ten cards, keep each type/guarantee, replay once and honor auto-sell atomically',t=>{
+  const f=fixture(),e=f.e;t.after(()=>f.db.close());
+  const rarities=['A',...Array(10).fill('D'),'S','SS','SSS','Ubers','AG'];
+  e.tx(()=>e.host('catalog',{cards:['character','seiyuu'].flatMap(kind=>rarities.map((rarity,i)=>({id:'community-paid-'+kind+'-'+String(i).padStart(2,'0'),kind,name:'Paid '+kind+' '+i,fixedRarity:rarity})))}));
+  e.rand=()=>0;
+  assert.equal(e.state('buyer').settings.special_character_price,3000);assert.equal(e.state('buyer').settings.special_seiyuu_price,3000);
+  const purchase={kind:'character',special:true,count:1,price:1};
+  const first=f.act('buyer','pack',purchase,'paid-special-once');assert.equal(first.cost,3000);assert.equal(first.cards.length,10);assert.equal(first.cardsPerPack,10);assert.equal(first.packType,'special');
+  assert.ok(first.cards.every(c=>c.kind==='character'));assert.equal(first.cards[9].rarity,'S');assert.equal(e.player('buyer').balance,7000);
+  assert.deepEqual(f.act('buyer','pack',purchase,'paid-special-once'),first);assert.equal(e.player('buyer').balance,7000);
+  assert.throws(()=>f.act('buyer','pack',{...purchase,kind:'seiyuu'},'paid-special-once'),/used/);
+  const two=f.act('buyer','pack',{kind:'seiyuu',special:true,count:2});assert.equal(two.cards.length,20);assert.equal(two.cost,6000);assert.ok(two.cards.every(c=>c.kind==='seiyuu'));assert.equal(two.cards[9].rarity,'S');assert.equal(two.cards[19].rarity,'S');assert.equal(e.player('buyer').balance,1000);
+  for(const body of [{...purchase,premium:true},{...purchase,special:'true'},{...purchase,kind:'both'},{...purchase,count:0},{...purchase,count:101}])assert.throws(()=>f.act('buyer','pack',body));
+  assert.throws(()=>f.act('buyer','pack',purchase),/enough/);assert.equal(e.player('buyer').balance,1000);
+  e.run("UPDATE players SET balance=3000,autosell_below='S' WHERE id='buyer'");
+  const sold=f.act('buyer','pack',purchase);assert.equal(sold.autoSoldCount,9);assert.equal(sold.autoSoldCredits,1800);assert.equal(sold.cards.filter(c=>c.autoSold).length,9);assert.equal(sold.cards[9].autoSold,false);assert.equal(e.player('buyer').balance,1800);
+  assert.equal(e.one('SELECT count(*) AS n FROM special_packs').n,0,'paid packs never issue or consume the one-time bonus gift');
+  const pool=e.catalogStore.pool;e.catalogStore.pool=()=>({cards:Array.from({length:6},(_,i)=>({id:String(i),rarity:'D'}))});e.run("UPDATE players SET balance=5000 WHERE id='buyer'");
+  assert.throws(()=>f.act('buyer','pack',purchase),/every S-and-over/);assert.equal(e.player('buyer').balance,5000);e.catalogStore.pool=pool;
+});

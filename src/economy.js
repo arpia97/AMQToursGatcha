@@ -9,7 +9,7 @@ import {
 } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
 import { AnimeCollection } from "./collection.js";
-import { premiumPool, drawPremium } from "../public/pack-odds.js";
+import { premiumPool, drawPremium, specialPool, drawSpecialPack, SPECIAL_PACK_RULE } from "../public/pack-odds.js";
 import {
   SHOP_PRICE_REVISION,
   SHOP_PRICES,
@@ -84,6 +84,7 @@ export class Economy {
         );
         e.run("UPDATE settings SET value=1 WHERE key='premium_price_revision'");
       });
+    for(const kind of ['character','seiyuu'])e.run('INSERT OR IGNORE INTO settings VALUES(?,?)','special_'+kind+'_price',SPECIAL_PACK_RULE.price);
     e.run("CREATE INDEX IF NOT EXISTS auctions_due ON auctions(closed,ends)");
     e.run(
       "CREATE INDEX IF NOT EXISTS user_auctions_due ON auctions(ends) WHERE seller IS NOT NULL AND paid=0",
@@ -538,6 +539,10 @@ export class Economy {
   premiumDraw(kind, context = {}) {
     context.pool ||= premiumPool(this.e.catalogStore.pool(kind).cards);
     return drawPremium(context.pool, this.e.rand);
+  }
+  specialDraw(kind,context={}){
+    context.specialPool ||= specialPool(this.e.catalogStore.pool(kind).cards);
+    return drawSpecialPack(context.specialPool,this.e.rand);
   }
   action(player, action, b) {
     const e = this.e,

@@ -25,6 +25,7 @@ import {
 } from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
+import {SPECIAL_PACK_RULE} from "../public/pack-odds.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
 import { PickemEvents } from "./pickem-events.js";
 import { pickemOutcome } from "../public/pickem-formats.js";
@@ -459,20 +460,21 @@ export class Engine {
         fail("The host needs to add at least five cards to this catalog.");
       if (b.premium !== undefined && typeof b.premium !== "boolean")
         fail("Invalid pack type.");
-      const premium = b.premium === true;
+      if(b.special!==undefined&&typeof b.special!=='boolean'||b.special===true&&b.premium===true)fail('Invalid pack type.');
+      const premium = b.premium === true,special=b.special===true;
       const count = integer(b.count ?? 1, 1, 100);
       const price = this.one(
         "SELECT value FROM settings WHERE key=?",
-        (premium ? "premium_" : "") + b.kind + "_price",
+        (special ? "special_" : premium ? "premium_" : "") + b.kind + "_price",
       ).value;
       this.wallet(
         player,
         -price * count,
-        `${premium ? "Premium " : ""}${b.kind} pack${count > 1 ? " × " + count : ""}`,
+        `${special ? "Special " : premium ? "Premium " : ""}${b.kind} pack${count > 1 ? " × " + count : ""}`,
       );
       const weight = 100;
       const drawContext = {};
-      const selected = Array.from({ length: 5 * count }, () =>
+      const selected = special?Array.from({length:count},()=>this.economy.specialDraw(b.kind,drawContext)).flat():Array.from({ length: 5 * count }, () =>
         premium
           ? this.economy.premiumDraw(b.kind, drawContext)
           : this.catalogStore.draw(
@@ -496,6 +498,8 @@ export class Engine {
         message,
         cards: outcome.cards,
         packCount: count,
+        packType:special?'special':premium?'premium':'normal',
+        cardsPerPack:special?SPECIAL_PACK_RULE.cards:5,
         cost: price * count,
         autoSoldCount: outcome.autoSoldCount,
         autoSoldCredits: outcome.autoSoldCredits,
