@@ -5,9 +5,10 @@ import { titleOrderKey } from "./title-order.js";
 function isCard(t) {
   return t.source === "card" || !!t.card;
 }
+const isPremium = t => !isCard(t) && ["composers", "franchise"].includes(t.category) && t.premium === true;
 function titleBadge(t, e) {
   const card = isCard(t);
-  const premium=!card&&t.premium===true;
+  const premium=isPremium(t);
   const label = card
     ? (t.rarity || "Pending") + " Card Title"
     : premium?"Perfect Quiz · Under 1 Minute":"Quiz Completion Title";
@@ -42,7 +43,7 @@ export function titleSettingsPanel(data, e) {
   function detail(t) {
     if (!isCard(t))
       return (
-        "Quiz Completion · 20 / 20" + (t.premium===true?" · Under 1 Minute":"") +
+        "Quiz Completion · 20 / 20" + (isPremium(t)?" · Under 1 Minute":"") +
         (t.quizName &&
         t.quizName.trim().toLocaleLowerCase() !==
           t.title.trim().toLocaleLowerCase()
