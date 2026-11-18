@@ -1,13 +1,14 @@
 import {activeRankedGame,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateReturnDialog} from './play-lobby-ui.js';
+import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
-import {songTeamsHTML,answerSideHTML,versusHTML,songResultsHTML,readyHTML,recapHTML} from './play-round-ui.js';
+import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,roundDialHTML,updateRoundDial} from './play-round-ui.js';
 import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
 import {answerFieldsHTML,teamAnswerTilesHTML,updateTeamFields,updateArtistChips} from './play-team-ui.js';
 import {createSongListDialog} from './play-song-dialog.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
-import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack,updateNgmcDial} from './ngmc-ui.js';
+import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack} from './ngmc-ui.js';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {PLAY_AUDIO_PROTOCOL} from './play-audio-format.js';
@@ -348,13 +349,17 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const done=['finished','cancelled'].includes(match.phase);
     const ngmcName=match.format==='lobby-ngmc'?'NGMC Custom':match.format==='ngmc-3v3'?'NGMC Unranked':'NGMC Ranked';
     const teamSize=match.players.length/2;
-    const modeLabel=ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:'Song / Artist · '+(lobbyModeNames[match.format]||formats[match.format]);
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':ranked()?ngmcName:'Song '+(match.index+1)+' <small>/ '+totalSongs+'</small>')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
-    if(done)return heading+'<div class="sa-scoreboard"></div><p class="sa-match-outcome">'+esc(match.reason||winnerText())+'</p>'+(ranked()?'<div class="sa-results">'+match.history.map(row=>'<div><span>'+(row.index+1)+'</span><strong>'+esc(row.song)+'</strong><span>'+esc(row.artist)+'</span><b>'+row.results.find(p=>p.id===match.me).earned+'/1</b></div>').join('')+'</div>':songResultsHTML(match,esc,animeTitle));
+    const modeLabel=ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    if(done)return heading+broadcastResults(match,esc,animeTitle,winnerText);
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form>';
     if(ranked())return heading+ngmcArena(match,answerForm);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
-    return heading+'<div class="sa-ready-wrap"></div><div class="sa-scoreboard"></div><div class="sa-play-panel sa-song-panel"><div class="sa-round-status"></div><div class="sa-timer" role="timer" aria-label="Time remaining"></div><div class="ngmc-time-track" role="progressbar" aria-label="Guess Time Remaining" aria-valuemin="0" aria-valuemax="30"><span></span></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+'<div class="sa-reveal-wrap"></div>'+(match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div>';
+    const versus=!match.lobby&&match.teams.length===2;
+    return heading+'<div class="sa-ready-wrap"></div><div class="song-broadcast '+(versus?'versus':'cooperative')+'"><div class="sa-scoreboard"></div>'+
+      '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+totalSongs+'</small></h2></div>'+roundDialHTML+'</header>'+
+      '<div class="song-broadcast-body"><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
+      '<div class="sa-reveal-wrap"></div>'+(match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section></div>';
   }
   function winnerText(){if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=match.format==='1v1'?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
@@ -477,16 +482,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function tick(){
     clearTimeout(raf);if(!active||!match||['finished','cancelled'].includes(match.phase))return;
-    const now=Date.now()+offset,timer=root.querySelector('.sa-timer');
+    const now=Date.now()+offset;
     updateReadyCheck(now);
     if(sealedCache&&match.phase==='guess')prepareSealedClip(now);
     // Earlier matches use direct MP3s through their original playback path.
     if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,ranked()?20:30);};audio.load();}}
     if(!sealedCache&&match.phase==='guess'&&preparedIndex===match.index&&seekIndex!==match.index&&audio.readyState>=1&&!unlocking){audio.currentTime=sampleStart(audio.duration,match.samplePosition,ranked()?20:30);seekIndex=match.index;}
     const counterTimer=root.querySelector('[data-counter-timer]');if(counterTimer)counterTimer.textContent=Math.max(0,Math.ceil((match.counterDeadline-now)/1000))+'s';
-    const duration=match.lobby?.seconds??(ranked()?20:30);const timeTrack=root.querySelector('.ngmc-time-track');if(timeTrack){const remaining=match.phase==='guess'?Math.max(0,Math.min(duration,(match.until-Math.max(now,match.startsAt))/1000)):0;timeTrack.hidden=match.phase!=='guess'||duration===0;timeTrack.setAttribute('aria-valuemax',duration);timeTrack.style.setProperty('--ngmc-time',String(remaining/(duration||1)));timeTrack.setAttribute('aria-valuenow',remaining.toFixed(1));timeTrack.classList.toggle('is-urgent',remaining<=5);}
-    if(ranked())updateNgmcDial(root.querySelector('.ngmc-dial'),match,now);
-    else if(timer){const ms=match.phase==='guess'&&now<match.startsAt?match.startsAt-now:match.until-now;const value=duration===0&&match.phase==='guess'&&now>=match.startsAt?'∞':['guess','reveal','counting'].includes(match.phase)?Math.max(0,Math.ceil(ms/1000))+'s':'';const label=match.phase==='reveal'?(match.index+1===match.total?'Results in ':'Next song in ')+value:value;if(timer.textContent!==label)timer.textContent=label;}
+    updateRoundDial(root.querySelector('.ngmc-dial'),match,now);
     if(match.phase==='guess'&&now>=match.startsAt&&now<match.until){
       if(draftDirty&&now>=match.until-1000)saveCurrentDraft();
       const skip=root.querySelector('[data-sa-action=skip]');if(skip&&ready&&room?.readyState===1)skip.disabled=false;

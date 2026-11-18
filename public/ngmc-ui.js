@@ -1,31 +1,18 @@
 import {avatarCropStyle} from './avatar-crop.js';
-import {artistCreditsHTML} from './play-round-ui.js';
+import {artistCreditsHTML,roundDialHTML} from './play-round-ui.js';
 const heart='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function ngmcArena(match,form){
   return '<div class="sa-ready-wrap"></div><div class="ngmc-arena"><div class="sa-scoreboard"></div>'+
     '<section class="sa-play-panel ngmc-panel"><header class="ngmc-strip"><span>Song '+(match.index+1)+' / '+match.total+'</span><strong class="sa-round-status"></strong></header>'+
-    '<div class="ngmc-on-air"><div class="ngmc-track"></div><div class="ngmc-dial" hidden><b class="sa-timer" role="timer"></b><small></small></div></div>'+
+    '<div class="ngmc-on-air"><div class="ngmc-track"></div>'+roundDialHTML+'</div>'+
     '<div class="ngmc-console-body"><div class="sa-download-status"></div>'+form+'<small class="ngmc-submission"></small><div class="sa-shared-wrap"></div>'+
     ngmcProgress(match)+'</div></section></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){
   return '<small>Anime</small><h2>'+(row?esc(animeTitle({anime:row.anime})):'Unrevealed')+'</h2><div class="ngmc-track-credits"><span><small>Song</small> '+
     (row?esc(row.song):'—')+'</span><span><small>Artist</small> '+(row?artistCreditsHTML(row,esc):'—')+'</span></div>';
-}
-export function updateNgmcDial(dial,match,now){
-  const guessing=match.phase==='guess',counting=match.phase==='counting';
-  dial.hidden=!guessing&&!counting&&match.phase!=='reveal';
-  if(dial.hidden)return;
-  const duration=guessing?match.until-match.startsAt:counting?8000:5000;
-  const remaining=Math.max(0,Math.min(duration,match.until-now));
-  const seconds=guessing&&match.lobby?.seconds===0?'∞':String(Math.ceil(remaining/1000)).padStart(2,'0');
-  const timer=dial.firstElementChild,label=dial.lastElementChild;
-  if(timer.textContent!==seconds)timer.textContent=seconds;
-  const unit=guessing?'Seconds':counting?'Counting':match.index+1===match.total?'Results':'Next song';
-  if(label.textContent!==unit)label.textContent=unit;
-  dial.style.setProperty('--remaining',100*remaining/Math.max(duration,1)+'%');
 }
 export function ngmcTeams(match,esc) {
   const me=match.players.find(p=>p.id===match.me),last=match.history.at(-1);

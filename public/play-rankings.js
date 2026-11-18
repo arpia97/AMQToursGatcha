@@ -27,13 +27,10 @@ export function matchLeaderboard(match, esc) {
   const me=match.players.find(p=>p.id===match.me);
   const sides=match.teams.length>1;
   const teamLabel=match.format==='1v1'?'Opponent':'Opponents';
-  const unit=match.mode==='ngmc-ranked'?' lives':' pts';
-  const teamScores='<div class="play-final-scores"><span>'+(match.format==='1v1'?'You':'Your Team')+' · '+match.teams[me.team]+unit+'</span>'+
-    (sides?'<span>'+teamLabel+' · '+match.teams[1-me.team]+unit+'</span>':'')+'</div>';
   const isMvp = row => row.performance === best.performance && row.correct === best.correct && row.correct > 0;
   const signed = n => (n>0?'+':'')+n.toFixed(2);
   return '<section class="play-leaderboard"><h2>Match Leaderboard</h2>' +
-    teamScores + table(['Player',...(sides?['Side']:[]),'Points','Performance','Rating'], rows.map(row => [
+    table(['Player',...(sides?['Side']:[]),'Points','Performance','Rating'], rows.map(row => [
       esc(row.name)+(isMvp(row)?' <b class="play-mvp">MVP</b>':''),
       ...(sides?[match.players.find(p=>p.id===row.id).team===me.team?(match.format==='1v1'?'You':'Your Team'):teamLabel]:[]),
       row.correct, signed(row.performance), Math.round(row.after)

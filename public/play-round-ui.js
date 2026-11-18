@@ -2,6 +2,20 @@ import {avatarCropStyle} from './avatar-crop.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
 export const scoreBadge=(points,total=3)=>'<b class="sa-round-score" title="This Song" data-score="'+points+'">'+points+'/'+total+'</b>';
+export const roundDialHTML='<div class="ngmc-dial" hidden><b class="sa-timer" role="timer"></b><small></small></div>';
+export function updateRoundDial(dial,match,now){
+  const guessing=match.phase==='guess',counting=match.phase==='counting';
+  dial.hidden=!guessing&&!counting&&match.phase!=='reveal';
+  if(dial.hidden)return;
+  const duration=guessing?match.until-match.startsAt:counting?8000:5000;
+  const remaining=Math.max(0,Math.min(duration,match.until-now));
+  const seconds=guessing&&match.lobby?.seconds===0?'∞':String(Math.ceil(remaining/1000)).padStart(2,'0');
+  const timer=dial.firstElementChild,label=dial.lastElementChild;
+  if(timer.textContent!==seconds)timer.textContent=seconds;
+  const unit=guessing?'Seconds':counting?'Counting':match.index+1===match.total?'Results':'Next song';
+  if(label.textContent!==unit)label.textContent=unit;
+  dial.style.setProperty('--remaining',100*remaining/Math.max(duration,1)+'%');
+}
 export function artistCreditsHTML(row,esc){
   const names=row.artistMembers?.length?row.artistMembers:[row.artist];
   return '<span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false" aria-label="Artist credits for '+esc(row.artist)+'">'+esc(row.artist)+'</button><span class="sa-artist-tooltip" role="tooltip"><small>Artist Credits</small>'+names.map(name=>'<span>'+esc(name)+'</span>').join('')+'</span></span>';

@@ -346,3 +346,68 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
   .ngmc-arena .ngmc-team header { flex-wrap:wrap; }
 }
 @media (max-width:650px) { .ngmc-arena { grid-template-columns:minmax(0,1fr); grid-template-areas:none; } }
+
+.sa-match-layout { container-type:inline-size; }
+.song-broadcast,.broadcast-results { display:grid; align-items:start; gap:8px; }
+.song-broadcast.versus { grid-template-columns:minmax(145px,16%) minmax(0,1fr) minmax(145px,16%); grid-template-areas:"home console away"; }
+.song-broadcast.cooperative { grid-template-columns:minmax(170px,22%) minmax(0,1fr); grid-template-areas:"home console"; }
+.song-broadcast.versus .sa-scoreboard,.song-broadcast.versus .sa-team-list { display:contents; }
+.song-broadcast .allies,.song-broadcast.cooperative .sa-scoreboard { grid-area:home; }
+.song-broadcast .rivals { grid-area:away; }
+.song-broadcast .sa-song-panel { grid-area:console; min-width:0; padding:0; background:#181e24; border-radius:4px; }
+.song-broadcast .sa-song-team,.song-broadcast .play-leaderboard { min-width:0; padding:0; border-radius:4px; }
+.song-broadcast .sa-team header,.song-broadcast .play-leaderboard h2 { margin:0; padding:10px; min-height:48px; background:#202d2a; }
+.song-broadcast .rivals header { background:#30262c; }
+.song-broadcast .play-leaderboard h2 { font-size:15px; }
+.song-broadcast .sa-song-player,.song-broadcast .lobby-member { min-height:54px; padding:8px; gap:6px; border-bottom:1px solid var(--border); }
+.song-broadcast .ngmc-avatar { width:26px; height:26px; }
+.song-broadcast .sa-player-points { width:auto; }.song-broadcast .sa-player-points small { white-space:nowrap; }
+.song-broadcast-header,.broadcast-final {
+  display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px;
+  background:repeating-linear-gradient(90deg,transparent 0 35px,#ffffff05 35px 36px),#192229;
+  border-bottom:1px solid var(--border);
+}
+.song-broadcast-header .sa-round-status,.broadcast-final>div>small,.broadcast-final-scores small {
+  font:600 10px/1.3 Consolas,monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--mint);
+}
+.song-broadcast-header h2,.broadcast-final h2 { margin:4px 0 0; font:700 clamp(22px,3vw,32px)/1.15 Consolas,monospace; }
+.song-broadcast-header h2 small { font-size:.52em; color:var(--muted); }
+.song-broadcast .ngmc-dial .sa-timer { position:static; margin:0; font:700 22px/1.1 Consolas,monospace; }
+.song-broadcast-body { padding:14px; min-width:0; }
+.song-broadcast .sa-download-status { margin:0 0 12px; }.song-broadcast .sa-download-status:empty { display:none; }
+.song-broadcast .sa-answer-row,.song-broadcast .sa-team-answer-tile,.song-broadcast .sa-field-claims,.song-broadcast .lobby-ballot section { border-radius:4px; }
+.song-broadcast .sa-live-answer-sides.is-versus { gap:10px; margin:0; }
+.song-broadcast .is-versus .sa-team-answer-tile { min-height:60px; display:flex; flex-direction:column; align-items:stretch; justify-content:center; gap:6px; padding:9px; }
+.song-broadcast .sa-reveal { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; align-items:start; }
+.song-broadcast .sa-reveal>.sa-eyebrow { grid-column:1/-1; }
+.song-broadcast .sa-reveal>.sa-artist-info { grid-column:1/-1; justify-self:center; }
+.song-broadcast .sa-reveal>div { padding:10px 4px; border-top:1px solid var(--border); border-bottom:0; }
+.song-broadcast .sa-reveal>div>strong { font-size:16px; }
+.broadcast-final { border:1px solid var(--border); border-top:2px solid var(--mint); border-radius:4px; }
+.broadcast-final p { margin:6px 0 0; color:var(--muted); }
+.broadcast-final-scores { display:flex; align-self:stretch; text-align:right; flex-wrap:wrap; }
+.broadcast-final-scores>div { min-width:78px; padding:0 12px; border-left:1px solid var(--border); }
+.broadcast-final-scores strong { display:block; font:700 27px/1.3 Consolas,monospace; }
+.broadcast-final-scores strong span { font-size:12px; color:var(--muted); }.broadcast-final-scores>div+div small { color:#f2a3b6; }
+.broadcast-results { grid-template-columns:minmax(0,1fr) minmax(0,1.1fr); gap:14px; }
+.broadcast-results>* { min-width:0; }
+.broadcast-results .play-leaderboard,.broadcast-history { background:var(--panel); border:1px solid var(--border); border-radius:4px; padding:0; }
+.broadcast-results h2 { margin:0; padding:12px; font-size:15px; border-bottom:1px solid var(--border); background:#21292f; }
+.broadcast-results .play-leaderboard>small { display:block; padding:10px; color:var(--muted); }
+.broadcast-results .lobby-member,.broadcast-history>p { padding-inline:12px; }
+.broadcast-history .sa-match-results { border:0; border-radius:0; }
+.ngmc-round-history dl { display:grid; grid-template-columns:auto minmax(0,1fr); gap:5px 12px; margin:0; padding:0 16px 14px; font-size:12px; }
+.ngmc-round-history dt { color:var(--muted); }.ngmc-round-history dd { margin:0; overflow-wrap:anywhere; }
+.ngmc-round-history .hit { color:var(--mint); }.ngmc-round-history .miss { color:#f2a3b6; }
+@container (max-width:850px) {
+  .song-broadcast.versus,.song-broadcast.cooperative { grid-template-columns:minmax(0,1fr); grid-template-areas:"console" "roster"; }
+  .song-broadcast.versus .sa-scoreboard,.song-broadcast.cooperative .sa-scoreboard { display:block; grid-area:roster; }
+  .song-broadcast.versus .sa-team-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-areas:"home away"; gap:8px; }
+  .broadcast-results { grid-template-columns:minmax(0,1fr); }
+}
+@container (max-width:560px) {
+  .song-broadcast-body,.song-broadcast-header,.broadcast-final { padding:12px; }
+  .song-broadcast .sa-reveal { grid-template-columns:minmax(0,1fr); }
+  .broadcast-final { flex-wrap:wrap; }.broadcast-final-scores>div { padding:3px 10px; text-align:left; }
+  .song-broadcast .sa-answer-fields { grid-template-columns:minmax(0,1fr); }
+}
