@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+Song/Artist keyboard navigation now lets Tab leave the last answer and Shift+Tab leave the first. Starting audio respects that focus choice. Verified with autocomplete open in local Chrome matches for custom FFA and matchmade 1-Team.
+
+## Play match flow and autocomplete — deployed
+
+Play shows audio percentages and player readiness, distinguishes counter signup from audio preparation, and begins guessing immediately after reveal when audio is ready. Players can revise submissions directly. Custom lobbies start with 1–8 present players, with Start counting as the host’s ready action. English and Romaji autocomplete entries retain their matching text, with typo fallback. Local Chrome sessions verified two-player FFA, solo team start, audio autofocus, revised answers, reveal details and result navigation. Six local NGMC clients verified readiness, counter signup, counting controls and the reveal pop-up. Full suite passed (540), along with syntax checks and a Worker dry-run build.
+
+Source `1eaa8c0` is deployed at 100% on production Worker `amqtours-gatcha` as `1201ac2c-e92c-4ef0-bb69-966ac3f2c979`. The live Song/Artist and NGMC routes returned 200, and all seven changed Play assets matched the release files byte for byte.
+
 ## Play audio and automatic replacement — deployed
 
 Source `0f3c4b6` is live on `amqtours-gatcha` at 100% as `e3e9c3f6-c0c9-4842-8ee1-9c2ec4a2b472`. A 15,841,697-byte recording that previously returned HTTP 502 produced valid encrypted 20- and 30-second samples in production. Both updated client files matched the tested sources. Match selection checks MPEG frames and redraws failed candidates. Unavailable clip responses now support server-confirmed replacement of a single slot for all players. Local checks covered a three-player matchmade 1-Team case with two teammates already loaded, custom lobby scoring, and the multiplayer runtime. All 540 tests and the Worker dry-run passed.
