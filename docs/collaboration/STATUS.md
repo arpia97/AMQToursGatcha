@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha and Play notification dismissal
+
+Source `2cc58d8` is live on Worker `e19e29f2-2acf-4d77-8005-e48ed18af12a`. Read notifications show an X to remove them. Once all are read, Delete All clears read notifications across all pages and preserves later arrivals. The inbox stores dismissals separately from the read receipt and retains event keys. All 553 tests, the syntax check, and the Worker build passed. Browser checks covered Gacha and Play desktop dropdowns and the mobile feed with isolated accounts. Verified live assets, both routes, and guest access rejection.
+
 ## Play player portrait glow
 
 Source `53fb660` is live on Worker `bc01ce38-f1f3-4571-b8d0-585eb72e1361`. Custom lobbies, in-match player boards, and match results use the Gacha profile picture crop, rarity frame, and a static enhancement glow. All 553 tests, the syntax check, and the Worker build passed. Verified the lobby payload locally, browser-tested player portraits at 320, 390, and 1440 pixels, and matched all seven deployed assets against the local files.
