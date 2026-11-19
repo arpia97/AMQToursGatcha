@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play 2v2 Arena lobbies
+
+Source `34b2842` is live on Worker `35f3e2f3-f68f-40ef-ac8b-5bf065f659ee`. The Arena matchmaking page now has the shared Lobbies directory with Create Lobby and Join by Code. Arena rooms support Random or Watched pools and optional passwords. The host can start with 4, 8, 12 or 16 players once all guests are ready. The existing round-robin rules set five songs per fixture and 20 seconds per guess. All 554 tests, syntax checks and the Worker dry run passed. Verified local browser creation, listing, joining, and leaving at 390 and 1440 pixels. An isolated Worker test started a four-player Arena match. Verified the deployed guest directory at both widths.
+
 ## Play profile badges
 
 Source `08b8d10` is live on Worker `cb1f07bd-91c7-4ca0-9486-29a94162d7a3`. The Play profile pop-up shows Host as its only title. Verified the production frontend in Chrome at 390 and 1440 pixels using Host, Quiz Maker, and regular player fixtures with equipped quiz and card titles. Syntax checks and the Worker dry run passed.
