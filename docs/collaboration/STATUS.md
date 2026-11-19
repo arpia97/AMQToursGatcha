@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play loading percentages
+
+Source `a77ef39` is live on Worker `62d63acd-fe2d-49d9-8d93-b497aa85c848` at 100%. Queue sockets report catalog-read and song-check progress to match members. Play shows measured percentages in the queue badge, downloadable answer lists with a known transfer size, fixed-size queues, and lobby and audio readiness. The 560 tests, syntax checks and Worker dry run passed. A local two-player match with a deliberately delayed audio probe showed 95% on desktop and mobile before both players advanced. Both viewport sizes displayed catalog, verification, and finalization updates on deployed assets using fixture WebSocket messages.
+
 ## Faster multiplayer song selection
 
 Source `ef5ce97` is live on Worker `b70be992-b626-4f7c-a5eb-ef7f3e234ce5` at 100%. Play reads catalog shards four at a time, verifies six candidate MP3s concurrently in draw order, and indexes occurrences for NGMC draws. Successful selections taking at least two seconds log catalog, draw and verification, and remaining metadata and decoy timings. The 560 tests, syntax checks, and dry run passed. Live read-only checks returned HTTP 200 for NGMC and the Play catalog (34,317 playable recordings). Local 35-song median timings with simulated mirror latency went from 792 to 353 ms for Random and 789 to 418 ms for Watched. Production match durations were not measured.
