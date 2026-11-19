@@ -32,15 +32,17 @@ export async function playRuntimeFixture({groups=false,media}={}){
       }
     }
     export class PlayMatch extends OriginalMatch{
-      fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index],slot:state.audioPool.findIndex(e=>e.round===state.index)};}
+      fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index],slot:state.audioPool.findIndex(e=>e.round===state.index),animeIds:state.songs.map(song=>song.annId)};}
       async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
       forcePhase(){const s=this.read();if(s.phase==='guess')s.startsAt=Date.now()-1;else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
+      fixtureFinalSong(){const s=this.read();s.index=s.songs.length-1;s.phase='guess';s.startsAt=Date.now()-20000;s.until=Date.now()-1;this.write(s);return this.alarm();}
       expire(){const s=this.read();s.until=Date.now()-1;this.write(s);return this.alarm();}
     }
     export default {async fetch(request,env,ctx){
       const url=new URL(request.url);
       if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase();return Response.json({ok:true});}
       if(url.pathname==='/api/__expire'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expire();return Response.json({ok:true});}
+      if(url.pathname==='/api/__fixture-final-song'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureFinalSong();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-info')return Response.json(await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureInfo());
       if(url.pathname==='/api/__expire-review'){const id=url.searchParams.get('match');await env.PLAY_QUEUE.getByName('play-queues-v1').ageReview(id);return Response.json({tables:await env.PLAY_MATCHES.getByName(id).expireReview()});}
       if(url.pathname==='/api/__fake-proxy'){const original=new Request('https://amqtours.app/gacha/api/play-connect'+url.search,request);return proxy.fetch(original,{GAME_SITE:{fetch:r=>worker.fetch(r,env,ctx)}});}
@@ -64,8 +66,10 @@ export async function playRuntimeFixture({groups=false,media}={}){
   const tourSeedRequests=[],unavailableAudio=new Set();
   const outbound=async request=>{
     const url=new URL(request.url);
-    if(url.hostname==='myanimelist.net' && url.pathname==='/animelist/Local/load.json'){
+    if(url.hostname==='myanimelist.net' && ['/animelist/Local/load.json','/animelist/Wide/load.json'].includes(url.pathname)){
       const rows=url.searchParams.get('offset')==='0'?[{anime_id:1003,status:2,num_watched_episodes:0},{anime_id:1004,status:6,num_watched_episodes:0}]:[];
+      if(url.pathname.includes('/Wide/')&&url.searchParams.get('offset')==='0')
+        return Response.json(Array.from({length:40},(_,i)=>({anime_id:1001+i,status:2,num_watched_episodes:0})));
       return Response.json(rows);
     }
     const localSong=/^\/local-(\d+)\.mp3$/.exec(url.pathname);
@@ -80,8 +84,9 @@ export async function playRuntimeFixture({groups=false,media}={}){
       return new Response(bytes,{headers:{'Content-Type':'audio/mpeg','Content-Length':String(bytes.byteLength)}});
     }
     if(url.origin!=='https://amqtours.app'||url.pathname!=='/api/archive/profile')throw Error('Unexpected fixture fetch: '+url.origin+url.pathname);
-    const id=url.searchParams.get('id');tourSeedRequests.push(id);
-    return Response.json({modes:[{mode:'usual',correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});
+    const id=url.searchParams.get('id'),mode=url.searchParams.get('mode');
+    if(mode==='usual')tourSeedRequests.push(id);
+    return Response.json({modes:[{mode,correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});
   };
   const mf=new Miniflare({workers:[{dev:{outboundService:{type:'fetcher',handler:outbound}},config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
   mf.tourSeedRequests=tourSeedRequests;mf.unavailableAudio=unavailableAudio;

@@ -55,12 +55,13 @@ export class PlayRecords{
   pending(){return this.queue.rows('SELECT 1 FROM pending_play_records LIMIT 1').length>0;}
   async recoverBatch(){
     for(const {match,format} of this.queue.rows('SELECT match,format FROM pending_play_records ORDER BY rowid LIMIT 3')){
-      const table=format==='ngmc-ranked'?'ngmc_results':'song_results';
+      const base=format.replace(/-watched$/,'');
+      const table=base==='ngmc-ranked'?'ngmc_results':'song_results';
       const receipt=this.queue.rows('SELECT data FROM '+table+' WHERE id=?',match)[0];
       if(!receipt){this.save(match,format,[]);continue;}
       const ratings=JSON.parse(receipt.data);
-      const records=format==='1v1'?archivedRecords(null,format,ratings):
-        await this.queue.env.PLAY_MATCHES.getByName(match).historicalRecords(format,ratings);
+      const records=base==='1v1'?archivedRecords(null,base,ratings):
+        await this.queue.env.PLAY_MATCHES.getByName(match).historicalRecords(base,ratings);
       this.save(match,format,records);
     }
   }

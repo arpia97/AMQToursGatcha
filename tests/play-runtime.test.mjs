@@ -4,7 +4,21 @@ import {playRuntimeFixture} from './play-runtime-fixture.mjs';
 import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
+import {watchedWeights, weightedAnimeOrder} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
+test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
+  const linked=new Map([
+    [1,{myanimelist:101,anilist:201}],[2,{myanimelist:102,anilist:202}],
+    [3,{myanimelist:103,anilist:203}],[4,{myanimelist:104,anilist:204}],
+  ]);
+  const weights=watchedWeights([
+    {provider:'myanimelist',ids:[101,101,102,103,104]},
+    {provider:'anilist',ids:[201]},
+    {provider:'anilist',ids:[]}
+  ],linked);
+  assert.deepEqual([...weights],[[1,1.5],[2,.5],[3,.5],[4,.5]]);
+  assert.deepEqual(weightedAnimeOrder(weights,()=>.5),[1,2,3,4]);
+});
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 test('AniList imports all chunks, handles repeated entries and preserves provider identity',async()=>{
   const pages=[[{status:'COMPLETED',progress:0,mediaId:5},{status:'PLANNING',progress:0,mediaId:7}],[{status:'CURRENT',progress:2,mediaId:8},{status:'CURRENT',progress:2,mediaId:5}]];
@@ -99,6 +113,45 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const guest=await mf.dispatchFetch(base+'/api/play-connect',{headers:{Upgrade:'websocket',Origin:base}});assert.equal(guest.status,401);
   const cross=await mf.dispatchFetch(base+'/api/play-connect',{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:'https://wrong.test'}});assert.equal(cross.status,403);
   const madeUp=await mf.dispatchFetch(base+'/api/play-connect?match='+crypto.randomUUID(),{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}});assert.equal(madeUp.status,403);
+  const wide={...listBody,username:'Wide'};
+  for(const cookie of cookies.slice(0,2))assert.equal((await listUpdate(wide,cookie)).status,200);
+  const watchedA=await connect(0),randomB=await connect(1);
+  watchedA.send({type:'join',mode:'song-artist',format:'1v1',pool:'watched'});
+  await watchedA.wait(m=>m.type==='queued'&&m.pool==='watched');
+  randomB.send({type:'join',mode:'song-artist',format:'1v1'});
+  await randomB.wait(m=>m.type==='queued'&&m.counts['1v1-watched']===1&&m.counts['1v1']===1);
+  randomB.send({type:'join',mode:'song-artist',format:'1v1',pool:'watched'});
+  const {match:watchedId}=await watchedA.wait(m=>m.type==='matched'&&m.pool==='watched');
+  const distinct=(await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedId)).json()).animeIds;
+  assert.equal(distinct.length,20);
+  assert.equal(new Set(distinct).size,20);
+  const watchedRoom=await connect(0,watchedId);
+  const watchedRoomB=await connect(1,watchedId);
+  const queuePositions=[watchedA.messages.length,randomB.messages.length];
+  for(const r of [watchedRoom,watchedRoomB])r.send({type:'leave'});
+  await Promise.all([watchedA,randomB].map((q,i)=>
+    q.wait(m=>m.type==='idle'&&q.messages.indexOf(m)>=queuePositions[i])));
+  for(const socket of [watchedRoom,watchedRoomB,watchedA,randomB])socket.ws.close();
+  const rankedQueues=[];
+  for(let i=0;i<8;i++){
+    if(i>=2&&i<7)assert.equal((await listUpdate(wide,cookies[i])).status,200);
+    const connection=await connect(i);
+    rankedQueues.push(connection);
+    connection.send({type:'join',mode:'ngmc-ranked',format:'ngmc-ranked',pool:'watched'});
+  }
+  const {match:rankedId}=await rankedQueues[0].wait(m=>m.type==='matched'&&m.pool==='watched'&&m.format==='ngmc-ranked');
+  const rankedInfo=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+rankedId)).json();
+  assert.equal(rankedInfo.animeIds.length,35);
+  assert.equal(new Set(rankedInfo.animeIds).size,35);
+  await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+rankedId);
+  await mf.dispatchFetch(base+'/api/__expire?match='+rankedId);
+  const rankingBase=base+'/api/play-rankings?format=ngmc-ranked';
+  const watchedRankings=await(await mf.dispatchFetch(rankingBase+'&pool=watched')).json();
+  const randomRankings=await(await mf.dispatchFetch(rankingBase+'&pool=random')).json();
+  assert.equal(watchedRankings.rows.length,8);
+  assert.deepEqual(watchedRankings.rows[0].record,[0,0,1]);
+  assert.equal(randomRankings.rows.length,0);
+  for(const connection of rankedQueues)connection.ws.close();
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   assert.ok(catalog.anime.includes('Sheet Anime 1')&&!catalog.anime.includes('Anime 1'));
   for(const [format,size] of [['1v1',2],['1-team',3],['3v3',6],['ngmc-ranked',8]]){

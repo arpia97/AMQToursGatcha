@@ -188,7 +188,7 @@ export function matchMove(state,id,message,now=Date.now()) {
 }
 export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
-  return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
+  return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:['1-team','lobby-team'].includes(state.format)?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
     ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(FIELDS.flatMap(f=>state.ballot[f].map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[f]===o.id).length]))):undefined,

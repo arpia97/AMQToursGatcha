@@ -15,15 +15,13 @@ export class PlayMatch extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
-  async initialize(id,format,players,lobby=null) {
+  async initialize(id,format,players,lobby=null,pool=lobby?.pool||'random') {
     if(this.read())return;
     if(!this.initializing)this.initializing=(async()=>{
       let watched=null;
-      if(lobby?.pool==='watched'){
-        const lists=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
-        if(!lists.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before starting a Watched lobby.'};
-        watched={};
-        for(const provider of ['myanimelist','anilist'])watched[provider]=[...new Set(lists.filter(l=>l.provider===provider).flatMap(l=>l.ids))];
+      if(pool==='watched'){
+        watched=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
+        if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
       }
       let library;
       try{
@@ -34,6 +32,7 @@ export class PlayMatch extends DurableObject {
       }
       if(!library)fail('The song library is unavailable.',503);if(!this.read()){
       const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
+      state.pool=pool;
       prepareAudioPool(state,library.decoys,true);
       await sealPlayAudio(state,this.env.HOST_TOKEN);
       if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
@@ -49,8 +48,8 @@ export class PlayMatch extends DurableObject {
   async reportRankedLeaves(state){
     for(const p of this.pendingRankedLeaves(state)){
       const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
-      if(state.format==='ngmc-ranked')await queue.recordRankedLeave(state.id,p.id,p.rankedLeftAt);
-      else await queue.recordSongReadyLeave(state.id,state.format,p.id,p.name,p.rankedLeftAt);
+      if(state.format==='ngmc-ranked')await queue.recordRankedLeave(state.id,p.id,p.rankedLeftAt,state.pool);
+      else await queue.recordSongReadyLeave(state.id,state.format,p.id,p.name,p.rankedLeftAt,state.pool);
       this.ctx.storage.sql.exec('INSERT OR IGNORE INTO reported_leaves VALUES(?)',p.id);
     }
   }
@@ -76,7 +75,7 @@ export class PlayMatch extends DurableObject {
     if(state.rankingsSettled)return;
     if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
     const result={
-      mode:state.mode,format:state.format,records:matchRecords(state),
+      mode:state.mode,format:state.format,pool:state.pool||state.lobby?.pool,records:matchRecords(state),
       players:state.players.map(({id,name,elo,rankedLeftAt})=>({id,name,elo,rankedLeftAt})),
       history:state.history.map(round=>({results:round.results.map(({id,earned})=>({id,earned}))}))
     };
@@ -131,7 +130,10 @@ export class PlayMatch extends DurableObject {
       if(!await verifiedClipFailure(this.env.HOST_TOKEN,entry.key,message.proof))return;
       if((entry.replacements||0)>=4)fail('Several replacement recordings are unavailable. Retry audio shortly.',503);
       const exclude=[...state.audioPool.map(e=>e.audio),...(state.failedAudio||[])];
-      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude,watched:state.lobby?.pool==='watched'?JSON.parse([...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=2')][0].data):null});
+      const snapshot=this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=2').toArray()[0];
+      const watched=snapshot?JSON.parse(snapshot.data):null;
+      const excludeAnime=watched&&entry.round!==null?state.songs.filter((_,index)=>index!==entry.round).map(song=>song.annId).filter(Boolean):[];
+      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude,watched,excludeAnime});
       const song=library?.songs[0];
       if(!song)fail('No replacement audio is available yet.',503);
       const next={round:entry.round,audio:song.audio,replacements:(entry.replacements||0)+1};

@@ -130,7 +130,7 @@ export class PlayLobbies {
     this.queue.ctx.storage.transactionSync(()=>{
       this.sql.exec('UPDATE play_lobbies SET match=? WHERE code=?',match,row.code);
       this.sql.exec('UPDATE lobby_members SET last_match=? WHERE code=? AND last_match IS NULL',match,row.code);
-      this.sql.exec('INSERT INTO preparing VALUES(?,?,?,?)',match,pending.format,pending.players,now);
+      this.sql.exec('INSERT INTO preparing(id,format,players,started) VALUES(?,?,?,?)',match,pending.format,pending.players,now);
       for(const p of roster)this.sql.exec('INSERT INTO recent VALUES(?,?,?)',p.id,match,now+86400000);
       this.sql.exec('INSERT INTO match_reviews VALUES(?,?,?,?,?)',match,now,settings.format,JSON.stringify(players.map(({id,name,ready})=>({id,name,ready:id===who.id||!!ready}))),'active');
     });

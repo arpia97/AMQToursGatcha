@@ -163,3 +163,12 @@
 #play-anime-list [role=status]:empty{display:none}
 .play-console .review-badge { color:#efc987; }
 .play-console [data-review-view][aria-pressed=true] { color:var(--mint); border-color:var(--mint); }
+
+.play-pool-toggle { display:inline-flex; align-items:center; gap:3px; padding:3px; border:1px solid var(--border); border-radius:6px; background:var(--bg); }
+.play-pool-toggle button { padding:6px 10px; border:0; border-radius:3px; color:var(--muted); background:transparent; font:inherit; font-size:12px; cursor:pointer; }
+.play-pool-toggle button:hover { color:var(--text); }
+.play-pool-toggle [aria-pressed=true] { color:#15241d; background:var(--mint); font-weight:700; }
+.play-pool-toggle [aria-pressed=true]:hover { color:#15241d; }
+.play-pool-toggle button:disabled { cursor:default; }
+.ranking-song-pool { flex-basis:100%; display:flex; justify-content:flex-end; }
+.ranking-song-pool[hidden] { display:none; }

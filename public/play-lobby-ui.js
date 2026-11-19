@@ -1,3 +1,4 @@
+import {poolName} from './play-pool.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked'};
 function poolPicker(value='random',disabled=false,id=''){
@@ -6,16 +7,16 @@ function poolPicker(value='random',disabled=false,id=''){
 export function lobbyDirectoryHTML(lobbies,ngmc,enabled,esc){
   const rooms=lobbies?.filter(room=>(room.format==='lobby-ngmc')===ngmc),disabled=enabled?'':' disabled';
   return '<aside class="play-lobby-directory"><header class="play-directory-header"><h2>Lobbies</h2><div class="play-directory-actions"><button class="button mint" data-lobby-action="create"'+disabled+'>Create Lobby</button><button class="button secondary" data-lobby-action="join"'+disabled+'>Join by Code</button></div></header>'+
-    (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/8 · '+(room.pool==='watched'?'Watched · ':'')+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=8?'disabled':disabled)+'>'+(room.players>=8?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
+    (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><span class="lobby-pool-label" data-song-pool="'+(room.pool==='watched'?'watched':'random')+'">'+poolName(room.pool)+'</span><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/8 · '+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=8?'disabled':disabled)+'>'+(room.players>=8?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
-export function lobbyDialog(action,ngmc,room,send){
+export function lobbyDialog(action,ngmc,room,send,pool='random'){
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
   const dialog=document.createElement('dialog');
   dialog.className='sa-song-dialog play-lobby-dialog';
   dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
     (create&&!ngmc?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
-    (create?poolPicker():'')+
+    (create?poolPicker(pool):'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
     (edit?'<small>Leave blank to make this lobby public.</small>':'')+

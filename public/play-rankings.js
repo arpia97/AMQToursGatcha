@@ -1,3 +1,4 @@
+import {poolToggle} from './play-pool-toggle.js';
 import {quizDuration} from './quiz-time.js';
 const formats = {
   "ngmc-ranked": "NGMC Ranked", "1v1": "Song/Artist 1v1", "3v3": "Song/Artist 3v3",
@@ -37,13 +38,13 @@ export function matchLeaderboard(match, esc) {
     ])) + '<small>Performance is the rating change per song.</small></section>';
 }
 
-export function rankingPanel(root,format) {
+export function rankingPanel(root,format,pool='random') {
   let panel=root.querySelector('#ranking-results');
   if(!panel){
     const tabs=Object.entries(formats).map(([id,name])=>
       '<button type="button" role="tab" id="ranking-tab-'+id+'" data-rank-format="'+id+'" aria-controls="ranking-results">'+name+'</button>'
     ).join('');
-    root.innerHTML='<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1><div class="ranking-mode-tabs" role="tablist" aria-label="Ranking mode">'+tabs+'</div></header><div id="ranking-results" role="tabpanel" tabindex="0"></div></section>';
+    root.innerHTML='<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1><div class="ranking-mode-tabs" role="tablist" aria-label="Ranking mode">'+tabs+'</div><div class="ranking-song-pool">'+poolToggle(pool,'data-rank-pool')+'</div></header><div id="ranking-results" role="tabpanel" tabindex="0"></div></section>';
     panel=root.querySelector('#ranking-results');
   }
   for(const tab of root.querySelectorAll('[data-rank-format]')){
@@ -51,6 +52,9 @@ export function rankingPanel(root,format) {
     tab.setAttribute('aria-selected',String(selected));
     tab.tabIndex=selected?0:-1;
   }
+  root.querySelector('.ranking-song-pool').hidden=format==='quiz';
+  for(const button of root.querySelectorAll('[data-rank-pool]'))
+    button.setAttribute('aria-pressed',String(button.dataset.rankPool===pool));
   panel.setAttribute('aria-labelledby','ranking-tab-'+format);
   return panel;
 }

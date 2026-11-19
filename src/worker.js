@@ -227,7 +227,7 @@ export class Game extends DurableObject {
     }return this.quizMaster;
   }
   watchedAnimeLists(players) {
-    if (!Array.isArray(players) || players.length < 1 || players.length > 8) fail("Invalid lobby roster.");
+    if (!Array.isArray(players) || players.length < 1 || players.length > 16) fail("Invalid lobby roster.");
     return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
       .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
   }
@@ -1855,8 +1855,9 @@ export default {
       if(url.pathname==='/api/play-rankings'&&request.method==='GET'){
         const format=url.searchParams.get('format')||'ngmc-ranked';
         const page=Number(url.searchParams.get('page'));
-        if(!['ngmc-ranked','1v1','3v3'].includes(format)||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
-        return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page,url.searchParams.get('sort'),url.searchParams.get('dir')));
+        const pool=url.searchParams.get('pool')||'random';
+        if(!['random','watched'].includes(pool)||!['ngmc-ranked','1v1','3v3'].includes(format)||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
+        return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page,url.searchParams.get('sort'),url.searchParams.get('dir'),pool));
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
         const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v2');

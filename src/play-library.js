@@ -1,4 +1,5 @@
 import {playAudioSource,playableMirror} from './play-media.js';
+import {watchedWeights, weightedAnimeOrder, watchedRecordings} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
@@ -115,7 +116,7 @@ export class PlayLibrary {
     if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
     return url;
   }
-  async sample(mode='song-artist',count=20,exclude=null,watched=null) {
+  async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[]) {
     const data=await this.load();
     if(!Number.isInteger(count)||count<1||count>100)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
@@ -123,33 +124,54 @@ export class PlayLibrary {
     const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
     const filename=url=>url.slice(url.lastIndexOf('/')+1);
     const excludedPaths=new Set((exclude||[]).map(filename));
-    let watchedAnime=null;
-    if(watched){
-      const mal=new Set(watched.myanimelist), ani=new Set(watched.anilist);
-      watchedAnime=new Set();
-      for(const [id,links] of data.linkedAnime)if(mal.has(links.myanimelist)||ani.has(links.anilist))watchedAnime.add(id);
-    }
-    const eligible=id=>!watchedAnime||watchedAnime.has(data.occurrenceAnime.get(id));
+    const lists=Array.isArray(watched)?watched:watched&&Object.entries(watched).map(([provider,ids])=>({provider,ids}));
+    const weights=lists?watchedWeights(lists,data.linkedAnime):null;
+    for(const anime of excludeAnime)weights?.delete(anime);
+    const pickedAnime=new Map();
+    const eligible=id=>!weights||weights.has(data.occurrenceAnime.get(id));
     const excluded=new Set(),available=[];
     for(let i=0;i<data.groups.length;i++){
-      if(watchedAnime && !data.groups[i].some(eligible))excluded.add(i);
+      if(weights && !data.groups[i].some(eligible))excluded.add(i);
       else if(exclude&&[data.sources[i],...(data.alternates[i]||[])].some(url=>excludedPaths.has(filename(url))))excluded.add(i);
       else available.push(i);
     }
-    const shortPool=()=>Object.assign(Error("Too few playable songs on the lobby’s Watched lists. Import more entries, choose fewer songs, or switch to Random."),{status:422});
-    if(watchedAnime && available.length<target)throw shortPool();
+    const shortPool=()=>Object.assign(Error("Too few distinct anime with playable songs on the Watched lists. Add more entries, choose fewer songs in a custom lobby, or switch to Random."),{status:422});
     const groupById=ranked?new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index]))):null;
-    if(ranked && watchedAnime){
-      const tagged=new Set(data.ngmcRows.filter(r=>eligible(r.annSongId)&&/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(r.type)).map(r=>groupById.get(r.annSongId)).filter(i=>!excluded.has(i)));
-      if(tagged.size<target)throw shortPool();
-    }
+    const verify=async(group,source)=>{
+      let url=await this.verifiedSource(source);
+      for(const alternate of data.alternates[group]||[]){if(url)break;url=await this.verifiedSource(alternate);}
+      return url;
+    };
+    const randomIndex=length=>Math.floor(crypto.getRandomValues(random)[0]/4294967296*length);
     const tried=new Set(),pool=ranked?[]:[...available];
+    if(weights){
+      const candidates=new Map();
+      const add=(anime,group,source)=>{
+        if(!weights.has(anime)||excluded.has(group)||excludedPaths.has(filename(source)))return;
+        if(!candidates.has(anime))candidates.set(anime,new Map());
+        candidates.get(anime).set(group,{group,source});
+      };
+      if(ranked){
+        for(const row of data.ngmcRows)if(/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(row.type))
+          add(row.annId,groupById.get(row.annSongId),row.audio);
+      }else{
+        for(const group of available)for(const id of data.groups[group])
+          add(data.occurrenceAnime.get(id),group,data.sources[group]);
+      }
+      if(candidates.size<target)throw shortPool();
+      for(const anime of weights.keys())if(!candidates.has(anime))weights.delete(anime);
+      const recordings=await watchedRecordings(weightedAnimeOrder(weights),new Map([...candidates].map(([anime,options])=>[anime,[...options.values()]])),target,verify,randomIndex,filename);
+      if(recordings.length!==target)throw shortPool();
+      for(const {anime,group,url} of recordings){
+        selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);
+      }
+    }
     const draw=()=>{
       crypto.getRandomValues(random);
       const i=Math.floor(random[0]/4294967296*pool.length),group=pool[i];
       pool[i]=pool[pool.length-1];pool.pop();return {group,source:data.sources[group]};
     };
-    while(selected.size<target&&tried.size<target+32){
+    while(!weights&&selected.size<target&&tried.size<target+32){
       const needed=target-selected.size;
       const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>eligible(r.annSongId)&&!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
         .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
@@ -157,14 +179,12 @@ export class PlayLibrary {
       if(!candidates.length)break;
       for(let i=0;i<candidates.length;i+=4){
         await Promise.all(candidates.slice(i,i+4).map(async({group,source})=>{
-          tried.add(group);let url=await this.verifiedSource(source);
-          for(const alternate of data.alternates[group]||[]){if(url)break;url=await this.verifiedSource(alternate);}
+          tried.add(group);const url=await verify(group,source);
           if(url)verifiedAudio.set(group,url);
         }));
       }
       for(const {group} of candidates)if(verifiedAudio.has(group))selected.add(group);
     }
-    if(watchedAnime && selected.size!==target)throw shortPool();
     if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.
@@ -182,7 +202,7 @@ export class PlayLibrary {
       const titles=matched===undefined?quiz?.answers||variants.flatMap(s=>s.titles):data.master.records[matched].slice(1);
       const title=sheet?.title||quiz?.title||song.title||amq?.title,performer=sheet?.artist||quiz?.artist||song.artist||amq?.artist;
       const artists=[...new Set([performer,amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
-      return {audio:verifiedAudio.get(index)||data.sources[index],anime:titles[0],title,artist:performer,
+      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:titles[0],title,artist:performer,
         artistMembers:data.artist.rules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(titles.map(titleKey))],song:[...new Set([title,amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};

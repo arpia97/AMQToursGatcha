@@ -509,3 +509,13 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 .arena-board .arena-fixture-headline { margin: .4rem 0 0; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
 .arena-fixture-headline strong { flex-shrink: 0; padding: .2em .45em; border-radius: 6px; background: #25352f; }
 .arena-fixture-headline span:last-child { text-align: right; }
+
+.play-queue-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.play-queue-heading h2 { margin:0; }
+.play-directory-room .lobby-pool-label { display:inline-block; margin:.28rem 0 .1rem; padding:2px 6px; border:1px solid var(--border); border-radius:4px; color:var(--text); font-size:10px; }
+.lobby-pool-label[data-song-pool=watched] { color:var(--mint); border-color:#3b6758; background:#21342d; }
+.arena-emblem { display:grid; grid-template-columns:1fr 12px 1fr; align-items:center; gap:8px; width:clamp(84px,12vw,140px); padding:10px; border:1px solid #3e4e55; border-radius:6px; background:#101a1f; }
+.arena-emblem span { display:grid; justify-items:center; gap:5px; padding:4px; border-radius:4px; background:#25372f; color:var(--mint); }
+.arena-emblem span:last-child { background:#352731; color:#ebc0d1; }
+.arena-emblem i { width:8px; aspect-ratio:1; border-radius:50%; background:currentColor; box-shadow:0 0 6px color-mix(in srgb,currentColor 38%,transparent); }
+.arena-emblem b { width:7px; height:7px; justify-self:center; border:1px solid #bfaf81; transform:rotate(45deg); }

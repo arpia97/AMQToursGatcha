@@ -1,3 +1,4 @@
+import {playPools} from '../play-pool.js';
 import {ARENA_FORMAT, queueMode as modeForQueue} from '../play-arena-config.js';
 import { PLAY_MODES, playRoute, playHref } from "../play-navigation.js";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
@@ -21,7 +22,8 @@ const assets = new URL("../", import.meta.url);
 const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
 let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || PLAY_MODES[0].id;
-let rankingFormat = "ngmc-ranked", rankingPage = 0;
+let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
+try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
 let rankingSort='rank',rankingDirection='asc';
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
@@ -113,7 +115,7 @@ function showQueue(status){
     });
     return;
   }
-  $('#play-queue-mode').textContent=queueLabels[format];
+  $('#play-queue-mode').textContent=queueLabels[format]+(status.pool==='watched'?' · Watched':'');
   const text=!status.connected?'Reconnecting…':status.type==='matched'?'Match found':status.type==='queued'?
     'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed):'Joining queue…';
   if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;
@@ -202,10 +204,10 @@ async function openMode(id, push = true) {
   try {
     if(id==='rankings'||id==='quiz')resumeBackgroundQueue(version).catch(fail);
     if (id === "rankings") {
-      const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage;
+      const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage+"&pool="+rankingPool;
       const {rankingPanel,rankingResultsHTML}=await import("../play-rankings.js");
       if(version!==viewVersion)return;
-      const panel=rankingPanel($("#main"),rankingFormat);
+      const panel=rankingPanel($("#main"),rankingFormat,rankingPool);
       panel.innerHTML='<p class="ranking-empty" role="status">Loading Rankings…</p>';
       const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection);
       if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection);
@@ -246,6 +248,13 @@ document.addEventListener("click", async (event) => {
       rankingSort=rankingFormat==='quiz'?'points':'rank';
       rankingDirection=rankingFormat==='quiz'?'desc':'asc';
       await openMode(mode,false); return;
+    }
+    if(mode==='rankings'&&playPools.includes(button.dataset.rankPool)){
+      if(rankingPool===button.dataset.rankPool)return;
+      rankingPool=button.dataset.rankPool;
+      rankingPage=0;
+      try{localStorage.setItem('amqtours-play-ranking-pool',rankingPool);}catch{}
+      await openMode(mode,false);return;
     }
     if(mode==='rankings'&&button.dataset.rankSort){
       const field=button.dataset.rankSort;
