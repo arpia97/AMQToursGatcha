@@ -111,6 +111,28 @@ test('unused audio never becomes a round; review suppresses shared answers and p
     db.prepare('UPDATE review_meta SET expires=1').run();assert.equal(log.page().events.length,5);assert.equal(log.page().expires,null);
   }finally{db.close();}
 });
+test('sealed matches wait together for the current group and give progressing downloads more time',()=>{
+  const state=makeMatch('slow','1v1',players.slice(0,2),structuredClone(songs),0);
+  prepareAudioPool(state,[],true);
+  state.audioSealed=true;
+  for(const player of state.players)matchMove(state,player.id,{type:'ready'},1);
+  matchMove(state,'0',{type:'loaded',indices:[0,1,2]},2);
+  matchMove(state,'1',{type:'loaded',indices:[0]},170000);
+  assert.equal(state.until,290000);
+  matchMove(state,'1',{type:'loaded',indices:[0]},200000);
+  assert.equal(state.until,290000);
+  matchMove(state,'1',{type:'loaded',indices:[1,2]},220000);
+  assert.equal(state.phase,'guess');
+  state.index=3;state.phase='buffering';state.until=310000;
+  state.players.find(p=>p.id==='0').loaded=[];
+  assert.equal(audioManifest(state).downloadStart,3);
+  matchMove(state,'0',{type:'loaded',indices:[3,4,5,6]},230000);
+  assert.equal(state.phase,'buffering');
+  matchMove(state,'1',{type:'loaded',indices:[3,4,5,6]},240000);
+  assert.equal(state.phase,'guess');
+  assert.ok(state.songs.slice(3,7).every(song=>state.audioPool.slice(3,7).some(slot=>slot.audio===song.audio)));
+});
+
 test('matches preload all ten, share only team answers, score categories once and resume without duplicate points',()=>{
   let now=100000;const s=makeMatch('local','3v3',players,songs,now);
   const move=(id,message)=>matchMove(s,id,message,now);

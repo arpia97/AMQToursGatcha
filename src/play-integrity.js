@@ -10,7 +10,8 @@ const laterBatchSize = 4;
 const firstRounds = state => Math.min(state.songs.length,state.mode === 'ngmc-ranked' ? 12 : 10);
 
 export function prepareAudioPool(state,decoys=[],sealed=false){
-  const first=firstRounds(state);
+  const first=sealed ? Math.min(3,state.songs.length) : firstRounds(state);
+  if (sealed) state.openingSongs=first;
   state.decoys=decoys.filter(d=>!state.songs.some(s=>s.audio===d.audio)).slice(0,3);
   const entries=state.songs.map((s,round)=>({audio:s.audio,round}));
   const initial=shuffle([...entries.slice(0,first),...state.decoys.map(d=>({audio:d.audio,round:null}))]);
@@ -25,9 +26,10 @@ export function prepareAudioPool(state,decoys=[],sealed=false){
   state.audioPreload=initial.length;
 }
 export function audioManifest(state){
+  const window=state.audioSealed?audioWindow(state):null;
   return {type:'manifest',revision:state.audioRevision||0,id:state.id,mode:state.mode||'song-artist',total:state.songs.length,
     preload:state.audioPreload||firstRounds(state),
-    ...(state.audioSealed ? { sealed: true } : {}),
+    ...(state.audioSealed ? { sealed: true, downloadStart: window.start, downloadEnd: window.end } : {}),
     audio:(state.audioPool||state.songs).map(s=>state.audioSealed ? s.ticket : s.audio)};
 }
 export function loadedRounds(state,indices){
@@ -37,15 +39,23 @@ export function loadedRounds(state,indices){
   return [...new Set(indices.map(i=>state.audioPool[i].round).filter(i=>i!==null))];
 }
 
+export function audioWindow(state) {
+  // Existing matches retain the opening group used when their pool was shuffled.
+  const opening = state.openingSongs ?? firstRounds(state);
+  if (state.index < opening) return {start:0, end:state.audioPreload};
+  const group = Math.floor((state.index - opening) / laterBatchSize);
+  const start = state.audioPreload + group * laterBatchSize;
+  return {start, end:Math.min(start + laterBatchSize,state.audioPool.length)};
+}
+
 export function playerAudioReady(state, player) {
   if (!player.ready) return false;
   const first = firstRounds(state);
   if (!state.audioSealed)
     return player.loaded.includes(state.index) && (state.index > 0 || Array.from({ length: first }, (_, i) => i).every(i => player.loaded.includes(i)));
-  const later = Math.ceil(Math.max(0, state.index + 1 - first) / laterBatchSize) * laterBatchSize;
-  const required = Math.min(state.audioPool.length, state.audioPreload + later);
+  const {start,end} = audioWindow(state);
   const loaded = new Set(player.loaded);
-  for (let i = 0; i < required; i++) if (!loaded.has(i)) return false;
+  for (let i = start; i < end; i++) if (!loaded.has(i)) return false;
   return true;
 }
 

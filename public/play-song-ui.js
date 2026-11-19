@@ -41,7 +41,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(autoReady&&queueStatus.type==='lobby'&&!queueStatus.busy&&queueStatus.players.some(p=>p.id===getPlayer()?.id&&!p.ready))
       send(queue,{type:'lobby-ready',ready:true});
   }
-  let manifestRevision=0,replacingAudio=false;
+  let manifestRevision=0,downloadStart=0,downloadEnd=0,replacingAudio=false;
   let sealedCache=null, playbackUrl=null, preparingRound=-1, keyRequestedAt=0;
   let draftDirty=false,lastDraft='',lastDraftAt=0;
   const savedField=()=>{try{return ['anime','song','artist'].includes(localStorage.getItem('amqtours-1team-field'))?localStorage.getItem('amqtours-1team-field'):'anime';}catch{return 'anime';}};
@@ -150,6 +150,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});preload();return;
       }
       if(msg.type==='manifest'){
+        if(manifestId===msg.id && (msg.downloadStart||0)>downloadStart)downloads?.abort();
+        downloadStart=msg.downloadStart||0;
+        downloadEnd=msg.downloadEnd??msg.preload??msg.audio.length;
         const changedRevision=manifestRevision!==(msg.revision||0);
         manifestRevision=msg.revision||0;
         mode=msg.mode||'song-artist';onMatchMode(mode);fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
@@ -186,24 +189,30 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const update=()=>{if(progressTimer||generation!==loadGeneration||!active)return;progressTimer=setTimeout(()=>{progressTimer=null;if(generation!==loadGeneration||!active)return;const indices=loaded(),key=indices.join(',');if(key!==lastLoaded&&send(room,{type:'loaded',revision:manifestRevision,indices})){lastLoaded=key;render();}},100);};
     try{
       let incomplete=false;
-      for(let i=0;i<sources.length;i+=2){
-        const batch=sources.slice(i,i+2);
-        for(let attempt=0;attempt<3;attempt++){
-          if(attempt)await new Promise(resolve=>setTimeout(resolve,500*attempt));
-          if(controller.signal.aborted)return;
-          try{
-            await media.prepare(batch,server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(60000)]),onProgress:update});
-            update();
-            break;
-          }catch(error){
+      let next=downloadStart;
+      const download=async(end)=>{
+        while(next<end&&!controller.signal.aborted){
+          const ticket=sources[next++];
+          for(let attempt=0;attempt<3;attempt++){
+            if(attempt)await new Promise(resolve=>setTimeout(resolve,500*attempt));
             if(controller.signal.aborted)return;
-            if(attempt>=1&&error.proof&&send(room,{type:'audio-failed',slot:sources.indexOf(error.ticket),revision:manifestRevision,proof:error.proof})){
-              replacingAudio=true;render();incomplete=true;break;
+            try{
+              await media.prepare([ticket],server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(120000)]),onProgress:update});
+              update();
+              break;
+            }catch(error){
+              if(controller.signal.aborted)return;
+              if(attempt>=1&&error.proof&&send(room,{type:'audio-failed',slot:sources.indexOf(error.ticket),revision:manifestRevision,proof:error.proof})){
+                replacingAudio=true;render();incomplete=true;break;
+              }
+              if(attempt===2)incomplete=true;
             }
-            if(attempt===2)incomplete=true;
           }
         }
-      }
+      };
+      // Reserve available bandwidth for the group everyone needs before fetching ahead.
+      await Promise.all([download(downloadEnd),download(downloadEnd)]);
+      await Promise.all([download(sources.length),download(sources.length)]);
       if(incomplete&&!controller.signal.aborted){downloadError='Some audio is still unavailable. Retry the missing downloads.';render();}
     }
     finally{if(downloads===controller)downloads=null;}
@@ -429,13 +438,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }else scoreboard.innerHTML=match.phase==='finished'?(match.lobby||match.format==='1-team'||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML();
     if(ranked()&&root.querySelector('.ngmc-progress'))root.querySelector('.ngmc-progress').outerHTML=ngmcProgress(match);
     const status=root.querySelector('.sa-round-status');if(!status)return;
-    const me=player(),loadedCount=loaded().length;
+    const me=player(),indices=loaded();
+    const waitingAudio=['loading','buffering'].includes(match.phase)&&match.audioWindow;
+    const start=waitingAudio?waitingAudio.start:downloadStart;
+    const end=waitingAudio?waitingAudio.end:sources.length;
+    const loadedCount=indices.filter(i=>i>=start&&i<end).length, downloadTotal=end-start;
+    const downloadLabel=waitingAudio?'Audio for This Round':'Your Match Audio';
     status.textContent=match.phase==='loading'?'Getting Everyone Ready':match.phase==='buffering'?'Waiting for Audio':match.phase==='counting'?'Counting Guesses':match.phase==='reveal'?'Answers Revealed':'Listen & Answer';
     const activePlayers=match.players.filter(p=>!p.left);
     const audioStatus=['loading','buffering'].includes(match.phase)?'<span>'+activePlayers.filter(p=>p.audioReady).length+' / '+activePlayers.length+' players have audio ready</span>':'';
     const downloadStatus=root.querySelector('.sa-download-status'),downloadBar=downloadStatus.querySelector('.song-loading-bar');
-    downloadStatus.innerHTML=(loadedCount<sources.length||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>Your Match Audio</span><strong>'+Math.round(100*loadedCount/Math.max(1,sources.length))+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:sources.length})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
-    if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,sources.length);}
+    downloadStatus.innerHTML=(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+Math.round(100*loadedCount/Math.max(1,downloadTotal))+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
+    if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,downloadTotal);}
     const shared=root.querySelector('.sa-shared-wrap');
     if(arena()){
       const focusedChoice=shared.contains(document.activeElement)?document.activeElement.dataset.choice:null;

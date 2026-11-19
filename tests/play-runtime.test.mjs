@@ -198,7 +198,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   assert.ok(catalog.anime.includes('Sheet Anime 1')&&!catalog.anime.includes('Anime 1'));
   for(const [format,size] of [['1v1',2],['1-team',3],['3v3',6],['ngmc-ranked',8]]){
-    const ngmc=format==='ngmc-ranked',first=ngmc?12:10;
+    const ngmc=format==='ngmc-ranked';
     const queues=[];for(let i=0;i<size;i++){const q=await connect(i,'',i===0);queues.push(q);
       if(i===1){
         await q.wait(m=>m.type==='idle'&&m.counts?.[format]===1);
@@ -218,7 +218,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(new Set(manifest.audio).size,manifest.audio.length);
     assert.ok(manifest.audio.every(ticket=>/^[A-Za-z0-9_-]{379}$/.test(ticket)));
     assert.equal(manifest.total,ngmc?35:20);
-    assert.equal(manifest.preload,first+3);
+    assert.equal(manifest.preload,6);
     assert.equal(manifest.answers,undefined);
     let revision=0;
     const preload=Array.from({length:manifest.preload},(_,i)=>i);

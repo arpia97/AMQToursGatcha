@@ -47,9 +47,9 @@ quizzes, one per player and quiz.
   Reactions reset each song and do not affect scoring. Opponents'
   answers remain private until reveal. Submitted 1v1 answers require explicit cancellation to edit. Drafts
   already received at the deadline are scored; client timestamps are not trusted.
-- All players must download the encrypted first batch, which includes 10 songs
+- All players must download the encrypted first batch, which includes up to three songs
   and any decoys, and enable audio before starting. Remaining clips download in
-  pairs in the background. Players missing the next batch wait together before
+  two concurrent streams in the background. Players missing the next batch wait together before
   its countdown. Initial readiness expires
   after 3 minutes; later buffering after 90 seconds. A reconnect does not extend
   a running song's clock. Leaving forfeits future contributions; teammates continue.
@@ -77,8 +77,8 @@ quizzes, one per player and quiz.
   counting. A counter has eight seconds after reveal to choose an eligible
   teammate; timeout uses lowest starting Elo, then canonical ID as a tie-break.
 - 35 distinct recordings, sampled uniformly by anime, then available OP/ED/IN
-  category, then song. First 12 download before start, remaining tracks download
-  in pairs. NGMC uses a shared 20-second answer clock and countdown bar. Only each
+  category, then song. Three songs and the decoys download before start. Remaining tracks download
+  in the background. NGMC uses a shared 20-second answer clock and countdown bar. Only each
   player's own draft is visible until reveal. Lives reaching zero ends play;
   after song 35, most lives wins and equal lives is a draw.
 - Enter selects the highlighted anime and locks it. All active players locking
@@ -249,7 +249,7 @@ Open **Match Review** in either the Play Host Console or the Gacha Host Console.
 New matches are indexed automatically after they finish. Opening Highlights also indexes the retained events for older or active matches. Each player, song and signal type appears once. Hosts decide how to interpret the evidence and can record notes and review status. These observations have no effect on scoring, ratings or account access.
 
 The library optionally supplies up to three verified unused audio tracks. The
-initial batch contains 12 real NGMC tracks or 10 real Song/Artist tracks, plus
+initial batch contains up to three real tracks in each multiplayer mode, plus
 the available decoys. All candidates use fixed-length sealed tickets and equally
 sized AES-GCM packets within a mode. Downloads use same-origin `/api/play-audio/`
 and encrypted edge caching. Only the Worker sees the AMQ MP3 URLs. The ready

@@ -4,7 +4,7 @@ import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn} from './play-lobby-votes.js';
-import { playerAudioReady, playbackView } from './play-integrity.js';
+import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
 import {saveDraft,applyTimeoutDrafts} from './play-drafts.js';
@@ -116,7 +116,7 @@ export function advanceMatch(state,now=Date.now()) {
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
     if(state.index===state.songs.length-1||ngmc&&state.teams.includes(0)){state.completed=true;state.phase='finished';state.until=now+86400000;return;}
-    state.index++;state.phase='buffering';state.until=now+90000;
+    state.index++;state.phase='buffering';state.until=now+90000;delete state.audioWaitLimit;
     delete state.ballot;
     for(const p of state.players){delete p.votes;delete p.arenaTitle;delete p.arenaVote;delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now);
@@ -159,6 +159,13 @@ export function matchMove(state,id,message,now=Date.now()) {
   } else if(message.type==='loaded') {
     const slots=state.audioSealed?state.audioPool.length:state.songs.length;
     if(!Array.isArray(message.indices)||message.indices.length>slots||message.indices.some(i=>!Number.isInteger(i)||i<0||i>=slots))fail('Invalid download progress.');
+    if(state.audioSealed && ['loading','buffering'].includes(state.phase)){
+      const {start,end}=audioWindow(state);
+      if(message.indices.some(i=>i>=start && i<end && !player.loaded.includes(i))){
+        state.audioWaitLimit ??= state.until+180000;
+        state.until=Math.max(state.until,Math.min(state.audioWaitLimit,now+120000));
+      }
+    }
     player.loaded=[...new Set([...player.loaded,...message.indices])];
   } else if(message.type==='ready'){player.acceptedReady=true;player.ready=true;}
   else if(message.type==='draft'){
@@ -211,7 +218,7 @@ export function matchMove(state,id,message,now=Date.now()) {
 }
 export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
-  return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
+  return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:['1-team','lobby-team'].includes(state.format)?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
     ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,creditReward:state.creditRewards?.find(row=>row.id===me.id),returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(FIELDS.flatMap(f=>state.ballot[f].map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[f]===o.id).length]))):undefined,
