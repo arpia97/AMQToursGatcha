@@ -32,19 +32,19 @@
             <button type="button" data-action="view-queue" title="View matchmaking"><strong id="play-queue-mode"></strong><small id="play-queue-status" role="status"></small></button>
             <button type="button" data-action="leave-queue" aria-label="Leave queue" title="Leave queue">×</button>
           </div>
-          <div class="inbox-anchor" hidden>
-            <a class="inbox-bell" aria-label="Notifications"><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9ZM10 21h4"/></svg><b class="inbox-bell-count" hidden></b></a>
-            <section class="inbox-pop" aria-labelledby="inbox-pop-title" id="inbox-pop" hidden>
-              <header><h2 id="inbox-pop-title">Notifications</h2><button type="button" class="text-button" data-action="inbox-read" disabled>Mark all as read</button></header>
-              <div class="inbox-pop-list" aria-live="polite"></div>
-              <a class="inbox-all">View all notifications →</a>
-            </section>
-          </div>
-          <div id="play-account">
+          <div id="play-account" class="top-actions">
+            <div class="inbox-anchor" hidden>
+              <a class="inbox-bell" aria-label="Notifications"><svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9ZM10 21h4"/></svg><b class="inbox-bell-count" hidden></b></a>
+              <section class="inbox-pop" aria-labelledby="inbox-pop-title" id="inbox-pop" hidden>
+                <header><h2 id="inbox-pop-title">Notifications</h2><button type="button" class="text-button" data-action="inbox-read" disabled>Mark all as read</button></header>
+                <div class="inbox-pop-list" aria-live="polite"></div>
+                <a class="inbox-all">View all notifications →</a>
+              </section>
+            </div>
             <button type="button" class="button secondary" id="play-signin" data-action="account">Sign In</button>
-            <button type="button" class="play-credits" data-action="activity" hidden><span aria-hidden="true">✦</span><strong></strong><small>credits</small></button>
+            <button type="button" class="wallet play-credits" data-action="activity" hidden><span class="coin" aria-hidden="true">✦</span><strong></strong><span>credits</span></button>
             <div class="account-anchor" hidden>
-              <button type="button" class="play-profile-button" aria-label="Open your account" aria-expanded="false" aria-controls="account-menu" data-action="account"></button>
+              <button type="button" class="avatar play-profile-button" aria-label="Open your account" aria-expanded="false" aria-controls="account-menu" data-action="account"></button>
               <div class="account-menu" id="account-menu" hidden>
                 <button type="button" data-action="profile"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/></svg>Profile</button>
                 <button type="button" data-action="friends-open"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m1-15a3 3 0 0 1 0 6m2 3a4 4 0 0 1 3 4v2"/></svg>Friends</button>

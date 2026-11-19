@@ -195,7 +195,8 @@ nav {
 .workspace {
   margin-left: 226px;
 }
-.topbar {
+.topbar,
+.play-header {
   height: 82px;
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -1370,7 +1371,8 @@ dialog.account-modal {
   main {
     padding: 28px;
   }
-  .topbar {
+  .topbar,
+  .play-header {
     padding: 0 28px;
   }
   .hero {
@@ -1532,12 +1534,6 @@ dialog.account-modal {
   }
   .top-divider {
     margin: 0 10px;
-  }
-  .wallet {
-    padding: 7px 10px;
-  }
-  .top-actions {
-    gap: 10px;
   }
   .avatar {
     width: 29px;
@@ -2070,15 +2066,28 @@ dialog.account-modal {
   padding: 8px 0;
 }
 @media (max-width: 600px) {
-  .topbar {
-    padding: 0 10px;
-  }
-  .top-actions {
-    gap: 6px;
-  }
   .topbar .top-divider,
   .topbar .eyebrow {
     display: none;
+  }
+}
+
+@media (max-width: 850px) {
+  .topbar, .play-header {
+    height: 64px;
+    min-height: 64px;
+    padding-inline: 16px;
+  }
+  .top-actions { gap: 12px; }
+  .wallet { padding: 7px 10px; gap: 6px; }
+  .wallet > span:last-child { display: none; }
+  .account-anchor > .avatar { width: 36px; height: 36px; min-width: 36px; }
+  .account-anchor > .avatar:has(.profile-avatar) { background: transparent; }
+  .account-anchor > .avatar .profile-avatar.enhancement-frame {
+    width: 36px;
+    height: 36px;
+    border-width: min(2px, var(--frame-width));
+    flex-shrink: 0;
   }
 }
 

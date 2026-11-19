@@ -60,7 +60,7 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
     dropdown.sync();
     count(state().inboxUnread || 0);
     if (!me) { close(); return; }
-    trigger.innerHTML = avatarHTML();
+    trigger.innerHTML = state().avatar ? avatarHTML() : escape(me.name.slice(0, 2).toUpperCase());
     wallet.querySelector("strong").textContent = number(me.balance);
   }
   async function showPanel(path, render) {
