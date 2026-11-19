@@ -5,6 +5,7 @@ import {
   drawAlchemyCard,
 } from "./alchemy-rules.js";
 import { cardMatcher } from "./search.js";
+import { demoFavorites } from "./demo-ownership.js";
 import { fusionOutcomesPage } from "./fusion-outcomes.js";
 export function demoAlchemy(d, path, b, { take, add }) {
   if (path !== "alchemy" && !path.startsWith("alchemy-")) return;
@@ -27,6 +28,7 @@ export function demoAlchemy(d, path, b, { take, add }) {
     nextRefinement: progress.refinements + 1,
   });
   const patch = (id) => ({
+    cardFavorites: demoFavorites(s),
     inventory: [
       s.inventory.find((i) => i.card === id) || { card: id, removed: true },
     ],

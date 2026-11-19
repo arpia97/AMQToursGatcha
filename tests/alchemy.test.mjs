@@ -440,6 +440,8 @@ test("wishlist targets use only the signed-in player's active cards before type,
     alchemy.targetsPage({ rarity: "AG", wishlistOnly: true }, "p").total,
     0,
   );
+  f.e.addCard("p", "wish5");
+  f.e.addCard("p", "D1");
   f.e.economy.wishlist.setFavorite("p", { card: "wish5", favorite: true });
   f.e.economy.wishlist.setFavorite("p", { card: "D1", favorite: true });
   const favorites = alchemy.targetsPage({ ...options, favoritesOnly: true }, "p");

@@ -6,6 +6,7 @@ import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
 import { MAX_WISHLIST } from "../src/wishlist.js";
 import { migrateTradeDefaults } from "../src/trade-defaults.js";
+import { installFavoriteOwnership } from "../src/card-ownership.js";
 import { demoFeatures } from "../public/demo-features.js";
 import {
   profileCardPanel,
@@ -695,8 +696,14 @@ test("wishlist sorts the complete saved set before paging and preserves private 
   e.run("INSERT INTO auctions(card,kind,starts,ends,winner,bid,closed,paid) VALUES('community-c5','seiyuu',0,1,'p',1,1,1)");
   const saved=JSON.stringify(e.all("SELECT * FROM inventory ORDER BY player,card")),balance=e.player("p").balance;
   const missing=viewer=>e.economy.wishlist.page("p","wishlist",1,{excludeOwned:true,sort:"name",viewer});
+  const owned=viewer=>e.economy.wishlist.page("p","wishlist",1,{ownership:"owned",sort:"name",viewer});
   assert.equal(missing("q").total,23);assert.equal(missing("q").hasMore,false);
-  assert.ok(missing("q").rows.every(r=>!['0','1','2','3','4','5','29'].some(i=>r.card==='community-c'+i)));
+  const ownedCards = [0,1,2,3,4,5,29].map(i => "community-c"+i).sort();
+  assert.deepEqual(owned("q").rows.map(r=>r.card).sort(), ownedCards);
+  assert.equal(owned("q").total, 7);
+  assert.ok(missing("q").rows.every(r=>!ownedCards.includes(r.card)));
+  assert.deepEqual(e.economy.wishlist.page("p","wishlist",1,{ownership:"unowned",sort:"name",viewer:"q"}),missing("q"));
+  assert.deepEqual(e.economy.wishlist.page("p","wishlist",1,{ownership:"owned",kind:"seiyuu",rarity:"AG",viewer:"q"}).rows.map(r=>r.card),["community-c29"]);
   const filtered=e.economy.wishlist.page("p","wishlist",1,{excludeOwned:true,kind:"seiyuu",query:"Card 2",rarity:"D",viewer:"q"});
   assert.deepEqual(filtered.rows.map(r=>r.card).sort(),['community-c21','community-c23','community-c25','community-c27']);
   e.run("UPDATE players SET private_collection=1 WHERE id='p'");
@@ -705,19 +712,46 @@ test("wishlist sorts the complete saved set before paging and preserves private 
   assert.equal(page("custom").rows[0].card,"community-c29");
   assert.throws(()=>missing("q"),e=>e.status===403);
   assert.throws(()=>missing(null),e=>e.status===403);
+  assert.throws(()=>owned("q"),e=>e.status===403);
+  assert.throws(()=>owned(null),e=>e.status===403);
   assert.equal(missing("p").total,23);
+  assert.equal(owned("p").total,7);
   assert.equal(page("custom").ownershipHidden,true);
   assert.equal(JSON.stringify(e.all("SELECT * FROM inventory ORDER BY player,card")),saved);assert.equal(e.player("p").balance,balance);
 
 });
 
-test("personal favorites survive a state reload and stay independent of wishlists and other players", t => {
+test("personal favorites require ownership, survive escrow, and disappear after the final copy is sold", t => {
   const {e, act} = fixture(t);
+  assert.throws(() => act("p", "card-favorite", {card: "c1", favorite: true}), /card you own/);
+  e.addCard("p", "c1");
   for (let i = 0; i < 2; i++) act("p", "card-favorite", {card: "c1", favorite: true});
   assert.deepEqual(e.economy.wishlist.favorites("p"), ["c1"]);
   assert.deepEqual(e.economy.wishlist.favorites("q"), []);
   assert.deepEqual(e.economy.wishlist.read("p"), []);
-  assert.throws(() => act("p", "card-favorite", {card: "missing", favorite: true}));
+  act("p", "list-card", {card:"c1", variant:"card", venue:"shop", price:100});
+  const listing = e.one("SELECT id FROM market_listings WHERE seller='p' AND card='c1'").id;
+
+  e.run("INSERT INTO card_favorites VALUES('p','c2'),('q','c1')");
+  e.run("DELETE FROM settings WHERE key='favorite_ownership_v1'");
+  installFavoriteOwnership(e);
+  installFavoriteOwnership(e);
+  assert.deepEqual(e.all("SELECT player,card FROM unowned_favorites_repair ORDER BY player").map(row=>({...row})),[
+    {player:"p",card:"c2"},{player:"q",card:"c1"},
+  ]);
+  const page=viewer=>e.economy.wishlist.page("p","favorites",1,{viewer,kind:"seiyuu",query:"Card 1",strict:true});
+  assert.deepEqual(page("q").rows.map(row=>row.card),["c1"]);
+  assert.match(profileCardTabs("favorites"), /Collection<\/button><button[^>]+data-view="favorites"/);
+
+  e.run("UPDATE players SET private_collection=1 WHERE id='p'");
+  assert.equal(page("q").hidden,true);
+  assert.equal(page("p").total,1);
+  e.wallet("q",100,"Fixture purchase");
+  act("q", "buy-listing", {listing});
+  assert.deepEqual(e.all("SELECT player,card FROM card_favorites"), []);
+  e.addCard("p","c1");
+  assert.equal(page("p").total,0);
+  act("p", "card-favorite", {card: "c1", favorite: true});
   act("p", "card-favorite", {card: "c1", favorite: false});
   assert.deepEqual(e.economy.wishlist.favorites("p"), []);
 });
@@ -725,6 +759,7 @@ test("personal favorites survive a state reload and stay independent of wishlist
 test("Favorites Only scopes card results to the viewer before pagination, including combined filters", t => {
   const { e, act } = fixture(t);
   const { wishlist, trades } = e.economy;
+  e.addCard("p", "c27"); e.addCard("p", "c6"); e.addCard("q", "c2");
   act("p", "card-favorite", { card: "c27", favorite: true });
   act("p", "card-favorite", { card: "c6", favorite: true });
   act("q", "card-favorite", { card: "c2", favorite: true });

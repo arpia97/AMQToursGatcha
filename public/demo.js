@@ -9,6 +9,7 @@ import { drawFeatured } from "./auction-odds.js";
 import { premiumPool, drawPremium, specialPool, drawSpecialPack } from "./pack-odds.js";
 // Explicit browser-only sandbox. The production API never reads this state.
 import { demoFeatures } from "./demo-features.js";
+import { demoFavorites, demoHeldCards } from "./demo-ownership.js";
 import { blackjackView } from "./blackjack-rules.js";
 const KEY = "amqtours-demo-v2";
 export class Demo {
@@ -45,6 +46,7 @@ export class Demo {
       this.s = JSON.parse(localStorage.getItem(KEY));
     } catch {}
     if (!this.s) this.reset();
+    this.s.cardFavorites = demoFavorites(this.s);
     if((this.s.automaticTradeDefaultsRevision||0)<2){
       if(this.s.automaticTradeDefaultsRevision===1)for(const item of this.s.inventory)item.for_trade=0;
       this.s.automaticTradeDefaultsRevision=2;
@@ -182,6 +184,7 @@ export class Demo {
       };
     const extra = demoFeatures(this, path, b);
     if (extra !== undefined) {
+      this.s.cardFavorites = demoFavorites(this.s);
       this.save();
       return structuredClone(extra);
     }
@@ -202,7 +205,7 @@ export class Demo {
       };
     }
     if (path === "state")
-      return { ...structuredClone(s), blackjack: blackjackView(s.blackjack) };
+      return { ...structuredClone(s), heldCardIds:demoHeldCards(s).map(row=>row.card), blackjack: blackjackView(s.blackjack) };
     if (path.startsWith("profiles?")) {
       const params = new URLSearchParams(path.split("?")[1]),
         matches = searchMatcher(params.get("q")),

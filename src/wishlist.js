@@ -1,6 +1,7 @@
 import { fail, integer, text } from "./engine.js";
 import { collectionView, WISHLIST_SORTS, COLLECTION_SORTS } from "../public/card-display.js";
 import { MAX_WISHLIST } from "../public/site-defaults.js";
+import { activeFavorites, ownedCardCopies } from "./card-ownership.js";
 export { MAX_WISHLIST };
 export class Wishlist {
   constructor(e) {
@@ -34,13 +35,14 @@ export class Wishlist {
       .map((r) => r.card);
   }
   favorites(player) {
-    return this.e.all("SELECT card FROM card_favorites WHERE player=?", player).map(row => row.card);
+    return activeFavorites(this.e,player);
   }
   setFavorite(player, b) {
     const card = text(b.card, 100);
     if (typeof b.favorite !== "boolean") fail("Choose whether to favorite this card.");
     if (b.favorite) {
-      if (!this.e.catalogStore.card(card)) fail("Unknown card.");
+      if (!this.e.one(`SELECT 1 FROM ${ownedCardCopies} WHERE player=? AND card=? AND available_at<=? LIMIT 1`,player,card,this.e.now()))
+        fail("You can only favorite a card you own.",409);
       this.e.run("INSERT OR IGNORE INTO card_favorites(player,card) VALUES(?,?)", player, card);
     } else {
       this.e.run("DELETE FROM card_favorites WHERE player=? AND card=?", player, card);
@@ -250,7 +252,9 @@ export class Wishlist {
     if (view === "wishlist") {
       const ownershipVisible = !owner.private_collection || options.viewer === id;
       ownershipHidden = !ownershipVisible;
-      if(options.excludeOwned && !ownershipVisible) fail("This collection is private.",403);
+      const ownership = options.excludeOwned ? "unowned" : options.ownership;
+      const filterOwnership = ownership === "owned" || ownership === "unowned";
+      if (filterOwnership && !ownershipVisible) fail("This collection is private.", 403);
       const ownershipColumn = ownershipVisible ? "COALESCE(i.protected,0)" : "NULL";
       const ownershipJoin = ownershipVisible
         ? "LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card"
@@ -261,7 +265,7 @@ export class Wishlist {
       const sort = WISHLIST_SORTS.includes(options.sort)
         ? options.sort : "custom";
       const query=String(options.query||"").slice(0,100), rarity=String(options.rarity||""), role=wishlistKind==="character"?String(options.role||""):"";
-      if (wishlistKind === "both" && sort === "custom" && !query.trim() && !rarity && !role && !options.excludeOwned && !favoriteIds) {
+      if (wishlistKind === "both" && sort === "custom" && !query.trim() && !rarity && !role && !filterOwnership && !favoriteIds) {
         rows = e.all(
           `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?`,
           id, (page - 1) * 24,
@@ -272,15 +276,9 @@ export class Wishlist {
           `SELECT w.card,w.created,w.position,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=?`, id,
         );
         if (favoriteIds) allWish = allWish.filter(w => favoriteIds.has(w.card));
-        if(options.excludeOwned) {
-          const owned=new Set(e.all(`SELECT card FROM (
-            SELECT card FROM inventory WHERE player=? AND copies>0
-            UNION SELECT card FROM market_listings WHERE seller=? AND status='open'
-            UNION SELECT card FROM auctions WHERE seller=? AND paid=0
-            UNION SELECT card FROM trade_listings WHERE seller=? AND status='open'
-            UNION SELECT COALESCE(c.card,o.card) FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'
-          ) UNION SELECT card FROM auctions WHERE winner=? AND claimed=0 AND ends<=?`,id,id,id,id,id,id,e.now()).map(r=>r.card));
-          allWish=allWish.filter(w=>!owned.has(w.card));
+        if (filterOwnership) {
+          const owned=new Set(e.all(`SELECT DISTINCT card FROM ${ownedCardCopies} WHERE player=? AND available_at<=?`,id,e.now()).map(r=>r.card));
+          allWish = allWish.filter(w => owned.has(w.card) === (ownership === "owned"));
         }
         const cardMap = new Map(e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]));
         const sorted = collectionView(allWish.map((w) => ({ ...w, acquired_at: w.created })),
@@ -289,7 +287,7 @@ export class Wishlist {
         rows = sorted.slice((page - 1) * 24, page * 24 + 1)
           .map(({ c, acquired_at, position, ...w }) => w);
       }
-    } else if (view === "collection") {
+    } else if (view === "collection" || view === "favorites") {
       if (owner.private_collection && options.viewer !== id) {
         return {
           player: id,
@@ -311,7 +309,10 @@ export class Wishlist {
         sort = COLLECTION_SORTS.includes(options.sort)
           ? options.sort
           : "custom";
-      let allRows = this.readCollection(id);
+      let allRows = view === "favorites" ? e.all(`SELECT h.card,MAX(h.level) AS level,SUM(h.copies) AS copies,
+        MAX(h.protected) AS protected,MAX(h.for_trade) AS for_trade,MIN(NULLIF(h.acquired_at,0)) AS acquired_at,MIN(h.position) AS position
+        FROM card_favorites f JOIN ${ownedCardCopies} h ON h.player=f.player AND h.card=f.card
+        WHERE f.player=? AND h.available_at<=? GROUP BY h.card`,id,e.now()) : this.readCollection(id);
       if (favoriteIds) allRows = allRows.filter(row => favoriteIds.has(row.card));
       if (options.wishlist && options.viewer) {
         const wanted = new Set(
@@ -328,7 +329,7 @@ export class Wishlist {
         allRows = owner.account_locked ? [] : allRows.filter((r) => !!r.for_trade || !r.protected);
       }
       const sourceRows =
-        kind === "both" && !query.trim() && !rarity && !role && sort === "custom"
+        view === "collection" && kind === "both" && !query.trim() && !rarity && !role && sort === "custom"
           ? allRows
           : (() => {
               const byId = new Map(
@@ -368,7 +369,7 @@ export class Wishlist {
         id,
         (page - 1) * 24,
       );
-    else fail("Choose collection, wishlist or listings.");
+    else fail("Choose collection, favorites, wishlist or listings.");
     const visible = rows.slice(0, 24);
     const wanted =
       view === "wishlist"

@@ -2,6 +2,7 @@ import { cardMatcher } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
+import { pruneFavorite } from "./card-ownership.js";
 import {
   DAILY_CREDITS,
   MAX_SPOTLIGHTS,
@@ -266,6 +267,7 @@ export class Economy {
       e.now(),
       a.id,
     );
+    if (a.seller) pruneFavorite(e,a.seller,a.card);
     const notice = this.notices.add(
       player,
       `auction-buyout:${a.id}`,
@@ -302,7 +304,7 @@ export class Economy {
       this.e.now(),
     );
   }
-  take(player, id, variant) {
+  take(player, id, variant, { escrow = false } = {}) {
     const e = this.e,
       item = e.one(
         "SELECT * FROM inventory WHERE player=? AND card=?",
@@ -334,6 +336,7 @@ export class Economy {
       );
     else {
       e.run("DELETE FROM inventory WHERE player=? AND card=?", player, id);
+      if (!escrow) pruneFavorite(e,player,id);
       e.run(
         "UPDATE players SET avatar_card=NULL WHERE id=? AND avatar_card=?",
         player,
@@ -375,6 +378,7 @@ export class Economy {
           a.bid,
         );
         e.run("UPDATE auctions SET paid=1,closed=1 WHERE id=?", a.id);
+        pruneFavorite(e,a.seller,a.card);
       } else {
         this.acquire(a.seller, a.card, a.level, a.extra_copies);
         e.run("UPDATE auctions SET paid=1,closed=1,claimed=1 WHERE id=?", a.id);
@@ -717,7 +721,7 @@ export class Economy {
         venue !== "auction" || b.buyout == null || b.buyout === ""
           ? null
           : integer(b.buyout, price, 1000000);
-      const level = this.take(player, id, b.variant || "extra");
+      const level = this.take(player, id, b.variant || "extra", {escrow:true});
       if (venue === "shop")
         e.run(
           "INSERT INTO market_listings(seller,card,kind,level,price,created) VALUES(?,?,?,?,?,?)",
@@ -810,6 +814,7 @@ export class Economy {
         now,
         l.id,
       );
+      pruneFavorite(e,l.seller,l.card);
       return {
         message: "Card purchased and added to your collection.",
         cards: [e.catalogStore.card(l.card)],
@@ -877,7 +882,7 @@ export class Economy {
       player || "",
       ...(auction ? [e.now()] : []),
       ...(kind === "both" ? [] : [kind]),
-      ...(favoritesOnly ? [player] : []),
+      ...(favoritesOnly ? [JSON.stringify(this.wishlist.favorites(player))] : []),
       ...friendScope.args,
     ];
     const select = auction
@@ -897,7 +902,7 @@ export class Economy {
       (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
       (kind === "both" ? "" : " AND " + alias + ".kind=?") +
       (wishlistOnly ? " AND is_wishlisted=1" : "") +
-      (favoritesOnly ? " AND EXISTS(SELECT 1 FROM card_favorites f WHERE f.player=? AND f.card=" + alias + ".card)" : "") +
+      (favoritesOnly ? " AND " + alias + ".card IN (SELECT value FROM json_each(?))" : "") +
       friendScope.sql;
     const price = auction
       ? "CASE WHEN a.bid>0 THEN a.bid ELSE a.reserve END"

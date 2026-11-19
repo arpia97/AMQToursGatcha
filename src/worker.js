@@ -1721,6 +1721,7 @@ export class Game extends DurableObject {
           wishlist: url.searchParams.get("wishlist") === "1",
           favoritesOnly,
           tradeable: url.searchParams.get("tradeable") === "1",
+          ownership: url.searchParams.get("ownership"),
           excludeOwned: url.searchParams.get("excludeOwned") === "1",
           viewer: session?.player,
         },

@@ -1,3 +1,4 @@
+import { pruneFavorite } from "./card-ownership.js";
 import { fail, integer, text } from "./engine.js";
 import { cardMatcher } from "../public/search.js";
 import { cardComparator } from "../public/card-display.js";
@@ -91,7 +92,7 @@ export class Trades {
     const level = variant === "extra" ? 1 : item?.level;
     if (b.expectedLevel !== level)
       fail("This card changed. Choose it again before trading.", 409);
-    return { card, level: this.e.economy.take(player, card, variant) };
+    return { card, level: this.e.economy.take(player, card, variant, {escrow:true}) };
   }
   offerCards(o) {
     const rows = this.e.all(
@@ -345,7 +346,8 @@ export class Trades {
       }
       // Acceptance must also respect a locked proposer, including old offers.
       e.assertAccountUnlocked(o.proposer);
-      for (const c of this.offerCards(o))
+      const offered = this.offerCards(o);
+      for (const c of offered)
         e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
       e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);
       if (Number(o.credits) > 0) {
@@ -375,6 +377,8 @@ export class Trades {
         e.now(),
         l.id,
       );
+      pruneFavorite(e,l.seller,l.card);
+      for (const card of new Set(offered.map(item=>item.card))) pruneFavorite(e,o.proposer,card);
       return {
         message: "Trade completed. All cards are now in their new collections.",
       };
@@ -427,8 +431,8 @@ export class Trades {
       args.push(player);
     }
     if (favoritesOnly) {
-      where += " AND EXISTS(SELECT 1 FROM card_favorites f WHERE f.player=? AND f.card=l.card)";
-      args.push(player);
+      where += " AND l.card IN (SELECT value FROM json_each(?))";
+      args.push(JSON.stringify(this.e.economy.wishlist.favorites(player)));
     }
     const friendScope = this.e.friends.filter("l.seller", player, friendsOnly);
     where += friendScope.sql;

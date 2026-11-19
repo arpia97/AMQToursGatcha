@@ -15,6 +15,8 @@
 .card-filter-options { flex:0 0 100%; display:flex; align-items:end; flex-wrap:wrap; gap:8px 12px; border-top:1px solid var(--border); padding-top:10px; }
 .card-filter-options[hidden] { display:none; }
 .card-filter-options :is(.catalog-refinements,.collection-checkboxes) { display:contents; }
+.card-filter-options .catalog-refinements > .collection-checkboxes { display:flex; }
+.wishlist-ownership-options { display:inline-flex; flex-wrap:wrap; gap:inherit; max-width:100%; }
 .card-filter-options label { margin:0; }
 .card-filter-options label.check-label { flex:0 1 auto; min-width:0; }
 .card-filter-chips { display:flex; flex-wrap:wrap; gap:5px; flex-basis:100%; }

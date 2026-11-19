@@ -3,7 +3,7 @@ import { wishlistButton } from "./profile-cards-ui.js";
 
 export function animeChecklist(
   data,
-  { escape: e, cardHTML, wishlist, favorites, titleMode },
+  { escape: e, cardHTML, wishlist, state, titleMode },
 ) {
   const title = seriesTitle(data, titleMode);
   return (
@@ -24,7 +24,7 @@ export function animeChecklist(
           '<div class="anime-checklist-status"><span>' +
           (c.owned ? "✓ Owned" : "Missing") +
           "</span>" +
-          wishlistButton(c, wishlist, e, favorites) +
+          wishlistButton(c, wishlist, e, state) +
           "</div></div>",
       )
       .join("") +

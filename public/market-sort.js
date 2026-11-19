@@ -35,7 +35,7 @@ export function marketSortControl(
         })[c],
     );
   return (
-    '<div class="market-sort-controls">' + types + '<input class="search ' +
+    '<div class="market-sort-controls collection-toolbar-main">' + types + '<input class="search ' +
     (query && noResults ? "no-results" : "") +
     '" id="market-search" type="search" aria-label="Search player ' +
     (auction ? "auctions" : "marketplace") +
@@ -43,7 +43,7 @@ export function marketSortControl(
     escape(query) +
     '" aria-invalid="' +
     !!(query && noResults) +
-    '"><label>Sort By<select id="market-sort" aria-label="Sort player ' +
+    '"><div class="catalog-refinements sort-control"><label>Sort By<select id="market-sort" aria-label="Sort player ' +
     (auction ? "auctions" : "marketplace") +
     '">' +
     MARKET_SORTS.filter(([v]) => auction || !v.startsWith("ending"))
@@ -60,14 +60,14 @@ export function marketSortControl(
           "</option>",
       )
       .join("") +
-    '</select></label><label>Rarity<select id="market-rarity"><option value="">All Rarities</option>' +
+    '</select></label></div><div class="catalog-refinements"><label>Rarity<select id="market-rarity"><option value="">All Rarities</option>' +
     ["AG","Ubers","SSS","SS","S","A","B","C","D","Pending"].map(tier => '<option' + (tier === rarity ? " selected" : "") + '>' + tier + '</option>').join("") +
-    '</select></label><label class="check-label"><input type="checkbox" id="market-wishlist-only" ' +
+    '</select></label><div class="collection-checkboxes" role="group" aria-label="Card Filters"><label class="check-label"><input type="checkbox" id="market-wishlist-only" ' +
     (wishlistOnly ? "checked" : "") +
     " " +
     (!signedIn ? "disabled" : "") +
     '> My Wishlist Only</label><label class="check-label"><input type="checkbox" id="market-friends-only" ' +
-    (friendsOnly ? 'checked' : '') + ' ' + (!signedIn ? 'disabled' : '') + '> Friends Only</label></div>'
+    (friendsOnly ? 'checked' : '') + ' ' + (!signedIn ? 'disabled' : '') + '> Friends Only</label></div></div></div>'
   );
 }
 export function sortMarketItems(rows, cards, sort) {

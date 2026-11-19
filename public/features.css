@@ -4868,14 +4868,7 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   font-size: 12px;
 }
 .market-sort-controls {
-  display: flex;
-  align-items: end;
-  flex-wrap: wrap;
-  gap: 18px;
   margin: 18px 0 24px;
-}
-.market-sort-controls select {
-  min-width: 180px;
 }
 .catalog-import-progress {
   margin: 16px 0;
@@ -4987,11 +4980,6 @@ dialog.avatar-editor-modal {
 .quantity-stepper input:focus {
   box-shadow: none;
   outline: none;
-}
-.market-sort-controls .search {
-  flex: 1 1 260px;
-  max-width: 400px;
-  margin: 0;
 }
 .user-auction-timer {
   font-variant-numeric: tabular-nums;

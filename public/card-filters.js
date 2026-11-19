@@ -24,12 +24,12 @@ function setup(bar, reload, player) {
   for (const control of [...bar.children]) {
     if (control.matches('.tabs,.sort-control,.search,.alchemy-type-filter') ||
         control.matches('#trade-sort,[data-action="trade-search-clear"]') ||
-        control.querySelector('#market-sort,#fusion-kind,#fusion-sort')) continue;
+        control.querySelector('#fusion-kind,#fusion-sort')) continue;
     panel.append(control);
   }
   const sortHint = bar.querySelector('.sort-control .form-hint');
   if (sortHint) panel.append(sortHint);
-  function addToggle(text, scopes) {
+  function addToggle(text, scopes, container = panel) {
     const label = document.createElement('label');
     label.className = 'check-label';
     const input = document.createElement('input');
@@ -40,11 +40,14 @@ function setup(bar, reload, player) {
       reload(scope);
     };
     label.append(input, ' ' + text);
-    panel.prepend(label);
+    container.prepend(label);
   }
   if (search.id !== 'fusion-search') {
-    if (player) addToggle('Favorites Only', favoriteScopes);
-    addToggle('Strict (exact title match)', strictScopes);
+    const isFavorites = scope === 'profile-favorites-search';
+    const sharedChecks = panel.querySelector('.wishlist-ownership-options, #market-wishlist-only, #profile-favorites-tradeable')?.closest('.collection-checkboxes');
+    const collectionChecks = panel.querySelector('#collection-upgradable')?.closest('.collection-checkboxes');
+    if (player && !isFavorites) addToggle('Favorites Only', favoriteScopes, sharedChecks);
+    addToggle('Strict (exact title match)', strictScopes, sharedChecks ?? collectionChecks);
     panel.addEventListener('click', event => {
       if (event.target.closest('[data-action^="clear-"][data-action$="filters"]')) {
         strictScopes.delete(scope);

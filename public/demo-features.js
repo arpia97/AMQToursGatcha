@@ -1,4 +1,5 @@
 import { sortMarketItems } from "./market-sort.js";
+import { demoHeldCards, demoFavorites } from "./demo-ownership.js";
 import { searchMatcher, cardMatcher } from "./search.js";
 import { collectionView } from "./card-display.js";
 import { demoAlchemy } from "./demo-alchemy.js";
@@ -114,6 +115,7 @@ export function demoFeatures(d, path, b) {
   }
   if (path === "card-favorite") {
     if (!me || typeof b.favorite !== "boolean" || !d.cards.some(c => c.id === b.card)) throw Error("Choose a valid card.");
+    if (b.favorite && ![...s.inventory, ...demoHeldCards(s)].some(row=>row.card===b.card && row.copies>0)) throw Error("You can only favorite a card you own.");
     s.cardFavorites = (s.cardFavorites || []).filter(id => id !== b.card);
     if (b.favorite) s.cardFavorites.push(b.card);
     return {card: b.card, favorite: b.favorite, message: b.favorite ? "Card favorited." : "Card removed from favorites."};
@@ -185,15 +187,24 @@ export function demoFeatures(d, path, b) {
       page = Number(params.get("page") || 1),
       wishlistOnly = params.get("wishlist") === "1",
       tradeableOnly = params.get("tradeable") === "1";
+    const favoriteInventory = new Map();
+    if (view === "favorites" && id === me.id) {
+      const favorites = new Set(demoFavorites(s));
+      for (const row of [...s.inventory, ...demoHeldCards(s)]) {
+        if (!favorites.has(row.card)) continue;
+        const saved = favoriteInventory.get(row.card);
+        favoriteInventory.set(row.card, saved ? {...saved,level:Math.max(saved.level,row.level),copies:saved.copies+row.copies} : row);
+      }
+    }
     let rows =
       id === me.id && view === "wishlist"
         ? collectionView(s.wishlist.map((card, position) => ({ card, position, acquired_at: s.wishlist.length-position })),
             (cid) => d.cards.find((c) => c.id === cid),
             { kind: params.get("kind") || "both", sort: params.get("sort") || "custom", query:params.get("q")||"", strict:params.get("strict")==="1",rarity:params.get("rarity")||"",role:params.get("role")||"" })
             .map(({ c, acquired_at, position, ...row }) => row)
-        : id === me.id && view === "collection"
+        : id === me.id && (view === "collection" || view === "favorites")
           ? collectionView(
-              s.inventory,
+              view === "favorites" ? [...favoriteInventory.values()] : s.inventory,
               (cid) => d.cards.find((c) => c.id === cid),
               {
                 kind: params.get("kind") || "both",
@@ -204,11 +215,10 @@ export function demoFeatures(d, path, b) {
               },
             ).map(({ c: _c, ...row }) => row)
           : [];
-    if(view==="wishlist" && params.get("excludeOwned")==="1") {
-      const owned=new Set(s.inventory.map(i=>i.card));
-      for(const row of [...(s.market||[]),...(s.auctions||[]),...(s.trades||[])])if(row.seller===id && (!row.status||row.status==="open")&&!row.paid)owned.add(row.card);
-      for(const row of s.tradeOffers||[])if(row.proposer===id&&row.status==="open")for(const c of row.cards||[row])owned.add(c.card);
-      rows=rows.filter(row=>!owned.has(row.card));
+    const ownership = params.get("excludeOwned") === "1" ? "unowned" : params.get("ownership");
+    if (view === "wishlist" && (ownership === "owned" || ownership === "unowned")) {
+      const owned=new Set([...s.inventory, ...demoHeldCards(s)].filter(row=>row.copies>0).map(row=>row.card));
+      rows = rows.filter(row => owned.has(row.card) === (ownership === "owned"));
     }
     if (params.get("favorites") === "1") {
       const favorites = new Set(s.cardFavorites || []);

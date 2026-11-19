@@ -1,5 +1,6 @@
 import { fail, text } from "./engine.js";
 import { batchSaleQuote } from "../public/card-management.js";
+import { pruneFavorite } from "./card-ownership.js";
 export class CardManagement {
   constructor(e) {
     this.e = e;
@@ -99,6 +100,7 @@ export class CardManagement {
           player,
           i.card,
         );
+        pruneFavorite(e,player,i.card);
         e.run(
           "DELETE FROM profile_showcase WHERE player=? AND card=?",
           player,

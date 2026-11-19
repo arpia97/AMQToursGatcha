@@ -3,7 +3,7 @@ import { routeHref } from "./site-navigation.js";
 import { MAX_SPOTLIGHTS, FREE_SPOTLIGHTS } from "./site-defaults.js";
 import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
-import { cardQuickActions } from "./card-quick-actions.js";
+import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 
 import { roleBadge } from "./role-label.js";
 import { createShopUI } from "./shop-ui.js";
@@ -28,7 +28,7 @@ export function createFeatures(h, ui) {
       actions: s.me ? cardQuickActions(c, {
         wishlist: !!s.wishlist?.includes(id),
         showcase: ownShowcase ? true : undefined,
-        favorite: !!s.cardFavorites?.includes(id),
+        favorite: cardFavoriteFlag(s,id),
       }, e) : "",
     }, h);
   };

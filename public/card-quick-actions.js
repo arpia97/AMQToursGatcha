@@ -6,6 +6,11 @@ const actions = {
   favorite: ["Favorite", '<path d="m12 2.8 2.8 5.8 6.4 1-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-1Z"/>'],
 };
 
+export function cardFavoriteFlag(state, id) {
+  if (!state?.me || !(state.inventory?.some(item => item.card === id && item.copies > 0) || state.heldCardIds?.includes(id))) return;
+  return state.cardFavorites?.includes(id) ?? false;
+}
+
 // An omitted toggle is unavailable in this view. Explicit false means available and off.
 export function cardQuickActions(card, flags, escape, disabled = []) {
   const buttons = Object.entries(actions).filter(([key]) => flags[key] !== undefined)

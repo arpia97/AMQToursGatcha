@@ -122,6 +122,7 @@ export class Alchemy {
   }
   collectionPatch(player, ids) {
     return {
+      cardFavorites: this.e.economy.wishlist.favorites(player),
       inventory: [...new Set(ids)].map((card) => {
         const row = this.e.one(
           "SELECT * FROM inventory WHERE player=? AND card=?",

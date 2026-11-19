@@ -2,12 +2,13 @@ import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { routeHref } from "./site-navigation.js";
 import { rarityRank, rarityClass } from "./card-display.js";
 import { collectorsButton } from "./card-collectors.js";
-import { cardQuickActions } from "./card-quick-actions.js";
+import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 
 export function packCardActions(card, state, escape, options = {}) {
   const id = typeof card === "string" ? card : card.id;
   const cardObj = typeof card === "string" ? options.card || { id } : card;
   const isAutoSold = !!(typeof card === "object" && card.autoSold);
+  const favorite = cardFavoriteFlag(state,id);
   const autoSoldBadge = isAutoSold
     ? card.autoSoldId
       ? `<button type="button" class="text-button pack-autosell-tag" data-action="pack-autosell-cancel" data-sale="${escape(card.autoSoldId)}" title="Restore this copy for its original ${escape(card.autoSoldPrice)} credit auto-sale">Cancel Auto-sell · −✦ ${escape(card.autoSoldPrice)}</button>`
@@ -17,8 +18,8 @@ export function packCardActions(card, state, escape, options = {}) {
     wishlist: state.wishlist?.includes(id) ?? false,
     protect: !isAutoSold && !!state.inventory?.find(i => i.card === id)?.protected,
     showcase: !isAutoSold && !!state.showcase?.includes(id),
-    favorite: state.cardFavorites?.includes(id) ?? false,
-  }, escape, isAutoSold || !state.inventory?.some(i => i.card === id) ? ["protect", "showcase"] : []) : ""}</div>`;
+    favorite: favorite ?? false,
+  }, escape, [...(isAutoSold || !state.inventory?.some(i => i.card === id) ? ["protect", "showcase"] : []), ...(favorite === undefined ? ["favorite"] : [])]) : ""}</div>`;
 }
 
 // Update every copy of a pulled card without replacing the card or its animation.
@@ -37,6 +38,7 @@ export function syncPackCardActions(root, state) {
       if (!button) continue;
       button.setAttribute("aria-pressed", String(pressed));
       if (action === "protect" || action === "showcase") button.disabled = !owned;
+      if (action === "favorite") button.disabled = cardFavoriteFlag(state,id) === undefined;
     }
   }
 }

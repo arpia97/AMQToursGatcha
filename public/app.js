@@ -1,4 +1,4 @@
-import { cardQuickActions } from "./card-quick-actions.js";
+import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { replacementPortrait } from "./mal-portraits.js";
 import {installTitleMotion} from "./title-motion.js";
@@ -251,6 +251,7 @@ const ui = {
     wishlist: false,
     tradeable: false,
   },
+  profileFavorites: {kind:"both",query:"",rarity:"",role:"",sort:"custom",wishlist:false,tradeable:false},
   rouletteMotion: readRouletteMotion({
     getItem: (key) => localStorage.getItem(key),
   }),
@@ -294,7 +295,7 @@ const ui = {
   tradeRole: "",
   tradeSort: "newest",
   tradeWishlistOnly: false,
-  profileWishlist: {kind:"both",query:"",rarity:"",role:"",sort:"custom",excludeOwned:false},
+  profileWishlist: {kind:"both",query:"",rarity:"",role:"",sort:"custom",ownership:""},
   tradeHideCompleted: (() => {
     try {
       return localStorage.getItem("amqtours-trade-hide-completed") === "1";
@@ -414,7 +415,7 @@ async function openAnimeChecklist(seriesKey, pageNumber = 1) {
       escape,
       cardHTML,
       wishlist: state.wishlist || [],
-      favorites: state.cardFavorites,
+      state,
       titleMode,
     }),
     true,
@@ -669,7 +670,7 @@ function ownedCardActions(c, item) {
     wishlist: state.wishlist?.includes(c.id) ?? false,
     protect: !!item.protected,
     trade: !!item.for_trade,
-    favorite: state.cardFavorites?.includes(c.id) ?? false,
+    favorite: cardFavoriteFlag(state,c.id),
   }, escape);
   return `<div class="card-copy-info"><span>${item.copies - 1} Extra Copies</span><span>${maxed ? "MAX" : cost + " to Enhance"}</span></div>
     <div class="card-action-grid owned-card-grid">
@@ -693,7 +694,7 @@ function cardHTML(c, a = null, item = null, extraActions = "", { packResult = fa
     owned +
     (!packResult && (page() === "catalog" || a) ? collectorsButton(c, escape) : "") +
     (state.me && !item?.preview && !owned && !packResult
-      ? wishlistButton(c, state.wishlist || [], escape, state.cardFavorites)
+      ? wishlistButton(c, state.wishlist || [], escape, state)
       : "") +
     extraActions;
   const meta = a
@@ -1589,6 +1590,9 @@ function myProfile() {
     );
   return profileTabs("profile") + profile();
 }
+function profileInventoryFilters(view = ui.profileView) {
+  return view === "favorites" ? ui.profileFavorites : ui.profileCollection;
+}
 function profile() {
   if (!profileData) return '<div class="loading">Finding this collector…</div>';
   const p = profileData,
@@ -1615,8 +1619,8 @@ function profile() {
               number,
               own,
               wishlist: state.wishlist || [],
-              favorites: state.cardFavorites,
-              collectionFilters: ui.profileCollection,
+              state,
+              collectionFilters: profileInventoryFilters(),
               wishlistFilters: {...ui.profileWishlist, favoritesOnly: favoritesOnly("profile-wishlist-search")},
             }))
     );
@@ -1638,7 +1642,7 @@ function profile() {
                     wishlisted: (p.wishlist || []).includes(item.card),
                     forTrade: !!item.for_trade,
                   },
-                }, state.me ? wishlistButton(c, state.wishlist || [], escape, state.cardFavorites) : "");
+                }, state.me ? wishlistButton(c, state.wishlist || [], escape, state) : "");
               })
               .join(
                 "",
@@ -1777,7 +1781,6 @@ async function loadDynamic() {
             : decodeURIComponent(route.slice(7)),
         ),
     );
-  if(data?.collectionHidden && ui.profileView==="wishlist") ui.profileWishlist.excludeOwned=false;
   if (
     (current === "player" || current === "profile") &&
     data &&
@@ -1785,7 +1788,10 @@ async function loadDynamic() {
     ui.profileView !== "quiz" &&
     !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id)) &&
     !(ui.profileView === "collection" && collectionEditor.activeFor(data.id))
-  )
+  ) {
+    const view = ui.profileView;
+    const filters = profileInventoryFilters(view);
+    const scope = "profile-"+view+"-search";
     profileCardsResult = await api(
       "player-cards?id=" +
         encodeURIComponent(data.id) +
@@ -1793,30 +1799,17 @@ async function loadDynamic() {
         ui.profileView +
         "&page=" +
         ui.profileCardsPage +
-        (ui.profileView === "collection"
-          ? "&kind=" +
-            encodeURIComponent(ui.profileCollection.kind) +
-            "&q=" +
-            encodeURIComponent(ui.profileCollection.query) + (strictCards("profile-collection-search") ? "&strict=1" : "") + (favoritesOnly("profile-collection-search") ? "&favorites=1" : "") +
-            "&rarity=" +
-            encodeURIComponent(ui.profileCollection.rarity) +
-            "&role=" +
-            encodeURIComponent(
-              ui.profileCollection.kind === "seiyuu"
-                ? ""
-                : ui.profileCollection.role,
-            ) +
-            "&sort=" +
-            encodeURIComponent(ui.profileCollection.sort) +
-            (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
-            (ui.profileCollection.tradeable ? "&tradeable=1" : "")
-          : ui.profileView === "wishlist"
-            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",favorites:favoritesOnly("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
+        (view === "collection" || view === "favorites"
+          ? "&" + new URLSearchParams({kind:filters.kind,q:filters.query,strict:strictCards(scope)?"1":"0",favorites:favoritesOnly(scope)?"1":"0",rarity:filters.rarity,role:filters.kind==="character"?filters.role:"",sort:filters.sort,wishlist:filters.wishlist?"1":"0",tradeable:filters.tradeable?"1":"0"})
+          : view === "wishlist"
+            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",favorites:favoritesOnly("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,ownership:data.collectionHidden?"":ui.profileWishlist.ownership})
             : ""),
     );
+  }
   if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
     profileQuizResult=await api('player-quiz?id='+encodeURIComponent(data.id));
   if (version !== loadVersion || currentRoute() !== route) return;
+  if (profileCardsResult?.ownershipHidden) ui.profileWishlist.ownership = "";
   if(profileQuizResult)ui.profileQuizData=profileQuizResult;
   if (profileCardsResult) {
     rememberCards(profileCardsResult.cards);
@@ -1987,10 +1980,10 @@ function render() {
     queryInput.classList.toggle("no-results", none);
     queryInput.setAttribute("aria-invalid", String(none));
   }
-  const profileCollectionInput = $("#profile-collection-search") || $("#profile-wishlist-search");
+  const profileCollectionInput = $("#profile-"+ui.profileView+"-search");
   if (
     profileCollectionInput &&
-    (ui.profileView === "wishlist" ? ui.profileWishlist.query : ui.profileCollection.query).trim() &&
+    (ui.profileView === "wishlist" ? ui.profileWishlist : profileInventoryFilters()).query.trim() &&
     ui.profileCardsData
   ) {
     const none = !ui.profileCardsData.rows?.length;
@@ -2784,9 +2777,10 @@ document.addEventListener("input", (ev) => {
     }, 350);
     return;
   }
-  if (["profile-collection-search","profile-wishlist-search"].includes(ev.target.id)) {
-    const view = ev.target.id.includes("wishlist") ? "wishlist" : "collection";
-    const filters = view === "wishlist" ? ui.profileWishlist : ui.profileCollection;
+  const searchView = /^profile-(collection|wishlist|favorites)-search$/.exec(ev.target.id);
+  if (searchView) {
+    const view = searchView[1];
+    const filters = view === "wishlist" ? ui.profileWishlist : profileInventoryFilters(view);
     ev.target.classList.remove("no-results");
     ev.target.setAttribute("aria-invalid", "false");
     filters.query = ev.target.value;
@@ -3484,7 +3478,7 @@ async function handleFeatureClick(a, t) {
     if (a === "favorite-toggle") {
       if (!state.me) { auth(); return true; }
       const scope = $("#main [data-filter-scope]")?.dataset.filterScope;
-      if (favoritesOnly(scope)) resetCardFilterPage(scope);
+      if (favoritesOnly(scope) || scope === "profile-favorites-search") resetCardFilterPage(scope);
       await execute("card-favorite", {card: t.dataset.id, favorite: t.getAttribute("aria-pressed") !== "true"}, result => {
         document.querySelectorAll('[data-action="favorite-toggle"]').forEach(button => {
           if (button.dataset.id === result.card) button.setAttribute("aria-pressed", String(result.favorite));
@@ -3515,7 +3509,7 @@ async function handleFeatureClick(a, t) {
                 escape,
                 cardHTML,
                 wishlist: state.wishlist || [],
-                favorites: state.cardFavorites,
+                state,
                 titleMode,
               });
               body.scrollTop = scroll;
@@ -3538,7 +3532,7 @@ async function handleFeatureClick(a, t) {
       return true;
     }
     if (a === "clear-profile-wishlist-filters") {
-      ui.profileWishlist={...ui.profileWishlist,kind:"both",query:"",rarity:"",role:"",sort:ui.profileWishlist.sort.startsWith("role")?"custom":ui.profileWishlist.sort,excludeOwned:false};
+      ui.profileWishlist={...ui.profileWishlist,kind:"both",query:"",rarity:"",role:"",sort:ui.profileWishlist.sort.startsWith("role")?"custom":ui.profileWishlist.sort,ownership:""};
       ui.profileCardsPage=1; await loadDynamic(); render(); return true;
     }
     if (a === "profile-wishlist-kind") {
@@ -3724,28 +3718,27 @@ async function handleFeatureClick(a, t) {
       render();
       return true;
     }
-    if (a === "profile-collection-kind") {
-      ui.profileCollection.kind = t.dataset.kind || "both";
-      if (ui.profileCollection.kind === "seiyuu") {
-        ui.profileCollection.role = "";
-        if (ui.profileCollection.sort.startsWith("role"))
-          ui.profileCollection.sort = "custom";
+    if (a === "profile-collection-kind" || a === "profile-favorites-kind") {
+      const filters = profileInventoryFilters();
+      filters.kind = t.dataset.kind || "both";
+      if (filters.kind === "seiyuu") {
+        filters.role = "";
+        if (filters.sort.startsWith("role")) filters.sort = "custom";
       }
       ui.profileCardsPage = 1;
       await loadDynamic();
       render();
       return true;
     }
-    if (a === "clear-profile-collection-filters") {
-      ui.profileCollection = {
-        ...ui.profileCollection,
+    if (a === "clear-profile-collection-filters" || a === "clear-profile-favorites-filters") {
+      Object.assign(profileInventoryFilters(), {
         kind: "both",
         query: "",
         rarity: "",
         role: "",
         wishlist: false,
         tradeable: false,
-      };
+      });
       ui.profileCardsPage = 1;
       await loadDynamic();
       render();
@@ -4332,17 +4325,10 @@ document.addEventListener("change", async (ev) => {
       toast(err.message, true);
     }
   }
-  if (
-    [
-      "profile-collection-sort",
-      "profile-collection-rarity",
-      "profile-collection-role",
-      "profile-collection-wishlist",
-      "profile-collection-tradeable",
-    ].includes(ev.target.id)
-  ) {
-    const field = ev.target.id.replace("profile-collection-", "");
-    ui.profileCollection[field] =
+  const profileFilter = /^profile-(collection|favorites)-(sort|rarity|role|wishlist|tradeable)$/.exec(ev.target.id);
+  if (profileFilter) {
+    const [,view,field] = profileFilter;
+    profileInventoryFilters(view)[field] =
       ev.target.type === "checkbox" ? ev.target.checked : ev.target.value;
     ui.profileCardsPage = 1;
     try {
@@ -4528,9 +4514,16 @@ document.addEventListener("change", (ev) => {
     quizUI.setHidePerfect(ev.target.checked);
     $("#quiz-hide-perfect")?.focus();
   }
-  if (["profile-wishlist-sort","profile-wishlist-rarity","profile-wishlist-role","profile-wishlist-exclude-owned"].includes(ev.target.id)) {
-    const field=ev.target.id.replace("profile-wishlist-", "");
-    ui.profileWishlist[field==="exclude-owned"?"excludeOwned":field]=ev.target.type==="checkbox"?ev.target.checked:ev.target.value;
+  const wishlistOwnership = ev.target.name === "wishlist-ownership";
+  if (wishlistOwnership || ["profile-wishlist-sort","profile-wishlist-rarity","profile-wishlist-role"].includes(ev.target.id)) {
+    if (wishlistOwnership) {
+      ui.profileWishlist.ownership = ev.target.checked ? ev.target.value : "";
+      for (const input of ev.target.closest('.wishlist-ownership-options').querySelectorAll('input')) {
+        if (input !== ev.target) input.checked = false;
+      }
+    } else {
+      ui.profileWishlist[ev.target.id.replace("profile-wishlist-", "")] = ev.target.value;
+    }
     ui.profileCardsPage = 1;
     loadDynamic().then(render).catch((err) => toast(err.message, true));
   }

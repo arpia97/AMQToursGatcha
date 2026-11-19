@@ -164,5 +164,5 @@ export function applyAlchemyPatch(state, result) {
   const inventory = state.inventory
     .filter((i) => !changed.has(i.card))
     .concat(patch.inventory.filter((i) => !i.removed));
-  return { ...state, inventory, me: patch.me, showcase: patch.showcase };
+  return { ...state, inventory, me: patch.me, showcase: patch.showcase, cardFavorites: patch.cardFavorites ?? state.cardFavorites };
 }

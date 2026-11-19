@@ -1,4 +1,5 @@
 import { installInbox, inboxCount, saveNoticePreferences } from "./inbox.js";
+import { installFavoriteOwnership, ownedCardCopies, pruneFavorite } from "./card-ownership.js";
 import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
 import { setAccountLock } from "./account-lock.js";
@@ -136,6 +137,7 @@ export class Engine {
     this.creditAudit = new CreditAudit(this);
     this.cardTitles = new CardTitles(this);
     migrateEnhancements(this);
+    installFavoriteOwnership(this);
     this.cardTitles.backfill();
     migrateTradeDefaults(this);
     installInbox(this);
@@ -626,6 +628,7 @@ export class Engine {
           a.bid,
         );
         this.run("UPDATE auctions SET paid=1 WHERE id=?", a.id);
+        pruneFavorite(this,a.seller,a.card);
       }
       this.run("UPDATE auctions SET claimed=1,closed=1 WHERE id=?", a.id);
       return {
@@ -1316,6 +1319,7 @@ export class Engine {
       ),
       inventory,
       cardFavorites: id ? this.economy.wishlist.favorites(id) : [],
+      heldCardIds: id ? this.all(`SELECT DISTINCT card FROM ${ownedCardCopies} WHERE player=? AND in_inventory=0 AND available_at<=?`,id,now).map(row=>row.card) : [],
       wishlist: id ? this.economy.wishlist.read(id) : [],
       roles: this.publicRoles(),
       myListings,
