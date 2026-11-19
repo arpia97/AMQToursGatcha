@@ -954,11 +954,11 @@ test("answer response loss recovers the saved reveal and unsaved retries retain 
   const list = f.hold("quizzes"),
     ranks = f.hold("quiz-leaderboard?quiz=q&page=1");
   await f.ui.click(f.button("data-quiz-action", "quiz-next"));
-  assert.match(f.ui.render(), /quiz-complete/);
+  assert.match(f.ui.render(), /<h1>Quiz Results<\/h1>/);
   list.reject(Error("List temporarily unavailable"));
   ranks.reject(Error("Leaderboard temporarily unavailable"));
   await flush();
-  assert.match(f.ui.render(), /quiz-complete/);
+  assert.match(f.ui.render(), /<h1>Quiz Results<\/h1>/);
 });
 
 test("Stop Quiz pauses audio immediately, never submits an answer, stays stopped through failure, and retries back to the list", async (t) => {

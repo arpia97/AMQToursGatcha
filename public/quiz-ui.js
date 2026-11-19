@@ -516,7 +516,7 @@ export function createQuizUI({
       e(p.name) +
       '</a></td><td title="Time Set: ' +
       e(achieved) +
-      '"><strong' + (gachaLayout ? ' class="quiz-rarity-ink tier-' + rarityClass(quizRarity(p.best)) + '"' : '') + '>' +
+      '"><strong' + ((gachaLayout || run?.finished) ? ' class="quiz-rarity-ink tier-' + rarityClass(quizRarity(p.best)) + '"' : '') + '>' +
       p.best +
       ' / 20</strong></td><td class="quiz-duration">' +
       e(quizDuration(p.durationMs)) +
@@ -552,10 +552,10 @@ export function createQuizUI({
           })
         : "");
     return (
-      '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
+      '<aside class="quiz-leaderboard' + (gachaLayout || run?.finished ? ' quiz-scroll-leaderboard' : '') + '" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
       '<label class="check-label quiz-friends-filter"><input type="checkbox" id="quiz-friends-only" ' + (friendsOnly ? 'checked' : '') + ' ' + (!getState().me ? 'disabled' : '') + '> Friends Only</label>' +
       (rows
-        ? '<div class="table-wrap"' + (gachaLayout ? ' tabindex="0" role="region" aria-label="Scroll leaderboard scores"' : '') + '><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
+        ? '<div class="table-wrap"' + ((gachaLayout || run?.finished) ? ' tabindex="0" role="region" aria-label="Scroll leaderboard scores"' : '') + '><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
           rows +
           "</tbody></table></div>"
         : '<p class="notice">No completed scores yet.</p>') +
@@ -660,6 +660,12 @@ export function createQuizUI({
             : '<p class="notice">No songs in this quiz pool yet.</p>') +
       "</section></div>"
     );
+  }
+  function quizSleeve(q, status = "") {
+    const category = { singers: "Artist", composers: "Composer", franchise: "Franchise" }[q.category] || "Artist";
+    return '<header class="quiz-sleeve"><span>' + category + ' Quiz' + status + '</span><h2>' +
+      e(q.name) + '</h2><div class="quiz-disc" aria-hidden="true"></div>' +
+      (q.cover ? '<img class="quiz-artist-cover" alt="" src="' + e(q.cover) + '">' : '') + '</header>';
   }
   function render() {
     if (!selected) {
@@ -828,15 +834,16 @@ export function createQuizUI({
     if (!q) return "";
     const preview = !q.published || run?.preview;
     const lobby = gachaLayout && !leaderboardOnly && !run;
+    const finished = !leaderboardOnly && run?.finished;
     let top =
       '<div class="section-head"><div><h1>' +
-      (lobby ? "Quiz Lobby" : e(q.name)) +
+      (finished ? "Quiz Results" : lobby ? "Quiz Lobby" : e(q.name)) +
       "</h1>" +
       (preview
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
       '</div><div class="quiz-top-controls">' +
-      (!leaderboardOnly
+      (!leaderboardOnly && !finished
         ? (gachaLayout && (lobby || (run && !run.finished)) ? (lobby ? "" : elapsedControl()) : elapsedControl() + serverControl() + volumeControl())
         : "") +
       (!leaderboardOnly && run && !run.finished
@@ -859,7 +866,7 @@ export function createQuizUI({
       );
     const withLeaderboard = (content) =>
       top +
-      '<div class="quiz-play-layout"><div class="quiz-play-main">' +
+      '<div class="quiz-play-layout' + (finished ? ' quiz-results-layout' : '') + '"><div class="quiz-play-main">' +
       content +
       (gachaLayout && run && !run.finished ? audioFooter() : "") +
       "</div>" +
@@ -873,13 +880,10 @@ export function createQuizUI({
         ? '<div class="quiz-start-controls"><button class="button mint" data-action="account">Sign In to Play</button>' + songList + '</div>'
         : q.songs < 20 ? '<p class="notice">At least 20 songs are required to start.</p>' + songList
         : startControls(preview ? "Start Preview →" : "Start Quiz →", songList);
-      const category = { singers: "Artist", composers: "Composer", franchise: "Franchise" }[q.category] || "Artist";
       const tier = rarityClass(quizRarity(q.best));
       return withLeaderboard(
-        '<section class="quiz-lobby tier-' + tier + '"><header class="quiz-sleeve"><span>' + category +
-        ' Quiz</span><h2>' + e(q.name) + '</h2><div class="quiz-disc" aria-hidden="true"></div>' +
-        (q.cover ? '<img class="quiz-artist-cover" alt="" src="' + e(q.cover) + '">' : '') +
-        '</header><dl class="quiz-lobby-stats"><div><dt>Songs</dt><dd>20</dd></div><div><dt>Guess time</dt><dd>20 <small>sec / song</small></dd></div>' +
+        '<section class="quiz-lobby tier-' + tier + '">' + quizSleeve(q) +
+        '<dl class="quiz-lobby-stats"><div><dt>Songs</dt><dd>20</dd></div><div><dt>Guess time</dt><dd>20 <small>sec / song</small></dd></div>' +
         '<div><dt>Personal best</dt><dd><b class="quiz-rarity-ink">' + (signedIn ? q.best ?? 0 : "—") +
         '</b>' + (signedIn ? ' <small>/ 20</small>' : '') + '</dd></div></dl><div class="quiz-lobby-actions">' +
         actions + '</div>' + audioFooter() + '</section>');
@@ -900,36 +904,26 @@ export function createQuizUI({
     }
     if (run.finished) {
       stop();
+      const reward = run.reward || {};
+      const best = reward.best ?? q.best;
+      const recap = run.history?.length
+        ? '<button class="button secondary" type="button" data-quiz-recap>Songs Played ↗</button>' : "";
+      const gains = !preview && q.category !== "franchise" && Number.isInteger(reward.total)
+        ? '<div class="finish-reward"><strong>✦ +' + reward.total + ' credits</strong>' +
+          (Number.isInteger(reward.improvement) && Number.isInteger(reward.milestones)
+            ? '<span>New best +' + reward.improvement + ' · Milestones +' + reward.milestones + '</span>' : '') +
+          '</div>' : "";
       return withLeaderboard(
-        '<section class="quiz-complete tier-' +
-          rarityClass(quizRarity(run.score)) +
-          '"><h2>' +
-          (preview ? "Preview Complete" : "Quiz Complete") +
-          " · " +
-          run.score +
-          '/20</h2><p class="quiz-completion-time">Time Taken: ' +
-          e(quizDuration(run.durationMs)) +
-          "</p>" +
-          (preview
-            ? "<p>Test Score Only · No Credits Awarded</p>"
-            : "<p>Personal Best: " +
-              run.reward.best +
-              '/20</p>' + (q.category === "franchise"
-              ? '<p>Franchise Quiz · No Credit Rewards</p>'
-              : "<p>New Best Bonus: ✦ " +
-              run.reward.improvement +
-              " · Milestones: ✦ " +
-              run.reward.milestones +
-              '</p><strong class="quiz-credit-gain">+' +
-              run.reward.total +
-              " Credits</strong>")) +
-          (run.reward.title
-            ? "<p>Title Unlocked: " + e(run.reward.title) + "</p>"
-            : "") +
-          '<div class="quiz-complete-actions">' +
-          (run.history?.length ? '<button type="button" class="button secondary" data-quiz-recap>Songs Played →</button>' : '') +
-          startControls("Play Again →") +
-          "</div>" + songProgressHTML() + "</section>",
+        '<section class="quiz-finish tier-' + rarityClass(quizRarity(run.score)) + '">' +
+        quizSleeve(q, preview ? " · Preview complete" : " · Quiz complete") +
+        '<div class="finish-line"><div><span class="finish-label">Final score</span>' +
+        '<div class="finish-score"><b class="quiz-rarity-ink">' + e(run.score) + '</b><small>/ 20</small></div></div>' +
+        '<dl><div><dt>Time taken</dt><dd>' + e(quizDuration(run.durationMs)) + '</dd></div>' +
+        (preview ? '' : '<div><dt>Personal best</dt><dd>' +
+          (Number.isInteger(best) ? best + '<small> / 20</small>' : '—') + '</dd></div>') + '</dl></div>' +
+        '<div class="finish-track">' + songProgressHTML() + '</div>' + gains +
+        (reward.title && !preview ? '<p class="finish-title">Title unlocked · ' + e(reward.title) + '</p>' : '') +
+        '<div class="quiz-lobby-actions">' + startControls("Play Again →", recap) + '</div></section>',
       );
     }
     return withLeaderboard(questionHTML(q));
@@ -941,7 +935,7 @@ export function createQuizUI({
         const state = typeof result === "boolean" ? result ? "correct" : "incorrect"
           : !run.finished && index === run.index ? "current" : "upcoming";
         const label = "Song " + (index + 1) + ": " +
-          ({ correct: "Correct", incorrect: "Incorrect", current: "Current Song", upcoming: index < run.index ? "Result Not Recorded" : "Upcoming" })[state];
+          ({ correct: "Correct", incorrect: "Incorrect", current: "Current Song", upcoming: run.finished || index < run.index ? "Result Not Recorded" : "Upcoming" })[state];
         return '<li class="quiz-progress-square is-' + state + '" aria-label="' + label +
           '" title="' + label + '"' + (state === "current" ? ' aria-current="step"' : '') + '></li>';
       }).join("") + '</ol></section>';
@@ -1365,7 +1359,7 @@ export function createQuizUI({
       attemptPlay();
   }
   function mount({ direct = false } = {}) {
-    const cover = gachaLayout && document.querySelector(".quiz-artist-cover");
+    const cover = (gachaLayout || run?.finished) && document.querySelector(".quiz-artist-cover");
     if (cover) {
       cover.onerror = () => { cover.hidden = true; };
       if (cover.complete && !cover.naturalWidth) cover.hidden = true;
