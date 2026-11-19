@@ -47,3 +47,21 @@ dialog.settings-modal { width:min(660px,calc(100vw - 26px)) }
   .inbox-tools select,.inbox-tools button { font-size:12px; padding:6px }
   .inbox-bell { width:24px }
 }
+
+.inbox-anchor { position:relative; display:flex; align-items:center; }
+.inbox-anchor[hidden], .inbox-pop[hidden] { display:none; }
+.inbox-pop {
+  position:absolute; z-index:45; top:calc(100% + 12px); right:-12px;
+  width:360px; background:var(--panel); border:1px solid #424550;
+  border-radius:12px; box-shadow:0 16px 42px #0007; color:var(--text); text-align:left;
+}
+.inbox-pop::before {
+  content:""; position:absolute; top:-6px; right:22px; width:10px; height:10px;
+  transform:rotate(45deg); background:var(--panel); border:solid #424550; border-width:1px 0 0 1px;
+}
+.inbox-pop header { padding:14px 16px 10px; border-bottom:1px solid var(--border); }
+.inbox-pop h2 { margin:0; font-size:17px; }
+.inbox-pop-list { padding:14px; max-height:min(52dvh,360px); overflow-y:auto; overscroll-behavior:contain; color:var(--muted); }
+.inbox-pop-list:has(.inbox-row) { padding:0; color:var(--text); }
+.inbox-pop-list .inbox-row { gap:9px; }
+.inbox-all { display:block; padding:12px 16px; color:var(--mint); border-top:1px solid var(--border); }

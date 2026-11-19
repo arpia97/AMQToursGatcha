@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha desktop notification dropdown
+
+Implemented and verified locally. The desktop bell opens six recent items over the current page. The mobile bell opens the full inbox. Browser checks at 1440px and 390px covered opening, dismissing, reading, full inbox navigation and settings. All 545 tests and the Worker dry run passed. The three independent collection card design drafts and the dropdown snapshot are in the adjacent card-design-review folder. This change has not been deployed.
+
 ## Mobile rankings and quiz score sizing
 
 Source `113b7ef` is live on Worker `4718e28c-bcdf-4689-b046-cc939ee0b9d9`. Tested the deployed Play ranking name column and sticky horizontal scrolling, plus perfect-score glyph bounds on both Gacha and Play. Browser checks used fixture records at 320px, 390px and 1440px.

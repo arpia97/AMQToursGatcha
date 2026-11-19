@@ -57,7 +57,14 @@
               <option value="english">English</option>
             </select></label
           >
-          <a class="inbox-bell" aria-label="Notifications" hidden></a>
+          <div class="inbox-anchor" hidden>
+            <a class="inbox-bell" aria-label="Notifications"></a>
+            <section class="inbox-pop" aria-labelledby="inbox-pop-title" id="inbox-pop" hidden>
+              <header><h2 id="inbox-pop-title">Notifications</h2></header>
+              <div class="inbox-pop-list" aria-live="polite"></div>
+              <a class="inbox-all">View all notifications →</a>
+            </section>
+          </div>
           <span class="wallet"
             ><span class="coin">✦</span><b id="balance">—</b
             ><span>credits</span></span

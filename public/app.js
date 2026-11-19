@@ -91,6 +91,7 @@ import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
+import { installInboxDropdown } from "./inbox-dropdown.js";
 import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
@@ -360,6 +361,10 @@ const cardBy = (id) =>
     image: "",
   };
 const inbox = createInbox({escape,cardBy,routeHref});
+const inboxDropdown = installInboxDropdown({
+  anchor: $(".inbox-anchor"), href: routeHref("notifications"), player: () => state?.me?.id,
+  load: () => api("inbox"), rememberCards, inbox,
+});
 const image = (c) =>
   c.image
     ? `<img class="${c.id?.startsWith("acdb-") ? "acdb-portrait" : ""}" data-portrait-id="${escape(c.id || "")}" src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
@@ -1818,7 +1823,7 @@ document.addEventListener("click",event=>{
 const loadingPage = () => '<p class="loading">Loading…</p>';
 function updateInboxBadge() {
   const bell=$(".inbox-bell"), unread=state.inboxUnread||0;
-  bell.href=routeHref("notifications"); bell.hidden=!state.me;
+  inboxDropdown.sync();
   bell.innerHTML=svg(icons.notifications); bell.classList.toggle("unread",!!unread);
   bell.setAttribute("aria-label", unread ? `Notifications, ${unread} unread` : "Notifications");
   const count=$("#inbox-count"); if(count){count.textContent=String(unread);count.hidden=!unread;}
@@ -2279,12 +2284,21 @@ document.addEventListener("click", async (ev) => {
   }
   if(a.startsWith("inbox-")) {
     const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
-    if(type==="item" || type==="read"){
-      const html=type==="item" ? inbox.detail(id) : "";
-      const result=await api("inbox-read",{id:type==="item"?id:inbox.watermark(),all:type==="read"});
+    if(type==="item" || type==="peek" || type==="read"){
+      const html=type==="peek" ? inboxDropdown.detail(id) : type==="item" ? inbox.detail(id) : "";
+      let result;
+      try {
+        result=await api("inbox-read",{id:type==="read"?inbox.watermark():id,all:type==="read"});
+      } catch (error) {
+        toast(error.message, true);
+        return;
+      }
       if(state.me?.id!==player)return;
       state.inboxUnread=result.unread;
+      if(type==="peek" && !t.isConnected){updateInboxBadge();return;}
+      if(type==="peek") inboxDropdown.close(true);
       if(html)modal(html);
+      if(type==="peek" && page()!=="notifications"){updateInboxBadge();return;}
     }else inbox.view(type);
     await loadDynamic(); render(); return;
   }

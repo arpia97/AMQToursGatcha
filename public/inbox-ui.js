@@ -71,20 +71,24 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     const now=new Date(), yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
     return date.toDateString()===now.toDateString()?"Today":date.toDateString()===yesterday.toDateString()?"Yesterday":date.toLocaleDateString();
   }
+  function rowButton(r,action="item"){
+    const [title,detail]=copy(r), d=new Date(r.created);
+    return '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
+  }
   function render(id) {
     if(!id)return '<h1>Notifications</h1><button class="button" data-action="signin-form">Sign in</button>';
     if(data?.player!==id)return '<p class="loading">Loading notifications…</p>';
     let previous="", rows="";
     for(const r of data.items){
-      const d=new Date(r.created),day=dateLabel(d),[title,detail]=copy(r);
+      const d=new Date(r.created),day=dateLabel(d);
       if(previous!==day){rows+=(previous?"</div>":"")+'<h3 class="inbox-day">'+e(day)+'</h3><div class="inbox-group">';previous=day;}
-      rows+='<button class="inbox-row" data-action="inbox-item" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
+      rows+=rowButton(r);
     }
     const button=(action,label,extra="")=>'<button class="secondary" data-action="inbox-'+action+'" '+extra+'>'+label+'</button>';
     return '<section class="inbox-feed"><header><div><span class="eyebrow">Gacha</span><h1>Notifications</h1></div><button class="secondary" data-action="edit-profile" data-settings-section="notifications">Settings</button></header><div class="inbox-tools"><div class="inbox-tabs">'+button("all","All",'aria-pressed="'+!unread+'"')+button("unread","Unread · "+data.unread,'aria-pressed="'+unread+'"')+'</div><select id="inbox-group" aria-label="Notification category"><option value="">All categories</option>'+Object.entries(NOTICE_GROUPS).map(([k,v])=>'<option value="'+k+'" '+(k===group?"selected":"")+'>'+v+'</option>').join("")+'</select>'+button("read","Mark all read",data.unread?"":"disabled")+'</div>'+(rows?rows+"</div>":'<p class="inbox-empty">No notifications in this view.</p>')+'<footer>'+(cursors.length?button("prev","← Newer"):"")+(data.more?button("next","Older →"):"")+'</footer></section>';
   }
-  function detail(id){
-    const row=data?.items.find(r=>r.id===id);if(!row)return "";
+  function detail(id, items=data?.items){
+    const row=items?.find(r=>r.id===id);if(!row)return "";
     const [title,body]=copy(row),m=row.metadata||{};
     const target=row.kind==="friend-add"&&m.byId?"player/"+encodeURIComponent(m.byId):noticeGroup(row.kind)==="quiz"?"quiz":row.kind==="pickem-new"?"pickems/"+m.pickem:row.kind==="credit-reward"?"profile":row.kind.includes("auction")||row.kind==="outbid"?"auctions":"shop";
     let action='<a class="button" data-inbox-link href="'+e(routeHref(target))+'">Open '+(target.startsWith("player/")?"profile":target.split("/")[0])+' ↗</a>';
@@ -96,7 +100,7 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     }
     return '<div class="inbox-detail">'+thumb(row)+'<h2>'+e(title)+'</h2><p>'+e(body||"")+'</p><small>'+e(new Date(row.created).toLocaleString())+'</small><p>'+action+'</p></div>';
   }
-  return {query,render,detail,accept:v=>{data=v;},watermark:()=>data?.latest,
+  return {query,render,detail,rowButton,accept:v=>{data=v;},watermark:()=>data?.latest,
     filter:value=>{group=value;cursors=[];}, view:a=>{
       if(a==="next" && data?.more)cursors.push(data.items.at(-1).id);
       else if(a==="prev")cursors.pop();
