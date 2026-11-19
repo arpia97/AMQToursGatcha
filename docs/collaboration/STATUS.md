@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Editable 1v1 lobbies and shared Quiz layout
+
+Source `1642f25` is deployed on Worker `0fa01449-3ccd-4c96-9ad4-d8d6679d9026`. Hosts can set song count and guess time when creating an unranked 1v1 lobby and edit both in the room. Defaults are 20 songs and 20 seconds. An empty timer enables unlimited guessing. The Gacha and Play Quiz pages share the quiz list, lobby, gameplay, results, and mobile styles. All 554 tests, syntax checks, and the Worker dry run passed. An isolated Worker test verified edited settings reach the match and preserve ranked standings. Browser checks verified lobby editing locally and both deployed Quiz layouts at 320, 390 and 1440 pixels using the same fixture data.
+
 ## Unranked 1v1 lobbies and 20-song Arena fixtures
 
 Source `b12dd2c` is deployed on Worker `ba778b92-b597-43e9-9ab1-23daacf13d81`. The 1v1 Ranked page has the shared Lobbies tile. Custom 1v1 uses two seats, 20 songs, 20-second guesses, and Random or Watched. Local Worker tests started both pools, tested finishing and leaving, and confirmed the ranked standings were unchanged. New Arena matches play 20 songs per opponent. The largest field uses 140 songs, verified in both pools with a catalogue fixture. All 554 tests, syntax checks, and the Worker dry run passed. Verified the deployed directory at 390 and 1440 pixels and the deployed Arena route and configuration.
