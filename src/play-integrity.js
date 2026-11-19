@@ -64,7 +64,8 @@ export function playbackView(state, player, now) {
     samplePosition: state.samplePositions?.[state.index] ?? 0,
     audioIndex: state.audioPool ? state.audioPool.findIndex(s => s.round === state.index) : state.index,
   };
-  if (player.left || state.phase !== 'guess' || now < state.startsAt || now >= state.until) return {};
+  const preparing=state.preparingClip && ['loading','buffering'].includes(state.phase) && playerAudioReady(state,player);
+  if (player.left || (!preparing && (state.phase !== 'guess' || now < state.startsAt)) || now >= state.until) return {};
   const slot = state.audioPool.findIndex(entry => entry.round === state.index);
   return { playback: { slot, key: state.audioPool[slot].key } };
 }

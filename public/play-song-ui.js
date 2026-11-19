@@ -42,7 +42,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       send(queue,{type:'lobby-ready',ready:true});
   }
   let manifestRevision=0,downloadStart=0,downloadEnd=0,replacingAudio=false;
-  let sealedCache=null, playbackUrl=null, preparingRound=-1, keyRequestedAt=0;
+  let sealedCache=null, playbackUrl=null, preparingRound=-1, keyRequestedAt=0,clipAckAt=0;
   let draftDirty=false,lastDraft='',lastDraftAt=0;
   const savedField=()=>{try{return ['anime','song','artist'].includes(localStorage.getItem('amqtours-1team-field'))?localStorage.getItem('amqtours-1team-field'):'anime';}catch{return 'anime';}};
   let tabbedThisRound=false;
@@ -133,10 +133,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function connectRoom(id){
     if(!active||room?.matchId===id&&(room.readyState===0||room.readyState===1))return;
     room?.close();const ws=room=new WebSocket(socketURL(id));ws.matchId=id;
-    ws.onopen=()=>{activity.snapshot();roomDelay=1000;send(ws,{type:'ping',sentAt:Date.now()});};
+    let bestRtt=Infinity;
+    ws.onopen=()=>{clockReady=false;activity.snapshot();roomDelay=1000;send(ws,{type:'ping',sentAt:Date.now()});};
     ws.onmessage=({data})=>{if(room!==ws||!active)return;const msg=JSON.parse(data);
       if(msg.type==='error'){if(replacingAudio){replacingAudio=false;downloadError='Replacement audio is unavailable. Retry the missing downloads.';}pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
-      if(msg.type==='pong'&&msg.sentAt){offset=msg.now-(msg.sentAt+Date.now())/2;clockReady=true;return;}
+      if(msg.type==='pong'&&msg.sentAt){
+        const received=Date.now(),rtt=received-msg.sentAt;
+        if(rtt>=0&&rtt<=bestRtt){bestRtt=rtt;offset=msg.now-(msg.sentAt+received)/2;clockReady=true;}
+        return;
+      }
       if(msg.type==='playback'){
         if(match?.phase==='guess'&&match.index===msg.index){match.playback=msg.playback;tick();}
         return;
@@ -145,6 +150,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(msg.type==='audio-replaced'){
         if(msg.revision<=manifestRevision)return;
         if(msg.revision!==manifestRevision+1||!sources[msg.slot]){ws.close();return;}
+        if(match?.playback?.slot===msg.slot){preparedIndex=-1;preparingRound=-1;}
         replacingAudio=false;sealedCache?.discard(sources[msg.slot],server);sources[msg.slot]=msg.ticket;
         manifestRevision=msg.revision;downloads?.abort();downloads=null;lastLoaded='';
         send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});preload();return;
@@ -164,7 +170,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         }else if(manifestId!==msg.id||changedRevision||sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,mode):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
           prepareTitles().then(()=>{if(active&&manifestId===msg.id)render();}).catch(()=>{});
         }
-        lastLoaded=loaded().join(',');send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});if(ready)send(room,{type:'ready'});preload();return;
+        lastLoaded=loaded().join(',');send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});if(ready){send(room,{type:'ready'});if(preparedIndex>=0&&audio.readyState>=3)send(room,{type:'clip-ready',index:preparedIndex,revision:manifestRevision});}preload();return;
       }
       if(msg.type==='state'){
         const previous=match;match=msg.state;if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
@@ -224,13 +230,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function clearAudio() {
     autoAttempt='';loadGeneration++; clearTimeout(progressTimer); progressTimer=null; downloads?.abort(); downloads=null;
     audio.pause(); audio.muted=false; audio.onloadedmetadata=null; audio.onloadeddata=null; audio.onerror=null;
-    audio.removeAttribute('src'); audio.load();
+    audio.oncanplay=null;audio.removeAttribute('src'); audio.load();
     revokePlayback(); cache.clear(); sealedCache?.clear(); sealedCache=null;
     sources=[]; playingIndex=-1; preparedIndex=-1; seekIndex=-1; preparingRound=-1; keyRequestedAt=0; unlocking=false;
     manifestId=''; downloadError='';replacingAudio=false;
   }
   function prepareSealedClip(now) {
-    if (!ready || unlocking || now < match.startsAt || now >= match.until) return;
+    if (!ready || unlocking || (!match.preparingClip && now < match.startsAt) || now >= match.until) return;
     const { index, playback } = match;
     if (!playback) {
       if (now - keyRequestedAt >= 400) {
@@ -240,12 +246,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       return;
     }
     const ticket=sources[playback.slot];
-    if(preparedIndex===index || preparingRound===index || !sealedCache.has(ticket,server))return;
+    if(preparedIndex===index){
+      if(match.preparingClip&&!player()?.audioReady&&audio.readyState>=3&&now-clipAckAt>=1000){
+        clipAckAt=now;send(room,{type:'clip-ready',index,revision:manifestRevision});
+      }
+      return;
+    }
+    if(preparingRound===index || !sealedCache.has(ticket,server))return;
     const generation=loadGeneration;
-    const current=()=>active&&generation===loadGeneration&&match?.index===index&&match.phase==='guess';
+    const current=()=>active&&generation===loadGeneration&&match?.index===index&&sources[playback.slot]===ticket&&(match.preparingClip||match.phase==='guess');
     const cannotPlay=()=>{
       if(!current())return;
-      ready=false;
+      ready=false;preparedIndex=-1;
       render();
       error('Could not play the encrypted clip. Tap Ready to retry.');
     };
@@ -254,7 +266,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(!blob||!current())return;
       revokePlayback();
       audio.onloadedmetadata=null;
-      audio.onloadeddata=()=>{if(current())tick();};
+      audio.oncanplay=()=>{
+        if(!current())return;
+        clipAckAt=0;tick();
+      };
       audio.onerror=cannotPlay;
       playbackUrl=URL.createObjectURL(blob);
       audio.src=playbackUrl;
@@ -446,7 +461,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const downloadLabel=waitingAudio?'Audio for This Round':'Your Match Audio';
     status.textContent=match.phase==='loading'?'Getting Everyone Ready':match.phase==='buffering'?'Waiting for Audio':match.phase==='counting'?'Counting Guesses':match.phase==='reveal'?'Answers Revealed':'Listen & Answer';
     const activePlayers=match.players.filter(p=>!p.left);
-    const audioStatus=['loading','buffering'].includes(match.phase)?'<span>'+activePlayers.filter(p=>p.audioReady).length+' / '+activePlayers.length+' players have audio ready</span>':'';
+    const loadingNames=activePlayers.filter(p=>!p.audioReady&&(p.ready||p.acceptedReady)).map(p=>p.name);
+    const audioStatus=['loading','buffering'].includes(match.phase)?'<span>'+activePlayers.filter(p=>p.audioReady).length+' / '+activePlayers.length+' players have audio ready'+(loadingNames.length?' · Loading: '+esc(loadingNames.join(', ')):'')+'</span>':'';
     const downloadStatus=root.querySelector('.sa-download-status'),downloadBar=downloadStatus.querySelector('.song-loading-bar');
     downloadStatus.innerHTML=(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+Math.round(100*loadedCount/Math.max(1,downloadTotal))+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
     if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,downloadTotal);}
@@ -560,7 +576,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     clearTimeout(raf);if(!active||!match||['finished','cancelled'].includes(match.phase))return;
     const now=Date.now()+offset;
     updateReadyCheck(now);
-    if(sealedCache&&match.phase==='guess')prepareSealedClip(now);
+    if(sealedCache&&(match.phase==='guess'||match.preparingClip))prepareSealedClip(now);
     // Earlier matches use direct MP3s through their original playback path.
     if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));};audio.load();}}
     if(!sealedCache&&match.phase==='guess'&&preparedIndex===match.index&&seekIndex!==match.index&&audio.readyState>=1&&!unlocking){audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));seekIndex=match.index;}

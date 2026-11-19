@@ -37,6 +37,17 @@ test('AniList imports all chunks, handles repeated entries and preserves provide
     error=>error.status===503 && error.message.includes('AniList is refusing imports from Play'),
   );
 });
+test('Watched imports apply selected statuses in both providers',async()=>{
+  const statuses=['onHold','dropped'];
+  const mal=await importAnimeList('myanimelist','Local',async url=>Response.json(url.endsWith('offset=0')
+    ? [1,2,3,4,6].map(status=>({status,anime_id:status})):[]),statuses);
+  assert.deepEqual(mal.ids,[3,4]);
+  const entries=['CURRENT','COMPLETED','PAUSED','DROPPED','PLANNING','REPEATING'].map((status,i)=>({status,mediaId:i+1}));
+  const fetcher=async()=>Response.json({data:{MediaListCollection:{hasNextChunk:false,lists:[{entries}]}}});
+  assert.deepEqual((await importAnimeList('anilist','Local',fetcher,statuses)).ids,[3,4]);
+  assert.deepEqual((await importAnimeList('anilist','Local',fetcher,['watching'])).ids,[1,6]);
+  await assert.rejects(importAnimeList('anilist','Local',fetcher,[]),/Select at least one/);
+});
 test('integrated catalogue samples sheet-only and published recordings and updates after unpublishing',async()=>{
   const audio=id=>'https://naedist.animemusicquiz.com/'+id+'.mp3';
   const base=[1,2,3].map(id=>({annSongId:id,amqSongId:id,annId:id,type:'OP',audio:audio(id),title:'Song '+id,artist:'Artist',titles:['Plus '+id]}));
@@ -73,7 +84,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const connect=async(i,match='',proxy=false)=>{
     let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
     for(let tries=0;r.status===429&&tries<3;tries++){await sleep(1100);r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});}
-    assert.equal(r.status,101,r.status===101?'':await r.text());const ws=r.webSocket;const messages=[];ws.addEventListener('message',e=>messages.push(JSON.parse(e.data)));ws.accept();
+    assert.equal(r.status,101,r.status===101?'':await r.text());const ws=r.webSocket;const messages=[];let revision=0;ws.addEventListener('message',e=>{
+      const msg=JSON.parse(e.data);
+      if(msg.type==='manifest'||msg.type==='audio-replaced')revision=msg.revision||0;
+      if(msg.state?.preparingClip&&msg.state.playback&&msg.state.players.some(p=>p.id===msg.state.me&&!p.audioReady))
+        ws.send(JSON.stringify({type:'clip-ready',index:msg.state.index,revision}));
+      if(msg.state?.phase==='guess'&&msg.state.now<msg.state.startsAt)return;
+      messages.push(msg);
+    });ws.accept();
     const wait=async predicate=>{for(let n=0;n<250;n++){const found=messages.find(predicate);if(found)return found;await sleep(20);}throw Error('No matching socket message: '+JSON.stringify(messages.slice(-4)));};
     t.after(()=>{if(ws.readyState===1)ws.close();});return {ws,messages,wait,send:value=>ws.send(JSON.stringify(value))};
   };

@@ -1,3 +1,4 @@
+import {watchedListStatuses} from "../play-list-statuses.js";
 import { installPlayAccountMenu } from "../play-account-menu.js";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
@@ -75,9 +76,11 @@ function profile() {
 }
 function listForm(){
   const list=state.animeList;
-  return '<form id="play-anime-list" class="stack"><h3>Watched Anime List</h3><p class="form-hint">Watched lobbies combine everyone’s lists. Completed anime and entries with watched episodes qualify.</p>'+
+  return '<form id="play-anime-list" class="stack"><h3>Watched Anime List</h3><p class="form-hint">Choose which entries to include in Watched games.</p>'+
     '<label>List Provider<select name="provider"><option value="myanimelist">MyAnimeList</option><option value="anilist" '+(list?.provider==='anilist'?'selected':'')+'>AniList</option></select></label>'+
     '<label>Username or public list URL<input name="username" required maxlength="180" autocomplete="off" placeholder="Username or profile URL" value="'+escape(list?.name)+'"></label>'+
+    '<fieldset class="play-list-statuses"><legend>Include in Watched</legend>'+Object.entries(watchedListStatuses).map(([key,label])=>
+      '<label><input type="checkbox" name="statuses" value="'+key+'" '+(!list?.statuses||list.statuses.includes(key)?'checked':'')+'>'+label+'</label>').join('')+'</fieldset>'+
     (list?'<small>'+number(list.count)+' anime · Updated '+escape(new Date(list.updated).toLocaleDateString())+'</small>':'')+
     '<p role="status" aria-live="polite"></p><div><button type="submit" class="button mint">'+(list?'Refresh List':'Import List')+'</button> '+(list?'<button type="button" class="button secondary" data-list-remove>Unlink</button>':'')+'</div></form>';
 }
@@ -85,6 +88,10 @@ async function saveAnimeList(form,remove=false){
   const status=form.querySelector('[role=status]'),player=state.me?.id;
   if(!player||form.dataset.busy)return;
   const body=remove?{remove:true}:Object.fromEntries(new FormData(form));
+  if(!remove){
+    body.statuses=new FormData(form).getAll('statuses');
+    if(!body.statuses.length){status.textContent='Select at least one list status.';return;}
+  }
   form.dataset.busy="1";
   for(const control of form.elements)control.disabled=true;
   status.textContent=remove?'Unlinking…':'Importing anime…';

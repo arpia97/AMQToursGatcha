@@ -133,6 +133,22 @@ test('sealed matches wait together for the current group and give progressing do
   assert.ok(state.songs.slice(3,7).every(song=>state.audioPool.slice(3,7).some(slot=>slot.audio===song.audio)));
 });
 
+test('the guess deadline waits for every browser to decode the current song',()=>{
+  const state=makeMatch('decode','1v1',players.slice(0,2),structuredClone(songs),0);
+  prepareAudioPool(state,[],true);
+  state.audioSealed=state.syncPlayback=true;
+  for(const p of state.players){p.loaded=[0,1,2];matchMove(state,p.id,{type:'ready'},1);}
+  assert.equal(state.preparingClip,true);
+  matchMove(state,'0',{type:'clip-ready',index:0,revision:0},1000);
+  matchMove(state,'1',{type:'clip-ready',index:1,revision:0},2000);
+  assert.equal(state.phase,'loading');
+  assert.deepEqual(matchView(state,'0',2000).players.filter(p=>!p.audioReady).map(p=>p.id),['1']);
+  matchMove(state,'1',{type:'clip-ready',index:0,revision:0},16000);
+  assert.equal(state.startsAt,17000);
+  matchMove(state,'1',{type:'answer',index:0,lock:true,answers:{anime:'Anime',song:'',artist:''}},state.until-8000);
+  assert.equal(state.players.find(p=>p.id==='1').locked,true);
+});
+
 test('matches preload all ten, share only team answers, score categories once and resume without duplicate points',()=>{
   let now=100000;const s=makeMatch('local','3v3',players,songs,now);
   const move=(id,message)=>matchMove(s,id,message,now);

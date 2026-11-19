@@ -1299,7 +1299,7 @@ export class Game extends DurableObject {
       const requestId=crypto.randomUUID();
       this.listImports.set(id,requestId);
       try{
-        const snapshot=await importAnimeList(b.provider,b.username);
+        const snapshot=await importAnimeList(b.provider,b.username,undefined,b.statuses??listSummary(e,id)?.statuses);
         if(this.listImports.get(id)!==requestId)fail("The import was cancelled.",409);
         if(!e.one("SELECT 1 FROM sessions WHERE player=? AND token=? AND expires>?",id,sessionHash,e.now()))fail("Sign in again to import your list.",401);
         e.run("UPDATE players SET play_anime_list=? WHERE id=?",JSON.stringify(snapshot),id);

@@ -253,9 +253,9 @@ initial batch contains up to three real tracks in each multiplayer mode, plus
 the available decoys. All candidates use fixed-length sealed tickets and equally
 sized AES-GCM packets within a mode. Downloads use same-origin `/api/play-audio/`
 and encrypted edge caching. Only the Worker sees the AMQ MP3 URLs. The ready
-button enables audio with silence, and readiness checks whole batches. At the
-server's round start each active player receives the current clip's slot and
-key. Future keys, decoy keys, and the original MP3 URLs are absent from player
+button enables audio with silence, and readiness checks whole batches. Before guessing, each active player receives the current clip's slot and
+key. Every browser confirms the clip can play before the server schedules a shared
+start one second ahead. The loading panel names players preparing audio. Future keys, decoy keys, and the original MP3 URLs are absent from player
 responses and recaps. Decoys never become scored rounds, rating data or Song List
 entries.
 
@@ -266,7 +266,7 @@ are no automatic bans, credit changes or score penalties. After key release, the
 now-playable audio can still be recognized through fingerprinting or a second
 device. Decoy flags remain evidence for host review.
 
-WebSocket protocol 4 adds sealed audio and timed key release. Older tabs receive
+WebSocket protocol 5 adds per-song playback readiness to sealed matches. Older tabs receive
 a refresh instruction before joining new matches. Existing rooms can continue
 using their previous playback format. Activity uses the existing authenticated, rate-limited room
 socket and does not broadcast/re-render gameplay. Event retention is capped at

@@ -36,7 +36,7 @@ export class PlayMatch extends DurableObject {
       }
       if(!library)fail('The song library is unavailable.',503);if(!this.read()){
       const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
-      state.pool=pool;
+      state.pool=pool;state.syncPlayback=true;
       prepareAudioPool(state,library.decoys,true);
       await sealPlayAudio(state,this.env.HOST_TOKEN);
       if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
@@ -117,8 +117,8 @@ export class PlayMatch extends DurableObject {
       matchView(state,who.id);
       const player=state.players.find(p=>p.id===who.id);
       const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!state.arena&&!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
-      player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
-      const supported = state.audioSealed ? [PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3, PLAY_AUDIO_PROTOCOL] : [2, 3, PLAY_AUDIO_PROTOCOL];
+      delete player.clipReadyIndex;player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
+      const supported = state.syncPlayback ? [PLAY_AUDIO_PROTOCOL] : state.audioSealed ? [4,PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3,4,PLAY_AUDIO_PROTOCOL] : [2,3,4,PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
       const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
       const {server,response}=accept(this.ctx,who);
@@ -160,6 +160,10 @@ export class PlayMatch extends DurableObject {
         if(i>=0)live.decoys[i]=song;
       }else if(entry.round>=live.index)live.songs[entry.round]=song; // Past rounds keep their original answers and scores.
       (live.failedAudio??=[]).push(entry.audio);
+      if(entry.round===live.index){
+        delete live.preparingClip;
+        for(const p of live.players)delete p.clipReadyIndex;
+      }
       live.audioPool[slot]=next;
       live.audioRevision=(live.audioRevision||0)+1;
       for(const p of live.players)p.loaded=p.loaded.filter(index=>index!==slot);
@@ -258,8 +262,10 @@ export class PlayMatch extends DurableObject {
     if(state&&!['finished','cancelled'].includes(state.phase)){
       this.reviewLog.add(state,id,'disconnected',{code});
       const p=state.players.find(p=>p.id===id);
-      if(p&&!p.left&&(!state.lobby||state.arena)&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
-        p.disconnectedAt??=now;this.write(state);await this.schedule();
+      if(p&&!p.left&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
+        if(state.syncPlayback){p.ready=false;delete p.clipReadyIndex;}
+        if(!state.lobby||state.arena)p.disconnectedAt??=now;
+        this.write(state);await this.schedule();
       }
     }
     closeSocket(ws,code,reason);

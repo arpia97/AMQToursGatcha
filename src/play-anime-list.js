@@ -1,6 +1,11 @@
 import { libraryJSON } from "./quiz-library.js";
 import { fail } from "./engine.js";
 
+import { watchedListStatuses } from "../public/play-list-statuses.js";
+
+const malStatuses = {1:"watching",2:"completed",3:"onHold",4:"dropped"};
+const aniStatuses = {CURRENT:"watching",REPEATING:"watching",COMPLETED:"completed",PAUSED:"onHold",DROPPED:"dropped"};
+
 const query = `query WatchedList($name:String!, $chunk:Int!) {
   MediaListCollection(userName:$name,type:ANIME,chunk:$chunk,perChunk:500) {
     hasNextChunk lists { entries { status progress mediaId } }
@@ -24,8 +29,10 @@ export function listAccount(provider, input) {
   return name;
 }
 
-export async function importAnimeList(provider,input,fetcher=(...args)=>globalThis.fetch(...args)) {
+export async function importAnimeList(provider,input,fetcher=(...args)=>globalThis.fetch(...args), statuses=Object.keys(watchedListStatuses)) {
   const name=listAccount(provider,input), ids=new Set(), mal=provider==="myanimelist";
+  if(!Array.isArray(statuses)||!statuses.length||statuses.some(s=>typeof s!=="string"||!Object.hasOwn(watchedListStatuses,s)))fail("Select at least one valid list status.");
+  const selected=new Set(statuses);
   const signal=AbortSignal.timeout(90000);
   let offset=0;
   for(let page=1;page<=100;page++){
@@ -45,7 +52,7 @@ export async function importAnimeList(provider,input,fetcher=(...args)=>globalTh
     if(mal){
       if(!Array.isArray(data))fail("MyAnimeList could not share this list. Check its privacy settings.",422);
       for(const row of data){
-        if(Number(row.status)!==6 && (Number(row.status)===2 || Number(row.num_watched_episodes)>0) && Number.isSafeInteger(row.anime_id) && row.anime_id>0)ids.add(row.anime_id);
+        if(selected.has(malStatuses[row.status]) && Number.isSafeInteger(row.anime_id) && row.anime_id>0)ids.add(row.anime_id);
       }
       if(!data.length)break;
       offset+=data.length;
@@ -53,13 +60,13 @@ export async function importAnimeList(provider,input,fetcher=(...args)=>globalTh
       const collection=data.data?.MediaListCollection;
       if(data.errors?.length||!Array.isArray(collection?.lists)||typeof collection.hasNextChunk!=="boolean")fail("AniList could not share this list. Check the username and list privacy.",422);
       for(const list of collection.lists)for(const row of list.entries){
-        if(row.status!=="PLANNING" && (row.status==="COMPLETED" || row.status==="REPEATING" || row.progress>0) && Number.isSafeInteger(row.mediaId) && row.mediaId>0)ids.add(row.mediaId);
+        if(selected.has(aniStatuses[row.status]) && Number.isSafeInteger(row.mediaId) && row.mediaId>0)ids.add(row.mediaId);
       }
       if(!collection.hasNextChunk)break;
     }
     if(page===100)fail("The list exceeded the import limit. Your saved list was kept.",422);
   }
-  return {provider,name,count:ids.size,updated:Date.now(),ids:[...ids]};
+  return {provider,name,statuses:[...selected],count:ids.size,updated:Date.now(),ids:[...ids]};
 }
 
 export function listSummary(e,id){

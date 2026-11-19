@@ -153,3 +153,7 @@
 .play-header { z-index: 12; }
 .play-header [hidden] { display:none; }
 .play-header .account-menu { text-align:left; }
+
+.play-list-statuses { display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin:0; padding:.6rem .8rem; border:1px solid var(--line); border-radius:8px; }
+.play-list-statuses label { display:inline-flex; align-items:center; gap:.4rem; }
+.play-list-statuses input[type=checkbox] { width:1rem; height:1rem; margin:0; }

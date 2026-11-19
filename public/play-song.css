@@ -238,7 +238,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-tile-select { background:none; border:0; padding:0; font:inherit; color:inherit; }
 .sa-tile-select:enabled::after { content:""; position:absolute; inset:0; cursor:pointer; }
 .sa-team-answer-tile .sa-reactions button,.sa-team-answer-tile .sa-artist-chip button { position:relative; z-index:1; }
-.sa-team-answer-tile.sa-active-tile,.sa-answer-row:focus-within { outline:2px solid var(--mint,#b6e2c5); outline-offset:1px; }
+.sa-team-answer-tile.sa-active-tile { outline:2px solid var(--mint,#b6e2c5); outline-offset:1px; }
 .lobby-member,.lobby-settings {display:flex;align-items:center;gap:14px}
 .lobby-member {justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)}
 .lobby-member small,.lobby-settings label {color:var(--muted)}
