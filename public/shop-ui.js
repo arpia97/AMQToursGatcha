@@ -57,7 +57,7 @@ export function createShopUI(h, ui) {
         level: l.level || 1,
         showLevel: l.level > 1,
         meta: price,
-        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price flash-card-price">${price}</div>${control}${collectorsButton(c, e)}${s.me ? wishlistButton(c, s.wishlist || [], e) : ""}`,
+        actions: `<p class="form-hint">${weekly ? (s.communityMarket?.active ? "Flash Selection · 1 Shared Copy" : "Weekly Selection · 1 Shared Copy") : `By <a href="${profileURL(l.seller)}">${e(l.seller_name || (mine ? s.me.name : l.seller))}</a> ${roleBadge(s.roles?.[l.seller])} · ${levelLabel(l.level)}`}</p>${l.extra_copies ? `<p class="form-hint">Includes ${n(l.extra_copies)} spare copies.</p>` : ""}<div class="card-price flash-card-price">${price}</div>${control}${collectorsButton(c, e)}${s.me ? wishlistButton(c, s.wishlist || [], e, s.cardFavorites) : ""}`,
       },
       h,
     );
@@ -113,7 +113,7 @@ export function createShopUI(h, ui) {
                   level: item.level,
                   showLevel: true,
                   meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}`,
-                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}${wishlistButton(c, s.wishlist || [], e)}`,
+                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}${wishlistButton(c, s.wishlist || [], e, s.cardFavorites)}`,
                 },
                 h,
               );

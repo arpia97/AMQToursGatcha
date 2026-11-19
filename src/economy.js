@@ -579,6 +579,7 @@ export class Economy {
       return b.materials !== undefined
         ? this.alchemy.refineBatch(player, b)
         : this.alchemy.refine(player, b);
+    if (action === "card-favorite") return this.wishlist.setFavorite(player, b);
     if (action === "wishlist") return this.wishlist.change(player, b);
     if (action === "wishlist-order") return this.wishlist.reorder(player, b);
     if (action === "collection-order")
@@ -1024,6 +1025,7 @@ export class Economy {
     e.run("DELETE FROM card_alchemy WHERE player=?", player);
     e.run("DELETE FROM alchemy_bop_xp WHERE player=?", player);
     e.run("DELETE FROM alchemy_targets WHERE player=?", player);
+    e.run("DELETE FROM card_favorites WHERE player=?", player);
     e.run("DELETE FROM card_wishlist WHERE player=?", player);
     this.trades.resetPlayer(player);
     for (const a of e.all(

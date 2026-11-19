@@ -1,19 +1,9 @@
+import { cardQuickActions } from "./card-quick-actions.js";
 import { collectorsButton } from "./card-collectors.js";
 import { reverseCardSortOptions } from "./card-display.js";
 import { RARITIES } from "./card-values.js";
-export function wishlistButton(card, wishlist, e) {
-  const wanted = wishlist.includes(card.id);
-  return (
-    '<button type="button" class="text-button wishlist-button ' +
-    (wanted ? "is-selected" : "") +
-    '" data-action="wishlist-toggle" data-id="' +
-    e(card.id) +
-    '" aria-pressed="' +
-    wanted +
-    '">' +
-    (wanted ? "♥ Wishlisted" : "♡ Wishlist") +
-    "</button>"
-  );
+export function wishlistButton(card, wishlist, escape, favorites = []) {
+  return cardQuickActions(card, {wishlist: wishlist.includes(card.id), favorite: favorites.includes(card.id)}, escape);
 }
 export function profileCardTabs(view, friendControl = "") {
   return (
@@ -135,7 +125,7 @@ function profileCollectionControls(
 }
 export function profileCardPanel(
   data,
-  { cardBy, cardHTML, escape: e, number: n, own, wishlist, collectionFilters, wishlistFilters = {} },
+  { cardBy, cardHTML, escape: e, number: n, own, wishlist, favorites, collectionFilters, wishlistFilters = {} },
 ) {
   if (!data) return '<p class="notice">Loading Cards…</p>';
   if (data.hidden && data.view === "collection") {
@@ -164,8 +154,8 @@ export function profileCardPanel(
           '">View ' +
           label +
           " →</button>" +
-          collectorsButton(c, e) + wishlistButton(c, wishlist, e)
-        : collectorsButton(c, e) + wishlistButton(c, wishlist, e);
+          collectorsButton(c, e) + wishlistButton(c, wishlist, e, favorites)
+        : collectorsButton(c, e) + wishlistButton(c, wishlist, e, favorites);
       return cardHTML(
         c,
         null,

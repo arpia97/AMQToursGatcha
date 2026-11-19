@@ -5,6 +5,7 @@ export { MAX_WISHLIST };
 export class Wishlist {
   constructor(e) {
     this.e = e;
+    e.run("CREATE TABLE IF NOT EXISTS card_favorites(player TEXT NOT NULL,card TEXT NOT NULL,PRIMARY KEY(player,card))");
     e.run(
       "CREATE TABLE IF NOT EXISTS card_wishlist(player TEXT NOT NULL,card TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(player,card))",
     );
@@ -31,6 +32,20 @@ export class Wishlist {
         player,
       )
       .map((r) => r.card);
+  }
+  favorites(player) {
+    return this.e.all("SELECT card FROM card_favorites WHERE player=?", player).map(row => row.card);
+  }
+  setFavorite(player, b) {
+    const card = text(b.card, 100);
+    if (typeof b.favorite !== "boolean") fail("Choose whether to favorite this card.");
+    if (b.favorite) {
+      if (!this.e.catalogStore.card(card)) fail("Unknown card.");
+      this.e.run("INSERT OR IGNORE INTO card_favorites(player,card) VALUES(?,?)", player, card);
+    } else {
+      this.e.run("DELETE FROM card_favorites WHERE player=? AND card=?", player, card);
+    }
+    return {card, favorite: b.favorite, message: b.favorite ? "Card favorited." : "Card removed from favorites."};
   }
   change(player, b) {
     const e = this.e,

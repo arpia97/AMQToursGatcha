@@ -1143,6 +1143,7 @@ export class Engine {
         "alchemy_bop_xp",
         "alchemy_targets",
         "card_wishlist",
+        "card_favorites",
         "special_packs",
       ])
         this.run(`DELETE FROM ${table}`);
@@ -1314,6 +1315,7 @@ export class Engine {
         this.all("SELECT * FROM settings").map((s) => [s.key, s.value]),
       ),
       inventory,
+      cardFavorites: id ? this.economy.wishlist.favorites(id) : [],
       wishlist: id ? this.economy.wishlist.read(id) : [],
       roles: this.publicRoles(),
       myListings,

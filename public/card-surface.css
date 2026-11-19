@@ -482,3 +482,57 @@ html[data-card-size="large"]
     display: none;
   }
 }
+
+.card-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.card-quick-actions .card-quick-button {
+  display: grid;
+  place-items: center;
+  flex: 0 1 32px;
+  min-width: 0;
+  width: 32px;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid #535660;
+  border-radius: 6px;
+  background: #252730eb;
+  color: #d4d7df;
+  cursor: pointer;
+}
+.card-quick-button svg {
+  width: 57%;
+  height: 57%;
+  max-width: 18px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.card-quick-actions .card-quick-button[aria-pressed="true"] {
+  background: #30473d;
+  color: #b6e2c5;
+  border-color: #91c3a7;
+}
+.card-quick-button:focus-visible { outline: 2px solid var(--mint); outline-offset: 1px; }
+.card-quick-button:disabled { opacity: .45; cursor: default; }
+.card-surface .owned-card-grid .collector-button {
+  grid-column: 1 / -1;
+  min-height: 32px;
+  background: #293531;
+  border-color: #597767;
+  color: #dcf0e3;
+}
+.card-surface .card-back:has(.owned-card-grid) { bottom: 9px; }
+.card-surface.has-card-level .owned-card-grid + .card-quick-actions { margin-right: 42px; }
+.card-surface.is-revealed:has(.owned-card-grid) .card-state-icons { visibility: hidden; }
+/* Small cards keep a usable action row even on narrow phones. */
+.card-surface-stage:has(.owned-card-grid) { container-type: inline-size; }
+@container (max-width: 149px) {
+  .card-surface.has-card-level .owned-card-grid + .card-quick-actions { margin-right: 0; }
+  .card-surface.is-revealed .portrait .level-tag { top: 38px; bottom: auto; }
+}

@@ -1,3 +1,4 @@
+import { cardQuickActions } from "./card-quick-actions.js";
 import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { replacementPortrait } from "./mal-portraits.js";
 import {installTitleMotion} from "./title-motion.js";
@@ -409,6 +410,7 @@ async function openAnimeChecklist(seriesKey, pageNumber = 1) {
       escape,
       cardHTML,
       wishlist: state.wishlist || [],
+      favorites: state.cardFavorites,
       titleMode,
     }),
     true,
@@ -656,6 +658,23 @@ function cardFlags(c) {
     wishlisted: (state?.wishlist || []).includes(c.id),
   };
 }
+function ownedCardActions(c, item) {
+  const id = escape(c.id), cost = enhancementCost(item.level), maxed = item.level >= MAX_CARD_LEVEL;
+  const toggles = cardQuickActions(c, {
+    wishlist: state.wishlist?.includes(c.id) ?? false,
+    protect: !!item.protected,
+    showcase: state.showcase?.includes(c.id) ?? false,
+    favorite: state.cardFavorites?.includes(c.id) ?? false,
+  }, escape);
+  return `<div class="card-copy-info"><span>${item.copies - 1} Extra Copies</span><span>${maxed ? "MAX" : cost + " to Enhance"}</span></div>
+    <div class="card-action-grid owned-card-grid">
+      <button class="bid-button" data-action="enhance" data-id="${id}" ${maxed || item.copies - 1 < cost ? "disabled" : ""}>${maxed ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>
+      <button class="text-button" data-action="set-avatar" data-id="${id}" aria-pressed="${state.me?.avatar_card === c.id}">Profile Pic</button>
+      <button class="text-button" data-action="trade-toggle" data-id="${id}" aria-pressed="${!!item.for_trade}" title="Mark willing to trade or sell">${item.for_trade ? "For Trade" : "Trade"}</button>
+      <button class="text-button" data-action="sell-card" data-id="${id}" ${item.protected ? "disabled" : ""}>List Card ↗</button>
+      ${collectorsButton(c, escape)}
+    </div>${toggles}`;
+}
 function cardHTML(c, a = null, item = null, extraActions = "", { packResult = false } = {}) {
   const mine = a?.winner === state.me?.id,
     selling = a?.seller === state.me?.id,
@@ -663,16 +682,13 @@ function cardHTML(c, a = null, item = null, extraActions = "", { packResult = fa
   const auction = a
     ? `${a.seller || a.rolling ? `<p class="form-hint user-auction-timer">${countdown(a.ends, "Ends in ", true, "Ended", true)}</p>` : ""}<p class="form-hint">${a.seller ? 'By <a href="' + profileURL(a.seller) + '">' + escape(a.seller_name || a.seller) + "</a> " + roleBadge(state.roles?.[a.seller]) : "Community auction"}</p><div class="bid-label"><span>${a.bid ? "Highest bid" : "Opening bid"}</span></div><div class="card-price"><span class="coin">✦</span> ${number(a.bid || a.reserve || 1)} <span class="subtext">credits</span></div>${a.winner && a.bid ? `<p class="form-hint auction-leader">Highest bidder: <a href="${profileURL(a.winner)}">${escape(a.winner_name || a.winner)}</a> ${roleBadge(state.roles?.[a.winner])}${mine ? " · You" : ""}</p>` : '<p class="form-hint auction-leader">No bids yet</p>'}${selling ? `<p class="form-hint">Your listing</p>${!a.bid ? btn("Withdraw listing", "cancel-listing", `data-id="${a.id}" data-venue="auction"`, "secondary") : ""}` : btn(a.ends <= state.now ? "Claim your card" : mine ? "↑ Your bid leads" : "Place a bid ↗", a.ends <= state.now ? "claim" : "bid", `data-id="${a.id}"`, "secondary")}${a.buyout && !selling && a.ends > state.now ? btn("Buyout · ✦ " + number(a.buyout), "buyout", `data-id="${a.id}"`, "mint") : ""}`
     : "";
-  const owned =
-    item && !item.preview
-      ? `<div class="card-copy-info"><span>${item.protected ? "🔒 · " : ""}${item.copies - 1} Extra Copies</span><span>${enhancementCost(item.level) ?? "MAX"}${item.level < MAX_CARD_LEVEL ? " to Enhance" : ""}</span></div><div class="card-action-grid"><button class="bid-button" data-action="enhance" data-id="${escape(c.id)}" ${item.level >= MAX_CARD_LEVEL || item.copies - 1 < enhancementCost(item.level) ? "disabled" : ""}>${item.level >= MAX_CARD_LEVEL ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>${state.me ? wishlistButton(c, state.wishlist || [], escape) : ""}<button data-action="set-avatar" data-id="${escape(c.id)}" title="Use as profile picture" class="text-button ${state.me?.avatar_card === c.id ? "is-selected" : ""}">Profile Pic</button><button class="text-button ${(state.showcase || []).includes(c.id) ? "is-selected" : ""}" data-action="showcase-toggle" data-id="${escape(c.id)}" aria-pressed="${(state.showcase || []).includes(c.id)}" title="${(state.showcase || []).includes(c.id) ? "Remove from showcase" : "Add to showcase"}">${(state.showcase || []).includes(c.id) ? "★ Showcased" : "☆ Showcase"}</button><button class="text-button ${item.protected ? "is-selected" : ""}" data-action="protect-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.protected}" title="${item.protected ? "Unprotect this card" : "Protect this card"}">${item.protected ? "🔒 Protected" : "🔓 Protect"}</button>${collectorsButton(c, escape)}<button class="text-button ${item.for_trade ? "is-selected" : ""}" data-action="trade-toggle" data-id="${escape(c.id)}" aria-pressed="${!!item.for_trade}" title="${item.for_trade ? "Remove trade marker" : "Mark willing to trade or sell"}">${item.for_trade ? "⚖️ For Trade" : "⚖️ Trade"}</button><button class="text-button" ${item.protected ? "disabled" : ""} data-action="sell-card" data-id="${escape(c.id)}" title="List on marketplace, auction, trade, or sell to store">List Card ↗</button></div>`
-      : "";
+  const owned = item && !item.preview ? ownedCardActions(c, item) : "";
   const actions =
     auction +
     owned +
     (!packResult && (page() === "catalog" || a) ? collectorsButton(c, escape) : "") +
     (state.me && !item?.preview && !owned && !packResult
-      ? wishlistButton(c, state.wishlist || [], escape)
+      ? wishlistButton(c, state.wishlist || [], escape, state.cardFavorites)
       : "") +
     extraActions;
   const meta = a
@@ -1593,6 +1609,7 @@ function profile() {
               number,
               own,
               wishlist: state.wishlist || [],
+              favorites: state.cardFavorites,
               collectionFilters: ui.profileCollection,
               wishlistFilters: ui.profileWishlist,
             }))
@@ -1615,7 +1632,7 @@ function profile() {
                     wishlisted: (p.wishlist || []).includes(item.card),
                     forTrade: !!item.for_trade,
                   },
-                }, state.me ? wishlistButton(c, state.wishlist || [], escape) : "");
+                }, state.me ? wishlistButton(c, state.wishlist || [], escape, state.cardFavorites) : "");
               })
               .join(
                 "",
@@ -3454,6 +3471,16 @@ async function handleFeatureClick(a, t) {
       );
       return true;
     }
+    if (a === "favorite-toggle") {
+      if (!state.me) { auth(); return true; }
+      await execute("card-favorite", {card: t.dataset.id, favorite: t.getAttribute("aria-pressed") !== "true"}, result => {
+        document.querySelectorAll('[data-action="favorite-toggle"]').forEach(button => {
+          if (button.dataset.id === result.card) button.setAttribute("aria-pressed", String(result.favorite));
+        });
+        toast(result.message);
+      });
+      return true;
+    }
     if (a === "wishlist-toggle") {
       collectorCounts.delete(t.dataset.id);
       if (!state.me) {
@@ -3476,6 +3503,7 @@ async function handleFeatureClick(a, t) {
                 escape,
                 cardHTML,
                 wishlist: state.wishlist || [],
+                favorites: state.cardFavorites,
                 titleMode,
               });
               body.scrollTop = scroll;
@@ -3488,7 +3516,12 @@ async function handleFeatureClick(a, t) {
                 )
                 ?.focus({ preventScroll: true });
             }
-          : null,
+          : result => {
+              document.querySelectorAll('[data-action="wishlist-toggle"]').forEach(button => {
+                button.setAttribute("aria-pressed", String(result.wishlist.includes(button.dataset.id)));
+              });
+              syncCardFlags($("#modal"), cardFlags);
+            },
       );
       return true;
     }
@@ -3810,7 +3843,6 @@ async function handleFeatureClick(a, t) {
       item.protected = nextProtected ? 1 : 0;
       t.setAttribute("aria-pressed", String(nextProtected));
       t.classList.toggle("is-selected", nextProtected);
-      t.textContent = nextProtected ? "🔒 Protected" : "🔓 Protect";
       t.title = nextProtected ? "Unprotect this card" : "Protect this card";
       const surface = t.closest(".card-surface");
       if (surface) syncCardFlags(surface, cardFlags);
@@ -3828,7 +3860,7 @@ async function handleFeatureClick(a, t) {
         item.protected = nextProtected ? 0 : 1;
         t.setAttribute("aria-pressed", String(!nextProtected));
         t.classList.toggle("is-selected", !nextProtected);
-        t.textContent = !nextProtected ? "🔒 Protected" : "🔓 Protect";
+
         t.title = !nextProtected ? "Unprotect this card" : "Protect this card";
         if (surface) syncCardFlags(surface, cardFlags);
       }

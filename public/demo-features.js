@@ -112,6 +112,12 @@ export function demoFeatures(d, path, b) {
       inventory: s.inventory,
     };
   }
+  if (path === "card-favorite") {
+    if (!me || typeof b.favorite !== "boolean" || !d.cards.some(c => c.id === b.card)) throw Error("Choose a valid card.");
+    s.cardFavorites = (s.cardFavorites || []).filter(id => id !== b.card);
+    if (b.favorite) s.cardFavorites.push(b.card);
+    return {card: b.card, favorite: b.favorite, message: b.favorite ? "Card favorited." : "Card removed from favorites."};
+  }
   if (path === "wishlist") {
     if (!d.cards.some((c) => c.id === b.card) || typeof b.wanted !== "boolean")
       throw Error("Choose a catalogue card.");

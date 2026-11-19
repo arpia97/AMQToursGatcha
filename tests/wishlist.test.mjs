@@ -710,3 +710,14 @@ test("wishlist sorts the complete saved set before paging and preserves private 
   assert.equal(JSON.stringify(e.all("SELECT * FROM inventory ORDER BY player,card")),saved);assert.equal(e.player("p").balance,balance);
 
 });
+
+test("personal favorites survive a state reload and stay independent of wishlists and other players", t => {
+  const {e, act} = fixture(t);
+  for (let i = 0; i < 2; i++) act("p", "card-favorite", {card: "c1", favorite: true});
+  assert.deepEqual(e.economy.wishlist.favorites("p"), ["c1"]);
+  assert.deepEqual(e.economy.wishlist.favorites("q"), []);
+  assert.deepEqual(e.economy.wishlist.read("p"), []);
+  assert.throws(() => act("p", "card-favorite", {card: "missing", favorite: true}));
+  act("p", "card-favorite", {card: "c1", favorite: false});
+  assert.deepEqual(e.economy.wishlist.favorites("p"), []);
+});

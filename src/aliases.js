@@ -225,6 +225,7 @@ export class AliasSync {
       "alchemy_bop_xp",
       "alchemy_targets",
       "card_wishlist",
+      "card_favorites",
       "special_packs",
       "pack_auto_sales",
     ])

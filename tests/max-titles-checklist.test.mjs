@@ -252,7 +252,7 @@ test("anime checklists paginate primary-series cards with unique escrow ownershi
   });
   assert.match(html, /English Anime/);
   assert.match(html, /is-missing/);
-  assert.match(html, /♥ Wishlisted/);
+  assert.match(html, /data-action="wishlist-toggle" data-id="[^"]+" aria-pressed="true"/);
   assert.throws(
     () => e.economy.anime.checklist("p", "absent"),
     /not in the catalogue/,

@@ -35,8 +35,8 @@ test("pack reveals keep highest-rarity effects, duplicate controls, paid-pack id
   reveal.reveal();
   assert.match(views.at(-1), /Page 1 of 2/);
   assert.equal((views.at(-1).match(/<article>/g) || []).length, 20);
-  assert.equal((views.at(-1).match(/🔒 Protected/g) || []).length, 2);
-  assert.equal((views.at(-1).match(/★ Showcased/g) || []).length, 2);
+  assert.equal((views.at(-1).match(/data-action="protect-toggle" data-id="duplicate" aria-pressed="true"/g) || []).length, 2);
+  assert.equal((views.at(-1).match(/data-action="showcase-toggle" data-id="duplicate" aria-pressed="true"/g) || []).length, 2);
   assert.match(
     views.at(-1),
     /data-kind="seiyuu" data-premium="true" data-count="5"/,
@@ -72,7 +72,7 @@ test("pack reveals keep highest-rarity effects, duplicate controls, paid-pack id
   assert.equal((views.at(-1).match(/Cancel Auto-sell · −✦ 25/g) || []).length, 1);
   assert.match(views.at(-1), /Auto-sold <strong>1<\/strong>/);
   assert.match(views.at(-1), /Credits left:.*75/);
-  assert.match(views.at(-1), /data-auto-sold-id="sale-0"><button[^>]*data-action="wishlist-toggle"/);
+  assert.match(views.at(-1), /data-auto-sold-id="sale-0"><button[^>]*data-action="card-collectors"/);
   reveal.show({cards:cards.slice(0,10),balance:3000},{kind:'character',paidSpecial:true,count:2});
   assert.match(views.at(-1),/SPECIAL CARD PACK/);assert.match(views.at(-1),/2 guaranteed S-or-higher cards and 8 premium draws/);assert.doesNotMatch(views.at(-1),/1 AG guaranteed/);
   reveal.reveal();assert.match(views.at(-1),/data-special="true"/);assert.match(views.at(-1),/2 more packs.*6,?000/);

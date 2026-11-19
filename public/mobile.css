@@ -114,3 +114,8 @@
 @media(prefers-reduced-motion:no-preference){.mobile-sheet[open]{animation:sheet-enter .18s ease-out}@keyframes sheet-enter{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}}
 
 @media(max-width:850px){.desktop-collection-title{display:none}.mobile-collection-title{display:inline}.mobile-sheet .sheet-links a:focus-visible{outline-offset:-3px}.sheet-tabs button{transition:none}}
+@media (max-width: 520px) {
+  html[data-card-size=small] .card-grid.collection-card-grid:has(.owned-card-grid) {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+  }
+}

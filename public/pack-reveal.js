@@ -2,38 +2,7 @@ import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { routeHref } from "./site-navigation.js";
 import { rarityRank, rarityClass } from "./card-display.js";
 import { collectorsButton } from "./card-collectors.js";
-import { wishlistButton } from "./profile-cards-ui.js";
-
-function cardActions(card, state, isAutoSold = false) {
-  const item = isAutoSold ? null : state.inventory?.find((i) => i.card === card);
-  return [
-    {
-      action: "protect-toggle",
-      pressed: !!item?.protected,
-      label: item?.protected ? "🔒 Protected" : "♧ Protect",
-      title: isAutoSold
-        ? "Auto-sold for credits"
-        : item?.protected
-          ? "Unprotect this card"
-          : "Protect this card",
-      disabled: !item,
-    },
-    {
-      action: "showcase-toggle",
-      pressed: !isAutoSold && (state.showcase || []).includes(card),
-      label:
-        !isAutoSold && (state.showcase || []).includes(card)
-          ? "★ Showcased"
-          : "☆ Showcase",
-      title: isAutoSold
-        ? "Auto-sold for credits"
-        : (state.showcase || []).includes(card)
-          ? "Remove from showcase"
-          : "Add to showcase",
-      disabled: !item,
-    },
-  ];
-}
+import { cardQuickActions } from "./card-quick-actions.js";
 
 export function packCardActions(card, state, escape, options = {}) {
   const id = typeof card === "string" ? card : card.id;
@@ -44,29 +13,30 @@ export function packCardActions(card, state, escape, options = {}) {
       ? `<button type="button" class="text-button pack-autosell-tag" data-action="pack-autosell-cancel" data-sale="${escape(card.autoSoldId)}" title="Restore this copy for its original ${escape(card.autoSoldPrice)} credit auto-sale">Cancel Auto-sell · −✦ ${escape(card.autoSoldPrice)}</button>`
       : `<span class="pack-autosell-tag">Auto-sold · +✦ ${escape(card.autoSoldPrice)}</span>`
     : "";
-  return `<div class="pack-card-actions" data-pack-card="${escape(id)}"${isAutoSold ? ' data-auto-sold="1"' : ""}${card.autoSoldId ? ` data-auto-sold-id="${escape(card.autoSoldId)}"` : ""}>${autoSoldBadge}${state.me ? wishlistButton(cardObj, state.wishlist || [], escape) : ""}${cardActions(
-    id,
-    state,
-    isAutoSold,
-  )
-    .map(
-      (a) =>
-        `<button type="button" class="text-button" data-action="${a.action}" data-id="${escape(id)}" aria-pressed="${a.pressed}" title="${a.title}" ${a.disabled ? "disabled" : ""}>${a.label}</button>`,
-    )
-    .join("")}${collectorsButton(cardObj, escape)}</div>`;
+  return `<div class="pack-card-actions" data-pack-card="${escape(id)}"${isAutoSold ? ' data-auto-sold="1"' : ""}${card.autoSoldId ? ` data-auto-sold-id="${escape(card.autoSoldId)}"` : ""}>${autoSoldBadge}${collectorsButton(cardObj, escape)}${state.me ? cardQuickActions(cardObj, {
+    wishlist: state.wishlist?.includes(id) ?? false,
+    protect: !isAutoSold && !!state.inventory?.find(i => i.card === id)?.protected,
+    showcase: !isAutoSold && !!state.showcase?.includes(id),
+    favorite: state.cardFavorites?.includes(id) ?? false,
+  }, escape, isAutoSold || !state.inventory?.some(i => i.card === id) ? ["protect", "showcase"] : []) : ""}</div>`;
 }
 
 // Update every copy of a pulled card without replacing the card or its animation.
 export function syncPackCardActions(root, state) {
   for (const group of root.querySelectorAll("[data-pack-card]")) {
     const isAutoSold = group.dataset.autoSold === "1";
-    for (const action of cardActions(group.dataset.packCard, state, isAutoSold)) {
-      const button = group.querySelector(`[data-action="${action.action}"]`);
+    const id = group.dataset.packCard;
+    const owned = !isAutoSold && state.inventory?.find(item => item.card === id);
+    for (const [action, pressed] of Object.entries({
+      protect: !!owned?.protected,
+      showcase: !!owned && !!state.showcase?.includes(id),
+      wishlist: !!state.wishlist?.includes(id),
+      favorite: !!state.cardFavorites?.includes(id),
+    })) {
+      const button = group.querySelector(`[data-action="${action}-toggle"]`);
       if (!button) continue;
-      button.textContent = action.label;
-      button.setAttribute("aria-pressed", String(action.pressed));
-      button.title = action.title;
-      button.disabled = action.disabled;
+      button.setAttribute("aria-pressed", String(pressed));
+      if (action === "protect" || action === "showcase") button.disabled = !owned;
     }
   }
 }

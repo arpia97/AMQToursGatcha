@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
 import { readFile } from "node:fs/promises";
-const source = await readFile(
+const source = (await readFile(
   new URL("../public/app.js", import.meta.url),
   "utf8",
-);
+)).replaceAll("\r\n", "\n");
 const render = source.slice(
   source.indexOf("function renderFusionPicker("),
   source.indexOf("async function openFusionPicker("),
