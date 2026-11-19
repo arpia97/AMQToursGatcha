@@ -21,8 +21,6 @@
 .play-header-label { color:var(--muted); font-size:9px; letter-spacing:1.5px; white-space:nowrap; }
 .play-header-label>span { color:#454955; padding:0 12px; }
 .play-header-actions { display:flex; align-items:center; gap:24px; margin-left:auto; }
-.play-title-mode { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:10px; white-space:nowrap; }
-.play-title-mode select { width:95px; height:34px; padding:6px 10px; background:var(--panel2); border:1px solid var(--border); border-radius:8px; font-size:11px; color:var(--text); }
 #play-account { display:flex; align-items:center; gap:14px; }
 .play-credits { display:flex; align-items:center; gap:8px; min-height:40px; padding:9px 15px; border:1px solid var(--border); border-radius:24px; background:#1b1d26; font-size:12px; color:var(--text); white-space:nowrap; }
 .play-credits>span { color:var(--yellow); font-size:16px; }
@@ -54,7 +52,7 @@
   .play-sidebar { display:none; }
   .play-workspace { margin-left:0; padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
   .play-header { height:70px; min-height:70px; padding:0 20px; }
-  .play-header-label,.play-title-mode { display:none; }
+  .play-header-label { display:none; }
   .play-mobile-brand { display:flex; }
   .play-header-actions { gap:10px; }
   .play-credits { font-size:11px; min-height:35px; padding:8px 11px; }
@@ -172,3 +170,65 @@
 .play-pool-toggle button:disabled { cursor:default; }
 .ranking-song-pool { flex-basis:100%; display:flex; justify-content:flex-end; }
 .ranking-song-pool[hidden] { display:none; }
+
+.account-anchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.account-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 176px;
+  padding: 5px;
+  border: 1px solid #424550;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 16px 42px #0007;
+}
+.account-menu :is(a, button) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.account-menu :is(a, button):is(:hover, :focus-visible) {
+  background: #ffffff0d;
+}
+.account-menu svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+.account-menu [data-action="logout"] {
+  color: #f799ad;
+}
+.account-menu [data-action="logout"] svg {
+  color: inherit;
+}
+.inbox-bell-count {
+  position:absolute; top:0; right:-4px; min-width:16px; padding:0 4px;
+  border-radius:999px; background:#b6e2c5; color:#15241b; box-shadow:0 0 0 2px #15161d;
+  font-size:10px; font-weight:750; line-height:15px; text-align:center; font-variant-numeric:tabular-nums;
+}
+
+.play-header { z-index: 12; }
+.play-header [hidden] { display:none; }
+.play-header .account-menu { text-align:left; }
+@media(max-width:850px){.play-header-actions{gap:12px}}
