@@ -660,17 +660,18 @@ function cardFlags(c) {
 }
 function ownedCardActions(c, item) {
   const id = escape(c.id), cost = enhancementCost(item.level), maxed = item.level >= MAX_CARD_LEVEL;
+  const showcased = state.showcase?.includes(c.id) ?? false;
   const toggles = cardQuickActions(c, {
     wishlist: state.wishlist?.includes(c.id) ?? false,
     protect: !!item.protected,
-    showcase: state.showcase?.includes(c.id) ?? false,
+    trade: !!item.for_trade,
     favorite: state.cardFavorites?.includes(c.id) ?? false,
   }, escape);
   return `<div class="card-copy-info"><span>${item.copies - 1} Extra Copies</span><span>${maxed ? "MAX" : cost + " to Enhance"}</span></div>
     <div class="card-action-grid owned-card-grid">
       <button class="bid-button" data-action="enhance" data-id="${id}" ${maxed || item.copies - 1 < cost ? "disabled" : ""}>${maxed ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>
       <button class="text-button" data-action="set-avatar" data-id="${id}" aria-pressed="${state.me?.avatar_card === c.id}">Profile Pic</button>
-      <button class="text-button" data-action="trade-toggle" data-id="${id}" aria-pressed="${!!item.for_trade}" title="Mark willing to trade or sell">${item.for_trade ? "For Trade" : "Trade"}</button>
+      <button type="button" class="text-button" data-action="showcase-toggle" data-id="${id}" aria-pressed="${showcased}">Showcase</button>
       <button class="text-button" data-action="sell-card" data-id="${id}" ${item.protected ? "disabled" : ""}>List Card ↗</button>
       ${collectorsButton(c, escape)}
     </div>${toggles}`;
@@ -3876,11 +3877,6 @@ async function handleFeatureClick(a, t) {
       const nextForTrade = !item.for_trade;
       item.for_trade = nextForTrade ? 1 : 0;
       t.setAttribute("aria-pressed", String(nextForTrade));
-      t.classList.toggle("is-selected", nextForTrade);
-      t.textContent = nextForTrade ? "⚖️ For Trade" : "⚖️ Trade";
-      t.title = nextForTrade
-        ? "Remove trade marker"
-        : "Mark willing to trade or sell";
       const surface = t.closest(".card-surface");
       if (surface) syncCardFlags(surface, cardFlags);
       try {
@@ -3896,11 +3892,6 @@ async function handleFeatureClick(a, t) {
       } catch (err) {
         item.for_trade = nextForTrade ? 0 : 1;
         t.setAttribute("aria-pressed", String(!nextForTrade));
-        t.classList.toggle("is-selected", !nextForTrade);
-        t.textContent = !nextForTrade ? "⚖️ For Trade" : "⚖️ Trade";
-        t.title = !nextForTrade
-          ? "Remove trade marker"
-          : "Mark willing to trade or sell";
         if (surface) syncCardFlags(surface, cardFlags);
       }
       return true;

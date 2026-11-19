@@ -29,7 +29,7 @@ test("Trade marker clicks reach the inventory toggle instead of the trade-board 
   const button = {
     dataset: { id: item.card },
     setAttribute: (name, value) => pressed.push([name, value]),
-    classList: { toggle() {} },
+    set textContent(_) { assert.fail("The trade button must retain its icon"); },
     closest: () => surface,
   };
   const context = vm.createContext({
@@ -45,7 +45,6 @@ test("Trade marker clicks reach the inventory toggle instead of the trade-board 
   vm.runInContext(handler, context);
   assert.equal(await context.handleFeatureClick("trade-toggle", button), true);
   assert.equal(item.for_trade, 1);
-  assert.equal(button.textContent, "⚖️ For Trade");
   assert.equal(flags[0].forTrade, true);
   assert.equal(calls[0].path, "trade-card");
   assert.equal(calls[0].forTrade, true);
@@ -53,7 +52,6 @@ test("Trade marker clicks reach the inventory toggle instead of the trade-board 
   assert.equal(item.for_trade, 0);
   assert.equal(flags[1].forTrade, false);
   assert.equal(calls[1].forTrade, false);
-  assert.equal(button.textContent, "⚖️ Trade");
   assert.deepEqual(pressed, [
     ["aria-pressed", "true"],
     ["aria-pressed", "false"],
@@ -66,7 +64,6 @@ test("Trade marker clicks reach the inventory toggle instead of the trade-board 
   context.saveCardAction = async () => undefined;
   await context.handleFeatureClick("trade-toggle", button);
   assert.equal(item.for_trade, 0, "failed saves restore the previous marker");
-  assert.equal(button.textContent, "⚖️ Trade");
 });
 
 function listing(options = {}) {

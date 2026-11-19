@@ -1000,7 +1000,7 @@ export function demoFeatures(d, path, b) {
     else s.trades.push({ ...row, seller: me.id, seller_name: me.name });
     return { message: l ? "Demo offer sent." : "Demo card listed for trade." };
   }
-  if (path.startsWith("trade-")) {
+  if (path.startsWith("trade-") && path !== "trade-card") {
     const o = s.tradeOffers.find(
         (o) => o.id === b.offer && o.status === "open",
       ),
