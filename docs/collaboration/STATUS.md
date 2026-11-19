@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Per-song playback readiness and Watched list filters
+
+Source `fcac36f` is live on Worker `0362ef0d-616f-4114-a3b9-50e7bd89573d`. New multiplayer rooms wait for each browser to prepare the current clip before scheduling a shared start. Play names loading players and uses input-level focus styling. MAL and AniList imports accept any nonempty selection of Watching, Completed, On-hold, and Dropped. All 559 tests passed. Desktop and mobile Chrome checks on deployed assets verified encrypted MP3 decoding, readiness, answer submission, waiting-player names, and list status selection with fixture accounts and sockets.
+
 ## Smaller multiplayer opening download
 
 Source `6673c03` is live on Worker `c9f2adac-8378-4619-ac96-d6428fd7453e`. New sealed matches buffer three songs and up to three decoys before starting. The client prioritizes the current group, downloads ahead with two independent requests, and resumes from the current group on reconnect. Fresh acknowledgments for required clips extend the audio wait within a bounded grace period. The shared guess clock starts after everyone is ready. All 557 tests, syntax checks, and the Worker dry run passed. Desktop and mobile Chrome checks exercised the deployed client with a delayed fixture clip.
