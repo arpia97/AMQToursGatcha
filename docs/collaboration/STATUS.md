@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Watched lobbies and host console
+
+Source `c21aa01` is deployed on Worker `c27daba4-132d-42af-a70a-7bc759dba51e`. Play Settings imports a public MAL or AniList account. Custom Song/Artist and NGMC lobbies can use the union of participants’ imported lists. The Play Host Console is in the signed-in host account menu and includes manual master-sheet refresh and match review status and notes. The Worker cron runs Sundays at 04:12 UTC. The staged sheet publisher was rehearsed in isolated workerd SQLite with the full Google export (29,392 rows, 27,080 recordings). All 545 tests passed. Confirmed the live schedule, guest access checks and deployed UI at 1440px and 390px using isolated account data. The new quiz-complete layout and snapshots are local only in the adjacent `quiz-complete-review` folder, pending design approval.
+
 ## Gacha notifications
 
 Source `f101aa9` deployed to the Gacha Worker as `d000ccba-2900-43b7-8307-778bdf46f9c9`. The inbox at `/gacha/notifications` includes group and unread filters, compact thumbnails and per-player read status. General and Notifications share the existing Settings form. New event types deliver prospectively. Personal and friend quiz overtakes are opt-in, with existing friend preferences retained. All 544 tests, syntax checks and the Worker build passed. Verified production routes, assets and guest authorization. Tested deployed desktop and mobile UI with isolated account data, including preference persistence and read actions.
