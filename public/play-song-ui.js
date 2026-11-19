@@ -1,7 +1,7 @@
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
-import {arenaBallot, arenaBoard, arenaQueueInfo, arenaReveal} from './play-arena-ui.js';
-import {DUEL_FORMAT, duelRules, animeOnlyMode, soloVersus, queueMode} from './play-mode-rules.js';
+import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
+import {DUEL_FORMAT, duelRules, animeOnlyMode, soloVersus, queueMode, lobbyGameMode} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateReturnDialog} from './play-lobby-ui.js';
@@ -106,7 +106,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(msg.code!==queueStatus.code||msg.type!=='lobby')lobbyDraft=null;
       if(msg.lobbies)lobbies=msg.lobbies;
       if(msg.type==='lobby'&&msg.code!==queueStatus.code)lobbyModal?.close();
-      queueStatus=msg;notifyQueue();syncLobbyReady();if(msg.type==='matched'&&msg.match!==dismissedMatch&&(!match||match.id!==msg.match))connectRoom(msg.match);if(changed)render();
+      queueStatus=msg;
+      if(msg.type==='lobby'&&(arena()||lobbyGameMode(msg.format)===ARENA_FORMAT)){
+        mode=lobbyGameMode(msg.format);
+        fields=animeOnly()?['anime']:['anime','song','artist'];
+        onMatchMode(mode);
+      }
+      notifyQueue();syncLobbyReady();if(msg.type==='matched'&&msg.match!==dismissedMatch&&(!match||match.id!==msg.match))connectRoom(msg.match);if(changed)render();
     };
     ws.onclose=event=>{if(queue!==ws)return;queue=null;lastCounts=null;connecting=false;if(active&&event.code!==4001){queueRetry=setTimeout(connectQueue,queueDelay);queueDelay=Math.min(15000,queueDelay*2);}if(event.code===4001){queuedFormat=null;error('Play was opened in another tab.');}notifyQueue();render();};
   }
@@ -358,7 +364,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       ['EU','NAE','NAW'].map(s=>'<option '+(s===server?'selected':'')+'>'+s+'</option>').join('')+'</select></label>'+autoReadyHTML(autoReady)+'</div>'+
       '<button class="button mint score-find" type="button" data-sa-action="queue" '+(disabled?'disabled':'')+'>'+queueLabel+'</button>'+
       '<p class="sa-status" role="status">'+status+'</p>'+(searchError?'<button class="button secondary" type="button" data-sa-action="search-retry">Retry Answer Lists</button>':'')+
-      '</section>'+(duel()?'':arena()?arenaQueueInfo():lobbyDirectoryHTML(lobbies,ngmc,idle&&getPlayer()&&queue?.readyState===1,esc))+'</div>';
+      '</section>'+(duel()?'':lobbyDirectoryHTML(lobbies,mode,idle&&getPlayer()&&queue?.readyState===1,esc))+'</div>';
   }
   function endLobbyActions(){
     const disabled=queueStatus.type==='lobby-ended'?'':' disabled';
@@ -596,7 +602,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       };
       if(roomInfo&&!roomInfo.locked){transmit({type:'lobby-join',code:roomInfo.code});return;}
       lobbyModal?.close();
-      lobbyModal=lobbyDialog(button.dataset.lobbyAction||'join',ranked(),roomInfo,transmit,preferredPool());
+      lobbyModal=lobbyDialog(button.dataset.lobbyAction||'join',mode,roomInfo,transmit,preferredPool());
       return;
     }
     if(button.dataset.lobbyAction){

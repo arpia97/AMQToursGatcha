@@ -1,5 +1,5 @@
 import {titleKey} from './play-artists.js';
-import {arenaRules} from '../public/play-arena-config.js';
+import {arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
 
 export function arenaBatch(waiters, now) {
   const count = Math.min(arenaRules.maxPlayers, waiters.length);
@@ -13,7 +13,7 @@ export function arenaBatch(waiters, now) {
 }
 
 export function arenaSongCount(playerCount) {
-  if (!Number.isInteger(playerCount) || playerCount < 4 || playerCount > arenaRules.maxPlayers || playerCount % 4) {
+  if (!arenaPlayerCounts.includes(playerCount)) {
     throw new RangeError('Arena requires an even number of two-player teams.');
   }
   return (playerCount / 2 - 1) * arenaRules.songsPerFixture;

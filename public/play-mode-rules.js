@@ -1,4 +1,4 @@
-import {ARENA_FORMAT} from './play-arena-config.js';
+import {ARENA_FORMAT, ARENA_LOBBY_FORMAT} from './play-arena-config.js';
 
 export const PLAY_REVEAL_MS = 3_000;
 export const DUEL_FORMAT = '1v1-ranked';
@@ -7,6 +7,11 @@ export const duelRules = Object.freeze({songs:20, guessSeconds:20});
 export function queueMode(format) {
   if (format === ARENA_FORMAT || format === DUEL_FORMAT) return format;
   return format.startsWith('ngmc-') ? 'ngmc-ranked' : 'song-artist';
+}
+
+export function lobbyGameMode(format) {
+  if (format === ARENA_LOBBY_FORMAT) return ARENA_FORMAT;
+  return format === 'lobby-ngmc' ? 'ngmc-ranked' : 'song-artist';
 }
 
 export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked'].includes(mode);

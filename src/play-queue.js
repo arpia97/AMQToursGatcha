@@ -1,7 +1,7 @@
 import {playPools, poolFormat} from '../public/play-pool.js';
 import {DUEL_FORMAT, queueMode} from '../public/play-mode-rules.js';
 import {duelRatings} from './play-duel-ratings.js';
-import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
+import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaBatch} from './play-arena.js';
 import {playRankingPage} from './play-ranking-query.js';
 import {PlayRecords} from './play-records.js';
@@ -195,7 +195,14 @@ export class PlayQueue extends DurableObject {
       const settings=lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null;
       const pool=settings?.pool||row.pool||'random';
       if(row.format==='lobby-ngmc')await Promise.all(players.map(async player=>Object.assign(player,await this.rating(player.id,pool))));
-      const result=await match.initialize(row.id,row.format,players,settings,pool);
+      const format=row.format===ARENA_LOBBY_FORMAT?ARENA_FORMAT:row.format;
+      if(row.format===ARENA_LOBBY_FORMAT){
+        const table=ngmcTable(pool);
+        for(const player of players){
+          player.elo=this.rows('SELECT elo FROM '+table+' WHERE player=?',player.id)[0]?.elo??arenaRules.startingRating;
+        }
+      }
+      const result=await match.initialize(row.id,format,players,settings,pool);
       if(result?.setupError){
         this.ctx.storage.transactionSync(()=>{
           this.ctx.storage.sql.exec('UPDATE lobby_members SET last_match=NULL WHERE last_match=?',row.id);

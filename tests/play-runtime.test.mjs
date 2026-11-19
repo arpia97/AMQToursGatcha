@@ -120,7 +120,39 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   await visitor.wait(m=>m.type==='lobby'&&!m.locked);
   visitor.send({type:'lobby-leave'});await host.wait(m=>m.type==='lobby'&&!m.locked&&m.players.length===1);
   host.send({type:'lobby-leave'});await host.wait(m=>m.type==='idle'&&m.lobbies?.length===0&&host.messages.indexOf(m)>host.messages.indexOf(lobby));
-  host.ws.close();visitor.ws.close();
+  const arenaQueues=[host,visitor,await connect(2),await connect(3)];
+  for(const socket of arenaQueues)socket.messages.length=0;
+  host.send({type:'lobby-create',format:'lobby-arena',pool:'random'});
+  const arenaLobby=await host.wait(m=>m.type==='lobby'&&m.format==='lobby-arena');
+  const arenaListed=await visitor.wait(m=>m.type==='idle'&&m.lobbies?.some(room=>room.code===arenaLobby.code));
+  assert.equal(arenaListed.lobbies.find(room=>room.code===arenaLobby.code).format,'lobby-arena');
+  host.send({type:'lobby-start'});
+  await host.wait(m=>m.type==='error'&&m.message.startsWith('Arena needs'));
+  host.send({type:'lobby-settings',format:'lobby-ffa',seconds:20,songs:5});
+  await host.wait(m=>m.type==='error'&&m.message.includes('this game mode'));
+  for(const socket of arenaQueues.slice(1)){
+    socket.send({type:'lobby-join',code:arenaLobby.code});
+    await socket.wait(m=>m.type==='lobby'&&m.code===arenaLobby.code);
+    socket.send({type:'lobby-ready',ready:true});
+  }
+  await host.wait(m=>m.type==='lobby'&&m.players.length===4&&m.players.slice(1).every(p=>p.ready)&&m.songs===5);
+  host.send({type:'lobby-start'});
+  const {match:arenaId}=await host.wait(m=>m.type==='matched');
+  const arenaRoom=await connect(0,arenaId);
+  const {state:arenaMatch}=await arenaRoom.wait(m=>m.type==='state');
+  assert.equal(arenaMatch.mode,'2v2-arena');
+  assert.equal(arenaMatch.total,5);
+  assert.equal(arenaMatch.lobby.code,arenaLobby.code);
+  assert.equal(arenaMatch.lobby.seconds,20);
+  assert.equal(arenaMatch.readyDeadline,undefined);
+  assert.equal(new Set(arenaMatch.players.map(player=>player.team)).size,2);
+  for(const socket of arenaQueues){
+    const after=socket.messages.length;
+    socket.send({type:'lobby-leave'});
+    await socket.wait(m=>m.type==='idle'&&socket.messages.indexOf(m)>=after);
+    socket.ws.close();
+  }
+  arenaRoom.ws.close();
   const guest=await mf.dispatchFetch(base+'/api/play-connect',{headers:{Upgrade:'websocket',Origin:base}});assert.equal(guest.status,401);
   const cross=await mf.dispatchFetch(base+'/api/play-connect',{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:'https://wrong.test'}});assert.equal(cross.status,403);
   const madeUp=await mf.dispatchFetch(base+'/api/play-connect?match='+crypto.randomUUID(),{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}});assert.equal(madeUp.status,403);

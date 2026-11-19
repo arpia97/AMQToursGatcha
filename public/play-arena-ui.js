@@ -1,12 +1,6 @@
-import {arenaRules} from './play-arena-config.js';
 import {playPlayerAvatar} from './play-avatar.js';
 
 const thumbsUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11m7-16-1 5h6.2a2 2 0 0 1 2 2.4l-1.5 7a2 2 0 0 1-2 1.6H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1.8a2 2 0 0 0 1.8-1.1L12 2a2 2 0 0 1 2 3Z"/></svg>';
-
-export function arenaQueueInfo() {
-  return '<section class="sa-lobby play-queue-card"><h2>Round Robin</h2><p>Queue solo. Your rating helps balance the pairs, and your partner stays with you for the tournament.</p>' +
-    '<p>Four or more pairs are preferred. Two pairs can start after ' + arenaRules.smallFieldWaitMs / 1000 + ' seconds.</p></section>';
-}
 
 export function arenaBoard(match, esc) {
   const {rounds, standings, songsPerFixture} = match.arena;

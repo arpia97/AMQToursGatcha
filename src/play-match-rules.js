@@ -17,8 +17,9 @@ function skipMajority(state){
 export const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   const ngmc=['ngmc-ranked','ngmc-3v3','lobby-ngmc'].includes(format);
-  const custom=lobby&&(['lobby-team','lobby-ffa'].includes(format)||format==='lobby-ngmc'&&[6,8].includes(players.length))&&players.length>=1&&players.length<=8;
   const arena=format===ARENA_FORMAT;
+  const custom=lobby&&(arena||players.length>=1&&players.length<=8&&
+    (['lobby-team','lobby-ffa'].includes(format)||format==='lobby-ngmc'&&[6,8].includes(players.length)));
   const rules=arena?{size:players.length,teams:players.length/2}:custom?{size:players.length,teams:ngmc?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
   if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||songs.length!==(arena?arenaSongCount(players.length):custom?lobby.songs:ngmc?35:format===DUEL_FORMAT?duelRules.songs:20))fail('Invalid match setup.');
 

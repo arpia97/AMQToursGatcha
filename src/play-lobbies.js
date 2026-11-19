@@ -1,13 +1,19 @@
+import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
+import {lobbyGameMode} from '../public/play-mode-rules.js';
+import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
+
+const lobbyCapacity = format => format === ARENA_LOBBY_FORMAT ? arenaRules.maxPlayers : 8;
 
 export function lobbySettings(data){
   const {format,seconds}=data;
   const pool=data.pool??'random';
   if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
   const selection=pool==='watched'?{pool}:{};
+  if(format===ARENA_LOBBY_FORMAT)return {format,seconds:arenaRules.guessSeconds,...selection};
   if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
   const songs=data.songs==null||data.songs===''?20:data.songs;
   if(!['lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
@@ -59,6 +65,9 @@ export class PlayLobbies {
     if(row.last_match)return {type:row.match===row.last_match?'matched':'lobby-ended',match:row.last_match,code:row.code};
     const players=this.readyRoster(row.code).map(({id,name,avatar,ready})=>({id,name,avatar:JSON.parse(avatar),ready:!!ready}));
     const settings=JSON.parse(row.settings);
+    if (settings.format===ARENA_LOBBY_FORMAT) {
+      settings.songs=arenaPlayerCounts.includes(players.length)?arenaSongCount(players.length):null;
+    }
     const check=this.watchedPools.get(row.code);
     const watchedPool=check?.key===poolKey(settings,players)?check.result:null;
     return {type:'lobby',code:row.code,busy:!!row.match,locked:!!row.password_hash,players,host:players[0]?.id,...settings,
@@ -121,8 +130,8 @@ export class PlayLobbies {
         hash=await passwordDigest(message.password??'');
       }else{
         code=String(message.code).trim().toUpperCase();
-        const room=this.queue.rows('SELECT match,password_hash FROM play_lobbies WHERE code=?',code)[0];
-        if(!room||room.match||this.roster(code).length>=8)fail('Lobby is unavailable or full.');
+        const room=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
+        if(!room||room.match||this.roster(code).length>=lobbyCapacity(JSON.parse(room.settings).format))fail('Lobby is unavailable or full.');
         hash=room.password_hash;
         if(hash&&await passwordDigest(message.password??'',hash.split(':')[0])!==hash)fail('Incorrect lobby password.',403);
       }
@@ -130,8 +139,8 @@ export class PlayLobbies {
         if(this.queue.status(who.id).type!=='idle')fail('Leave your current queue or lobby first.');
         if(settings)this.sql.exec('INSERT INTO play_lobbies(code,settings,password_hash) VALUES(?,?,?)',code,JSON.stringify(settings),hash);
         else{
-          const current=this.queue.rows('SELECT match,password_hash FROM play_lobbies WHERE code=?',code)[0];
-          if(!current||current.match||current.password_hash!==hash||this.roster(code).length>=8)fail('Lobby changed or is full. Try again.');
+          const current=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
+          if(!current||current.match||current.password_hash!==hash||this.roster(code).length>=lobbyCapacity(JSON.parse(current.settings).format))fail('Lobby changed or is full. Try again.');
         }
         this.sql.exec('INSERT INTO lobby_members(player,code,name,avatar,expires) VALUES(?,?,?,?,?)',who.id,code,who.name,JSON.stringify(who.avatar||null),Date.now()+90000);
       });
@@ -154,7 +163,7 @@ export class PlayLobbies {
     }
     if(!['lobby-settings','lobby-start'].includes(message.type))fail('Unknown lobby action.');
     if(message.type==='lobby-settings'){
-      if((JSON.parse(row.settings).format==='lobby-ngmc')!==(message.format==='lobby-ngmc'))fail('Choose a format for this game mode.');
+      if(lobbyGameMode(JSON.parse(row.settings).format)!==lobbyGameMode(message.format))fail('Choose a format for this game mode.');
       const settings=JSON.stringify(lobbySettings(message));
       if(settings!==row.settings)this.queue.ctx.storage.transactionSync(()=>{
         this.sql.exec('UPDATE play_lobbies SET settings=? WHERE code=?',settings,row.code);
@@ -165,6 +174,8 @@ export class PlayLobbies {
     if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
     const settings=JSON.parse(row.settings);
     if(settings.format==='lobby-ngmc'&&![6,8].includes(players.length))fail('NGMC needs 6 players for 3v3 or 8 for 4v4.');
+    if(settings.format===ARENA_LOBBY_FORMAT&&!arenaPlayerCounts.includes(players.length))
+      fail('Arena needs 4, 8, 12 or 16 players.');
     const match=crypto.randomUUID(),now=Date.now(),roster=players.map(p=>({...p,avatar:JSON.parse(p.avatar)}));
     const pending={id:match,format:settings.format,players:JSON.stringify(roster),started:now};
     this.queue.ctx.storage.transactionSync(()=>{
