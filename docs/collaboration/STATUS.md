@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play completion credits and inactivity bans
+
+Source `fb0bd09` is live on Worker `41516e5f-38a6-4220-9b3b-e0aa6ef48625`. Matchmaking credits require a normal finish and exclude leavers, players still disconnected at the finish, and players who end on at least three unanswered songs. Early forfeits issue no completion credits. Three consecutive unanswered songs in one match block all matchmaking queues for 24 hours. Incorrect guesses and Arena ballot votes break the streak. Affected players can finish the current game, and the existing ranked leave penalties still apply. All 556 tests, syntax checks, and the Worker dry run passed. An isolated Worker verified enforcement across modes and pools. The deployed ban notice was checked in Chrome at 390 and 1440 pixels using fixture match states.
+
 ## Play locked guesses and updated rewards
 
 Source `64c98a3` is deployed on Worker `1426bed2-6eca-4099-9771-906830190442`. Play preserves the submitted wording in the private lock confirmation, team answers, reveals, and round history. The correct answer follows the display language setting. Arena pays 100 credits per completed round at match settlement, NGMC 3v3 Unranked pays 200, and NGMC 4v4 Ranked pays 400. The original 10% win bonus applies to the full payout. All 556 tests, syntax checks and the Worker dry run passed. Tests covered the new amounts and receipt replay. Verified the deployed lock confirmation and answer reveal at 390 and 1440 pixels using fixture match states.
