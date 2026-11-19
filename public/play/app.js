@@ -1,3 +1,4 @@
+import {ARENA_FORMAT, queueMode as modeForQueue} from '../play-arena-config.js';
 import { PLAY_MODES, playRoute, playHref } from "../play-navigation.js";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "../quiz-title-display.js";
@@ -92,8 +93,7 @@ async function refreshAccount() {
   header();
 }
 const multiplayerRoot = document.createElement('div');
-const queueLabels = {'ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
-const modeForQueue = format => format.startsWith('ngmc-') ? 'ngmc-ranked' : 'song-artist';
+const queueLabels = {'2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
 let currentQueue;
 function savedQueue(){
@@ -115,7 +115,7 @@ function showQueue(status){
   }
   $('#play-queue-mode').textContent=queueLabels[format];
   const text=!status.connected?'Reconnecting…':status.type==='matched'?'Match found':status.type==='queued'?
-    'In queue · '+status.waiting+' / '+status.needed:'Joining queue…';
+    'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed):'Joining queue…';
   if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||status.type==='matched';
 }

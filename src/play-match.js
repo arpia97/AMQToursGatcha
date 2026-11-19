@@ -1,3 +1,5 @@
+import {ARENA_FORMAT} from '../public/play-arena-config.js';
+import {arenaSongCount} from './play-arena.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
@@ -25,7 +27,7 @@ export class PlayMatch extends DurableObject {
       }
       let library;
       try{
-        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs,watched});
+        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:format===ARENA_FORMAT?arenaSongCount(players.length):lobby?.songs,watched});
       }catch(error){
         if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
         throw error;
@@ -61,7 +63,7 @@ export class PlayMatch extends DurableObject {
       next = Math.min(next, state.counterDeadline);
     if (state.audioSealed && state.phase === 'guess' && state.startsAt > now)
       next = Math.min(next,state.startsAt);
-    if(activeRankedGame(state,now))for(const p of state.players){
+    if(state.arena||activeRankedGame(state,now))for(const p of state.players){
       if(!p.left&&p.disconnectedAt!=null)next=Math.min(next,p.disconnectedAt+RECONNECT_MS);
     }
     if (['finished','cancelled'].includes(state.phase) && !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length)
@@ -101,7 +103,7 @@ export class PlayMatch extends DurableObject {
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
       matchView(state,who.id);
       const player=state.players.find(p=>p.id===who.id);
-      const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
+      const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!state.arena&&!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
       player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       const supported = state.audioSealed ? [PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3, PLAY_AUDIO_PROTOCOL] : [2, 3, PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
@@ -240,7 +242,7 @@ export class PlayMatch extends DurableObject {
     if(state&&!['finished','cancelled'].includes(state.phase)){
       this.reviewLog.add(state,id,'disconnected',{code});
       const p=state.players.find(p=>p.id===id);
-      if(p&&!p.left&&state.format==='ngmc-ranked'&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
+      if(p&&!p.left&&(state.arena||state.format==='ngmc-ranked')&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
         p.disconnectedAt??=now;this.write(state);await this.schedule();
       }
     }

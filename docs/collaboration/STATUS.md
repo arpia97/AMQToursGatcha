@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## 2v2 Arena local prototype
+
+Local branch `feature/2v2-arena-local` in the adjacent `AMQToursGatcha-arena` worktree. The owner requested local development only. Queue sizes, gathering windows and fixture length are in `public/play-arena-config.js`. Arena reads NGMC Rating for pairing, with a 1,000 default, and awards standings points within the tournament. The provisional format is five anime guesses per opponent. Players share the same songs across simultaneous fixtures. Each pair can earn one point per song, and a fixture win earns three standings points, a draw one. Schedule, scores and standings survive reconnects.
+
+Verified the eight-player queue, sealed audio, answer submission, reveal and responsive board using local test accounts. All 549 tests, the syntax check and the local Worker build passed. Production deployment is pending owner approval.
+
 ## Multiplayer match review highlights
 
 Source `61cbae5` deployed on Worker `4760370a-a94a-4d81-afa9-fb2c15144b17`. Completed matches are indexed automatically. Opening Highlights analyzes retained older logs. Both host consoles offer a flagged-match filter, per-player evidence and links to the original event timeline. All 546 tests, syntax checks and the Worker build passed. Verified the production host index and filter, guest rejection and the deployed review component with isolated evidence at 1440px and 390px.
