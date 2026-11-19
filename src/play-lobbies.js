@@ -1,4 +1,7 @@
 import {fail} from './play-match-rules.js';
+import {quizLibraryRequest} from './quiz-library-actor.js';
+
+const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
 
 export function lobbySettings(data){
   const {format,seconds}=data;
@@ -24,6 +27,7 @@ async function passwordDigest(password,salt=crypto.randomUUID()){
 export class PlayLobbies {
   constructor(queue){
     this.queue=queue;
+    this.watchedPools=new Map();
     this.sql=queue.ctx.storage.sql;
     this.sql.exec('CREATE TABLE IF NOT EXISTS play_lobbies(code TEXT PRIMARY KEY,settings TEXT,match TEXT)');
     if(!queue.rows('PRAGMA table_info(play_lobbies)').some(c=>c.name==='password_hash'))
@@ -54,7 +58,42 @@ export class PlayLobbies {
   status(row){
     if(row.last_match)return {type:row.match===row.last_match?'matched':'lobby-ended',match:row.last_match,code:row.code};
     const players=this.readyRoster(row.code).map(({id,name,ready})=>({id,name,ready:!!ready}));
-    return {type:'lobby',code:row.code,busy:!!row.match,locked:!!row.password_hash,players,host:players[0]?.id,...JSON.parse(row.settings)};
+    const settings=JSON.parse(row.settings);
+    const check=this.watchedPools.get(row.code);
+    const watchedPool=check?.key===poolKey(settings,players)?check.result:null;
+    return {type:'lobby',code:row.code,busy:!!row.match,locked:!!row.password_hash,players,host:players[0]?.id,...settings,
+      ...(settings.pool==='watched'?{watchedPool:watchedPool??null}:{})};
+  }
+  async refreshWatchedPool(code){
+    if(!code)return;
+    const row=this.queue.rows('SELECT * FROM play_lobbies WHERE code=?',code)[0];
+    const settings=row&&JSON.parse(row.settings);
+    if(settings?.pool!=='watched'){
+      this.watchedPools.delete(code);
+      return;
+    }
+    if(row.match)return;
+    const players=this.readyRoster(code);
+    if(!players.length)return;
+    const key=poolKey(settings,players);
+    const cached=this.watchedPools.get(code);
+    const previous=cached?.key===key?cached:null;
+    if(previous&&(previous.pending||previous.expires>Date.now()))return;
+    const check={key,pending:true,result:previous?.result};
+    this.watchedPools.set(code,check);
+    try{
+      const {env}=this.queue;
+      const lists=await env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
+      const count=await quizLibraryRequest(env,'/play-watched-count',{lists,ranked:settings.format==='lobby-ngmc'});
+      check.result=Number.isInteger(count?.eligible)?{eligible:count.eligible}:{unavailable:true};
+    }catch{
+      check.result={unavailable:true};
+    }
+    check.pending=false;
+    check.expires=Date.now()+20000;
+    if(this.watchedPools.get(code)!==check)return;
+    if(previous?.result?.eligible!==check.result.eligible||previous?.result?.unavailable!==check.result.unavailable)
+      this.queue.broadcast();
   }
   heartbeat(id){this.sql.exec('UPDATE lobby_members SET expires=? WHERE player=?',Date.now()+90000,id);}
   async leave(id){
@@ -63,6 +102,7 @@ export class PlayLobbies {
     this.sql.exec('DELETE FROM lobby_members WHERE player=? AND code=?',id,row.code);
     this.sql.exec('DELETE FROM play_lobbies WHERE code=? AND NOT EXISTS(SELECT 1 FROM lobby_members WHERE code=?)',row.code,row.code);
     this.queue.release(id,row.match||'');
+    await this.refreshWatchedPool(row.code);
   }
   async action(who,message){
     const row=this.forPlayer(who.id);

@@ -1,3 +1,27 @@
+export const audioFilename = url => url.slice(url.lastIndexOf('/') + 1);
+
+export function watchedCandidates(data, weights, ranked, options = {}) {
+  const {excluded, excludedPaths} = options;
+  const candidates = new Map();
+  function add(anime, group, source) {
+    if (!weights.has(anime) || excluded?.has(group) || excludedPaths?.has(audioFilename(source))) return;
+    if (!candidates.has(anime)) candidates.set(anime, new Map());
+    candidates.get(anime).set(group, {group,source});
+  }
+  if (ranked) {
+    const groupById = options.groupById ??
+      new Map(data.groups.flatMap((ids, group) => ids.map(id => [id,group])));
+    for (const row of data.ngmcRows) {
+      if (/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(row.type)) add(row.annId,groupById.get(row.annSongId),row.audio);
+    }
+  } else {
+    data.groups.forEach((ids,group) => {
+      for (const id of ids) add(data.occurrenceAnime.get(id),group,data.sources[group]);
+    });
+  }
+  return candidates;
+}
+
 // Map each imported list to the shared ANN IDs while retaining its own budget.
 export function watchedWeights(lists, linkedAnime) {
   const indexes = {myanimelist:new Map(), anilist:new Map()};

@@ -77,11 +77,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const listBody={provider:'myanimelist',username:'https://myanimelist.net/animelist/Local'};
   assert.equal((await listUpdate(listBody)).status,401);
   host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,pool:'watched'});
-  await host.wait(m=>m.type==='lobby'&&m.pool==='watched');
+  const watchedLobby=await host.wait(m=>m.type==='lobby'&&m.pool==='watched'&&m.watchedPool?.eligible===0);
   host.send({type:'lobby-start'});
   await host.wait(m=>m.type==='error'&&m.message.includes('Import'));
   const linked=await listUpdate(listBody,cookies[0]);assert.equal(linked.status,200,await linked.clone().text());
   const summary=(await linked.json()).animeList;assert.equal(summary.count,1);assert.equal(summary.ids,undefined);
+  assert.equal((await listUpdate({...listBody,username:'Wide'},cookies[1])).status,200);
+  visitor.send({type:'lobby-join',code:watchedLobby.code});
+  await host.wait(m=>m.type==='lobby'&&m.players.length===2&&m.watchedPool?.eligible===40);
+  visitor.send({type:'lobby-leave'});
+  await host.wait(m=>m.type==='lobby'&&m.players.length===1&&m.watchedPool?.eligible===1);
   host.send({type:'lobby-start'});
   const watchedMatch=await host.wait(m=>m.type==='matched');
   const watchedInfo=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedMatch.match)).json();

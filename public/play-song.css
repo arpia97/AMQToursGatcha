@@ -519,3 +519,9 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 .arena-emblem span:last-child { background:#352731; color:#ebc0d1; }
 .arena-emblem i { width:8px; aspect-ratio:1; border-radius:50%; background:currentColor; box-shadow:0 0 6px color-mix(in srgb,currentColor 38%,transparent); }
 .arena-emblem b { width:7px; height:7px; justify-self:center; border:1px solid #bfaf81; transform:rotate(45deg); }
+
+.lobby-pool-label[data-song-pool=random] { color:#bad7ff; border-color:#44618d; background:#24354f; }
+.room-watched-pool { display:grid; gap:4px; padding:9px 10px; border:1px solid var(--border); border-radius:4px; background:var(--bg); }
+.room-watched-pool strong { font-size:12px; }
+.room-watched-pool small { color:var(--muted); }
+.room-watched-pool[data-short=true] { border-color:#775930; color:#f5ce80; background:#32271b; }

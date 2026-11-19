@@ -85,7 +85,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function connectQueue(){
     if(!active||!getPlayer()||queue?.readyState===0||queue?.readyState===1)return;
     connecting=true;render();const ws=queue=new WebSocket(socketURL());
-    ws.onopen=()=>{queueDelay=1000;connecting=false;render();};
+    ws.onopen=()=>{queueDelay=1000;connecting=false;render();send(ws,{type:'ping'});};
     ws.onmessage=({data})=>{if(queue!==ws||!active)return;const msg=JSON.parse(data);
       if(msg.type==='lobby-password-saved'){lobbyModal?.close();return;}
       if(msg.type==='error'){if(lobbyModal?.open){const alert=lobbyModal.querySelector('[role=alert]');alert.hidden=false;alert.textContent=msg.message;}else error(msg.message);return;}

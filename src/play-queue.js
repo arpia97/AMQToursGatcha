@@ -252,6 +252,7 @@ export class PlayQueue extends DurableObject {
       await this.lobbies.action(who,message);
       if(message.type==='lobby-password')send(ws,{type:'lobby-password-saved'});
       this.broadcast();
+      await this.lobbies.refreshWatchedPool(this.lobbies.forPlayer(who.id)?.code);
     }else if(message.type==='join'){
       if(this.lobbies.forPlayer(who.id))fail('Leave your lobby first.');
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to load the updated match player.',409);
@@ -282,7 +283,12 @@ export class PlayQueue extends DurableObject {
       this.ctx.storage.sql.exec('INSERT OR REPLACE INTO queue(player,name,format,joined,expires,match,avatar,pool) VALUES(?,?,?,?,?,NULL,?,?)',who.id,who.name,message.format,old?.format===message.format&&old.pool===pool?old.joined:Date.now(),Date.now()+60000,JSON.stringify(who.avatar||null),pool);
       this.broadcast();await this.match(message.format,pool);
     }else if(message.type==='cancel'){this.joinRequests.delete(who.id);this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match IS NULL',who.id);this.broadcast();}
-    else if(message.type==='ping'){this.lobbies.heartbeat(who.id);this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);send(ws,this.clientStatus(who.id));}
+    else if(message.type==='ping'){
+      this.lobbies.heartbeat(who.id);
+      this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);
+      send(ws,this.clientStatus(who.id));
+      await this.lobbies.refreshWatchedPool(this.lobbies.forPlayer(who.id)?.code);
+    }
     else fail('Unknown queue action.');
     await this.scheduleQueue();
   }catch(error){if(!error.status)console.error('Play queue action failed',{name:error.name,message:String(error.message).slice(0,200)});socketError(ws,error);}}

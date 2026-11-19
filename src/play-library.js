@@ -1,5 +1,5 @@
 import {playAudioSource,playableMirror} from './play-media.js';
-import {watchedWeights, weightedAnimeOrder, watchedRecordings} from './play-watched-selection.js';
+import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, audioFilename} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
@@ -108,6 +108,11 @@ export class PlayLibrary {
     return {version,master,quizzes,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates:available.map(([key])=>alternates.get(key)),sources:available.map(([key])=>withAudio.get(key)),catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
+  async watchedAnimeCount(lists, ranked) {
+    if(!lists.some(list=>list.ids.length))return 0;
+    const data=await this.load();
+    return watchedCandidates(data,watchedWeights(lists,data.linkedAnime),ranked).size;
+  }
   async verifiedSource(source){
     const cached=this.audioChecks.get(source);
     if(cached&&cached.expires>Date.now())return cached.url;
@@ -122,8 +127,7 @@ export class PlayLibrary {
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
     const selected=new Set(),verifiedAudio=new Map(),random=new Uint32Array(1);
     const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
-    const filename=url=>url.slice(url.lastIndexOf('/')+1);
-    const excludedPaths=new Set((exclude||[]).map(filename));
+    const excludedPaths=new Set((exclude||[]).map(audioFilename));
     const lists=Array.isArray(watched)?watched:watched&&Object.entries(watched).map(([provider,ids])=>({provider,ids}));
     const weights=lists?watchedWeights(lists,data.linkedAnime):null;
     for(const anime of excludeAnime)weights?.delete(anime);
@@ -132,7 +136,7 @@ export class PlayLibrary {
     const excluded=new Set(),available=[];
     for(let i=0;i<data.groups.length;i++){
       if(weights && !data.groups[i].some(eligible))excluded.add(i);
-      else if(exclude&&[data.sources[i],...(data.alternates[i]||[])].some(url=>excludedPaths.has(filename(url))))excluded.add(i);
+      else if(exclude&&[data.sources[i],...(data.alternates[i]||[])].some(url=>excludedPaths.has(audioFilename(url))))excluded.add(i);
       else available.push(i);
     }
     const shortPool=()=>Object.assign(Error("Too few distinct anime with playable songs on the Watched lists. Add more entries, choose fewer songs in a custom lobby, or switch to Random."),{status:422});
@@ -145,22 +149,10 @@ export class PlayLibrary {
     const randomIndex=length=>Math.floor(crypto.getRandomValues(random)[0]/4294967296*length);
     const tried=new Set(),pool=ranked?[]:[...available];
     if(weights){
-      const candidates=new Map();
-      const add=(anime,group,source)=>{
-        if(!weights.has(anime)||excluded.has(group)||excludedPaths.has(filename(source)))return;
-        if(!candidates.has(anime))candidates.set(anime,new Map());
-        candidates.get(anime).set(group,{group,source});
-      };
-      if(ranked){
-        for(const row of data.ngmcRows)if(/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(row.type))
-          add(row.annId,groupById.get(row.annSongId),row.audio);
-      }else{
-        for(const group of available)for(const id of data.groups[group])
-          add(data.occurrenceAnime.get(id),group,data.sources[group]);
-      }
+      const candidates=watchedCandidates(data,weights,ranked,{groupById,excluded,excludedPaths});
       if(candidates.size<target)throw shortPool();
       for(const anime of weights.keys())if(!candidates.has(anime))weights.delete(anime);
-      const recordings=await watchedRecordings(weightedAnimeOrder(weights),new Map([...candidates].map(([anime,options])=>[anime,[...options.values()]])),target,verify,randomIndex,filename);
+      const recordings=await watchedRecordings(weightedAnimeOrder(weights),new Map([...candidates].map(([anime,options])=>[anime,[...options.values()]])),target,verify,randomIndex,audioFilename);
       if(recordings.length!==target)throw shortPool();
       for(const {anime,group,url} of recordings){
         selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);

@@ -50,6 +50,19 @@ function lobbySettings(lobby, settings, host, draft, esc) {
     save;
 }
 
+function watchedPoolStatus(lobby, host, short) {
+  if(lobby.pool!=='watched')return '';
+  const pool=lobby.watchedPool;
+  const count=pool?.eligible;
+  const status=Number.isInteger(count)
+    ? count.toLocaleString()+' eligible anime · '+lobby.songs+' needed'
+    : pool?.unavailable?'Couldn’t check the Watched pool.':'Checking the Watched pool…';
+  const warning=host&&short
+    ? '<small>Add more watched entries or switch to Random.'+(lobby.format==='lobby-ngmc'?'':' You can also choose fewer songs.')+'</small>'
+    : '';
+  return '<div class="room-watched-pool" data-short="'+short+'" role="status"><strong>'+status+'</strong>'+warning+'</div>';
+}
+
 export function roomLobby(lobby, me, esc, autoReady, draft) {
   const mine = lobby.players.find(p=>p.id===me);
   const ngmc = lobby.format==='lobby-ngmc';
@@ -61,14 +74,17 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
     return '<li class="room-player"><span><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span>'+
       '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
   }).join('');
-  const startDisabled = !canStart || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
+  const shortPool = lobby.pool==='watched' && Number.isInteger(lobby.watchedPool?.eligible) &&
+    lobby.watchedPool.eligible<lobby.songs;
+  const checkingPool = lobby.pool==='watched' && lobby.watchedPool===null;
+  const startDisabled = !canStart || checkingPool || shortPool || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
   const startLabel = ngmc && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
   return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
     '<header class="room-masthead"><div><small>'+(ngmc?'NGMC Unranked':'Song / Artist · '+lobbyModeNames[lobby.format])+'</small><h1>Custom Lobby</h1></div>'+
     '<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div></header>'+
     '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+lobby.players.length+' / 8 seats</span></header>'+
     '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready</span></div></section>'+
-    '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+
+    '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
     '<footer class="room-controls"><button class="button secondary" data-lobby-action="leave">Leave Lobby</button><div>'+autoReadyHTML(autoReady)+
     (!lobby.busy?'<button class="button secondary" data-lobby-action="ready" aria-pressed="'+!!mine?.ready+'">'+(mine?.ready?'✓ Ready':'Ready')+'</button>':'')+
