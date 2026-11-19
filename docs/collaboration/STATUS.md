@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play next-song timing
+
+Source `92bf265` is live on Worker `d8177634-5ee3-4adb-99c9-5b8aaf6f026f`. Play multiplayer answer reveals last three seconds before the next song can start. All 552 tests and the Worker build passed, including timing assertions for the shared match flow and NGMC. Verified the live Play route and the deployed timing asset.
+
 ## Play account header spacing
 
 Source `e296440` is live on Worker `39bd9db9-3247-4364-9231-94a89d532083`. Play and Gacha share the same header dimensions, spacing, and account control styles. On narrow screens, the Play queue indicator gets its own row. All 552 tests, the syntax check, and the Worker build passed. Verified live assets and measured matching spacing in both shells at nine widths between 320px and 1440px using browser fixtures.
