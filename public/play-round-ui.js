@@ -24,9 +24,9 @@ export function recapHTML(match,esc,animeTitle){
   const row=match.history.at(-1);
   if(!revealed(match,row))return '';
   const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me);
-  const points=mine?.earned||0;
+  const points=match.arena?row.points[me.team]:mine?.earned||0;
   return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small>'+
-    (match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+'</small></header><dl>'+
+    (match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+(match.arena?' for Your Pair':'')+'</small></header><dl>'+
     '<div><dt>Anime</dt><dd>'+esc(animeTitle({anime:row.anime}))+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
     '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl></section>';
 }

@@ -1,5 +1,5 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
-import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong} from './play-arena.js';
+import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn} from './play-lobby-votes.js';
 import { playerAudioReady, playbackView } from './play-integrity.js';
@@ -29,7 +29,9 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
 }
 export function gradeRound(state,now) {
   if(state.phase!=='guess')return;
-  if(state.format==='lobby-team')selectWinners(state);else applyTimeoutDrafts(state);
+  if (state.arena) selectArenaTitles(state);
+  else if (state.format==='lobby-team') selectWinners(state);
+  else applyTimeoutDrafts(state);
   if(state.mode==='ngmc-ranked'){gradeNgmc(state,now);return;}
   const song=state.songs[state.index],teamHits=state.teams.map(()=>new Set());
   const scoringFields=state.arena?['anime']:FIELDS;
@@ -87,14 +89,14 @@ export function advanceMatch(state,now=Date.now()) {
     const needed=skipMajority(state);
     const skipped=needed>0&&active.filter(p=>p.skip).length>=needed;
     const answered=state.format==='lobby-team'?ballotsComplete(state):active.every(p=>p.locked);
-    if(now>=state.until||now>=state.startsAt&&(skipped||answered))gradeRound(state,now);
+    if(now>=state.until||!state.arena&&now>=state.startsAt&&(skipped||answered))gradeRound(state,now);
   }
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
     if(state.index===state.songs.length-1||ngmc&&state.teams.includes(0)){state.phase='finished';state.until=now+86400000;return;}
     state.index++;state.phase='buffering';state.until=now+90000;
     delete state.ballot;
-    for(const p of state.players){delete p.votes;delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
+    for(const p of state.players){delete p.votes;delete p.arenaTitle;delete p.arenaVote;delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now);
   }
 }
@@ -111,6 +113,13 @@ export function matchMove(state,id,message,now=Date.now()) {
   if(player.left)fail('You left this match.',409);
   if(state.lobby&&['return-request','return-vote'].includes(message.type)){
     returnVote(state,player,message);checkReturn(state,now);return;
+  }
+  if (state.arena && !['loaded','ready'].includes(message.type)) {
+    if (!['propose','vote'].includes(message.type) || message.field !== 'anime' ||
+        state.phase !== 'guess' || message.index !== state.index || now < state.startsAt || now >= state.until)
+      fail('This song is no longer accepting titles or votes.',409);
+    arenaVoteAction(state,player,message);
+    return;
   }
   if(state.format==='lobby-team'&&!['loaded','ready','skip'].includes(message.type)){
     if(!['propose','vote','withdraw'].includes(message.type)||state.phase!=='guess'||state.index!==message.index||now<state.startsAt||now>=state.until)fail('Voting is unavailable.',409);
@@ -180,7 +189,7 @@ export function matchView(state,id,now=Date.now()) {
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
   return {id:state.id,mode:state.mode||'song-artist',total:state.songs.length,preload:state.mode==='ngmc-ranked'?12:10,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:['1-team','lobby-team'].includes(state.format)?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
-    ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena)}}:{}),lobby:state.lobby,returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
+    ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(FIELDS.flatMap(f=>state.ballot[f].map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[f]===o.id).length]))):undefined,
     myDraft:me.draft,teams:state.teams,me:id,history:state.history,teamFields:!!state.teamFields,
     songList:['finished','cancelled'].includes(state.phase)?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),

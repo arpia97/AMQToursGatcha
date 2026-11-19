@@ -1,3 +1,4 @@
+import {titleKey} from './play-artists.js';
 import {arenaRules} from '../public/play-arena-config.js';
 
 export function arenaBatch(waiters, now) {
@@ -68,4 +69,59 @@ export function arenaStandings(arena) {
     }
   }
   return rows.sort((a, b) => b.points - a.points || b.difference - a.difference || a.team - b.team);
+}
+
+function activeChoices(players) {
+  return players.filter(player => !player.left && player.arenaTitle).map(player => player.arenaTitle);
+}
+
+export function arenaVoteAction(state, player, message) {
+  const teammates = state.players.filter(member => member.team === player.team && !member.left);
+  const choices = activeChoices(teammates);
+  const reject = text => { throw Object.assign(Error(text), {status: 409}); };
+  if (message.type === 'vote') {
+    const {choice} = message;
+    if (choice !== null && !choices.some(option => option.id === choice)) reject('Choose a title from your pair.');
+    player.arenaVote = choice;
+    return;
+  }
+
+  const answer = typeof message.answer === 'string' ? message.answer.trim() : '';
+  const key = titleKey(answer);
+  if (!key || answer.length > 300) reject('Enter an anime title within 300 characters.');
+  if (key === titleKey(player.arenaTitle?.answer)) return;
+  if (choices.some(option => titleKey(option.answer) === key)) reject('Your partner already submitted that title. You can vote for it above.');
+
+  const oldChoice = player.arenaTitle?.id;
+  for (const member of teammates) if (member.arenaVote === oldChoice) delete member.arenaVote;
+  player.arenaTitle = {id: crypto.randomUUID(), answer};
+}
+
+export function arenaBallotView(state, me) {
+  const teammates = state.players.filter(player => player.team === me.team);
+  return teammates.map(player => {
+    const choice = player.left ? null : player.arenaTitle;
+    return {
+      owner: player.id,
+      choice: choice?.id,
+      answer: choice?.answer,
+      votes: choice ? teammates.filter(voter => !voter.left && voter.arenaVote === choice.id).length : 0,
+      selected: !!choice && me.arenaVote === choice.id,
+    };
+  });
+}
+
+export function selectArenaTitles(state) {
+  for (const player of state.players) player.answers = {};
+  for (let team = 0; team < state.teams.length; team++) {
+    const teammates = state.players.filter(player => player.team === team && !player.left);
+    const choices = activeChoices(teammates);
+    if (!choices.length) continue;
+    const voteCounts = choices.map(choice => teammates.filter(player => player.arenaVote === choice.id).length);
+    const highest = Math.max(...voteCounts);
+    const tied = choices.filter((_, i) => voteCounts[i] === highest);
+    const winner = tied[Math.floor(Math.random() * tied.length)];
+    const owner = teammates.find(player => player.arenaTitle?.id === winner.id);
+    owner.answers.anime = winner.answer;
+  }
 }

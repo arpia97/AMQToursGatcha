@@ -17,7 +17,8 @@ export function arenaBoard(match, esc) {
   const leaders = standings.filter(row => row.points === standings[0].points && row.difference === standings[0].difference);
   const title = final ? (leaders.length > 1 ? 'Joint Winners' : 'Winner') : 'Round ' + (current + 1) + ' / ' + rounds.length;
   const headline = final ? leaders.map(row => names(row.team)).join(' · ') :
-    names(mine) + ' <strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] + '</strong> ' + names(opponent);
+    '<span>' + names(mine) + '</span><strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] +
+    '</strong><span>' + names(opponent) + '</span>';
   const table = '<div class="arena-table-scroll"><table><thead><tr><th>Pair</th><th>W–L–T</th><th>Diff</th><th>Pts</th></tr></thead><tbody>' +
     standings.map(row => '<tr' + (row.team === mine ? ' class="arena-mine"' : '') + '><th scope="row">' + names(row.team) + '</th><td>' +
       [row.won,row.lost,row.drawn].join('–') + '</td><td>' + (row.difference > 0 ? '+' : '') + row.difference + '</td><td>' + row.points + '</td></tr>').join('') +
@@ -25,6 +26,39 @@ export function arenaBoard(match, esc) {
   const schedule = rounds.map((fixtures, i) => '<section><h4>Round ' + (i + 1) + '</h4>' + fixtures.map(f =>
     '<div class="arena-pairing"><span>' + names(f.home) + '</span><b>' + (f.complete || i === current ? f.scores.join(' – ') + (f.forfeits?.length ? ' (forfeit)' : '') : 'vs') +
     '</b><span>' + names(f.away) + '</span></div>').join('') + '</section>').join('');
-  return '<section class="arena-board"><header><span class="sa-eyebrow">' + title + (!final && match.phase !== 'cancelled' ? ' · Song ' + (match.index % songsPerFixture + 1) + ' / ' + songsPerFixture : '') + '</span><h2>' + headline + '</h2></header>' +
+  return '<section class="arena-board"><header><span class="sa-eyebrow">' + title + (!final && match.phase !== 'cancelled' ? ' · Song ' + (match.index % songsPerFixture + 1) + ' / ' + songsPerFixture : '') + '</span><h2' + (final ? '' : ' class="arena-fixture-headline"') + '>' + headline + '</h2></header>' +
     '<h3>Standings</h3>' + table + '<details><summary>Round Schedule</summary>' + schedule + '</details></section>';
+}
+
+export function arenaBallot(match, esc, canVote) {
+  const ballot = match.arena.ballot;
+  const ordered = [...ballot].sort((a, b) => Number(b.owner === match.me) - Number(a.owner === match.me));
+  const options = ordered.map(option => {
+    const mine = option.owner === match.me;
+    const name = mine ? 'You' : esc(match.players.find(player => player.id === option.owner).name);
+    const title = option.answer ? esc(option.answer) : 'No title submitted';
+    const vote = option.choice ? '<button class="button secondary arena-vote" type="button" data-ballot="anime" data-choice="' +
+      esc(option.choice) + '" aria-pressed="' + option.selected + '" aria-label="Vote for ' + title + '"' +
+      (canVote ? '' : ' disabled') + '>' + (option.selected ? 'Voted' : 'Vote') + '</button>' : '';
+    return '<div class="arena-option" data-selected="' + option.selected + '"><div><small>' + name +
+      '</small><strong>' + title + '</strong></div>' + (option.choice ? '<span class="arena-vote-count">' +
+      option.votes + (option.votes === 1 ? ' vote' : ' votes') + '</span>' : '') + vote + '</div>';
+  }).join('');
+  return '<section class="arena-ballot" aria-label="Pair vote"><h3>Pair Vote</h3>' + options + '</section>';
+}
+
+export function arenaReveal(match, round, esc) {
+  const mine = match.players.find(p => p.id === match.me).team;
+  const fixtures = match.arena.rounds[Math.floor(round.index / match.arena.songsPerFixture)];
+  const {home, away} = fixtures.find(fixture => fixture.home === mine || fixture.away === mine);
+  const opposite = home === mine ? away : home;
+  const choices = [[mine, 'Your Pair'], [opposite, 'Opponents']].map(([team, label]) => {
+    const result = round.results.find(entry => entry.answers.anime && match.players.find(p => p.id === entry.id)?.team === team);
+    const answer = result?.answers.anime;
+    const status = !answer ? 'No Answer' : result.correct.anime ? 'Correct' : 'Incorrect';
+    return '<div class="arena-submitted-title"><small>' + label + '</small><strong>' + esc(answer || '—') +
+      '</strong><span data-result="' + status + '">' + status + '</span></div>';
+  });
+  return '<section class="arena-ballot" aria-label="Submitted titles"><h3>Submitted Titles</h3><div class="arena-reveal-grid">' +
+    choices.join('') + '</div></section>';
 }

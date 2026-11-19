@@ -480,3 +480,25 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 @container (min-width: 780px) {
   .song-broadcast.arena-match { grid-template-columns: minmax(270px, 36%) minmax(0, 1fr); }
 }
+
+.arena-ballot { display: grid; gap: .55rem; margin-block: .75rem 1rem; }
+.arena-ballot h3 { margin: 0; font-size: .95rem; }
+.arena-option, .arena-submitted-title {
+  min-width: 0; padding: .65rem .75rem; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--panel, #191c25);
+}
+.arena-option { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: .65rem; align-items: center; }
+.arena-option[data-selected="true"] { border-color: #7ab39c; background: #20302b; }
+.arena-option strong, .arena-submitted-title strong { display: block; overflow-wrap: anywhere; }
+.arena-ballot small, .arena-vote-count { color: var(--muted); font-size: .72rem; }
+.arena-option .arena-vote { min-width: 4.5rem; padding: .35rem .55rem; }
+.arena-option .arena-vote[aria-pressed="true"] { color: #baf1d8; border-color: #7ab39c; background: #263c33; }
+.arena-reveal-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .55rem; }
+.arena-submitted-title [data-result] { font-size: .75rem; color: var(--muted); }
+.arena-submitted-title [data-result="Correct"] { color: #a9ebca; }
+.arena-submitted-title [data-result="Incorrect"] { color: #ff9eb0; }
+.arena-match .sa-answer-fields { grid-template-columns: minmax(0,1fr); }
+
+.arena-fixture-headline { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.arena-fixture-headline strong { flex-shrink: 0; padding: .2em .45em; border-radius: 6px; background: #25352f; }
+.arena-fixture-headline span:last-child { text-align: right; }

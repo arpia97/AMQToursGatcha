@@ -43,15 +43,35 @@ test('Arena keeps pairs balanced and fixed, rotates opponents and scores each co
   for (let index=0;index<songs.length;index++) {
     assert.equal(s.phase,'guess');
     const now=s.startsAt+10;
-    for (const p of s.players) {
-      matchMove(s,p.id,{type:'answer',index,answers:{anime:p.team===0?'Anime '+index:''},lock:true},now);
-      if(p===s.players[0]) {
-        const other=s.players.find(member=>member.id!==p.id);
-        assert.equal(matchView(s,other.id,now).players.find(member=>member.id===p.id).answers,undefined);
-      }
+    const [first, partner]=s.players.filter(player=>player.team===0);
+    const outsider=s.players.find(player=>player.team!==0);
+    const propose=(player,answer)=>matchMove(s,player.id,{type:'propose',field:'anime',index,answer},now);
+    const vote=(player,choice)=>matchMove(s,player.id,{type:'vote',field:'anime',index,choice},now);
+    propose(first, 'Wrong title');
+    const original=matchView(s,partner.id,now).arena.ballot.find(option=>option.owner===first.id);
+    vote(partner,original.choice);
+    propose(first,'Another wrong title');
+    assert.equal(partner.arenaVote,undefined);
+    propose(partner,'Anime '+index);
+    const correct=matchView(s,first.id,now).arena.ballot.find(option=>option.owner===partner.id);
+    assert.equal(matchView(s,outsider.id,now).arena.ballot.some(option=>option.choice===correct.choice),false);
+    assert.throws(()=>vote(outsider,correct.choice), /your pair/);
+    vote(first,correct.choice);
+    vote(partner,correct.choice);
+    const outsiders=s.players.filter(player=>player.team===outsider.team);
+    outsiders.forEach((player,i)=>propose(player,'Guess '+i));
+    for (const {owner,choice} of matchView(s,outsider.id,now).arena.ballot) {
+      vote(outsiders.find(player=>player.id===owner),choice);
     }
+    assert.equal(s.phase,'guess');
+    advanceMatch(s,s.until);
     assert.equal(s.phase,'reveal');
     assert.deepEqual(s.history.at(-1).points,[1,0,0,0]);
+    const {results}=s.history.at(-1);
+    assert.equal(results.find(result=>result.id===first.id).answers.anime,undefined);
+    const guesses=results.filter(result=>outsiders.some(player=>player.id===result.id)&&result.answers.anime);
+    assert.equal(guesses.length,1);
+    assert.equal(guesses[0].correct.anime,false);
     advanceMatch(s,s.until);
   }
   assert.equal(s.phase,'finished');
