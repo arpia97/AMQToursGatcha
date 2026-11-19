@@ -1,5 +1,26 @@
 export const audioFilename = url => url.slice(url.lastIndexOf('/') + 1);
 
+// A slow mirror occupies one slot. Other slots keep working through the draw.
+export async function checkAudioCandidates(candidates, verify) {
+  const pending = candidates.entries(), results = new Array(candidates.length);
+  async function worker() {
+    for (const [i, candidate] of pending) results[i] = await verify(candidate);
+  }
+  await Promise.all(Array.from({length: Math.min(6, candidates.length)}, worker));
+  return results;
+}
+
+export function recordingGroupIndex(data) {
+  if (!data.groupById) {
+    const index = new Map();
+    data.groups.forEach((ids, group) => {
+      for (const id of ids) index.set(id, group);
+    });
+    data.groupById = index;
+  }
+  return data.groupById;
+}
+
 export function watchedCandidates(data, weights, ranked, options = {}) {
   const {excluded, excludedPaths} = options;
   const candidates = new Map();
@@ -9,8 +30,7 @@ export function watchedCandidates(data, weights, ranked, options = {}) {
     candidates.get(anime).set(group, {group,source});
   }
   if (ranked) {
-    const groupById = options.groupById ??
-      new Map(data.groups.flatMap((ids, group) => ids.map(id => [id,group])));
+    const groupById = options.groupById ?? recordingGroupIndex(data);
     for (const row of data.ngmcRows) {
       if (/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(row.type)) add(row.annId,groupById.get(row.annSongId),row.audio);
     }
@@ -57,21 +77,24 @@ export async function watchedRecordings(order, candidates, count, verify, random
   const tried = new Set();
   let cursor = 0;
   while (selected.size < count && cursor < order.length && tried.size < count + 32) {
-    const batch = order.slice(cursor,cursor + Math.min(4, count - selected.size));
+    const batch = order.slice(cursor,cursor + count - selected.size);
     const reserved = new Set();
     const candidatesByAnime = batch.map(anime => [...candidates.get(anime)]);
     while (candidatesByAnime.some(options => options.length) && tried.size < count + 32) {
+      let budget = count + 32 - tried.size;
       const probes = candidatesByAnime.map(options => {
+        if (!budget) return;
         while (options.length) {
           const [{group, source}] = options.splice(randomIndex(options.length),1);
           if (tried.has(group) || recorded.has(filename(source))) continue;
           if (reserved.has(group)) continue;
           reserved.add(group);
+          budget--;
           return {group, source};
         }
       });
       if (!probes.some(Boolean)) break;
-      const urls = await Promise.all(probes.map(probe => probe ? verify(probe.group,probe.source) : null));
+      const urls = await checkAudioCandidates(probes, probe => probe ? verify(probe.group,probe.source) : null);
       probes.forEach((probe,i) => {
         if (!probe) return;
         tried.add(probe.group);

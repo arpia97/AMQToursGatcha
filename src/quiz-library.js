@@ -13,6 +13,15 @@ const SONG_URL = "https://anisongdb.com/api/ann_song_ids_request",
 const fail = (message, status = 400) => {
   throw Object.assign(Error(message), { status });
 };
+// Consume in catalogue order while bounding the number of parsed shards in memory.
+export async function* libraryShards(core, manifest, buckets) {
+  for (let start = 0; start < buckets.length; start += 4) {
+    const batch = buckets.slice(start, start + 4);
+    const rows = await Promise.all(batch.map(bucket => core.shard(manifest, bucket)));
+    for (const [i, bucket] of batch.entries()) yield [bucket, rows[i]];
+  }
+}
+
 export async function libraryJSON(response, limit = 12000000) {
   if (!response.ok) {
     const retry = response.headers.get("retry-after");
@@ -188,9 +197,8 @@ export class QuizLibraryCore {
       grouped.get(b).push(id);
     }
     const songs = [];
-    for (const [b, values] of grouped) {
-      const rows = await this.shard(manifest, b);
-      for (const id of values) if (rows[id]) songs.push(rows[id]);
+    for await (const [bucket, rows] of libraryShards(this, manifest, [...grouped.keys()])) {
+      for (const id of grouped.get(bucket)) if (rows[id]) songs.push(rows[id]);
     }
     return { version: manifest.version, songs,...(references.length?{resolvedIds}:{}) };
   }

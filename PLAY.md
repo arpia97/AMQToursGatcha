@@ -85,9 +85,11 @@ quizzes, one per player and quiz.
   ends guessing early. Mirrored team cards show Gacha avatars, counter badges,
   guesses remaining, and each submitted answer at reveal. Download counts stay
   hidden; a missing next track pauses everyone before the shared countdown.
-- Before issuing the NGMC manifest, validate MP3 links with bounded HEAD/range
-  requests and replace detected failures using the same hierarchical sampler.
-  Checks cache successes for 24 hours and failures for one minute. A regional
+- While the room shows “Selecting songs for your match…”, the server reads song
+  metadata in batches of four shards and checks up to six MP3s concurrently.
+  Range checks verify actual audio before the room opens. A slow mirror does
+  not pause the other check slots, and completion speed never reorders the draw.
+  Checks cache successes for one hour and failures for one minute. A regional
   download failure still shows retry and holds the shared readiness gate.
 - Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
   TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is

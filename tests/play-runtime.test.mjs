@@ -4,7 +4,7 @@ import {playRuntimeFixture} from './play-runtime-fixture.mjs';
 import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
-import {watchedWeights, weightedAnimeOrder} from '../src/play-watched-selection.js';
+import {watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
   const linked=new Map([
@@ -20,6 +20,27 @@ test('Watched weights sum square-root budgets from distinct MAL and AniList show
   assert.deepEqual(weightedAnimeOrder(weights,()=>.5),[1,2,3,4]);
 });
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('a slow mirror does not block later Watched probes or change playlist order',async()=>{
+  const order=Array.from({length:10},(_,i)=>i+1);
+  const options=new Map(order.map(id=>[id,[{group:id,source:String(id)}]]));
+  options.get(2).push({group:22,source:'fallback'});
+  const slow=Promise.withResolvers(), started=[];
+  let active=0,peak=0;
+  const result=watchedRecordings(order,options,9,async(group,source)=>{
+    started.push(group);peak=Math.max(peak,++active);
+    if(group===1)await slow.promise;
+    else await Promise.resolve();
+    active--;
+    return group===2?null:source;
+  },()=>0,url=>url);
+  await new Promise(resolve=>setImmediate(resolve));
+  const startedBeforeRelease=started.slice();
+  slow.resolve();
+  const songs=await result;
+  assert.deepEqual(startedBeforeRelease,order.slice(0,9));
+  assert.equal(peak,6);
+  assert.deepEqual(songs.map(s=>s.group),[1,22,3,4,5,6,7,8,9]);
+});
 test('AniList imports all chunks, handles repeated entries and preserves provider identity',async()=>{
   const pages=[[{status:'COMPLETED',progress:0,mediaId:5},{status:'PLANNING',progress:0,mediaId:7}],[{status:'CURRENT',progress:2,mediaId:8},{status:'CURRENT',progress:2,mediaId:5}]];
   const result=await importAnimeList('anilist','https://anilist.co/user/Local/animelist',async(url,options)=>{

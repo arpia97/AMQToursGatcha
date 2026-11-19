@@ -1,9 +1,9 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
-import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, audioFilename} from './play-watched-selection.js';
+import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
-import { libraryJSON } from './quiz-library.js';
+import { libraryJSON, libraryShards } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
 import {loadMasterSongAnswers,bestMasterRecord,indexQuizRecordings,sheetRecording} from './master-song-answers.js';
 export class PlayLibrary {
@@ -81,9 +81,8 @@ export class PlayLibrary {
       const type=(annId===sheet?.annId&&sheet?.type)||row.type||quiz?.type||sheet?.type;
       if(type&&annId)ngmcRows.push({annId,annSongId:id,amqSongId:key,audio:source,type});
     }
-    for(const bucket of manifest.shards) {
-      const rows=await this.core.shard(manifest,bucket);
-      for(const row of Object.values(rows)) {
+    for await(const [,rows] of libraryShards(this.core,manifest,manifest.shards)) {
+      for(const row of Object.values(rows)){
         add(row,bestMasterRecord(master,[row]),bestMasterRecord(quizzes,[row]));
       }
     }
@@ -124,7 +123,9 @@ export class PlayLibrary {
     return url;
   }
   async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[]) {
+    const started=Date.now();
     const data=await this.load();
+    const catalogReady=Date.now();
     const maxSongs=mode===ARENA_FORMAT?arenaSongCount(arenaRules.maxPlayers):100;
     if(!Number.isInteger(count)||count<1||count>maxSongs)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
@@ -143,7 +144,7 @@ export class PlayLibrary {
       else available.push(i);
     }
     const shortPool=()=>Object.assign(Error("Too few distinct anime with playable songs on the Watched lists. Add more entries, choose fewer songs in a custom lobby, or switch to Random."),{status:422});
-    const groupById=ranked?new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index]))):null;
+    const groupById=ranked?recordingGroupIndex(data):null;
     const verify=async(group,source)=>{
       let url=await this.verifiedSource(source);
       for(const alternate of data.alternates[group]||[]){if(url)break;url=await this.verifiedSource(alternate);}
@@ -172,13 +173,11 @@ export class PlayLibrary {
         .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
         Array.from({length:Math.min(pool.length,needed)},draw);
       if(!candidates.length)break;
-      for(let i=0;i<candidates.length;i+=4){
-        await Promise.all(candidates.slice(i,i+4).map(async({group,source})=>{
-          tried.add(group);const url=await verify(group,source);
-          if(url)verifiedAudio.set(group,url);
-        }));
-      }
-      for(const {group} of candidates)if(verifiedAudio.has(group))selected.add(group);
+      const urls=await checkAudioCandidates(candidates,({group,source})=>verify(group,source));
+      candidates.forEach(({group},i)=>{
+        tried.add(group);
+        if(urls[i]){verifiedAudio.set(group,urls[i]);selected.add(group);}
+      });
     }
     if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     // Small, real, unused audio sample for host integrity review. Never part of
@@ -188,6 +187,7 @@ export class PlayLibrary {
     for(let i=0;i<Math.min(12,extras.length);i++){crypto.getRandomValues(random);const j=i+random[0]%(extras.length-i);[extras[i],extras[j]]=[extras[j],extras[i]];}
     const candidates=extras.slice(0,12);
     const ids=[...selected,...candidates].flatMap(index=>data.groups[index]);
+    const songsChecked=Date.now();
     const result=await this.core.lookup({annSongIds:ids.filter(id=>id>0)});
     const byId=new Map(result.songs.map(song=>[song.annSongId,song]));
     const buildSong=index=>{
@@ -209,6 +209,12 @@ export class PlayLibrary {
       const urls=await Promise.all(batch.map(s=>this.verifiedSource(s.audio)));
       batch.forEach((s,j)=>{if(urls[j]&&!used.has(urls[j])&&decoys.length<3){s.audio=urls[j];decoys.push(s);used.add(s.audio);}});
     }
+    const elapsed=Date.now()-started;
+    if(elapsed>=2000)console.info('Slow Play song selection',{
+      mode,pool:weights?'watched':'random',songs:songs.length,totalMs:elapsed,
+      catalogMs:catalogReady-started,drawAndCheckMs:songsChecked-catalogReady,
+      metadataAndDecoysMs:elapsed-(songsChecked-started),
+    });
     return {version:data.version,songs,decoys};
   }
 }
