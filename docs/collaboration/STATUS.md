@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Watched lobby eligibility
+
+Source `bd0038c` deployed to Worker `15a8ac2e-34e3-4efa-a871-1769668e4fb0`. Watched custom lobbies show the combined distinct anime eligible in the catalogue and the number of songs required. Hosts see a warning and Start is disabled for a known shortage. The count updates with the roster and periodically refreshes imported lists. Audio availability is still checked when drawing the songs. The public Random badge now uses a blue background.
+
+All 550 tests and the Worker build passed. The local Workers fixture verified duplicate anime are counted once and counts update when a player joins or leaves. Browser checks verified the shortage warning, Start becoming available after lowering the song count, the mobile layout, and the Random badge colour. Verified the live Play routes, public lobby endpoint and deployed assets.
+
 ## Watched pool for Play
 
 Source `af4324a` deployed to Worker `fe14f916-3457-43d7-a4c6-3bc569194712`. NGMC, Arena and Song/Artist matchmaking remember the Random or Watched selection per mode in the browser. NGMC 4v4 matchmaking is ranked and 3v3 is unranked in both pools. NGMC and Song/Artist public lobbies display their song pool. Custom NGMC remains unranked. Competitive rating, records and leave penalties are scoped to the selected pool. Existing ranked results continue to appear under Random.
