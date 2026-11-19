@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play match recovery
+
+Source `a95df9b` is deployed at 100% on Worker `32d5a3ee-7d99-46b4-968d-f60561e12294`. Large rating gaps could throw during NGMC settlement. Completed rooms now release queue reservations before calculating ratings and independently retry missing rating or credit receipts. Match preparation times out after three minutes. Across multiplayer modes, clients reconnect silent sockets and resynchronize overdue phases. All 560 tests, syntax checks, and the Worker dry run passed. The local multiplayer test recovered a lost final reveal alarm and a lost wallet reply, with exact payout and queue release. Desktop and mobile checks on deployed assets with simulated match sockets verified reconnection, result updates, and returning to matchmaking. The particular reported match and its wallet receipts were not identified.
+
 ## Smaller Play updates during matches
 
 Source `0ed7c8b` is deployed at 100% on Worker `128aa4b0-c30a-49fe-b78d-1e10734ee3e8`. Match sockets negotiate incremental round history after receiving a full snapshot. Clients keep earlier reveals, accept counting corrections, and receive full reconnect and results snapshots. Scoreboards, download indicators, and open song lists reuse unchanged markup. Watched pool lookups reuse catalog-version-specific indexes. A local six-player Song/Artist fixture after 15 rounds reduced a routine serialized update from 22,247 to 3,038 bytes before compression. All 560 tests passed. Checks on the deployed desktop and mobile layouts with fixture sockets verified audio readiness, answer submission, history merging, updated scores and stable scoreboard and song-list elements.
