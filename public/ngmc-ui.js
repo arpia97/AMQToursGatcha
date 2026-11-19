@@ -8,7 +8,7 @@ export function ngmcArena(match,form){
     '<section class="sa-play-panel ngmc-panel"><header class="ngmc-strip"><span>Song '+(match.index+1)+' / '+match.total+'</span><strong class="sa-round-status"></strong></header>'+
     '<div class="ngmc-on-air"><div class="ngmc-track"></div>'+roundDialHTML+'</div>'+
     '<div class="ngmc-console-body"><div class="sa-download-status"></div>'+form+'<div class="sa-shared-wrap"></div>'+
-    ngmcProgress(match)+'</div></section></div>';
+    '<div class="ngmc-progress" aria-label="Song progress"></div></div></section></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){
   return '<small>Anime</small><h2>'+(row?esc(animeTitle({anime:row.anime})):'Unrevealed')+'</h2><div class="ngmc-track-credits"><span><small>Song</small> '+
@@ -45,5 +45,5 @@ export function ngmcControls(match,esc) {
 }
 export function ngmcProgress(match) {
   const me=match.players.find(p=>p.id===match.me);
-  return '<div class="ngmc-progress" aria-label="Song progress">'+Array.from({length:35},(_,i)=>{const row=match.history.find(r=>r.index===i);return '<i class="'+(row?row.results.find(r=>r.id===me.id)?.correct.anime?'hit':'miss':i===match.index?'current':'')+'" title="Song '+(i+1)+'"></i>';}).join('')+'</div>';
+  return Array.from({length:35},(_,i)=>{const row=match.history.find(r=>r.index===i);return '<i class="'+(row?row.results.find(r=>r.id===me.id)?.correct.anime?'hit':'miss':i===match.index?'current':'')+'" title="Song '+(i+1)+'"></i>';}).join('');
 }

@@ -1,7 +1,7 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
-import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
+import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON, libraryShards } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
@@ -118,7 +118,7 @@ export class PlayLibrary {
   async watchedAnimeCount(lists, ranked) {
     if(!lists.some(list=>list.ids.length))return 0;
     const data=await this.load();
-    return watchedCandidates(data,watchedWeights(lists,data.linkedAnime),ranked).size;
+    return countWatchedCandidates(data,watchedWeights(lists,data.linkedAnime),ranked);
   }
   async verifiedSource(source){
     const cached=this.audioChecks.get(source);

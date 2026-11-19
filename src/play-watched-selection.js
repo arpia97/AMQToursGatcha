@@ -1,4 +1,6 @@
 export const audioFilename = url => url.slice(url.lastIndexOf('/') + 1);
+const rankedType=/^(Opening|OP|Ending|ED|Insert|IN)\b/i;
+const providerIndexes=new WeakMap();
 
 // A slow mirror occupies one slot. Other slots keep working through the draw.
 export async function checkAudioCandidates(candidates, verify) {
@@ -32,7 +34,7 @@ export function watchedCandidates(data, weights, ranked, options = {}) {
   if (ranked) {
     const groupById = options.groupById ?? recordingGroupIndex(data);
     for (const row of data.ngmcRows) {
-      if (/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(row.type)) add(row.annId,groupById.get(row.annSongId),row.audio);
+      if (rankedType.test(row.type)) add(row.annId,groupById.get(row.annSongId),row.audio);
     }
   } else {
     data.groups.forEach((ids,group) => {
@@ -42,8 +44,18 @@ export function watchedCandidates(data, weights, ranked, options = {}) {
   return candidates;
 }
 
-// Map each imported list to the shared ANN IDs while retaining its own budget.
-export function watchedWeights(lists, linkedAnime) {
+export function countWatchedCandidates(data,weights,ranked) {
+  // Counts need only eligible anime IDs. Build recording choices when the match starts.
+  const eligible=ranked
+    ? (data.rankedWatchedAnime??=new Set(data.ngmcRows.filter(row=>rankedType.test(row.type)).map(row=>row.annId)))
+    : (data.watchedAnime??=new Set(data.occurrenceAnime.values()));
+  let count=0;
+  for(const anime of weights.keys())if(eligible.has(anime))count++;
+  return count;
+}
+
+function indexesFor(linkedAnime) {
+  if(providerIndexes.has(linkedAnime))return providerIndexes.get(linkedAnime);
   const indexes = {myanimelist:new Map(), anilist:new Map()};
   for (const [anime, links] of linkedAnime) for (const [provider,index] of Object.entries(indexes)) {
     const externalId = links[provider];
@@ -51,7 +63,13 @@ export function watchedWeights(lists, linkedAnime) {
     if (!index.has(externalId)) index.set(externalId, []);
     index.get(externalId).push(anime);
   }
+  providerIndexes.set(linkedAnime,indexes);
+  return indexes;
+}
 
+// Map each imported list to the shared ANN IDs while retaining its own budget.
+export function watchedWeights(lists, linkedAnime) {
+  const indexes=indexesFor(linkedAnime);
   const weights = new Map();
   for (const {provider, ids} of lists) {
     const index = indexes[provider];

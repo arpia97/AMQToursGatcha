@@ -95,6 +95,9 @@ quizzes, one per player and quiz.
   and playable songs verified. The queue badge also shows this progress across
   Play tabs. The loading screen distinguishes personal downloads, players who
   pressed Ready, and players whose audio is ready for the round.
+- A room sends full round history on connection and at the end of a match.
+  Browsers that support incremental updates retain earlier reveals locally.
+  The latest reveal is sent again when counting updates lives or spent guesses.
 - Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
   TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is
   displayed as 1,000 (scale 50); global sigma .25, beta .125, tau .0025,

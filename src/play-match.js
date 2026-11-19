@@ -73,7 +73,15 @@ export class PlayMatch extends DurableObject {
       next=Math.min(next,now+2000);
     await this.ctx.storage.setAlarm(Math.min(next,now+86400000));
   }
-  broadcast(){const state=this.read();if(!state)return;for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,{type:'state',state:matchView(state,who.id)});}}
+  broadcast(state=this.read()){
+    if(!state)return;
+    const now=Date.now();
+    for(const ws of this.ctx.getWebSockets()){
+      const who=ws.deserializeAttachment();
+      if(who.expires<=now)ws.close(4003,'Session expired.');
+      else send(ws,{type:'state',state:matchView(state,who.id,now,who.compactHistory)});
+    }
+  }
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;
     if(state.rankingsSettled)return;
@@ -100,22 +108,22 @@ export class PlayMatch extends DurableObject {
     }
     state.rankingsSettled=true;
     this.write(state);
-    this.broadcast();
+    this.broadcast(state);
   }
   async depart(id){
     const state=this.read();
     if(!state?.lobby||['finished','cancelled'].includes(state.phase))return;
     const player=state.players.find(p=>p.id===id);
     if(!player||player.left)return;
-    matchMove(state,id,{type:'leave'});this.write(state);this.broadcast();
+    matchMove(state,id,{type:'leave'});this.write(state);this.broadcast(state);
     await this.schedule();await this.finish(state);
   }
   async fetch(request) {
     try {
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
-      matchView(state,who.id);
       const player=state.players.find(p=>p.id===who.id);
+      if(!player)fail('You are not in this match.',403);
       const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!state.arena&&!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
       delete player.clipReadyIndex;player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       const supported = state.syncPlayback ? [PLAY_AUDIO_PROTOCOL] : state.audioSealed ? [4,PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3,4,PLAY_AUDIO_PROTOCOL] : [2,3,4,PLAY_AUDIO_PROTOCOL];
@@ -129,7 +137,7 @@ export class PlayMatch extends DurableObject {
       ? {...state,audioPool:state.audioPool.map(entry=>({...entry}))} : state;
     if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
     send(server,audioManifest(mediaState));
-      send(server,{type:'state',state:matchView(state,who.id)});try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return response;}await this.schedule();return response;
+      send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return response;}await this.schedule();return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
   }
   async repairAudio(id, message) {
@@ -170,7 +178,7 @@ export class PlayMatch extends DurableObject {
       if(['loading','buffering'].includes(live.phase))live.until=Math.max(live.until,Date.now()+60000);
       this.write(live);
       for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires>Date.now())send(ws,{type:'audio-replaced',slot,ticket:next.ticket,revision:live.audioRevision});
-      this.broadcast();await this.schedule();return true;
+      this.broadcast(live);await this.schedule();return true;
     })();
     this.audioRepair=repair;
     try{return await repair;}finally{if(this.audioRepair===repair)this.audioRepair=null;}
@@ -178,6 +186,7 @@ export class PlayMatch extends DurableObject {
   async webSocketMessage(ws,raw) {
     try{const input=receive(ws,raw);if(!input)return;
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
+      if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
       if(input.message.type==='audio-failed'){
         if(!await this.repairAudio(input.who.id,input.message))send(ws,{type:'audio-retry',revision:input.message.revision});
@@ -217,7 +226,7 @@ export class PlayMatch extends DurableObject {
       if(message.type==='skip')this.reviewLog.add(state,input.who.id,'skip-vote',{vote:message.vote});
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
-      this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast();
+      this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast(state);
       if(input.message.type==='leave'&&['ngmc-ranked',DUEL_FORMAT].includes(state.format)){
         const departed=state.players.find(p=>p.id===input.who.id);
         if(departed.rankedLeftAt!=null){await this.schedule();await this.reportRankedLeaves(state);}
@@ -293,6 +302,6 @@ export class PlayMatch extends DurableObject {
     const phase=state.phase,index=state.index,historyLength=state.history.length;advanceMatch(state);
     if(state.history.length>historyLength)this.reviewLog.round(state);
     if(phase!==state.phase||index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
-    this.write(state);this.broadcast();try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
+    this.write(state);this.broadcast(state);try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
   }
 }

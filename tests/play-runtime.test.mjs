@@ -321,6 +321,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       await assert.rejects(decrypt(other),{name:'OperationError'});
       rooms[1].ws.close();
       rooms[1]=await connect(1,id);
+      assert.ok((await rooms[1].wait(m=>m.type==='state')).canCompactHistory);
+      rooms[1].send({type:'compact-history'});
       assert.deepEqual((await rooms[1].wait(m=>m.state?.playback)).state.playback,started.playback);
       rooms[1].send({type:'loaded',revision,indices:preload});
       rooms[1].send({type:'ready'});
@@ -345,10 +347,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     if(format==='1v1'){
       const {decoys}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
       await mf.dispatchFetch(base+'/api/__expire?match='+id);await mf.dispatchFetch(base+'/api/__advance?match='+id);
+      await rooms[0].wait(m=>m.state?.phase==='guess'&&m.state.index===1&&m.state.now>=m.state.startsAt);
       rooms[0].send({type:'answer',index:1,answers:{anime:decoys[0].anime,song:'',artist:''},lock:true});
       await rooms[0].wait(m=>m.state?.index===1&&m.state.players.find(p=>p.id==='1').locked);
       await mf.dispatchFetch(base+'/api/__expire?match='+id);
       const second=(await rooms[0].wait(m=>m.state?.history?.length===2)).state;
+      const patch=(await rooms[1].wait(m=>m.state?.historyFrom===1)).state;
+      assert.deepEqual(patch.history,second.history.slice(1));
+      assert.equal(patch.songList,undefined);
       assert.equal(second.history[1].results.find(p=>p.id==='1').correct.anime,false);
       assert.equal(second.songList.length,2);assert.ok(!JSON.stringify(second).includes('decoy'));
       assert.equal(second.playback,undefined);
@@ -357,6 +363,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     rooms[0].ws.close();const resumed=await connect(0,id);const snapshot=(await resumed.wait(m=>m.type==='state')).state;assert.deepEqual(snapshot.teams,reveal.teams);
     const all=[resumed,...rooms.slice(1)];for(const r of all)r.send({type:'leave'});
     await all[0].wait(m=>['finished','cancelled'].includes(m.state?.phase));
+    if(format==='1v1'){
+      const end=(await all[1].wait(m=>['finished','cancelled'].includes(m.state?.phase))).state;
+      assert.equal(end.historyFrom,undefined);assert.equal(end.history.length,2);assert.equal(end.songList.length,end.total);
+    }
     if(ngmc){const rated=(await all[0].wait(m=>m.state?.ratings?.length===8)).state;const standings=await (await mf.dispatchFetch(base+'/api/play-rankings?format=ngmc-ranked')).json();
       for(const row of standings.rows){
         const p=rated.players.find(p=>p.name===row.name),rating=rated.ratings.find(r=>r.id===p.id);

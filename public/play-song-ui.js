@@ -22,9 +22,10 @@ const labels={anime:'Anime',song:'Song Title',artist:'Artist'};
 const formats={'1v1':'1v1','3v3':'3v3','1-team':'1-Team'};
 const renderedMarkup=new WeakMap();
 function updateMarkup(element,html){
-  if(renderedMarkup.get(element)===html)return;
+  if(renderedMarkup.get(element)===html)return false;
   element.innerHTML=html;
   renderedMarkup.set(element,html);
+  return true;
 }
 
 export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onQueueChange=()=>{},onCreditReward=()=>{}}) {
@@ -184,6 +185,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         lastLoaded=loaded().join(',');send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});if(ready){send(room,{type:'ready'});if(preparedIndex>=0&&audio.readyState>=3)send(room,{type:'clip-ready',index:preparedIndex,revision:manifestRevision});}preload();return;
       }
       if(msg.type==='state'){
+        const update=msg.state;
+        if(update.historyFrom!==undefined){
+          const from=update.historyFrom;
+          if(match?.id!==update.id||!Number.isInteger(from)||from<0||from>match.history.length){ws.close();return;}
+          update.history=match.history.slice(0,from).concat(update.history);
+        }
+        if(msg.canCompactHistory)send(ws,{type:'compact-history'});
         const previous=match;match=msg.state;if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
         if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():'anime');const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
@@ -461,8 +469,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const open=scoreboard.querySelector('details')?.open;
       updateMarkup(scoreboard,arenaBoard(match,esc));
       if(open)scoreboard.querySelector('details').open=true;
-    }else scoreboard.innerHTML=match.phase==='finished'?(match.lobby||match.format==='1-team'||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML();
-    if(ranked()&&root.querySelector('.ngmc-progress'))root.querySelector('.ngmc-progress').outerHTML=ngmcProgress(match);
+    }else updateMarkup(scoreboard,match.phase==='finished'?(match.lobby||match.format==='1-team'||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML());
+    const progress=ranked()&&root.querySelector('.ngmc-progress');
+    if(progress)updateMarkup(progress,ngmcProgress(match));
     const status=root.querySelector('.sa-round-status');if(!status)return;
     const me=player(),indices=loaded();
     const waitingAudio=['loading','buffering'].includes(match.phase)&&match.audioWindow;
@@ -476,8 +485,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const audioReady=activePlayers.filter(p=>p.audioReady).length;
     const audioStatus=['loading','buffering'].includes(match.phase)&&activePlayers.length?'<span>'+audioReady+' / '+activePlayers.length+' players have audio ready · '+percentDone(audioReady,activePlayers.length)+(loadingNames.length?' · Loading: '+esc(loadingNames.join(', ')):'')+'</span>':'';
     const downloadStatus=root.querySelector('.sa-download-status'),downloadBar=downloadStatus.querySelector('.song-loading-bar');
-    downloadStatus.innerHTML=(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+(percentDone(loadedCount,downloadTotal)||'…')+'</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
-    if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,downloadTotal);}
+    const meterChanged=updateMarkup(downloadStatus,(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+(percentDone(loadedCount,downloadTotal)||'…')+'</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':''));
+    if(meterChanged&&downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,downloadTotal);}
     const shared=root.querySelector('.sa-shared-wrap');
     if(arena()){
       const focusedChoice=shared.contains(document.activeElement)?document.activeElement.dataset.choice:null;
@@ -522,7 +531,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const confirmation=submission?'Locked in · '+submission+elapsed:'';
     if(lockedAnswer.textContent!==confirmation)lockedAnswer.textContent=confirmation;
     const last=match.history.at(-1),revealed=['reveal','counting'].includes(match.phase)&&last?.index===match.index;
-    const opponents=root.querySelector('.sa-opponent-answers');if(opponents)opponents.innerHTML=answerSideHTML(match,revealed?last:null,1-me.team,esc);
+    const opponents=root.querySelector('.sa-opponent-answers');if(opponents)updateMarkup(opponents,answerSideHTML(match,revealed?last:null,1-me.team,esc));
     if(ranked()){
       updateMarkup(root.querySelector('.ngmc-track'),ngmcTrack(revealed?last:null,esc,animeTitle));
     }else{
