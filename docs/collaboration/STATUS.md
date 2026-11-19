@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Smaller multiplayer opening download
+
+Source `6673c03` is live on Worker `c9f2adac-8378-4619-ac96-d6428fd7453e`. New sealed matches buffer three songs and up to three decoys before starting. The client prioritizes the current group, downloads ahead with two independent requests, and resumes from the current group on reconnect. Fresh acknowledgments for required clips extend the audio wait within a bounded grace period. The shared guess clock starts after everyone is ready. All 557 tests, syntax checks, and the Worker dry run passed. Desktop and mobile Chrome checks exercised the deployed client with a delayed fixture clip.
+
 ## Play match-level inactivity rule
 
 Source `9d36e82` is live on Worker `c8be795a-ec6c-414a-8c8a-194548c3d776`. Three consecutive completed matchmaking matches with no attempts trigger a 24-hour lock across queues. Incorrect guesses, Arena titles, and Arena votes break the streak. Cancelled matches, early forfeits, and custom lobbies are outside the streak. The former song-level bans are ignored. Credits depend on completion and connection at the finish. Missed songs and inactivity strikes do not affect the payout. All 556 tests, syntax checks, and the Worker dry run passed. An isolated Worker verified payout, streak reset, and cross-pool enforcement. The deployed notice was verified in Chrome at 390 and 1440 pixels using fixture socket events.
