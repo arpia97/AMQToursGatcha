@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## Watched pool for Play
+
+Source `af4324a` deployed to Worker `fe14f916-3457-43d7-a4c6-3bc569194712`. NGMC, Arena and Song/Artist matchmaking remember the Random or Watched selection per mode in the browser. NGMC 4v4 matchmaking is ranked and 3v3 is unranked in both pools. NGMC and Song/Artist public lobbies display their song pool. Custom NGMC remains unranked. Competitive rating, records and leave penalties are scoped to the selected pool. Existing ranked results continue to appear under Random.
+
+Watched uses each imported list's distinct shows and a per-anime contribution of one over the square root of list size, added across players. The A-Res order uses log-scores. Draws use distinct anime and recordings, with 35 songs for NGMC and the mode or lobby song count elsewhere. Missing lists contribute no titles. The match uses a saved list snapshot to select any audio replacements.
+
+Passed 550 tests, syntax checks and the Worker build. Verified an eight-player Watched NGMC draw with 35 distinct anime and isolated ranking results in the local Worker fixture. Checked the saved switches and public lobby labels in a browser at desktop and mobile widths. Snapshots are in the adjacent `watched-play-preview` directory. Verified live Play routes, new assets, lobby and queue endpoints, and separate Random and Watched ranking responses via read-only checks.
+
 ## 2v2 Arena and Gacha notifications navigation
 
 Source `54a38c4` deployed on Worker `19bb07a0-8081-49dc-bdb3-a52813bc7d63`. Arena balances pairs using NGMC Rating and runs a round robin with five songs per opponent and a 20-second guess timer. Each teammate can propose one title and vote. The most voted title is graded for the pair. Ties, including when neither teammate votes, are resolved randomly among the tied titles. On desktop, answering sits to the left of standings.
