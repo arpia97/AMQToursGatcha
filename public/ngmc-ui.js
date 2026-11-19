@@ -7,7 +7,7 @@ export function ngmcArena(match,form){
   return '<div class="sa-ready-wrap"></div><div class="ngmc-arena"><div class="sa-scoreboard"></div>'+
     '<section class="sa-play-panel ngmc-panel"><header class="ngmc-strip"><span>Song '+(match.index+1)+' / '+match.total+'</span><strong class="sa-round-status"></strong></header>'+
     '<div class="ngmc-on-air"><div class="ngmc-track"></div>'+roundDialHTML+'</div>'+
-    '<div class="ngmc-console-body"><div class="sa-download-status"></div>'+form+'<small class="ngmc-submission"></small><div class="sa-shared-wrap"></div>'+
+    '<div class="ngmc-console-body"><div class="sa-download-status"></div>'+form+'<div class="sa-shared-wrap"></div>'+
     ngmcProgress(match)+'</div></section></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){

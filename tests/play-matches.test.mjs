@@ -25,7 +25,7 @@ import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '..
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
-import {recapHTML} from '../public/play-round-ui.js';
+import {recapHTML, songResultsHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
 test('artist aliases, equivalent groups, directed solo groups and full member answers',()=>{
   const master={artistMap:{1:{name:'Manaka Iwami',altNameLinks:[2]},2:{name:'Iwami, Manaka'},3:{name:'Éir Aoi'}},groupMap:{1:{name:'Solo Project',artistMembers:[1]},2:{name:'Duo',artistMembers:[1,3]},3:{name:'Other Duo',artistMembers:[3,1]}}};
@@ -307,4 +307,17 @@ test('a long MP3 yields a playable sealed sample using bounded range requests',a
   const key=await crypto.subtle.importKey('raw',Buffer.from(entry.key,'base64url'),'AES-GCM',false,['decrypt']);
   const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytes.subarray(0,12)},key,bytes.subarray(12));
   assert.ok(new DataView(plain).getUint32(0)>0);
+});
+
+test('Play shows the submitted language in guesses and translates the official answer separately', () => {
+  const animeTitle = () => 'Romaji Title';
+  const escape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;');
+  const row = {index:0,anime:'Japanese Title',song:'Example Song',artist:'Singer',points:[1,0],
+    results:[{id:'a',answers:{anime:'English & Title'},correct:{anime:true},earned:1}]};
+  const match = {format:'1v1-ranked',phase:'reveal',index:0,me:'a',history:[row],teams:[1,0],
+    players:[{id:'a',name:'Player A',team:0},{id:'b',name:'Player B',team:1}]};
+  assert.match(recapHTML(match,escape,animeTitle),/>Romaji Title</);
+  const result = songResultsHTML(match,escape,animeTitle);
+  assert.match(result,/Romaji Title/);
+  assert.match(result,/>English &amp; Title</);
 });

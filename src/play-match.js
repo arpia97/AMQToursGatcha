@@ -90,8 +90,9 @@ export class PlayMatch extends DurableObject {
     if(legacy&&state.phase==='finished')state.ratings=ngmcRatings(result.players.map(p=>({...p,elo:1000})),result.history);
     const creditPlan=matchCreditPlan(state);
     if(creditPlan?.length){
+      const completedRounds=state.arena?.rounds.filter(round=>round.every(fixture=>fixture.complete)).length;
       state.creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
-        .awardPlayMatchCredits(state.id,state.format,creditPlan);
+        .awardPlayMatchCredits(state.id,state.format,creditPlan,completedRounds);
     }
     state.rankingsSettled=true;
     this.write(state);

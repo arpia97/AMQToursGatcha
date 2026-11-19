@@ -331,7 +331,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-console-body .sa-lock { width:auto; margin:0; min-height:44px; border-radius:4px; }
 .ngmc-console-body .sa-combobox input { height:44px; }
 .ngmc-console-body .sa-download-status { margin:0 0 12px; }.ngmc-console-body .sa-download-status:empty { display:none; }
-.ngmc-submission { display:block; margin-top:6px; color:var(--muted); }.ngmc-submission:empty { display:none; }
+.sa-locked-answer:not([hidden]) { display:block; grid-column:1/-1; margin-top:8px; color:var(--muted); overflow-wrap:anywhere; }
 .ngmc-console-body .ngmc-progress { gap:2px; margin:14px 0 0; max-width:none; }
 .ngmc-console-body .ngmc-round-outcome { padding:10px; background:#21292e; border:1px solid var(--border); border-radius:4px; }
 .ngmc-round-outcome .ngmc-life-score { margin-left:10px; white-space:nowrap; color:var(--muted); font:12px Consolas,monospace; }

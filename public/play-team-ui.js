@@ -7,7 +7,7 @@ export function answerFieldsHTML(fields,team){
 export function teamAnswerTilesHTML(){
   return '<section class="sa-team-answer-tiles" aria-label="Team answers">'+Object.entries(labels).map(([field,label])=>'<article class="sa-team-answer-tile" data-sa-tile="'+field+'"><header><h3><button type="button" class="sa-tile-select" data-sa-select="'+field+'">'+label+'</button></h3><small data-sa-owner="'+field+'">Unclaimed</small></header><div class="sa-team-answer-value" data-sa-value="'+field+'" aria-live="polite">Awaiting answer</div>'+(field==='artist'?'<div class="sa-artist-list"></div>':'')+'<div class="sa-reactions" data-sa-reactions="'+field+'"></div></article>').join('')+'</section>';
 }
-export function updateTeamFields(root,match,disabled,esc,selected='anime',animeTitle=s=>s.anime){
+export function updateTeamFields(root,match,disabled,esc,selected='anime'){
   const me=match.players.find(p=>p.id===match.me),team=match.players.filter(p=>p.team===me.team);
   const available=field=>!team.some(p=>p.field===field&&p.id!==me.id);
   selected=me.field||(['anime','song','artist'].includes(selected)&&available(selected)?selected:['anime','song','artist'].find(available)||'anime');
@@ -25,7 +25,7 @@ export function updateTeamFields(root,match,disabled,esc,selected='anime',animeT
     tile.classList.toggle('sa-active-tile',selected===field&&!disabled);
     const value=root.querySelector('[data-sa-value="'+field+'"]');
     const answer=owner?.answers?.[field];
-    value.textContent=answer?(field==='anime'?animeTitle({anime:answer}):answer):owner?'No answer submitted':'Awaiting answer';
+    value.textContent=answer || (owner?'No answer submitted':'Awaiting answer');
     value.hidden=field==='artist'&&!!owner?.artists?.length;
     value.classList.toggle('is-empty',!answer);
     const last=match.history.at(-1),revealed=last?.index===match.index&&match.phase==='reveal';

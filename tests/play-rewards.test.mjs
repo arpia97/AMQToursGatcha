@@ -26,17 +26,23 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
     const match = {phase:'finished', teams:[2,1], players};
     const arena = arenaSchedule(2);
     Object.assign(arena.rounds[0][0],{scores:[2,1],complete:true});
-    for (const [format, base] of [['1v1-ranked',100],['ngmc-ranked',300],['ngmc-3v3',100],
-      ['2v2-arena',200],['1v1',100],['3v3',200],['1-team',200]]) {
+    for (const [format, base] of [['1v1-ranked',100],['ngmc-ranked',400],['ngmc-3v3',200],
+      ['2v2-arena',100],['1v1',100],['3v3',200],['1-team',200]]) {
       const current = {...match,format,...(format==='2v2-arena'?{arena}:{})};
-      const settle = () => awardMatchCredits(engine, 'match-'+format, format, matchCreditPlan(current));
+      const settle = () => awardMatchCredits(engine, 'match-'+format, format, matchCreditPlan(current), format==='2v2-arena'?1:undefined);
       const bonus = format==='1-team'?0:base/10;
       const expected = [{id:'a',amount:base+bonus,bonus},{id:'b',amount:base,bonus:0}];
       assert.deepEqual(settle(),expected);
       assert.deepEqual(settle(),expected);
     }
+    const arenaPlan = matchCreditPlan({...match,format:'2v2-arena',arena});
+    const threeRounds = awardMatchCredits(engine, 'arena-three', '2v2-arena', arenaPlan, 3);
+    assert.deepEqual(threeRounds.map(row=>[row.amount,row.bonus]),[[330,30],[300,0]]);
+    // Older callers omitted the count. A retry still returns the original receipt.
+    assert.deepEqual(awardMatchCredits(engine,'arena-three','2v2-arena',arenaPlan),threeRounds);
+    assert.deepEqual(awardMatchCredits(engine,'arena-no-rounds','2v2-arena',arenaPlan,0),[]);
     const ledger = engine.all("SELECT player,delta,reward FROM ledger WHERE reason LIKE 'Play match:%'");
-    assert.equal(ledger.length,14);
+    assert.equal(ledger.length,16);
     assert.ok(ledger.every(row => row.reward===1));
     for (const id of ['a','b']) {
       const total = ledger.filter(row=>row.player===id).reduce((sum,row)=>sum+row.delta,0);

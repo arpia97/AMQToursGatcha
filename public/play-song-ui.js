@@ -381,7 +381,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
     if(done)return heading+reward+broadcastResults(match,esc,animeTitle,winnerText);
-    const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form>';
+    const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
+      '<small class="sa-locked-answer" aria-live="polite" hidden></small></form>';
     if(ranked())return heading+ngmcArena(match,answerForm);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
     const versus=!arena()&&!match.lobby&&match.teams.length===2;
@@ -448,7 +449,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const liveSides=root.querySelector('.sa-live-answer-sides');if(liveSides)liveSides.hidden=waiting;
     const form=root.querySelector('#sa-answer-form');form.hidden=waiting||['reveal','counting'].includes(match.phase);
     const disabled=match.phase!=='guess'||pendingLock||pendingArtistKey!==null||!room||!ready||Date.now()+offset<match.startsAt;
-    if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField,animeTitle);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=disabled;
+    if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=disabled;
     updateArtistChips(root,match,disabled,esc);
     form.classList.toggle('sa-field-claims',teamFields());form.querySelector('.sa-lock').hidden=teamFields();
     const lockButton=form.querySelector('.sa-lock');
@@ -471,13 +472,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         action.disabled=disabled;
       }
     }
+    const lockedAnswer=form.querySelector('.sa-locked-answer');
+    const submission=me.locked&&match.phase==='guess'?fields.map(field=>me.answers?.[field]).filter(Boolean).join(' · '):'';
+    lockedAnswer.hidden=!submission;
+    const elapsed=Number.isFinite(me.lockedElapsedMs)?' · '+(me.lockedElapsedMs/1000).toFixed(3)+'s':'';
+    const confirmation=submission?'Locked in · '+submission+elapsed:'';
+    if(lockedAnswer.textContent!==confirmation)lockedAnswer.textContent=confirmation;
     const last=match.history.at(-1),revealed=['reveal','counting'].includes(match.phase)&&last?.index===match.index;
-    const opponents=root.querySelector('.sa-opponent-answers');if(opponents)opponents.innerHTML=answerSideHTML(match,revealed?last:null,1-me.team,esc,animeTitle);
+    const opponents=root.querySelector('.sa-opponent-answers');if(opponents)opponents.innerHTML=answerSideHTML(match,revealed?last:null,1-me.team,esc);
     if(ranked()){
       updateMarkup(root.querySelector('.ngmc-track'),ngmcTrack(revealed?last:null,esc,animeTitle));
-      root.querySelector('.ngmc-submission').textContent=me.locked&&match.phase==='guess'&&Number.isFinite(me.lockedElapsedMs)?'Submitted \u00b7 '+(me.lockedElapsedMs/1000).toFixed(3)+'s':'';
     }else{
-      const recap=revealed?recapHTML(match,esc,animeTitle)+(arena()?arenaReveal(match,last,esc):teamFields()?'':versusHTML(match,last,esc,animeTitle)):'';
+      const recap=revealed?recapHTML(match,esc,animeTitle)+(arena()?arenaReveal(match,last,esc):teamFields()?'':versusHTML(match,last,esc)):'';
       updateMarkup(root.querySelector('.sa-reveal-wrap'),recap);
     }
     const skip=root.querySelector('[data-sa-action=skip]');if(skip){const votes=match.skipVotes||[];skip.parentElement.hidden=match.phase!=='guess'||!ready;skip.disabled=Date.now()+offset<match.startsAt||room?.readyState!==1;skip.setAttribute('aria-pressed',String(votes.includes(match.me)));skip.textContent=(votes.includes(match.me)?'Cancel Skip':'Skip Song')+' · '+votes.length+'/'+match.skipRequired;}

@@ -46,7 +46,7 @@ export function songTeamsHTML(match,esc){
 export function answerMark(correct){
   return '<span class="sa-guess-mark" role="img" aria-label="'+(correct?'Correct':'Incorrect')+'">'+(correct?'✓':'✕')+'</span>';
 }
-export function answerSideHTML(match,row,team,esc,animeTitle){
+export function answerSideHTML(match,row,team,esc){
   const roster=match.players.filter(p=>p.team===team),solo=soloVersus(match.format);
   const answerFields=isDuelFormat(match.format)?[[ 'anime',fields.anime ]]:Object.entries(fields);
   return '<div class="sa-answer-summary">'+answerFields.map(([field,label])=>{
@@ -54,21 +54,21 @@ export function answerSideHTML(match,row,team,esc,animeTitle){
     const owner=row?roster.find(p=>p.id===result?.id):roster.find(p=>p.submittedFields?.includes(field));
     const answer=result?.answers[field],correct=!!result?.correct[field];
     const state=row?(correct?'correct':'incorrect'):owner?'pending':'';
-    const display=row?(answer?(field==='anime'?animeTitle({anime:answer}):answer):'No answer'):owner?'Submitted':'Awaiting submission';
+    const display=row?answer||'No answer':owner?'Submitted':'Awaiting submission';
     return '<article class="sa-team-answer-tile" data-answer-state="'+state+'"><header><h3>'+label+'</h3><small>'+esc(solo?'':owner?.name||'')+'</small></header><div class="sa-team-answer-value">'+esc(display)+'</div>'+
       (row?answerMark(correct):'')+'</article>';
   }).join('')+'</div>';
 }
-export function versusHTML(match,row,esc,animeTitle){
+export function versusHTML(match,row,esc){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format);
   const ffa=match.format==='lobby-ffa';
   const teams=ffa?[me.team,...match.players.filter(p=>p.team!==me.team).map(p=>p.team)]:match.teams.length===1?[me.team]:[me.team,1-me.team];
-  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0,isDuelFormat(match.format)?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
+  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0,isDuelFormat(match.format)?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc)+'</section>').join('')+'</div>';
 }
 export function songResultsHTML(match,esc,animeTitle){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format)||match.format==='lobby-ffa';
   const versus=match.teams.length===2&&match.format!=='lobby-ffa';
-  return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0,isDuelFormat(match.format)?1:3)+(versus?scoreBadge(row.points?.[1-me.team]??0,isDuelFormat(match.format)?1:3):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
+  return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0,isDuelFormat(match.format)?1:3)+(versus?scoreBadge(row.points?.[1-me.team]??0,isDuelFormat(match.format)?1:3):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc)+'</details>').join('')+'</div>';
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;

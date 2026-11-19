@@ -231,8 +231,8 @@ export class Game extends DurableObject {
       catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
     }return this.quizMaster;
   }
-  awardPlayMatchCredits(match, format, players) {
-    return awardMatchCredits(this.engine, match, format, players);
+  awardPlayMatchCredits(match, format, players, completedRounds) {
+    return awardMatchCredits(this.engine, match, format, players, completedRounds);
   }
   watchedAnimeLists(players) {
     if (!Array.isArray(players) || players.length < 1 || players.length > 16) fail("Invalid lobby roster.");
