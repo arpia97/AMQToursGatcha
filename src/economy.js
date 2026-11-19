@@ -1,4 +1,4 @@
-import { searchMatcher, cardSearchText } from "../public/search.js";
+import { cardMatcher } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
@@ -908,7 +908,7 @@ export class Economy {
       "ending-last": "a.ends DESC,a.id DESC",
     };
     let rows, metadata;
-    if (queryText || ["rarity", "rarity-low", "name", "name-desc"].includes(sort)) {
+    if (queryText || options.rarity || ["rarity", "rarity-low", "name", "name-desc"].includes(sort)) {
       // Resolve only listed card IDs, never the full catalogue, before paging.
       rows = e.all(query, ...args);
       metadata = new Map(
@@ -916,10 +916,11 @@ export class Economy {
           .cards([...new Set(rows.map((l) => l.card))])
           .map((c) => [c.id, c]),
       );
+      if (options.rarity) rows = rows.filter(row => (metadata.get(row.card)?.rarity || "Pending") === options.rarity);
       if (queryText) {
-        const matches = searchMatcher(queryText);
+        const matches = cardMatcher(queryText, options.strict);
         rows = rows.filter((l) =>
-          matches([cardSearchText(metadata.get(l.card) || {}), l.seller_name]),
+          matches(metadata.get(l.card), l.seller_name),
         );
       }
       rows = sortMarketItems(rows, metadata, sort).slice(

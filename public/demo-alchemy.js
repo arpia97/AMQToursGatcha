@@ -4,6 +4,7 @@ import {
   rollRefinement,
   drawAlchemyCard,
 } from "./alchemy-rules.js";
+import { cardMatcher } from "./search.js";
 import { fusionOutcomesPage } from "./fusion-outcomes.js";
 export function demoAlchemy(d, path, b, { take, add }) {
   if (path !== "alchemy" && !path.startsWith("alchemy-")) return;
@@ -35,7 +36,7 @@ export function demoAlchemy(d, path, b, { take, add }) {
   if (path === "alchemy") return { alchemyState: state() };
   if (path.startsWith("alchemy-targets?")) {
     const p = new URLSearchParams(path.split("?")[1]);
-    return fusionOutcomesPage(d.cards, {
+    return fusionOutcomesPage(p.get("strict") === "1" ? d.cards.filter(cardMatcher(p.get("q"), true)) : d.cards, {
       rarity: p.get("rarity"),
       kind: p.get("kind") || "mixed",
       query: p.get("q") || "",

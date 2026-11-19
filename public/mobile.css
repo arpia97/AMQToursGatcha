@@ -1,5 +1,5 @@
 :root{--mobile-ui-ready:1}
-.mobile-nav,.mobile-brand,.mobile-sheet,.mobile-filter-button,.mobile-collection-title{display:none}
+.mobile-nav,.mobile-brand,.mobile-sheet,.mobile-collection-title{display:none}
 @media(max-width:850px){
   .mobile-sheet[open]{display:flex;flex-direction:column;position:fixed;inset:auto 0 0;width:100%;max-width:600px;max-height:88dvh;margin:0 auto;border:1px solid #353843;border-bottom:0;border-radius:22px 22px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom));background:#191b23;color:var(--text);box-shadow:0 -16px 64px #0005;overflow:hidden}
   .mobile-sheet::backdrop{background:#05060bb3;backdrop-filter:blur(3px)}
@@ -50,9 +50,6 @@
  .collection-toolbar-main>.tabs{grid-column:1/-1;display:flex;width:100%;margin:0}
  .collection-toolbar-main>.tabs .tab{flex:1;text-align:center;justify-content:center}
  .collection-toolbar-main>.search{grid-column:1;min-width:0;width:100%;max-width:none;font-size:16px;margin:0;height:42px}
- .mobile-filter-button{display:flex;gap:7px;align-items:center;justify-content:center;grid-column:2;grid-row:2;min-height:42px;padding:10px 12px;background:#20222c;border:1px solid #363945;color:#f0f0ee;border-radius:8px;font-size:12px}
- .mobile-filter-button svg{width:17px;height:17px}
- .collection-toolbar-main:not(.filters-open)>.sort-control,.collection-toolbar-main:not(.filters-open)>.catalog-refinements{display:none}
  .collection-toolbar-main>.sort-control,.collection-toolbar-main>.catalog-refinements{grid-column:1/-1;width:100%;max-width:none;margin:0}
  .catalog-refinements{display:flex;flex-wrap:wrap;gap:10px;padding:12px;border:1px solid var(--border);border-radius:8px}
  .catalog-refinements label{flex:1;min-width:100px}
@@ -116,4 +113,4 @@
 }
 @media(prefers-reduced-motion:no-preference){.mobile-sheet[open]{animation:sheet-enter .18s ease-out}@keyframes sheet-enter{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}}
 
-@media(max-width:850px){.desktop-collection-title{display:none}.mobile-collection-title{display:inline}.collection-toolbar-main>.mobile-filter-button[aria-expanded=true]{color:var(--mint);border-color:#658572}.mobile-sheet .sheet-links a:focus-visible{outline-offset:-3px}.sheet-tabs button{transition:none}}
+@media(max-width:850px){.desktop-collection-title{display:none}.mobile-collection-title{display:inline}.mobile-sheet .sheet-links a:focus-visible{outline-offset:-3px}.sheet-tabs button{transition:none}}

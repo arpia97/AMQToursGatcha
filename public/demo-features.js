@@ -1,5 +1,5 @@
 import { sortMarketItems } from "./market-sort.js";
-import { searchMatcher, cardSearchText } from "./search.js";
+import { searchMatcher, cardMatcher } from "./search.js";
 import { collectionView } from "./card-display.js";
 import { demoAlchemy } from "./demo-alchemy.js";
 import { pickemVoteSummary } from "./pickem-votes.js";
@@ -183,7 +183,7 @@ export function demoFeatures(d, path, b) {
       id === me.id && view === "wishlist"
         ? collectionView(s.wishlist.map((card, position) => ({ card, position, acquired_at: s.wishlist.length-position })),
             (cid) => d.cards.find((c) => c.id === cid),
-            { kind: params.get("kind") || "both", sort: params.get("sort") || "custom", query:params.get("q")||"",rarity:params.get("rarity")||"",role:params.get("role")||"" })
+            { kind: params.get("kind") || "both", sort: params.get("sort") || "custom", query:params.get("q")||"", strict:params.get("strict")==="1",rarity:params.get("rarity")||"",role:params.get("role")||"" })
             .map(({ c, acquired_at, position, ...row }) => row)
         : id === me.id && view === "collection"
           ? collectionView(
@@ -191,7 +191,7 @@ export function demoFeatures(d, path, b) {
               (cid) => d.cards.find((c) => c.id === cid),
               {
                 kind: params.get("kind") || "both",
-                query: params.get("q") || "",
+                query: params.get("q") || "", strict: params.get("strict") === "1",
                 rarity: params.get("rarity") || "",
                 role: params.get("role") || "",
                 sort: params.get("sort") || "custom",
@@ -883,7 +883,7 @@ export function demoFeatures(d, path, b) {
     const q = new URLSearchParams(path.split("?")[1]),
       view = q.get("view") || "browse",
       query = (q.get("q") || "").trim().slice(0, 100),
-      matches = searchMatcher(query),
+      matches = cardMatcher(query, q.get("strict") === "1"),
       hideCompleted = q.get("hide_completed") === "1",
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
@@ -903,10 +903,10 @@ export function demoFeatures(d, path, b) {
             : l.status === "open",
       )
       .filter((l) =>
-        matches([
-          cardSearchText(d.cards.find((c) => c.id === l.card) || {}),
+        matches(
+          d.cards.find((c) => c.id === l.card),
           l.seller_name || l.seller,
-        ]),
+        ),
       )
       ;
     const sorted=sortMarketItems(all,new Map(d.cards.map(c=>[c.id,c])),q.get("sort")||"newest");
@@ -1129,6 +1129,7 @@ export function demoFeatures(d, path, b) {
         : s.market.filter((l) => l.status === "open")
     )
       .filter((x) => kind === "both" || x.kind === kind)
+      .filter(x=>!p.get("rarity") || (d.cards.find(c=>c.id===x.card)?.rarity || "Pending")===p.get("rarity"))
       .filter(x=>p.get("friends")!=="1"||s.friends.includes(x.seller))
       .map((x) => ({
         ...x,
@@ -1136,10 +1137,10 @@ export function demoFeatures(d, path, b) {
       }))
       .filter((x) => p.get("wishlist") !== "1" || x.is_wishlisted)
       .filter((x) =>
-        searchMatcher(p.get("q") || "")([
-          cardSearchText(d.cards.find((c) => c.id === x.card) || {}),
+        cardMatcher(p.get("q"), p.get("strict") === "1")(
+          d.cards.find((c) => c.id === x.card),
           x.seller_name || s.ranks.find((p) => p.id === x.seller)?.name,
-        ]),
+        ),
       );
     const sorted = sortMarketItems(
         rows,
@@ -1165,7 +1166,7 @@ export function demoFeatures(d, path, b) {
   }
   if (path.startsWith("catalog?")) {
     const p = new URLSearchParams(path.split("?")[1]),
-      matches = searchMatcher(p.get("q")),
+      matches = cardMatcher(p.get("q"), p.get("strict") === "1"),
       kind = p.get("kind"),
       role = p.get("role"),
       grade = p.get("rarity");
@@ -1174,7 +1175,7 @@ export function demoFeatures(d, path, b) {
           (kind === "both" || c.kind === kind) &&
           (!role || c.role === role) &&
           (!grade || (c.rarity || "Pending") === grade) &&
-          matches(cardSearchText(c)),
+          matches(c),
       ),
       page = Number(p.get("page") || 1);
     all.sort(cardComparator(p.get("sort") || "name"));

@@ -1,0 +1,31 @@
+/* Shared card browser toolbar. Context-specific controls keep their existing handlers. */
+[data-filter-scope]:is(.collection-toolbar-main,.market-sort-controls,.trade-search,.fusion-filters) {
+  display:flex; align-items:end; flex-wrap:wrap; gap:8px; padding:12px;
+  border:1px solid var(--border); border-radius:10px; background:var(--panel);
+}
+.collection-toolbar:has([data-filter-scope]) { padding:0; border:0; background:transparent; }
+[data-filter-scope] > .search { flex:1 1 170px; min-width:100px; max-width:none; width:auto; height:38px; margin:0; }
+[data-filter-scope] > :is(.tabs,.trade-kind-tabs) { flex:0 1 auto; margin:0; }
+[data-filter-scope] > .sort-control { display:contents; }
+[data-filter-scope] > label, [data-filter-scope] .sort-control label { margin:0; }
+[data-filter-scope] > select, [data-filter-scope] > label select, [data-filter-scope] .sort-control select { width:auto; min-height:38px; margin:0; }
+.card-filter-toggle { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 12px; margin:0; border:1px solid var(--border); border-radius:7px; background:#23252f; color:var(--text); }
+.card-filter-toggle svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
+.card-filter-toggle[aria-expanded=true] { color:var(--mint); border-color:#658572; }
+.card-filter-options { flex:0 0 100%; display:flex; align-items:end; flex-wrap:wrap; gap:8px 12px; border-top:1px solid var(--border); padding-top:10px; }
+.card-filter-options[hidden] { display:none; }
+.card-filter-options :is(.catalog-refinements,.collection-checkboxes) { display:contents; }
+.card-filter-options label { margin:0; }
+.card-filter-options label.check-label { flex:0 1 auto; min-width:0; }
+.card-filter-chips { display:flex; flex-wrap:wrap; gap:5px; flex-basis:100%; }
+.card-filter-chips:empty { display:none; }
+.card-filter-chips button { display:inline-flex; align-items:center; gap:7px; border:1px solid #385348; background:#202e29; color:#c5e4cf; border-radius:20px; padding:4px 9px; font-size:11px; }
+@media(max-width:850px) {
+  [data-filter-scope] > :is(.tabs,.trade-kind-tabs) { flex:1 0 100%; }
+  [data-filter-scope] > .search { flex:1 0 100%; min-width:0; width:100%; font-size:16px; }
+  .collection-toolbar-main[data-filter-scope] > .sort-control { display:contents; }
+  [data-filter-scope] .sort-control label { flex:1; }
+  [data-filter-scope] .sort-control select { width:100%; }
+  [data-filter-scope] .card-filter-toggle { margin-left:auto; }
+  [data-filter-scope] .card-filter-options label { flex:0 1 auto; }
+}

@@ -54,7 +54,7 @@ function profileCollectionControls(
     sort = filters.sort || "custom";
   const sorts = reverseCardSortOptions([
     ["custom", "Custom Order"],
-    ["collected", isWishlist ? "Date Added · Newest" : "Collection Date · Newest"],
+    ["collected", "Newest First"],
     ["rarity", "Rarity · Highest First"],
     ...(!isWishlist ? [["level", "Enhancement · Highest First"], ["copies", "Most Copies"]] : []),
     ["name", "Alphabetical · A–Z"],

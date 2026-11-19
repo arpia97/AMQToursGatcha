@@ -19,6 +19,8 @@ export function marketSortControl(
   query = "",
   noResults = false,
   friendsOnly = false,
+  rarity = "",
+  types = "",
 ) {
   const escape = (s) =>
     String(s).replace(
@@ -33,7 +35,7 @@ export function marketSortControl(
         })[c],
     );
   return (
-    '<div class="market-sort-controls"><input class="search ' +
+    '<div class="market-sort-controls">' + types + '<input class="search ' +
     (query && noResults ? "no-results" : "") +
     '" id="market-search" type="search" aria-label="Search player ' +
     (auction ? "auctions" : "marketplace") +
@@ -58,6 +60,8 @@ export function marketSortControl(
           "</option>",
       )
       .join("") +
+    '</select></label><label>Rarity<select id="market-rarity"><option value="">All Rarities</option>' +
+    ["AG","Ubers","SSS","SS","S","A","B","C","D","Pending"].map(tier => '<option' + (tier === rarity ? " selected" : "") + '>' + tier + '</option>').join("") +
     '</select></label><label class="check-label"><input type="checkbox" id="market-wishlist-only" ' +
     (wishlistOnly ? "checked" : "") +
     " " +

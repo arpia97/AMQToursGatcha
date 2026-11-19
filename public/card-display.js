@@ -1,4 +1,4 @@
-import { searchMatcher, cardSearchText } from "./search.js";
+import { cardMatcher } from "./search.js";
 import { canUpgrade } from "./card-management.js";
 export function seriesTitle(card, mode = "romaji") {
   if (card.kind === "seiyuu") return card.series || "Voice actor";
@@ -93,13 +93,14 @@ export function collectionView(
     query = "",
     rarity = "",
     role = "",
+    strict = false,
     upgradable = false,
     hideProtected = false,
     tradeable = false,
     sort = "rarity",
   } = {},
 ) {
-  const matches = searchMatcher(query);
+  const matches = cardMatcher(query, strict);
   return inventory
     .map((i) => ({ ...i, c: cardBy(i.card) }))
     .filter(
@@ -111,7 +112,7 @@ export function collectionView(
         (!kind || kind === "both" || c.kind === kind) &&
         (!rarity || (c.rarity || "Pending") === rarity) &&
         (kind !== "character" || !role || c.role === role) &&
-        matches(cardSearchText(c)),
+        matches(c),
     )
     .sort((a, b) => {
       if (sort === "custom") {

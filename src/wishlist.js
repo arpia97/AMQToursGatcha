@@ -264,7 +264,7 @@ export class Wishlist {
         }
         const cardMap = new Map(e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]));
         const sorted = collectionView(allWish.map((w) => ({ ...w, acquired_at: w.created })),
-          (cid) => cardMap.get(cid), { kind: wishlistKind, sort, query, rarity, role });
+          (cid) => cardMap.get(cid), { kind: wishlistKind, sort, query, strict: options.strict, rarity, role });
         total = sorted.length;
         rows = sorted.slice((page - 1) * 24, page * 24 + 1)
           .map(({ c, acquired_at, position, ...w }) => w);
@@ -319,6 +319,7 @@ export class Wishlist {
               return collectionView(allRows, (cid) => byId.get(cid), {
                 kind,
                 query,
+                strict: options.strict,
                 rarity,
                 role,
                 sort,

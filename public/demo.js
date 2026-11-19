@@ -1,7 +1,7 @@
 import { cardComparator } from "./card-display.js";
 import { readApiResponse } from "./api-response.js";
 import { validateAvatarCrop } from "./avatar-crop.js";
-import { searchMatcher, cardSearchText } from "./search.js";
+import { searchMatcher, cardMatcher } from "./search.js";
 import { enhancementCost, MAX_CARD_LEVEL, shouldAutosellRarity, instantSalePrice } from "./card-values.js";
 import { DAILY_CREDITS } from "./site-defaults.js";
 import { pickemOutcome } from "./pickem-formats.js";
@@ -188,11 +188,11 @@ export class Demo {
     if (path.startsWith("catalog?")) {
       const p = new URLSearchParams(path.split("?")[1]),
         kind = p.get("kind") || "character",
-        matches = searchMatcher(p.get("q")),
+        matches = cardMatcher(p.get("q"), p.get("strict") === "1"),
         page = Number(p.get("page") || 1);
       const cards = s.catalog.filter(
         (c) =>
-          (kind === "both" || c.kind === kind) && matches(cardSearchText(c)) && (!p.get("rarity") || (c.rarity||"Pending")===p.get("rarity")) && (kind!=="character" || !p.get("role") || c.role===p.get("role")),
+          (kind === "both" || c.kind === kind) && matches(c) && (!p.get("rarity") || (c.rarity||"Pending")===p.get("rarity")) && (kind!=="character" || !p.get("role") || c.role===p.get("role")),
       ).sort(cardComparator(p.get("sort")||"name"));
       return {
         cards: cards.slice((page - 1) * 40, page * 40),

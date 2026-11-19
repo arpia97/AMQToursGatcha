@@ -1,5 +1,5 @@
 import { fail, integer, text } from "./engine.js";
-import { searchMatcher, cardSearchText } from "../public/search.js";
+import { cardMatcher } from "../public/search.js";
 import { cardComparator } from "../public/card-display.js";
 import { RARITIES } from "../public/card-values.js";
 
@@ -390,6 +390,7 @@ export class Trades {
       kind = "both",
       rarity = "",
       role = "",
+      strict = false,
       sort = "newest",
       wishlistOnly = false,
       friendsOnly = false,
@@ -441,7 +442,7 @@ export class Trades {
       );
     else {
       // Filter/sort visible listings without scanning the full catalogue or exposing private offers.
-      const matches = query ? searchMatcher(query) : null,
+      const matches = query ? cardMatcher(query, strict) : null,
         offset = (page - 1) * 12,
         needSorted = activeSort !== "newest",
         filtered = [];
@@ -463,7 +464,7 @@ export class Trades {
           if (activeKind !== "both" && c?.kind !== activeKind) continue;
           if (activeRarity && (c?.rarity || "Pending") !== activeRarity) continue;
           if (activeRole && c?.role !== activeRole) continue;
-          if (matches && !matches([c ? cardSearchText(c) : "", l.seller_name]))
+          if (matches && !matches(c, l.seller_name))
             continue;
           filtered.push({ l, c });
         }

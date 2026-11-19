@@ -3,7 +3,7 @@ import { replacementPortrait } from "./mal-portraits.js";
 import {installTitleMotion} from "./title-motion.js";
 const titleMotion = installTitleMotion();
 import {installMobileNavigation} from "./mobile-navigation.js";
-import {installMobileFilters} from "./mobile-filters.js";
+import {installCardFilters, strictCards} from "./card-filters.js";
 import { recentActivityRows } from "./account-activity.js";
 import { installDetailPopovers } from "./detail-popover.js";
 import { pickemShare } from "./pickem-votes.js";
@@ -124,7 +124,17 @@ const mobileNavigation = installMobileNavigation({
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
   extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
 });
-const mobileFilters = installMobileFilters();
+const cardFilters = installCardFilters(async scope => {
+  if (scope === "collection") ui.collectionPage = 1;
+  else if (scope === "catalog") catalogPageNumber = 1;
+  else if (scope === "market-search") ui.marketPage = 1;
+  else if (scope === "trade-search") ui.tradePage = 1;
+  else ui.profileCardsPage = 1;
+  try {
+    if (scope !== "collection") await loadDynamic();
+    render();
+  } catch (error) { toast(error.message, true); }
+});
 let titleMode = "romaji";
 try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
@@ -269,6 +279,7 @@ const ui = {
   marketData: null,
   marketSort: "newest",
   marketQuery: "",
+  marketRarity: "",
   marketWishlistOnly: false,
   shopSection: "buy",
   tradeView: "browse",
@@ -1170,6 +1181,7 @@ function renderFusionPicker(focusSearch = false, resultsOnly = false) {
   const scrollTop =
     overlay.querySelector(".fusion-picker-dialog")?.scrollTop || 0;
   overlay.innerHTML = alchemyUI.renderPicker();
+  cardFilters.update(overlay);
   const dialog = overlay.querySelector(".fusion-picker-dialog");
   if (dialog) dialog.scrollTop = scrollTop;
   overlay.hidden = false;
@@ -1393,6 +1405,7 @@ function collection() {
     query: search,
     sort: ui.collectionSort,
     ...ui.collectionFilters,
+    strict: strictCards("collection"),
   });
   const collectionData = collectionPage(items, ui.collectionPage);
   ui.collectionPage = collectionData.page;
@@ -1646,6 +1659,7 @@ async function loadDynamic() {
       "catalog?" + new URLSearchParams({
         kind: tab,
         q: search,
+        strict: strictCards("catalog") ? "1" : "0",
         page: catalogPageNumber,
         rarity: ui.filters.rarity,
         role: tab === "character" ? ui.filters.role : "",
@@ -1699,7 +1713,7 @@ async function loadDynamic() {
         "&wishlist=" +
         (ui.marketWishlistOnly ? "1" : "0") +
         "&q=" +
-        encodeURIComponent(ui.marketQuery) + (ui.marketFriendsOnly && state.me ? "&friends=1" : ""),
+        encodeURIComponent(ui.marketQuery) + "&rarity=" + encodeURIComponent(ui.marketRarity) + (strictCards("market-search") ? "&strict=1" : "") + (ui.marketFriendsOnly && state.me ? "&friends=1" : ""),
     );
   if (
     current === "shop" &&
@@ -1712,6 +1726,7 @@ async function loadDynamic() {
           view: ui.tradeView,
           page: String(ui.tradePage),
           q: ui.tradeQuery || "",
+          strict: strictCards("trade-search") ? "1" : "0",
           kind: ui.tradeKind || "both",
           rarity: ui.tradeRarity || "",
           role: ui.tradeKind === "character" ? ui.tradeRole || "" : "",
@@ -1757,7 +1772,7 @@ async function loadDynamic() {
           ? "&kind=" +
             encodeURIComponent(ui.profileCollection.kind) +
             "&q=" +
-            encodeURIComponent(ui.profileCollection.query) +
+            encodeURIComponent(ui.profileCollection.query) + (strictCards("profile-collection-search") ? "&strict=1" : "") +
             "&rarity=" +
             encodeURIComponent(ui.profileCollection.rarity) +
             "&role=" +
@@ -1771,7 +1786,7 @@ async function loadDynamic() {
             (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
             (ui.profileCollection.tradeable ? "&tradeable=1" : "")
           : ui.profileView === "wishlist"
-            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
+            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
             : ""),
     );
   if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
@@ -1907,7 +1922,7 @@ function render() {
   }[route]();
   $("#main").dataset.cardPage = route;
   mobileNavigation.update();
-  mobileFilters.update();
+  cardFilters.update();
   cardSurfaces.restore($("#main"), cardSurfaceState);
   if (route === "quiz") quizUI?.mount();
   else quizUI?.leave();
@@ -1940,6 +1955,7 @@ function render() {
                 query: search,
                 sort: ui.collectionSort,
                 ...ui.collectionFilters,
+                strict: strictCards("collection"),
               }).length
             : false;
     queryInput.classList.toggle("no-results", none);
@@ -4362,6 +4378,8 @@ document.addEventListener("change", async (ev) => {
     ![
       "fusion-kind",
       "fusion-rarity",
+      "fusion-strict",
+      "fusion-sort",
       "alchemy-wishlist",
       "alchemy-hide-protected",
       "alchemy-hide-tradeables",
@@ -4369,7 +4387,7 @@ document.addEventListener("change", async (ev) => {
   )
     return;
   alchemyUI.filter(
-    ev.target.id === "alchemy-hide-tradeables"
+    ev.target.id === "fusion-strict" ? "strict" : ev.target.id === "fusion-sort" ? "sort" : ev.target.id === "alchemy-hide-tradeables"
       ? "hideTradeables"
       : ev.target.id === "alchemy-hide-protected"
       ? "hideProtected"
@@ -4378,7 +4396,7 @@ document.addEventListener("change", async (ev) => {
         : ev.target.id === "fusion-kind"
           ? "kind"
           : "grade",
-    ["alchemy-wishlist", "alchemy-hide-protected", "alchemy-hide-tradeables"].includes(ev.target.id)
+    ["fusion-strict", "alchemy-wishlist", "alchemy-hide-protected", "alchemy-hide-tradeables"].includes(ev.target.id)
       ? ev.target.checked
       : ev.target.value,
   );
@@ -4569,8 +4587,9 @@ document.addEventListener("change", async (ev) => {
       id === state.me.avatar_card ? state.me.avatar_crop : null,
     );
   }
-  if (["market-sort", "market-wishlist-only"].includes(ev.target.id)) {
-    if (ev.target.id === "market-sort") ui.marketSort = ev.target.value;
+  if (["market-sort", "market-wishlist-only", "market-rarity"].includes(ev.target.id)) {
+    if (ev.target.id === "market-rarity") ui.marketRarity = ev.target.value;
+    else if (ev.target.id === "market-sort") ui.marketSort = ev.target.value;
     else ui.marketWishlistOnly = ev.target.checked;
     ui.marketPage = 1;
     try {

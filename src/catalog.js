@@ -3,7 +3,7 @@ import { fail, integer, text } from "./engine.js";
 import { TenraiCatalog, characterSearch } from "./tenrai-catalog.js";
 import { Popularity } from "./popularity.js";
 import { cardComparator, CATALOG_SORTS } from "../public/card-display.js";
-import { searchMatcher } from "../public/search.js";
+import { cardMatcher, searchMatcher } from "../public/search.js";
 import { searchSql } from "./search.js";
 
 // ACDB metadata is stored in bounded JSON chunks. A bulk seed writes hundreds
@@ -330,7 +330,7 @@ export class Catalog {
       fail("Unknown catalog type.");
     integer(page, 1, 10000);
     integer(limit, 1, 100);
-    if (kind === "both")
+    if (kind === "both" || filters.strict)
       return this.sortedPage(kind, query, page, limit, {
         ...filters,
         sort: filters.sort || "name",
@@ -505,7 +505,7 @@ export class Catalog {
         );
     }
   }
-  compactPool(kind, query = "") {
+  compactPool(kind, query = "", strict = false) {
     const cards = [],
       context = {
         project: (card, popularity) => ({
@@ -518,8 +518,9 @@ export class Catalog {
           ...(query ? { searchText: characterSearch(card) } : {}),
         }),
       };
+    const exact = strict && query ? cardMatcher(query, true) : null;
     for (const batch of this.batches(kind, query)) {
-      cards.push(...this.popularity.decorate(batch, context));
+      cards.push(...this.popularity.decorate(exact ? batch.filter(exact) : batch, context));
       // Snapshot payloads are bounded to this batch; histogram ranks are small
       // and reused. Keeping every popularity bucket recreated the full pool.
       context.popSnapshots?.clear();
@@ -544,8 +545,8 @@ export class Catalog {
       });
     return this.browseCache.kinds.get("both");
   }
-  searchPool(kind, query) {
-    return this.compactPool(kind, query);
+  searchPool(kind, query, strict = false) {
+    return this.compactPool(kind, query, strict);
   }
   sortedPage(kind, query, page, limit, filters) {
     this.validateFilters(kind, filters);
@@ -558,7 +559,7 @@ export class Catalog {
       fail("Choose a valid catalogue sort.");
     const q = String(query).trim().toLowerCase().slice(0, 100);
     const view = q
-      ? this.searchPool(kind, q)
+      ? this.searchPool(kind, q, filters.strict)
       : kind === "both"
         ? this.combinedPool()
         : this.pool(kind);

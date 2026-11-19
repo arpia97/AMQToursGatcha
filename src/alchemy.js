@@ -1,3 +1,4 @@
+import { cardMatcher } from "../public/search.js";
 import { ENHANCEMENT_REVISION } from "../public/card-values.js";
 import { fail, text } from "./engine.js";
 import {
@@ -92,10 +93,11 @@ export class Alchemy {
         ? this.e.catalogStore.searchPool(
             !options.kind || options.kind === "mixed" ? "both" : options.kind,
             options.query,
+            options.strict,
           ).cards
         : pool;
     const result = fusionOutcomesPage(
-      candidates,
+      options.wishlistOnly && options.strict ? candidates.filter(cardMatcher(options.query, true)) : candidates,
       options,
       (c) =>
         c.searchText ||

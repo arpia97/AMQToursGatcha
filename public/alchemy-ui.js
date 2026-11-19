@@ -1,6 +1,6 @@
 import { routeHref } from "./site-navigation.js";
 import { quantityInput } from "./quantity-input.js";
-import { searchMatcher, cardSearchText } from "./search.js";
+import { cardMatcher } from "./search.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import { levelLabel, ENHANCEMENT_REVISION } from "./card-values.js";
 import {
@@ -26,6 +26,8 @@ export function createAlchemyUI(h) {
     inspectedKey = null,
     picker = null,
     query = "",
+    strict = false,
+    materialSort = "rarity",
     kind = "",
     wishlistOnly = false,
     hideProtected = false,
@@ -66,6 +68,7 @@ export function createAlchemyUI(h) {
       targetTier,
       kind,
       query,
+      strict,
       page,
       wishlistOnly,
     ]);
@@ -73,6 +76,7 @@ export function createAlchemyUI(h) {
       rarity: targetTier,
       kind: kind || "mixed",
       q: query,
+      strict: strict ? "1" : "0",
       page,
       wishlist: wishlistOnly ? "1" : "0",
     });
@@ -84,6 +88,7 @@ export function createAlchemyUI(h) {
           targetTier,
           kind,
           query,
+          strict,
           page,
           wishlistOnly,
         ]) ||
@@ -510,7 +515,7 @@ export function createAlchemyUI(h) {
   function renderPicker(resultsOnly = false) {
     if (!picker) return "";
     const targetMode = picker === "target",
-      matches = searchMatcher(query);
+      matches = cardMatcher(query, strict);
     let items = targetMode
       ? targetData?.cards || []
       : getState()
@@ -522,9 +527,9 @@ export function createAlchemyUI(h) {
               (!hideTradeables || !i.for_trade) &&
               (!kind || i.c.kind === kind) &&
               (!grade || i.c.rarity === grade) &&
-              matches(cardSearchText(i.c)),
+              matches(i.c),
           )
-          .sort((a, b) => cardComparator("rarity")(a.c, b.c))
+          .sort((a, b) => (materialSort === "newest" ? (b.acquired_at || 0) - (a.acquired_at || 0) : 0) || cardComparator("rarity")(a.c, b.c))
           .flatMap((i) => [
             ...(i.copies > 1
               ? [{ ...i, variant: "extra", displayLevel: 1 }]
@@ -669,7 +674,8 @@ export function createAlchemyUI(h) {
           '<label class="alchemy-wishlist-filter" title="Hide cards marked for trade"><input id="alchemy-hide-tradeables" type="checkbox" ' +
           (hideTradeables ? "checked" : "") + ">Hide Tradeables</label>"
         : "") +
-      '</div><div id="alchemy-picker-results">' +
+      (!targetMode ? '<label>Sort By<select id="fusion-sort"><option value="rarity">Highest Rarity</option><option value="newest" ' + (materialSort === "newest" ? "selected" : "") + '>Newest First</option></select></label>' : "") +
+      '<label class="check-label"><input type="checkbox" id="fusion-strict" '+(strict ? "checked" : "")+'> Strict (exact title match)</label></div><div id="alchemy-picker-results">' +
       results +
       "</div></section>"
     );
@@ -765,6 +771,7 @@ export function createAlchemyUI(h) {
       picker = mode;
       targetTier = rarity || targetTier;
       query = "";
+      strict = false;
       kind = "";
       wishlistOnly = false;
       page = 1;
@@ -777,6 +784,8 @@ export function createAlchemyUI(h) {
       if (field === "wishlist") wishlistOnly = value === true;
       if (field === "hideProtected") hideProtected = value === true;
       if (field === "hideTradeables") hideTradeables = value === true;
+      if (field === "strict") strict = value;
+      if (field === "sort") materialSort = value;
       if (field === "grade") grade = value;
       page = 1;
     },

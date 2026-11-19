@@ -210,3 +210,17 @@ test("compact browse caches keep full metadata at response boundaries and surviv
     f.db.close();
   }
 });
+
+test("strict catalogue search matches whole card and anime titles before pagination", t => {
+  const { e, db } = fixture(0);
+  t.after(() => db.close());
+  const cards = ["Blue", "Blue Moon", "Third"].map((name, index) => ({
+    id: "title-" + index, name, kind: "character", role: "main",
+    series: index === 2 ? "Blue" : "Other", rarity: "D",
+  }));
+  e.host("catalog", { cards });
+  const find = (page, strict) => e.catalogStore.page("both", " bLuE ", page, 1, { sort:"name", strict });
+  assert.equal(find(1, false).total, 3);
+  assert.equal(find(1, true).total, 2);
+  assert.equal(find(2, true).cards[0].name, "Third");
+});
