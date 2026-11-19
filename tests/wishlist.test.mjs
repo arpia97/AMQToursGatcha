@@ -721,3 +721,43 @@ test("personal favorites survive a state reload and stay independent of wishlist
   act("p", "card-favorite", {card: "c1", favorite: false});
   assert.deepEqual(e.economy.wishlist.favorites("p"), []);
 });
+
+test("Favorites Only scopes card results to the viewer before pagination, including combined filters", t => {
+  const { e, act } = fixture(t);
+  const { wishlist, trades } = e.economy;
+  act("p", "card-favorite", { card: "c27", favorite: true });
+  act("p", "card-favorite", { card: "c6", favorite: true });
+  act("q", "card-favorite", { card: "c2", favorite: true });
+  for (let i = 0; i < 30; i++) {
+    const card = "c" + i;
+    act("q", "wishlist", { card, wanted: true });
+    e.addCard("q", card, 4);
+  }
+
+  const matching = { favoritesOnly: true, viewer: "p", kind: "seiyuu", query: "Card 27", strict: true };
+  for (const view of ["wishlist", "collection"]) {
+    const page = wishlist.page("q", view, 1, matching);
+    assert.deepEqual(page.rows.map(row => row.card), ["c27"]);
+    assert.equal(page.total, 1);
+    assert.equal(page.hasMore, false);
+  }
+  assert.throws(() => wishlist.page("q", "wishlist", 1, { favoritesOnly: true }), e => e.status === 401);
+
+  const catalog = e.catalogStore.page("both", "Card 27", 1, 1, {
+    sort: "name", strict: true, favoriteIds: wishlist.favorites("p"),
+  });
+  assert.deepEqual(catalog.cards.map(card => card.id), ["c27"]);
+  assert.equal(catalog.total, 1);
+  assert.deepEqual(e.catalogStore.page("both", "", 1, 40, { favoriteIds: [] }).cards, []);
+
+  for (const card of ["c2", "c27"]) {
+    for (const venue of ["shop", "auction"])
+      act("q", "list-card", { card, variant: "extra", venue, price: 100, hours: 1 });
+    act("q", "trade-list", { card, variant: "extra", expectedLevel: 1 });
+  }
+  for (const venue of ["shop", "auction"]) {
+    const result = e.economy.market(venue, "both", 1, { favoritesOnly: true, sort: "price-low" }, "p");
+    assert.deepEqual(result.items.map(row => row.card), ["c27"]);
+  }
+  assert.deepEqual(trades.page("p", { favoritesOnly: true }).items.map(row => row.card), ["c27"]);
+});

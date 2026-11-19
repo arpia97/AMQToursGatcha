@@ -30,6 +30,7 @@ export function createAlchemyUI(h) {
     materialSort = "rarity",
     kind = "",
     wishlistOnly = false,
+    favoritesOnly = false,
     hideProtected = false,
     hideTradeables = false,
     grade = "",
@@ -71,6 +72,7 @@ export function createAlchemyUI(h) {
       strict,
       page,
       wishlistOnly,
+      favoritesOnly,
     ]);
     const p = new URLSearchParams({
       rarity: targetTier,
@@ -79,6 +81,7 @@ export function createAlchemyUI(h) {
       strict: strict ? "1" : "0",
       page,
       wishlist: wishlistOnly ? "1" : "0",
+      favorites: favoritesOnly ? "1" : "0",
     });
     const value = await api("alchemy-targets?" + p);
     if (
@@ -91,6 +94,7 @@ export function createAlchemyUI(h) {
           strict,
           page,
           wishlistOnly,
+          favoritesOnly,
         ]) ||
       picker !== "target"
     )
@@ -515,7 +519,8 @@ export function createAlchemyUI(h) {
   function renderPicker(resultsOnly = false) {
     if (!picker) return "";
     const targetMode = picker === "target",
-      matches = cardMatcher(query, strict);
+      matches = cardMatcher(query, strict),
+      favoriteIds = favoritesOnly ? new Set(getState().cardFavorites || []) : null;
     let items = targetMode
       ? targetData?.cards || []
       : getState()
@@ -523,6 +528,7 @@ export function createAlchemyUI(h) {
           .filter(
             (i) =>
               i.c &&
+              (!favoriteIds || favoriteIds.has(i.card)) &&
               (!hideProtected || !i.protected) &&
               (!hideTradeables || !i.for_trade) &&
               (!kind || i.c.kind === kind) &&
@@ -675,6 +681,7 @@ export function createAlchemyUI(h) {
           (hideTradeables ? "checked" : "") + ">Hide Tradeables</label>"
         : "") +
       (!targetMode ? '<label>Sort By<select id="fusion-sort"><option value="rarity">Highest Rarity</option><option value="newest" ' + (materialSort === "newest" ? "selected" : "") + '>Newest First</option></select></label>' : "") +
+      '<label class="check-label"><input type="checkbox" id="alchemy-favorites" '+(favoritesOnly ? "checked" : "")+'> Favorites Only</label>' +
       '<label class="check-label"><input type="checkbox" id="fusion-strict" '+(strict ? "checked" : "")+'> Strict (exact title match)</label></div><div id="alchemy-picker-results">' +
       results +
       "</div></section>"
@@ -774,6 +781,7 @@ export function createAlchemyUI(h) {
       strict = false;
       kind = "";
       wishlistOnly = false;
+      favoritesOnly = false;
       page = 1;
       targetData = null;
     },
@@ -782,6 +790,7 @@ export function createAlchemyUI(h) {
       if (field === "query") query = value;
       if (field === "kind") kind = value;
       if (field === "wishlist") wishlistOnly = value === true;
+      if (field === "favorites") favoritesOnly = value === true;
       if (field === "hideProtected") hideProtected = value === true;
       if (field === "hideTradeables") hideTradeables = value === true;
       if (field === "strict") strict = value;

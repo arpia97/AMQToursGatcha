@@ -393,6 +393,7 @@ export class Trades {
       strict = false,
       sort = "newest",
       wishlistOnly = false,
+      favoritesOnly = false,
       friendsOnly = false,
       hideCompleted = false,
     } = {},
@@ -402,6 +403,7 @@ export class Trades {
       fail("Unknown trade view.");
     if (view !== "browse" && !player) fail("Sign in to see your trades.", 401);
     if (wishlistOnly && !player) fail("Sign in to use your wishlist.", 401);
+    if (favoritesOnly && !player) fail("Sign in to filter by favorites.", 401);
     const activeKind = ["character", "seiyuu"].includes(kind) ? kind : "both";
     const activeRarity = [...RARITIES, "Pending"].includes(rarity) ? rarity : "";
     const activeRole = activeKind === "character" && role ? String(role).slice(0, 60) : "";
@@ -422,6 +424,10 @@ export class Trades {
     if (wishlistOnly) {
       where +=
         " AND EXISTS(SELECT 1 FROM card_wishlist w WHERE w.player=? AND w.card=l.card)";
+      args.push(player);
+    }
+    if (favoritesOnly) {
+      where += " AND EXISTS(SELECT 1 FROM card_favorites f WHERE f.player=? AND f.card=l.card)";
       args.push(player);
     }
     const friendScope = this.e.friends.filter("l.seller", player, friendsOnly);

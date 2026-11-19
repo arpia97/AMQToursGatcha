@@ -1,9 +1,13 @@
 const selector = '.collection-toolbar-main, .market-sort-controls, .trade-search, .fusion-filters';
 const expanded = new Set();
 const strictScopes = new Set();
+const favoriteScopes = new Set();
+let favoriteOwner;
 export const strictCards = scope => strictScopes.has(scope);
 
-function setup(bar, reload) {
+export const favoriteCardFilter = (scope, player) => !!player && player === favoriteOwner && favoriteScopes.has(scope);
+
+function setup(bar, reload, player) {
   const search = bar.querySelector('input.search');
   if (!search || bar.dataset.filterScope) return;
   const scope = search.id === 'search' ? (bar.closest('.catalog-toolbar') ? 'catalog' : 'collection') : search.id;
@@ -25,20 +29,27 @@ function setup(bar, reload) {
   }
   const sortHint = bar.querySelector('.sort-control .form-hint');
   if (sortHint) panel.append(sortHint);
-  if (search.id !== 'fusion-search') {
+  function addToggle(text, scopes) {
     const label = document.createElement('label');
     label.className = 'check-label';
-    const exact = document.createElement('input');
-    exact.type = 'checkbox';
-    exact.checked = strictCards(scope);
-    exact.onchange = () => {
-      if (exact.checked) strictScopes.add(scope); else strictScopes.delete(scope);
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = scopes.has(scope);
+    input.onchange = () => {
+      if (input.checked) scopes.add(scope); else scopes.delete(scope);
       reload(scope);
     };
-    label.append(exact, ' Strict (exact title match)');
+    label.append(input, ' ' + text);
     panel.prepend(label);
+  }
+  if (search.id !== 'fusion-search') {
+    if (player) addToggle('Favorites Only', favoriteScopes);
+    addToggle('Strict (exact title match)', strictScopes);
     panel.addEventListener('click', event => {
-      if (event.target.closest('[data-action^="clear-"][data-action$="filters"]')) strictScopes.delete(scope);
+      if (event.target.closest('[data-action^="clear-"][data-action$="filters"]')) {
+        strictScopes.delete(scope);
+        favoriteScopes.delete(scope);
+      }
     });
   }
 
@@ -70,8 +81,13 @@ function setup(bar, reload) {
   bar.append(toggle, panel, chips);
   sync();
 }
-export function installCardFilters(reload) {
+export function installCardFilters(reload, getPlayer) {
   return {update(root = document) {
-    root.querySelectorAll(selector).forEach(bar => setup(bar, reload));
+    const player = getPlayer();
+    if (player !== favoriteOwner) {
+      favoriteScopes.clear();
+      favoriteOwner = player;
+    }
+    root.querySelectorAll(selector).forEach(bar => setup(bar, reload, player));
   }};
 }

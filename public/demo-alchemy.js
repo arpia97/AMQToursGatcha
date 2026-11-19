@@ -36,7 +36,12 @@ export function demoAlchemy(d, path, b, { take, add }) {
   if (path === "alchemy") return { alchemyState: state() };
   if (path.startsWith("alchemy-targets?")) {
     const p = new URLSearchParams(path.split("?")[1]);
-    return fusionOutcomesPage(p.get("strict") === "1" ? d.cards.filter(cardMatcher(p.get("q"), true)) : d.cards, {
+    const favorites = p.get("favorites") === "1" ? new Set(s.cardFavorites || []) : null;
+    const wishlist = p.get("wishlist") === "1" ? new Set(s.wishlist || []) : null;
+    const matches = cardMatcher(p.get("q"), p.get("strict") === "1");
+    const pool = d.cards.filter(c => (!favorites || favorites.has(c.id)) &&
+      (!wishlist || wishlist.has(c.id)) && matches(c));
+    return fusionOutcomesPage(pool, {
       rarity: p.get("rarity"),
       kind: p.get("kind") || "mixed",
       query: p.get("q") || "",

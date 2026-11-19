@@ -1489,6 +1489,7 @@ export class Game extends DurableObject {
         }),
       );
     }
+    const favoritesOnly = !post && url.searchParams.get("favorites") === "1";
     if (path === "alchemy-targets" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       return json(
@@ -1500,6 +1501,7 @@ export class Game extends DurableObject {
             strict: url.searchParams.get("strict") === "1",
             page: Number(url.searchParams.get("page") || 1),
             wishlistOnly: url.searchParams.get("wishlist") === "1",
+            favoritesOnly,
           },
           session?.player || null,
         ),
@@ -1537,6 +1539,7 @@ export class Game extends DurableObject {
       );
     }
     if ((path === "catalog-recent" || path === "catalog") && !post) {
+      if (path === "catalog" && favoritesOnly && !session) fail("Sign in to filter by favorites.", 401);
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const result =
         path === "catalog-recent"
@@ -1548,6 +1551,7 @@ export class Game extends DurableObject {
               40,
               {
                 strict: url.searchParams.get("strict") === "1",
+                favoriteIds: favoritesOnly ? e.economy.wishlist.favorites(session.player) : null,
                 rarity: url.searchParams.get("rarity") || "",
                 role: url.searchParams.get("role") || "",
                 sort: url.searchParams.get("sort") || "",
@@ -1641,6 +1645,7 @@ export class Game extends DurableObject {
           role: url.searchParams.get("role") || "",
           sort: url.searchParams.get("sort") || "newest",
           wishlistOnly: url.searchParams.get("wishlist") === "1",
+          favoritesOnly,
           friendsOnly: url.searchParams.get("friends") === "1",
           hideCompleted: url.searchParams.get("hide_completed") === "1",
         }),
@@ -1655,6 +1660,7 @@ export class Game extends DurableObject {
           {
             sort: url.searchParams.get("sort") || "newest",
             wishlistOnly: url.searchParams.get("wishlist") === "1",
+            favoritesOnly,
             friendsOnly: url.searchParams.get("friends") === "1",
             query: url.searchParams.get("q") || "",
             strict: url.searchParams.get("strict") === "1",
@@ -1711,6 +1717,7 @@ export class Game extends DurableObject {
           role: url.searchParams.get("role") || "",
           sort: url.searchParams.get("sort") || "custom",
           wishlist: url.searchParams.get("wishlist") === "1",
+          favoritesOnly,
           tradeable: url.searchParams.get("tradeable") === "1",
           excludeOwned: url.searchParams.get("excludeOwned") === "1",
           viewer: session?.player,

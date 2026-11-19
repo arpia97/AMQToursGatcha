@@ -4,7 +4,7 @@ import { replacementPortrait } from "./mal-portraits.js";
 import {installTitleMotion} from "./title-motion.js";
 const titleMotion = installTitleMotion();
 import {installMobileNavigation} from "./mobile-navigation.js";
-import {installCardFilters, strictCards} from "./card-filters.js";
+import {installCardFilters, strictCards, favoriteCardFilter} from "./card-filters.js";
 import { recentActivityRows } from "./account-activity.js";
 import { installDetailPopovers } from "./detail-popover.js";
 import { pickemShare } from "./pickem-votes.js";
@@ -125,17 +125,21 @@ const mobileNavigation = installMobileNavigation({
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
   extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
 });
-const cardFilters = installCardFilters(async scope => {
+const favoritesOnly = scope => favoriteCardFilter(scope, state?.me?.id);
+function resetCardFilterPage(scope) {
   if (scope === "collection") ui.collectionPage = 1;
   else if (scope === "catalog") catalogPageNumber = 1;
   else if (scope === "market-search") ui.marketPage = 1;
   else if (scope === "trade-search") ui.tradePage = 1;
   else ui.profileCardsPage = 1;
+}
+const cardFilters = installCardFilters(async scope => {
+  resetCardFilterPage(scope);
   try {
     if (scope !== "collection") await loadDynamic();
     render();
   } catch (error) { toast(error.message, true); }
-});
+}, () => state?.me?.id);
 let titleMode = "romaji";
 try {
   if (localStorage.getItem("amqtours-title-mode") === "english")
@@ -1423,6 +1427,7 @@ function collection() {
     sort: ui.collectionSort,
     ...ui.collectionFilters,
     strict: strictCards("collection"),
+    favoriteIds: favoritesOnly("collection") ? new Set(state.cardFavorites || []) : null,
   });
   const collectionData = collectionPage(items, ui.collectionPage);
   ui.collectionPage = collectionData.page;
@@ -1612,7 +1617,7 @@ function profile() {
               wishlist: state.wishlist || [],
               favorites: state.cardFavorites,
               collectionFilters: ui.profileCollection,
-              wishlistFilters: ui.profileWishlist,
+              wishlistFilters: {...ui.profileWishlist, favoritesOnly: favoritesOnly("profile-wishlist-search")},
             }))
     );
   return (
@@ -1678,6 +1683,7 @@ async function loadDynamic() {
         kind: tab,
         q: search,
         strict: strictCards("catalog") ? "1" : "0",
+        favorites: favoritesOnly("catalog") ? "1" : "0",
         page: catalogPageNumber,
         rarity: ui.filters.rarity,
         role: tab === "character" ? ui.filters.role : "",
@@ -1731,7 +1737,7 @@ async function loadDynamic() {
         "&wishlist=" +
         (ui.marketWishlistOnly ? "1" : "0") +
         "&q=" +
-        encodeURIComponent(ui.marketQuery) + "&rarity=" + encodeURIComponent(ui.marketRarity) + (strictCards("market-search") ? "&strict=1" : "") + (ui.marketFriendsOnly && state.me ? "&friends=1" : ""),
+        encodeURIComponent(ui.marketQuery) + "&rarity=" + encodeURIComponent(ui.marketRarity) + (strictCards("market-search") ? "&strict=1" : "") + (favoritesOnly("market-search") ? "&favorites=1" : "") + (ui.marketFriendsOnly && state.me ? "&friends=1" : ""),
     );
   if (
     current === "shop" &&
@@ -1745,6 +1751,7 @@ async function loadDynamic() {
           page: String(ui.tradePage),
           q: ui.tradeQuery || "",
           strict: strictCards("trade-search") ? "1" : "0",
+          favorites: favoritesOnly("trade-search") ? "1" : "0",
           kind: ui.tradeKind || "both",
           rarity: ui.tradeRarity || "",
           role: ui.tradeKind === "character" ? ui.tradeRole || "" : "",
@@ -1790,7 +1797,7 @@ async function loadDynamic() {
           ? "&kind=" +
             encodeURIComponent(ui.profileCollection.kind) +
             "&q=" +
-            encodeURIComponent(ui.profileCollection.query) + (strictCards("profile-collection-search") ? "&strict=1" : "") +
+            encodeURIComponent(ui.profileCollection.query) + (strictCards("profile-collection-search") ? "&strict=1" : "") + (favoritesOnly("profile-collection-search") ? "&favorites=1" : "") +
             "&rarity=" +
             encodeURIComponent(ui.profileCollection.rarity) +
             "&role=" +
@@ -1804,7 +1811,7 @@ async function loadDynamic() {
             (ui.profileCollection.wishlist ? "&wishlist=1" : "") +
             (ui.profileCollection.tradeable ? "&tradeable=1" : "")
           : ui.profileView === "wishlist"
-            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
+            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",favorites:favoritesOnly("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,...(ui.profileWishlist.excludeOwned?{excludeOwned:"1"}:{})})
             : ""),
     );
   if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
@@ -1974,6 +1981,7 @@ function render() {
                 sort: ui.collectionSort,
                 ...ui.collectionFilters,
                 strict: strictCards("collection"),
+                favoriteIds: favoritesOnly("collection") ? new Set(state.cardFavorites || []) : null,
               }).length
             : false;
     queryInput.classList.toggle("no-results", none);
@@ -3474,6 +3482,8 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "favorite-toggle") {
       if (!state.me) { auth(); return true; }
+      const scope = $("#main [data-filter-scope]")?.dataset.filterScope;
+      if (favoritesOnly(scope)) resetCardFilterPage(scope);
       await execute("card-favorite", {card: t.dataset.id, favorite: t.getAttribute("aria-pressed") !== "true"}, result => {
         document.querySelectorAll('[data-action="favorite-toggle"]').forEach(button => {
           if (button.dataset.id === result.card) button.setAttribute("aria-pressed", String(result.favorite));
@@ -4404,6 +4414,7 @@ document.addEventListener("change", async (ev) => {
       "fusion-strict",
       "fusion-sort",
       "alchemy-wishlist",
+      "alchemy-favorites",
       "alchemy-hide-protected",
       "alchemy-hide-tradeables",
     ].includes(ev.target.id)
@@ -4414,12 +4425,14 @@ document.addEventListener("change", async (ev) => {
       ? "hideTradeables"
       : ev.target.id === "alchemy-hide-protected"
       ? "hideProtected"
+      : ev.target.id === "alchemy-favorites"
+        ? "favorites"
       : ev.target.id === "alchemy-wishlist"
         ? "wishlist"
         : ev.target.id === "fusion-kind"
           ? "kind"
           : "grade",
-    ["fusion-strict", "alchemy-wishlist", "alchemy-hide-protected", "alchemy-hide-tradeables"].includes(ev.target.id)
+    ["fusion-strict", "alchemy-wishlist", "alchemy-favorites", "alchemy-hide-protected", "alchemy-hide-tradeables"].includes(ev.target.id)
       ? ev.target.checked
       : ev.target.value,
   );

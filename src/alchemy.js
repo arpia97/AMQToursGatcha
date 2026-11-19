@@ -81,15 +81,18 @@ export class Alchemy {
   targetsPage(options, player = null) {
     if (options.wishlistOnly && !player)
       fail("Sign in to search your wishlist.", 401);
-    const pool = options.wishlistOnly
-      ? this.e.catalogStore
-          .cards(this.e.economy.wishlist.read(player))
-          .filter((c) => c.active !== 0)
-      : ["character", "seiyuu"].flatMap(
-          (kind) => this.e.catalogStore.pool(kind).cards,
-        );
+    if (options.favoritesOnly && !player)
+      fail("Sign in to filter by favorites.", 401);
+    const wishlist = this.e.economy.wishlist,
+      favoriteIds = options.favoritesOnly ? new Set(wishlist.favorites(player)) : null,
+      wishIds = options.wishlistOnly ? wishlist.read(player) : null;
+    const selectedIds = wishIds && favoriteIds ? wishIds.filter(id => favoriteIds.has(id))
+      : wishIds || (favoriteIds && [...favoriteIds]);
+    const pool = selectedIds
+      ? this.e.catalogStore.cards(selectedIds).filter(c => c.active !== 0)
+      : ["character", "seiyuu"].flatMap(kind => this.e.catalogStore.pool(kind).cards);
     const candidates =
-      !options.wishlistOnly && options.query
+      !selectedIds && options.query
         ? this.e.catalogStore.searchPool(
             !options.kind || options.kind === "mixed" ? "both" : options.kind,
             options.query,
@@ -97,7 +100,7 @@ export class Alchemy {
           ).cards
         : pool;
     const result = fusionOutcomesPage(
-      options.wishlistOnly && options.strict ? candidates.filter(cardMatcher(options.query, true)) : candidates,
+      selectedIds && options.strict ? candidates.filter(cardMatcher(options.query, true)) : candidates,
       options,
       (c) =>
         c.searchText ||

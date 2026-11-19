@@ -210,6 +210,10 @@ export function demoFeatures(d, path, b) {
       for(const row of s.tradeOffers||[])if(row.proposer===id&&row.status==="open")for(const c of row.cards||[row])owned.add(c.card);
       rows=rows.filter(row=>!owned.has(row.card));
     }
+    if (params.get("favorites") === "1") {
+      const favorites = new Set(s.cardFavorites || []);
+      rows = rows.filter(row => favorites.has(row.card));
+    }
     if (wishlistOnly) {
       const wishSet = new Set(s.wishlist || []);
       rows = rows.filter((r) => wishSet.has(r.card));
@@ -891,10 +895,12 @@ export function demoFeatures(d, path, b) {
       query = (q.get("q") || "").trim().slice(0, 100),
       matches = cardMatcher(query, q.get("strict") === "1"),
       hideCompleted = q.get("hide_completed") === "1",
+      favorites = q.get("favorites") === "1" ? new Set(s.cardFavorites || []) : null,
       page = Math.max(1, Number(q.get("page") || 1));
     const all = s.trades
       .filter(l=>q.get("friends")!=="1"||s.friends.includes(l.seller))
       .filter((l) => q.get("wishlist") !== "1" || s.wishlist.includes(l.card))
+      .filter(l => !favorites || favorites.has(l.card))
       .filter((l) =>
         view === "listings"
           ? l.seller === me.id && (!hideCompleted || l.status === "open")
@@ -1128,7 +1134,8 @@ export function demoFeatures(d, path, b) {
   if (path.startsWith("market?")) {
     const p = new URLSearchParams(path.split("?")[1]),
       kind = p.get("kind"),
-      auction = p.get("venue") === "auction";
+      auction = p.get("venue") === "auction",
+      favorites = p.get("favorites") === "1" ? new Set(s.cardFavorites || []) : null;
     const rows = (
       auction
         ? s.auctions.filter((a) => a.seller && !a.closed && a.ends > now)
@@ -1142,6 +1149,7 @@ export function demoFeatures(d, path, b) {
         is_wishlisted: (s.wishlist || []).includes(x.card),
       }))
       .filter((x) => p.get("wishlist") !== "1" || x.is_wishlisted)
+      .filter((x) => !favorites || favorites.has(x.card))
       .filter((x) =>
         cardMatcher(p.get("q"), p.get("strict") === "1")(
           d.cards.find((c) => c.id === x.card),
@@ -1175,9 +1183,11 @@ export function demoFeatures(d, path, b) {
       matches = cardMatcher(p.get("q"), p.get("strict") === "1"),
       kind = p.get("kind"),
       role = p.get("role"),
-      grade = p.get("rarity");
+      grade = p.get("rarity"),
+      favorites = p.get("favorites") === "1" ? new Set(s.cardFavorites || []) : null;
     const all = d.cards.filter(
         (c) =>
+          (!favorites || favorites.has(c.id)) &&
           (kind === "both" || c.kind === kind) &&
           (!role || c.role === role) &&
           (!grade || (c.rarity || "Pending") === grade) &&

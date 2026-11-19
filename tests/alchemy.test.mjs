@@ -440,6 +440,11 @@ test("wishlist targets use only the signed-in player's active cards before type,
     alchemy.targetsPage({ rarity: "AG", wishlistOnly: true }, "p").total,
     0,
   );
+  f.e.economy.wishlist.setFavorite("p", { card: "wish5", favorite: true });
+  f.e.economy.wishlist.setFavorite("p", { card: "D1", favorite: true });
+  const favorites = alchemy.targetsPage({ ...options, favoritesOnly: true }, "p");
+  assert.deepEqual(favorites.cards.map(card => card.id), ["wish5"]);
+  assert.equal(favorites.total, 1);
   f.e.catalogStore.pool = pool;
   assert.equal(alchemy.pool("D").length, before);
   assert.ok(alchemy.targetsPage({ rarity: "D" }).total > 16);

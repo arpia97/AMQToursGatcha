@@ -97,11 +97,13 @@ export function collectionView(
     upgradable = false,
     hideProtected = false,
     tradeable = false,
+    favoriteIds = null,
     sort = "rarity",
   } = {},
 ) {
   const matches = cardMatcher(query, strict);
   return inventory
+    .filter(i => !favoriteIds || favoriteIds.has(i.card))
     .map((i) => ({ ...i, c: cardBy(i.card) }))
     .filter(
       ({ c, ...item }) =>

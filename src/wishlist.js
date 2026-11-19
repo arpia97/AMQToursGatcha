@@ -242,6 +242,10 @@ export class Wishlist {
     id = e.resolvePlayer(text(id, 100));
     const owner = e.player(id);
     integer(page, 1, 10000);
+    if (options.favoritesOnly && !options.viewer)
+      fail("Sign in to filter by favorites.", 401);
+    const favoriteIds = options.favoritesOnly && view !== "listings"
+      ? new Set(this.favorites(options.viewer)) : null;
     let rows, total, wishlistKind, ownershipHidden;
     if (view === "wishlist") {
       const ownershipVisible = !owner.private_collection || options.viewer === id;
@@ -257,7 +261,7 @@ export class Wishlist {
       const sort = WISHLIST_SORTS.includes(options.sort)
         ? options.sort : "custom";
       const query=String(options.query||"").slice(0,100), rarity=String(options.rarity||""), role=wishlistKind==="character"?String(options.role||""):"";
-      if (wishlistKind === "both" && sort === "custom" && !query.trim() && !rarity && !role && !options.excludeOwned) {
+      if (wishlistKind === "both" && sort === "custom" && !query.trim() && !rarity && !role && !options.excludeOwned && !favoriteIds) {
         rows = e.all(
           `SELECT w.card,w.created,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=? ORDER BY w.position IS NULL,w.position,w.created DESC,w.card LIMIT 25 OFFSET ?`,
           id, (page - 1) * 24,
@@ -267,6 +271,7 @@ export class Wishlist {
         let allWish = e.all(
           `SELECT w.card,w.created,w.position,${ownershipColumn} AS protected FROM card_wishlist w ${ownershipJoin} WHERE w.player=?`, id,
         );
+        if (favoriteIds) allWish = allWish.filter(w => favoriteIds.has(w.card));
         if(options.excludeOwned) {
           const owned=new Set(e.all(`SELECT card FROM (
             SELECT card FROM inventory WHERE player=? AND copies>0
@@ -307,6 +312,7 @@ export class Wishlist {
           ? options.sort
           : "custom";
       let allRows = this.readCollection(id);
+      if (favoriteIds) allRows = allRows.filter(row => favoriteIds.has(row.card));
       if (options.wishlist && options.viewer) {
         const wanted = new Set(
           e
@@ -321,7 +327,6 @@ export class Wishlist {
       if (options.tradeable) {
         allRows = owner.account_locked ? [] : allRows.filter((r) => !!r.for_trade || !r.protected);
       }
-      total = allRows.length;
       const sourceRows =
         kind === "both" && !query.trim() && !rarity && !role && sort === "custom"
           ? allRows
@@ -340,6 +345,7 @@ export class Wishlist {
                 sort,
               });
             })();
+      total = sourceRows.length;
       rows = sourceRows
         .slice((page - 1) * 24, page * 24 + 1)
         .map((row) => ({

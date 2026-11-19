@@ -132,7 +132,7 @@ export function profileCardPanel(
     return '<section class="profile-card-panel"><div class="section-head"><h2>Collection</h2></div><p class="notice">This collector’s collection is private.</p></section>';
   }
   const wishKind = data.kind || "both";
-  const filteredWishlist = wishlistFilters.query?.trim() || wishlistFilters.rarity || wishlistFilters.role || wishlistFilters.excludeOwned;
+  const filteredWishlist = wishlistFilters.query?.trim() || wishlistFilters.rarity || wishlistFilters.role || wishlistFilters.excludeOwned || wishlistFilters.favoritesOnly;
   const tiles = data.rows
     .map((row) => {
       const c = cardBy(row.card);

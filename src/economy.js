@@ -854,6 +854,7 @@ export class Economy {
     integer(page, 1, 10000);
     const sort = options.sort || "newest",
       wishlistOnly = options.wishlistOnly === true,
+      favoritesOnly = options.favoritesOnly === true,
       friendsOnly = options.friendsOnly === true,
       queryText = String(options.query || "")
         .trim()
@@ -867,6 +868,7 @@ export class Economy {
       fail("Unknown marketplace filter.");
     if ((sort === "wishlist" || wishlistOnly) && !player)
       fail("Sign in to use your wishlist.", 401);
+    if (favoritesOnly && !player) fail("Sign in to filter by favorites.", 401);
     const e = this.e,
       auction = venue === "auction",
       alias = auction ? "a" : "l";
@@ -875,6 +877,7 @@ export class Economy {
       player || "",
       ...(auction ? [e.now()] : []),
       ...(kind === "both" ? [] : [kind]),
+      ...(favoritesOnly ? [player] : []),
       ...friendScope.args,
     ];
     const select = auction
@@ -893,7 +896,9 @@ export class Economy {
       " WHERE " +
       (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
       (kind === "both" ? "" : " AND " + alias + ".kind=?") +
-      (wishlistOnly ? " AND is_wishlisted=1" : "") + friendScope.sql;
+      (wishlistOnly ? " AND is_wishlisted=1" : "") +
+      (favoritesOnly ? " AND EXISTS(SELECT 1 FROM card_favorites f WHERE f.player=? AND f.card=" + alias + ".card)" : "") +
+      friendScope.sql;
     const price = auction
       ? "CASE WHEN a.bid>0 THEN a.bid ELSE a.reserve END"
       : "l.price";

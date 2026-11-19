@@ -330,7 +330,7 @@ export class Catalog {
       fail("Unknown catalog type.");
     integer(page, 1, 10000);
     integer(limit, 1, 100);
-    if (kind === "both" || filters.strict)
+    if (kind === "both" || filters.strict || filters.favoriteIds)
       return this.sortedPage(kind, query, page, limit, {
         ...filters,
         sort: filters.sort || "name",
@@ -558,27 +558,30 @@ export class Catalog {
     )
       fail("Choose a valid catalogue sort.");
     const q = String(query).trim().toLowerCase().slice(0, 100);
-    const view = q
-      ? this.searchPool(kind, q, filters.strict)
-      : kind === "both"
-        ? this.combinedPool()
-        : this.pool(kind);
-    const matches = searchMatcher(q);
-    if (!view.orders.has(filters.sort))
-      view.orders.set(
-        filters.sort,
-        [...view.cards].sort(cardComparator(filters.sort)),
-      );
-    const ordered = view.orders.get(filters.sort);
-    const rows =
-      q || filters.role || filters.rarity
-        ? ordered.filter(
-            (c) =>
-              (!filters.role || c.role === filters.role) &&
-              (!filters.rarity || (c.rarity || "Pending") === filters.rarity) &&
-              (!q || matches(c.searchText)),
-          )
-        : ordered;
+    let ordered;
+    if (filters.favoriteIds) {
+      const matches = cardMatcher(q, filters.strict);
+      ordered = this.cards(filters.favoriteIds)
+        .filter(c => c.active !== 0 && (kind === "both" || c.kind === kind) && matches(c))
+        .sort(cardComparator(filters.sort));
+    } else {
+      const view = q
+        ? this.searchPool(kind, q, filters.strict)
+        : kind === "both"
+          ? this.combinedPool()
+          : this.pool(kind);
+      if (!view.orders.has(filters.sort))
+        view.orders.set(filters.sort, [...view.cards].sort(cardComparator(filters.sort)));
+      const matches = searchMatcher(q);
+      ordered = view.orders.get(filters.sort);
+      if (q) ordered = ordered.filter(c => matches(c.searchText));
+    }
+    const rows = filters.role || filters.rarity
+      ? ordered.filter(c =>
+          (!filters.role || c.role === filters.role) &&
+          (!filters.rarity || (c.rarity || "Pending") === filters.rarity),
+        )
+      : ordered;
     const offset = (page - 1) * limit;
     return {
       cards: this.cards(rows.slice(offset, offset + limit).map((c) => c.id)),
