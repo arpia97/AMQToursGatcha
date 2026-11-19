@@ -29,7 +29,7 @@ export class PlayMatch extends DurableObject {
         format===ARENA_FORMAT?ARENA_FORMAT:'song-artist';
       let library;
       try{
-        library=await quizLibraryRequest(this.env,'/play-sample',{mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
+        library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
       }catch(error){
         if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
         throw error;

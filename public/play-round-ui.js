@@ -1,4 +1,5 @@
 import {isDuelFormat, soloVersus} from './play-mode-rules.js';
+import {percentDone} from './play-setup-progress.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
@@ -72,5 +73,5 @@ export function songResultsHTML(match,esc,animeTitle){
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;
-  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready</span><h2>'+(ready?(count===active.length?(active.every(p=>p.audioReady)&&match.counters?.some(id=>!id)&&match.now<match.counterDeadline?'Choosing Counters':'Preparing Audio'):'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready'+(active.length?' · '+percentDone(count,active.length):'')+'</span><h2>'+(ready?(count===active.length?(active.every(p=>p.audioReady)&&match.counters?.some(id=>!id)&&match.now<match.counterDeadline?'Choosing Counters':'Preparing Audio'):'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
 }

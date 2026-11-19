@@ -1,3 +1,4 @@
+import {percentDone} from './play-setup-progress.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from './play-arena-config.js';
 import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from './play-mode-rules.js';
 import {poolName} from './play-pool.js';
@@ -97,7 +98,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
     '<header class="room-masthead"><div><small>'+(ngmc||arena||duel?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+'</small><h1>Custom Lobby</h1></div>'+
     '<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div></header>'+
     '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+lobby.players.length+' / '+lobbyCapacity(lobby.format)+' seats</span></header>'+
-    '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready</span></div></section>'+
+    '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
     '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
     '<footer class="room-controls"><button class="button secondary" data-lobby-action="leave">Leave Lobby</button><div>'+autoReadyHTML(autoReady)+

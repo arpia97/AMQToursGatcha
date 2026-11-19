@@ -6,6 +6,7 @@ export class QuizLibrary extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.ctx = ctx;
+    this.selections = new Map();
     const all = (sql, ...args) => [...ctx.storage.sql.exec(sql, ...args)];
     this.core = new QuizLibraryCore(
       {
@@ -23,6 +24,12 @@ export class QuizLibrary extends DurableObject {
       env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version),this.sheetSource);
   }
   sheetManager(){return this.sheet??=new SheetRefresh(this.ctx,this.core.assets);}
+  selectionProgress(id){
+    const job=this.selections.get(id);
+    if(!job)return null;
+    const {done,total}=job.stage==='catalog'?(job.catalog||{}):job;
+    return {stage:job.stage,done,total};
+  }
   sheetStatus(){return this.sheetManager().status();}
   sheetSnapshot(version){return this.sheetManager().snapshot(version);}
   async startSheetRefresh(){
@@ -58,7 +65,12 @@ export class QuizLibrary extends DurableObject {
       const body = JSON.parse(raw);
       if(path==='/play-watched-count')
         return Response.json({eligible:await this.play.watchedAnimeCount(body.lists,body.ranked)});
-      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode,body.count,body.exclude,body.watched,body.excludeAnime));
+      if(path==='/play-sample'){
+        const job=body.matchId?{stage:'catalog'}:null;
+        if(job)this.selections.set(body.matchId,job);
+        try{return Response.json(await this.play.sample(body.mode,body.count,body.exclude,body.watched,body.excludeAnime,job));}
+        finally{if(job&&this.selections.get(body.matchId)===job)this.selections.delete(body.matchId);}
+      }
       if (path === "/lookup")
         return Response.json(await this.core.lookup(body));
       if (path === "/refresh") {

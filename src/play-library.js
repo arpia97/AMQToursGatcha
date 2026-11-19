@@ -21,7 +21,7 @@ export class PlayLibrary {
     }
     this.nextCheck=Date.now()+60000;
   }
-  async load() {
+  async load(progress) {
     if(Date.now()>=this.nextCheck){
       this.refreshing??=this.refreshQuizzes().finally(()=>{this.refreshing=null;});
       await this.refreshing;
@@ -30,9 +30,14 @@ export class PlayLibrary {
     const master=await this.sheetSource();
     const version=manifest.version+'+'+this.quizVersion+'+'+master.version;
     if(this.version!==version){this.version=version;this.loading=null;}
-    return this.loading ||= this.build(manifest,this.quizzes,this.quizVersion,master).catch(error=>{if(this.version===version)this.loading=null;throw error;});
+    if(!this.loading){
+      this.catalogBuild={done:0,total:manifest.shards.length};
+      this.loading=this.build(manifest,this.quizzes,this.quizVersion,master,this.catalogBuild).catch(error=>{if(this.version===version)this.loading=null;throw error;});
+    }
+    if(progress)progress.catalog=this.catalogBuild;
+    return this.loading;
   }
-  async build(manifest,quizzes,quizVersion,master) {
+  async build(manifest,quizzes,quizVersion,master,catalogBuild) {
     const readAsset=async (file,limit)=>libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/'+file)),limit);
     const [artist,creditedNames]=await Promise.all([
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
@@ -85,6 +90,7 @@ export class PlayLibrary {
       for(const row of Object.values(rows)){
         add(row,bestMasterRecord(master,[row]),bestMasterRecord(quizzes,[row]));
       }
+      catalogBuild.done++;
     }
     let sheetAdded=0,quizAdded=0;
     for(const [id] of (master.recordings||[]).entries()){
@@ -122,15 +128,16 @@ export class PlayLibrary {
     if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
     return url;
   }
-  async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[]) {
+  async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[],progress=null) {
     const started=Date.now();
-    const data=await this.load();
+    const data=await this.load(progress);
     const catalogReady=Date.now();
     const maxSongs=mode===ARENA_FORMAT?arenaSongCount(arenaRules.maxPlayers):100;
     if(!Number.isInteger(count)||count<1||count>maxSongs)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
     const selected=new Set(),verifiedAudio=new Map(),random=new Uint32Array(1);
     const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
+    if(progress)Object.assign(progress,{stage:'songs',done:0,total:target});
     const excludedPaths=new Set((exclude||[]).map(audioFilename));
     const lists=Array.isArray(watched)?watched:watched&&Object.entries(watched).map(([provider,ids])=>({provider,ids}));
     const weights=lists?watchedWeights(lists,data.linkedAnime):null;
@@ -145,9 +152,14 @@ export class PlayLibrary {
     }
     const shortPool=()=>Object.assign(Error("Too few distinct anime with playable songs on the Watched lists. Add more entries, choose fewer songs in a custom lobby, or switch to Random."),{status:422});
     const groupById=ranked?recordingGroupIndex(data):null;
+    const checked=progress?new Set():null;
     const verify=async(group,source)=>{
       let url=await this.verifiedSource(source);
       for(const alternate of data.alternates[group]||[]){if(url)break;url=await this.verifiedSource(alternate);}
+      if(url&&progress){
+        checked.add(weights?audioFilename(url):group);
+        progress.done=checked.size;
+      }
       return url;
     };
     const randomIndex=length=>Math.floor(crypto.getRandomValues(random)[0]/4294967296*length);
@@ -180,6 +192,7 @@ export class PlayLibrary {
       });
     }
     if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
+    if(progress)progress.stage='finalizing';
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.
     const extras=exclude?[]:available.filter(i=>!tried.has(i));

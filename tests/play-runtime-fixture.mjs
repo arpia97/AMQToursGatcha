@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture({groups=false,media}={}){
+export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -74,6 +74,7 @@ export async function playRuntimeFixture({groups=false,media}={}){
     }
     const localSong=/^\/local-(\d+)\.mp3$/.exec(url.pathname);
     if(localSong&&/^(eu|nae|naw)dist\.animemusicquiz\.com$/.test(url.hostname)){
+      if(beforeAudio)await beforeAudio(Number(localSong[1]));
       if(Number(localSong[1])===1||unavailableAudio.has(url.pathname))return new Response(null,{status:404});
       if(Number(localSong[1])===2)return new Response('invalid audio',{headers:{'Content-Type':'audio/mpeg'}});
       let bytes=media;

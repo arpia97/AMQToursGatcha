@@ -14,6 +14,7 @@ import { rarityClass } from "../card-display.js";
 import { levelLabel } from "../card-values.js";
 import { avatarCropStyle } from "../avatar-crop.js";
 import { roleBadge } from "../role-label.js";
+import {preparationLabel,percentDone} from "../play-setup-progress.js";
 import { installTitleMotion } from "../title-motion.js";
 import { installDetailPopovers } from "../detail-popover.js";
 
@@ -139,10 +140,10 @@ function showQueue(status){
     return;
   }
   $('#play-queue-mode').textContent=queueLabels[format]+(status.pool==='watched'?' · Watched':'');
-  const text=!status.connected?'Reconnecting…':status.type==='matched'?'Match found':status.type==='queued'?
-    'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed):'Joining queue…';
+  const text=!status.connected?'Reconnecting…':status.type==='preparing'?preparationLabel(status.progress):status.type==='matched'?'Match found':status.type==='queued'?
+    'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed+' · '+percentDone(status.waiting,status.needed)):'Joining queue…';
   if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;
-  box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||status.type==='matched';
+  box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css", import.meta.url)));

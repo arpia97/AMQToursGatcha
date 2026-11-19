@@ -12,6 +12,7 @@ import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
 import {answerFieldsHTML,teamAnswerTilesHTML,updateTeamFields,updateArtistChips} from './play-team-ui.js';
 import {createSongListDialog} from './play-song-dialog.js';
+import {preparationLabel,percentDone} from './play-setup-progress.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack} from './ngmc-ui.js';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
@@ -58,25 +59,30 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   const error=message=>{onError(Error(message));};
   function socketURL(id){const url=new URL('play-connect',apiBase);url.protocol=url.protocol==='https:'?'wss:':'ws:';url.searchParams.set('protocol',String(PLAY_AUDIO_PROTOCOL));if(id)url.searchParams.set('match',id);return url;}
   function startWorker(){
+    answerListStatus='Loading answer lists…';
     worker?.terminate();searchReady=false;searchError='';
     worker=new Worker(new URL('./play-answer-worker.js',import.meta.url),{type:'module'});
-    worker.onmessage=({data})=>{if(!active)return;if(data.type==='ready'){searchReady=true;render();}else if(data.type==='error'){searchError=data.message;render();}else if(data.type==='results'&&data.id===searchId){searchItems=data.items;selected=searchItems.length?0:-1;showSuggestions();}};
+    worker.onmessage=({data})=>{if(!active)return;if(data.type==='progress'){
+      answerListStatus=data.label;
+      const status=root.querySelector('.sa-status');
+      if(!match&&!searchReady&&!searchError&&getPlayer()&&queueStatus.type!=='preparing'&&status)status.textContent=answerListStatus;
+    }else if(data.type==='ready'){searchReady=true;render();}else if(data.type==='error'){searchError=data.message;render();}else if(data.type==='results'&&data.id===searchId){searchItems=data.items;selected=searchItems.length?0:-1;showSuggestions();}};
     worker.onerror=()=>{searchError='Answer search could not start. Retry to load it.';render();};worker.postMessage({type:'load'});
   }
   const poolKey=id=>'amqtours-play-pool-'+id;
   function preferredPool(id=mode){
     try{return localStorage.getItem(poolKey(id))==='watched'?'watched':'random';}catch{return 'random';}
   }
-  let queuedFormat=null;
+  let queuedFormat=null,answerListStatus='Loading answer lists…';
   function waiting(){
-    return active&&!!queuedFormat&&!match&&['queued','joining','matched'].includes(queueStatus.type);
+    return active&&!!queuedFormat&&!match&&['queued','joining','preparing','matched'].includes(queueStatus.type);
   }
   function notifyQueue(){
     onQueueChange(waiting()?{format:queuedFormat,type:queueStatus.type,connected:queue?.readyState===1,
-      waiting:queueStatus.waiting,needed:queueStatus.needed,pool:queueStatus.pool}:null);
+      waiting:queueStatus.waiting,needed:queueStatus.needed,pool:queueStatus.pool,progress:queueStatus.progress}:null);
   }
   function cancelQueue(){
-    if(!waiting()||queueStatus.type==='matched')return;
+    if(!waiting()||['preparing','matched'].includes(queueStatus.type))return;
     if(!send(queue,{type:'cancel'}))error('Reconnect to leave the queue.');
   }
   function selectQueueFormat(id){
@@ -98,11 +104,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         return;
       }
       if(msg.counts)lastCounts=msg.counts;
-      if(msg.type==='queued'||msg.type==='joining'){
+      if(msg.type==='queued'||msg.type==='joining'||msg.type==='preparing'&&msg.format){
         // Some older queue servers report ranked for every pending NGMC lookup.
         if(msg.type==='queued'||!queuedFormat)queuedFormat=msg.format;
         selectQueueFormat(queuedFormat);
-      }else if(msg.type!=='matched')queuedFormat=null;
+      }else if(!['matched','preparing'].includes(msg.type))queuedFormat=null;
+      const updatingPreparation=msg.type==='preparing'&&queueStatus.type==='preparing'&&msg.match===queueStatus.match;
       const changed=JSON.stringify(queueStatus)!==JSON.stringify(msg);
       if(msg.code!==queueStatus.code||msg.type!=='lobby')lobbyDraft=null;
       if(msg.lobbies)lobbies=msg.lobbies;
@@ -113,7 +120,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         fields=animeOnly()?['anime']:['anime','song','artist'];
         onMatchMode(mode);
       }
-      notifyQueue();syncLobbyReady();if(msg.type==='matched'&&msg.match!==dismissedMatch&&(!match||match.id!==msg.match))connectRoom(msg.match);if(changed)render();
+      notifyQueue();syncLobbyReady();if(msg.type==='matched'&&msg.match!==dismissedMatch&&(!match||match.id!==msg.match))connectRoom(msg.match);
+      if(changed&&updatingPreparation&&!match&&(!waiting()||mode===queueMode(queuedFormat))){
+        const status=root.querySelector('.sa-status');
+        if(status)status.textContent=preparationLabel(msg.progress);
+      }else if(changed)render();
     };
     ws.onclose=event=>{if(queue!==ws)return;queue=null;lastCounts=null;connecting=false;if(active&&event.code!==4001){queueRetry=setTimeout(connectQueue,queueDelay);queueDelay=Math.min(15000,queueDelay*2);}if(event.code===4001){queuedFormat=null;error('Play was opened in another tab.');}notifyQueue();render();};
   }
@@ -378,9 +389,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       return '<button type="button" data-'+(ngmc?'ngmc':'sa')+'-format="'+id+'" aria-pressed="'+selected+'" '+(idle?'':'disabled')+'><strong>'+name+'</strong>'+
         (!ngmc&&id==='1-team'?'<small>Unranked</small>':'')+queueBadge(id,pool)+'</button>';
     }).join('');
-    const queueLabel=(otherQueue?'Queued in Another Mode':queueStatus.type==='joining'?'Cancel Matchmaking':queueStatus.type==='queued'?'Leave Queue':queueStatus.type==='matched'?'Preparing Match…':'Find Match');
-    const status=(!getPlayer()?'Sign in above to join a queue.':searchError?esc(searchError):!searchReady?'Loading answer lists…':connecting?'Connecting…':otherQueue?'':queueStatus.type==='joining'?'Joining matchmaking…':queueStatus.type==='queued'?'Finding Players · '+queueStatus.waiting+(arena()?' in queue':' / '+queueStatus.needed):queueStatus.type==='matched'?'Selecting songs for your match…':'');
-    const disabled=otherQueue||!searchReady||connecting||!getPlayer()||queue?.readyState!==1;
+    const queueLabel=(otherQueue?'Queued in Another Mode':queueStatus.type==='joining'?'Cancel Matchmaking':queueStatus.type==='queued'?'Leave Queue':['preparing','matched'].includes(queueStatus.type)?'Preparing Match…':'Find Match');
+    const status=(!getPlayer()?'Sign in above to join a queue.':queueStatus.type==='preparing'&&!otherQueue?preparationLabel(queueStatus.progress):searchError?esc(searchError):!searchReady?esc(answerListStatus):connecting?'Connecting…':otherQueue?'':queueStatus.type==='joining'?'Joining matchmaking…':queueStatus.type==='queued'?'Finding Players · '+queueStatus.waiting+(arena()?' in queue':' / '+queueStatus.needed+' · '+percentDone(queueStatus.waiting,queueStatus.needed)):queueStatus.type==='matched'?'Selecting songs for your match…':'');
+    const disabled=otherQueue||['preparing','matched'].includes(queueStatus.type)||!searchReady||connecting||!getPlayer()||queue?.readyState!==1;
     const modeIcon=duel()?'<span class="arena-emblem duel-emblem"><span><i></i></span><b></b><span><i></i></span></span>':arena()?'<span class="arena-emblem"><span><i></i><i></i></span><b></b><span><i></i><i></i></span></span>':ngmc?'<span class="score-formation">'+ '<i></i>'.repeat(8)+'</span>':'<span class="score-note">♪</span>';
     return '<div class="play-lobby-browser '+(duel()?'':ngmc?'ngmc-queue':'song-queue')+'">'+
       '<header class="play-queue-banner"><div><span class="sa-eyebrow">Matchmaking</span><h1>'+(duel()?'1v1 Ranked':arena()?'2v2 Arena':ngmc?'NGMC Ranked':'Song/Artist')+'</h1>'+
@@ -462,9 +473,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     status.textContent=match.phase==='loading'?'Getting Everyone Ready':match.phase==='buffering'?'Waiting for Audio':match.phase==='counting'?'Counting Guesses':match.phase==='reveal'?'Answers Revealed':'Listen & Answer';
     const activePlayers=match.players.filter(p=>!p.left);
     const loadingNames=activePlayers.filter(p=>!p.audioReady&&(p.ready||p.acceptedReady)).map(p=>p.name);
-    const audioStatus=['loading','buffering'].includes(match.phase)?'<span>'+activePlayers.filter(p=>p.audioReady).length+' / '+activePlayers.length+' players have audio ready'+(loadingNames.length?' · Loading: '+esc(loadingNames.join(', ')):'')+'</span>':'';
+    const audioReady=activePlayers.filter(p=>p.audioReady).length;
+    const audioStatus=['loading','buffering'].includes(match.phase)&&activePlayers.length?'<span>'+audioReady+' / '+activePlayers.length+' players have audio ready · '+percentDone(audioReady,activePlayers.length)+(loadingNames.length?' · Loading: '+esc(loadingNames.join(', ')):'')+'</span>':'';
     const downloadStatus=root.querySelector('.sa-download-status'),downloadBar=downloadStatus.querySelector('.song-loading-bar');
-    downloadStatus.innerHTML=(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+Math.round(100*loadedCount/Math.max(1,downloadTotal))+'%</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
+    downloadStatus.innerHTML=(loadedCount<downloadTotal||['loading','buffering'].includes(match.phase)?'<div class="sa-download-meter"><div><span>'+downloadLabel+'</span><strong>'+(percentDone(loadedCount,downloadTotal)||'…')+'</strong></div>'+songLoadingBar({label:'Song Download',loaded:loadedCount,total:downloadTotal})+'</div>':'')+audioStatus+(replacingAudio?'<span role="status">Finding replacement audio…</span>':'')+(downloadError&&!replacingAudio?'<span class="incorrect">'+esc(downloadError)+'</span><button type="button" class="button secondary" data-sa-action="retry-download">Retry Download</button>':'');
     if(downloadBar&&downloadStatus.querySelector('.song-loading-bar')){downloadStatus.querySelector('.song-loading-bar').replaceWith(downloadBar);updateSongLoadingBar(downloadBar,loadedCount,downloadTotal);}
     const shared=root.querySelector('.sa-shared-wrap');
     if(arena()){

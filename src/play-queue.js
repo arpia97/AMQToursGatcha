@@ -33,6 +33,7 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS play_match_inactivity(player TEXT PRIMARY KEY,streak INTEGER NOT NULL,until INTEGER NOT NULL)');
     this.lobbies=new PlayLobbies(this);
     this.joinRequests=new Map();this.ratingRequests=new Map();
+    this.preparations=new Map();
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_watched_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_results(id TEXT PRIMARY KEY,data TEXT NOT NULL,created INTEGER NOT NULL)');
@@ -55,13 +56,21 @@ export class PlayQueue extends DurableObject {
   }
   status(player,counts){
     const lobby=this.lobbies.forPlayer(player);
-    if(lobby)return this.lobbies.status(lobby);
+    if(lobby)return this.withPreparation(this.lobbies.status(lobby));
     const row=this.rows('SELECT * FROM queue WHERE player=?',player)[0];
-    if(row?.match)return {type:'matched',match:row.match,format:row.format,pool:row.pool};
+    if(row?.match)return this.withPreparation({type:'matched',match:row.match,format:row.format,pool:row.pool});
     counts??=this.queueCounts();
     const pending=this.joinRequests.get(player);
     if(!row&&pending)return {type:'joining',format:pending.format,pool:pending.pool,counts};
     return row?{type:'queued',format:row.format,pool:row.pool,waiting:counts[poolFormat(row.format,row.pool)]||0,needed:PLAY_FORMATS[row.format].size,counts}:{type:'idle',counts};
+  }
+  withPreparation(status){
+    if(status.type!=='matched')return status;
+    const job=this.preparations.get(status.match);
+    if(job)return {...status,type:'preparing',progress:job.progress};
+    if(this.rows('SELECT 1 FROM preparing WHERE id=?',status.match).length)
+      return {...status,type:'preparing',progress:{stage:'retrying'}};
+    return status;
   }
   broadcast(){
     const counts=this.queueCounts(),directory=this.lobbyDirectory();
@@ -225,8 +234,42 @@ export class PlayQueue extends DurableObject {
     return ratings;
   }
   async prepare(row){
+    const existing=this.preparations.get(row.id);
+    if(existing)return existing.promise;
+    const players=JSON.parse(row.players);
+    const job={progress:{stage:'starting'}};
+    this.preparations.set(row.id,job);
+    const notify=()=>{
+      for(const {id} of players){
+        const status=this.status(id);
+        if(status.type!=='preparing'||status.match!==row.id)continue;
+        for(const ws of this.ctx.getWebSockets(id)){
+          if(ws.deserializeAttachment().expires>Date.now())send(ws,status);
+        }
+      }
+    };
+    let timer;
+    const poll=async()=>{
+      try{
+        const progress=await this.env.QUIZ_LIBRARY.getByName('quiz-song-library-v1').selectionProgress(row.id);
+        if(this.preparations.get(row.id)!==job)return;
+        const next=progress||(['catalog','songs'].includes(job.progress.stage)?{stage:'finalizing'}:job.progress);
+        if(JSON.stringify(next)!==JSON.stringify(job.progress)){job.progress=next;notify();}
+      }catch{/* Status updates are optional while the match opens. */}
+      if(this.preparations.get(row.id)===job)timer=setTimeout(poll,750);
+    };
+    notify();
+    timer=setTimeout(poll,500);
+    job.promise=this.prepareRoom(row,players).finally(()=>{
+      clearTimeout(timer);
+      this.preparations.delete(row.id);
+      this.broadcast();
+    });
+    return job.promise;
+  }
+  async prepareRoom(row,players){
     try{
-      const players=JSON.parse(row.players),match=this.env.PLAY_MATCHES.getByName(row.id);
+      const match=this.env.PLAY_MATCHES.getByName(row.id);
       const custom=row.format.startsWith('lobby-');
       const lobby=custom&&this.rows('SELECT * FROM play_lobbies WHERE match=?',row.id)[0];
       if(custom&&!lobby){await this.complete(row.id);return;}
@@ -254,7 +297,7 @@ export class PlayQueue extends DurableObject {
         const remaining=this.lobbies.roster(lobby.code);
         for(const p of players)if(!remaining.some(m=>m.id===p.id))await match.depart(p.id);
       }
-      this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',row.id);this.broadcast();
+      this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',row.id);
     }
     catch {if(Date.now()-row.started>180000){for(const p of JSON.parse(row.players))for(const ws of this.ctx.getWebSockets(p.id))send(ws,{type:'error',message:'Song loading failed. Please queue again.'});await this.complete(row.id);}}
   }

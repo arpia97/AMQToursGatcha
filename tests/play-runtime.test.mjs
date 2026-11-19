@@ -99,7 +99,9 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   assert.ok(refreshed.anime.includes('Plus 2')&&!refreshed.anime.includes('Quiz 2'));
 });
 test('multiplayer Workers authenticate sockets, form all formats, preload, score and survive reconnect through the proxy',async t=>{
-  const mf=await playRuntimeFixture();t.after(()=>mf.dispose());
+  const gate=Promise.withResolvers();
+  t.after(()=>gate.resolve());
+  const mf=await playRuntimeFixture({beforeAudio:id=>id===3?gate.promise:undefined});t.after(()=>mf.dispose());
   const base='http://game',cookies=[];
   for(let i=1;i<=8;i++){const response=await mf.dispatchFetch(base+'/api/__test-session?id='+i);assert.equal(response.status,200,await response.clone().text());cookies.push((await response.json()).cookie);}
   const connect=async(i,match='',proxy=false)=>{
@@ -133,6 +135,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   visitor.send({type:'lobby-leave'});
   await host.wait(m=>m.type==='lobby'&&m.players.length===1&&m.watchedPool?.eligible===1);
   host.send({type:'lobby-start'});
+  try{
+    const checking=await host.wait(m=>m.type==='preparing'&&m.progress.stage==='songs');
+    assert.deepEqual(checking.progress,{stage:'songs',done:0,total:1});
+    assert.ok(!visitor.messages.some(m=>m.type==='preparing'&&m.match===checking.match));
+  }finally{gate.resolve();}
   const watchedMatch=await host.wait(m=>m.type==='matched');
   const watchedInfo=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedMatch.match)).json();
   assert.equal(watchedInfo.song.title,'Song 3');
