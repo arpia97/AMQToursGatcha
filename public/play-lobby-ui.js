@@ -1,4 +1,5 @@
 import {poolName} from './play-pool.js';
+import {playPlayerAvatar} from './play-avatar.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked'};
 function poolPicker(value='random',disabled=false,id=''){
@@ -71,7 +72,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const ready = lobby.players.filter(p=>p.ready).length;
   const players = lobby.players.map(p=>{
     const role = [p.id===lobby.host?'Host':'',p.id===me?'You':''].filter(Boolean).join(' · ');
-    return '<li class="room-player"><span><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span>'+
+    return '<li class="room-player"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<span class="room-player-name"><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span></span>'+
       '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
   }).join('');
   const shortPool = lobby.pool==='watched' && Number.isInteger(lobby.watchedPool?.eligible) &&
@@ -92,7 +93,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
-  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong>'+'<span>'+p.score+' pts</span></div>').join('')+'</section>';
+  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts</span></div>').join('')+'</section>';
 }
 export function ballotHTML(match,esc){
   if(match.phase!=='guess')return '';

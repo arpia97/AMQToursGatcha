@@ -1,4 +1,4 @@
-import {avatarCropStyle} from './avatar-crop.js';
+import {playPlayerAvatar} from './play-avatar.js';
 import {artistCreditsHTML,roundDialHTML} from './play-round-ui.js';
 const heart='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
 const num=n=>Math.round(n).toLocaleString('en-US');
@@ -23,7 +23,7 @@ export function ngmcTeams(match,esc) {
       const result=revealed?last.results.find(r=>r.id===p.id):null,rating=match.ratings?.find(r=>r.id===p.id);
       const answer=result?(result.answers.anime||'No Answer'):p.left?'Left':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':'Loading Audio…':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):'Listening…';
       const badge=match.counters[team]===p.id?'<span class="ngmc-counter-badge" title="Team Counter" aria-label="Team Counter">'+counterIcon+'</span>':'';
-      return '<div class="ngmc-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="ngmc-player-name"><strong title="'+esc(p.name)+'">'+esc(p.name)+badge+'</strong><small>'+num(rating?.after??p.elo)+' Rating · '+p.score+' pts'+(p.id===me.id?' · You':'')+(rating?' · <b class="'+(rating.delta>=0?'gain':'loss')+'">'+(rating.delta>=0?'+':'')+rating.delta.toFixed(1)+'</b>':'')+'</small></div><div class="ngmc-guesses" aria-label="'+p.guesses+' of '+p.initialGuesses+' guesses remaining">'+Array.from({length:p.initialGuesses},(_,i)=>'<i class="'+(i<p.guesses?'available':'spent')+'"></i>').join('')+'</div><span class="ngmc-player-answer '+(result?result.correct.anime?'gain':'loss':'')+'" title="'+esc(answer)+'">'+(result?(result.correct.anime?'✓ ':'✕ '):'')+esc(answer)+'</span></div>';
+      return '<div class="ngmc-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="ngmc-player-name"><strong title="'+esc(p.name)+'">'+esc(p.name)+badge+'</strong><small>'+num(rating?.after??p.elo)+' Rating · '+p.score+' pts'+(p.id===me.id?' · You':'')+(rating?' · <b class="'+(rating.delta>=0?'gain':'loss')+'">'+(rating.delta>=0?'+':'')+rating.delta.toFixed(1)+'</b>':'')+'</small></div><div class="ngmc-guesses" aria-label="'+p.guesses+' of '+p.initialGuesses+' guesses remaining">'+Array.from({length:p.initialGuesses},(_,i)=>'<i class="'+(i<p.guesses?'available':'spent')+'"></i>').join('')+'</div><span class="ngmc-player-answer '+(result?result.correct.anime?'gain':'loss':'')+'" title="'+esc(answer)+'">'+(result?(result.correct.anime?'✓ ':'✕ '):'')+esc(answer)+'</span></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }

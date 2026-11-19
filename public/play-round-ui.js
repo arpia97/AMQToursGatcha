@@ -1,5 +1,5 @@
 import {DUEL_FORMAT, soloVersus} from './play-mode-rules.js';
-import {avatarCropStyle} from './avatar-crop.js';
+import {playPlayerAvatar} from './play-avatar.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
 export const scoreBadge=(points,total=3)=>'<b class="sa-round-score" title="This Song" data-score="'+points+'">'+points+'/'+total+'</b>';
@@ -39,7 +39,7 @@ export function songTeamsHTML(match,esc){
     return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
       const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
-      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'"><span class="ngmc-avatar avatar-crop" style="'+avatarCropStyle(p.avatar?.crop)+'">'+(p.avatar?.image?'<img src="'+esc(p.avatar.image)+'" alt="" loading="lazy" decoding="async">':esc(p.name.slice(0,2).toUpperCase()))+'</span><div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,match.format===DUEL_FORMAT?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
+      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,match.format===DUEL_FORMAT?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }

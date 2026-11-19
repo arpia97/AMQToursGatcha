@@ -70,7 +70,12 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-player { display:grid; grid-template-columns:38px minmax(0,1fr) 50px; grid-template-areas:"avatar name guesses" "answer answer answer"; gap:6px 10px; align-content:center; align-items:center; height:86px; border-bottom:1px solid #ffffff09; padding:8px 12px; }
 .ngmc-player:last-child { border:0; }.ngmc-player.self { background:#b6e2c509; border-radius:6px; }
 .ngmc-player-name { grid-area:name; min-width:0; display:grid; gap:5px; }.ngmc-player-name strong { display:flex; align-items:center; gap:5px; font-size:12px; overflow:hidden; white-space:nowrap; }.ngmc-player-name small { font-size:10px; }
-.ngmc-avatar.avatar-crop { grid-area:avatar; display:grid; place-items:center; width:36px; height:36px; border-radius:50%; border:1px solid var(--team-accent); overflow:hidden; background:#303744; color:var(--team-accent); font-size:11px; }
+.play-player-avatar { grid-area:avatar; width:36px; height:36px; border:1px solid var(--team-accent, #697280); color:var(--team-accent, #c6d6e3); font-size:11px; }
+.play-player-avatar.enhancement-frame[class] { --aura-scale:.55; border-width:2px; }
+/* Keep the level glow visible without animating every player during a match. */
+.play-player-avatar.enhancement-frame > .frame-aura::before { animation:none; }
+.play-player-identity { display:inline-flex; align-items:center; gap:8px; min-width:0; overflow-wrap:anywhere; }
+.play-player-identity .play-player-avatar { width:28px; height:28px; }
 .ngmc-counter-badge { display:inline-flex; flex:none; width:15px; height:15px; color:#eacb83; }.ngmc-counter-badge svg { width:100%; height:100%; fill:none; stroke:currentColor; stroke-width:1.6; }
 .ngmc-guesses { grid-area:guesses; display:flex; gap:4px; justify-content:flex-end; }.ngmc-guesses i { width:7px; height:18px; background:#30343f; border-radius:2px; }.ngmc-guesses .available { background:var(--team-accent); }
 .ngmc-player-answer { grid-area:answer; font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
@@ -83,7 +88,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-progress { display:flex; gap:4px; justify-content:center; margin:24px auto 3px; max-width:760px; }.ngmc-progress i { flex:1; height:5px; border-radius:2px; background:#323744; }.ngmc-progress .current { background:#f2c776; }.ngmc-progress .hit { background:var(--mint); }.ngmc-progress .miss { background:#f28ba1; }
 .ngmc-team .gain,.ngmc-panel .gain { color:var(--mint); }.ngmc-team .loss,.ngmc-panel .loss { color:#f28ba1; }
 @media(max-width:1000px){.ngmc-team{padding:12px}.ngmc-lives{gap:3px}.ngmc-lives i{width:17px;height:17px}.ngmc-player{gap:6px}}
-@media(max-width:540px){.ngmc-teams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ngmc-team{padding:10px 8px}.ngmc-team header,.ngmc-team.rivals header{height:75px;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:4px}.ngmc-team.rivals header{align-items:flex-end}.ngmc-team header>div:first-child{display:grid;gap:4px}.ngmc-player,.ngmc-team.rivals .ngmc-player{height:94px;grid-template-columns:28px minmax(0,1fr);grid-template-areas:"avatar name" "guesses guesses" "answer answer";gap:5px}.ngmc-team.rivals .ngmc-player{grid-template-columns:minmax(0,1fr) 28px;grid-template-areas:"name avatar" "guesses guesses" "answer answer"}.ngmc-avatar.avatar-crop{width:27px;height:27px}.ngmc-player-name{gap:3px}.ngmc-player-name strong{font-size:10px;gap:3px}.ngmc-player-name small{font-size:9px}.ngmc-guesses{justify-content:flex-start}.ngmc-team.rivals .ngmc-guesses{justify-content:flex-end}.ngmc-guesses i{height:9px;width:10px}.ngmc-player-answer{font-size:10px}.ngmc-lives i{width:15px;height:15px}.ngmc-counter-badge{width:13px;height:13px}.ngmc-panel #sa-answer-form{margin:16px auto}.ngmc-progress{gap:3px}.ngmc-counter .button{margin-left:0}}
+@media(max-width:540px){.ngmc-teams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.ngmc-team{padding:10px 8px}.ngmc-team header,.ngmc-team.rivals header{height:75px;flex-direction:column;align-items:flex-start;gap:10px;margin-bottom:4px}.ngmc-team.rivals header{align-items:flex-end}.ngmc-team header>div:first-child{display:grid;gap:4px}.ngmc-player,.ngmc-team.rivals .ngmc-player{height:94px;grid-template-columns:28px minmax(0,1fr);grid-template-areas:"avatar name" "guesses guesses" "answer answer";gap:5px}.ngmc-team.rivals .ngmc-player{grid-template-columns:minmax(0,1fr) 28px;grid-template-areas:"name avatar" "guesses guesses" "answer answer"}.play-player-avatar{width:27px;height:27px}.ngmc-player-name{gap:3px}.ngmc-player-name strong{font-size:10px;gap:3px}.ngmc-player-name small{font-size:9px}.ngmc-guesses{justify-content:flex-start}.ngmc-team.rivals .ngmc-guesses{justify-content:flex-end}.ngmc-guesses i{height:9px;width:10px}.ngmc-player-answer{font-size:10px}.ngmc-lives i{width:15px;height:15px}.ngmc-counter-badge{width:13px;height:13px}.ngmc-panel #sa-answer-form{margin:16px auto}.ngmc-progress{gap:3px}.ngmc-counter .button{margin-left:0}}
 @media(prefers-reduced-motion:reduce){.ngmc-time-track span{transition:none}}
 
 /* Shared matchmaking and field-claim presentation. */
@@ -194,7 +199,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-volume input { width:100%;min-width:0;max-width:none; }.sa-volume output { min-width:34px; }
 .sa-game-actions .button { white-space:nowrap; }
 .sa-song-player { display:flex;align-items:center;gap:10px;min-height:65px;padding:8px;border-radius:7px; }.sa-song-player.self { background:#b6e2c509; }
-.sa-song-player .ngmc-avatar { flex:none; }.sa-song-player-info { display:grid;gap:7px;min-width:0;flex:1;font-size:12px;overflow-wrap:anywhere; }
+.sa-song-player-info { display:grid;gap:7px;min-width:0;flex:1;font-size:12px;overflow-wrap:anywhere; }
 .sa-song-player-info small { line-height:1.5; }.sa-player-points { display:grid;justify-items:end;gap:5px;flex:none; }
 .sa-song-team.rivals .sa-song-player { flex-direction:row-reverse;text-align:right; }.sa-song-team.rivals .sa-player-points { justify-items:start; }
 .sa-song-team.sa-solo header { gap:12px;min-height:48px; }.sa-solo header>span { overflow-wrap:anywhere;font-weight:650; }.sa-solo header small { display:block;margin-top:4px; }.sa-solo header>strong { flex:none; }
@@ -214,7 +219,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-result-columns { color:var(--muted);font-size:10px; }.sa-match-results details { border-top:1px solid var(--border); }.sa-match-results summary { cursor:pointer;list-style:none; }.sa-match-results summary::-webkit-details-marker { display:none; }.sa-match-results summary>span { overflow-wrap:anywhere; }.sa-match-results summary small { color:var(--muted);margin-right:12px; }.sa-match-results summary>span::after { content:' ⌄';color:var(--muted); }
 .sa-match-results .sa-answer-sides { padding:0 18px; }.sa-result-key { margin:0;padding:0 18px;color:var(--muted);font-size:11px; }
 @media(max-width:700px){
- .sa-song-player{gap:6px;flex-wrap:wrap;padding:6px}.sa-song-player-info{font-size:11px}.sa-song-player .ngmc-avatar{width:28px;height:28px}.sa-player-points{width:100%;display:flex;justify-content:space-between;align-items:center}.sa-song-team.rivals .sa-player-points{flex-direction:row-reverse}
+ .sa-song-player{gap:6px;flex-wrap:wrap;padding:6px}.sa-song-player-info{font-size:11px}.sa-song-player .play-player-avatar{width:28px;height:28px}.sa-player-points{width:100%;display:flex;justify-content:space-between;align-items:center}.sa-song-team.rivals .sa-player-points{flex-direction:row-reverse}
  .sa-live-answer-sides.is-versus,.sa-answer-sides{gap:9px}.sa-live-answer-sides.is-versus .sa-team-answer-tile,.sa-answer-summary .sa-team-answer-tile{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:10px;min-height:117px}.sa-team-answer-value{font-size:12px}.sa-side-heading{font-size:11px}
  .sa-input-row:has([data-sa-add-artist]:not([hidden])){grid-template-columns:1fr 1fr}.sa-input-row:has([data-sa-add-artist]:not([hidden]))>.sa-combobox{grid-column:1/-1}.sa-input-row>.button{white-space:normal}
  .sa-result-columns,.sa-match-results summary{grid-template-columns:minmax(0,1fr) 58px 58px;gap:8px;padding:12px}.sa-match-results .sa-answer-sides{padding:0 10px}.sa-solo header>strong{font-size:19px}
@@ -305,7 +310,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
   grid-template-areas:"avatar name guesses" "avatar answer answer";
 }
 .ngmc-arena .ngmc-team.rivals .ngmc-player { grid-template-columns:auto minmax(0,1fr) 29px; grid-template-areas:"guesses name avatar" "answer answer avatar"; }
-.ngmc-arena .ngmc-avatar { width:29px; height:29px; }
+.ngmc-arena .play-player-avatar { width:29px; height:29px; }
 .ngmc-arena .ngmc-player-name { gap:1px; }.ngmc-arena .ngmc-player-name strong { font-size:12px; }
 .ngmc-arena .ngmc-guesses { gap:2px; }.ngmc-arena .ngmc-guesses i { width:5px; height:7px; border-radius:1px; }
 .ngmc-arena .ngmc-panel { grid-area:console; min-width:0; padding:0; border-radius:4px; background:#181e24; }
@@ -351,7 +356,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .song-broadcast .rivals header { background:#30262c; }
 .song-broadcast .play-leaderboard h2 { font-size:15px; }
 .song-broadcast .sa-song-player,.song-broadcast .lobby-member { min-height:54px; padding:8px; gap:6px; border-bottom:1px solid var(--border); }
-.song-broadcast .ngmc-avatar { width:26px; height:26px; }
+.song-broadcast .sa-song-player .play-player-avatar { width:26px; height:26px; }
 .song-broadcast .sa-player-points { width:auto; }.song-broadcast .sa-player-points small { white-space:nowrap; }
 .song-broadcast-header,.broadcast-final {
   display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px;
@@ -435,7 +440,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .room-panel h2 { font-size:16px; margin:0; }
 .room-roster { list-style:none; margin:0; padding:0 16px; }
 .room-player { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 0; border-bottom:1px solid var(--border); }
-.room-player>span:first-child { min-width:0; display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 8px; overflow-wrap:anywhere; }
+.room-player-name { min-width:0; display:flex; align-items:baseline; flex-wrap:wrap; gap:3px 8px; }
 .room-player small { color:var(--muted); font-size:10px; }
 .room-player .lobby-ready-status { flex:none; display:flex; align-items:center; gap:6px; }
 .room-player .lobby-ready-status::before { content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
@@ -507,8 +512,10 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 .arena-match .sa-answer-fields { grid-template-columns: minmax(0,1fr); }
 
 .arena-board .arena-fixture-headline { margin: .4rem 0 0; display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
-.arena-fixture-headline strong { flex-shrink: 0; padding: .2em .45em; border-radius: 6px; background: #25352f; }
-.arena-fixture-headline span:last-child { text-align: right; }
+.arena-fixture-headline > strong { flex-shrink: 0; padding: .2em .45em; border-radius: 6px; background: #25352f; }
+.arena-pair { display:grid; gap:8px; min-width:0; }
+.arena-fixture-headline > .arena-pair:last-child .play-player-identity { flex-direction:row-reverse; text-align:right; }
+.arena-winners { display:flex; flex-wrap:wrap; gap:12px 24px; }
 
 .play-queue-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
 .play-queue-heading h2 { margin:0; }

@@ -57,7 +57,7 @@ export class PlayLobbies {
   }
   status(row){
     if(row.last_match)return {type:row.match===row.last_match?'matched':'lobby-ended',match:row.last_match,code:row.code};
-    const players=this.readyRoster(row.code).map(({id,name,ready})=>({id,name,ready:!!ready}));
+    const players=this.readyRoster(row.code).map(({id,name,avatar,ready})=>({id,name,avatar:JSON.parse(avatar),ready:!!ready}));
     const settings=JSON.parse(row.settings);
     const check=this.watchedPools.get(row.code);
     const watchedPool=check?.key===poolKey(settings,players)?check.result:null;
