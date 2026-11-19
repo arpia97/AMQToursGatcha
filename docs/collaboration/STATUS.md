@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play account header
+
+Source `c412030` deployed to Worker `b1158f02-b0a3-42b7-bc64-cfe091d2c863`. Play now has the avatar menu, unread-count bell and shared display preferences in Settings. Verified authenticated menu interactions with local fixtures at 1440px and 390px, the Worker dry run, all 550 tests, and live Play markup and assets. The revised floating Gacha card is a local snapshot under `../card-design-review/floating-revised.png`.
+
 ## Play 1v1 Ranked navigation icon
 
 Source `397b221` deployed to Worker `cc5aef74-e64a-4d12-98e7-2205fdc18f3e`. The left menu and mobile navigation use a head-to-head icon. Verified both responsive layouts locally and the updated asset at the live 1v1 Ranked route. The isolated Worker build passed.
