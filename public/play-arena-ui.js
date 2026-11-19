@@ -1,3 +1,4 @@
+import {arenaLeaders} from './play-arena-config.js';
 import {playPlayerAvatar} from './play-avatar.js';
 
 const thumbsUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11m7-16-1 5h6.2a2 2 0 0 1 2 2.4l-1.5 7a2 2 0 0 1-2 1.6H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1.8a2 2 0 0 0 1.8-1.1L12 2a2 2 0 0 1 2 3Z"/></svg>';
@@ -13,7 +14,7 @@ export function arenaBoard(match, esc) {
   const ownSide = fixture.home === mine ? 0 : 1;
   const opponent = ownSide === 0 ? fixture.away : fixture.home;
   const final = match.phase === 'finished';
-  const leaders = standings.filter(row => row.points === standings[0].points && row.difference === standings[0].difference);
+  const leaders = arenaLeaders(standings);
   const title = final ? (leaders.length > 1 ? 'Joint Winners' : 'Winner') : 'Round ' + (current + 1) + ' / ' + rounds.length;
   const headline = final ? leaders.map(row => pair(row.team)).join('') :
     pair(mine) + '<strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] + '</strong>' + pair(opponent);

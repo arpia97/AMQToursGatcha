@@ -365,6 +365,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
       room.send({type:'ready'});
     }
+    const wallet=async index=>(await (await mf.dispatchFetch(base+'/api/play-state',{headers:{Cookie:cookies[index]}})).json()).me.balance;
+    const balances=await Promise.all([wallet(0),wallet(1)]);
     const started=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
     assert.equal(started.until-started.startsAt,20000);
     assert.equal(started.pool,pool);
@@ -384,6 +386,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
     assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);
     assert.equal(rated.ratings.find(r=>r.id==='2').delta,pool==='random'?-16:16);
+    const expected=pool==='random'?[110,100]:[0,110];
+    for(const [index,amount] of expected.entries()){
+      assert.equal(await wallet(index),balances[index]+amount);
+      if(amount){
+        const paid=await rooms[index].wait(m=>m.state?.creditReward);
+        assert.deepEqual(paid.state.creditReward,{id:String(index+1),amount,bonus:amount===110?10:0});
+      }
+    }
+    await mf.dispatchFetch(base+'/api/__advance?match='+id);
+    assert.deepEqual(await Promise.all([wallet(0),wallet(1)]),balances.map((balance,i)=>balance+expected[i]));
     const rows=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
     assert.deepEqual(rows.rows.map(r=>r.record),[[1,0,0],[0,1,0]]);
     assert.equal(rows.rows[0].name,'Local Player '+(pool==='random'?'1':'2'));
@@ -430,6 +442,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     }else host.send({type:'lobby-leave'});
     const completed=(await customRooms[1].wait(m=>m.state?.phase==='finished')).state;
     assert.equal(completed.ratings,undefined);
+    assert.equal(completed.creditReward,undefined);
+    assert.deepEqual(await Promise.all([wallet(0),wallet(1)]),balances.map((balance,i)=>balance+expected[i]));
     await guest.wait(m=>m.type==='lobby-ended');
     const current=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
     assert.deepEqual(current.rows,rows.rows);

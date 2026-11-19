@@ -2,6 +2,7 @@ import {DUEL_FORMAT, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {ReviewHighlights} from './play-review-highlights.js';
+import {matchCreditPlan} from './play-rewards.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
@@ -87,6 +88,11 @@ export class PlayMatch extends DurableObject {
     if(ratings)state.ratings=ratings;
     // Previously completed unranked rooms can reopen in any order.
     if(legacy&&state.phase==='finished')state.ratings=ngmcRatings(result.players.map(p=>({...p,elo:1000})),result.history);
+    const creditPlan=matchCreditPlan(state);
+    if(creditPlan?.length){
+      state.creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
+        .awardPlayMatchCredits(state.id,state.format,creditPlan);
+    }
     state.rankingsSettled=true;
     this.write(state);
     this.broadcast();

@@ -26,7 +26,7 @@ function updateMarkup(element,html){
   renderedMarkup.set(element,html);
 }
 
-export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onQueueChange=()=>{}}) {
+export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onQueueChange=()=>{},onCreditReward=()=>{}}) {
   let mode='song-artist',fields=['anime','song','artist'],totalSongs=20;
   const arena=()=>mode===ARENA_FORMAT, duel=()=>mode===DUEL_FORMAT, ranked=()=>mode==='ngmc-ranked', animeOnly=()=>animeOnlyMode(mode),teamFields=()=>!!match?.teamFields;
   const songDialog=createSongListDialog(esc,animeTitle);
@@ -169,6 +169,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
         if(match.phase!=='guess'&&!unlocking)audio.pause();
         if(['finished','cancelled'].includes(match.phase)){downloads?.abort();}
+        if(match.creditReward&&(!previous?.creditReward||previous.id!==match.id))onCreditReward(match.me);
 
         render();tick();
       }
@@ -377,8 +378,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const duelLabel=match.lobby?'1v1 Unranked':'1v1 Ranked';
     const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
     const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
-    if(done&&arena())return heading+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
-    if(done)return heading+broadcastResults(match,esc,animeTitle,winnerText);
+    const reward='<p class="sa-credit-reward" role="status" hidden></p>';
+    if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
+    if(done)return heading+reward+broadcastResults(match,esc,animeTitle,winnerText);
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button></form>';
     if(ranked())return heading+ngmcArena(match,answerForm);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
@@ -408,6 +410,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(next!==structure){root.innerHTML=gameHTML();structure=next;for(const field of fields){const input=root.querySelector('#sa-'+field);if(input)input.value=draft[field]||'';}}
     for(const button of root.querySelectorAll('[data-sa-action="exit-lobby"],[data-sa-action="again"]')){
       if(match.lobby)button.disabled=queueStatus.type!=='lobby-ended';
+    }
+    const reward=root.querySelector('.sa-credit-reward');
+    if(reward&&match.creditReward){
+      const {amount,bonus}=match.creditReward;
+      reward.hidden=false;
+      const text='+'+amount+' credits'+(bonus?' · '+bonus+'-credit win bonus included':'');
+      if(reward.textContent!==text)reward.textContent=text;
     }
     updateReturnDialog(root,match,payload=>send(room,payload));
     const scoreboard=root.querySelector('.sa-scoreboard');

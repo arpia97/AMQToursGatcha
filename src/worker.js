@@ -13,6 +13,7 @@ import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, ret
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
 import { importAnimeList, listSummary } from "./play-anime-list.js";
+import { awardMatchCredits } from './play-rewards.js';
 import { playState, playAvatar } from "./play-state.js";
 import { playAudioResponse } from "./play-media.js";
 // Only the operations available in Content & Review > Quiz accept this role.
@@ -229,6 +230,9 @@ export class Game extends DurableObject {
       try{this.quizMaster={at:Date.now(),...await loadQuizMaster(fetch,this.env.ASSETS,true)};}
       catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
     }return this.quizMaster;
+  }
+  awardPlayMatchCredits(match, format, players) {
+    return awardMatchCredits(this.engine, match, format, players);
   }
   watchedAnimeLists(players) {
     if (!Array.isArray(players) || players.length < 1 || players.length > 16) fail("Invalid lobby roster.");

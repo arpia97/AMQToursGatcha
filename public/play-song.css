@@ -380,6 +380,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .song-broadcast .sa-reveal>div { padding:10px 4px; border-top:1px solid var(--border); border-bottom:0; }
 .song-broadcast .sa-reveal>div>strong { font-size:16px; }
 .broadcast-final { border:1px solid var(--border); border-top:2px solid var(--mint); border-radius:4px; }
+.sa-credit-reward { margin:0 0 14px; color:#f0cf8f; font-weight:650; }
 .broadcast-final p { margin:6px 0 0; color:var(--muted); }
 .broadcast-final-scores { display:flex; align-self:stretch; text-align:right; flex-wrap:wrap; }
 .broadcast-final-scores>div { min-width:78px; padding:0 12px; border-left:1px solid var(--border); }

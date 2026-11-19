@@ -100,8 +100,13 @@ async function saveAnimeList(form,remove=false){
 function settings() {
   modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
 }
-async function refreshAccount() {
-  try { state = await api("play-state"); accountError = ""; }
+async function refreshAccount(expectedPlayer) {
+  try {
+    const updated = await api("play-state");
+    if (expectedPlayer && (state.me?.id !== expectedPlayer || updated.me?.id !== expectedPlayer)) return;
+    state = updated;
+    accountError = "";
+  }
   catch (error) { accountError = error.message; }
   header();
 }
@@ -141,7 +146,7 @@ const loadMultiplayer = loadOnce(async () => {
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
     animeTitle: song => quizAnimeTitle(song, titleMode), prepareTitles: loadQuizTitleDisplay,
-    onError: fail, onQueueChange: showQueue,
+    onError: fail, onQueueChange: showQueue, onCreditReward: refreshAccount,
     onMatchMode(id) {
       if (mode !== id || !multiplayerRoot.isConnected) {
         viewVersion++;
