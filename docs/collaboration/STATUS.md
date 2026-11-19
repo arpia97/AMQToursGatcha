@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha Favorites Only card filter
+
+Source `59a37c1` is live on Worker `8e0b06a9-e0e4-4d9f-8f28-cb132507627b`. Signed-in collectors can filter supporting card views to their personal favorites. Catalogue, profile, market, trades, and target lookups filter before pagination. The filter composes with existing controls and removes an unfavorited card from the current results. All 553 tests, the syntax check, and the Worker build passed. Verified deployed UI with browser demo fixtures at 390 and 1440 pixels.
+
 ## Gacha card footer alignment
 
 Source `89b2407` is live on Worker `929edaa2-ceb1-4432-a740-60e5097f41ba`. Showcase and auction card actions share a bottom row with the level badge. At very narrow widths, Showcase uses one column when needed to keep its buttons usable. Verified alignment at 320, 390, and 1440 pixels with deployed assets and demo data. The 12 focused tests and Worker build passed.
