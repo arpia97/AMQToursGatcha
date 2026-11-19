@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Settings and AniList import diagnosis
+
+Source `8ab0b41` is live on Worker `06494de2-7c22-4747-b3a6-3d198d28dfb7`. Settings is in the Play avatar menu. A public AniList list succeeded from a local connection but returned HTTP 403 with an explicit manual-block message from an isolated Cloudflare preview. Play now reports AniList's refusal separately from username and privacy errors and preserves saved lists. AniList API access from Play remains blocked upstream. Passed all 552 tests and the build. Verified the deployed Settings UI and import error display with local fixtures at 320, 390, and 1440 pixels.
+
 ## Play next-song timing
 
 Source `92bf265` is live on Worker `d8177634-5ee3-4adb-99c9-5b8aaf6f026f`. Play multiplayer answer reveals last three seconds before the next song can start. All 552 tests and the Worker build passed, including timing assertions for the shared match flow and NGMC. Verified the live Play route and the deployed timing asset.
