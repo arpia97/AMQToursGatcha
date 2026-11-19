@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Play presence, input focus and ranked settlement
+
+Source commits `8359cb5` and `0295bee` are live at 100% on Worker `43b605ac-a9a9-49b0-aa56-27429cd272ef`. The Play activity bar lists ongoing matches and signed-in online and searching totals. Answer fields retain focus through submission. Desktop and mobile browser checks verified the deployed assets, the public activity API returned live counts, and all 561 tests, syntax checks and the Worker dry run passed.
+
+The November 20 NGMC repair was applied once after an independent numerical replay. Delayed receipts had caused stale starting ratings. Eight finished results and 20 player balances were corrected, with corrected starts saved for two ongoing matches. Post-repair checks covered all 19 then-settled rated matches. Every starting rating agreed with its history, the independent formula agreed to within 0.001 Rating, and all expected credit payouts were present. Original and corrected receipts are retained in the owner-only audit record.
+
 ## Card sale notifications
 
 Source `ddfccff` is deployed at 100% on Worker `bf8071e7-0611-46df-a3e1-b6a756ff7ddf`. Marketplace sales, auction wins, and auction buyouts name the purchaser in seller notifications. Older entries resolve the buyer from a matching retained listing and player record. All 560 tests, syntax checks, and the Worker dry run passed. Desktop and mobile checks verified the deployed notification renderer with fixture sales.

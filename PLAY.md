@@ -292,3 +292,11 @@ match index have no time-based expiry. Legacy expiry values and scheduled review
 cleanup alarms no longer remove or hide saved reviews. Review endpoints require
 host authorization and are
 not publicly cached. No historical activity is reconstructed or backfilled.
+
+### Live Play activity
+
+The expandable activity bar shows signed-in players online, players searching across all queues, and ongoing multiplayer matches. Each match shows the mode, song pool, player count, and start time. The list refreshes every 30 seconds while the page is visible. An open matchmaking connection or a Play visit in the past 90 seconds counts toward the online total. Each account counts once across tabs.
+
+### Checking a reported NGMC settlement
+
+Hosts can inspect the protected match review settlement view for the song outcomes, starting ratings, rating receipt, and wallet receipt. The wallet receipt records when credits actually posted. A match can finish before either receipt appears. The November 2026 delayed-settlement correction preserves the original rating receipts in its audit record, recalculates downstream starts separately by pool, and adjusts each affected balance once. For a game already underway at correction time, the queue uses the corrected starting ratings at settlement.
