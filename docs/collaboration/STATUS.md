@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Shared Gacha card filter redesign
+
+Source `a1f6b14` is live on Worker `186a3eaf-f42d-413b-a089-312049baa4a8`. Dropdowns stay beside search while the Filters drawer groups checkboxes. The shared toolbar aligns control heights, label spacing and selected styles across card browsers. Verified the live User Auctions controls in Chrome at 390 and 1440 pixels. Local browser checks also covered Marketplace, Catalogue, Collection, Wishlist and Favorites from 320 to 1440 pixels. All 43 focused tests, the syntax check and the Worker build passed.
+
 ## Gacha owned card favorites
 
 Source `85ee0f8` is live on Worker `29922aa1-e394-43a4-930f-8badc6ff38d7`. Favorites is beside Collection in profiles and uses its filter layout and privacy settings. Inventory, listings, held offers, and unclaimed auction wins all count as owned. The cleanup archived and removed legacy favorites without an owned copy. Verified the production `favorite_ownership_v1` completion receipt. All 553 tests, the syntax check, and the Worker build passed. Browser checks covered own and public Favorites, filter controls, removing a favorite, and collection privacy at 320, 390, and 1440 pixels.
