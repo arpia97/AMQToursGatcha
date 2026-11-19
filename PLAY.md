@@ -228,6 +228,16 @@ page lifecycle and client timestamps are explicitly client-reported, untrusted
 observations. No other-tab URLs, clipboard, screenshots or device contents are
 collected. Solo Gacha Quiz is unchanged.
 
+Open **Match Review** in either the Play Host Console or the Gacha Host Console.
+**Flagged matches only** filters the match list. Each review opens on **Highlights**.
+**View log** opens the player's timeline at the corresponding submission or scoring event.
+
+- **Correct after refocusing** pairs a browser-reported departure 2–9 seconds into a song with an absence of at least 1.5 seconds, then a manual submission within 2 seconds of returning. The system checks the player's own server-scored answer and suppresses a matching draft already seen before the return.
+- **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Answers shared with a real song in the match are excluded.
+- **Repeated fast correct answers** starts at the third distinct song in a match where a player manually submits a correct answer within one second. The evidence lists the qualifying song numbers.
+
+New matches are indexed automatically after they finish. Opening Highlights also indexes the retained events for older or active matches. Each player, song and signal type appears once. Hosts decide how to interpret the evidence and can record notes and review status. These observations have no effect on scoring, ratings or account access.
+
 The library optionally supplies up to three verified unused audio tracks. The
 initial batch contains 12 real NGMC tracks or 10 real Song/Artist tracks, plus
 the available decoys. All candidates use fixed-length sealed tickets and equally

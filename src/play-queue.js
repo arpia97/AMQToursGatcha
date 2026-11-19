@@ -27,6 +27,7 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS recent(player TEXT,match TEXT,expires INTEGER,PRIMARY KEY(player,match))');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_reviews(id TEXT PRIMARY KEY,created INTEGER NOT NULL,format TEXT NOT NULL,players TEXT NOT NULL,status TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_flag_counts(id TEXT PRIMARY KEY,total INTEGER NOT NULL)');
     this.records=new PlayRecords(this);
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
@@ -59,9 +60,12 @@ export class PlayQueue extends DurableObject {
   }
   canAccess(player,id){return this.lobbies.forPlayer(player)?.last_match===id||!!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
   hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=?',id)[0];}
-  reviews({before=Date.now()+1,search=''}={}){
+  indexHighlights(id,count){
+    this.ctx.storage.sql.exec('INSERT INTO match_flag_counts VALUES(?,?) ON CONFLICT(id) DO UPDATE SET total=MAX(total,excluded.total)',id,count);
+  }
+  reviews({before=Date.now()+1,search='',flagged=''}={}){
     const query=String(search).slice(0,100).replace(/[\\%_]/g,'\\$&');
-    const rows=this.rows("SELECT * FROM match_reviews WHERE created<? AND (players LIKE ? ESCAPE '\\' OR id=?) ORDER BY created DESC LIMIT 51",Number(before)||Date.now()+1,'%'+query+'%',search);
+    const rows=this.rows("SELECT m.*,COALESCE(f.total,0) AS flags FROM match_reviews m "+(flagged==='1'?'JOIN':'LEFT JOIN')+" match_flag_counts f ON f.id=m.id WHERE created<? AND (players LIKE ? ESCAPE '\\' OR m.id=?) ORDER BY created DESC LIMIT 51",Number(before)||Date.now()+1,'%'+query+'%',search);
     return {matches:rows.slice(0,50).map(r=>({...r,players:JSON.parse(r.players)})),next:rows.length>50?rows[49].created:null};
   }
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}

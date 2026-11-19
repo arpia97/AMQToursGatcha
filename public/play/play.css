@@ -161,3 +161,5 @@
 #play-anime-list{border-block:1px solid var(--border);padding:14px 0;margin:14px 0}
 #play-anime-list h3,#play-anime-list p{margin:0}
 #play-anime-list [role=status]:empty{display:none}
+.play-console .review-badge { color:#efc987; }
+.play-console [data-review-view][aria-pressed=true] { color:var(--mint); border-color:var(--mint); }

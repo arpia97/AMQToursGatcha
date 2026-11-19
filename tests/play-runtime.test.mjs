@@ -229,6 +229,15 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(review.events.some(e=>e.kind==='activity'&&e.player==='1'&&e.data.clientAt===123&&e.at>123));
     assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.accepted&&e.data.answers.anime));
     if(format==='1v1'){
+      await mf.dispatchFetch(base+'/api/__advance?match='+id);
+      const indexed=await (await mf.dispatchFetch(base+'/api/host/play-review?flagged=1',{headers:auditHeaders})).json();
+      assert.ok(indexed.matches.some(m=>m.id===id&&m.flags>0),'finished match indexed before a host opens it');
+      let highlights;
+      do {
+        highlights=await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id+'&view=highlights',{headers:auditHeaders})).json();
+      } while(highlights.highlights.pending);
+      assert.ok(highlights.highlights.rows.some(r=>r.kind==='decoy'&&r.player==='1'&&r.round===2));
+      assert.equal(highlights.events,undefined);
       const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});
       assert.equal((await update({Cookie:cookies[0]})).status,401);
       assert.equal((await update(auditHeaders)).status,200);

@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {ReviewHighlights} from '../src/play-review-highlights.js';
+
+test('host highlights correlate retained events across batches and count distinct scored rounds', () => {
+  const db=new DatabaseSync(':memory:');
+  try {
+    const storage={sql:{exec:(query,...args)=>db.prepare(query).all(...args)},transactionSync:fn=>fn()};
+    db.exec('CREATE TABLE review_events(seq INTEGER PRIMARY KEY,at,player,kind,data); CREATE TABLE review_meta(id INTEGER PRIMARY KEY,data,expires)');
+    let seq=0;
+    function add(player,round,kind,elapsed,data={}) {
+      db.prepare('INSERT INTO review_events VALUES(?,?,?,?,?)').run(++seq,round*30000+elapsed,player,kind,JSON.stringify({round,phase:'guess',...data}));
+    }
+    const answer={answers:{anime:'Example'},accepted:true};
+    const score={answers:answer.answers,correct:{anime:true}};
+    for (let i=0;i<126;i++) add('',1,'phase',0);
+    for (const [player,scenario] of [['a','correct'],['b','wrong'],['c','prefilled'],['d','auto'],['e','reconnect']]) {
+      if(scenario==='prefilled') add(player,1,'answer-draft',1000,answer);
+      add(player,1,'activity',5000,{event:'focus',visibility:'visible',focused:false,clientAt:3});
+      add(player,1,'activity',5100,{event:'visibility',visibility:'hidden',focused:false});
+      if(scenario==='reconnect') add(player,1,'disconnected',8000);
+      add(player,1,'activity',12000,{event:'focus',visibility:'visible',focused:true});
+      add(player,1,'submit',12500,{...answer,elapsedMs:12500});
+      add(player,1,'round-result',20000,{...score,correct:{anime:scenario!=='wrong'},autoSubmitted:scenario==='auto'});
+    }
+    for(let r=2;r<=4;r++){
+      add('a',r,'submit',850,{...answer,elapsedMs:850});
+      add('a',r,'round-result',20000,score);
+    }
+    add('f',2,'activity',5000,{event:'visibility',visibility:'hidden',focused:false});
+    add('f',2,'activity',10000,{event:'focus',visibility:'visible',focused:true});
+    add('f',2,'propose',10500,{accepted:true,field:'anime',answer:'Example',elapsedMs:10500});
+    add('f',2,'propose',13000,{accepted:true,field:'anime',answer:'Other',elapsedMs:13000});
+    add('f',2,'round-result',20000,score);
+    const decoy={song:'Unused theme',field:'anime',anime:'Unused anime'};
+    add('b',3,'submit',10000,{...answer,flags:[decoy]});
+    add('b',3,'round-result',20000,{...answer,correct:{anime:false},flags:[decoy]});
+    const index=new ReviewHighlights(storage);
+    assert.equal(index.advance(),true);
+    const resumed=new ReviewHighlights(storage);
+    assert.equal(resumed.advance(),false);
+    assert.equal(resumed.advance(),false);
+    assert.equal(resumed.count(),4);
+    assert.equal(resumed.list('f').rows[0].data.answer,'Example');
+    const [fast,focus]=resumed.list('a').rows;
+    assert.deepEqual(fast.data.rounds,[2,3,4]);
+    assert.equal(focus.kind,'return');assert.equal(focus.data.out,35000);assert.equal(focus.data.back,42000);
+    assert.equal(focus.data.submitAt,42500);assert.equal(focus.data.answer,'Example');
+    assert.equal(resumed.list('b').rows[0].kind,'decoy');
+  } finally {db.close();}
+});

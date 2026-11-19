@@ -372,3 +372,5 @@
   .host-reward-tools { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }
   .host-reward-tools button { padding:8px 4px; }
 }
+.play-review .review-badge { color:#efc987; }
+.play-review [data-review-view][aria-pressed=true] { color:var(--mint); border-color:var(--mint); }

@@ -122,10 +122,12 @@ export class MatchReview {
       this.add(state,result.id,'round-result',{answers:result.answers,correct:result.correct,earned:result.earned,autoSubmitted:!!result.autoSubmitted,flags:decoyHits(state,result.answers,player?.artists)},at);
     }
   }
-  page({before=Infinity,player=''}={}){
+  page({before=Infinity,player='',view='events'}={}){
     const meta=[...this.sql.exec('SELECT data,expires FROM review_meta WHERE id=1')][0];
     if(!meta)return null;
+    const header={...JSON.parse(meta.data),expires:null};
+    if(view==='highlights')return header;
     const rows=[...this.sql.exec('SELECT * FROM review_events WHERE seq<? '+(player?'AND player=? ':'')+'ORDER BY seq DESC LIMIT 101',Number(before)||Infinity,...(player?[String(player).slice(0,100)]:[]))];
-    return {...JSON.parse(meta.data),expires:null,events:rows.slice(0,100).map(r=>({...r,data:JSON.parse(r.data)})),next:rows.length>100?rows[99].seq:null};
+    return {...header,events:rows.slice(0,100).map(r=>({...r,data:JSON.parse(r.data)})),next:rows.length>100?rows[99].seq:null};
   }
 }

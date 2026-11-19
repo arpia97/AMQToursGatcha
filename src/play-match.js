@@ -1,15 +1,16 @@
+import {ReviewHighlights} from './play-review-highlights.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
 import { makeMatch,advanceMatch,matchMove,matchView,fail } from './play-match-rules.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
-import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,playbackView} from './play-integrity.js';
+import {MatchReview,decoyHits,prepareAudioPool,audioManifest,loadedRounds,playbackView} from './play-integrity.js';
 import {sealPlayAudio,verifiedClipFailure} from './play-media.js';
 import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
 import {ngmcRatings} from './ngmc-ratings.js';
 import {PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 export class PlayMatch extends DurableObject {
-  constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
+  constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
   async initialize(id,format,players,lobby=null) {
@@ -63,6 +64,8 @@ export class PlayMatch extends DurableObject {
     if(activeRankedGame(state,now))for(const p of state.players){
       if(!p.left&&p.disconnectedAt!=null)next=Math.min(next,p.disconnectedAt+RECONNECT_MS);
     }
+    if (['finished','cancelled'].includes(state.phase) && !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length)
+      next=Math.min(next,now+2000);
     await this.ctx.storage.setAlarm(Math.min(next,now+86400000));
   }
   broadcast(){const state=this.read();if(!state)return;for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,{type:'state',state:matchView(state,who.id)});}}
@@ -179,7 +182,13 @@ export class PlayMatch extends DurableObject {
       let failure;
       try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
-      if(['propose','vote','withdraw','return-vote','return-request'].includes(message.type))this.reviewLog.add(state,input.who.id,message.type,{index:state.index,field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure});
+      if(['propose','vote','withdraw','return-vote','return-request'].includes(message.type)){
+        const proposal=message.type==='propose'&&!failure;
+        this.reviewLog.add({...state,index:before.index,phase:before.phase},input.who.id,message.type,{
+          field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure,
+          ...(proposal?{elapsedMs:at-before.startsAt,flags:decoyHits(state,{[message.field]:message.answer})}:{})
+        },at);
+      }
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
@@ -200,9 +209,25 @@ export class PlayMatch extends DurableObject {
     const state=this.read();
     return state?.phase==='finished'?matchRecords(state):archivedRecords(this.ctx.storage.sql,format,ratings);
   }
-  review(options){
+  async indexHighlights(match){
+    const pending=this.highlights.advance();
+    const count=this.highlights.count();
+    if(!pending && count){
+      const published=this.ctx.storage.sql.exec('SELECT data FROM review_meta WHERE id=5').toArray()[0];
+      if(Number(published?.data)!==count){
+        await this.env.PLAY_QUEUE.getByName('play-queues-v1').indexHighlights(match,count);
+        this.ctx.storage.sql.exec('INSERT OR REPLACE INTO review_meta VALUES(5,?,0)',String(count));
+      }
+    }
+    return pending;
+  }
+  async review(options){
     const detail=this.reviewLog.page(options);
     if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
+    if(detail && options.view==='highlights'){
+      const pending=await this.indexHighlights(detail.id);
+      detail.highlights={pending,total:this.highlights.count(),...this.highlights.list(options.player,options.offset)};
+    }
     return detail;
   }
   saveReview(value){
@@ -232,6 +257,10 @@ export class PlayMatch extends DurableObject {
     }
     if(['finished','cancelled'].includes(state.phase)){
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
+      if(!this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length){
+        if(await this.indexHighlights(state.id)){await this.ctx.storage.setAlarm(Date.now()+1000);return;}
+        this.ctx.storage.sql.exec("INSERT OR REPLACE INTO review_meta VALUES(4,'true',0)");
+      }
       if(Date.now()<state.until){await this.schedule();return;}
       for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');
       this.ctx.storage.sql.exec('DELETE FROM match_state');
