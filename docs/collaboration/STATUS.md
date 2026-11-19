@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha card footer alignment
+
+Source `89b2407` is live on Worker `929edaa2-ceb1-4432-a740-60e5097f41ba`. Showcase and auction card actions share a bottom row with the level badge. At very narrow widths, Showcase uses one column when needed to keep its buttons usable. Verified alignment at 320, 390, and 1440 pixels with deployed assets and demo data. The 12 focused tests and Worker build passed.
+
 ## Play Settings and AniList import diagnosis
 
 Source `8ab0b41` is live on Worker `06494de2-7c22-4747-b3a6-3d198d28dfb7`. Settings is in the Play avatar menu. A public AniList list succeeded from a local connection but returned HTTP 403 with an explicit manual-block message from an isolated Cloudflare preview. Play now reports AniList's refusal separately from username and privacy errors and preserves saved lists. AniList API access from Play remains blocked upstream. Passed all 552 tests and the build. Verified the deployed Settings UI and import error display with local fixtures at 320, 390, and 1440 pixels.
