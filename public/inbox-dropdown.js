@@ -1,7 +1,8 @@
-export function installInboxDropdown({anchor, href, player, load, rememberCards, inbox}) {
+export function installInboxDropdown({anchor, href, player, load, rememberCards, inbox, onCount}) {
   const bell = anchor.querySelector(".inbox-bell");
   const panel = anchor.querySelector(".inbox-pop");
   const list = panel.querySelector(".inbox-pop-list");
+  const markAll = panel.querySelector('[data-action="inbox-read"]');
   const desktop = matchMedia("(min-width: 851px)");
   let owner, generation = 0, items = [];
   bell.href = panel.querySelector(".inbox-all").href = href;
@@ -31,11 +32,15 @@ export function installInboxDropdown({anchor, href, player, load, rememberCards,
     const version = ++generation, id = owner;
     panel.hidden = false;
     bell.setAttribute("aria-expanded", "true");
+    markAll.disabled = true;
     list.textContent = "Loading notifications…";
     try {
       const feed = await load();
       if (generation !== version || player() !== id || feed.player !== id) return;
       rememberCards(feed.cards);
+      markAll.dataset.id = String(feed.latest || 0);
+      markAll.disabled = !feed.unread;
+      onCount(feed.unread);
       items = feed.items.slice(0, 6);
       if (items.length) list.innerHTML = items.map(row => inbox.rowButton(row, "peek")).join("");
       else list.textContent = "No notifications yet.";
@@ -67,5 +72,23 @@ export function installInboxDropdown({anchor, href, player, load, rememberCards,
   desktop.addEventListener("change", sync);
   window.addEventListener("popstate", () => close());
   window.addEventListener("hashchange", () => close());
-  return {sync, close, detail: id => inbox.detail(id, items)};
+  function markRead(id, all, remaining) {
+    if (panel.hidden) return;
+    if (all && remaining) { open(); return; }
+    for (const row of items) {
+      if (all ? row.id > id : row.id !== id) continue;
+      row.inbox_read = 1;
+      const button = list.querySelector('[data-action="inbox-peek"][data-id="' + row.id + '"]');
+      if (!button) continue;
+      button.dataset.unread = "false";
+      button.querySelector(".inbox-dot").setAttribute("aria-label", "Read");
+      const check = button.nextElementSibling;
+      if (document.activeElement === check) button.focus();
+      check.disabled = true;
+      check.title = "Already read";
+      check.setAttribute("aria-label", "Already read · " + button.querySelector("b").textContent);
+    }
+    markAll.disabled = !remaining;
+  }
+  return {sync, close, markRead, detail: id => inbox.detail(id, items)};
 }

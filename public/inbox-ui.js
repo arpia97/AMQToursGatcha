@@ -73,7 +73,12 @@ export function createInbox({escape:e,cardBy,routeHref}) {
   }
   function rowButton(r,action="item"){
     const [title,detail]=copy(r), d=new Date(r.created);
-    return '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
+    const open = '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
+    const label = r.inbox_read ? "Already read" : "Mark as read";
+    return '<div class="inbox-entry">' + open +
+      '<button type="button" class="inbox-check" data-action="inbox-check" data-id="' + r.id +
+      '" title="' + label + '" aria-label="' + label + ' · ' + e(title) + '"' +
+      (r.inbox_read ? ' disabled' : '') + '>✓</button></div>';
   }
   function render(id) {
     if(!id)return '<h1>Notifications</h1><button class="button" data-action="signin-form">Sign in</button>';
@@ -85,7 +90,7 @@ export function createInbox({escape:e,cardBy,routeHref}) {
       rows+=rowButton(r);
     }
     const button=(action,label,extra="")=>'<button class="secondary" data-action="inbox-'+action+'" '+extra+'>'+label+'</button>';
-    return '<section class="inbox-feed"><header><div><span class="eyebrow">Gacha</span><h1>Notifications</h1></div><button class="secondary" data-action="edit-profile" data-settings-section="notifications">Settings</button></header><div class="inbox-tools"><div class="inbox-tabs">'+button("all","All",'aria-pressed="'+!unread+'"')+button("unread","Unread · "+data.unread,'aria-pressed="'+unread+'"')+'</div><select id="inbox-group" aria-label="Notification category"><option value="">All categories</option>'+Object.entries(NOTICE_GROUPS).map(([k,v])=>'<option value="'+k+'" '+(k===group?"selected":"")+'>'+v+'</option>').join("")+'</select>'+button("read","Mark all read",data.unread?"":"disabled")+'</div>'+(rows?rows+"</div>":'<p class="inbox-empty">No notifications in this view.</p>')+'<footer>'+(cursors.length?button("prev","← Newer"):"")+(data.more?button("next","Older →"):"")+'</footer></section>';
+    return '<section class="inbox-feed"><header><div><span class="eyebrow">Gacha</span><h1>Notifications</h1></div><button class="secondary" data-action="edit-profile" data-settings-section="notifications">Settings</button></header><div class="inbox-tools"><div class="inbox-tabs">'+button("all","All",'aria-pressed="'+!unread+'"')+button("unread","Unread · "+data.unread,'aria-pressed="'+unread+'"')+'</div><select id="inbox-group" aria-label="Notification category"><option value="">All categories</option>'+Object.entries(NOTICE_GROUPS).map(([k,v])=>'<option value="'+k+'" '+(k===group?"selected":"")+'>'+v+'</option>').join("")+'</select>'+button("read","Mark all as read",data.unread?"":"disabled")+'</div>'+(rows?rows+"</div>":'<p class="inbox-empty">No notifications in this view.</p>')+'<footer>'+(cursors.length?button("prev","← Newer"):"")+(data.more?button("next","Older →"):"")+'</footer></section>';
   }
   function detail(id, items=data?.items){
     const row=items?.find(r=>r.id===id);if(!row)return "";

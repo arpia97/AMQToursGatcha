@@ -14,7 +14,7 @@
 .inbox-day { font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:#a8abb8; margin:18px 0 7px }
 .inbox-group,.inbox-prefs section { border:1px solid #333541; border-radius:10px; background:#1a1c24; overflow:hidden }
 .inbox-row { box-sizing:border-box; display:flex; align-items:center; gap:13px; width:100%; min-height:60px; padding:10px 14px; color:inherit; font:inherit; text-align:left; background:transparent; border:0; border-radius:0 }
-.inbox-row+.inbox-row { border-top:1px solid #2e303a }
+.inbox-entry+.inbox-entry { border-top:1px solid #2e303a }
 .inbox-row[data-unread=true] { background:linear-gradient(90deg,#b6e2c509,transparent 65%) }
 .inbox-row:hover { background:#23262e }
 .inbox-dot { width:5px; height:5px; border-radius:50%; flex:none }
@@ -65,3 +65,10 @@ dialog.settings-modal { width:min(660px,calc(100vw - 26px)) }
 .inbox-pop-list:has(.inbox-row) { padding:0; color:var(--text); }
 .inbox-pop-list .inbox-row { gap:9px; }
 .inbox-all { display:block; padding:12px 16px; color:var(--mint); border-top:1px solid var(--border); }
+
+.inbox-pop header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.inbox-entry { display:flex; align-items:center; }
+.inbox-entry .inbox-row { min-width:0; flex:1; }
+.inbox-check { flex:none; width:32px; height:32px; margin-right:8px; padding:0; font-size:16px; color:var(--mint); background:transparent; border:1px solid transparent; border-radius:7px; }
+.inbox-check:hover:enabled,.inbox-check:focus-visible { border-color:var(--mint); }
+.inbox-check:disabled { color:var(--muted); opacity:.38; }

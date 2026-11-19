@@ -361,9 +361,11 @@ const cardBy = (id) =>
     image: "",
   };
 const inbox = createInbox({escape,cardBy,routeHref});
+let inboxWrites = Promise.resolve();
 const inboxDropdown = installInboxDropdown({
   anchor: $(".inbox-anchor"), href: routeHref("notifications"), player: () => state?.me?.id,
   load: () => api("inbox"), rememberCards, inbox,
+  onCount: unread => {state.inboxUnread = unread; updateInboxBadge();},
 });
 const image = (c) =>
   c.image
@@ -2284,11 +2286,18 @@ document.addEventListener("click", async (ev) => {
   }
   if(a.startsWith("inbox-")) {
     const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
-    if(type==="item" || type==="peek" || type==="read"){
+    if(type==="item" || type==="peek" || type==="check" || type==="read"){
       const html=type==="peek" ? inboxDropdown.detail(id) : type==="item" ? inbox.detail(id) : "";
       let result;
       try {
-        result=await api("inbox-read",{id:type==="read"?inbox.watermark():id,all:type==="read"});
+        const all = type === "read";
+        const target = all && !t.dataset.id ? inbox.watermark() : id;
+        const write = inboxWrites.then(() => state.me?.id === player
+          ? api("inbox-read",{id:target,all}) : null);
+        inboxWrites = write.catch(() => {});
+        result = await write;
+        if (!result || state.me?.id !== player) return;
+        inboxDropdown.markRead(target, all, result.unread);
       } catch (error) {
         toast(error.message, true);
         return;
@@ -2298,7 +2307,7 @@ document.addEventListener("click", async (ev) => {
       if(type==="peek" && !t.isConnected){updateInboxBadge();return;}
       if(type==="peek") inboxDropdown.close(true);
       if(html)modal(html);
-      if(type==="peek" && page()!=="notifications"){updateInboxBadge();return;}
+      if(page()!=="notifications"){updateInboxBadge();return;}
     }else inbox.view(type);
     await loadDynamic(); render(); return;
   }
