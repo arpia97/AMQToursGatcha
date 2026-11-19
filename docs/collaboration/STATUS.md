@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play match-level inactivity rule
+
+Source `9d36e82` is live on Worker `c8be795a-ec6c-414a-8c8a-194548c3d776`. Three consecutive completed matchmaking matches with no attempts trigger a 24-hour lock across queues. Incorrect guesses, Arena titles, and Arena votes break the streak. Cancelled matches, early forfeits, and custom lobbies are outside the streak. The former song-level bans are ignored. Credits depend on completion and connection at the finish. Missed songs and inactivity strikes do not affect the payout. All 556 tests, syntax checks, and the Worker dry run passed. An isolated Worker verified payout, streak reset, and cross-pool enforcement. The deployed notice was verified in Chrome at 390 and 1440 pixels using fixture socket events.
+
 ## Play completion credits and inactivity bans
 
 Source `fb0bd09` is live on Worker `41516e5f-38a6-4220-9b3b-e0aa6ef48625`. Matchmaking credits require a normal finish and exclude leavers, players still disconnected at the finish, and players who end on at least three unanswered songs. Early forfeits issue no completion credits. Three consecutive unanswered songs in one match block all matchmaking queues for 24 hours. Incorrect guesses and Arena ballot votes break the streak. Affected players can finish the current game, and the existing ranked leave penalties still apply. All 556 tests, syntax checks, and the Worker dry run passed. An isolated Worker verified enforcement across modes and pools. The deployed ban notice was checked in Chrome at 390 and 1440 pixels using fixture match states.
