@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play account header spacing
+
+Source `e296440` is live on Worker `39bd9db9-3247-4364-9231-94a89d532083`. Play and Gacha share the same header dimensions, spacing, and account control styles. On narrow screens, the Play queue indicator gets its own row. All 552 tests, the syntax check, and the Worker build passed. Verified live assets and measured matching spacing in both shells at nine widths between 320px and 1440px using browser fixtures.
+
 ## Owned Gacha card buttons
 
 Source `ee4462a` is live on Worker `ca31051e-fd32-4538-9c09-f2ba95419d96`. Showcase is the labeled owned-card action. For Trade uses the scales icon between Protect and Favorite. Corrected demo routing for the trade marker. Passed 16 focused tests and verified desktop and mobile toggles in the browser at 1440px, 390px and 320px. Verified the deployed assets.
