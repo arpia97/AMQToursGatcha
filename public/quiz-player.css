@@ -34,9 +34,10 @@
 .quiz-countdown-meter .quiz-countdown-fill {inset:auto 0 0;height:5px;border-radius:5px;background:var(--mint)}
 .quiz-countdown-meter.is-urgent .quiz-countdown-fill {background:var(--pink)}
 .quiz-countdown-meter [role=timer] {position:static;display:inline;color:var(--mint);font:700 22px Consolas,monospace;text-transform:none;text-shadow:none}
-.quiz-question #quiz-answer-form {display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+.quiz-question #quiz-answer-form {display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:12px;align-items:center}
 .quiz-question .quiz-answer-field {grid-column:1/-1}
-.quiz-question #quiz-lock-answer {justify-self:start}
+.quiz-question #quiz-lock-answer {grid-column:2;justify-self:center}
+.quiz-question #quiz-answer-form > [data-quiz-skip] {grid-column:3;justify-self:end;max-width:100%}
 .quiz-question .quiz-song-progress {margin-top:20px}
 .quiz-question .quiz-answer-result {border:0;border-left:3px solid var(--quiz-feedback);text-align:left;background:color-mix(in srgb,var(--quiz-feedback) 5%,var(--panel))}
 @media(max-width:850px) {

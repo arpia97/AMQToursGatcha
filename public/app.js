@@ -1590,7 +1590,7 @@ function profile() {
     pk = p.stats.pickems,
     rate = pk.total ? Math.round((pk.correct / pk.total) * 100) + "%" : "—";
   const heading =
-    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div>${own ? btn("Settings", "edit-profile", "", "secondary") : ""}</div>` +
+    `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div></div>` +
     profileCardTabs(ui.profileView, friendButton(p,state.me?.id,escape));
   if(ui.profileView==='quiz')return heading+profileQuizPanel(ui.profileQuizData,escape,ui.profileQuizSort);
   if (ui.profileView !== "overview")
