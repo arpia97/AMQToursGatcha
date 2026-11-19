@@ -7,6 +7,7 @@ export const arenaRules = Object.freeze({
   gatherMs: 15000,
   smallFieldWaitMs: 90000,
   songsPerFixture: 5,
+  guessSeconds: 20,
   startingRating: 1000,
 });
 

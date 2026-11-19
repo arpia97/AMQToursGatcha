@@ -13,7 +13,7 @@ import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack} from './ngmc-ui.js';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
-import {PLAY_AUDIO_PROTOCOL} from './play-audio-format.js';
+import {PLAY_AUDIO_PROTOCOL, defaultPlayGuessSeconds} from './play-audio-format.js';
 const labels={anime:'Anime',song:'Song Title',artist:'Artist'};
 const formats={'1v1':'1v1','3v3':'3v3','1-team':'1-Team'};
 const renderedMarkup=new WeakMap();
@@ -343,7 +343,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const modeIcon=arena()?'<span class="score-formation"><i></i><i></i><i></i><i></i></span>':ngmc?'<span class="score-formation">'+ '<i></i>'.repeat(8)+'</span>':'<span class="score-note">♪</span>';
     return '<div class="play-lobby-browser '+(ngmc?'ngmc-queue':'song-queue')+'">'+
       '<header class="play-queue-banner"><div><span class="sa-eyebrow">Matchmaking</span><h1>'+(arena()?'2v2 Arena':ngmc?'NGMC Ranked':'Song/Artist')+'</h1>'+
-      '<p>'+(arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture':ngmc?'35 songs · 20s guesses · 5 lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div aria-hidden="true">'+modeIcon+'</div></header>'+
+      '<p>'+(arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture · '+arenaRules.guessSeconds+'s guesses':ngmc?'35 songs · 20s guesses · 5 lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div aria-hidden="true">'+modeIcon+'</div></header>'+
       '<section class="sa-lobby play-queue-card"><h2>Find Match</h2><div class="score-formats" role="group" aria-label="Match format">'+formatButtons+'</div>'+
       '<div class="score-settings"><label>Audio Server<select id="sa-server" '+(idle?'':'disabled')+'>'+
       ['EU','NAE','NAW'].map(s=>'<option '+(s===server?'selected':'')+'>'+s+'</option>').join('')+'</select></label>'+autoReadyHTML(autoReady)+'</div>'+
@@ -367,10 +367,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(ranked())return heading+ngmcArena(match,answerForm);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
     const versus=!arena()&&!match.lobby&&match.teams.length===2;
-    return heading+'<div class="sa-ready-wrap"></div><div class="song-broadcast '+(arena()?'cooperative arena-match':versus?'versus':'cooperative')+'"><div class="sa-scoreboard"></div>'+
+    const scoreboard='<div class="sa-scoreboard"></div>';
+    return heading+'<div class="sa-ready-wrap"></div><div class="song-broadcast '+(arena()?'arena-match':versus?'versus':'cooperative')+'">'+
+      (arena()?'':scoreboard)+
       '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+totalSongs+'</small></h2></div>'+roundDialHTML+'</header>'+
       '<div class="song-broadcast-body"><div class="sa-reveal-wrap"></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
-      (match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section></div>';
+      (match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section>'+(arena()?scoreboard:'')+'</div>';
   }
   function winnerText(){if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=match.format==='1v1'?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
@@ -512,8 +514,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     updateReadyCheck(now);
     if(sealedCache&&match.phase==='guess')prepareSealedClip(now);
     // Earlier matches use direct MP3s through their original playback path.
-    if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,ranked()?20:30);};audio.load();}}
-    if(!sealedCache&&match.phase==='guess'&&preparedIndex===match.index&&seekIndex!==match.index&&audio.readyState>=1&&!unlocking){audio.currentTime=sampleStart(audio.duration,match.samplePosition,ranked()?20:30);seekIndex=match.index;}
+    if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));};audio.load();}}
+    if(!sealedCache&&match.phase==='guess'&&preparedIndex===match.index&&seekIndex!==match.index&&audio.readyState>=1&&!unlocking){audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));seekIndex=match.index;}
     const counterTimer=root.querySelector('[data-counter-timer]');if(counterTimer)counterTimer.textContent=Math.max(0,Math.ceil((match.counterDeadline-now)/1000))+'s';
     updateRoundDial(root.querySelector('.ngmc-dial'),match,now);
     if(match.phase==='guess'&&now>=match.startsAt&&now<match.until){
@@ -521,7 +523,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const skip=root.querySelector('[data-sa-action=skip]');if(skip&&ready&&room?.readyState===1)skip.disabled=false;
       const input=root.querySelector('#sa-'+(teamFields()?selectedField:'anime'));
       if(input?.disabled&&!pendingLock&&pendingArtistKey===null&&ready&&room?.readyState===1){render();}
-      if(ready&&playingIndex!==match.index&&preparedIndex===match.index&&audio.readyState>=1){playingIndex=match.index;audio.currentTime=Math.min(Math.max(0,audio.duration-.05),(sealedCache?0:sampleStart(audio.duration,match.samplePosition,ranked()?20:30))+Math.max(0,(now-match.startsAt)/1000));const round=match;
+      if(ready&&playingIndex!==match.index&&preparedIndex===match.index&&audio.readyState>=1){playingIndex=match.index;audio.currentTime=Math.min(Math.max(0,audio.duration-.05),(sealedCache?0:sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode)))+Math.max(0,(now-match.startsAt)/1000));const round=match;
         audio.play().then(()=>{
           if(match?.id!==round.id||match.index!==round.index||match.phase!=='guess')return;
           if(!tabbedThisRound&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select'))input?.focus({preventScroll:true});

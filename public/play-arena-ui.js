@@ -1,5 +1,7 @@
 import {arenaRules} from './play-arena-config.js';
 
+const thumbsUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11m7-16-1 5h6.2a2 2 0 0 1 2 2.4l-1.5 7a2 2 0 0 1-2 1.6H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1.8a2 2 0 0 0 1.8-1.1L12 2a2 2 0 0 1 2 3Z"/></svg>';
+
 export function arenaQueueInfo() {
   return '<section class="sa-lobby play-queue-card"><h2>Round Robin</h2><p>Queue solo. Your rating helps balance the pairs, and your partner stays with you for the tournament.</p>' +
     '<p>Four or more pairs are preferred. Two pairs can start after ' + arenaRules.smallFieldWaitMs / 1000 + ' seconds.</p></section>';
@@ -17,7 +19,7 @@ export function arenaBoard(match, esc) {
   const leaders = standings.filter(row => row.points === standings[0].points && row.difference === standings[0].difference);
   const title = final ? (leaders.length > 1 ? 'Joint Winners' : 'Winner') : 'Round ' + (current + 1) + ' / ' + rounds.length;
   const headline = final ? leaders.map(row => names(row.team)).join(' · ') :
-    '<span>' + names(mine) + '</span><strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] +
+    '<span class="arena-mine">' + names(mine) + '</span><strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] +
     '</strong><span>' + names(opponent) + '</span>';
   const table = '<div class="arena-table-scroll"><table><thead><tr><th>Pair</th><th>W–L–T</th><th>Diff</th><th>Pts</th></tr></thead><tbody>' +
     standings.map(row => '<tr' + (row.team === mine ? ' class="arena-mine"' : '') + '><th scope="row">' + names(row.team) + '</th><td>' +
@@ -39,7 +41,7 @@ export function arenaBallot(match, esc, canVote) {
     const title = option.answer ? esc(option.answer) : 'No title submitted';
     const vote = option.choice ? '<button class="button secondary arena-vote" type="button" data-ballot="anime" data-choice="' +
       esc(option.choice) + '" aria-pressed="' + option.selected + '" aria-label="Vote for ' + title + '"' +
-      (canVote ? '' : ' disabled') + '>' + (option.selected ? 'Voted' : 'Vote') + '</button>' : '';
+      (canVote ? '' : ' disabled') + '>' + thumbsUp + '</button>' : '';
     return '<div class="arena-option" data-selected="' + option.selected + '"><div><small>' + name +
       '</small><strong>' + title + '</strong></div>' + (option.choice ? '<span class="arena-vote-count">' +
       option.votes + (option.votes === 1 ? ' vote' : ' votes') + '</span>' : '') + vote + '</div>';

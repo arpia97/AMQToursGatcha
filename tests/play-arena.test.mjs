@@ -42,6 +42,7 @@ test('Arena keeps pairs balanced and fixed, rotates opponents and scores each co
   }
   for (let index=0;index<songs.length;index++) {
     assert.equal(s.phase,'guess');
+    assert.equal(s.until-s.startsAt,20_000);
     const now=s.startsAt+10;
     const [first, partner]=s.players.filter(player=>player.team===0);
     const outsider=s.players.find(player=>player.team!==0);

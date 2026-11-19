@@ -1,4 +1,4 @@
-import { audioBase64, audioBytes, PLAY_AUDIO_IV_BYTES, PLAY_AUDIO_OVERHEAD, playAudioBytes } from "../public/play-audio-format.js";
+import { audioBase64, audioBytes, PLAY_AUDIO_IV_BYTES, PLAY_AUDIO_OVERHEAD, playAudioBytes, defaultPlayGuessSeconds } from "../public/play-audio-format.js";
 import { QUIZ_SERVERS, quizAudioUrl } from "../public/quiz-audio-cache.js";
 import { clipMp3, mp3TagLength } from "./play-mp3.js";
 
@@ -131,7 +131,7 @@ export async function playableMirror(source, fetcher) {
 
 async function encryptClip(ticket, server, fetcher) {
   const sources = new Set([quizAudioUrl(ticket.source, server), ticket.source, ...QUIZ_SERVERS.map(region => quizAudioUrl(ticket.source, region))]);
-  const duration = ticket.mode === "ngmc-ranked" ? 20 : 30;
+  const duration = defaultPlayGuessSeconds(ticket.mode);
   const payloadSize = playAudioBytes(ticket.mode);
   for (const source of sources) {
     try {

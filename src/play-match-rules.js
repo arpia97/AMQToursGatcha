@@ -1,3 +1,4 @@
+import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
@@ -78,7 +79,7 @@ export function advanceMatch(state,now=Date.now()) {
     if((!ngmc||state.counters.every(Boolean)||now>=state.counterDeadline)&&active.every(p=>playerAudioReady(state,p))) {
       state.phase='guess';state.startsAt=now;
       if(state.index===0)for(const p of active)if(p.disconnectedAt!=null)p.disconnectedAt=state.startsAt;
-      state.until=state.lobby?.seconds===0?8.64e15:state.startsAt+(state.lobby?.seconds??(ngmc?20:30))*1000;
+      state.until=state.lobby?.seconds===0?8.64e15:state.startsAt+(state.lobby?.seconds??defaultPlayGuessSeconds(state.mode))*1000;
     } else if(now>=state.until){
       if(state.arena && active.some(p=>p.disconnectedAt!=null)){
         state.until=Math.max(now+1,...active.filter(p=>p.disconnectedAt!=null).map(p=>p.disconnectedAt+RECONNECT_MS));
