@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play matchmaking credit rewards
+
+Source `7b32cbd` is deployed on Worker `0aa460cd-0840-48bf-8805-62208dd5482f`. All seven supported matchmaking formats award completion credits to players who stay through a finished match. Winners receive a 10% bonus, including official forfeit wins and joint Arena winners. Cooperative 1-Team has no win bonus. Custom lobbies, cancelled matches, and departed players receive no payout. A match receipt protects wallet, lifetime earned credits, and notices from duplication. All 555 tests, syntax checks, and the Worker dry run passed. Isolated Workers verified actual wallet credits and retry safety. Browser checks used the deployed Play frontend with fixture results at 390 and 1440 pixels.
+
 ## Editable 1v1 lobbies and shared Quiz layout
 
 Source `1642f25` is deployed on Worker `0fa01449-3ccd-4c96-9ad4-d8d6679d9026`. Hosts can set song count and guess time when creating an unranked 1v1 lobby and edit both in the room. Defaults are 20 songs and 20 seconds. An empty timer enables unlimited guessing. The Gacha and Play Quiz pages share the quiz list, lobby, gameplay, results, and mobile styles. All 554 tests, syntax checks, and the Worker dry run passed. An isolated Worker test verified edited settings reach the match and preserve ranked standings. Browser checks verified lobby editing locally and both deployed Quiz layouts at 320, 390 and 1440 pixels using the same fixture data.
