@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha card actions, filters, and account header
+
+Source `5234aa9` is live on Worker `33573864-6bef-4db2-8f6d-417a4da4688c`. Owned cards use back-only actions with the Showcase pushpin and account-backed Favorites. The approved account menu, unread count, Settings display preferences and shared filters shipped in the same release. All 552 tests passed, including independent private favorite state. Browser checks covered actions, persistence, filters, and the header at 320, 390, and 1440 pixels. Both GitHub workflows passed. Verified the canonical Gacha HTML and assets and the updated production account-state response.
+
 ## Gacha card filters and action previews
 
 Implemented the shared filter toolbar locally for Collection, Catalogue, profile collections and wishlists, player marketplace, user auctions, trades, and Alchemy. Strict compares the complete card name or anime title before pagination. Filters expose removable chips and keep existing sort and ownership controls. Validated the desktop and mobile UI with local demo data. All 551 tests and the Worker dry-run build passed. The three Favorites and card action layouts are standalone previews under the adjacent card-design-review folder. Gacha deployment is pending.
