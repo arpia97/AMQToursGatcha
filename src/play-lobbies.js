@@ -1,12 +1,11 @@
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
-import {lobbyGameMode} from '../public/play-mode-rules.js';
+import {DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
 
-const lobbyCapacity = format => format === ARENA_LOBBY_FORMAT ? arenaRules.maxPlayers : 8;
 
 export function lobbySettings(data){
   const {format,seconds}=data;
@@ -14,6 +13,7 @@ export function lobbySettings(data){
   if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
   const selection=pool==='watched'?{pool}:{};
   if(format===ARENA_LOBBY_FORMAT)return {format,seconds:arenaRules.guessSeconds,...selection};
+  if(format===DUEL_LOBBY_FORMAT)return {format,songs:duelRules.songs,seconds:duelRules.guessSeconds,...selection};
   if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
   const songs=data.songs==null||data.songs===''?20:data.songs;
   if(!['lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
@@ -174,6 +174,7 @@ export class PlayLobbies {
     if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
     const settings=JSON.parse(row.settings);
     if(settings.format==='lobby-ngmc'&&![6,8].includes(players.length))fail('NGMC needs 6 players for 3v3 or 8 for 4v4.');
+    if(settings.format===DUEL_LOBBY_FORMAT&&players.length!==2)fail('1v1 needs two players.');
     if(settings.format===ARENA_LOBBY_FORMAT&&!arenaPlayerCounts.includes(players.length))
       fail('Arena needs 4, 8, 12 or 16 players.');
     const match=crypto.randomUUID(),now=Date.now(),roster=players.map(p=>({...p,avatar:JSON.parse(p.avatar)}));

@@ -24,9 +24,11 @@ export class PlayMatch extends DurableObject {
         watched=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
         if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
       }
+      const sampleMode=format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
+        format===ARENA_FORMAT?ARENA_FORMAT:'song-artist';
       let library;
       try{
-        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
+        library=await quizLibraryRequest(this.env,'/play-sample',{mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
       }catch(error){
         if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
         throw error;

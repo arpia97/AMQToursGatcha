@@ -1,7 +1,9 @@
 # AMQ Tours Play
 
-The `/play/song-artist` and `/play/ngmc-ranked` modes share the existing Gacha
-login. 2v2 Arena and Speed Showdown remain placeholders.
+Play uses the existing Gacha login. 1v1 Ranked, 2v2 Arena, Song/Artist, and
+NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
+1v1 custom lobbies are unranked and support Random and Watched. Arena plays
+20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
 Play Rankings includes NGMC Ranked, Song/Artist 1v1, Song/Artist 3v3 and Quiz.

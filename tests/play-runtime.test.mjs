@@ -135,13 +135,13 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     await socket.wait(m=>m.type==='lobby'&&m.code===arenaLobby.code);
     socket.send({type:'lobby-ready',ready:true});
   }
-  await host.wait(m=>m.type==='lobby'&&m.players.length===4&&m.players.slice(1).every(p=>p.ready)&&m.songs===5);
+  await host.wait(m=>m.type==='lobby'&&m.players.length===4&&m.players.slice(1).every(p=>p.ready)&&m.songs===20);
   host.send({type:'lobby-start'});
   const {match:arenaId}=await host.wait(m=>m.type==='matched');
   const arenaRoom=await connect(0,arenaId);
   const {state:arenaMatch}=await arenaRoom.wait(m=>m.type==='state');
   assert.equal(arenaMatch.mode,'2v2-arena');
-  assert.equal(arenaMatch.total,5);
+  assert.equal(arenaMatch.total,20);
   assert.equal(arenaMatch.lobby.code,arenaLobby.code);
   assert.equal(arenaMatch.lobby.seconds,20);
   assert.equal(arenaMatch.readyDeadline,undefined);
@@ -388,6 +388,50 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.deepEqual(rows.rows.map(r=>r.record),[[1,0,0],[0,1,0]]);
     assert.equal(rows.rows[0].name,'Local Player '+(pool==='random'?'1':'2'));
     for(const connection of [...queues,...rooms])connection.ws.close();
+
+    const [host,guest,visitor]=await Promise.all([connect(0),connect(1),connect(2)]);
+    host.send({type:'lobby-create',format:'lobby-duel',pool});
+    const lobby=await host.wait(m=>m.type==='lobby'&&m.format==='lobby-duel');
+    await guest.wait(m=>m.lobbies?.some(room=>room.code===lobby.code));
+    guest.send({type:'lobby-join',code:lobby.code});
+    await guest.wait(m=>m.type==='lobby'&&m.players.length===2);
+    visitor.send({type:'lobby-join',code:lobby.code});
+    await visitor.wait(m=>m.type==='error'&&m.message.includes('full'));
+    guest.send({type:'lobby-ready',ready:true});
+    await host.wait(m=>m.type==='lobby'&&m.players[1]?.ready&&(pool==='random'||m.watchedPool?.eligible>=20));
+    host.send({type:'lobby-start'});
+    const {match:customId}=await host.wait(m=>m.type==='matched');
+    const customRooms=[await connect(0,customId),await connect(1,customId)];
+    for(const room of customRooms){
+      const manifest=await room.wait(m=>m.type==='manifest');
+      assert.equal(manifest.mode,'1v1-ranked');
+      assert.equal(manifest.total,20);
+      room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
+      room.send({type:'ready'});
+    }
+    const duel=(await customRooms[0].wait(m=>m.state?.phase==='guess')).state;
+    assert.equal(duel.format,'lobby-duel');
+    assert.equal(duel.lobby.code,lobby.code);
+    assert.equal(duel.pool,pool);
+    assert.equal(duel.readyDeadline,undefined);
+    assert.equal(duel.until-duel.startsAt,20000);
+    if(pool==='random'){
+      await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+customId);
+      await mf.dispatchFetch(base+'/api/__expire?match='+customId);
+    }else host.send({type:'lobby-leave'});
+    const completed=(await customRooms[1].wait(m=>m.state?.phase==='finished')).state;
+    assert.equal(completed.ratings,undefined);
+    await guest.wait(m=>m.type==='lobby-ended');
+    const current=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
+    assert.deepEqual(current.rows,rows.rows);
+    guest.send({type:'lobby-return',match:customId});
+    await guest.wait(m=>m.type==='lobby'&&!m.busy&&m.host==='2');
+    for(const socket of [host,guest]){
+      const after=socket.messages.length;
+      socket.send({type:'lobby-leave'});
+      await socket.wait(m=>m.type==='idle'&&socket.messages.indexOf(m)>=after);
+    }
+    for(const connection of [host,guest,visitor,...customRooms])connection.ws.close();
   }
 
 });

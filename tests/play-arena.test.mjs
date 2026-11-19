@@ -14,6 +14,7 @@ test('Arena batches the oldest whole group and schedules every opponent once', (
   assert.equal(batch(13,Infinity).size,12);
   assert.equal(batch(19,0).size,16);
   assert.throws(() => arenaSongCount(10));
+  assert.deepEqual([4,8,12,16].map(arenaSongCount),[20,60,100,140]);
   for (const n of [2,4,6,8]) {
     const {rounds} = arenaSchedule(n);
     const opponents = new Set();
@@ -77,7 +78,7 @@ test('Arena keeps pairs balanced and fixed, rotates opponents and scores each co
   }
   assert.equal(s.phase,'finished');
   const standings=arenaStandings(s.arena);
-  assert.deepEqual(standings[0],{team:0,won:3,drawn:0,lost:0,points:9,difference:15});
+  assert.deepEqual(standings[0],{team:0,won:3,drawn:0,lost:0,points:9,difference:arenaSongCount(8)});
   assert.ok(standings.slice(1).every(row=>row.lost===1&&row.drawn===2&&row.points===2));
   assert.deepEqual(matchView(s,'0').arena.standings,standings);
 });

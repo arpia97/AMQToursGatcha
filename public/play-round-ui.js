@@ -1,4 +1,4 @@
-import {DUEL_FORMAT, soloVersus} from './play-mode-rules.js';
+import {isDuelFormat, soloVersus} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
 const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
@@ -39,7 +39,7 @@ export function songTeamsHTML(match,esc){
     return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
       const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
-      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,match.format===DUEL_FORMAT?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
+      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,isDuelFormat(match.format)?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }
@@ -48,7 +48,7 @@ export function answerMark(correct){
 }
 export function answerSideHTML(match,row,team,esc,animeTitle){
   const roster=match.players.filter(p=>p.team===team),solo=soloVersus(match.format);
-  const answerFields=match.format===DUEL_FORMAT?[[ 'anime',fields.anime ]]:Object.entries(fields);
+  const answerFields=isDuelFormat(match.format)?[[ 'anime',fields.anime ]]:Object.entries(fields);
   return '<div class="sa-answer-summary">'+answerFields.map(([field,label])=>{
     const result=row?.results.find(r=>roster.some(p=>p.id===r.id)&&(solo||Object.hasOwn(r.answers,field)));
     const owner=row?roster.find(p=>p.id===result?.id):roster.find(p=>p.submittedFields?.includes(field));
@@ -63,12 +63,12 @@ export function versusHTML(match,row,esc,animeTitle){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format);
   const ffa=match.format==='lobby-ffa';
   const teams=ffa?[me.team,...match.players.filter(p=>p.team!==me.team).map(p=>p.team)]:match.teams.length===1?[me.team]:[me.team,1-me.team];
-  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0,match.format===DUEL_FORMAT?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
+  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0,isDuelFormat(match.format)?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc,animeTitle)+'</section>').join('')+'</div>';
 }
 export function songResultsHTML(match,esc,animeTitle){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format)||match.format==='lobby-ffa';
   const versus=match.teams.length===2&&match.format!=='lobby-ffa';
-  return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0,match.format===DUEL_FORMAT?1:3)+(versus?scoreBadge(row.points?.[1-me.team]??0,match.format===DUEL_FORMAT?1:3):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
+  return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0,isDuelFormat(match.format)?1:3)+(versus?scoreBadge(row.points?.[1-me.team]??0,isDuelFormat(match.format)?1:3):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc,animeTitle)+'</details>').join('')+'</div>';
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;

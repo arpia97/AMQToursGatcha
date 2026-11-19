@@ -1,10 +1,9 @@
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from './play-arena-config.js';
-import {lobbyGameMode} from './play-mode-rules.js';
+import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from './play-mode-rules.js';
 import {poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
-export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena'};
-const lobbyCapacity = format => format === ARENA_LOBBY_FORMAT ? arenaRules.maxPlayers : 8;
+export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena',[DUEL_LOBBY_FORMAT]:'1v1 Unranked'};
 function poolPicker(value='random',disabled=false,id=''){
   return '<label>Song Pool<select name="pool" '+(id?'id="'+id+'" ':'')+(disabled?'disabled':'')+'><option value="random">Random</option><option value="watched" '+(value==='watched'?'selected':'')+'>Watched</option></select></label>';
 }
@@ -14,14 +13,15 @@ export function lobbyDirectoryHTML(lobbies,mode,enabled,esc){
     (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><span class="lobby-pool-label" data-song-pool="'+(room.pool==='watched'?'watched':'random')+'">'+poolName(room.pool)+'</span><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/'+lobbyCapacity(room.format)+' · '+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=lobbyCapacity(room.format)?'disabled':disabled)+'>'+(room.players>=lobbyCapacity(room.format)?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
 export function lobbyDialog(action,mode,room,send,pool='random'){
-  const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT;
+  const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT,duel=mode===DUEL_FORMAT;
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
   const dialog=document.createElement('dialog');
   dialog.className='sa-song-dialog play-lobby-dialog';
   dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
     (create&&arena?'<p>2v2 Arena · 4, 8, 12 or 16 players</p>':'')+
-    (create&&!ngmc&&!arena?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
+    (create&&duel?'<p>1v1 Unranked</p>':'')+
+    (create&&!ngmc&&!arena&&!duel?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
     (create?poolPicker(pool):'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
@@ -33,7 +33,7 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
     event.preventDefault();
     const values=new FormData(event.currentTarget);
     const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{pool:values.get('pool'),format:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||20),seconds:ngmc?20:30});
+    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||20),seconds:ngmc?20:30});
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
@@ -43,6 +43,9 @@ export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="c
 function lobbySettings(lobby, settings, host, draft, esc) {
   const pool=poolPicker(settings.pool,!host,'sa-lobby-pool');
   const save=host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'';
+  if(lobby.format===DUEL_LOBBY_FORMAT){
+    return '<dl class="room-rules"><div><dt>Players</dt><dd>2</dd></div><div><dt>Songs</dt><dd>'+duelRules.songs+'</dd></div><div><dt>Guess Time</dt><dd>'+duelRules.guessSeconds+' seconds</dd></div></dl>'+pool+save;
+  }
   if (lobby.format === ARENA_LOBBY_FORMAT) {
     return '<dl class="room-rules"><div><dt>Players</dt><dd>4, 8, 12 or 16</dd></div><div><dt>Songs per Fixture</dt><dd>'+arenaRules.songsPerFixture+'</dd></div><div><dt>Guess Time</dt><dd>'+arenaRules.guessSeconds+' seconds</dd></div></dl>'+pool+save;
   }
@@ -76,7 +79,8 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const mine = lobby.players.find(p=>p.id===me);
   const ngmc = lobby.format==='lobby-ngmc';
   const arena = lobby.format===ARENA_LOBBY_FORMAT;
-  const canStart = arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
+  const duel = lobby.format===DUEL_LOBBY_FORMAT;
+  const canStart = duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
   const host = lobby.host===me && !lobby.busy;
   const ready = lobby.players.filter(p=>p.ready).length;
   const players = lobby.players.map(p=>{
@@ -90,7 +94,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const startDisabled = !canStart || checkingPool || shortPool || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
   const startLabel = ngmc && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
   return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
-    '<header class="room-masthead"><div><small>'+(ngmc||arena?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+'</small><h1>Custom Lobby</h1></div>'+
+    '<header class="room-masthead"><div><small>'+(ngmc||arena||duel?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+'</small><h1>Custom Lobby</h1></div>'+
     '<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div></header>'+
     '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+lobby.players.length+' / '+lobbyCapacity(lobby.format)+' seats</span></header>'+
     '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready</span></div></section>'+

@@ -1,4 +1,4 @@
-import {animeOnlyMode, DUEL_FORMAT, duelRules, PLAY_REVEAL_MS, queueMode} from '../public/play-mode-rules.js';
+import {animeOnlyMode, DUEL_FORMAT, duelRules, DUEL_LOBBY_FORMAT, PLAY_REVEAL_MS, queueMode} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
@@ -18,9 +18,10 @@ export const fail=(message,status=400)=>{throw Object.assign(Error(message),{sta
 export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   const ngmc=['ngmc-ranked','ngmc-3v3','lobby-ngmc'].includes(format);
   const arena=format===ARENA_FORMAT;
-  const custom=lobby&&(arena||players.length>=1&&players.length<=8&&
+  const duelLobby=format===DUEL_LOBBY_FORMAT && players.length===2;
+  const custom=lobby&&(arena||duelLobby||players.length>=1&&players.length<=8&&
     (['lobby-team','lobby-ffa'].includes(format)||format==='lobby-ngmc'&&[6,8].includes(players.length)));
-  const rules=arena?{size:players.length,teams:players.length/2}:custom?{size:players.length,teams:ngmc?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
+  const rules=arena?{size:players.length,teams:players.length/2}:custom?{size:players.length,teams:ngmc||duelLobby?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
   if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||songs.length!==(arena?arenaSongCount(players.length):custom?lobby.songs:ngmc?35:format===DUEL_FORMAT?duelRules.songs:20))fail('Invalid match setup.');
 
   let roster=[...players];
@@ -59,10 +60,11 @@ export function advanceMatch(state,now=Date.now()) {
     }
   }
   const active=state.players.filter(p=>!p.left);
-  if(state.format===DUEL_FORMAT && active.length===1){
+  if((state.format===DUEL_FORMAT||state.format===DUEL_LOBBY_FORMAT) && active.length===1){
     const departed=state.players.find(p=>p.left);
-    if(departed.rankedLeftAt!=null||state.phase==='loading'){
-      state.phase=departed.rankedLeftAt!=null?'finished':'cancelled';
+    const forfeited=departed.rankedLeftAt!=null || state.format===DUEL_LOBBY_FORMAT&&state.phase!=='loading';
+    if(forfeited||state.phase==='loading'){
+      state.phase=forfeited?'finished':'cancelled';
       state.reason=departed.name+' left the match.';
       state.until=now+86400000;return;
     }

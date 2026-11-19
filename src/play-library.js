@@ -1,3 +1,5 @@
+import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
+import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
 import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, audioFilename} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
@@ -123,7 +125,8 @@ export class PlayLibrary {
   }
   async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[]) {
     const data=await this.load();
-    if(!Number.isInteger(count)||count<1||count>100)throw Error('Invalid song count.');
+    const maxSongs=mode===ARENA_FORMAT?arenaSongCount(arenaRules.maxPlayers):100;
+    if(!Number.isInteger(count)||count<1||count>maxSongs)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
     const selected=new Set(),verifiedAudio=new Map(),random=new Uint32Array(1);
     const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;

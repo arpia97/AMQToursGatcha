@@ -8,7 +8,7 @@ export const arenaRules = Object.freeze({
   maxPlayers: arenaPlayerCounts.at(-1),
   gatherMs: 15000,
   smallFieldWaitMs: 90000,
-  songsPerFixture: 5,
+  songsPerFixture: 20,
   guessSeconds: 20,
   startingRating: 1000,
 });

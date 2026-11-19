@@ -253,7 +253,8 @@ export class PlayQueue extends DurableObject {
     }
     if(rows.length!==size)return;
     const id=crypto.randomUUID(),players=rows.map(row=>{const rating=format.startsWith('ngmc-')?this.rows('SELECT * FROM '+rankingTable+' WHERE player=?',row.player)[0]:null;return {id:row.player,name:row.name,...(format===ARENA_FORMAT?{elo:row.rating}:{}),avatar:row.avatar?JSON.parse(row.avatar):null,...(rating?{elo:rating.elo,guessRate:rating.seen?100*rating.correct/rating.seen:rating.seed_rate}:{})};});
-    this.ctx.storage.transactionSync(()=>{for(const row of rows){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO play_names VALUES(?,?)',row.player,row.name);this.ctx.storage.sql.exec('UPDATE queue SET match=?,expires=? WHERE player=?',id,Date.now()+(format==='ngmc-ranked'?7200000:3600000),row.player);this.ctx.storage.sql.exec('INSERT INTO recent VALUES(?,?,?)',row.player,id,Date.now()+86400000);}this.ctx.storage.sql.exec('INSERT INTO preparing(id,format,players,started,pool) VALUES(?,?,?,?,?)',id,format,JSON.stringify(players),Date.now(),pool);});
+    const matchLeaseMs=format==='ngmc-ranked'||format===ARENA_FORMAT?7200000:3600000;
+    this.ctx.storage.transactionSync(()=>{for(const row of rows){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO play_names VALUES(?,?)',row.player,row.name);this.ctx.storage.sql.exec('UPDATE queue SET match=?,expires=? WHERE player=?',id,Date.now()+matchLeaseMs,row.player);this.ctx.storage.sql.exec('INSERT INTO recent VALUES(?,?,?)',row.player,id,Date.now()+86400000);}this.ctx.storage.sql.exec('INSERT INTO preparing(id,format,players,started,pool) VALUES(?,?,?,?,?)',id,format,JSON.stringify(players),Date.now(),pool);});
     this.ctx.storage.sql.exec('INSERT OR IGNORE INTO match_reviews VALUES(?,?,?,?,?)',id,Date.now(),format,JSON.stringify(players.map(({id,name})=>({id,name}))),'active');
     await this.prepare({id,format,pool,players:JSON.stringify(players),started:Date.now()});
   }
