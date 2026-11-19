@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play profile badges
+
+Source `08b8d10` is live on Worker `cb1f07bd-91c7-4ca0-9486-29a94162d7a3`. The Play profile pop-up shows Host as its only title. Verified the production frontend in Chrome at 390 and 1440 pixels using Host, Quiz Maker, and regular player fixtures with equipped quiz and card titles. Syntax checks and the Worker dry run passed.
+
 ## Quiz Maker badge sizing
 
 Source `d722663` is live on Worker `63863d44-78b8-42c3-a173-a54bf595bdf2`. Live Chrome checks on Chata's profile at 390 and 1440 pixels confirmed both role badges use the same 21-pixel height, typography, and padding. Quiz Maker uses the SS palette. Twenty focused tests, syntax checks, and the Worker dry run passed.
