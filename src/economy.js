@@ -258,6 +258,7 @@ export class Economy {
       a.card,
       a.level,
       a.buyout,
+      {buyerName, buyout: true},
     );
     this.acquire(player, a.card, a.level, a.extra_copies);
     e.run(
@@ -376,6 +377,7 @@ export class Economy {
           a.card,
           a.level,
           a.bid,
+          {buyerName: winnerName},
         );
         e.run("UPDATE auctions SET paid=1,closed=1 WHERE id=?", a.id);
         pruneFavorite(e,a.seller,a.card);
@@ -806,6 +808,7 @@ export class Economy {
         l.card,
         l.level,
         l.price,
+        {buyerName},
       );
       this.acquire(player, l.card, l.level, l.extra_copies);
       e.run(

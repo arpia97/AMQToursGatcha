@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { AliasSync } from "../src/aliases.js";
 import { noticePanel, noticeCopy } from "../public/player-notices.js";
+import { inboxPage } from "../src/inbox.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -65,6 +66,7 @@ test("marketplace sale queues one private durable seller event, acknowledgment i
   });
   const id = e.one("SELECT id FROM market_listings").id;
   const before = e.player("p").balance;
+  e.run("UPDATE players SET display_name='Buyer Alias' WHERE id='r'");
   act("r", "buy-listing", { listing: id }, "purchase");
   act("r", "buy-listing", { listing: id }, "purchase");
   const notices = e.state("p").notices;
@@ -72,6 +74,8 @@ test("marketplace sale queues one private durable seller event, acknowledgment i
   assert.equal(notices[0].kind, "market-sale");
   assert.equal(notices[0].credits, 700);
   assert.equal(notices[0].level, 3);
+  assert.equal(noticeCopy(notices[0]).title, "Buyer Alias bought your card");
+  assert.equal(inboxPage(e,"p",new URLSearchParams()).items[0].metadata.buyerName, "Buyer Alias");
   assert.equal(e.player("p").balance, before + 700);
   assert.deepEqual(e.gameState("p").notices, notices);
   assert.deepEqual(e.state("r").notices, []);
@@ -154,6 +158,7 @@ test("auction buyouts queue winner/seller/refund events atomically, with direct-
   assert.equal(e.gameState("r").notices[0].kind, "auction-buyout");
   assert.equal(e.gameState("r").notices[0].id, result.noticeIds[0]);
   assert.equal(e.gameState("p").notices[0].kind, "auction-sale");
+  assert.equal(noticeCopy(e.gameState("p").notices[0]).title, "Buyer bought out your auction");
   assert.equal(e.gameState("q").notices[0].kind, "outbid");
   assert.equal(e.player("q").balance, 10000);
   assert.equal(e.gameState("r").auctionWins.length, 0);
@@ -177,6 +182,10 @@ test("auction seller settlements are exactly-once across tick and claim, while u
   act("q", "claim", { auction: id });
   assert.equal(e.state("p").notices.length, 1);
   assert.equal(e.state("p").notices[0].credits, 300);
+  assert.equal(noticeCopy(e.state("p").notices[0]).title, "Bidder won your auction");
+  e.run("UPDATE player_notices SET metadata='{}' WHERE kind='auction-sale'");
+  assert.equal(inboxPage(e,"p",new URLSearchParams()).items[0].metadata.buyerName,"Bidder");
+  assert.equal(e.state("p").notices[0].metadata.buyerName,"Bidder");
   e.addCard("p", "card-1");
   act("p", "list-card", {
     card: "card-1",

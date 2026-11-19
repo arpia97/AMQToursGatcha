@@ -35,14 +35,30 @@ export class PlayerNotices {
     return this.e.one("SELECT id FROM player_notices WHERE event_key=?", key)
       .id;
   }
+  decode(player, {event_key, ...row}) {
+    row.metadata = JSON.parse(row.metadata);
+    // Older notices only stored the listing ID in the event key.
+    if (!row.metadata.buyerName && (row.kind === "market-sale" || row.kind === "auction-sale")) {
+      const id = Number(event_key.slice(row.kind.length + 1));
+      if (Number.isSafeInteger(id) && id > 0 && event_key === row.kind + ":" + id) {
+        const source = row.kind === "market-sale"
+          ? "market_listings s JOIN players p ON p.id=s.buyer"
+          : "auctions s JOIN players p ON p.id=s.winner";
+        const buyer = this.e.one("SELECT COALESCE(p.display_name,p.name) AS name FROM " + source +
+          " WHERE s.id=? AND s.seller=? AND s.card=?", id, player, row.card);
+        if (buyer) row.metadata.buyerName = buyer.name;
+      }
+    }
+    return row;
+  }
   pending(player) {
     return player
       ? this.e
           .all(
-            "SELECT id,kind,card,level,credits,created,metadata FROM player_notices WHERE player=? AND seen=0 ORDER BY id LIMIT 20",
+            "SELECT id,event_key,kind,card,level,credits,created,metadata FROM player_notices WHERE player=? AND seen=0 ORDER BY id LIMIT 20",
             player,
           )
-          .map((r) => ({ ...r, metadata: JSON.parse(r.metadata) }))
+          .map((r) => this.decode(player,r))
       : [];
   }
   auctionState(player, ids) {

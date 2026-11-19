@@ -71,10 +71,10 @@ export function inboxPage(e,player,params){
   const group=params.get("group")||"", before=integer(Number(params.get("before")||0),0,Number.MAX_SAFE_INTEGER);
   if(group && !Object.hasOwn(NOTICE_GROUPS,group))fail("Unknown notification category.");
   const kinds=Object.keys(NOTICE_TYPES).concat(["market-sale","auction-sale","outbid","auction-buyout"]).filter(k=>noticeGroup(k)===group);
-  const rows=e.all("SELECT id,kind,card,credits,created,inbox_read,metadata FROM player_notices WHERE player=? AND inbox_dismissed=0"+
+  const rows=e.all("SELECT id,event_key,kind,card,credits,created,inbox_read,metadata FROM player_notices WHERE player=? AND inbox_dismissed=0"+
     (before?" AND id<?":"")+(params.get("unread")==="1"?" AND inbox_read=0":"")+
     (group?" AND kind IN (SELECT value FROM json_each(?))":"")+" ORDER BY id DESC LIMIT 41",player,...(before?[before]:[]),...(group?[JSON.stringify(kinds)]:[]));
-  const items=rows.slice(0,40).map(r=>({...r,metadata:JSON.parse(r.metadata)}));
+  const items=rows.slice(0,40).map(r=>e.economy.notices.decode(player,r));
   return {player,latest:e.one("SELECT max(id) AS id FROM player_notices WHERE player=? AND inbox_dismissed=0",player).id,items,more:rows.length>40,unread:inboxCount(e,player),cards:e.catalogStore.cards([...new Set(items.map(r=>r.card).filter(Boolean))])};
 }
 export function readInbox(e,player,b){

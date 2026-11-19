@@ -51,14 +51,16 @@ export function noticeCopy(notice) {
       };
     case "market-sale":
       return {
-        title: "Your Marketplace Card Sold",
+        title: notice.metadata?.buyerName ? `${notice.metadata.buyerName} bought your card` : "Your Marketplace Card Sold",
         detail: "Credits have been added to your wallet.",
         credit: "Received",
         sign: "+",
       };
     case "auction-sale":
       return {
-        title: "Your Auction Card Sold",
+        title: notice.metadata?.buyerName
+          ? `${notice.metadata.buyerName} ${notice.metadata.buyout ? "bought out" : "won"} your auction`
+          : "Your Auction Card Sold",
         detail: "The winning bid has been paid to your wallet.",
         credit: "Received",
         sign: "+",

@@ -663,6 +663,7 @@ export class Engine {
           a.card,
           a.level,
           a.bid,
+          {buyerName: winnerName},
         );
         this.run("UPDATE auctions SET paid=1 WHERE id=?", a.id);
         pruneFavorite(this,a.seller,a.card);
