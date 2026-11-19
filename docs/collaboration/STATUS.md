@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Faster multiplayer song selection
+
+Source `ef5ce97` is live on Worker `b70be992-b626-4f7c-a5eb-ef7f3e234ce5` at 100%. Play reads catalog shards four at a time, verifies six candidate MP3s concurrently in draw order, and indexes occurrences for NGMC draws. Successful selections taking at least two seconds log catalog, draw and verification, and remaining metadata and decoy timings. The 560 tests, syntax checks, and dry run passed. Live read-only checks returned HTTP 200 for NGMC and the Play catalog (34,317 playable recordings). Local 35-song median timings with simulated mirror latency went from 792 to 353 ms for Random and 789 to 418 ms for Watched. Production match durations were not measured.
+
 ## Per-song playback readiness and Watched list filters
 
 Source `fcac36f` is live on Worker `0362ef0d-616f-4114-a3b9-50e7bd89573d`. New multiplayer rooms wait for each browser to prepare the current clip before scheduling a shared start. Play names loading players and uses input-level focus styling. MAL and AniList imports accept any nonempty selection of Watching, Completed, On-hold, and Dropped. All 559 tests passed. Desktop and mobile Chrome checks on deployed assets verified encrypted MP3 decoding, readiness, answer submission, waiting-player names, and list status selection with fixture accounts and sockets.
