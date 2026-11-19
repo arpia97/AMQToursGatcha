@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Unranked 1v1 lobbies and 20-song Arena fixtures
+
+Source `b12dd2c` is deployed on Worker `ba778b92-b597-43e9-9ab1-23daacf13d81`. The 1v1 Ranked page has the shared Lobbies tile. Custom 1v1 uses two seats, 20 songs, 20-second guesses, and Random or Watched. Local Worker tests started both pools, tested finishing and leaving, and confirmed the ranked standings were unchanged. New Arena matches play 20 songs per opponent. The largest field uses 140 songs, verified in both pools with a catalogue fixture. All 554 tests, syntax checks, and the Worker dry run passed. Verified the deployed directory at 390 and 1440 pixels and the deployed Arena route and configuration.
+
 ## Play 2v2 Arena lobbies
 
 Source `34b2842` is live on Worker `35f3e2f3-f68f-40ef-ac8b-5bf065f659ee`. The Arena matchmaking page now has the shared Lobbies directory with Create Lobby and Join by Code. Arena rooms support Random or Watched pools and optional passwords. The host can start with 4, 8, 12 or 16 players once all guests are ready. The existing round-robin rules set five songs per fixture and 20 seconds per guess. All 554 tests, syntax checks and the Worker dry run passed. Verified local browser creation, listing, joining, and leaving at 390 and 1440 pixels. An isolated Worker test started a four-player Arena match. Verified the deployed guest directory at both widths.
