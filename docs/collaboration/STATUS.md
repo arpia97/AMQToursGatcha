@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz Maker badge sizing
+
+Source `d722663` is live on Worker `63863d44-78b8-42c3-a173-a54bf595bdf2`. Live Chrome checks on Chata's profile at 390 and 1440 pixels confirmed both role badges use the same 21-pixel height, typography, and padding. Quiz Maker uses the SS palette. Twenty focused tests, syntax checks, and the Worker dry run passed.
+
 ## Gacha Quiz Maker access
 
 Source `039fd1c` is live on Worker `4cadceae-3d91-44f5-9965-7fe5c54b1b49`. The production profiles for ArronChu (14) and Chata (51) both returned Quiz Maker with the administrator flag cleared. Full Hosts manage the SS role in Players & Access. A Quiz Maker opens directly to Content & Review → Quiz on desktop and mobile. All 554 tests, the syntax check, and the Worker build passed. Local browser checks covered the restricted console and the full Host permission form. Verified the deployed console and title assets.
