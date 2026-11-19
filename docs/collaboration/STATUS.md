@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha quiz lobby and gameplay
+
+Source `872cf14` deployed on Worker `242625a8-13bd-46f2-9d1c-b136661251fc`. The Gacha lobby uses the quiz cover and personal-best colour, with Song List beside Start Quiz. Top 20 scrolls within ten visible rows. Gameplay colours the header by current score. Verified Song List column sorting, reveal Enter, progress squares and leaderboard scrolling against the deployed frontend at 1440px, 390px and 360px with isolated quiz data. All 63 focused quiz tests, syntax checks and the Worker build passed. The card search design remains a local preview.
+
 ## Play ranking mode tabs
 
 Source `9858e60` is live on Worker `7cd3baf4-dc7e-4e1b-be25-7ce87705132f`. Verified all four header tabs, keyboard switching and the default Quiz points order in production Chrome at 1440px and 390px.
