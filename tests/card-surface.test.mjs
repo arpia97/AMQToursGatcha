@@ -187,7 +187,7 @@ test("syncCardFlags updates icons on single card and container roots, and css hi
   assert.match(css, /\.card-state-trade/);
   assert.match(
     css,
-    /\.card-back\s*\{[^}]*inset:\s*44px 8px calc\(9px \+ var\(--card-level-space,\s*0px\)\)/,
+    /\.card-back\s*\{[^}]*inset:\s*44px 8px calc\(var\(--card-bottom-inset\) \+ var\(--card-level-space,\s*0px\)\)/,
   );
   assert.match(
     css,

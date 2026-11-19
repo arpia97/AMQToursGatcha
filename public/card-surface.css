@@ -1,4 +1,8 @@
 /* Full-art first state; compact controls share the same card on hover/focus. */
+.card-surface {
+  --card-bottom-inset: 9px;
+  --card-action-size: 32px;
+}
 .card-surface-stage {
   position: relative;
   width: 100%;
@@ -31,7 +35,7 @@
   pointer-events: none;
 }
 .card-surface .level-tag {
-  bottom: 9px;
+  bottom: var(--card-bottom-inset);
 }
 .card-front {
   position: absolute;
@@ -85,7 +89,7 @@
 }
 .card-back {
   position: absolute;
-  inset: 44px 8px calc(9px + var(--card-level-space, 0px));
+  inset: 44px 8px calc(var(--card-bottom-inset) + var(--card-level-space, 0px));
   z-index: 4;
   overflow: visible;
   opacity: 0;
@@ -388,6 +392,11 @@ html[data-card-size="large"]
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+@media (max-width: 370px) {
+  .showcase-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 138px), 1fr));
+  }
+}
 @media (max-width: 700px) {
   html[data-card-size="large"]
     :is(
@@ -492,9 +501,9 @@ html[data-card-size="large"]
 .card-quick-actions .card-quick-button {
   display: grid;
   place-items: center;
-  flex: 0 1 32px;
+  flex: 0 1 var(--card-action-size, 32px);
   min-width: 0;
-  width: 32px;
+  width: var(--card-action-size, 32px);
   aspect-ratio: 1;
   padding: 0;
   border: 1px solid #535660;
@@ -527,12 +536,25 @@ html[data-card-size="large"]
   border-color: #597767;
   color: #dcf0e3;
 }
-.card-surface .card-back:has(.owned-card-grid) { bottom: 9px; }
-.card-surface.has-card-level .owned-card-grid + .card-quick-actions { margin-right: 42px; }
+.card-back:has(.card-action-content > .card-quick-actions:last-child) {
+  bottom: var(--card-bottom-inset);
+}
+.card-surface.has-card-level .card-action-content > .card-quick-actions:last-child {
+  min-height: var(--card-action-size);
+  margin-right: 42px;
+}
+.card-surface.is-revealed:has(.card-action-content > .card-quick-actions:last-child) .level-tag {
+  /* Center the badge within the same space as the square buttons. */
+  transform: translateY(calc((100% - var(--card-action-size)) / 2));
+}
 .card-surface.is-revealed:has(.owned-card-grid) .card-state-icons { visibility: hidden; }
 /* Small cards keep a usable action row even on narrow phones. */
 .card-surface-stage:has(.owned-card-grid) { container-type: inline-size; }
 @container (max-width: 149px) {
-  .card-surface.has-card-level .owned-card-grid + .card-quick-actions { margin-right: 0; }
-  .card-surface.is-revealed .portrait .level-tag { top: 38px; bottom: auto; }
+  .card-surface.has-card-level .owned-card-grid + .card-quick-actions:last-child { margin-right: 0; }
+  .card-surface.is-revealed:has(.owned-card-grid) .portrait .level-tag {
+    top: 38px;
+    bottom: auto;
+    transform: none;
+  }
 }
