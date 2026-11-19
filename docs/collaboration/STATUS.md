@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Mobile rankings and quiz score sizing
+
+Source `113b7ef` is live on Worker `4718e28c-bcdf-4689-b046-cc939ee0b9d9`. Tested the deployed Play ranking name column and sticky horizontal scrolling, plus perfect-score glyph bounds on both Gacha and Play. Browser checks used fixture records at 320px, 390px and 1440px.
+
 ## Quiz results on Gacha and Play
 
 Source `d1bd605` is deployed on Worker `0237e7d3-6918-4dd1-918c-524217134aeb`. The completed quiz now shows the cover, rarity-coloured score, time, personal best, per-song progress, applicable rewards and replay controls. All 545 tests, syntax checks and the Worker dry run passed. Verified both live quiz routes at 1440px and 390px with isolated account and run data, including recap, replay and the scrollable Top 20.
