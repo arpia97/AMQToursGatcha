@@ -1,10 +1,12 @@
 # Shared Status and Handoff
 
-## 2v2 Arena local prototype
+## 2v2 Arena and Gacha notifications navigation
 
-Local branch `feature/2v2-arena-local` in the adjacent `AMQToursGatcha-arena` worktree. The owner requested local development only. Queue sizes, gathering windows and fixture length are in `public/play-arena-config.js`. Arena reads NGMC Rating for pairing, with a 1,000 default, and awards standings points within the tournament. The provisional format is five anime guesses per opponent, with a 20-second guess timer and matching audio clips. Players share the same songs across simultaneous fixtures. Each teammate can propose one anime title and vote for either proposal. At the deadline the winning title is graded for the pair. If votes are tied or absent, a tied proposal is selected at random. A correct title earns one point, a fixture win earns three standings points, and a draw earns one. Schedule, scores and standings survive reconnects.
+Source `54a38c4` deployed on Worker `19bb07a0-8081-49dc-bdb3-a52813bc7d63`. Arena balances pairs using NGMC Rating and runs a round robin with five songs per opponent and a 20-second guess timer. Each teammate can propose one title and vote. The most voted title is graded for the pair. Ties, including when neither teammate votes, are resolved randomly among the tied titles. On desktop, answering sits to the left of standings.
 
-Verified the eight-player queue, sealed audio, private teammate ballots, vote replacement, reveal and responsive board using local test accounts. Desktop and mobile screenshots in the adjacent `arena-vote-preview` folder show thumbs-up voting and the standings beside the answer panel on wide screens. All 549 tests, the syntax check and the local Worker build passed. Production deployment is pending owner approval.
+Gacha no longer lists Notifications in its sidebar or mobile More menu. The desktop bell opens the dropdown and its link reaches the inbox. The mobile bell opens the inbox directly.
+
+All 549 tests, JavaScript syntax checks and the Worker build passed. The live Arena route, ballot and timer assets, queue-count endpoint, and guest inbox protection were verified. Browser checks at 1440px and 390px used the live Gacha frontend with isolated inbox data. Arena gameplay was verified locally through matchmaking and reveal.
 
 ## Multiplayer match review highlights
 
