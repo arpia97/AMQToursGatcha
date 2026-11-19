@@ -693,6 +693,7 @@ const quizPlaying = () => page() === "quiz" && quizUI?.active();
 const loadQuizUI = loadOnce(async () => {
   const { createQuizUI } = await import("./quiz-ui.js");
   return quizUI = createQuizUI({
+    gachaLayout: true,
     api,
     escape,
     prepareTitles: loadQuizTitleDisplay,

@@ -37,6 +37,7 @@ export function createQuizUI({
   clock,
   audioCache,
   getHotkeys,
+  gachaLayout = false,
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
@@ -426,12 +427,12 @@ export function createQuizUI({
         (download.bytes / 1048576).toFixed(1) +
         " MB"
       : "Preparing Download…";
-  const startControls = (label) =>
+  const startControls = (label, secondary = "") =>
     '<div class="quiz-start-controls"><button class="button mint" data-quiz-action="quiz-start" ' +
     (preparing ? "disabled" : "") +
     ">" +
     label +
-    "</button>" +
+    "</button>" + secondary +
     competitiveControl() +
     '</div>' +
     downloadHTML() +
@@ -488,6 +489,7 @@ export function createQuizUI({
     '" aria-label="Quiz Volume"><output id="quiz-volume-value">' +
     volume +
     "%</output></label>";
+  const audioFooter = () => '<div class="quiz-audio-footer">' + serverControl() + volumeControl() + "</div>";
   const guide =
     '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
   function leaderboardRowHTML(
@@ -514,7 +516,7 @@ export function createQuizUI({
       e(p.name) +
       '</a></td><td title="Time Set: ' +
       e(achieved) +
-      '"><strong>' +
+      '"><strong' + (gachaLayout ? ' class="quiz-rarity-ink tier-' + rarityClass(quizRarity(p.best)) + '"' : '') + '>' +
       p.best +
       ' / 20</strong></td><td class="quiz-duration">' +
       e(quizDuration(p.durationMs)) +
@@ -553,7 +555,7 @@ export function createQuizUI({
       '<aside class="quiz-leaderboard" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
       '<label class="check-label quiz-friends-filter"><input type="checkbox" id="quiz-friends-only" ' + (friendsOnly ? 'checked' : '') + ' ' + (!getState().me ? 'disabled' : '') + '> Friends Only</label>' +
       (rows
-        ? '<div class="table-wrap"><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
+        ? '<div class="table-wrap"' + (gachaLayout ? ' tabindex="0" role="region" aria-label="Scroll leaderboard scores"' : '') + '><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
           rows +
           "</tbody></table></div>"
         : '<p class="notice">No completed scores yet.</p>') +
@@ -825,16 +827,17 @@ export function createQuizUI({
     const q = quizzes.find((q) => q.id === selected);
     if (!q) return "";
     const preview = !q.published || run?.preview;
+    const lobby = gachaLayout && !leaderboardOnly && !run;
     let top =
       '<div class="section-head"><div><h1>' +
-      e(q.name) +
+      (lobby ? "Quiz Lobby" : e(q.name)) +
       "</h1>" +
       (preview
         ? '<p class="quiz-preview-note">Host Preview · No Rewards or Personal-Best Changes</p>'
         : "") +
       '</div><div class="quiz-top-controls">' +
       (!leaderboardOnly
-        ? elapsedControl() + serverControl() + volumeControl()
+        ? (gachaLayout && (lobby || (run && !run.finished)) ? (lobby ? "" : elapsedControl()) : elapsedControl() + serverControl() + volumeControl())
         : "") +
       (!leaderboardOnly && run && !run.finished
         ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart" title="' +
@@ -858,9 +861,29 @@ export function createQuizUI({
       top +
       '<div class="quiz-play-layout"><div class="quiz-play-main">' +
       content +
+      (gachaLayout && run && !run.finished ? audioFooter() : "") +
       "</div>" +
       leaderboardHTML() +
       "</div>" + songListModalHTML();
+    if (lobby) {
+      stop();
+      const songList = '<button type="button" class="button secondary" data-quiz-songs="' + e(q.id) + '">Song List</button>';
+      const signedIn = !!getState().me;
+      const actions = !signedIn
+        ? '<div class="quiz-start-controls"><button class="button mint" data-action="account">Sign In to Play</button>' + songList + '</div>'
+        : q.songs < 20 ? '<p class="notice">At least 20 songs are required to start.</p>' + songList
+        : startControls(preview ? "Start Preview →" : "Start Quiz →", songList);
+      const category = { singers: "Artist", composers: "Composer", franchise: "Franchise" }[q.category] || "Artist";
+      const tier = rarityClass(quizRarity(q.best));
+      return withLeaderboard(
+        '<section class="quiz-lobby tier-' + tier + '"><header class="quiz-sleeve"><span>' + category +
+        ' Quiz</span><h2>' + e(q.name) + '</h2><div class="quiz-disc" aria-hidden="true"></div>' +
+        (q.cover ? '<img class="quiz-artist-cover" alt="" src="' + e(q.cover) + '">' : '') +
+        '</header><dl class="quiz-lobby-stats"><div><dt>Songs</dt><dd>20</dd></div><div><dt>Guess time</dt><dd>20 <small>sec / song</small></dd></div>' +
+        '<div><dt>Personal best</dt><dd><b class="quiz-rarity-ink">' + (signedIn ? q.best ?? 0 : "—") +
+        '</b>' + (signedIn ? ' <small>/ 20</small>' : '') + '</dd></div></dl><div class="quiz-lobby-actions">' +
+        actions + '</div>' + audioFooter() + '</section>');
+    }
     if (!getState().me)
       return withLeaderboard(
         '<p>Sign in to play quizzes and keep your progress.</p><button class="button" data-action="account">Sign In →</button>',
@@ -949,14 +972,14 @@ export function createQuizUI({
     return (
       '<section class="quiz-question' +
       (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
-      '"><div class="quiz-question-heading"><h2>Song ' +
+      '"><div class="quiz-question-heading' + (gachaLayout ? ' tier-' + rarityClass(quizRarity(run.score)) : '') + '"><h2>Song ' +
       (run.index + 1) +
-      ' of 20</h2><div class="quiz-score tier-' +
+      (gachaLayout ? ' <small>/ 20</small>' : ' of 20') + '</h2><div class="quiz-score tier-' +
       rarityClass(quizRarity(run.score)) +
       '"><span>Score</span><strong>' +
       run.score +
-      " / 20</strong></div></div>" +
-      (!preview
+      (gachaLayout ? " <small>/ 20</small>" : " / 20") + "</strong></div></div>" +
+      (!preview && !gachaLayout
         ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
         : "") +
       (!Number.isSafeInteger(run.startedAt) && !run.timingPending && run.transport !== "session"
@@ -1342,6 +1365,11 @@ export function createQuizUI({
       attemptPlay();
   }
   function mount({ direct = false } = {}) {
+    const cover = gachaLayout && document.querySelector(".quiz-artist-cover");
+    if (cover) {
+      cover.onerror = () => { cover.hidden = true; };
+      if (cover.complete && !cover.naturalWidth) cover.hidden = true;
+    }
     if (!selected || !run || run.finished) {
       stop();
       return;
@@ -1739,7 +1767,7 @@ export function createQuizUI({
         onRender();
         return;
       }
-      if (locallyStopped) return;
+      if (locallyStopped || (songListQuiz && event.key === "Enter")) return;
       if (event.key === "Enter" && (event.repeat || event.isComposing)) {
         event.preventDefault?.();
         return;
