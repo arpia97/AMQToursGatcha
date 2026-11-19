@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play player portrait glow
+
+Source `53fb660` is live on Worker `bc01ce38-f1f3-4571-b8d0-585eb72e1361`. Custom lobbies, in-match player boards, and match results use the Gacha profile picture crop, rarity frame, and a static enhancement glow. All 553 tests, the syntax check, and the Worker build passed. Verified the lobby payload locally, browser-tested player portraits at 320, 390, and 1440 pixels, and matched all seven deployed assets against the local files.
+
 ## Gacha Favorites Only card filter
 
 Source `59a37c1` is live on Worker `8e0b06a9-e0e4-4d9f-8f28-cb132507627b`. Signed-in collectors can filter supporting card views to their personal favorites. Catalogue, profile, market, trades, and target lookups filter before pagination. The filter composes with existing controls and removes an unfavorited card from the current results. All 553 tests, the syntax check, and the Worker build passed. Verified deployed UI with browser demo fixtures at 390 and 1440 pixels.
