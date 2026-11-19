@@ -12,7 +12,7 @@ import { cardFrameClass, cardAura } from "../card-frames.js";
 import { rarityClass } from "../card-display.js";
 import { levelLabel } from "../card-values.js";
 import { avatarCropStyle } from "../avatar-crop.js";
-import { titleBadges } from "../title-ui.js";
+import { roleBadge } from "../role-label.js";
 import { installTitleMotion } from "../title-motion.js";
 import { installDetailPopovers } from "../detail-popover.js";
 
@@ -25,7 +25,7 @@ const assets = new URL("../", import.meta.url);
 const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
 const currentCardSize = installCardSize(document, storage);
-let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || playRoute("/play");
+let state = { me: null, avatar: null }, mode = playRoute(location.pathname) || playRoute("/play");
 let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
 try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
 let rankingSort='rank',rankingDirection='asc';
@@ -69,7 +69,8 @@ function account() {
 }
 function profile() {
   const me = state.me;
-  modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + titleBadges({ role: me.role, titles: state.titles }, escape) +
+  const hostBadge = me.role === "Host" ? '<div class="profile-title-stack">' + roleBadge(me.role) + '</div>' : "";
+  modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + hostBadge +
     '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a></div>');
 }
 function listForm(){
