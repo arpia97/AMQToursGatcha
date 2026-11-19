@@ -168,7 +168,16 @@ export class PlayQueue extends DurableObject {
       const lobby=custom&&this.rows('SELECT * FROM play_lobbies WHERE match=?',row.id)[0];
       if(custom&&!lobby){await this.complete(row.id);return;}
       if(row.format==='lobby-ngmc')await Promise.all(players.map(async player=>Object.assign(player,await this.rating(player.id))));
-      await match.initialize(row.id,row.format,players,lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null);
+      const result=await match.initialize(row.id,row.format,players,lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null);
+      if(lobby && result?.setupError){
+        this.ctx.storage.transactionSync(()=>{
+          this.ctx.storage.sql.exec('UPDATE lobby_members SET last_match=NULL WHERE last_match=?',row.id);
+          this.ctx.storage.sql.exec('DELETE FROM recent WHERE match=?',row.id);
+        });
+        await this.complete(row.id);
+        for(const p of players)for(const ws of this.ctx.getWebSockets(p.id))send(ws,{type:'error',message:result.setupError});
+        return;
+      }
       if(lobby){
         const remaining=this.lobbies.roster(lobby.code);
         for(const p of players)if(!remaining.some(m=>m.id===p.id))await match.depart(p.id);

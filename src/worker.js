@@ -2,7 +2,8 @@ import { inboxPage, readInbox, inboxCount } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
 import {playRankingPage} from './play-ranking-query.js';
-import {loadMasterSongAnswers,masterImportAnswers,indexQuizRecordings,bestMasterRecord,sheetRecording} from './master-song-answers.js';
+import {sheetActor,currentSheet} from "./play-sheet.js";
+import {masterImportAnswers,indexQuizRecordings,bestMasterRecord,sheetRecording} from './master-song-answers.js';
 import { paidSpecialRefundPlan, applyPaidSpecialRefund } from "./paid-special-refund.js";
 import { quizSessionStub, quizSessionRequest, quizSessionTicket } from "./quiz-session.js";
 export { QuizSession } from "./quiz-session.js";
@@ -10,6 +11,7 @@ import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
+import { importAnimeList, listSummary } from "./play-anime-list.js";
 import { playState, playAvatar } from "./play-state.js";
 import { playAudioResponse } from "./play-media.js";
 export { PlayQueue } from './play-queue.js';
@@ -224,6 +226,11 @@ export class Game extends DurableObject {
       catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
     }return this.quizMaster;
   }
+  watchedAnimeLists(players) {
+    if (!Array.isArray(players) || players.length < 1 || players.length > 8) fail("Invalid lobby roster.");
+    return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
+      .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
+  }
   publishedQuizSongs(previousVersion) {
     const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');
     const version=JSON.stringify(quizzes.map(q=>[q.id,q.updated]));
@@ -419,6 +426,19 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      if(path==='host/play-sheet'){
+        const actor=sheetActor(this.env);
+        if(!actor)fail('Sheet refresh is unavailable.',503);
+        return json(post?await actor.startSheetRefresh():await actor.sheetStatus());
+      }
+      if(path==='host/play-review'&&post){
+        const queue=this.env.PLAY_QUEUE?.getByName('play-queues-v1');
+        if(!queue||typeof b.match!=='string'||!await queue.hasReview(b.match))fail('Match review not found.',404);
+        if(!['unreviewed','reviewing','resolved'].includes(b.status)||typeof b.note!=='string'||b.note.length>1000)fail('Choose a review status and use at most 1,000 characters.');
+        requireHost();
+        const actor=e.hostIdentity(sessionHash)||(hostTokenValid?'Host console':null);
+        return json(await this.env.PLAY_MATCHES.getByName(b.match).saveReview({status:b.status,note:b.note,by:actor,at:Date.now()}));
+      }
       if(path==='host/play-review'&&!post){
         const queue=this.env.PLAY_QUEUE?.getByName('play-queues-v1');
         if(!queue)fail('Match review is unavailable.',503);
@@ -818,7 +838,7 @@ export class Game extends DurableObject {
           await this.quizAnswersMaster();
           let prepared;
           try {
-            const sheet=await loadMasterSongAnswers(this.env.ASSETS);
+            const sheet=await (this.sheetSource??=currentSheet(this.env))();
             const published=this.publishedQuizSongs(this.importQuizIndex?.version);
             if(published)this.importQuizIndex={...indexQuizRecordings(published.rows),version:published.version};
             const quizzes=this.importQuizIndex;
@@ -1244,6 +1264,27 @@ export class Game extends DurableObject {
     // settle auctions or scan the catalogue just to verify an account.
     if (path === "account" && !post) {
       return json({ account: e.account(session?.player) });
+    }
+    if(path==="play-anime-list" && post){
+      if(!session)fail("Sign in to manage your anime list.",401);
+      const id=session.player;
+      this.bursts.take("watched-list:"+id,3,1/30);
+      this.listImports??=new Map();
+      if(b.remove===true){
+        this.listImports.delete(id);
+        e.run("UPDATE players SET play_anime_list=NULL WHERE id=?",id);
+        return json({animeList:null});
+      }
+      if(this.listImports.has(id))fail("Your list is already importing.",409);
+      const requestId=crypto.randomUUID();
+      this.listImports.set(id,requestId);
+      try{
+        const snapshot=await importAnimeList(b.provider,b.username);
+        if(this.listImports.get(id)!==requestId)fail("The import was cancelled.",409);
+        if(!e.one("SELECT 1 FROM sessions WHERE player=? AND token=? AND expires>?",id,sessionHash,e.now()))fail("Sign in again to import your list.",401);
+        e.run("UPDATE players SET play_anime_list=? WHERE id=?",JSON.stringify(snapshot),id);
+        return json({animeList:listSummary(e,id)});
+      }finally{if(this.listImports.get(id)===requestId)this.listImports.delete(id);}
     }
     if(path==='play-connect' && !post){
       if(!session)fail('Sign in to play.',401);
@@ -1796,6 +1837,7 @@ export class Game extends DurableObject {
 }
 
 export default {
+  async scheduled(event,env){await sheetActor(env).startSheetRefresh();},
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if(url.pathname==='/quiz-library/master-answers.json')return new Response(null,{status:404});

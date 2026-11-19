@@ -1,3 +1,5 @@
+import { listSummary } from "./play-anime-list.js";
+
 // A compact, session-scoped header read. No inventory listing or game settlement.
 export function playState(e, player) {
   if (!player) return { now: e.now(), me: null, avatar: null, titles: [] };
@@ -7,7 +9,7 @@ export function playState(e, player) {
     : null;
   const card = item ? e.catalogStore.cards([me.avatar_card])[0] : null;
   return {
-    now: e.now(), me,
+    now: e.now(), me, animeList:listSummary(e,player),
     avatar: card ? { ...card, level: item.level } : null,
     titles: e.quiz.titles(player),
   };

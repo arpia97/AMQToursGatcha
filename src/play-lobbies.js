@@ -2,11 +2,14 @@ import {fail} from './play-match-rules.js';
 
 export function lobbySettings(data){
   const {format,seconds}=data;
-  if(format==='lobby-ngmc')return {format,songs:35,seconds:20};
+  const pool=data.pool??'random';
+  if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
+  const selection=pool==='watched'?{pool}:{};
+  if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
   const songs=data.songs==null||data.songs===''?20:data.songs;
   if(!['lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
     !Number.isSafeInteger(seconds)||seconds<0||seconds>8e12)fail('Choose 1–100 songs and a positive guess time, or unlimited.');
-  return {format,songs,seconds};
+  return {format,songs,seconds,...selection};
 }
 
 async function passwordDigest(password,salt=crypto.randomUUID()){
@@ -42,7 +45,7 @@ export class PlayLobbies {
   readyRoster(code){return this.queue.rows('SELECT player AS id,name,avatar,ready FROM lobby_members WHERE code=? AND last_match IS NULL ORDER BY rowid',code);}
   roster(code){return this.queue.rows('SELECT player AS id,name,avatar FROM lobby_members WHERE code=? ORDER BY rowid',code);}
   directory(){
-    return this.queue.rows(`SELECT l.code,json_extract(l.settings,'$.format') AS format,
+    return this.queue.rows(`SELECT l.code,json_extract(l.settings,'$.format') AS format,json_extract(l.settings,'$.pool') AS pool,
       l.password_hash IS NOT NULL AS locked,COUNT(*) AS players,
       (SELECT h.name FROM lobby_members h WHERE h.code=l.code AND h.last_match IS NULL ORDER BY h.rowid LIMIT 1) AS host
       FROM play_lobbies l JOIN lobby_members m ON l.code=m.code WHERE l.match IS NULL

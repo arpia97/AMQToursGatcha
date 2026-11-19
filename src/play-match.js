@@ -14,13 +14,29 @@ export class PlayMatch extends DurableObject {
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
   async initialize(id,format,players,lobby=null) {
     if(this.read())return;
-    if(!this.initializing)this.initializing=(async()=>{const library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs});if(!library)fail('The song library is unavailable.',503);if(!this.read()){
+    if(!this.initializing)this.initializing=(async()=>{
+      let watched=null;
+      if(lobby?.pool==='watched'){
+        const lists=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
+        if(!lists.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before starting a Watched lobby.'};
+        watched={};
+        for(const provider of ['myanimelist','anilist'])watched[provider]=[...new Set(lists.filter(l=>l.provider===provider).flatMap(l=>l.ids))];
+      }
+      let library;
+      try{
+        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:lobby?.songs,watched});
+      }catch(error){
+        if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
+        throw error;
+      }
+      if(!library)fail('The song library is unavailable.',503);if(!this.read()){
       const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
       prepareAudioPool(state,library.decoys,true);
       await sealPlayAudio(state,this.env.HOST_TOKEN);
+      if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
       this.reviewLog.initialize(state);this.reviewLog.add(state,'','created');this.write(state);
     }await this.schedule();})();
-    try{await this.initializing;}finally{this.initializing=null;}
+    try{return await this.initializing;}finally{this.initializing=null;}
   }
   pendingRankedLeaves(state){
     if(!state.players.some(p=>p.rankedLeftAt!=null))return [];
@@ -110,7 +126,7 @@ export class PlayMatch extends DurableObject {
       if(!await verifiedClipFailure(this.env.HOST_TOKEN,entry.key,message.proof))return;
       if((entry.replacements||0)>=4)fail('Several replacement recordings are unavailable. Retry audio shortly.',503);
       const exclude=[...state.audioPool.map(e=>e.audio),...(state.failedAudio||[])];
-      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude});
+      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude,watched:state.lobby?.pool==='watched'?JSON.parse([...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=2')][0].data):null});
       const song=library?.songs[0];
       if(!song)fail('No replacement audio is available yet.',503);
       const next={round:entry.round,audio:song.audio,replacements:(entry.replacements||0)+1};
@@ -184,7 +200,16 @@ export class PlayMatch extends DurableObject {
     const state=this.read();
     return state?.phase==='finished'?matchRecords(state):archivedRecords(this.ctx.storage.sql,format,ratings);
   }
-  review(options){return this.reviewLog.page(options);}
+  review(options){
+    const detail=this.reviewLog.page(options);
+    if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
+    return detail;
+  }
+  saveReview(value){
+    if(!this.ctx.storage.sql.exec("SELECT 1 FROM review_meta WHERE id=1").toArray().length)fail("Match review unavailable.",404);
+    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO review_meta VALUES(2,?,0)",JSON.stringify(value));
+    return value;
+  }
   async webSocketClose(ws,code,reason){
     const state=this.read(),id=ws.deserializeAttachment()?.id,now=Date.now();
     if(state&&!['finished','cancelled'].includes(state.phase)){

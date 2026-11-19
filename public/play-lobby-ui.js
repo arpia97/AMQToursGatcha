@@ -1,9 +1,12 @@
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked'};
+function poolPicker(value='random',disabled=false,id=''){
+  return '<label>Song Pool<select name="pool" '+(id?'id="'+id+'" ':'')+(disabled?'disabled':'')+'><option value="random">Random</option><option value="watched" '+(value==='watched'?'selected':'')+'>Watched</option></select></label>';
+}
 export function lobbyDirectoryHTML(lobbies,ngmc,enabled,esc){
   const rooms=lobbies?.filter(room=>(room.format==='lobby-ngmc')===ngmc),disabled=enabled?'':' disabled';
   return '<aside class="play-lobby-directory"><header class="play-directory-header"><h2>Lobbies</h2><div class="play-directory-actions"><button class="button mint" data-lobby-action="create"'+disabled+'>Create Lobby</button><button class="button secondary" data-lobby-action="join"'+disabled+'>Join by Code</button></div></header>'+
-    (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/8 · '+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=8?'disabled':disabled)+'>'+(room.players>=8?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
+    (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/8 · '+(room.pool==='watched'?'Watched · ':'')+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=8?'disabled':disabled)+'>'+(room.players>=8?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
 export function lobbyDialog(action,ngmc,room,send){
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
@@ -12,6 +15,7 @@ export function lobbyDialog(action,ngmc,room,send){
   dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
     (create&&!ngmc?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
+    (create?poolPicker():'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
     (edit?'<small>Leave blank to make this lobby public.</small>':'')+
@@ -22,7 +26,7 @@ export function lobbyDialog(action,ngmc,room,send){
     event.preventDefault();
     const values=new FormData(event.currentTarget);
     const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{format:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||20),seconds:ngmc?20:30});
+    if(create)Object.assign(payload,{pool:values.get('pool'),format:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||20),seconds:ngmc?20:30});
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
@@ -30,17 +34,19 @@ export function lobbyDialog(action,ngmc,room,send){
 }
 export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="checkbox" data-auto-ready '+(checked?'checked':'')+'> Auto-ready</label>';
 function lobbySettings(lobby, settings, host, draft, esc) {
+  const pool=poolPicker(settings.pool,!host,'sa-lobby-pool');
+  const save=host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'';
   if (lobby.format === 'lobby-ngmc') {
-    return '<dl class="room-rules"><div><dt>Teams</dt><dd>3v3 or 4v4</dd></div><div><dt>Songs</dt><dd>35</dd></div><div><dt>Guess Time</dt><dd>20 seconds</dd></div></dl>';
+    return '<dl class="room-rules"><div><dt>Teams</dt><dd>3v3 or 4v4</dd></div><div><dt>Songs</dt><dd>35</dd></div><div><dt>Guess Time</dt><dd>20 seconds</dd></div></dl>'+pool+save;
   }
   const disabled = host ? '' : ' disabled';
   const options = ['lobby-team','lobby-ffa'].map(id =>
     '<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+lobbyModeNames[id]+'</option>'
   ).join('');
-  return '<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>'+
+  return pool+'<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>'+
     '<div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+esc(settings.songs===20?'':settings.songs)+'"'+disabled+'></label>'+
     '<label>Guess Time (Seconds)<input type="number" min="1" id="sa-lobby-time" placeholder="Unlimited" value="'+esc(settings.seconds||'')+'"'+disabled+'></label></div>'+
-    (host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'');
+    save;
 }
 
 export function roomLobby(lobby, me, esc, autoReady, draft) {

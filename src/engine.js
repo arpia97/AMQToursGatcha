@@ -87,6 +87,7 @@ export class Engine {
       ["players", "private_collection", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "quiz_hotkeys", "TEXT"],
       ["ledger", "reward", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "play_anime_list", "TEXT"],
       ["players", "notice_preferences", "TEXT NOT NULL DEFAULT '{}'"],
       ["players", "notify_friends_quiz", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],

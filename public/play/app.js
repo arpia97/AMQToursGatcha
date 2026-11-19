@@ -57,10 +57,34 @@ function account() {
   if (!state.me) { if (accountError) toast(accountError); auth(); return; }
   const me = state.me;
   modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + titleBadges({ role: me.role, titles: state.titles }, escape) +
-    '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a><button class="button secondary" data-action="settings">Settings</button><a class="button secondary" href="/tour/profile">Tour Platform ↗</a><button class="button secondary" data-action="logout">Sign Out</button></div>');
+    '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a><button class="button secondary" data-action="settings">Settings</button>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a><button class="button secondary" data-action="logout">Sign Out</button></div>');
+}
+function listForm(){
+  const list=state.animeList;
+  return '<form id="play-anime-list" class="stack"><h3>Watched Anime List</h3><p class="form-hint">Watched lobbies combine everyone’s lists. Completed anime and entries with watched episodes qualify.</p>'+
+    '<label>List Provider<select name="provider"><option value="myanimelist">MyAnimeList</option><option value="anilist" '+(list?.provider==='anilist'?'selected':'')+'>AniList</option></select></label>'+
+    '<label>Username or public list URL<input name="username" required maxlength="180" autocomplete="off" placeholder="Username or profile URL" value="'+escape(list?.name)+'"></label>'+
+    (list?'<small>'+number(list.count)+' anime · Updated '+escape(new Date(list.updated).toLocaleDateString())+'</small>':'')+
+    '<p role="status" aria-live="polite"></p><div><button type="submit" class="button mint">'+(list?'Refresh List':'Import List')+'</button> '+(list?'<button type="button" class="button secondary" data-list-remove>Unlink</button>':'')+'</div></form>';
+}
+async function saveAnimeList(form,remove=false){
+  const status=form.querySelector('[role=status]'),player=state.me?.id;
+  if(!player||form.dataset.busy)return;
+  const body=remove?{remove:true}:Object.fromEntries(new FormData(form));
+  form.dataset.busy="1";
+  for(const control of form.elements)control.disabled=true;
+  status.textContent=remove?'Unlinking…':'Importing anime…';
+  try{
+    const result=await api('play-anime-list',body,undefined,{signal:AbortSignal.timeout(100000)});
+    if(state.me?.id!==player)return;
+    state.animeList=result.animeList;
+    if(form.isConnected && $("#modal").open)settings();
+    toast(remove?'List unlinked.':number(result.animeList.count)+' watched anime imported.');
+  }catch(error){status.textContent=error.message;}
+  finally{delete form.dataset.busy;for(const c of form.elements)c.disabled=false;}
 }
 function settings() {
-  modal('<h2>Settings</h2><label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p><a class="button secondary space-top" href="' + gachaHref('profile') + '">Profile & Quiz Hotkey Settings ↗</a>');
+  modal('<h2>Settings</h2><label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Profile & Quiz Hotkey Settings ↗</a>');
 }
 async function refreshAccount() {
   try { state = await api("play-state"); accountError = ""; }
@@ -214,6 +238,7 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button"); if (!button) return;
   try {
     const action = button.dataset.action;
+    if(button.hasAttribute('data-list-remove')){await saveAnimeList(button.form,true);return;}
     if(mode==='rankings' && button.dataset.rankFormat){
       if(button.dataset.rankFormat===rankingFormat)return;
       rankingFormat=button.dataset.rankFormat;
@@ -236,6 +261,7 @@ document.addEventListener("click", async (event) => {
       await openMode(mode,false);
     } else if (button.classList.contains("dialog-close")) $("#modal").close();
     else if (action === "account") account();
+    else if(action==="play-console" && state.me?.is_admin)await (await import("../play-console.js")).openPlayConsole(modal,api,escape);
     else if (action === "settings") settings();
     else if (action === "signin-form") auth();
     else if (action === "register-form") auth("register");
@@ -249,6 +275,7 @@ document.addEventListener("click", async (event) => {
 });
 document.addEventListener("submit", async (event) => {
   const form = event.target;
+  if(form.id==="play-anime-list"){event.preventDefault();await saveAnimeList(form);return;}
   if (form.id === "quiz-answer-form") { event.preventDefault(); try { await quiz.submit(form); } catch (error) { fail(error); } return; }
   if (form.id !== "auth-form") return;
   event.preventDefault(); const button = form.querySelector('[type="submit"]'); button.disabled = true;

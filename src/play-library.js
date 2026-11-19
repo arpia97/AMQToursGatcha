@@ -4,7 +4,8 @@ import { libraryJSON } from './quiz-library.js';
 import { titleKey, artistKey } from './play-artists.js';
 import {loadMasterSongAnswers,bestMasterRecord,indexQuizRecordings,sheetRecording} from './master-song-answers.js';
 export class PlayLibrary {
-  constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null) {
+  constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets)) {
+    this.sheetSource=sheetSource;
     this.core=core;this.fetcher=fetcher;this.audioChecks=new Map();this.quizSource=quizSource;
     this.quizzes=indexQuizRecordings([]);this.quizVersion='';this.nextCheck=0;
   }
@@ -23,17 +24,19 @@ export class PlayLibrary {
       await this.refreshing;
     }
     const manifest=await this.core.active();
-    const version=manifest.version+'+'+this.quizVersion;
+    const master=await this.sheetSource();
+    const version=manifest.version+'+'+this.quizVersion+'+'+master.version;
     if(this.version!==version){this.version=version;this.loading=null;}
-    return this.loading ||= this.build(manifest,this.quizzes,this.quizVersion).catch(error=>{if(this.version===version)this.loading=null;throw error;});
+    return this.loading ||= this.build(manifest,this.quizzes,this.quizVersion,master).catch(error=>{if(this.version===version)this.loading=null;throw error;});
   }
-  async build(manifest,quizzes,quizVersion) {
-    const master=await loadMasterSongAnswers(this.core.assets);
+  async build(manifest,quizzes,quizVersion,master) {
     const readAsset=async (file,limit)=>libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/'+file)),limit);
     const [artist,creditedNames]=await Promise.all([
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
     ]);
     const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames]),playable=new Map(),withAudio=new Map(),ngmcRows=[];
+    const occurrenceAnime=new Map(), linkedAnime=new Map();
+    for(const [ann,[myanimelist,anilist]] of Object.entries(master.animeLinks||{}))linkedAnime.set(Number(ann),{myanimelist,anilist});
     const extras=new Map(), officialById=new Map(), matchedSheet=new Set(),matchedQuiz=new Set(),alternates=new Map();
     for(const [amq,ann,animeId,type,title,performer,titles] of master.official||[]){
       const meta={annId:animeId,type,title,artist:performer,titles};
@@ -65,6 +68,13 @@ export class PlayLibrary {
       if(extra)extras.set(id,row);
       playable.get(key).push(id);
       const annId=row.annId||sheet?.annId||quiz?.sourceIds?.annIds?.[0];
+      if(annId){
+        occurrenceAnime.set(id,annId);
+        if(row.linkedIds?.myanimelist || row.linkedIds?.anilist){
+          const prior=linkedAnime.get(annId);
+          linkedAnime.set(annId,{myanimelist:row.linkedIds.myanimelist||prior?.myanimelist,anilist:row.linkedIds.anilist||prior?.anilist});
+        }
+      }
       const type=(annId===sheet?.annId&&sheet?.type)||row.type||quiz?.type||sheet?.type;
       if(type&&annId)ngmcRows.push({annId,annSongId:id,amqSongId:key,audio:source,type});
     }
@@ -94,7 +104,7 @@ export class PlayLibrary {
     const available=[...playable.entries()].filter(([key])=>withAudio.has(key));
     const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion;
     const coverage={playableRecordings:available.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
-    return {version,master,quizzes,artist,extras,ngmcRows,alternates:available.map(([key])=>alternates.get(key)),sources:available.map(([key])=>withAudio.get(key)),catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
+    return {version,master,quizzes,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates:available.map(([key])=>alternates.get(key)),sources:available.map(([key])=>withAudio.get(key)),catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
   }
   async catalog() { return (await this.load()).catalog; }
   async verifiedSource(source){
@@ -105,7 +115,7 @@ export class PlayLibrary {
     if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
     return url;
   }
-  async sample(mode='song-artist',count=20,exclude=null) {
+  async sample(mode='song-artist',count=20,exclude=null,watched=null) {
     const data=await this.load();
     if(!Number.isInteger(count)||count<1||count>100)throw Error('Invalid song count.');
     if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
@@ -113,12 +123,26 @@ export class PlayLibrary {
     const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
     const filename=url=>url.slice(url.lastIndexOf('/')+1);
     const excludedPaths=new Set((exclude||[]).map(filename));
+    let watchedAnime=null;
+    if(watched){
+      const mal=new Set(watched.myanimelist), ani=new Set(watched.anilist);
+      watchedAnime=new Set();
+      for(const [id,links] of data.linkedAnime)if(mal.has(links.myanimelist)||ani.has(links.anilist))watchedAnime.add(id);
+    }
+    const eligible=id=>!watchedAnime||watchedAnime.has(data.occurrenceAnime.get(id));
     const excluded=new Set(),available=[];
     for(let i=0;i<data.groups.length;i++){
-      if(exclude&&[data.sources[i],...(data.alternates[i]||[])].some(url=>excludedPaths.has(filename(url))))excluded.add(i);
+      if(watchedAnime && !data.groups[i].some(eligible))excluded.add(i);
+      else if(exclude&&[data.sources[i],...(data.alternates[i]||[])].some(url=>excludedPaths.has(filename(url))))excluded.add(i);
       else available.push(i);
     }
+    const shortPool=()=>Object.assign(Error("Too few playable songs on the lobby’s Watched lists. Import more entries, choose fewer songs, or switch to Random."),{status:422});
+    if(watchedAnime && available.length<target)throw shortPool();
     const groupById=ranked?new Map(data.groups.flatMap((ids,index)=>ids.map(id=>[id,index]))):null;
+    if(ranked && watchedAnime){
+      const tagged=new Set(data.ngmcRows.filter(r=>eligible(r.annSongId)&&/^(Opening|OP|Ending|ED|Insert|IN)\b/i.test(r.type)).map(r=>groupById.get(r.annSongId)).filter(i=>!excluded.has(i)));
+      if(tagged.size<target)throw shortPool();
+    }
     const tried=new Set(),pool=ranked?[]:[...available];
     const draw=()=>{
       crypto.getRandomValues(random);
@@ -127,7 +151,7 @@ export class PlayLibrary {
     };
     while(selected.size<target&&tried.size<target+32){
       const needed=target-selected.size;
-      const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
+      const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>eligible(r.annSongId)&&!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
         .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
         Array.from({length:Math.min(pool.length,needed)},draw);
       if(!candidates.length)break;
@@ -140,6 +164,7 @@ export class PlayLibrary {
       }
       for(const {group} of candidates)if(verifiedAudio.has(group))selected.add(group);
     }
+    if(watchedAnime && selected.size!==target)throw shortPool();
     if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.

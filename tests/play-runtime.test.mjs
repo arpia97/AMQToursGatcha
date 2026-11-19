@@ -1,10 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
+import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('AniList imports all chunks, handles repeated entries and preserves provider identity',async()=>{
+  const pages=[[{status:'COMPLETED',progress:0,mediaId:5},{status:'PLANNING',progress:0,mediaId:7}],[{status:'CURRENT',progress:2,mediaId:8},{status:'CURRENT',progress:2,mediaId:5}]];
+  const result=await importAnimeList('anilist','https://anilist.co/user/Local/animelist',async(url,options)=>{
+    assert.equal(url,'https://graphql.anilist.co');
+    const {chunk,name}=JSON.parse(options.body).variables;
+    assert.equal(name,'Local');
+    return Response.json({data:{MediaListCollection:{hasNextChunk:chunk<2,lists:[{entries:pages[chunk-1]}]}}});
+  });
+  assert.deepEqual(result.ids,[5,8]);assert.equal(result.count,2);
+  assert.throws(()=>listAccount('anilist','https://example.org/user/Local'));
+});
 test('integrated catalogue samples sheet-only and published recordings and updates after unpublishing',async()=>{
   const audio=id=>'https://naedist.animemusicquiz.com/'+id+'.mp3';
   const base=[1,2,3].map(id=>({annSongId:id,amqSongId:id,annId:id,type:'OP',audio:audio(id),title:'Song '+id,artist:'Artist',titles:['Plus '+id]}));
@@ -46,10 +58,30 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     t.after(()=>{if(ws.readyState===1)ws.close();});return {ws,messages,wait,send:value=>ws.send(JSON.stringify(value))};
   };
   const host=await connect(0),visitor=await connect(1);
+  assert.equal((await mf.dispatchFetch(base+'/api/host/play-sheet',{headers:{Cookie:cookies[0]}})).status,401);
+  const listUpdate=(body,cookie)=>mf.dispatchFetch(base+'/api/play-anime-list',{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)});
+  const listBody={provider:'myanimelist',username:'https://myanimelist.net/animelist/Local'};
+  assert.equal((await listUpdate(listBody)).status,401);
+  host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,pool:'watched'});
+  await host.wait(m=>m.type==='lobby'&&m.pool==='watched');
+  host.send({type:'lobby-start'});
+  await host.wait(m=>m.type==='error'&&m.message.includes('Import'));
+  const linked=await listUpdate(listBody,cookies[0]);assert.equal(linked.status,200,await linked.clone().text());
+  const summary=(await linked.json()).animeList;assert.equal(summary.count,1);assert.equal(summary.ids,undefined);
+  host.send({type:'lobby-start'});
+  const watchedMatch=await host.wait(m=>m.type==='matched');
+  const watchedInfo=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedMatch.match)).json();
+  assert.equal(watchedInfo.song.title,'Song 3');
+  const ownState=await (await mf.dispatchFetch(base+'/api/play-state',{headers:{Cookie:cookies[0]}})).json();
+  assert.deepEqual(ownState.animeList,summary);
+  await listUpdate({remove:true},cookies[0]);
+  host.send({type:'lobby-leave'});
+  await host.wait(m=>m.type==='idle'&&host.messages.indexOf(m)>host.messages.indexOf(watchedMatch));
+  host.messages.length=0;visitor.messages.length=0;
   host.send({type:'lobby-create',format:'lobby-ngmc',password:'private-room'});
   const lobby=await host.wait(m=>m.type==='lobby');
   const listed=await visitor.wait(m=>m.type==='idle'&&m.lobbies?.some(r=>r.code===lobby.code));
-  assert.deepEqual(Object.keys(listed.lobbies[0]).sort(),['code','format','host','locked','players']);
+  assert.deepEqual(Object.keys(listed.lobbies[0]).sort(),['code','format','host','locked','players','pool']);
   assert.ok(listed.lobbies[0].locked);
   visitor.send({type:'lobby-join',code:lobby.code,password:'wrong'});
   await visitor.wait(m=>m.type==='error'&&m.message.includes('password'));
@@ -197,6 +229,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(review.events.some(e=>e.kind==='activity'&&e.player==='1'&&e.data.clientAt===123&&e.at>123));
     assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.accepted&&e.data.answers.anime));
     if(format==='1v1'){
+      const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});
+      assert.equal((await update({Cookie:cookies[0]})).status,401);
+      assert.equal((await update(auditHeaders)).status,200);
+      assert.equal((await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders})).json()).assessment.note,'Check round 1');
       assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.flags.length===1));
       assert.ok(review.events.some(e=>e.kind==='round-result'&&e.data.flags.length===1&&!e.data.correct.anime));
     }

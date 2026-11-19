@@ -291,7 +291,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function teamHTML(){if(ranked())return ngmcTeams(match,esc);return match.lobby?pointsBoard(match,esc):songTeamsHTML(match,esc);}
   function sharedHTML(){if(match.format==='lobby-team')return ballotHTML(match,esc);if(ranked())return match.phase==='loading'?'':ngmcControls(match,esc);if(match.lobby||teamFields()||match.format==='1v1')return '';const me=player();return '<section class="sa-shared"><h3>Team Answers</h3><div class="sa-shared-head"><span>Player</span>'+fields.map(f=>'<span>'+labels[f]+'</span>').join('')+'</div>'+match.players.filter(p=>p.team===me.team).map(p=>'<div class="sa-shared-row"><strong>'+esc(p.name)+'</strong>'+fields.map(f=>'<span>'+esc(p.answers?.[f]||'—')+'</span>').join('')+'</div>').join('')+'</section>';}
   function customSettings(){
-    return {format:root.querySelector('#sa-lobby-format')?.value||'lobby-team',
+    return {pool:root.querySelector('#sa-lobby-pool')?.value||'random',format:root.querySelector('#sa-lobby-format')?.value||queueStatus.format||'lobby-team',
       songs:Number(root.querySelector('#sa-lobby-songs')?.value||20),
       seconds:Number(root.querySelector('#sa-lobby-time')?.value??30)};
   }
@@ -508,8 +508,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     raf=setTimeout(tick,100);
   }
   root.addEventListener('input',event=>{
-    if(['sa-lobby-format','sa-lobby-songs','sa-lobby-time'].includes(event.target.id)){
-      lobbyDraft={...customSettings(),songs:root.querySelector('#sa-lobby-songs').value};
+    if(['sa-lobby-pool','sa-lobby-format','sa-lobby-songs','sa-lobby-time'].includes(event.target.id)){
+      lobbyDraft={...customSettings(),songs:root.querySelector('#sa-lobby-songs')?.value??35};
       root.querySelector('[data-lobby-action=settings]').disabled=false;
       root.querySelector('[data-lobby-action=start]').disabled=true;
     }

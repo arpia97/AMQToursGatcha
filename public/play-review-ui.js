@@ -15,9 +15,22 @@ export function mountPlayReview(root,initial,api,esc){
     if(row.kind==='ended')return esc(d.reason||d.phase)+' · '+(d.rounds||0)+' songs reported';
     return esc(d.message||d.code||'—');
   }
+  function assessment(){
+    const a=detail.assessment||{};
+    return '<form data-review-assessment class="play-review-tools"><label>Review Status<select name="status">'+['unreviewed','reviewing','resolved'].map(key=>'<option value="'+key+'" '+(a.status===key?'selected':'')+'>'+({unreviewed:'Unreviewed',reviewing:'In review',resolved:'Resolved'}[key])+'</option>').join('')+'</select></label><label>Host Notes<input name="note" maxlength="1000" value="'+esc(a.note||'')+'"></label><button class="button secondary" type="submit">Save Review</button><small>'+(a.at?'Updated '+esc(time(a.at))+' · '+esc(a.by):'')+'</small></form>';
+  }
+  root.addEventListener('submit',async event=>{
+    const form=event.target;if(!form.matches('[data-review-assessment]'))return;
+    event.preventDefault();const id=selected,button=form.querySelector('button');button.disabled=true;
+    try{
+      const saved=await api('play-review',{match:id,...Object.fromEntries(new FormData(form))});
+      if(form.isConnected && id===selected){detail.assessment=saved;events();}
+    }catch(error){root.querySelector('[data-review-error]').textContent=error.message;}
+    finally{button.disabled=false;}
+  });
   function events(){
     const names=new Map(detail.players.map(p=>[p.id,p.name]));
-    root.querySelector('[data-review-detail]').innerHTML='<div class="play-review-tools"><div><h3>'+esc(detail.format)+' · Match Review</h3><small>'+esc(detail.id)+'</small></div><label>Player<select data-review-player><option value="">All Players</option>'+detail.players.map(p=>'<option value="'+esc(p.id)+'" '+(player===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select></label><button class="button secondary" type="button" data-review-latest>Latest Events</button></div><div class="table-wrap"><table><thead><tr><th>Server Time</th><th>Player</th><th>Song / Phase</th><th>Event</th><th>Answer / Activity</th></tr></thead><tbody>'+detail.events.map(row=>'<tr><td>'+esc(time(row.at))+(row.data.clientAt?'<small>Client: '+esc(time(row.data.clientAt))+'</small>':'')+'</td><td>'+esc(names.get(row.player)||row.player||'Server')+'</td><td>'+row.data.round+' · '+esc(row.data.phase)+'</td><td>'+esc(row.kind)+'</td><td>'+eventText(row)+'</td></tr>').join('')+'</tbody></table></div>'+(detail.next?'<button class="button secondary" type="button" data-review-older-events="'+detail.next+'">Older Events</button>':'');
+    root.querySelector('[data-review-detail]').innerHTML='<div class="play-review-tools"><div><h3>'+esc(detail.format)+' · Match Review</h3><small>'+esc(detail.id)+'</small></div><label>Player<select data-review-player><option value="">All Players</option>'+detail.players.map(p=>'<option value="'+esc(p.id)+'" '+(player===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select></label><button class="button secondary" type="button" data-review-latest>Latest Events</button></div>'+assessment()+'<div class="table-wrap"><table><thead><tr><th>Server Time</th><th>Player</th><th>Song / Phase</th><th>Event</th><th>Answer / Activity</th></tr></thead><tbody>'+detail.events.map(row=>'<tr><td>'+esc(time(row.at))+(row.data.clientAt?'<small>Client: '+esc(time(row.data.clientAt))+'</small>':'')+'</td><td>'+esc(names.get(row.player)||row.player||'Server')+'</td><td>'+row.data.round+' · '+esc(row.data.phase)+'</td><td>'+esc(row.kind)+'</td><td>'+eventText(row)+'</td></tr>').join('')+'</tbody></table></div>'+(detail.next?'<button class="button secondary" type="button" data-review-older-events="'+detail.next+'">Older Events</button>':'');
   }
   async function loadEvents(before){const result=await request({match:selected,player,...(before?{before}:{})});if(result){detail=result;events();}}
   async function loadMatches(before){const result=await request({search:root.querySelector('[data-review-search]').value,...(before?{before}:{})});if(result){index=result;list();}}

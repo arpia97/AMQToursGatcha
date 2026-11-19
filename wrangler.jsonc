@@ -4,6 +4,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "vars": { "BACKGROUND_IMPORT_MODE": "continuous" },
+  "triggers": { "crons": ["12 4 * * SUN"] },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

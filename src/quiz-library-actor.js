@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
 import { PlayLibrary } from './play-library.js';
+import {SheetRefresh,currentSheet} from "./play-sheet.js";
 export class QuizLibrary extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
@@ -17,8 +18,16 @@ export class QuizLibrary extends DurableObject {
       },
       env.ASSETS,
     );
+    this.sheetSource=currentSheet(env);
     this.play = new PlayLibrary(this.core,undefined,version=>
-      env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version));
+      env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version),this.sheetSource);
+  }
+  sheetManager(){return this.sheet??=new SheetRefresh(this.ctx,this.core.assets);}
+  sheetStatus(){return this.sheetManager().status();}
+  sheetSnapshot(version){return this.sheetManager().snapshot(version);}
+  async startSheetRefresh(){
+    this.core.set("sheet-actor",true);
+    return this.sheetManager().start();
   }
   async schedule() {
     const next = this.core.nextAlarm();
@@ -27,6 +36,7 @@ export class QuizLibrary extends DurableObject {
     else await this.ctx.storage.deleteAlarm();
   }
   async alarm() {
+    if(this.core.get("sheet-actor"))return this.sheetManager().step();
     await this.ctx.storage.setAlarm(Date.now() + 95000);
     try {
       await this.core.step();
@@ -46,7 +56,7 @@ export class QuizLibrary extends DurableObject {
       if (raw.length > 1000000)
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
-      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode,body.count,body.exclude));
+      if(path==='/play-sample')return Response.json(await this.play.sample(body.mode,body.count,body.exclude,body.watched));
       if (path === "/lookup")
         return Response.json(await this.core.lookup(body));
       if (path === "/refresh") {

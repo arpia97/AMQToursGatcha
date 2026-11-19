@@ -47,7 +47,7 @@ export async function playRuntimeFixture({groups=false,media}={}){
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});
-  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
+  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{linkedIds:{myanimelist:id+1000,anilist:id+2000},annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
   const manifest={schema:1,version:'play-fixture',count:40,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
   const asset=async request=>{
     const path=new URL(request.url).pathname;
@@ -64,6 +64,10 @@ export async function playRuntimeFixture({groups=false,media}={}){
   const tourSeedRequests=[],unavailableAudio=new Set();
   const outbound=async request=>{
     const url=new URL(request.url);
+    if(url.hostname==='myanimelist.net' && url.pathname==='/animelist/Local/load.json'){
+      const rows=url.searchParams.get('offset')==='0'?[{anime_id:1003,status:2,num_watched_episodes:0},{anime_id:1004,status:6,num_watched_episodes:0}]:[];
+      return Response.json(rows);
+    }
     const localSong=/^\/local-(\d+)\.mp3$/.exec(url.pathname);
     if(localSong&&/^(eu|nae|naw)dist\.animemusicquiz\.com$/.test(url.hostname)){
       if(Number(localSong[1])===1||unavailableAudio.has(url.pathname))return new Response(null,{status:404});

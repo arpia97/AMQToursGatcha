@@ -149,3 +149,14 @@
   .ranking-board :is(th,td):nth-child(2) { position:sticky; left:0; max-width:36vw; white-space:normal; overflow-wrap:anywhere; background:var(--panel); box-shadow:1px 0 var(--border); }
   .ranking-board th:nth-child(2) { background:#20262d; }
 }
+
+#modal:has(.play-console){width:min(1100px,95vw);max-width:95vw}
+.play-console{display:grid;gap:14px;min-width:0}
+.play-console .host-panel{min-width:0}
+.play-console .host-panel h3{margin:0}
+.play-console [data-sheet-refresh]{margin-top:10px}
+.play-console .play-review-tools{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:10px 0}
+.play-console .table-wrap{max-height:50vh;overflow:auto}
+#play-anime-list{border-block:1px solid var(--border);padding:14px 0;margin:14px 0}
+#play-anime-list h3,#play-anime-list p{margin:0}
+#play-anime-list [role=status]:empty{display:none}
