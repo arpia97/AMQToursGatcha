@@ -43,9 +43,11 @@ function enableSignedWallets(e) {
     fail("Unexpected player table schema.", 409);
   e.run(create);
   e.run(`INSERT INTO players_signed_wallet_v1(${columns}) SELECT ${columns} FROM players`);
+  const inboxTriggers = e.all("SELECT name,sql FROM sqlite_master WHERE type='trigger' AND name GLOB 'inbox_*'");
+  for (const row of inboxTriggers) e.run('DROP TRIGGER "'+row.name.replaceAll('"','""')+'"');
   e.run("DROP TABLE players");
   e.run("ALTER TABLE players_signed_wallet_v1 RENAME TO players");
-  for (const row of indexes) e.run(row.sql);
+  for (const row of [...indexes,...inboxTriggers]) e.run(row.sql);
   if (JSON.stringify(e.all("SELECT * FROM players ORDER BY id")) !== accounts)
     fail("Player fields changed during wallet migration.", 409);
   return true;

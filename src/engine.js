@@ -1,3 +1,4 @@
+import { installInbox, inboxCount, saveNoticePreferences } from "./inbox.js";
 import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
 import { setAccountLock } from "./account-lock.js";
@@ -85,6 +86,8 @@ export class Engine {
       ["players", "private_balance", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "private_collection", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "quiz_hotkeys", "TEXT"],
+      ["ledger", "reward", "INTEGER NOT NULL DEFAULT 0"],
+      ["players", "notice_preferences", "TEXT NOT NULL DEFAULT '{}'"],
       ["players", "notify_friends_quiz", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "acquired_at", "INTEGER NOT NULL DEFAULT 0"],
       ["inventory", "protected", "INTEGER NOT NULL DEFAULT 0"],
@@ -134,6 +137,7 @@ export class Engine {
     migrateEnhancements(this);
     this.cardTitles.backfill();
     migrateTradeDefaults(this);
+    installInbox(this);
     this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
@@ -191,7 +195,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -201,6 +205,7 @@ export class Engine {
       private_balance: !!p.private_balance,
       private_collection: !!p.private_collection,
       quiz_hotkeys: parseQuizHotkeysJSON(p.quiz_hotkeys),
+      notice_preferences: JSON.parse(p.notice_preferences),
       notify_friends_quiz: !!p.notify_friends_quiz,
       role: p.is_admin ? "Host" : null,
     };
@@ -354,11 +359,12 @@ export class Engine {
       id,
     );
     this.run(
-      "INSERT INTO ledger(player,delta,reason,at) VALUES(?,?,?,?)",
+      "INSERT INTO ledger(player,delta,reason,at,reward) VALUES(?,?,?,?,?)",
       id,
       delta,
       reason,
       this.now(),
+      Number(earned && delta > 0),
     );
   }
   addCard(player, card, count = 1) {
@@ -726,10 +732,11 @@ export class Engine {
           b.privateCollection ? 1 : 0,
           player,
         );
+      if (b.noticePreferences !== undefined) saveNoticePreferences(this,player,b.noticePreferences);
       if (b.notifyFriendsQuiz !== undefined) {
         if (typeof b.notifyFriendsQuiz !== "boolean") fail("Choose your quiz notification preference.");
         this.run("UPDATE players SET notify_friends_quiz=? WHERE id=?", b.notifyFriendsQuiz ? 1 : 0, player);
-        if (!b.notifyFriendsQuiz) this.run("DELETE FROM player_notices WHERE player=? AND kind='quiz-friend-beaten' AND seen=0",player);
+        if (!b.notifyFriendsQuiz) this.run("UPDATE player_notices SET seen=1 WHERE player=? AND kind='quiz-friend-beaten' AND seen=0",player);
       }
       if (b.quizHotkeys !== undefined) {
         const normalizedHotkeys = normalizeQuizHotkeys(b.quizHotkeys);
@@ -1294,6 +1301,7 @@ export class Engine {
       horseRace: id ? this.economy.horse.view(id) : null,
       ...this.economy.pachinko.view(id),
       notices,
+      inboxUnread: inboxCount(this,id),
       catalog,
       specialPack,
       auctions,
@@ -1415,6 +1423,7 @@ export class Engine {
         ).n;
     return {
       ...this.friends.decorate([p],viewerId)[0],
+      notice_preferences: isSelf ? p.notice_preferences : undefined,
       notify_friends_quiz: isSelf ? p.notify_friends_quiz : undefined,
       balance: hideBalance ? null : p.balance,
       earned: hideBalance ? null : p.earned,

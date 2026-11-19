@@ -238,6 +238,13 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   );
   assert.equal(award.actor, "2");
   assert.equal(award.category, "reporting");
+  const getInbox = headers => mf.dispatchFetch("http://game/api/inbox",{headers});
+  assert.equal((await getInbox({})).status,401);
+  const feed=await (await getInbox({Cookie:cookie})).json();
+  const reward=feed.items.find(row=>row.kind==="credit-reward" && row.credits===200);
+  assert.match(reward.metadata.reason,/Delegated audit award/);
+  assert.equal((await post("inbox-read",{id:reward.id},{Cookie:cookie})).status,200);
+  assert.equal((await (await getInbox({Cookie:cookie})).json()).items.find(row=>row.id===reward.id).inbox_read,1);
   response = await mf.dispatchFetch("http://game/api/host/activity-csv", {
     headers: { Cookie: hostCookie },
   });

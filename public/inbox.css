@@ -1,0 +1,49 @@
+.inbox-bell { position:relative; display:inline-grid; place-items:center; width:32px; height:32px; color:#b4bac7; flex:none }
+.inbox-bell[hidden],#inbox-count[hidden],.settings-modal [hidden] { display:none!important }
+.inbox-bell.unread::after { content:""; position:absolute; top:3px; right:4px; width:7px; height:7px; border-radius:50%; background:#b6e2c5; box-shadow:0 0 0 2px #15161d }
+#inbox-count { margin-left:auto; color:#b6e2c5; font-size:11px }
+.inbox-feed { max-width:980px; margin:0 auto; }
+.inbox-feed header,.inbox-tools,.inbox-feed footer { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+.inbox-feed header { justify-content:space-between; margin-bottom:20px }
+.inbox-feed h1 { margin:0 }
+.inbox-tools { border-bottom:1px solid #343642; padding-bottom:12px }
+.inbox-tools select { width:auto; margin-left:auto }
+.inbox-tabs { display:flex; gap:3px; align-items:center }
+.inbox-tabs button { background:transparent; color:#b5b8c1; border:1px solid transparent; padding:7px 12px; border-radius:6px }
+.inbox-tabs button[aria-pressed=true],.inbox-tabs button[aria-selected=true] { color:#c8ebd4; background:#27372e; border-color:#40594b }
+.inbox-day { font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:#a8abb8; margin:18px 0 7px }
+.inbox-group,.inbox-prefs section { border:1px solid #333541; border-radius:10px; background:#1a1c24; overflow:hidden }
+.inbox-row { box-sizing:border-box; display:flex; align-items:center; gap:13px; width:100%; min-height:60px; padding:10px 14px; color:inherit; font:inherit; text-align:left; background:transparent; border:0; border-radius:0 }
+.inbox-row+.inbox-row { border-top:1px solid #2e303a }
+.inbox-row[data-unread=true] { background:linear-gradient(90deg,#b6e2c509,transparent 65%) }
+.inbox-row:hover { background:#23262e }
+.inbox-dot { width:5px; height:5px; border-radius:50%; flex:none }
+[data-unread=true]>.inbox-dot { background:#b6e2c5 }
+.inbox-thumb { --size:34px; position:relative; display:inline-grid; place-items:center; width:var(--size); height:var(--size); flex:0 0 var(--size); overflow:hidden; border-radius:8px; color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,#20222b); font-size:19px }
+.inbox-thumb img { position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:cover; object-position:50% 22% }
+.inbox-thumb i { position:absolute; bottom:0; right:0; width:15px; height:15px; text-align:center; line-height:15px; font-style:normal; font-size:11px; background:#242730; border-radius:50% }
+.inbox-copy { min-width:0; overflow-wrap:anywhere }
+.inbox-copy b,.inbox-copy small { display:block }
+.inbox-copy small,.inbox-row time,.inbox-empty,.inbox-detail small { color:#a8adbb }
+.inbox-row time { margin-left:auto; white-space:nowrap; font-size:12px }
+.inbox-empty { padding:28px 4px; text-align:center }
+.inbox-feed footer { justify-content:flex-end; margin:12px 0 }
+dialog.settings-modal { width:min(660px,calc(100vw - 26px)) }
+#profile-form>.inbox-tabs { border-bottom:1px solid #363944; padding-bottom:7px }
+#profile-form>.inbox-general,#profile-form>.inbox-prefs { min-height:0; max-height:57dvh; overflow:auto; overscroll-behavior:contain; padding:3px }
+.inbox-prefs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px }
+.inbox-prefs>div { display:grid; gap:10px; align-content:start }
+.inbox-prefs h3 { margin:0; padding:9px 12px; font-size:14px; background:#22242d }
+.inbox-prefs h3 span { margin-right:5px }
+.inbox-prefs label.inbox-pref { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:9px; padding:9px 12px; border-top:1px solid #30323a; font-size:12px; line-height:1.35; cursor:pointer }
+.inbox-pref input[type=checkbox] { appearance:none; outline-offset:2px; flex:0 0 30px; width:30px; height:18px; min-height:0; margin:0; padding:0; border:1px solid #575a66; border-radius:999px; background:radial-gradient(circle at 8px center,#b4b6bf 5px,transparent 6px),#363843; cursor:pointer }
+.inbox-pref input[type=checkbox]:checked { border-color:#abd9bc; background:radial-gradient(circle at 20px center,#294533 5px,transparent 6px),#b6e2c5 }
+@media(max-width:640px) {
+  .inbox-prefs { grid-template-columns:1fr }
+  .inbox-thumb { --size:30px }
+  .inbox-row { gap:8px; padding:8px; min-height:54px }
+  .inbox-row time { font-size:10px }
+  .inbox-tools { gap:6px }
+  .inbox-tools select,.inbox-tools button { font-size:12px; padding:6px }
+  .inbox-bell { width:24px }
+}

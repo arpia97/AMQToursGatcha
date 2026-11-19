@@ -298,3 +298,35 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
     /data-action="quiz-notice-open" data-quiz="op-quiz">View Quiz Leaderboard →/,
   );
 });
+
+test("inbox uses account preferences, delivers once per opening, and scopes read receipts to the recipient", async t => {
+  const { e } = fixture(t);
+  const { inboxPage, readInbox, saveNoticePreferences } = await import("../src/inbox.js");
+  e.run("UPDATE players SET password='local-test'");
+  const page = (id, opts={}) => inboxPage(e,id,new URLSearchParams(opts));
+  const kind = (id,k) => page(id).items.filter(r=>r.kind===k);
+  const now=e.now();
+  saveNoticePreferences(e,"r",{"flash-open":false,"credit-reward":false});
+  e.run("INSERT INTO card_wishlist(player,card,created) VALUES('q','card-0',?)",now);
+  for(const card of ["card-0","card-1"])
+    e.run("INSERT INTO weekly_shop(card,kind,price,starts,ends) VALUES(?,'character',100,?,?)",card,now,now+10800000);
+  assert.equal(kind("q","flash-open").length,1);
+  assert.equal(kind("r","flash-open").length,0);
+  assert.equal(kind("q","wish-shop").length,1);
+  assert.equal(kind("p","wish-shop").length,0);
+  const initial=kind("r","credit-reward").length;
+  e.wallet("r",100,"Tour participation",true);
+  assert.equal(kind("r","credit-reward").length,initial);
+  e.friends.set("q",{player:"p",added:true});
+  e.friends.set("q",{player:"p",added:true});
+  assert.equal(kind("p","friend-add").length,1);
+  const before=page("p").latest;
+  readInbox(e,"q",{id:before});
+  assert.equal(kind("p","friend-add")[0].inbox_read,0);
+  e.wallet("p",200,"Tour participation",true);
+  readInbox(e,"p",{id:before,all:true});
+  const fresh=page("p",{unread:"1",group:"social"});
+  assert.equal(fresh.unread,1);
+  assert.equal(fresh.items[0].metadata.reason,"Tour participation");
+  assert.equal(e.economy.notices.pending("p").length,0);
+});

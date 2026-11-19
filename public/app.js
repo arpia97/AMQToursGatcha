@@ -91,6 +91,7 @@ import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js";
+import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js";
 import { noticePanel } from "./player-notices.js";
 import { applyGameState } from "./game-state.js";
 import { auctionRefreshIds, applyAuctionRefresh, syncBidForm } from "./auction-live.js";
@@ -118,7 +119,7 @@ const mobileNavigation = installMobileNavigation({
   groups: () => [
     {key:'collect',label:'Collect',keys:['profile','collection','packs','fusion','catalog','shop','auctions']},
     {key:'play',label:'Play',keys:['quiz','pickems','arcade']},
-    {key:'community',label:'Community',keys:['home','players','ranks']}
+    {key:'community',label:'Community',keys:['home','players','notifications','ranks']}
   ],
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
   extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
@@ -201,6 +202,7 @@ icons.players =
   '<circle cx="10" cy="8" r="4"/><path d="M3 21v-3a7 7 0 0 1 11-5m3 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6m2 5 3 3"/>';
 icons.profile =
   '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>';
+icons.notifications = '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10M10 21h4"/>';
 icons.catalog = icons.collection;
 icons.quiz =
   '<path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>';
@@ -357,6 +359,7 @@ const cardBy = (id) =>
     series: "",
     image: "",
   };
+const inbox = createInbox({escape,cardBy,routeHref});
 const image = (c) =>
   c.image
     ? `<img class="${c.id?.startsWith("acdb-") ? "acdb-portrait" : ""}" data-portrait-id="${escape(c.id || "")}" src="${escape(c.image)}" alt="${escape(c.name)}" loading="lazy" referrerpolicy="no-referrer">`
@@ -493,6 +496,7 @@ function showTradeNotices() {
     quizPlaying()
   )
     return;
+  if(page()==="notifications") return;
   const notices = (state.notices || []).filter(
     (notice) => !shownTradeNotices.has(state.me.id + ":" + notice.id),
   );
@@ -505,6 +509,10 @@ function acceptAuctionNotices(value, player) {
   if(state.me?.id!==player||busy)return;
   rememberCards(value.cards);
   state.notices=value.notices;
+  if (Number.isInteger(value.inboxUnread) && state.inboxUnread!==value.inboxUnread) {
+    state.inboxUnread=value.inboxUnread; updateInboxBadge();
+    if(page()==="notifications") loadDynamic().then(render).catch(err=>toast(err.message,true));
+  }
   const market=page()==='auctions'?ui.marketData:null;
   if(applyAuctionRefresh(state,market,value.auctionState))render();
   const form=document.getElementById('bid-form');
@@ -1616,6 +1624,7 @@ async function loadDynamic() {
     ui.marketWishlistOnly = false;
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
   }
+  if(current==="notifications" && state.me) data=await api(inbox.query(state.me.id));
   if (current === "home") await loadFeatured();
   if (current === "quiz") {
     await loadQuizUI();
@@ -1770,6 +1779,7 @@ async function loadDynamic() {
   }
   if (data) {
     rememberCards(data.cards);
+    if(current==="notifications" && data.player===state.me?.id){inbox.accept(data);state.inboxUnread=data.unread;}
     if (current === "collection") ui.animeData = data;
     if (current === "titles") {
       ui.titleData = data;
@@ -1796,7 +1806,23 @@ async function loadDynamic() {
     if (current === "profile" || current === "player") profileData = data;
   }
 }
+document.addEventListener("change",event=>{
+  if(event.target.id==="inbox-group"){inbox.filter(event.target.value);loadDynamic().then(render).catch(err=>toast(err.message,true));}
+});
+document.addEventListener("click",event=>{
+  const link=event.target.closest("[data-inbox-link]");
+  if(!link)return;
+  if(link.dataset.inboxSection){ui.shopSection=link.dataset.inboxSection;ui.tradeView="browse";ui.marketPage=1;ui.tradePage=1;}
+  $("#modal").close();
+},true);
 const loadingPage = () => '<p class="loading">Loading…</p>';
+function updateInboxBadge() {
+  const bell=$(".inbox-bell"), unread=state.inboxUnread||0;
+  bell.href=routeHref("notifications"); bell.hidden=!state.me;
+  bell.innerHTML=svg(icons.notifications); bell.classList.toggle("unread",!!unread);
+  bell.setAttribute("aria-label", unread ? `Notifications, ${unread} unread` : "Notifications");
+  const count=$("#inbox-count"); if(count){count.textContent=String(unread);count.hidden=!unread;}
+}
 function render() {
   if (!state) return;
   workingTitlePopovers.dismiss();
@@ -1831,9 +1857,10 @@ function render() {
   $("#navigation").innerHTML = routes
     .map(
       ([id, name]) =>
-        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
+        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span>${id==="notifications"?'<small id="inbox-count" hidden></small>':""}</a>`,
     )
     .join("");
+  updateInboxBadge();
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
   $(".host-link")?.toggleAttribute("hidden", !state.me?.is_admin);
@@ -1847,6 +1874,7 @@ function render() {
   $("#main").innerHTML = {
     home,
     collection,
+    notifications: () => inbox.render(state.me?.id),
     fusion: () => alchemyUI.render(),
     quiz: () => quizUI?.render() ?? loadingPage(),
     packs,
@@ -2249,14 +2277,26 @@ document.addEventListener("click", async (ev) => {
     auth();
     return;
   }
+  if(a.startsWith("inbox-")) {
+    const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
+    if(type==="item" || type==="read"){
+      const html=type==="item" ? inbox.detail(id) : "";
+      const result=await api("inbox-read",{id:type==="item"?id:inbox.watermark(),all:type==="read"});
+      if(state.me?.id!==player)return;
+      state.inboxUnread=result.unread;
+      if(html)modal(html);
+    }else inbox.view(type);
+    await loadDynamic(); render(); return;
+  }
   if (a === "edit-profile") {
     settingsHotkeyDraft = normalizeQuizHotkeys(state.me.quiz_hotkeys);
     const currentAutosell = state.me.autosell_below || "";
     modal(
-      `<h2>Settings</h2><p class="subtext">Manage your profile, pack auto-sell, privacy, and quiz keyboard shortcuts.</p><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}<label>Anime Titles<select id="settings-title-mode"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Notifications</legend><label class="check-label"><input type="checkbox" name="notifyFriendsQuiz" ${state.me.notify_friends_quiz ? "checked" : ""}> Notify me when an added friend beats my quiz score</label></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
+      `<h2>Settings</h2><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}<label>Anime Titles<select id="settings-title-mode"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
       false,
       "avatar-editor-modal settings-modal",
     );
+    settingTabs($("#profile-form"),state.me,t.dataset.settingsSection);
     avatarEditor.mount(
       $("#profile-form"),
       state.me.avatar_card,
@@ -2522,6 +2562,7 @@ document.addEventListener("submit", async (ev) => {
       b.privateBalance = Boolean(f.elements.privateBalance?.checked);
       b.privateCollection = Boolean(f.elements.privateCollection?.checked);
       b.quizHotkeys = normalizeQuizHotkeys(settingsHotkeyDraft);
+      b.noticePreferences = inboxSettings(f);
       b.notifyFriendsQuiz = Boolean(f.elements.notifyFriendsQuiz?.checked);
     }
     await execute("profile", b);

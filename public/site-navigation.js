@@ -9,6 +9,7 @@ export const SITE_ROUTES = [
   ["arcade", "Pachinko"],
   ["quiz", "Quiz"],
   ["players", "Players"],
+  ["notifications", "Notifications"],
   ["ranks", "Rankings"],
   ["catalog", "Catalogue"],
 ];

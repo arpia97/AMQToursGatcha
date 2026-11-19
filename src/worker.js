@@ -1,3 +1,4 @@
+import { inboxPage, readInbox, inboxCount } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
 import {playRankingPage} from './play-ranking-query.js';
@@ -1569,11 +1570,16 @@ export class Game extends DurableObject {
           Number(url.searchParams.get("page") || 1),
         ),
       );
+    if (path === "inbox" && !post || path === "inbox-read" && post) {
+      if (!session) fail("Sign in to view notifications.", 401);
+      return json(post ? e.tx(() => readInbox(e,session.player,b)) : inboxPage(e,session.player,url.searchParams));
+    }
     if (path === "notices" && !post) {
       if (!session) fail("Sign in to view notifications.", 401);
       const notices = e.economy.notices.pending(session.player);
       return json({
         notices,
+        inboxUnread: inboxCount(e,session.player),
         ...(url.searchParams.has('auctions')?{auctionState:e.economy.notices.auctionState(session.player,url.searchParams.get('auctions'))}:{}),
         cards: e.catalogStore.cards(notices.map((n) => n.card).filter(Boolean)),
       });

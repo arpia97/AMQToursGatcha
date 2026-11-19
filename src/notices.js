@@ -19,8 +19,9 @@ export class PlayerNotices {
       );
   }
   add(player, key, kind, card, level, credits, metadata = {}) {
+    if (["trade-request","credit-reward","quiz-leader-beaten"].includes(kind) && this.e.one("SELECT json_extract(notice_preferences,?) AS enabled FROM players WHERE id=?", '$."'+kind+'"', player)?.enabled === 0) return null;
     this.e.run(
-      "INSERT OR IGNORE INTO player_notices(player,event_key,kind,card,level,credits,created,metadata) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT OR IGNORE INTO player_notices(player,event_key,kind,card,level,credits,created,metadata,seen) VALUES(?,?,?,?,?,?,?,?,?)",
       player,
       key,
       kind,
@@ -29,6 +30,7 @@ export class PlayerNotices {
       credits,
       this.e.now(),
       JSON.stringify(metadata),
+      Number(kind==="credit-reward" || kind==="quiz-personal-beaten"),
     );
     return this.e.one("SELECT id FROM player_notices WHERE event_key=?", key)
       .id;
@@ -74,7 +76,7 @@ export class PlayerNotices {
       ...ids,
     );
     this.e.run(
-      "DELETE FROM player_notices WHERE player=? AND seen=1 AND id NOT IN (SELECT id FROM player_notices WHERE player=? AND seen=1 ORDER BY id DESC LIMIT 100)",
+      "DELETE FROM player_notices WHERE player=? AND seen=1 AND inbox_read=1 AND id NOT IN (SELECT id FROM player_notices WHERE player=? AND seen=1 ORDER BY id DESC LIMIT 100)",
       player,
       player,
     );

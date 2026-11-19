@@ -44,11 +44,15 @@ export class Friends {
   }
   notifyQuiz(player, quiz, previous, current, run, excluded = null) {
     const beats = (a,b) => a && (a.best>b.best || (a.best===b.best && (a.best_duration_ms ?? Number.MAX_SAFE_INTEGER)<(b.best_duration_ms ?? Number.MAX_SAFE_INTEGER)));
-    const recipients = this.e.all("SELECT p.id,q.best,q.best_duration_ms FROM player_friends f JOIN players p ON p.id=f.player JOIN quiz_progress q ON q.player=p.id AND q.quiz=? WHERE f.friend=? AND p.notify_friends_quiz=1 AND p.account_locked=0", quiz.id, player);
+    const recipients = this.e.all(`SELECT p.id,q.best,q.best_duration_ms,(p.notify_friends_quiz=1 AND f.friend IS NOT NULL) AS via_friend
+      FROM quiz_progress q JOIN players p ON p.id=q.player LEFT JOIN player_friends f ON f.player=p.id AND f.friend=?
+      WHERE q.quiz=? AND p.id<>? AND p.account_locked=0 AND ((p.notify_friends_quiz=1 AND f.friend IS NOT NULL)
+      OR json_extract(p.notice_preferences,'$."quiz-personal-beaten"')=1)`, player, quiz.id, player);
     const byName = this.e.player(player).name;
     for (const recipient of recipients) {
       if (recipient.id === excluded || !beats(current,recipient) || beats(previous,recipient)) continue;
-      this.e.economy.notices.add(recipient.id, `quiz-friend-beaten:${quiz.id}:${run}:${recipient.id}`, "quiz-friend-beaten", "", 1, 0, {
+      const kind = recipient.via_friend ? "quiz-friend-beaten" : "quiz-personal-beaten";
+      this.e.economy.notices.add(recipient.id, `${kind}:${quiz.id}:${run}:${recipient.id}`, kind, "", 1, 0, {
         quiz:quiz.id,quizName:quiz.name,byId:player,byName,score:current.best,durationMs:current.best_duration_ms,
         previousScore:recipient.best,previousDurationMs:recipient.best_duration_ms,
       });

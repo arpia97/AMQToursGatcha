@@ -11,6 +11,7 @@ function formatQuizAttempt(score, durationMs) {
 }
 export function noticeCopy(notice) {
   switch (notice.kind) {
+    case "quiz-personal-beaten":
     case "quiz-friend-beaten":
     case "quiz-leader-beaten": {
       const byName = notice.metadata?.byName || "Another player",
@@ -23,11 +24,11 @@ export function noticeCopy(notice) {
           notice.metadata?.previousDurationMs,
         );
       return {
-        title: notice.kind === "quiz-friend-beaten" ? "A Friend Beat Your Quiz Score" : "Your #1 Quiz Score Was Beaten",
+        title: notice.kind === "quiz-friend-beaten" ? "A Friend Beat Your Quiz Score" : notice.kind === "quiz-personal-beaten" ? "Your Quiz Score Was Beaten" : "Your #1 Quiz Score Was Beaten",
         detail:
-          `${byName} ${notice.kind === "quiz-friend-beaten" ? "moved ahead with" : "took #1 with"} ${nextAttempt}` +
+          `${byName} ${notice.kind !== "quiz-leader-beaten" ? "moved ahead with" : "took #1 with"} ${nextAttempt}` +
           (previousAttempt
-            ? `, beating your ${notice.kind === "quiz-friend-beaten" ? "personal best" : "#1 score"} of ${previousAttempt}.`
+            ? `, beating your ${notice.kind !== "quiz-leader-beaten" ? "personal best" : "#1 score"} of ${previousAttempt}.`
             : "."),
         credit: "",
         sign: "",

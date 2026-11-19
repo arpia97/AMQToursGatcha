@@ -187,7 +187,7 @@ export class Quiz {
     ])
       this.e.run("DELETE FROM " + table + " WHERE quiz=?", id);
     this.e.run(
-      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten') AND json_extract(metadata,'$.quiz')=?",
+      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten','quiz-personal-beaten') AND json_extract(metadata,'$.quiz')=?",
       id,
     );
     this.statisticsCache = null;
@@ -227,7 +227,7 @@ export class Quiz {
         );
     }
     this.e.run(
-      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten') AND json_extract(metadata,'$.quiz')=?",
+      "DELETE FROM player_notices WHERE kind IN ('quiz-leader-beaten','quiz-friend-beaten','quiz-personal-beaten','quiz-new') AND json_extract(metadata,'$.quiz')=?",
       id,
     );
     this.e.run("DELETE FROM quizzes WHERE id=?", id);
@@ -704,8 +704,7 @@ export class Quiz {
                 "SELECT length(cover)>0 AS has_cover FROM quizzes WHERE id=?",
                 q.id,
               )?.has_cover;
-              leaderNotified = previousLeader.id;
-              e.economy.notices.add(
+              const sent = e.economy.notices.add(
                 previousLeader.id,
                 `quiz-leader-beaten:${q.id}:${run.id}`,
                 "quiz-leader-beaten",
@@ -729,6 +728,7 @@ export class Quiz {
                   previousDurationMs: previousLeader.durationMs ?? null,
                 },
               );
+              if (sent) leaderNotified = previousLeader.id;
             }
           }
           if (improved) e.friends.notifyQuiz(player,q,previous,{best:displayBest,best_duration_ms:duration},run.id,leaderNotified);
