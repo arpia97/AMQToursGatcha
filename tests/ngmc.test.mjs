@@ -5,10 +5,40 @@ import assert from 'node:assert/strict';
 import {ngmcGuesses,balanceNgmc} from '../src/ngmc-rules.js';
 import {ngmcSongPool} from '../src/ngmc-selection.js';
 import {ngmcRatings} from '../src/ngmc-ratings.js';
+import {reconcileRankedIncident} from '../src/play-rating-repair.js';
 import {makeMatch,advanceMatch,matchMove,matchView,gradeRound} from '../src/play-match-rules.js';
 const players=Array.from({length:8},(_,i)=>({id:String(i),name:'Player '+i,elo:1000+i*20,guessRate:[7,8,18.99,19,27.99,28,39.99,40][i]}));
 const songs=Array.from({length:35},()=>({audio:'local',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime']}}));
 const create=()=>makeMatch('local','ngmc-ranked',players,songs,0);
+test('late rating receipts repair subsequent games, balances and in-flight starts exactly once',async()=>{
+ const db=new DatabaseSync(':memory:');
+ db.exec(`CREATE TABLE match_reviews(id,format,status,created);CREATE TABLE preparing(id,players,pool);
+   CREATE TABLE ngmc_results(id,data,created);CREATE TABLE ngmc_players(player,elo);
+   CREATE TABLE ngmc_rating_repairs(id PRIMARY KEY,data);CREATE TABLE ngmc_repaired_starts(id PRIMARY KEY,data);`);
+ const run=(s,...v)=>db.prepare(s).run(...v),rows=(s,...v)=>db.prepare(s).all(...v);
+ const storage={sql:{exec:run},transactionSync:fn=>{db.exec('BEGIN');try{fn();db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}}};
+ const base=Date.UTC(2026,10,19), roster=[{id:'a',elo:1000},{id:'b',elo:1000}];
+ const history=[[['a',1],['b',0]]],rounds=[{results:[{id:'a',earned:1},{id:'b',earned:0}]}];
+ const original=ngmcRatings(roster,rounds),next=original.map(p=>({id:p.id,elo:p.after}));
+ const corrected=ngmcRatings(next,rounds),rooms={};
+ for(const [i,id] of ['late','second','pending'].entries()){
+   run('INSERT INTO match_reviews VALUES(?,?,?,?)',id,'ngmc-ranked',i===2?'active':'finished',base+10*i);
+   rooms[id]={review:()=>({pool:'random',ended:i<2?base+10*i+5:null,history,startRatings:i===2?next:roster}),syncRatingRepair:()=>{}};
+   if(i<2)run('INSERT INTO ngmc_results VALUES(?,?,?)',id,JSON.stringify(original),base+(i?16:30));
+ }
+ for(const p of original)run('INSERT INTO ngmc_players VALUES(?,?)',p.id,p.before+2*p.delta);
+ const q={rows,ctx:{storage},env:{PLAY_MATCHES:{getByName:id=>rooms[id]}},ratingReceipt:id=>{
+   const row=rows('SELECT data FROM ngmc_results WHERE id=?',id)[0];return row&&{players:JSON.parse(row.data)};
+ }};
+ const plan=await reconcileRankedIncident(q,false);
+ assert.equal(plan.appliedAt,undefined);assert.deepEqual(plan.updates.map(g=>g.id),['second']);
+ assert.deepEqual(plan.updates[0].ratings,corrected);
+ assert.ok(Math.abs(plan.pending[0].starts[0].elo-corrected[0].after)<1e-8);
+ const receipt=await reconcileRankedIncident(q,true);
+ assert.deepEqual(await reconcileRankedIncident(q,true),receipt);
+ for(const p of corrected)assert.ok(Math.abs(rows('SELECT elo FROM ngmc_players WHERE player=?',p.id)[0].elo-p.after)<1e-8);
+ db.close();
+});
 const answer=(s,hit)=>{s.phase='guess';for(const p of s.players)p.answers={anime:hit(p)?'Anime':'wrong'};gradeRound(s,1000);};
 test('NGMC uses exact thresholds, optimal balance and uniform anime/type/song draws without repeats',()=>{
  assert.deepEqual([0,7.99,8,18.99,19,27.99,28,39.99,40,100].map(ngmcGuesses),[1,1,2,2,3,3,4,4,5,5]);

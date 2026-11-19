@@ -303,13 +303,25 @@ export class PlayMatch extends DurableObject {
     }
     return pending;
   }
+  syncRatingRepair(id,starts,ratings){
+    const state=this.read();
+    if(!state||state.id!==id||state.format!=='ngmc-ranked')return;
+    for(const p of state.players){
+      const start=starts.find(s=>s.id===p.id);
+      if(!Number.isFinite(start?.elo))throw Error('Repair roster mismatch.');
+      p.elo=start.elo;
+    }
+    if(ratings)state.ratings=ratings;
+    this.write(state);this.broadcast(state);
+  }
   async review(options){
     if(options.view==='settlement'){
       const state=this.read();
       const meta=this.reviewLog.page({view:'highlights'});
       if(!meta)return null;
       const history=state?.history.map(row=>row.results.map(r=>[r.id,r.earned??Number(!!r.correct?.anime)]));
-      return {...meta,pool:state?.pool,phase:state?.phase,completed:state?.completed,eligible:state?matchCreditPlan(state):undefined,
+      const ended=this.ctx.storage.sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at;
+      return {...meta,ended,pool:state?.pool,phase:state?.phase,completed:state?.completed,eligible:state?matchCreditPlan(state):undefined,
         startRatings:state?.players.map(p=>({id:p.id,elo:p.elo})),history:history??this.ctx.storage.sql.exec(
           "SELECT player,json_extract(data,'$.round') AS round,COALESCE(json_extract(data,'$.earned'),json_extract(data,'$.correct.anime')) AS earned FROM review_events WHERE kind='round-result' ORDER BY seq"
         ).toArray().reduce((rounds,r)=>{(rounds[r.round-1]??=[]).push([r.player,r.earned]);return rounds;},[])};

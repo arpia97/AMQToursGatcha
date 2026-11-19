@@ -11,6 +11,7 @@ import {PlayLobbies} from './play-lobbies.js';
 import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
 import { ngmcRatings } from './ngmc-ratings.js';
+import {reconcileRankedIncident} from './play-rating-repair.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
@@ -37,6 +38,8 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_watched_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_results(id TEXT PRIMARY KEY,data TEXT NOT NULL,created INTEGER NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_repaired_starts(id TEXT PRIMARY KEY,data TEXT NOT NULL)');
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_rating_repairs(id TEXT PRIMARY KEY,data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS recent(player TEXT,match TEXT,expires INTEGER,PRIMARY KEY(player,match))');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_reviews(id TEXT PRIMARY KEY,created INTEGER NOT NULL,format TEXT NOT NULL,players TEXT NOT NULL,status TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
@@ -73,6 +76,7 @@ export class PlayQueue extends DurableObject {
     const row=this.rows('SELECT data,created FROM ngmc_results WHERE id=?',id)[0];
     return row?{at:row.created,players:JSON.parse(row.data)}:null;
   }
+  repairDelayedRatings(apply){return reconcileRankedIncident(this,apply);}
   clientStatus(player,counts,directory){
     const status=this.status(player,counts);
     if(status.type==='idle')status.lobbies=directory||this.lobbyDirectory();
@@ -176,7 +180,8 @@ export class PlayQueue extends DurableObject {
       this.recordRankedLeave(id,p.id,p.rankedLeftAt,result.pool);departed.add(p.id);
     }
     if(!result?.history?.length)return [];
-    const ratings=ngmcRatings(result.players,result.history);
+    const revised=this.rows('SELECT data FROM ngmc_repaired_starts WHERE id=?',id)[0];
+    const ratings=ngmcRatings(revised?JSON.parse(revised.data):result.players,result.history);
     this.ctx.storage.transactionSync(()=>{
       for(const r of ratings){
         const forfeited=departed.has(r.id);
