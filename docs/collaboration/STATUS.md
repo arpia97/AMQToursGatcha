@@ -1,8 +1,24 @@
 # Shared Status and Handoff
 
+## Gacha owned card favorites
+
+Source `85ee0f8` is live on Worker `29922aa1-e394-43a4-930f-8badc6ff38d7`. Favorites is beside Collection in profiles and uses its filter layout and privacy settings. Inventory, listings, held offers, and unclaimed auction wins all count as owned. The cleanup archived and removed legacy favorites without an owned copy. Verified the production `favorite_ownership_v1` completion receipt. All 553 tests, the syntax check, and the Worker build passed. Browser checks covered own and public Favorites, filter controls, removing a favorite, and collection privacy at 320, 390, and 1440 pixels.
+
+## Gacha market and auction filter layout
+
+Released with `85ee0f8`. User Auctions and Player Marketplace share the Collection toolbar layout, with stacked labels, aligned search, sort and Filters controls, and matching checkbox styling. The syntax check and 16 focused market and auction tests passed. Browser demo checks covered control alignment, wrapping, and filter behavior from 320 to 1440 pixels.
+
 ## Gacha and Play notification dismissal
 
 Source `2cc58d8` is live on Worker `e19e29f2-2acf-4d77-8005-e48ed18af12a`. Read notifications show an X to remove them. Once all are read, Delete All clears read notifications across all pages and preserves later arrivals. The inbox stores dismissals separately from the read receipt and retains event keys. All 553 tests, the syntax check, and the Worker build passed. Browser checks covered Gacha and Play desktop dropdowns and the mobile feed with isolated accounts. Verified live assets, both routes, and guest access rejection.
+
+## Gacha Wishlist ownership filters
+
+Released with `85ee0f8`. My Wishlist and public wishlists share the same compact filter layout. Owned Only sits beside Exclude Owned, and checking either clears the other. Both use the wishlist owner's ownership, including cards held in listings and offers and unclaimed auction wins. Visitor requests cannot filter a private collection. All 553 tests, the syntax check, and the Worker dry-run build passed. Browser checks used isolated Worker accounts at 320, 390, and 1440 pixels.
+
+## Gacha Collection Strict filter placement
+
+Released with `85ee0f8`. Strict exact title matching is immediately before Upgradable Only inside the Collection checkbox group, sharing its unchecked, checked, and focus styles. The group wraps on narrow screens. All 21 focused Collection, search, and wishlist tests passed, along with the syntax check. Browser demo checks covered desktop and mobile layout, filter toggles, and clearing both filters.
 
 ## Play player portrait glow
 
