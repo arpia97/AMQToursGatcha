@@ -1,4 +1,4 @@
-import { inboxPage, readInbox, inboxCount } from "./inbox.js";
+import { inboxPage, readInbox, dismissInbox, inboxCount } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
 import {songRatingPools} from '../public/ngmc-leave-policy.js';
@@ -1618,9 +1618,11 @@ export class Game extends DurableObject {
           Number(url.searchParams.get("page") || 1),
         ),
       );
-    if (path === "inbox" && !post || path === "inbox-read" && post) {
+    if (path === "inbox" && !post || (path === "inbox-read" || path === "inbox-delete") && post) {
       if (!session) fail("Sign in to view notifications.", 401);
-      return json(post ? e.tx(() => readInbox(e,session.player,b)) : inboxPage(e,session.player,url.searchParams));
+      if (!post) return json(inboxPage(e,session.player,url.searchParams));
+      const update = path === "inbox-delete" ? dismissInbox : readInbox;
+      return json(e.tx(() => update(e,session.player,b)));
     }
     if (path === "notices" && !post) {
       if (!session) fail("Sign in to view notifications.", 401);

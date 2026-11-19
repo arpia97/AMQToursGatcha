@@ -2360,28 +2360,29 @@ document.addEventListener("click", async (ev) => {
   }
   if(a.startsWith("inbox-")) {
     const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
-    if(type==="item" || type==="peek" || type==="check" || type==="read"){
+    if(["item","peek","check","read","delete","delete-all"].includes(type)){
       const html=type==="peek" ? inboxDropdown.detail(id) : type==="item" ? inbox.detail(id) : "";
+      const deleting = type === "delete" || type === "delete-all";
+      const all = type === "read" || type === "delete-all";
       let result;
       try {
-        const all = type === "read";
-        const target = all && !t.dataset.id ? inbox.watermark() : id;
         const write = inboxWrites.then(() => state.me?.id === player
-          ? api("inbox-read",{id:target,all}) : null);
+          ? api(deleting ? "inbox-delete" : "inbox-read",{id,all}) : null);
         inboxWrites = write.catch(() => {});
         result = await write;
         if (!result || state.me?.id !== player) return;
-        inboxDropdown.markRead(target, all, result.unread);
       } catch (error) {
         toast(error.message, true);
         return;
       }
-      if(state.me?.id!==player)return;
       state.inboxUnread=result.unread;
+      if (deleting) inboxDropdown.refresh();
+      else inboxDropdown.markRead(id,all,result.unread);
       if(type==="peek" && !t.isConnected){updateInboxBadge();return;}
       if(type==="peek") inboxDropdown.close(true);
       if(html)modal(html);
       if(page()!=="notifications"){updateInboxBadge();return;}
+      if(type==="delete-all") inbox.view(type);
     }else inbox.view(type);
     await loadDynamic(); render(); return;
   }

@@ -55,6 +55,9 @@ export function settingTabs(form, player, start) {
 export function inboxSettings(form) {
   return Object.fromEntries([...form.querySelectorAll("[data-notice-kind]")].map(el=>[el.dataset.noticeKind,el.checked]));
 }
+export function inboxBulkControl(unread, latest) {
+  return {action: unread ? "read" : "delete-all", label: unread ? "Mark all as read" : "Delete All", id: latest || 0};
+}
 export function createInbox({escape:e,cardBy,routeHref}) {
   let player=null, group="", unread=false, cursors=[], data=null;
   function query(id) {
@@ -74,11 +77,12 @@ export function createInbox({escape:e,cardBy,routeHref}) {
   function rowButton(r,action="item"){
     const [title,detail]=copy(r), d=new Date(r.created);
     const open = '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
-    const label = r.inbox_read ? "Already read" : "Mark as read";
-    return '<div class="inbox-entry">' + open +
-      '<button type="button" class="inbox-check" data-action="inbox-check" data-id="' + r.id +
-      '" title="' + label + '" aria-label="' + label + ' · ' + e(title) + '"' +
-      (r.inbox_read ? ' disabled' : '') + '>✓</button></div>';
+    return '<div class="inbox-entry">' + open + rowControl(r, title) + '</div>';
+  }
+  function rowControl(r, title = copy(r)[0]) {
+    const label = r.inbox_read ? "Delete notification" : "Mark as read";
+    return '<button type="button" class="inbox-check" data-action="inbox-' + (r.inbox_read ? "delete" : "check") + '" data-id="' + r.id +
+      '" title="' + label + '" aria-label="' + label + ' · ' + e(title) + '">' + (r.inbox_read ? '×' : '✓') + '</button>';
   }
   function render(id) {
     if(!id)return '<h1>Notifications</h1><button class="button" data-action="signin-form">Sign in</button>';
@@ -90,7 +94,8 @@ export function createInbox({escape:e,cardBy,routeHref}) {
       rows+=rowButton(r);
     }
     const button=(action,label,extra="")=>'<button class="secondary" data-action="inbox-'+action+'" '+extra+'>'+label+'</button>';
-    return '<section class="inbox-feed"><header><div><span class="eyebrow">Gacha</span><h1>Notifications</h1></div><button class="secondary" data-action="edit-profile" data-settings-section="notifications">Settings</button></header><div class="inbox-tools"><div class="inbox-tabs">'+button("all","All",'aria-pressed="'+!unread+'"')+button("unread","Unread · "+data.unread,'aria-pressed="'+unread+'"')+'</div><select id="inbox-group" aria-label="Notification category"><option value="">All categories</option>'+Object.entries(NOTICE_GROUPS).map(([k,v])=>'<option value="'+k+'" '+(k===group?"selected":"")+'>'+v+'</option>').join("")+'</select>'+button("read","Mark all as read",data.unread?"":"disabled")+'</div>'+(rows?rows+"</div>":'<p class="inbox-empty">No notifications in this view.</p>')+'<footer>'+(cursors.length?button("prev","← Newer"):"")+(data.more?button("next","Older →"):"")+'</footer></section>';
+    const bulk=inboxBulkControl(data.unread,data.latest);
+    return '<section class="inbox-feed"><header><div><span class="eyebrow">Gacha</span><h1>Notifications</h1></div><button class="secondary" data-action="edit-profile" data-settings-section="notifications">Settings</button></header><div class="inbox-tools"><div class="inbox-tabs">'+button("all","All",'aria-pressed="'+!unread+'"')+button("unread","Unread · "+data.unread,'aria-pressed="'+unread+'"')+'</div><select id="inbox-group" aria-label="Notification category"><option value="">All categories</option>'+Object.entries(NOTICE_GROUPS).map(([k,v])=>'<option value="'+k+'" '+(k===group?"selected":"")+'>'+v+'</option>').join("")+'</select>'+button(bulk.action,bulk.label,'data-id="'+bulk.id+'"'+(bulk.id?'':' disabled'))+'</div>'+(rows?rows+"</div>":'<p class="inbox-empty">No notifications in this view.</p>')+'<footer>'+(cursors.length?button("prev","← Newer"):"")+(data.more?button("next","Older →"):"")+'</footer></section>';
   }
   function detail(id, items=data?.items){
     const row=items?.find(r=>r.id===id);if(!row)return "";
@@ -105,10 +110,11 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     }
     return '<div class="inbox-detail">'+thumb(row)+'<h2>'+e(title)+'</h2><p>'+e(body||"")+'</p><small>'+e(new Date(row.created).toLocaleString())+'</small><p>'+action+'</p></div>';
   }
-  return {query,render,detail,rowButton,accept:v=>{data=v;},watermark:()=>data?.latest,
+  return {query,render,detail,rowButton,rowControl,accept:v=>{data=v;},
     filter:value=>{group=value;cursors=[];}, view:a=>{
       if(a==="next" && data?.more)cursors.push(data.items.at(-1).id);
       else if(a==="prev")cursors.pop();
+      else if(a==="delete-all")cursors=[];
       else if(a==="unread"||a==="all"){unread=a==="unread";cursors=[];}
     }};
 }

@@ -1,11 +1,21 @@
+import { inboxBulkControl } from "./inbox-ui.js";
+
 export function installInboxDropdown({anchor, href, player, load, rememberCards, inbox, onCount}) {
   const bell = anchor.querySelector(".inbox-bell");
   const panel = anchor.querySelector(".inbox-pop");
   const list = panel.querySelector(".inbox-pop-list");
-  const markAll = panel.querySelector('[data-action="inbox-read"]');
+  const bulkButton = panel.querySelector('[data-action="inbox-read"]');
   const desktop = matchMedia("(min-width: 851px)");
-  let owner, generation = 0, items = [];
+  let owner, generation = 0, items = [], latest;
   bell.href = panel.querySelector(".inbox-all").href = href;
+
+  function syncBulk(unread) {
+    const {action,label,id} = inboxBulkControl(unread, latest);
+    bulkButton.dataset.action = "inbox-" + action;
+    bulkButton.dataset.id = String(id);
+    bulkButton.textContent = label;
+    bulkButton.disabled = !id;
+  }
 
   function close(focus = false) {
     generation++;
@@ -32,14 +42,14 @@ export function installInboxDropdown({anchor, href, player, load, rememberCards,
     const version = ++generation, id = owner;
     panel.hidden = false;
     bell.setAttribute("aria-expanded", "true");
-    markAll.disabled = true;
+    bulkButton.disabled = true;
     list.textContent = "Loading notifications…";
     try {
       const feed = await load();
       if (generation !== version || player() !== id || feed.player !== id) return;
       rememberCards(feed.cards);
-      markAll.dataset.id = String(feed.latest || 0);
-      markAll.disabled = !feed.unread;
+      latest = feed.latest;
+      syncBulk(feed.unread);
       onCount(feed.unread);
       items = feed.items.slice(0, 6);
       if (items.length) list.innerHTML = items.map(row => inbox.rowButton(row, "peek")).join("");
@@ -82,13 +92,11 @@ export function installInboxDropdown({anchor, href, player, load, rememberCards,
       if (!button) continue;
       button.dataset.unread = "false";
       button.querySelector(".inbox-dot").setAttribute("aria-label", "Read");
-      const check = button.nextElementSibling;
-      if (document.activeElement === check) button.focus();
-      check.disabled = true;
-      check.title = "Already read";
-      check.setAttribute("aria-label", "Already read · " + button.querySelector("b").textContent);
+      const check = button.nextElementSibling, focused = document.activeElement === check;
+      check.outerHTML = inbox.rowControl(row);
+      if (focused) button.nextElementSibling.focus({preventScroll:true});
     }
-    markAll.disabled = !remaining;
+    syncBulk(remaining);
   }
-  return {sync, close, markRead, detail: id => inbox.detail(id, items)};
+  return {sync, close, markRead, refresh: () => { if (!panel.hidden) return open(); }, detail: id => inbox.detail(id, items)};
 }

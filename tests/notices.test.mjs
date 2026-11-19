@@ -301,7 +301,7 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
 
 test("inbox uses account preferences, delivers once per opening, and scopes read receipts to the recipient", async t => {
   const { e } = fixture(t);
-  const { inboxPage, readInbox, saveNoticePreferences } = await import("../src/inbox.js");
+  const { dismissInbox, inboxPage, installInbox, readInbox, saveNoticePreferences } = await import("../src/inbox.js");
   e.run("UPDATE players SET password='local-test'");
   const page = (id, opts={}) => inboxPage(e,id,new URLSearchParams(opts));
   const kind = (id,k) => page(id).items.filter(r=>r.kind===k);
@@ -329,4 +329,33 @@ test("inbox uses account preferences, delivers once per opening, and scopes read
   assert.equal(fresh.unread,1);
   assert.equal(fresh.items[0].metadata.reason,"Tour participation");
   assert.equal(e.economy.notices.pending("p").length,0);
+
+  // Upgrade an inbox that already contains read and unread notices.
+  e.run("DROP INDEX inbox_history");
+  e.run("DROP INDEX inbox_unread");
+  e.run("ALTER TABLE player_notices DROP COLUMN inbox_dismissed");
+  e.run("DELETE FROM settings WHERE key='inbox_schema_v2'");
+  installInbox(e);
+  installInbox(e);
+  const single=kind("p","friend-add")[0];
+  assert.equal(single.inbox_read,1);
+  dismissInbox(e,"q",{id:single.id});
+  assert.equal(kind("p","friend-add").length,1);
+  dismissInbox(e,"p",{id:fresh.latest});
+  assert.equal(page("p").unread,1);
+  dismissInbox(e,"p",{id:single.id});
+  dismissInbox(e,"p",{id:single.id});
+  assert.equal(kind("p","friend-add").length,0);
+  assert.equal(e.one("SELECT inbox_dismissed FROM player_notices WHERE id=?",single.id).inbox_dismissed,1);
+
+  for(let i=0;i<44;i++) e.wallet("p",1,"Fixture reward",true);
+  const latest=page("p").latest;
+  assert.equal(page("p").more,true);
+  readInbox(e,"p",{id:latest,all:true});
+  e.wallet("p",1,"New reward",true);
+  dismissInbox(e,"p",{id:latest,all:true});
+  const remaining=page("p");
+  assert.equal(remaining.more,false);
+  assert.equal(remaining.unread,1);
+  assert.deepEqual(remaining.items.map(row=>row.metadata.reason),["New reward"]);
 });

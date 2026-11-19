@@ -1,17 +1,28 @@
 import { fail, integer } from "./engine.js";
 import { NOTICE_TYPES, NOTICE_GROUPS, noticeGroup } from "../public/notification-types.js";
 
+export function installInbox(e) {
+  installInboxDelivery(e);
+  if (e.one("SELECT value FROM settings WHERE key='inbox_schema_v2'")) return;
+  e.tx(() => {
+    e.run("ALTER TABLE player_notices ADD COLUMN inbox_dismissed INTEGER NOT NULL DEFAULT 0");
+    e.run("DROP INDEX IF EXISTS inbox_history");
+    e.run("DROP INDEX IF EXISTS inbox_unread");
+    e.run("CREATE INDEX inbox_history ON player_notices(player,id DESC) WHERE inbox_dismissed=0");
+    e.run("CREATE INDEX inbox_unread ON player_notices(player,inbox_read,id DESC) WHERE inbox_dismissed=0");
+    e.run("INSERT INTO settings VALUES('inbox_schema_v2',1)");
+  });
+}
+
 // Source-row triggers also cover host refreshes and publish paths. Deliver within
 // the originating transaction so retries or a rollback cannot leave orphan alerts.
-export function installInbox(e) {
+function installInboxDelivery(e) {
   if (e.one("SELECT value FROM settings WHERE key='inbox_schema_v1'")) return;
   e.tx(() => {
     if (!e.all("PRAGMA table_info(player_notices)").some(c=>c.name==="inbox_read")) {
       e.run("ALTER TABLE player_notices ADD COLUMN inbox_read INTEGER NOT NULL DEFAULT 0");
       e.run("UPDATE player_notices SET inbox_read=1 WHERE seen=1");
     }
-    e.run("CREATE INDEX IF NOT EXISTS inbox_history ON player_notices(player,id DESC)");
-    e.run("CREATE INDEX IF NOT EXISTS inbox_unread ON player_notices(player,inbox_read,id DESC)");
     e.run("CREATE INDEX IF NOT EXISTS inbox_registered ON players(id) WHERE password IS NOT NULL");
     e.run("CREATE INDEX IF NOT EXISTS inbox_shop_start ON weekly_shop(starts)");
     const registered="p.password IS NOT NULL";
@@ -54,20 +65,28 @@ export function saveNoticePreferences(e,player,prefs) {
   e.run("UPDATE players SET notice_preferences=json_patch(notice_preferences,?) WHERE id=?",JSON.stringify(prefs),player);
 }
 export function inboxCount(e,player){
-  return player?e.one("SELECT count(*) AS n FROM player_notices WHERE player=? AND inbox_read=0",player).n:0;
+  return player?e.one("SELECT count(*) AS n FROM player_notices WHERE player=? AND inbox_dismissed=0 AND inbox_read=0",player).n:0;
 }
 export function inboxPage(e,player,params){
   const group=params.get("group")||"", before=integer(Number(params.get("before")||0),0,Number.MAX_SAFE_INTEGER);
   if(group && !Object.hasOwn(NOTICE_GROUPS,group))fail("Unknown notification category.");
   const kinds=Object.keys(NOTICE_TYPES).concat(["market-sale","auction-sale","outbid","auction-buyout"]).filter(k=>noticeGroup(k)===group);
-  const rows=e.all("SELECT id,kind,card,credits,created,inbox_read,metadata FROM player_notices WHERE player=?"+
+  const rows=e.all("SELECT id,kind,card,credits,created,inbox_read,metadata FROM player_notices WHERE player=? AND inbox_dismissed=0"+
     (before?" AND id<?":"")+(params.get("unread")==="1"?" AND inbox_read=0":"")+
     (group?" AND kind IN (SELECT value FROM json_each(?))":"")+" ORDER BY id DESC LIMIT 41",player,...(before?[before]:[]),...(group?[JSON.stringify(kinds)]:[]));
   const items=rows.slice(0,40).map(r=>({...r,metadata:JSON.parse(r.metadata)}));
-  return {player,latest:e.one("SELECT max(id) AS id FROM player_notices WHERE player=?",player).id,items,more:rows.length>40,unread:inboxCount(e,player),cards:e.catalogStore.cards([...new Set(items.map(r=>r.card).filter(Boolean))])};
+  return {player,latest:e.one("SELECT max(id) AS id FROM player_notices WHERE player=? AND inbox_dismissed=0",player).id,items,more:rows.length>40,unread:inboxCount(e,player),cards:e.catalogStore.cards([...new Set(items.map(r=>r.card).filter(Boolean))])};
 }
 export function readInbox(e,player,b){
   const id=integer(b.id,1,Number.MAX_SAFE_INTEGER);
-  e.run("UPDATE player_notices SET inbox_read=1,seen=1 WHERE player=? AND inbox_read=0 AND id"+(b.all===true?"<=?":"=?"),player,id);
+  e.run("UPDATE player_notices SET inbox_read=1,seen=1 WHERE player=? AND inbox_dismissed=0 AND inbox_read=0 AND id"+(b.all===true?"<=?":"=?"),player,id);
   return {unread:inboxCount(e,player)};
+}
+
+export function dismissInbox(e, player, b) {
+  const id = integer(b.id, 1, Number.MAX_SAFE_INTEGER);
+  // Preserve the notice's event key and keep later deliveries outside the bulk action.
+  e.run("UPDATE player_notices SET inbox_dismissed=1 WHERE player=? AND inbox_read=1 AND inbox_dismissed=0 AND id" +
+    (b.all === true ? "<=?" : "=?"), player, id);
+  return {unread:inboxCount(e, player)};
 }

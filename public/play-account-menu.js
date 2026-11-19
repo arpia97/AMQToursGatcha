@@ -97,14 +97,18 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
         await api("friend-set", {player:button.dataset.player, added:button.dataset.added==="true"});
         if (button.isConnected && $("#modal").open) await showFriends();
       } finally { button.disabled = false; }
-    } else if (["inbox-peek","inbox-read","inbox-check"].includes(name)) {
-      const owner = player(), id = Number(button.dataset.id), all = name === "inbox-read";
+    } else if (["inbox-peek","inbox-read","inbox-check","inbox-delete","inbox-delete-all"].includes(name)) {
+      const owner = player(), id = Number(button.dataset.id);
+      const deleting = name === "inbox-delete" || name === "inbox-delete-all";
+      const all = name === "inbox-read" || name === "inbox-delete-all";
       const html = name === "inbox-peek" && dropdown.detail(id);
-      const write = writes.then(() => player()===owner && api("inbox-read",{id,all}));
+      const write = writes.then(() => player()===owner && api(deleting ? "inbox-delete" : "inbox-read",{id,all}));
       writes = write.catch(()=>{});
       const data = await write;
       if (data && player()===owner) {
-        count(data.unread); dropdown.markRead(id,all,data.unread);
+        count(data.unread);
+        if (deleting) dropdown.refresh();
+        else dropdown.markRead(id,all,data.unread);
         if (html && button.isConnected) { dropdown.close(true); modal(html); }
       }
     } else return false;

@@ -75,3 +75,5 @@ dialog.settings-modal { width:min(660px,calc(100vw - 26px)); scrollbar-width:non
 .inbox-check { flex:none; width:32px; height:32px; margin-right:8px; padding:0; font-size:16px; color:var(--mint); background:transparent; border:1px solid transparent; border-radius:7px; }
 .inbox-check:hover:enabled,.inbox-check:focus-visible { border-color:var(--mint); }
 .inbox-check:disabled { color:var(--muted); opacity:.38; }
+.inbox-tools [data-action="inbox-delete-all"],.inbox-pop [data-action="inbox-delete-all"],.inbox-check[data-action="inbox-delete"] { color:var(--pink,#f08b9e); }
+.inbox-check[data-action="inbox-delete"]:is(:hover,:focus-visible) { border-color:currentColor; }
