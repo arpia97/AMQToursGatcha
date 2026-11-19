@@ -1,6 +1,7 @@
-import {ngmcRatings} from './ngmc-ratings.js';
+import {balancedNgmcRatings,ngmcRatings} from './ngmc-ratings.js';
 
 import {ngmcTable} from './ngmc-leaves.js';
+import {RANKED_LEAVE_COST} from '../public/ngmc-leave-policy.js';
 
 const incident='delayed-ngmc-nov20-2026';
 
@@ -51,18 +52,67 @@ export function replayDelayedRatings(games){
   return {updates,pending,balances:[...balances].map(([id,delta])=>({id,delta}))};
 }
 
-function readGames(q){
-  return q.rows(`SELECT m.id,m.status,m.created,r.data,r.created AS posted,p.players AS preparing,p.pool
-    FROM match_reviews m LEFT JOIN ngmc_results r ON r.id=m.id LEFT JOIN preparing p ON p.id=m.id
-    WHERE m.format='ngmc-ranked' AND m.created>=? ORDER BY m.created,m.id`,Date.UTC(2026,10,19));
+function replayBalanced(games,leaves){
+  const updates=[],pending=[],board=new Map(),originalBoard=new Map(),starts=new Map();
+  const add=(table,id,delta)=>table.set(id,(table.get(id)??1000)+delta);
+  const events=leaves.map(leave=>({at:leave.at,kind:'leave',leave}));
+  for(const game of games){
+    events.push({at:game.started,kind:'start',game});
+    if(game.receipt)events.push({at:game.ended,kind:'end',game});
+  }
+  const order={leave:0,end:1,start:2};
+  events.sort((a,b)=>a.at-b.at||order[a.kind]-order[b.kind]);
+  for(const {kind,game,leave} of events){
+    if(kind==='leave'){
+      add(board,leave.player,-RANKED_LEAVE_COST);add(originalBoard,leave.player,-RANKED_LEAVE_COST);
+      continue;
+    }
+    const original=game.receipt?.players??game.startRatings;
+    if(kind==='start'){
+      const roster=original.map(({id})=>({id,elo:board.get(id)??1000}));
+      starts.set(game.id,roster);
+      if(!game.receipt)pending.push({id:game.id,starts:roster});
+      continue;
+    }
+    const rounds=game.history.map(song=>({results:song.map(([id,earned])=>({id,earned}))}));
+    const ratings=balancedNgmcRatings(starts.get(game.id),rounds);
+    for(let i=0;i<ratings.length;i++){
+      const r=ratings[i],old=original[i];
+      if(r.correct!==old.correct||r.seen!==old.seen||!r.seen)throw Error('Ranked song history and receipt disagree.');
+      if(old.forfeited){
+        if(!leaves.some(l=>l.match===game.id&&l.player===r.id))throw Error('Missing ranked leave receipt.');
+        Object.assign(r,{forfeited:true,delta:-RANKED_LEAVE_COST,after:r.before-RANKED_LEAVE_COST});
+      }else{
+        add(board,r.id,r.delta);add(originalBoard,r.id,old.delta);
+      }
+    }
+    updates.push({id:game.id,ratings});
+  }
+  return {updates,pending,balances:[...board].map(([id,after])=>({id,expected:originalBoard.get(id),delta:after-originalBoard.get(id)}))};
 }
 
-export async function reconcileRankedIncident(q,apply){
+function readLeaves(q){
+  return q.rows(`SELECT player,match,at,'random' AS pool FROM ngmc_leaves
+    UNION ALL SELECT player,match,at,'watched' FROM song_leaves WHERE format='ngmc-ranked-watched'
+    ORDER BY at,match,player`);
+}
+
+function readGames(q,from){
+  return q.rows(`SELECT m.id,m.status,m.created,r.data,r.created AS posted,p.players AS preparing,p.pool
+    FROM match_reviews m LEFT JOIN ngmc_results r ON r.id=m.id LEFT JOIN preparing p ON p.id=m.id
+    WHERE m.format='ngmc-ranked' AND m.created>=? ORDER BY m.created,m.id`,from);
+}
+
+export async function reconcileRankedIncident(q,apply,key=incident){
   const sql=q.ctx.storage.sql;
-  const saved=()=>q.rows('SELECT data FROM ngmc_rating_repairs WHERE id=?',incident)[0]?.data;
+  const balanced=key==='balanced-4v4-v1',from=balanced?0:Date.UTC(2026,10,19);
+  const saved=()=>q.rows('SELECT data FROM ngmc_rating_repairs WHERE id=?',key)[0]?.data;
   let audit=JSON.parse(saved()||'null');
+  if(!balanced&&q.rows("SELECT 1 FROM ngmc_rating_repairs WHERE id='balanced-4v4-v1'").length)return audit;
   if(!audit){
-    const rows=readGames(q), pools={random:[],watched:[]};
+    const rows=readGames(q,from), pools={random:[],watched:[]},leaves=balanced?readLeaves(q):[];
+    if(balanced&&q.rows('SELECT COUNT(*) AS n FROM ngmc_results')[0].n!==rows.filter(row=>row.data).length)
+      throw Error('Missing ranked match index entries.');
     for(const row of rows){
       const room=await q.env.PLAY_MATCHES.getByName(row.id).review({view:'settlement'});
       const receipt=row.data?{at:row.posted,players:JSON.parse(row.data)}:null;
@@ -76,27 +126,28 @@ export async function reconcileRankedIncident(q,apply){
     }
     const updates=[],pending=[],balances=[];
     for(const [pool,games] of Object.entries(pools)){
-      const replay=replayDelayedRatings(games);
-      for(const update of replay.updates)updates.push({...update,original:games.find(g=>g.id===update.id).receipt.players});
+      const replay=balanced?replayBalanced(games,leaves.filter(l=>l.pool===pool)):replayDelayedRatings(games);
+      for(const update of replay.updates)updates.push({...update,pool,original:games.find(g=>g.id===update.id).receipt.players});
       pending.push(...replay.pending);
       for(const b of replay.balances){
         const before=q.rows('SELECT elo FROM '+ngmcTable(pool)+' WHERE player=?',b.id)[0]?.elo;
         if(!Number.isFinite(before))throw Error('Missing player rating.');
+        if(balanced&&Math.abs(before-b.expected)>.001)throw Error('Existing rating does not reconcile with match and leave receipts.');
         balances.push({...b,pool,before,after:before+b.delta});
       }
     }
     audit={updates,pending,balances};
     if(apply){
       q.ctx.storage.transactionSync(()=>{
-        if(saved()||JSON.stringify(readGames(q))!==JSON.stringify(rows))throw Error('Ranked matches changed. Preview and retry.');
+        if(saved()||JSON.stringify(readGames(q,from))!==JSON.stringify(rows)||(balanced&&JSON.stringify(readLeaves(q))!==JSON.stringify(leaves)))throw Error('Ranked matches changed. Preview and retry.');
         for(const u of updates)sql.exec('UPDATE ngmc_results SET data=? WHERE id=?',JSON.stringify(u.ratings),u.id);
         for(const b of balances){
           if(!q.rows('UPDATE '+ngmcTable(b.pool)+' SET elo=elo+? WHERE player=? AND elo=? RETURNING player',b.delta,b.id,b.before).length)
             throw Error('Player rating changed. Preview and retry.');
         }
-        for(const p of pending)sql.exec('INSERT INTO ngmc_repaired_starts VALUES(?,?)',p.id,JSON.stringify(p.starts));
+        for(const p of pending)sql.exec('INSERT OR REPLACE INTO ngmc_repaired_starts VALUES(?,?)',p.id,JSON.stringify(p.starts));
         audit.appliedAt=Date.now();
-        sql.exec('INSERT INTO ngmc_rating_repairs VALUES(?,?)',incident,JSON.stringify(audit));
+        sql.exec('INSERT INTO ngmc_rating_repairs VALUES(?,?)',key,JSON.stringify(audit));
       });
     }
   }

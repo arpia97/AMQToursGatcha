@@ -10,7 +10,7 @@ import {inactivityBanMessage,INACTIVITY_BAN_MS,RANKED_LEAVE_COST,songRatingPools
 import {PlayLobbies} from './play-lobbies.js';
 import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
-import { ngmcRatings } from './ngmc-ratings.js';
+import { balancedNgmcRatings,ngmcRatings } from './ngmc-ratings.js';
 import {reconcileRankedIncident} from './play-rating-repair.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
@@ -77,6 +77,7 @@ export class PlayQueue extends DurableObject {
     return row?{at:row.created,players:JSON.parse(row.data)}:null;
   }
   repairDelayedRatings(apply){return reconcileRankedIncident(this,apply);}
+  migrateBalancedRatings(apply){return reconcileRankedIncident(this,apply,'balanced-4v4-v1');}
   clientStatus(player,counts,directory){
     const status=this.status(player,counts);
     if(status.type==='idle')status.lobbies=directory||this.lobbyDirectory();
@@ -181,7 +182,7 @@ export class PlayQueue extends DurableObject {
     }
     if(!result?.history?.length)return [];
     const revised=this.rows('SELECT data FROM ngmc_repaired_starts WHERE id=?',id)[0];
-    const ratings=ngmcRatings(revised?JSON.parse(revised.data):result.players,result.history);
+    const ratings=balancedNgmcRatings(revised?JSON.parse(revised.data):result.players,result.history);
     this.ctx.storage.transactionSync(()=>{
       for(const r of ratings){
         const forfeited=departed.has(r.id);

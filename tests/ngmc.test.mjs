@@ -4,12 +4,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ngmcGuesses,balanceNgmc} from '../src/ngmc-rules.js';
 import {ngmcSongPool} from '../src/ngmc-selection.js';
-import {ngmcRatings} from '../src/ngmc-ratings.js';
+import {balancedNgmcRatings,ngmcRatings} from '../src/ngmc-ratings.js';
 import {reconcileRankedIncident} from '../src/play-rating-repair.js';
 import {makeMatch,advanceMatch,matchMove,matchView,gradeRound} from '../src/play-match-rules.js';
 const players=Array.from({length:8},(_,i)=>({id:String(i),name:'Player '+i,elo:1000+i*20,guessRate:[7,8,18.99,19,27.99,28,39.99,40][i]}));
 const songs=Array.from({length:35},()=>({audio:'local',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime']}}));
 const create=()=>makeMatch('local','ngmc-ranked',players,songs,0);
+test('Balanced averages seven match-start comparisons and downweights sparse differences',()=>{
+ const roster=players.map(p=>({...p,elo:1000}));
+ const song={results:roster.map((p,i)=>({id:p.id,earned:Number(i===0)}))};
+ const unanimous={results:roster.map(p=>({id:p.id,earned:1}))};
+ const rate=(songs,ps=roster)=>balancedNgmcRatings(ps,songs);
+ assert.ok(Math.abs(rate([song,unanimous])[0].delta-3)<1e-9);
+ assert.ok(Math.abs(rate(Array(8).fill(song))[0].delta-24)<1e-9);
+ roster[0].elo=600;
+ const ratings=rate(Array(35).fill(song));
+ assert.ok(ratings[0].delta>24&&ratings[0].delta<48);
+ assert.ok(Math.abs(ratings.reduce((acc,r)=>acc+r.delta,0))<1e-9);
+ assert.equal(ratings[0].correct,35);
+ assert.ok(rate([unanimous]).every(p=>p.delta===0));
+ assert.throws(()=>rate([{results:[]}]),/Incomplete/);
+});
 test('late rating receipts repair subsequent games, balances and in-flight starts exactly once',async()=>{
  const db=new DatabaseSync(':memory:');
  db.exec(`CREATE TABLE match_reviews(id,format,status,created);CREATE TABLE preparing(id,players,pool);

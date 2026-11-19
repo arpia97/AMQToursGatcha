@@ -98,14 +98,13 @@ quizzes, one per player and quiz.
 - A room sends full round history on connection and at the end of a match.
   Browsers that support incremental updates retain earlier reveals locally.
   The latest reveal is sent again when counting updates lives or spent guesses.
-- Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
-  TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is
-  displayed as 1,000 (scale 50); global sigma .25, beta .125, tau .0025,
-  draw probability .8. The pair update computes the fixed-uncertainty posterior
-  mean directly, using a stable tail calculation for large rating gaps.
-  All pair deltas use the song's starting ratings, then apply simultaneously.
-  All-correct/all-miss songs do not affect ratings. Match victory itself adds
-  no separate rating bonus, consistent with the supplied script.
+- Ranked 4v4 uses Balanced Rating, starting at 1,000 in each of Random and Watched.
+  Each player is compared against all seven other players using their match-start ratings.
+  For each pair, W counts songs only the first player hit, L counts songs only the second hit,
+  and E is the first player's expected win probability on a 400-point Elo scale.
+  The first player receives `(48/7) * (W - (W+L)*E) / max(8, W+L)` points,
+  and the second receives the opposite change. A match can move a player at most
+  48 points. A ranked forfeit keeps the existing 25-point loss.
 - `ngmc_players` and durable `ngmc_results` receipts live in the queue actor,
   separate from all tour ratings and wallets. Completion transactionally records
   Elo/GR once per match. Completion releases queue reservations before calculating

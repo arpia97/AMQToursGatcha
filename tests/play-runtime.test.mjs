@@ -254,6 +254,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const settlement=await(await mf.dispatchFetch(settlementPath,{headers:{Authorization:'Bearer local-only-test-host-token-123456789'}})).json();
   assert.equal(settlement.ratingReceipt.players.length,8);
   assert.equal(settlement.creditReceipt.players.length,8);
+  const migrate=base+'/api/host/play-review-balanced-ratings';
+  assert.equal((await mf.dispatchFetch(migrate)).status,401);
+  const applyBalanced=async()=>await(await mf.dispatchFetch(migrate,{method:'POST',
+    headers:{Authorization:'Bearer local-only-test-host-token-123456789','Content-Type':'application/json'},body:JSON.stringify({apply:true})})).json();
+  const migration=await applyBalanced();
+  assert.ok(migration.appliedAt,JSON.stringify(migration.error));
+  assert.ok(migration.updates.some(g=>g.id===rankedId&&g.pool==='watched'));
+  assert.deepEqual(await applyBalanced(),migration);
   for(const connection of rankedQueues)connection.ws.close();
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   assert.ok(catalog.anime.includes('Sheet Anime 1')&&!catalog.anime.includes('Anime 1'));

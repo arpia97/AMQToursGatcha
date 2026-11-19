@@ -485,6 +485,10 @@ export class Game extends DurableObject {
         requireOwner();
         return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').repairDelayedRatings(post&&b.apply===true));
       }
+      if(path==='host/play-review-balanced-ratings'){
+        requireOwner();
+        return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').migrateBalancedRatings(post&&b.apply===true));
+      }
       if (
         [
           "host/quiz-countdown",
