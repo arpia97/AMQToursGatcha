@@ -28,6 +28,7 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  matchMove(s,a[0].id,{type:'count',index:0,player:a[1].id},1001);const before=a[1].guesses;
  matchMove(s,a[0].id,{type:'count',index:0,player:a[0].id},1002);assert.equal(a[1].guesses,before);
  advanceMatch(s,9000);assert.equal(s.phase,'reveal');assert.equal(a[1].guesses,before-1);assert.deepEqual(s.teams,[5,5]);
+ assert.equal(s.until,12000);
  assert.equal(s.history.at(-1).spent[1],[...b].sort((x,y)=>x.elo-y.elo)[0].id);
  s.counters=[null,null];a.forEach(p=>p.guesses=0);a[0].guesses=1;b[0].guesses=0;
  answer(s,p=>p.id===a[0].id||p.id===b[0].id);assert.deepEqual(s.teams,[5,4]);assert.ok(a.every(p=>p.guesses===p.initialGuesses));assert.deepEqual(s.history.at(-1).reset,[0]);

@@ -1,4 +1,4 @@
-import {animeOnlyMode, DUEL_FORMAT, duelRules, queueMode} from '../public/play-mode-rules.js';
+import {animeOnlyMode, DUEL_FORMAT, duelRules, PLAY_REVEAL_MS, queueMode} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
@@ -47,7 +47,7 @@ export function gradeRound(state,now) {
   for(let i=0;i<teamHits.length;i++)state.teams[i]+=teamHits[i].size;
   if(state.arena)recordArenaSong(state.arena,state.index,teamHits.map(h=>h.size),state.players);
   state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results,points:teamHits.map(h=>h.size)});
-  state.phase='reveal';state.until=now+5000;
+  state.phase='reveal';state.until=now+PLAY_REVEAL_MS;
 }
 export function advanceMatch(state,now=Date.now()) {
   if(['finished','cancelled'].includes(state.phase))return;

@@ -22,8 +22,8 @@ quizzes, one per player and quiz.
   sheet's most complete export supplies the accepted anime titles for a recording.
   Published quiz changes refresh the Play pool on the next catalogue check.
   Metadata-only entries can supply names and IDs until a playable source is available.
-- 30 seconds per song, following a shared 3-second countdown; reveal lasts
-  5 seconds. In 1v1, everyone submitting early reveals early. Team-field owners
+- 30 seconds per song. The answer reveal lasts three seconds before the next
+  song can start. In 1v1, everyone submitting early reveals early. Team-field owners
   may cancel their submission and claim a field again until time expires. The server grades answers.
 - Each correct anime, song and artist gives one point. Teams can earn at most
   3 points per song / 60 per match. Each player also earns their own correct

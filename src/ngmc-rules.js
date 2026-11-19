@@ -1,3 +1,4 @@
+import { PLAY_REVEAL_MS } from "../public/play-mode-rules.js";
 import { titleMatches } from "./play-artists.js";
 export function ngmcGuesses(rate) {
   if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw Error('A valid guess rate is required.');
@@ -48,5 +49,5 @@ export function finishNgmcCount(state,now) {
     for(const p of state.players.filter(p=>p.team===team))p.guesses=p.initialGuesses;
     row.reset.push(team);
   }
-  row.lives=[...state.teams];state.phase='reveal';state.until=now+5000;
+  row.lives=[...state.teams];state.phase='reveal';state.until=now+PLAY_REVEAL_MS;
 }

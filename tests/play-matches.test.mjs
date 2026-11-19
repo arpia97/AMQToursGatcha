@@ -147,7 +147,8 @@ test('matches preload all ten, share only team answers, score categories once an
   now=s.until;advanceMatch(s,now);
   assert.equal(s.phase,'reveal');assert.throws(()=>move(p.id,{type:'unlock',index:0}),/no longer/);assert.deepEqual(s.teams,[3,3]);assert.ok(s.players.every(p=>p.score===1));
   assert.equal(matchView(s,p.id,now).songList.length,1);
-  now=s.until;advanceMatch(s,now);assert.equal(s.index,1);assert.ok(s.players.every(p=>!p.field&&!Object.keys(p.answers).length));
+  advanceMatch(s,now+2999);assert.equal(s.phase,'reveal');assert.equal(s.index,0);
+  now+=3000;advanceMatch(s,now);assert.equal(s.index,1);assert.ok(s.players.every(p=>!p.field&&!Object.keys(p.answers).length));
   const copy=JSON.parse(JSON.stringify(s));advanceMatch(copy,now);assert.deepEqual(copy.teams,[3,3]);
   now=s.until;advanceMatch(s,now);assert.equal(s.history.length,2);assert.deepEqual(s.teams,[3,3]);
   assert.throws(()=>matchView(s,'stranger'),/not in/);

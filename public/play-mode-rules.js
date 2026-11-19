@@ -1,5 +1,6 @@
 import {ARENA_FORMAT} from './play-arena-config.js';
 
+export const PLAY_REVEAL_MS = 3_000;
 export const DUEL_FORMAT = '1v1-ranked';
 export const duelRules = Object.freeze({songs:20, guessSeconds:20});
 
