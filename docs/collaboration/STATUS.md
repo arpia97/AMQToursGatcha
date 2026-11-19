@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha quiz and account menu polish
+
+Source `4ba4eb5` is live on Worker `766baf54-95a5-48f3-9a0c-1f58e95be6bf`. The quiz submit button is centered under the input. Settings opens from the avatar menu, and both Settings tabs hide scrollbars. All 27 quiz UI tests, the syntax check, and the Worker build passed. Verified the deployed layout and interactions against local fixture data at widths of 320, 390, and 1440 pixels.
+
 ## Gacha card actions, filters, and account header
 
 Source `5234aa9` is live on Worker `33573864-6bef-4db2-8f6d-417a4da4688c`. Owned cards use back-only actions with the Showcase pushpin and account-backed Favorites. The approved account menu, unread count, Settings display preferences and shared filters shipped in the same release. All 552 tests passed, including independent private favorite state. Browser checks covered actions, persistence, filters, and the header at 320, 390, and 1440 pixels. Both GitHub workflows passed. Verified the canonical Gacha HTML and assets and the updated production account-state response.
