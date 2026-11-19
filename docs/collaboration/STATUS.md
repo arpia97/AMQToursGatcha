@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer match review highlights
+
+Source `61cbae5` deployed on Worker `4760370a-a94a-4d81-afa9-fb2c15144b17`. Completed matches are indexed automatically. Opening Highlights analyzes retained older logs. Both host consoles offer a flagged-match filter, per-player evidence and links to the original event timeline. All 546 tests, syntax checks and the Worker build passed. Verified the production host index and filter, guest rejection and the deployed review component with isolated evidence at 1440px and 390px.
+
 ## Gacha desktop notification dropdown
 
 Source `344a372` deployed to Worker `a11aefb3-5b00-452a-b46c-96725aa61699`. The desktop bell dropdown and full inbox have individual checkmarks and bulk read controls. Verified deployed assets at 1440px and 390px using isolated notifications, including persistence, unread badges, older items and arrivals after opening. All 545 tests, syntax checks and the Worker dry run passed. Card designs remain local previews.
