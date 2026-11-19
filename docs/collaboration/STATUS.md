@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Standalone 1v1 Ranked
+
+Source `9166705` deployed to Worker `6a658f02-578a-4f7d-95d0-4378ff5d0c14`. The 1v1 Ranked tab sits above NGMC and runs head-to-head anime-title guessing. Matches have 20 songs, 20 seconds per song, and one point per correct anime. The higher score wins and equal scores draw. Random and Watched have separate queues, Elo ratings starting at 1,000, and win-loss-draw records. Match Elo uses K=32. The existing 25-point ranked leave penalty applies to the active 1v1 pool. Song/Artist 1v1 keeps its own records.
+
+All 550 tests, syntax checks and the Worker build passed. Local WebSocket and browser checks covered both pools, answer privacy, scoring, forfeit settlement, Rankings and the mobile layout. Verified the new live route, asset contents and both ranking endpoints.
+
 ## Watched lobby eligibility
 
 Source `bd0038c` deployed to Worker `15a8ac2e-34e3-4efa-a871-1769668e4fb0`. Watched custom lobbies show the combined distinct anime eligible in the catalogue and the number of songs required. Hosts see a warning and Start is disabled for a known shortage. The count updates with the roster and periodically refreshes imported lists. Audio availability is still checked when drawing the songs. The public Random badge now uses a blue background.
