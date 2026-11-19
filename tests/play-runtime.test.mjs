@@ -30,6 +30,12 @@ test('AniList imports all chunks, handles repeated entries and preserves provide
   });
   assert.deepEqual(result.ids,[5,8]);assert.equal(result.count,2);
   assert.throws(()=>listAccount('anilist','https://example.org/user/Local'));
+  await assert.rejects(
+    importAnimeList('anilist','Local',async()=>Response.json(
+      {errors:[{status:403,message:'Upstream access denied'}]}, {status:403},
+    )),
+    error=>error.status===503 && error.message.includes('AniList is refusing imports from Play'),
+  );
 });
 test('integrated catalogue samples sheet-only and published recordings and updates after unpublishing',async()=>{
   const audio=id=>'https://naedist.animemusicquiz.com/'+id+'.mp3';

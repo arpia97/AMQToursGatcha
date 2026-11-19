@@ -47,7 +47,12 @@ function toast(message) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $("#toast").classList.remove("visible"), 4500);
 }
 function fail(error) { toast(error.message || "Something went wrong. Try again."); }
-function modal(html) { $("#modal-body").innerHTML = html; if (!$("#modal").open) $("#modal").showModal(); }
+function modal(html, className = "") {
+  const dialog = $("#modal");
+  dialog.className = className;
+  $("#modal-body").innerHTML = html;
+  if (!dialog.open) dialog.showModal();
+}
 function auth(form = "login") { modal(authFormHTML(form).replace("Join AMQ Gatcha.", "Join AMQ Tours.")); }
 function avatarHTML(me = state.me, card = state.avatar) {
   if (!card) return '<span class="profile-avatar">' + escape(me.name.slice(0, 2).toUpperCase()) + '</span>';
@@ -65,7 +70,7 @@ function account() {
 function profile() {
   const me = state.me;
   modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + titleBadges({ role: me.role, titles: state.titles }, escape) +
-    '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a><button class="button secondary" data-action="settings">Settings</button>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a></div>');
+    '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a></div>');
 }
 function listForm(){
   const list=state.animeList;
@@ -92,7 +97,7 @@ async function saveAnimeList(form,remove=false){
   finally{delete form.dataset.busy;for(const c of form.elements)c.disabled=false;}
 }
 function settings() {
-  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Profile & Quiz Hotkey Settings ↗</a>');
+  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
 }
 async function refreshAccount() {
   try { state = await api("play-state"); accountError = ""; }

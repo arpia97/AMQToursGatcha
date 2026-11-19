@@ -35,10 +35,11 @@ export async function importAnimeList(provider,input,fetcher=(...args)=>globalTh
     try {
       const res=await fetcher(url,{...init,signal,redirect:"manual"});
       if(res.status===429) fail("The list provider is rate limiting requests. Try refreshing later.",429);
+      if(!mal && res.status===403) fail("AniList is refusing imports from Play right now. Any saved list was kept.",503);
       if([400,403,404].includes(res.status))fail("The provider could not share this list. Check the username and list privacy.",422);
       data=await libraryJSON(res,6000000);
     } catch(error){
-      if([422,429].includes(error.status))throw error;
+      if([422,429,503].includes(error.status))throw error;
       fail("The anime list provider is unavailable. Try refreshing later.",502);
     }
     if(mal){
