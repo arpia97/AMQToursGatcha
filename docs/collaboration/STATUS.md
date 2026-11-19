@@ -4,6 +4,10 @@
 
 Implemented the shared filter toolbar locally for Collection, Catalogue, profile collections and wishlists, player marketplace, user auctions, trades, and Alchemy. Strict compares the complete card name or anime title before pagination. Filters expose removable chips and keep existing sort and ownership controls. Validated the desktop and mobile UI with local demo data. All 551 tests and the Worker dry-run build passed. The three Favorites and card action layouts are standalone previews under the adjacent card-design-review folder. Gacha deployment is pending.
 
+## Play account header
+
+Source `c412030` deployed to Worker `b1158f02-b0a3-42b7-bc64-cfe091d2c863`. Play now has the avatar menu, unread-count bell and shared display preferences in Settings. Verified authenticated menu interactions with local fixtures at 1440px and 390px, the Worker dry run, all 550 tests, and live Play markup and assets. The revised floating Gacha card is a local snapshot under `../card-design-review/floating-revised.png`.
+
 ## Play 1v1 Ranked navigation icon
 
 Source `397b221` deployed to Worker `cc5aef74-e64a-4d12-98e7-2205fdc18f3e`. The left menu and mobile navigation use a head-to-head icon. Verified both responsive layouts locally and the updated asset at the live 1v1 Ranked route. The isolated Worker build passed.
