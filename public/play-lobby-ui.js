@@ -20,7 +20,9 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
   dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
     (create&&arena?'<p>2v2 Arena · 4, 8, 12 or 16 players</p>':'')+
-    (create&&duel?'<p>1v1 Unranked</p>':'')+
+    (create&&duel?'<p>1v1 Unranked</p><div class="lobby-settings">'+
+      '<label>Songs<input name="songs" type="number" min="1" max="100" placeholder="'+duelRules.songs+'"></label>'+
+      '<label>Guess Time (Seconds)<input name="seconds" type="number" min="1" placeholder="Unlimited" value="'+duelRules.guessSeconds+'"></label></div>':'')+
     (create&&!ngmc&&!arena&&!duel?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
     (create?poolPicker(pool):'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
@@ -33,7 +35,7 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
     event.preventDefault();
     const values=new FormData(event.currentTarget);
     const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||20),seconds:ngmc?20:30});
+    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
@@ -43,9 +45,6 @@ export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="c
 function lobbySettings(lobby, settings, host, draft, esc) {
   const pool=poolPicker(settings.pool,!host,'sa-lobby-pool');
   const save=host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'';
-  if(lobby.format===DUEL_LOBBY_FORMAT){
-    return '<dl class="room-rules"><div><dt>Players</dt><dd>2</dd></div><div><dt>Songs</dt><dd>'+duelRules.songs+'</dd></div><div><dt>Guess Time</dt><dd>'+duelRules.guessSeconds+' seconds</dd></div></dl>'+pool+save;
-  }
   if (lobby.format === ARENA_LOBBY_FORMAT) {
     return '<dl class="room-rules"><div><dt>Players</dt><dd>4, 8, 12 or 16</dd></div><div><dt>Songs per Fixture</dt><dd>'+arenaRules.songsPerFixture+'</dd></div><div><dt>Guess Time</dt><dd>'+arenaRules.guessSeconds+' seconds</dd></div></dl>'+pool+save;
   }
@@ -53,10 +52,11 @@ function lobbySettings(lobby, settings, host, draft, esc) {
     return '<dl class="room-rules"><div><dt>Teams</dt><dd>3v3 or 4v4</dd></div><div><dt>Songs</dt><dd>35</dd></div><div><dt>Guess Time</dt><dd>20 seconds</dd></div></dl>'+pool+save;
   }
   const disabled = host ? '' : ' disabled';
+  const duel=lobby.format===DUEL_LOBBY_FORMAT;
   const options = ['lobby-team','lobby-ffa'].map(id =>
     '<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+lobbyModeNames[id]+'</option>'
   ).join('');
-  return pool+'<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>'+
+  return pool+(duel?'':'<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>')+
     '<div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+esc(settings.songs===20?'':settings.songs)+'"'+disabled+'></label>'+
     '<label>Guess Time (Seconds)<input type="number" min="1" id="sa-lobby-time" placeholder="Unlimited" value="'+esc(settings.seconds||'')+'"'+disabled+'></label></div>'+
     save;
@@ -70,7 +70,7 @@ function watchedPoolStatus(lobby, host, short) {
     ? count.toLocaleString()+' eligible anime'+(lobby.songs?' · '+lobby.songs+' needed':'')
     : pool?.unavailable?'Couldn’t check the Watched pool.':'Checking the Watched pool…';
   const warning=host&&short
-    ? '<small>Add more watched entries or switch to Random.'+(lobbyGameMode(lobby.format)==='song-artist'?' You can also choose fewer songs.':'')+'</small>'
+    ? '<small>Add more watched entries or switch to Random.'+((lobby.format===DUEL_LOBBY_FORMAT||lobbyGameMode(lobby.format)==='song-artist')?' You can also choose fewer songs.':'')+'</small>'
     : '';
   return '<div class="room-watched-pool" data-short="'+short+'" role="status"><strong>'+status+'</strong>'+warning+'</div>';
 }

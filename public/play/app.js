@@ -160,7 +160,7 @@ function resetQuiz() {
   quiz = null;
 }
 function createQuizController(createQuizUI) {
-  return createQuizUI({ api, escape, getState: () => state, onRender: renderQuiz,
+  return createQuizUI({ gachaLayout: true, api, escape, getState: () => state, onRender: renderQuiz,
     onWallet: me => { if (state.me?.id === me.id) { state.me = me; header(); } },
     storage, prepareTitles: loadQuizTitleDisplay, animeTitle: song => quizAnimeTitle(song, titleMode),
   });

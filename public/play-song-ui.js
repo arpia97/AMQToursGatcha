@@ -314,8 +314,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function sharedHTML(){if(arena())return '';if(match.format==='lobby-team')return ballotHTML(match,esc);if(ranked())return match.phase==='loading'?'':ngmcControls(match,esc);if(match.lobby||teamFields()||soloVersus(match.format))return '';const me=player();return '<section class="sa-shared"><h3>Team Answers</h3><div class="sa-shared-head"><span>Player</span>'+fields.map(f=>'<span>'+labels[f]+'</span>').join('')+'</div>'+match.players.filter(p=>p.team===me.team).map(p=>'<div class="sa-shared-row"><strong>'+esc(p.name)+'</strong>'+fields.map(f=>'<span>'+esc(p.answers?.[f]||'—')+'</span>').join('')+'</div>').join('')+'</section>';}
   function customSettings(){
     return {pool:root.querySelector('#sa-lobby-pool')?.value||'random',format:root.querySelector('#sa-lobby-format')?.value||queueStatus.format||'lobby-team',
-      songs:Number(root.querySelector('#sa-lobby-songs')?.value||20),
-      seconds:Number(root.querySelector('#sa-lobby-time')?.value??30)};
+      songs:Number(root.querySelector('#sa-lobby-songs')?.value||(duel()?duelRules.songs:20)),
+      seconds:Number(root.querySelector('#sa-lobby-time')?.value??(duel()?duelRules.guessSeconds:30))};
   }
   let lastCounts=null;
   async function refreshGuestCounts(){

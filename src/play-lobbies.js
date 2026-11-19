@@ -8,15 +8,16 @@ const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=
 
 
 export function lobbySettings(data){
-  const {format,seconds}=data;
+  const {format}=data;
   const pool=data.pool??'random';
   if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
   const selection=pool==='watched'?{pool}:{};
   if(format===ARENA_LOBBY_FORMAT)return {format,seconds:arenaRules.guessSeconds,...selection};
-  if(format===DUEL_LOBBY_FORMAT)return {format,songs:duelRules.songs,seconds:duelRules.guessSeconds,...selection};
   if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
-  const songs=data.songs==null||data.songs===''?20:data.songs;
-  if(!['lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
+  const duel=format===DUEL_LOBBY_FORMAT;
+  const songs=data.songs==null||data.songs===''?(duel?duelRules.songs:20):data.songs;
+  const seconds=data.seconds??(duel?duelRules.guessSeconds:undefined);
+  if(![DUEL_LOBBY_FORMAT,'lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
     !Number.isSafeInteger(seconds)||seconds<0||seconds>8e12)fail('Choose 1–100 songs and a positive guess time, or unlimited.');
   return {format,songs,seconds,...selection};
 }

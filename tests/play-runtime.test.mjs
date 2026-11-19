@@ -392,6 +392,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const [host,guest,visitor]=await Promise.all([connect(0),connect(1),connect(2)]);
     host.send({type:'lobby-create',format:'lobby-duel',pool});
     const lobby=await host.wait(m=>m.type==='lobby'&&m.format==='lobby-duel');
+    assert.deepEqual([lobby.songs,lobby.seconds],[20,20]);
     await guest.wait(m=>m.lobbies?.some(room=>room.code===lobby.code));
     guest.send({type:'lobby-join',code:lobby.code});
     await guest.wait(m=>m.type==='lobby'&&m.players.length===2);
@@ -399,13 +400,21 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     await visitor.wait(m=>m.type==='error'&&m.message.includes('full'));
     guest.send({type:'lobby-ready',ready:true});
     await host.wait(m=>m.type==='lobby'&&m.players[1]?.ready&&(pool==='random'||m.watchedPool?.eligible>=20));
+    const songs=pool==='random'?7:20, seconds=pool==='random'?35:20;
+    if(pool==='random'){
+      host.send({type:'lobby-settings',format:'lobby-duel',songs,seconds,pool});
+      const updated=await guest.wait(m=>m.type==='lobby'&&m.songs===songs&&m.seconds===seconds);
+      assert.equal(updated.players[1].ready,false);
+      guest.send({type:'lobby-ready',ready:true});
+      await host.wait(m=>m.type==='lobby'&&m.songs===songs&&m.players[1]?.ready);
+    }
     host.send({type:'lobby-start'});
     const {match:customId}=await host.wait(m=>m.type==='matched');
     const customRooms=[await connect(0,customId),await connect(1,customId)];
     for(const room of customRooms){
       const manifest=await room.wait(m=>m.type==='manifest');
       assert.equal(manifest.mode,'1v1-ranked');
-      assert.equal(manifest.total,20);
+      assert.equal(manifest.total,songs);
       room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
       room.send({type:'ready'});
     }
@@ -414,7 +423,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(duel.lobby.code,lobby.code);
     assert.equal(duel.pool,pool);
     assert.equal(duel.readyDeadline,undefined);
-    assert.equal(duel.until-duel.startsAt,20000);
+    assert.equal(duel.until-duel.startsAt,seconds*1000);
     if(pool==='random'){
       await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+customId);
       await mf.dispatchFetch(base+'/api/__expire?match='+customId);
