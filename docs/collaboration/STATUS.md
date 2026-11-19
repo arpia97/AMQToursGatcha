@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Owned Gacha card buttons
+
+Source `ee4462a` is live on Worker `ca31051e-fd32-4538-9c09-f2ba95419d96`. Showcase is the labeled owned-card action. For Trade uses the scales icon between Protect and Favorite. Corrected demo routing for the trade marker. Passed 16 focused tests and verified desktop and mobile toggles in the browser at 1440px, 390px and 320px. Verified the deployed assets.
+
 ## Gacha quiz and account menu polish
 
 Source `4ba4eb5` is live on Worker `766baf54-95a5-48f3-9a0c-1f58e95be6bf`. The quiz submit button is centered under the input. Settings opens from the avatar menu, and both Settings tabs hide scrollbars. All 27 quiz UI tests, the syntax check, and the Worker build passed. Verified the deployed layout and interactions against local fixture data at widths of 320, 390, and 1440 pixels.
