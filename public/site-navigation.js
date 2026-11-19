@@ -9,11 +9,10 @@ export const SITE_ROUTES = [
   ["arcade", "Pachinko"],
   ["quiz", "Quiz"],
   ["players", "Players"],
-  ["notifications", "Notifications"],
   ["ranks", "Rankings"],
   ["catalog", "Catalogue"],
 ];
-const pages = new Set([...SITE_ROUTES.map(([id]) => id), "collection", "titles"]);
+const pages = new Set([...SITE_ROUTES.map(([id]) => id), "collection", "titles", "notifications"]);
 export function isPlayerRoute(route) {
   return pages.has(route) || /^player\/[^/]+$/.test(route) || /^pickems\/[1-9]\d*$/.test(route);
 }

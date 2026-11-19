@@ -120,7 +120,7 @@ const mobileNavigation = installMobileNavigation({
   groups: () => [
     {key:'collect',label:'Collect',keys:['profile','collection','packs','fusion','catalog','shop','auctions']},
     {key:'play',label:'Play',keys:['quiz','pickems','arcade']},
-    {key:'community',label:'Community',keys:['home','players','notifications','ranks']}
+    {key:'community',label:'Community',keys:['home','players','ranks']}
   ],
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
   extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
@@ -1828,7 +1828,6 @@ function updateInboxBadge() {
   inboxDropdown.sync();
   bell.innerHTML=svg(icons.notifications); bell.classList.toggle("unread",!!unread);
   bell.setAttribute("aria-label", unread ? `Notifications, ${unread} unread` : "Notifications");
-  const count=$("#inbox-count"); if(count){count.textContent=String(unread);count.hidden=!unread;}
 }
 function render() {
   if (!state) return;
@@ -1859,12 +1858,14 @@ function render() {
           ? "My Collection"
           : route === "titles"
             ? "My Titles"
-            : routes.find((r) => r[0] === route)[1];
+            : route === "notifications"
+              ? "Notifications"
+              : routes.find((r) => r[0] === route)[1];
   const activeSection = navigationSection(route, state.me?.id, profileData?.id);
   $("#navigation").innerHTML = routes
     .map(
       ([id, name]) =>
-        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span>${id==="notifications"?'<small id="inbox-count" hidden></small>':""}</a>`,
+        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
     )
     .join("");
   updateInboxBadge();

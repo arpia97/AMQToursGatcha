@@ -23,5 +23,6 @@ test("profile subpages and public routes resolve correctly; collection stays nes
   assert.equal(navigationSection("player", "368", "357"), "players");
   assert.deepEqual(SITE_ROUTES.at(-2), ["ranks", "Rankings"]);
   assert.deepEqual(SITE_ROUTES.at(-1), ["catalog", "Catalogue"]);
-  assert.ok(!SITE_ROUTES.some(([id]) => ["collection", "titles"].includes(id)));
+  assert.equal(resolvePage("notifications"), "notifications");
+  assert.ok(!SITE_ROUTES.some(([id]) => ["collection", "titles", "notifications"].includes(id)));
 });
