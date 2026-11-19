@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Smaller Play updates during matches
+
+Source `0ed7c8b` is deployed at 100% on Worker `128aa4b0-c30a-49fe-b78d-1e10734ee3e8`. Match sockets negotiate incremental round history after receiving a full snapshot. Clients keep earlier reveals, accept counting corrections, and receive full reconnect and results snapshots. Scoreboards, download indicators, and open song lists reuse unchanged markup. Watched pool lookups reuse catalog-version-specific indexes. A local six-player Song/Artist fixture after 15 rounds reduced a routine serialized update from 22,247 to 3,038 bytes before compression. All 560 tests passed. Checks on the deployed desktop and mobile layouts with fixture sockets verified audio readiness, answer submission, history merging, updated scores and stable scoreboard and song-list elements.
+
 ## Play loading percentages
 
 Source `a77ef39` is live on Worker `62d63acd-fe2d-49d9-8d93-b497aa85c848` at 100%. Queue sockets report catalog-read and song-check progress to match members. Play shows measured percentages in the queue badge, downloadable answer lists with a known transfer size, fixed-size queues, and lobby and audio readiness. The 560 tests, syntax checks and Worker dry run passed. A local two-player match with a deliberately delayed audio probe showed 95% on desktop and mobile before both players advanced. Both viewport sizes displayed catalog, verification, and finalization updates on deployed assets using fixture WebSocket messages.
