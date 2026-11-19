@@ -6,6 +6,13 @@ NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
+Matchmaking credits require a match that reaches its gameplay finish. A player
+who leaves, is still disconnected, or ends on a streak of three or more unanswered
+songs earns no credits. Three unanswered songs in a row within a matchmaking
+match trigger a 24-hour lock across matchmaking pools. An incorrect answer still
+counts as an attempt. Arena title submissions and votes count as attempts.
+Ranked leave penalties continue to apply under the existing rules.
+
 Play Rankings includes NGMC Ranked, Song/Artist 1v1, Song/Artist 3v3 and Quiz.
 Each column sorts the full leaderboard. Rank preserves a player's position in
 the default standings. Quiz average time uses timed personal bests on published

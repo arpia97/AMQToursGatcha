@@ -386,7 +386,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
     assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);
     assert.equal(rated.ratings.find(r=>r.id==='2').delta,pool==='random'?-16:16);
-    const expected=pool==='random'?[110,100]:[0,110];
+    const expected=pool==='random'?[110,100]:[0,0];
     for(const [index,amount] of expected.entries()){
       assert.equal(await wallet(index),balances[index]+amount);
       if(amount){
@@ -457,4 +457,40 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     for(const connection of [host,guest,visitor,...customRooms])connection.ws.close();
   }
 
+  const inactiveQueue=await connect(0),activeQueue=await connect(1);
+  for(const q of [inactiveQueue,activeQueue])q.send({type:'join',mode:'1v1-ranked',format:'1v1-ranked',pool:'random'});
+  const {match:idleMatch}=await inactiveQueue.wait(m=>m.type==='matched');
+  const [idle,active]=await Promise.all([connect(0,idleMatch),connect(1,idleMatch)]);
+  for(const room of [idle,active]){
+    const manifest=await room.wait(m=>m.type==='manifest');
+    room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
+    room.send({type:'ready'});
+  }
+  const nextPhase=timeout=>mf.dispatchFetch(base+'/api/__advance?match='+idleMatch+(timeout?'&timeout':''));
+  for(let index=0;index<6;index++){
+    await idle.wait(m=>m.state?.phase==='guess'&&m.state.index===index);
+    await nextPhase(false);
+    if(index===2){
+      idle.send({type:'answer',index,answers:{anime:'Incorrect but answered'},lock:true});
+      await idle.wait(m=>m.state?.index===index&&m.state.players.find(p=>p.id==='1')?.locked);
+    }
+    active.send({type:'answer',index,answers:{anime:'Also incorrect'},lock:true});
+    await active.wait(m=>m.state?.index===index&&m.state.players.find(p=>p.id==='2')?.locked);
+    // Index 2 ends immediately because both players answered.
+    if(index!==2)await nextPhase(true);
+    const {state}=await idle.wait(m=>m.state?.phase==='reveal'&&m.state.index===index);
+    if(index<5){
+      assert.equal(state.inactivityBanUntil,undefined);
+      await nextPhase(false);
+    }else assert.ok(Math.abs(state.inactivityBanUntil-Date.now()-86400000)<5000);
+  }
+  idle.send({type:'leave'});
+  await active.wait(m=>m.state?.phase==='finished');
+  for(const [mode,format,pool] of [['song-artist','1-team','watched'],['2v2-arena','2v2-arena','random'],['1v1-ranked','1v1-ranked','random']]){
+    const start=inactiveQueue.messages.length;
+    inactiveQueue.send({type:'join',mode,format,pool});
+    await inactiveQueue.wait(m=>inactiveQueue.messages.indexOf(m)>=start&&m.type==='error'&&m.message.includes('three unanswered songs'));
+  }
+  activeQueue.send({type:'join',mode:'song-artist',format:'1-team'});
+  await activeQueue.wait(m=>m.type==='queued'&&m.format==='1-team');
 });

@@ -83,6 +83,7 @@ export function arenaVoteAction(state, player, message) {
     const {choice} = message;
     if (choice !== null && !choices.some(option => option.id === choice)) reject('Choose a title from your pair.');
     player.arenaVote = choice;
+    if (choice !== null) player.arenaVoted = true;
     return;
   }
 

@@ -34,13 +34,13 @@ export async function playRuntimeFixture({groups=false,media}={}){
     export class PlayMatch extends OriginalMatch{
       fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index],slot:state.audioPool.findIndex(e=>e.round===state.index),animeIds:state.songs.map(song=>song.annId)};}
       async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
-      forcePhase(){const s=this.read();if(s.phase==='guess')s.startsAt=Date.now()-1;else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
+      forcePhase(timeout=false){const s=this.read();if(s.phase==='guess'){s.startsAt=Date.now()-1;if(timeout)s.until=Date.now()-1;}else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
       fixtureFinalSong(){const s=this.read();s.index=s.songs.length-1;s.phase='guess';s.startsAt=Date.now()-20000;s.until=Date.now()-1;this.write(s);return this.alarm();}
       expire(){const s=this.read();s.until=Date.now()-1;this.write(s);return this.alarm();}
     }
     export default {async fetch(request,env,ctx){
       const url=new URL(request.url);
-      if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase();return Response.json({ok:true});}
+      if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase(url.searchParams.has('timeout'));return Response.json({ok:true});}
       if(url.pathname==='/api/__expire'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expire();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-final-song'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureFinalSong();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-info')return Response.json(await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureInfo());

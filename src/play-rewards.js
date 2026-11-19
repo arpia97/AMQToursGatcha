@@ -14,9 +14,9 @@ const rewards = Object.freeze({
 });
 
 export function matchCreditPlan(state) {
-  if (state.phase !== 'finished' || state.lobby || !Object.hasOwn(rewards, state.format)) return null;
+  if (state.phase !== 'finished' || !state.completed || state.lobby || !Object.hasOwn(rewards, state.format)) return null;
 
-  // Ranked matches already record forfeits and ties in their official results.
+  // Use the existing ranked outcomes and Arena standings for the bonus.
   const winners = new Set(matchRecords(state).filter(row => row.outcome === 'W').map(row => row.id));
   const winningTeams = state.arena
     ? arenaLeaders(arenaStandings(state.arena)).map(row => row.team)
@@ -26,7 +26,7 @@ export function matchCreditPlan(state) {
   if (unrankedNgmc && first !== second) winningTeams.push(first > second ? 0 : 1);
 
   return state.players
-    .filter(player => !player.left && player.rankedLeftAt == null)
+    .filter(player => !player.left && player.disconnectedAt == null && player.rankedLeftAt == null && (player.unansweredSongs || 0) < 3)
     .map(player => ({id:player.id, winner:winners.has(player.id) || winningTeams.includes(player.team)}));
 }
 

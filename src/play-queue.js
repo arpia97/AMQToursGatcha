@@ -6,7 +6,7 @@ import {arenaBatch} from './play-arena.js';
 import {playRankingPage} from './play-ranking-query.js';
 import {PlayRecords} from './play-records.js';
 import {RankedLeaves, ngmcTable} from './ngmc-leaves.js';
-import {RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
+import {inactivityBanMessage,RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {PlayLobbies} from './play-lobbies.js';
 import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
@@ -30,6 +30,7 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS song_results(id TEXT PRIMARY KEY, data TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS play_names(player TEXT PRIMARY KEY,name TEXT NOT NULL)');
     this.rankedLeaves=new RankedLeaves(ctx.storage);
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS play_inactivity_bans(player TEXT PRIMARY KEY,until INTEGER NOT NULL)');
     this.lobbies=new PlayLobbies(this);
     this.joinRequests=new Map();this.ratingRequests=new Map();
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS ngmc_players(player TEXT PRIMARY KEY,elo REAL NOT NULL DEFAULT 1000,correct INTEGER NOT NULL DEFAULT 0,seen INTEGER NOT NULL DEFAULT 0,matches INTEGER NOT NULL DEFAULT 0,seed_rate REAL)');
@@ -94,6 +95,25 @@ export class PlayQueue extends DurableObject {
       await this.ratingRequests.get(key);row=lookup();
     }
     return {elo:row.elo,guessRate:row.seen?100*row.correct/row.seen:row.seed_rate};
+  }
+  recordInactivityBans(bans){
+    const now=Date.now(), sql=this.ctx.storage.sql;
+    const active=bans.filter(ban=>ban.until>now);
+    if(!active.length)return;
+    this.ctx.storage.transactionSync(()=>{
+      for(const {player,until} of active){
+        sql.exec('INSERT INTO play_inactivity_bans VALUES(?,?) ON CONFLICT(player) DO UPDATE SET until=MAX(until,excluded.until)',player,until);
+        sql.exec('DELETE FROM queue WHERE player=? AND match IS NULL',player);
+      }
+    });
+    for(const {player} of active)this.joinRequests.delete(player);
+    this.broadcast();
+  }
+  assertActiveQueueAccess(ws,player){
+    const ban=this.rows('SELECT until FROM play_inactivity_bans WHERE player=? AND until>?',player,Date.now())[0];
+    if(!ban)return;
+    send(ws,this.status(player));
+    fail(inactivityBanMessage(ban.until),403);
   }
   recordRankedLeave(match,player,at,pool){
     this.notifyDeparture(player,'ngmc-ranked',this.rankedLeaves.record(match,player,at,'ngmc-ranked',player,pool),pool);
@@ -272,6 +292,7 @@ export class PlayQueue extends DurableObject {
       if(!Object.hasOwn(PLAY_FORMATS,message.format)||message.mode!==queueMode(message.format))fail('Choose a valid match format.');
       const pool=message.pool??'random';
       if(!playPools.includes(pool))fail('Choose Random or Watched.');
+      this.assertActiveQueueAccess(ws,who.id);
       const pending={format:message.format,pool};this.joinRequests.set(who.id,pending);
       try{
         if(message.format.startsWith('ngmc-')){
@@ -284,6 +305,7 @@ export class PlayQueue extends DurableObject {
       }
       if(this.joinRequests.get(who.id)!==pending)return;
       this.joinRequests.delete(who.id);if(ws.readyState!==1)return;
+      this.assertActiveQueueAccess(ws,who.id);
       if(message.format==='ngmc-ranked'||Object.hasOwn(songRatingPools,message.format)){
         const until=this.rankedLeaves.banUntil(who.id,message.format,pool);
         if(until>Date.now()){

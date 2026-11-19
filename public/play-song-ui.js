@@ -3,7 +3,7 @@ import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
 import {DUEL_FORMAT, duelRules, animeOnlyMode, soloVersus, queueMode, lobbyGameMode} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
-import {activeRankedGame,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
+import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateReturnDialog} from './play-lobby-ui.js';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
@@ -169,6 +169,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
         if(match.phase!=='guess'&&!unlocking)audio.pause();
         if(['finished','cancelled'].includes(match.phase)){downloads?.abort();}
+        if(match.inactivityBanUntil>Date.now()&&match.inactivityBanUntil!==previous?.inactivityBanUntil)
+          error(inactivityBanMessage(match.inactivityBanUntil));
         if(match.creditReward&&(!previous?.creditReward||previous.id!==match.id))onCreditReward(match.me);
 
         render();tick();

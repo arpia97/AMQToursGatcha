@@ -23,7 +23,7 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
     engine.run("UPDATE players SET account_locked=1 WHERE id='locked'");
 
     const players = [{id:'a',team:0},{id:'b',team:1},{id:'locked',team:0},{id:'missing',team:1}];
-    const match = {phase:'finished', teams:[2,1], players};
+    const match = {phase:'finished',completed:true, teams:[2,1], players};
     const arena = arenaSchedule(2);
     Object.assign(arena.rounds[0][0],{scores:[2,1],complete:true});
     for (const [format, base] of [['1v1-ranked',100],['ngmc-ranked',400],['ngmc-3v3',200],
@@ -52,6 +52,9 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
 
     const tied = {...match,format:'3v3',teams:[2,2],players:[players[0],{...players[1],left:true}]};
     assert.deepEqual(matchCreditPlan(tied),[{id:'a',winner:false}]);
+    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],unansweredSongs:3}]}),[]);
+    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],disconnectedAt:123}]}),[]);
+    assert.equal(matchCreditPlan({...tied,completed:false,reason:'Player left the match.'}),null);
     assert.equal(matchCreditPlan({...tied,phase:'cancelled'}),null);
     assert.equal(matchCreditPlan({...tied,lobby:{code:'custom'}}),null);
   } finally {
