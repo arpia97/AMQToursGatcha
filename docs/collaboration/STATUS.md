@@ -1,8 +1,12 @@
 # Shared Status and Handoff
 
+## Quiz results on Gacha and Play
+
+Source `d1bd605` is deployed on Worker `0237e7d3-6918-4dd1-918c-524217134aeb`. The completed quiz now shows the cover, rarity-coloured score, time, personal best, per-song progress, applicable rewards and replay controls. All 545 tests, syntax checks and the Worker dry run passed. Verified both live quiz routes at 1440px and 390px with isolated account and run data, including recap, replay and the scrollable Top 20.
+
 ## Play Watched lobbies and host console
 
-Source `c21aa01` is deployed on Worker `c27daba4-132d-42af-a70a-7bc759dba51e`. Play Settings imports a public MAL or AniList account. Custom Song/Artist and NGMC lobbies can use the union of participants’ imported lists. The Play Host Console is in the signed-in host account menu and includes manual master-sheet refresh and match review status and notes. The Worker cron runs Sundays at 04:12 UTC. The staged sheet publisher was rehearsed in isolated workerd SQLite with the full Google export (29,392 rows, 27,080 recordings). All 545 tests passed. Confirmed the live schedule, guest access checks and deployed UI at 1440px and 390px using isolated account data. The new quiz-complete layout and snapshots are local only in the adjacent `quiz-complete-review` folder, pending design approval.
+Source `c21aa01` is deployed on Worker `c27daba4-132d-42af-a70a-7bc759dba51e`. Play Settings imports a public MAL or AniList account. Custom Song/Artist and NGMC lobbies can use the union of participants’ imported lists. The Play Host Console is in the signed-in host account menu and includes manual master-sheet refresh and match review status and notes. The Worker cron runs Sundays at 04:12 UTC. The staged sheet publisher was rehearsed in isolated workerd SQLite with the full Google export (29,392 rows, 27,080 recordings). All 545 tests passed. Confirmed the live schedule, guest access checks and deployed UI at 1440px and 390px using isolated account data.
 
 ## Gacha notifications
 
