@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## Play 1v1 Ranked navigation icon
+
+Source `397b221` deployed to Worker `cc5aef74-e64a-4d12-98e7-2205fdc18f3e`. The left menu and mobile navigation use a head-to-head icon. Verified both responsive layouts locally and the updated asset at the live 1v1 Ranked route. The isolated Worker build passed.
+
+## Gacha account menu preview
+
+Pending in the local `feature/play-watched` checkout for review. The avatar opens Profile, Friends, Activity and Sign Out. Activity shows the account summary and recent ledger. Card Size and Anime Titles are in Settings, and the bell shows the unread count. Checked both 1440px and 390px layouts with local data, including keyboard dismissal, account actions, preference persistence and notification reads. All 550 tests, syntax checks and the Worker dry-run build passed. The Gacha changes were excluded from the Play icon release.
+
 ## Standalone 1v1 Ranked
 
 Source `9166705` deployed to Worker `6a658f02-578a-4f7d-95d0-4378ff5d0c14`. The 1v1 Ranked tab sits above NGMC and runs head-to-head anime-title guessing. Matches have 20 songs, 20 seconds per song, and one point per correct anime. The higher score wins and equal scores draw. Random and Watched have separate queues, Elo ratings starting at 1,000, and win-loss-draw records. Match Elo uses K=32. The existing 25-point ranked leave penalty applies to the active 1v1 pool. Song/Artist 1v1 keeps its own records.
