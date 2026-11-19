@@ -346,7 +346,7 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
-    const playRead = ["play-state", "play-connect"].includes(path) && !post;
+    const playRead = ["play-state", "play-connect", "play-live"].includes(path) && !post;
     if(path==='quiz-play-rankings'&&!post){
       const page=Number(url.searchParams.get('page'));
       if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
@@ -466,6 +466,11 @@ export class Game extends DurableObject {
         if(!id){const result=await queue.reviews(Object.fromEntries(url.searchParams));requireHost();return json(result);}
         if(!/^[a-f0-9-]{36}$/.test(id)||!await queue.hasReview(id))fail('Match review not found or expired.',404);
         const result=await this.env.PLAY_MATCHES.getByName(id).review(Object.fromEntries(url.searchParams));
+        if(result&&url.searchParams.get('view')==='settlement'){
+          result.ratingReceipt=await queue.ratingReceipt(id);
+          const wallet=e.one("SELECT at,result FROM receipts WHERE scope='play:match-credits' AND key=?",id);
+          result.creditReceipt=wallet?{at:wallet.at,players:JSON.parse(wallet.result)}:null;
+        }
         requireHost();if(!result)fail('Match review not ready or expired.',404);return json(result);
       }
       const requireOwner = () => {
@@ -1324,6 +1329,7 @@ export class Game extends DurableObject {
     }
     if (playRead) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      if(path==='play-live')return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').liveActivity(session?.player||null));
       return json(playState(e, session?.player));
     }
     if (path === "quiz-cover" && !post) {

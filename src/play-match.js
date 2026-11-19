@@ -304,6 +304,16 @@ export class PlayMatch extends DurableObject {
     return pending;
   }
   async review(options){
+    if(options.view==='settlement'){
+      const state=this.read();
+      const meta=this.reviewLog.page({view:'highlights'});
+      if(!meta)return null;
+      const history=state?.history.map(row=>row.results.map(r=>[r.id,r.earned??Number(!!r.correct?.anime)]));
+      return {...meta,pool:state?.pool,phase:state?.phase,completed:state?.completed,eligible:state?matchCreditPlan(state):undefined,
+        startRatings:state?.players.map(p=>({id:p.id,elo:p.elo})),history:history??this.ctx.storage.sql.exec(
+          "SELECT player,json_extract(data,'$.round') AS round,COALESCE(json_extract(data,'$.earned'),json_extract(data,'$.correct.anime')) AS earned FROM review_events WHERE kind='round-result' ORDER BY seq"
+        ).toArray().reduce((rounds,r)=>{(rounds[r.round-1]??=[]).push([r.player,r.earned]);return rounds;},[])};
+    }
     const detail=this.reviewLog.page(options);
     if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
     if(detail && options.view==='highlights'){

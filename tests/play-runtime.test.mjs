@@ -232,6 +232,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     connection.send({type:'join',mode:'ngmc-ranked',format:'ngmc-ranked',pool:'watched'});
   }
   const {match:rankedId}=await rankedQueues[0].wait(m=>m.type==='matched'&&m.pool==='watched'&&m.format==='ngmc-ranked');
+  const live=async()=>await(await mf.dispatchFetch(base+'/api/play-live',{headers:{Cookie:cookies[0]}})).json();
+  const playing=await live();
+  assert.equal(playing.online,8);
+  assert.equal(playing.waiting,0);
+  assert.ok(playing.matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'&&m.players===8));
   const rankedInfo=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+rankedId)).json();
   assert.equal(rankedInfo.animeIds.length,35);
   assert.equal(new Set(rankedInfo.animeIds).size,35);
@@ -243,6 +248,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(watchedRankings.rows.length,8);
   assert.deepEqual(watchedRankings.rows[0].record,[0,0,1]);
   assert.equal(randomRankings.rows.length,0);
+  assert.ok(!(await live()).matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'));
+  const settlementPath=base+'/api/host/play-review?match='+rankedId+'&view=settlement';
+  assert.equal((await mf.dispatchFetch(settlementPath)).status,401);
+  const settlement=await(await mf.dispatchFetch(settlementPath,{headers:{Authorization:'Bearer local-only-test-host-token-123456789'}})).json();
+  assert.equal(settlement.ratingReceipt.players.length,8);
+  assert.equal(settlement.creditReceipt.players.length,8);
   for(const connection of rankedQueues)connection.ws.close();
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   assert.ok(catalog.anime.includes('Sheet Anime 1')&&!catalog.anime.includes('Anime 1'));

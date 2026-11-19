@@ -256,6 +256,26 @@ async function openMode(id, push = true) {
   }
 }
 const accountReady = refreshAccount();
+let activityBusy=false;
+async function refreshLive(){
+  if(document.hidden||activityBusy)return;
+  activityBusy=true;
+  try{
+    const {matches,online,waiting}=await api('play-live');
+    $('#live-count').textContent=number(matches.length);
+    $('#live-counts').textContent=number(online)+' online · '+number(waiting)+' finding a match';
+    const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked','lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
+    $('#live-matches').innerHTML=matches.length?'<ul>'+matches.map(m=>'<li><strong>'+escape(labels[m.format]||m.format)+'</strong><span>'+
+      (m.pool==='watched'?'Watched':'Random')+' · '+number(m.players)+' players · Started '+
+      escape(new Date(m.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</span></li>').join('')+'</ul>':'<p>No matches in progress.</p>';
+  }catch{
+    $('#live-count').textContent='—';$('#live-counts').textContent='Activity unavailable';
+    $('#live-matches').textContent='Retrying automatically.';
+  }finally{activityBusy=false;}
+}
+void refreshLive();
+setInterval(refreshLive,30000);
+document.addEventListener('visibilitychange',refreshLive);
 openMode(mode, false);
 window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || playRoute("/play"), false));
 document.addEventListener("click", async (event) => {

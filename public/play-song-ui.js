@@ -521,8 +521,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     updateMarkup(readyWrap,readyMarkup);
     const liveSides=root.querySelector('.sa-live-answer-sides');if(liveSides)liveSides.hidden=waiting;
     const form=root.querySelector('#sa-answer-form');form.hidden=waiting||['reveal','counting'].includes(match.phase);
-    const disabled=match.phase!=='guess'||pendingLock||pendingArtistKey!==null||!room||!ready||Date.now()+offset<match.startsAt;
-    if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=disabled;
+    const unavailable=match.phase!=='guess'||!room||!ready||Date.now()+offset<match.startsAt;
+    const disabled=unavailable||pendingLock||pendingArtistKey!==null;
+    if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField,unavailable);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=el.matches('input')?unavailable:disabled;
     updateArtistChips(root,match,disabled,esc);
     form.classList.toggle('sa-field-claims',teamFields());form.querySelector('.sa-lock').hidden=teamFields();
     const lockButton=form.querySelector('.sa-lock');
@@ -671,6 +672,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   });
   root.addEventListener('focusout',event=>{if(event.target.dataset.saField)setTimeout(()=>{if(!root.querySelector('.sa-combobox')?.contains(document.activeElement)&&!document.activeElement?.dataset.saField)hideSuggestions();},120);});
   root.addEventListener('submit',event=>{if(event.target.id!=='sa-answer-form')return;event.preventDefault();submit(true);});
+  root.addEventListener('pointerdown',event=>{
+    if(event.button===0&&document.activeElement?.matches('[data-sa-field]')&&
+       event.target.closest('.sa-lock,[data-sa-submit],[data-propose],[data-sa-option]'))event.preventDefault();
+  });
   root.addEventListener('click',async event=>{
     if(!active)return;
     const row=event.target.closest('.sa-answer-row');

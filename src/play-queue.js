@@ -42,6 +42,7 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_flag_counts(id TEXT PRIMARY KEY,total INTEGER NOT NULL)');
     this.records=new PlayRecords(this);
+    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS play_presence(player TEXT PRIMARY KEY,expires INTEGER NOT NULL)');
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
   queueCounts(){
@@ -49,6 +50,29 @@ export class PlayQueue extends DurableObject {
     return Object.fromEntries(rows.map(row=>[poolFormat(row.format,row.pool),row.waiting]));
   }
   lobbyDirectory(){return this.lobbies.directory();}
+  liveActivity(player){
+    const now=Date.now(), sql=this.ctx.storage.sql;
+    sql.exec('DELETE FROM play_presence WHERE expires<=?',now);
+    if(player)sql.exec('INSERT OR REPLACE INTO play_presence VALUES(?,?)',player,now+90000);
+    const matches=this.rows(`WITH rooms AS (
+      SELECT match,format,pool FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
+      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random')
+        FROM play_lobbies WHERE match IS NOT NULL
+    ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players
+      FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
+      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now);
+    const online=new Set(this.rows('SELECT player FROM play_presence').map(r=>r.player));
+    for(const ws of this.ctx.getWebSockets()){
+      const who=ws.deserializeAttachment();
+      if(ws.readyState===1&&who.expires>now)online.add(who.id);
+    }
+    return {online:online.size,
+      waiting:Object.values(this.queueCounts()).reduce((sum,n)=>sum+n,0),matches};
+  }
+  ratingReceipt(id){
+    const row=this.rows('SELECT data,created FROM ngmc_results WHERE id=?',id)[0];
+    return row?{at:row.created,players:JSON.parse(row.data)}:null;
+  }
   clientStatus(player,counts,directory){
     const status=this.status(player,counts);
     if(status.type==='idle')status.lobbies=directory||this.lobbyDirectory();
