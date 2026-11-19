@@ -4,7 +4,7 @@ export const RANKED_LEAVE_COST = 25;
 export const songRatingPools=Object.freeze({'1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3',[DUEL_FORMAT]:'1v1 Ranked'});
 export const INACTIVITY_BAN_MS = 24 * 60 * 60_000;
 export const inactivityBanMessage = until =>
-  'Matchmaking is locked until '+new Date(until).toUTCString()+' after three unanswered songs in a row.';
+  'Matchmaking is locked until '+new Date(until).toUTCString()+' after three consecutive matches without submitting an answer.';
 
 export const RECONNECT_MS = 2 * 60_000;
 export function activeRankedGame(match, now) {

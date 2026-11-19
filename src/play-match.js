@@ -57,16 +57,6 @@ export class PlayMatch extends DurableObject {
       this.ctx.storage.sql.exec('INSERT OR IGNORE INTO reported_leaves VALUES(?)',p.id);
     }
   }
-  async reportInactivityBans(state){
-    // Match state retains the deadline. Queue writes are safe to repeat after a restart or a lost response.
-    const reported=this.reportedInactivity??=new Set();
-    const bans=state.players.filter(p=>p.inactivityBanUntil&&!reported.has(p.id));
-    if(!bans.length)return;
-    await this.env.PLAY_QUEUE.getByName('play-queues-v1').recordInactivityBans(
-      bans.map(({id,inactivityBanUntil})=>({player:id,until:inactivityBanUntil})),
-    );
-    for(const {id} of bans)reported.add(id);
-  }
   async schedule(){
     const state = this.read(), now = Date.now();
     if (!state) return;
@@ -85,13 +75,15 @@ export class PlayMatch extends DurableObject {
   }
   broadcast(){const state=this.read();if(!state)return;for(const ws of this.ctx.getWebSockets()){const who=ws.deserializeAttachment();if(who.expires<=Date.now())ws.close(4003,'Session expired.');else send(ws,{type:'state',state:matchView(state,who.id)});}}
   async finish(state){
-    if(state.players.some(p=>p.inactivityBanUntil&&!this.reportedInactivity?.has(p.id)))
-      await this.reportInactivityBans(state);
     if(!['finished','cancelled'].includes(state.phase))return;
     if(state.rankingsSettled)return;
     if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
+    const participation=state.completed&&!state.lobby
+      ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean')
+        .map(({id,answeredMatch})=>({id,answered:answeredMatch}))
+      : [];
     const result={
-      mode:state.mode,format:state.format,pool:state.pool||state.lobby?.pool,records:matchRecords(state),
+      mode:state.mode,format:state.format,pool:state.pool||state.lobby?.pool,records:matchRecords(state),participation,
       players:state.players.map(({id,name,elo,rankedLeftAt})=>({id,name,elo,rankedLeftAt})),
       history:state.history.map(round=>({results:round.results.map(({id,earned})=>({id,earned}))}))
     };
@@ -222,10 +214,6 @@ export class PlayMatch extends DurableObject {
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
       this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast();
-      if(input.message.type==='leave'){
-        // Record the queue lock before releasing a departed player's match slot.
-        try{await this.reportInactivityBans(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
-      }
       if(input.message.type==='leave'&&['ngmc-ranked',DUEL_FORMAT].includes(state.format)){
         const departed=state.players.find(p=>p.id===input.who.id);
         if(departed.rankedLeftAt!=null){await this.schedule();await this.reportRankedLeaves(state);}

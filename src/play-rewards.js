@@ -26,7 +26,7 @@ export function matchCreditPlan(state) {
   if (unrankedNgmc && first !== second) winningTeams.push(first > second ? 0 : 1);
 
   return state.players
-    .filter(player => !player.left && player.disconnectedAt == null && player.rankedLeftAt == null && (player.unansweredSongs || 0) < 3)
+    .filter(player => !player.left && player.disconnectedAt == null && player.rankedLeftAt == null)
     .map(player => ({id:player.id, winner:winners.has(player.id) || winningTeams.includes(player.team)}));
 }
 

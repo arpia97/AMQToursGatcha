@@ -458,38 +458,51 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   }
 
   const inactiveQueue=await connect(0),activeQueue=await connect(1);
-  for(const q of [inactiveQueue,activeQueue])q.send({type:'join',mode:'1v1-ranked',format:'1v1-ranked',pool:'random'});
-  const {match:idleMatch}=await inactiveQueue.wait(m=>m.type==='matched');
-  const [idle,active]=await Promise.all([connect(0,idleMatch),connect(1,idleMatch)]);
-  for(const room of [idle,active]){
-    const manifest=await room.wait(m=>m.type==='manifest');
-    room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
-    room.send({type:'ready'});
-  }
-  const nextPhase=timeout=>mf.dispatchFetch(base+'/api/__advance?match='+idleMatch+(timeout?'&timeout':''));
-  for(let index=0;index<6;index++){
-    await idle.wait(m=>m.state?.phase==='guess'&&m.state.index===index);
-    await nextPhase(false);
-    if(index===2){
-      idle.send({type:'answer',index,answers:{anime:'Incorrect but answered'},lock:true});
-      await idle.wait(m=>m.state?.index===index&&m.state.players.find(p=>p.id==='1')?.locked);
+  // Two inactive matches, one wrong guess that resets the streak, then three inactive matches.
+  for(let game=0;game<6;game++){
+    const pool=game%2===0?'random':'watched';
+    const start=inactiveQueue.messages.length;
+    for(const q of [inactiveQueue,activeQueue])q.send({type:'join',mode:'1v1-ranked',format:'1v1-ranked',pool});
+    const {match:id}=await inactiveQueue.wait(m=>inactiveQueue.messages.indexOf(m)>=start&&m.type==='matched');
+    const [idle,active]=await Promise.all([connect(0,id),connect(1,id)]);
+    for(const room of [idle,active]){
+      const manifest=await room.wait(m=>m.type==='manifest');
+      room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
+      room.send({type:'ready'});
     }
-    active.send({type:'answer',index,answers:{anime:'Also incorrect'},lock:true});
-    await active.wait(m=>m.state?.index===index&&m.state.players.find(p=>p.id==='2')?.locked);
-    // Index 2 ends immediately because both players answered.
-    if(index!==2)await nextPhase(true);
-    const {state}=await idle.wait(m=>m.state?.phase==='reveal'&&m.state.index===index);
-    if(index<5){
-      assert.equal(state.inactivityBanUntil,undefined);
-      await nextPhase(false);
-    }else assert.ok(Math.abs(state.inactivityBanUntil-Date.now()-86400000)<5000);
+    const nextPhase=timeout=>mf.dispatchFetch(base+'/api/__advance?match='+id+(timeout?'&timeout':''));
+    const rounds=game===0?3:1;
+    for(let index=0;index<rounds;index++){
+      await idle.wait(m=>m.state?.phase==='guess'&&m.state.index===index);
+      if(index===0){
+        await nextPhase(false);
+        if(game===2){
+          idle.send({type:'answer',index,answers:{anime:'Incorrect but answered'},lock:true});
+          await idle.wait(m=>m.state?.players.find(p=>p.id==='1')?.locked);
+        }
+        active.send({type:'answer',index,answers:{anime:'Also incorrect'},lock:true});
+        await active.wait(m=>m.state?.players.find(p=>p.id==='2')?.locked);
+      }
+      if(game!==2)await nextPhase(true);
+      await idle.wait(m=>m.state?.phase==='reveal'&&m.state.index===index);
+      assert.equal(inactiveQueue.messages.some(m=>m.type==='inactivity-ban'),false);
+      if(index<rounds-1)await nextPhase(false);
+    }
+    await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+id);
+    await mf.dispatchFetch(base+'/api/__expire?match='+id);
+    const {state}=await idle.wait(m=>m.state?.creditReward);
+    assert.equal(state.phase,'finished');
+    assert.equal(state.creditReward.amount,100,'a completed match pays credits even without guesses');
+    if(game<5)assert.equal(inactiveQueue.messages.some(m=>m.type==='inactivity-ban'),false);
+    for(const connection of [idle,active])connection.ws.close();
   }
-  idle.send({type:'leave'});
-  await active.wait(m=>m.state?.phase==='finished');
+  const ban=await inactiveQueue.wait(m=>m.type==='inactivity-ban');
+  assert.ok(Math.abs(ban.until-Date.now()-86400000)<5000);
+  assert.equal(activeQueue.messages.some(m=>m.type==='inactivity-ban'),false);
   for(const [mode,format,pool] of [['song-artist','1-team','watched'],['2v2-arena','2v2-arena','random'],['1v1-ranked','1v1-ranked','random']]){
     const start=inactiveQueue.messages.length;
     inactiveQueue.send({type:'join',mode,format,pool});
-    await inactiveQueue.wait(m=>inactiveQueue.messages.indexOf(m)>=start&&m.type==='error'&&m.message.includes('three unanswered songs'));
+    await inactiveQueue.wait(m=>inactiveQueue.messages.indexOf(m)>=start&&m.type==='error'&&m.message.includes('three consecutive matches'));
   }
   activeQueue.send({type:'join',mode:'song-artist',format:'1-team'});
   await activeQueue.wait(m=>m.type==='queued'&&m.format==='1-team');

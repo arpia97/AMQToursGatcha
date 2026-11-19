@@ -52,7 +52,7 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
 
     const tied = {...match,format:'3v3',teams:[2,2],players:[players[0],{...players[1],left:true}]};
     assert.deepEqual(matchCreditPlan(tied),[{id:'a',winner:false}]);
-    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],unansweredSongs:3}]}),[]);
+    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],answeredMatch:false}]}),[{id:'a',winner:false}]);
     assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],disconnectedAt:123}]}),[]);
     assert.equal(matchCreditPlan({...tied,completed:false,reason:'Player left the match.'}),null);
     assert.equal(matchCreditPlan({...tied,phase:'cancelled'}),null);

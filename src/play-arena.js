@@ -83,7 +83,7 @@ export function arenaVoteAction(state, player, message) {
     const {choice} = message;
     if (choice !== null && !choices.some(option => option.id === choice)) reject('Choose a title from your pair.');
     player.arenaVote = choice;
-    if (choice !== null) player.arenaVoted = true;
+    if (choice !== null && player.answeredMatch === false) player.answeredMatch = true;
     return;
   }
 
@@ -96,6 +96,7 @@ export function arenaVoteAction(state, player, message) {
   const oldChoice = player.arenaTitle?.id;
   for (const member of teammates) if (member.arenaVote === oldChoice) delete member.arenaVote;
   player.arenaTitle = {id: crypto.randomUUID(), answer};
+  if (player.answeredMatch === false) player.answeredMatch = true;
 }
 
 export function arenaBallotView(state, me) {

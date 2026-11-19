@@ -90,6 +90,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     ws.onmessage=({data})=>{if(queue!==ws||!active)return;const msg=JSON.parse(data);
       if(msg.type==='lobby-password-saved'){lobbyModal?.close();return;}
       if(msg.type==='error'){if(lobbyModal?.open){const alert=lobbyModal.querySelector('[role=alert]');alert.hidden=false;alert.textContent=msg.message;}else error(msg.message);return;}
+      if(msg.type==='inactivity-ban'){error(inactivityBanMessage(msg.until));return;}
       if(msg.type==='ranked-departure'){
         const pool=(songRatingPools[msg.format]||'NGMC Ranked')+(msg.pool==='watched'?' Watched':'');
         error('Lost '+RANKED_LEAVE_COST+' Rating in '+pool+'. '+msg.activeLeaves+' active '+(msg.activeLeaves===1?'leave.':'leaves.')+
@@ -169,8 +170,6 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
         if(match.phase!=='guess'&&!unlocking)audio.pause();
         if(['finished','cancelled'].includes(match.phase)){downloads?.abort();}
-        if(match.inactivityBanUntil>Date.now()&&match.inactivityBanUntil!==previous?.inactivityBanUntil)
-          error(inactivityBanMessage(match.inactivityBanUntil));
         if(match.creditReward&&(!previous?.creditReward||previous.id!==match.id))onCreditReward(match.me);
 
         render();tick();
