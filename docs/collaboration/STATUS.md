@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Card sale notifications
+
+Source `ddfccff` is deployed at 100% on Worker `bf8071e7-0611-46df-a3e1-b6a756ff7ddf`. Marketplace sales, auction wins, and auction buyouts name the purchaser in seller notifications. Older entries resolve the buyer from a matching retained listing and player record. All 560 tests, syntax checks, and the Worker dry run passed. Desktop and mobile checks verified the deployed notification renderer with fixture sales.
+
 ## Play match recovery
 
 Source `a95df9b` is deployed at 100% on Worker `32d5a3ee-7d99-46b4-968d-f60561e12294`. Large rating gaps could throw during NGMC settlement. Completed rooms now release queue reservations before calculating ratings and independently retry missing rating or credit receipts. Match preparation times out after three minutes. Across multiplayer modes, clients reconnect silent sockets and resynchronize overdue phases. All 560 tests, syntax checks, and the Worker dry run passed. The local multiplayer test recovered a lost final reveal alarm and a lost wallet reply, with exact payout and queue release. Desktop and mobile checks on deployed assets with simulated match sockets verified reconnection, result updates, and returning to matchmaking. The particular reported match and its wallet receipts were not identified.
