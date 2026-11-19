@@ -2,7 +2,7 @@
 
 ## Gacha desktop notification dropdown
 
-Implemented and verified locally. The desktop bell opens six recent items over the current page. The mobile bell opens the full inbox. Browser checks at 1440px and 390px covered opening, dismissing, reading, full inbox navigation and settings. All 545 tests and the Worker dry run passed. The three independent collection card design drafts and the dropdown snapshot are in the adjacent card-design-review folder. This change has not been deployed.
+Source `344a372` deployed to Worker `a11aefb3-5b00-452a-b46c-96725aa61699`. The desktop bell dropdown and full inbox have individual checkmarks and bulk read controls. Verified deployed assets at 1440px and 390px using isolated notifications, including persistence, unread badges, older items and arrivals after opening. All 545 tests, syntax checks and the Worker dry run passed. Card designs remain local previews.
 
 ## Mobile rankings and quiz score sizing
 
