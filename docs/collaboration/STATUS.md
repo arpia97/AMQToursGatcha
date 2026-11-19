@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play locked guesses and updated rewards
+
+Source `64c98a3` is deployed on Worker `1426bed2-6eca-4099-9771-906830190442`. Play preserves the submitted wording in the private lock confirmation, team answers, reveals, and round history. The correct answer follows the display language setting. Arena pays 100 credits per completed round at match settlement, NGMC 3v3 Unranked pays 200, and NGMC 4v4 Ranked pays 400. The original 10% win bonus applies to the full payout. All 556 tests, syntax checks and the Worker dry run passed. Tests covered the new amounts and receipt replay. Verified the deployed lock confirmation and answer reveal at 390 and 1440 pixels using fixture match states.
+
 ## Play matchmaking credit rewards
 
 Source `7b32cbd` is deployed on Worker `0aa460cd-0840-48bf-8805-62208dd5482f`. All seven supported matchmaking formats award completion credits to players who stay through a finished match. Winners receive a 10% bonus, including official forfeit wins and joint Arena winners. Cooperative 1-Team has no win bonus. Custom lobbies, cancelled matches, and departed players receive no payout. A match receipt protects wallet, lifetime earned credits, and notices from duplication. All 555 tests, syntax checks, and the Worker dry run passed. Isolated Workers verified actual wallet credits and retry safety. Browser checks used the deployed Play frontend with fixture results at 390 and 1440 pixels.
