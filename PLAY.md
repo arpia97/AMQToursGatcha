@@ -101,18 +101,25 @@ quizzes, one per player and quiz.
 - Elo follows the provided `elo.py` per-song correct-versus-incorrect pairwise
   TrueSkill calculation, **INDIVIDUAL_PERFORMANCE=False**. Internal mu 20 is
   displayed as 1,000 (scale 50); global sigma .25, beta .125, tau .0025,
-  draw probability .8. The configured environment is explicitly supplied to
-  rate_1vs1, repairing the Python free-function call's implicit-default issue.
+  draw probability .8. The pair update computes the fixed-uncertainty posterior
+  mean directly, using a stable tail calculation for large rating gaps.
   All pair deltas use the song's starting ratings, then apply simultaneously.
   All-correct/all-miss songs do not affect ratings. Match victory itself adds
   no separate rating bonus, consistent with the supplied script.
 - `ngmc_players` and durable `ngmc_results` receipts live in the queue actor,
   separate from all tour ratings and wallets. Completion transactionally records
-  Elo/GR once per match. Failed settlement retries by alarm before room deletion.
+  Elo/GR once per match. Completion releases queue reservations before calculating
+  ratings. The room checkpoints ratings and wallet receipts independently and retries
+  unfinished work by alarm, including after players leave the results screen.
   Partial played history also settles when a later buffering failure cancels a
   match. Leaving keeps a ranked queue reservation until match completion;
   a fully departed team forfeits. Unplayed cancelled rooms do not affect ratings.
 - Lives, spent guesses, resets, counters and final Elo deltas are server-owned.
+  Play checks queue and room connections every 20 seconds. It reconnects silent
+  sockets and requests a full snapshot when a phase appears overdue. An overdue
+  room with a missing alarm resumes from its persisted phase and deadline.
+  Song selection has a three-minute deadline from the queue reservation. If it
+  expires, the players can start again. A late selection cannot open the room.
   Browser download progress is coalesced and deduplicated so 35 preloads do not
   exhaust the socket's gameplay message allowance.
 

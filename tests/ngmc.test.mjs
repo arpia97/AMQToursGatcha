@@ -56,6 +56,14 @@ test('NGMC ratings match Python global TrueSkill and apply simultaneous per-song
  for(let i=0;i<8;i++)assert.ok(Math.abs(ratings[i].delta-(i<4?1:-1)*4*9.4477360038514)<.00001);
  assert.ok(Math.abs(ratings.reduce((sum,p)=>sum+p.delta,0))<1e-8);
  const unanimous=[{results:roster.map(p=>({id:p.id,correct:{anime:true}}))}];assert.ok(ngmcRatings(roster,unanimous).every(p=>p.delta===0));
+ const upset=[{id:'low',elo:500},{id:'high',elo:1500}];
+ const round={results:[{id:'low',earned:1},{id:'high',earned:0}]};
+ const [low,high]=ngmcRatings(upset,[round]);
+ assert.ok(low.delta>400&&low.delta<410);
+ assert.ok(Math.abs(low.delta+high.delta)<1e-8);
+ const spreadRoster=roster.map((p,i)=>({...p,elo:500+i*200}));
+ const longMatch=Array.from({length:25},(_,song)=>({results:spreadRoster.map((p,i)=>({id:p.id,earned:(i+song)%2}))}));
+ assert.ok(ngmcRatings(spreadRoster,longMatch).every(p=>Number.isFinite(p.after)));
 });
 
 test('ranked leave receipts deduct once per match and apply a timed ban at three active strikes',()=>{

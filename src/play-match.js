@@ -17,32 +17,44 @@ export class PlayMatch extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
-  async initialize(id,format,players,lobby=null,pool=lobby?.pool||'random') {
-    if(this.read())return;
-    if(!this.initializing)this.initializing=(async()=>{
-      let watched=null;
-      if(pool==='watched'){
-        watched=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
-        if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
-      }
-      const sampleMode=format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
-        format===ARENA_FORMAT?ARENA_FORMAT:'song-artist';
-      let library;
-      try{
-        library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
-      }catch(error){
-        if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
-        throw error;
-      }
-      if(!library)fail('The song library is unavailable.',503);if(!this.read()){
-      const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
-      state.pool=pool;state.syncPlayback=true;
-      prepareAudioPool(state,library.decoys,true);
-      await sealPlayAudio(state,this.env.HOST_TOKEN);
+  async initialize(id,format,players,lobby=null,pool=lobby?.pool||'random',deadline=Date.now()+180000) {
+    if(this.read()){await this.schedule();return;}
+    if(this.initializing)return this.initializing;
+    const expired={setupError:'Song selection timed out. Please start matchmaking or your lobby again.'};
+    if(deadline<=Date.now())return expired;
+    let timer;
+    const timeout=new Promise(resolve=>{timer=setTimeout(()=>resolve(expired),deadline-Date.now());});
+    this.initializing=Promise.race([this.buildOpening(id,format,players,lobby,pool),timeout]).then(async opening=>{
+      if(opening.setupError)return opening;
+      if(Date.now()>=deadline)return expired;
+      const {state,watched}=opening;
       if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
       this.reviewLog.initialize(state);this.reviewLog.add(state,'','created');this.write(state);
-    }await this.schedule();})();
-    try{return await this.initializing;}finally{this.initializing=null;}
+      await this.schedule();
+    }).finally(()=>{clearTimeout(timer);this.initializing=null;});
+    return this.initializing;
+  }
+  async buildOpening(id,format,players,lobby,pool){
+    let watched=null;
+    if(pool==='watched'){
+      watched=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
+      if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
+    }
+    const sampleMode=format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
+      format===ARENA_FORMAT?ARENA_FORMAT:'song-artist';
+    let library;
+    try{
+      library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
+    }catch(error){
+      if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
+      throw error;
+    }
+    if(!library)fail('The song library is unavailable.',503);
+    const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
+    state.pool=pool;state.syncPlayback=true;
+    prepareAudioPool(state,library.decoys,true);
+    await sealPlayAudio(state,this.env.HOST_TOKEN);
+    return {state,watched};
   }
   pendingRankedLeaves(state){
     if(!state.players.some(p=>p.rankedLeftAt!=null))return [];
@@ -69,7 +81,7 @@ export class PlayMatch extends DurableObject {
     if(state.arena||activeRankedGame(state,now))for(const p of state.players){
       if(!p.left&&p.disconnectedAt!=null)next=Math.min(next,p.disconnectedAt+RECONNECT_MS);
     }
-    if (['finished','cancelled'].includes(state.phase) && !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length)
+    if (['finished','cancelled'].includes(state.phase) && (!state.rankingsSettled || !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length))
       next=Math.min(next,now+2000);
     await this.ctx.storage.setAlarm(Math.min(next,now+86400000));
   }
@@ -84,8 +96,33 @@ export class PlayMatch extends DurableObject {
   }
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;
-    if(state.rankingsSettled)return;
+    if(this.finishing)return this.finishing;
+    state=this.read();
+    if(!state||state.rankingsSettled)return;
+    this.finishing=this.finishSteps(state).finally(()=>{this.finishing=null;});
+    return this.finishing;
+  }
+  async finishSteps(state){
     if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
+    await this.ctx.storage.setAlarm(Date.now()+5000);
+    const checkpoint=(step,values)=>{
+      const live=this.read();
+      Object.assign(live,values,{[step]:true});
+      live.rankingsSettled=!!(live.ratingsDone&&live.creditsDone);
+      this.write(live);
+      this.broadcast(live);
+    };
+    const jobs=[];
+    if(!state.ratingsDone)jobs.push(this.finishRatings(state).then(values=>checkpoint('ratingsDone',values)));
+    if(!state.creditsDone)jobs.push(this.finishCredits(state).then(values=>checkpoint('creditsDone',values)));
+    const results=await Promise.allSettled(jobs);
+    const failure=results.find(result=>result.status==='rejected');
+    if(failure){
+      console.error('Play match settlement will retry',state.id,failure.reason?.name);
+      throw failure.reason;
+    }
+  }
+  async finishRatings(state){
     const participation=state.completed&&!state.lobby
       ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean')
         .map(({id,answeredMatch})=>({id,answered:answeredMatch}))
@@ -96,19 +133,20 @@ export class PlayMatch extends DurableObject {
       history:state.history.map(round=>({results:round.results.map(({id,earned})=>({id,earned}))}))
     };
     const legacy=state.mode!=='ngmc-ranked'&&!state.recordSongRating;
-    const ratings=await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,legacy?null:result,state.phase);
-    if(ratings)state.ratings=ratings;
+    let ratings=await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,legacy?null:result,state.phase);
     // Previously completed unranked rooms can reopen in any order.
-    if(legacy&&state.phase==='finished')state.ratings=ngmcRatings(result.players.map(p=>({...p,elo:1000})),result.history);
+    if(legacy&&state.phase==='finished')ratings=ngmcRatings(result.players.map(p=>({...p,elo:1000})),result.history);
+    return ratings?{ratings}:{};
+  }
+  async finishCredits(state){
     const creditPlan=matchCreditPlan(state);
     if(creditPlan?.length){
       const completedRounds=state.arena?.rounds.filter(round=>round.every(fixture=>fixture.complete)).length;
-      state.creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
+      const creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
         .awardPlayMatchCredits(state.id,state.format,creditPlan,completedRounds);
+      return {creditRewards};
     }
-    state.rankingsSettled=true;
-    this.write(state);
-    this.broadcast(state);
+    return {};
   }
   async depart(id){
     const state=this.read();
@@ -124,8 +162,10 @@ export class PlayMatch extends DurableObject {
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
       const player=state.players.find(p=>p.id===who.id);
       if(!player)fail('You are not in this match.',403);
-      const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!state.arena&&!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
-      delete player.clipReadyIndex;player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
+      if(!['finished','cancelled'].includes(state.phase)){
+        const reconnectAt=Date.now();if(player.disconnectedAt!=null&&(!state.arena&&!activeRankedGame(state,reconnectAt)||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
+        delete player.clipReadyIndex;player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
+      }
       const supported = state.syncPlayback ? [PLAY_AUDIO_PROTOCOL] : state.audioSealed ? [4,PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3,4,PLAY_AUDIO_PROTOCOL] : [2,3,4,PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
       const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
@@ -137,7 +177,9 @@ export class PlayMatch extends DurableObject {
       ? {...state,audioPool:state.audioPool.map(entry=>({...entry}))} : state;
     if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
     send(server,audioManifest(mediaState));
-      send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return response;}await this.schedule();return response;
+      send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});
+      await this.schedule();
+      return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
   }
   async repairAudio(id, message) {
@@ -188,6 +230,15 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
       if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
+      if(input.message.type==='sync'){
+        const now=Date.now();
+        send(ws,{type:'state',state:matchView(state,input.who.id,now)});
+        if(state.until<=now||(['finished','cancelled'].includes(state.phase)&&!state.rankingsSettled)){
+          const alarm=await this.ctx.storage.getAlarm();
+          if(alarm===null||alarm>now+5000)await this.ctx.storage.setAlarm(now+1);
+        }
+        return;
+      }
       if(input.message.type==='audio-failed'){
         if(!await this.repairAudio(input.who.id,input.message))send(ws,{type:'audio-retry',revision:input.message.revision});
         return;
@@ -281,12 +332,15 @@ export class PlayMatch extends DurableObject {
   }
   webSocketError(ws){ws.close(1011,'Reconnect to resume.');}
   async alarm(){
-    const state=this.read();
+    let state=this.read();
     // Old review-expiry alarms may still fire after deployment. Preserve the audit.
     if(!state)return;
+    await this.ctx.storage.setAlarm(Date.now()+30000);
+    state=this.read();
+    if(!state)return;
     if(this.pendingRankedLeaves(state).length){
-      try{await this.reportRankedLeaves(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
-      return this.schedule();
+      try{await this.reportRankedLeaves(state);}catch{console.error('Play leave report will retry',state.id);}
+      state=this.read();
     }
     if(['finished','cancelled'].includes(state.phase)){
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
@@ -294,6 +348,7 @@ export class PlayMatch extends DurableObject {
         if(await this.indexHighlights(state.id)){await this.ctx.storage.setAlarm(Date.now()+1000);return;}
         this.ctx.storage.sql.exec("INSERT OR REPLACE INTO review_meta VALUES(4,'true',0)");
       }
+      if(this.pendingRankedLeaves(state).length){await this.ctx.storage.setAlarm(Date.now()+5000);return;}
       if(Date.now()<state.until){await this.schedule();return;}
       for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');
       this.ctx.storage.sql.exec('DELETE FROM match_state');

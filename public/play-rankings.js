@@ -22,7 +22,7 @@ function table(headers, rows,sort,dir) {
 export function matchLeaderboard(match, esc) {
   const duel=match.format===DUEL_FORMAT;
   if (!duel&&!match.history.length) return '<p>No songs scored.</p>';
-  if (!match.ratings?.length) return '<p role="status">Calculating match ratings…</p>';
+  if (!match.ratings?.length) return '<p role="status">'+(match.ratingsPending===false?'No rating change for this match.':'Saving match ratings. You can return to matchmaking.')+'</p>';
   const rows = match.ratings.map(result => {
     const player = match.players.find(p => p.id === result.id) ?? {name:result.id};
     const performance = Number((result.delta / Math.max(1,result.seen)).toFixed(2));

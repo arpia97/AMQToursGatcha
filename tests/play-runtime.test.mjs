@@ -103,6 +103,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   t.after(()=>gate.resolve());
   const mf=await playRuntimeFixture({beforeAudio:id=>id===3?gate.promise:undefined});t.after(()=>mf.dispose());
   const base='http://game',cookies=[];
+  const slow=await (await mf.dispatchFetch(base+'/api/__slow-setup')).json();
+  assert.match(slow.result.setupError,/timed out/);
+  assert.equal(slow.created,false);
   for(let i=1;i<=8;i++){const response=await mf.dispatchFetch(base+'/api/__test-session?id='+i);assert.equal(response.status,200,await response.clone().text());cookies.push((await response.json()).cookie);}
   const connect=async(i,match='',proxy=false)=>{
     let r=await mf.dispatchFetch(base+(proxy?'/api/__fake-proxy':'/api/play-connect')+('?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'')),{headers:{Upgrade:'websocket',Cookie:cookies[i],Origin:proxy?'https://amqtours.app':base}});
@@ -437,7 +440,13 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.deepEqual(revealed.history[0].results.map(r=>Object.keys(r.correct)),[['anime'],['anime']]);
       assert.equal(revealed.history[0].results.find(r=>r.id==='1').earned,1);
       await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+id);
-      await mf.dispatchFetch(base+'/api/__expire?match='+id);
+      assert.equal((await mf.dispatchFetch(base+'/api/__stall-last-reveal?match='+id)).status,200);
+      rooms[1].send({type:'sync'});
+      const pending=(await rooms[1].wait(m=>m.state?.ratings?.length===2&&m.state.creditsPending)).state;
+      assert.equal(pending.settlementPending,true);
+      await queues[0].wait(m=>m.type==='idle'&&queues[0].messages.indexOf(m)>queues[0].messages.findIndex(previous=>previous.match===id));
+      await mf.dispatchFetch(base+'/api/__advance?match='+id);
+      await rooms[1].wait(m=>m.state?.creditReward&&!m.state.settlementPending);
     }else rooms[0].send({type:'leave'});
     const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
     assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);

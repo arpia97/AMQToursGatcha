@@ -32,6 +32,23 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
       }
     }
     export class PlayMatch extends OriginalMatch{
+      async fixtureSetupTimeout(){
+        const gate=Promise.withResolvers();
+        this.buildOpening=()=>gate.promise;
+        const result=await this.initialize('slow-test','1v1',[],null,'random',Date.now()+30);
+        gate.resolve({state:{id:'slow-test'}});
+        await gate.promise;
+        return {result,created:!!this.read()};
+      }
+      async stallLastReveal(){
+        const s=this.read();if(s.phase!=='reveal'||s.index!==s.songs.length-1)throw Error('Expected last reveal');
+        s.until=Date.now()-1;this.write(s);await this.ctx.storage.deleteAlarm();this.loseCreditReply=true;
+      }
+      async finishCredits(s){
+        const receipt=await super.finishCredits(s);
+        if(this.loseCreditReply){this.loseCreditReply=false;throw Error('Simulated lost wallet reply');}
+        return receipt;
+      }
       fixtureInfo(){const state=this.read();return {decoys:state.decoys,song:state.songs[state.index],slot:state.audioPool.findIndex(e=>e.round===state.index),animeIds:state.songs.map(song=>song.annId)};}
       async expireReview(){this.ctx.storage.sql.exec('UPDATE review_meta SET expires=1');await this.alarm();return [...this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'review_%'")].length;}
       forcePhase(timeout=false){const s=this.read();if(s.phase==='guess'){s.startsAt=Date.now()-1;if(timeout)s.until=Date.now()-1;}else if(s.phase==='reveal')s.until=Date.now()-1;this.write(s);return this.alarm();}
@@ -40,6 +57,8 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
     }
     export default {async fetch(request,env,ctx){
       const url=new URL(request.url);
+      if(url.pathname==='/api/__slow-setup')return Response.json(await env.PLAY_MATCHES.getByName('slow-test').fixtureSetupTimeout());
+      if(url.pathname==='/api/__stall-last-reveal'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).stallLastReveal();return Response.json({ok:true});}
       if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase(url.searchParams.has('timeout'));return Response.json({ok:true});}
       if(url.pathname==='/api/__expire'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).expire();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-final-song'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureFinalSong();return Response.json({ok:true});}

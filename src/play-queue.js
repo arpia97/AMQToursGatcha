@@ -204,17 +204,6 @@ export class PlayQueue extends DurableObject {
   }
   async complete(id,result=null,status='cancelled'){
     let ratings=null;
-    if(Object.hasOwn(songRatingPools,result?.format)&&status==='cancelled'){
-      for(const p of result.players)if(p.rankedLeftAt!=null)this.recordSongReadyLeave(id,result.format,p.id,p.name,p.rankedLeftAt,result.pool);
-    }
-    if(result?.mode==='ngmc-ranked'&&!['lobby-ngmc','ngmc-3v3'].includes(result.format))ratings=this.settle(id,result);
-    else if(status==='finished'&&Object.hasOwn(songRatingPools,result?.format))
-      ratings=this.settleSongs(id,result);
-    if(status==='finished'&&['ngmc-ranked',...Object.keys(songRatingPools)].includes(result?.format)){
-      const bucket=poolFormat(result.format,result.pool);
-      if(result.records?.length)this.records.save(id,bucket,result.records);
-      else this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending_play_records VALUES(?,?)',id,bucket);
-    }
     const sql=this.ctx.storage.sql;
     const bans=this.ctx.storage.transactionSync(()=>{
       // The review transition and inactivity strikes commit together, so a retry cannot count twice.
@@ -231,6 +220,17 @@ export class PlayQueue extends DurableObject {
       for(const ws of this.ctx.getWebSockets(player))send(ws,{type:'inactivity-ban',until});
     }
     this.broadcast();
+    if(Object.hasOwn(songRatingPools,result?.format)&&status==='cancelled'){
+      for(const p of result.players)if(p.rankedLeftAt!=null)this.recordSongReadyLeave(id,result.format,p.id,p.name,p.rankedLeftAt,result.pool);
+    }
+    if(result?.mode==='ngmc-ranked'&&!['lobby-ngmc','ngmc-3v3'].includes(result.format))ratings=this.settle(id,result);
+    else if(status==='finished'&&Object.hasOwn(songRatingPools,result?.format))
+      ratings=this.settleSongs(id,result);
+    if(status==='finished'&&['ngmc-ranked',...Object.keys(songRatingPools)].includes(result?.format)){
+      const bucket=poolFormat(result.format,result.pool);
+      if(result.records?.length)this.records.save(id,bucket,result.records);
+      else this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending_play_records VALUES(?,?)',id,bucket);
+    }
     return ratings;
   }
   async prepare(row){
@@ -283,7 +283,7 @@ export class PlayQueue extends DurableObject {
           player.elo=this.rows('SELECT elo FROM '+table+' WHERE player=?',player.id)[0]?.elo??arenaRules.startingRating;
         }
       }
-      const result=await match.initialize(row.id,format,players,settings,pool);
+      const result=await match.initialize(row.id,format,players,settings,pool,row.started+180000);
       if(result?.setupError){
         this.ctx.storage.transactionSync(()=>{
           this.ctx.storage.sql.exec('UPDATE lobby_members SET last_match=NULL WHERE last_match=?',row.id);
