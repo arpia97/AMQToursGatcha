@@ -1,8 +1,8 @@
 # Host console and external integration
 
-The host console at `/host.html` accepts arpia97 (canonical AMQ Tours ID 368) and hosts explicitly appointed by that owner. In **Players & access → Host permissions**, arpia97 can grant or immediately revoke access for registered players. Delegated hosts cannot appoint more hosts, change the owner's role, recover privileged accounts, reverse Mahjong history, or delete the player registry. Every request checks the current session, administrator flag and explicit delegation record; changing a display name or importing an administrator flag cannot grant access. The owner-held deployment HOST_TOKEN remains available for trusted external integration/recovery.
+Full access to the Gacha host console is available to arpia97 (canonical AMQ Tours ID 368) and hosts appointed by the owner. In **Players & access → Host permissions**, arpia97 can grant or immediately revoke access for registered players. Delegated hosts cannot appoint more hosts, change the owner's role, recover privileged accounts, reverse Mahjong history, or delete the player registry. Full host operations check the current session, administrator flag and explicit delegation record; changing a display name or importing an administrator flag cannot grant access. The owner-held deployment HOST_TOKEN remains available for trusted external integration/recovery.
 
-The host menu is arranged horizontally and wraps on narrower screens. Gameplay resets preserve roles; deleting the entire player registry removes delegations. Permission changes are audit logged.
+Any Host can grant or revoke the SS **Quiz Maker** title for a registered player under **Players & Access → Quiz Maker Access**. The title is always equipped while assigned. The [Gacha Host Console](https://amqtours.app/gacha/host) opens directly to **Content & Review → Quiz** for Quiz Makers. They can manage quiz pools, drafts, scores, and the song library from this tab. Access is checked on each quiz request. Gameplay resets preserve roles; deleting the entire player registry removes delegations. Permission changes are audit logged.
 
 ## Import AMQ identities
 

@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha Quiz Maker access
+
+Source `039fd1c` is live on Worker `4cadceae-3d91-44f5-9965-7fe5c54b1b49`. The production profiles for ArronChu (14) and Chata (51) both returned Quiz Maker with the administrator flag cleared. Full Hosts manage the SS role in Players & Access. A Quiz Maker opens directly to Content & Review → Quiz on desktop and mobile. All 554 tests, the syntax check, and the Worker build passed. Local browser checks covered the restricted console and the full Host permission form. Verified the deployed console and title assets.
+
 ## Shared Gacha card filter redesign
 
 Source `a1f6b14` is live on Worker `186a3eaf-f42d-413b-a089-312049baa4a8`. Dropdowns stay beside search while the Filters drawer groups checkboxes. The shared toolbar aligns control heights, label spacing and selected styles across card browsers. Verified the live User Auctions controls in Chrome at 390 and 1440 pixels. Local browser checks also covered Marketplace, Catalogue, Collection, Wishlist and Favorites from 320 to 1440 pixels. All 43 focused tests, the syntax check and the Worker build passed.

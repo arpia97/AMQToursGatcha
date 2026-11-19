@@ -48,7 +48,7 @@ The Gacha shell loads Quiz and Pachinko code on route entry. Play loads either Q
 
 The original database contains real accounts, passwords, sessions, wallets, ledger, inventory, listings/holds, notices, quiz records, aliases, import checkpoints and catalogue. Do not replace it with demo data. Do not rerun old beta resets, account reversals, custom-card imports, XP compensation or enhancement corrections. Those were historical one-time operations, not installation steps. Any newly requested data correction needs a scoped preview, saved evidence and retry-safe receipt.
 
-Only owner `arpia97`, canonical Tours ID `368`, grants/revokes host roles or performs owner-only actions. Explicitly appointed hosts can use delegated console functions. Matching a username or an imported admin flag does not grant authority. Old “owner only for every host action” notes are superseded.
+Only owner `arpia97`, canonical Tours ID `368`, grants/revokes host roles or performs owner-only actions. Explicitly appointed hosts can use delegated console functions and grant or revoke the SS Quiz Maker title. Quiz Makers have access to Content & Review → Quiz. Matching a username or an imported admin flag does not grant authority. Old “owner only for every host action” notes are superseded.
 
 Registration requires an individual one-use host-issued code, using the same expiring, consumed-once mechanism as account recovery. Preserve existing credentials and recovery protections. Owner-only persistent account locks block registration/login, credit rewards and economic actions; locking closes open listings and returns holds, while unlocking does not restore revoked access. Never include secret values or credentials from past conversations in this handoff.
 
