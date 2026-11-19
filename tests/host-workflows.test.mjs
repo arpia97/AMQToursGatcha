@@ -589,3 +589,21 @@ test("participation batch accepts more than 32 players with rate capped at 32-pl
   assert.equal(f.e.player("bigp1").balance, 2000);
   assert.equal(f.e.player("bigp36").balance, 2000);
 });
+
+test("only the two designated hosts convert to Quiz Maker and later role decisions survive startup", t => {
+  const {e, sql, tx} = fixture(t);
+  for (const id of ["14", "51", "q"]) {
+    e.host("players", {players:[{id, name:"Test " + id}]});
+    e.run("UPDATE players SET password='registered' WHERE id=?", id);
+    e.setHostAccess("368", {player:id, enabled:true});
+  }
+  e.run("DELETE FROM settings WHERE key='quiz_maker_roles_v1'");
+  const migrated = new Engine(sql, tx);
+  assert.deepEqual(migrated.publicRoles(), {"14":"Quiz Maker", "51":"Quiz Maker", q:"Host"});
+  assert.equal(migrated.account("14").host, false);
+  assert.equal(migrated.quiz.isHost("51"), true);
+  migrated.setQuizMakerAccess("q", {player:"14", enabled:false});
+  migrated.setHostAccess("368", {player:"51", enabled:true});
+  const restarted = new Engine(sql, tx);
+  assert.deepEqual(restarted.publicRoles(), {"51":"Host", q:"Host"});
+});

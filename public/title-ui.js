@@ -35,6 +35,7 @@ export function titleBadges(profile, escape) {
 }
 export function titleSettingsPanel(data, e) {
   if (!data) return '<div class="loading">Loading Your Titles…</div>';
+  const role = roleBadge(data.role);
   const titles = data.titles || [],
     counts = new Map(),
     seen = new Map();
@@ -66,10 +67,10 @@ export function titleSettingsPanel(data, e) {
   }
   return (
     '<div class="page-intro"><div><h1>My Titles</h1><p>Choose the titles displayed on your profile.</p></div></div>' +
-    (data.role === "Host"
+    (role
       ? '<section class="title-option host-title-option">' +
-        roleBadge("Host") +
-        '<span>Always Equipped</span><input type="checkbox" checked disabled aria-label="Host Is Always Equipped"></section>'
+        role +
+        '<span>Always Equipped</span><input type="checkbox" checked disabled aria-label="' + e(data.role) + ' Is Always Equipped"></section>'
       : "") +
     (titles.length
       ? '<form id="titles-form" class="stack title-arrange-panel"><div class="toolbar"><p class="form-hint" id="title-drag-help">Drag titles to change their order, or use arrow keys on a handle.</p><button type="button" class="text-button" data-action="title-order-reset">Reset Changes</button></div><div class="title-options title-sort-grid" role="list" aria-label="Title Display Order">' +

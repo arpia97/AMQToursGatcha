@@ -126,12 +126,21 @@ const players = (filter = () => true) =>
 const input = (label, name, type = "text", attrs = "") =>
   `<label>${label}<input name="${name}" type="${type}" ${name === "note" ? "" : "required"} ${attrs}></label>`;
 const hostSection = $("#host-section");
-for (const group of document.querySelectorAll(".host-tabs > div")) {
-  const options = document.createElement("optgroup");
-  options.label = group.querySelector("h2").textContent;
-  for (const button of group.querySelectorAll("[data-tab]"))
-    options.append(new Option(button.textContent, button.dataset.tab));
-  hostSection.append(options);
+async function openConsole() {
+  const {role} = await api("console-access");
+  const quizOnly = role === "Quiz Maker";
+  hostSection.replaceChildren();
+  for (const group of document.querySelectorAll(".host-tabs > div")) {
+    const options = document.createElement("optgroup");
+    options.label = group.querySelector("h2").textContent;
+    for (const button of group.querySelectorAll("[data-tab]")) {
+      button.hidden = quizOnly && button.dataset.tab !== "quiz";
+      if (!button.hidden) options.append(new Option(button.textContent, button.dataset.tab));
+    }
+    group.hidden = !options.children.length;
+    if (!group.hidden) hostSection.append(options);
+  }
+  return load(quizOnly ? "quiz" : "rewards");
 }
 function render() {
   hostSection.value = tab;
@@ -361,11 +370,11 @@ document.addEventListener("submit", async (ev) => {
       });
       await readApiResponse(response);
       adminSession = true;
-      await load();
+      await openConsole();
       form.reset();
       $("#unlock").hidden = true;
       $("#console").hidden = false;
-      report("Administrator signed in. All host tools are available.");
+      report("Signed in to the host console.");
       return;
     }
     const b = Object.fromEntries(new FormData(form));
@@ -553,9 +562,9 @@ document.addEventListener("submit", async (ev) => {
         key,
       );
     }
-    if (formIdentifier(form) === "host-permissions") {
+    if (["host-permissions", "quiz-maker-access"].includes(formIdentifier(form))) {
       result = await api(
-        "permissions",
+        formIdentifier(form) === "quiz-maker-access" ? "quiz-maker-access" : "permissions",
         { player: b.player, enabled: b.enabled === "true" },
         key,
       );
@@ -976,7 +985,7 @@ document.addEventListener("click", async (ev) => {
 });
 
 // Existing administrator sessions also work when opening this page from the player site.
-load("rewards")
+openConsole()
   .then(loaded => {
     if (!loaded) return;
     adminSession = true;

@@ -80,6 +80,8 @@ export class Engine {
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
       ["players", "avatar_crop", "TEXT"],
+      ["players", "is_quiz_maker", "INTEGER NOT NULL DEFAULT 0"],
+      ["host_access_log", "role", "TEXT NOT NULL DEFAULT 'Host'"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "access_reset", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "account_locked", "INTEGER NOT NULL DEFAULT 0"],
@@ -142,11 +144,26 @@ export class Engine {
     migrateTradeDefaults(this);
     installInbox(this);
     this.run(
+      "CREATE INDEX IF NOT EXISTS players_quiz_makers ON players(id) WHERE is_quiz_maker=1",
+    );
+    this.run(
       "CREATE INDEX IF NOT EXISTS players_admin ON players(is_admin,id)",
     );
     this.run(
       "UPDATE players SET is_admin=0 WHERE is_admin!=0 AND id!='368' AND id NOT IN (SELECT player FROM host_delegations)",
     );
+    if (!this.one("SELECT 1 FROM settings WHERE key='quiz_maker_roles_v1'")) {
+      this.tx(() => {
+        // The two verified canonical accounts previously held delegated Host access.
+        for (const id of ["14", "51"]) {
+          if (!this.one("SELECT 1 FROM players JOIN host_delegations ON player=id WHERE id=? AND is_admin=1", id)) continue;
+          this.setHostAccess("368", {player:id, enabled:false});
+          this.run("UPDATE players SET is_quiz_maker=1 WHERE id=?", id);
+          this.run("INSERT INTO host_access_log(actor,player,enabled,at,role) VALUES('368',?,1,?,'Quiz Maker')", id, this.now());
+        }
+        this.run("INSERT INTO settings VALUES ('quiz_maker_roles_v1',1)");
+      });
+    }
   }
   all(sql, ...args) {
     return this.db(sql, ...args);
@@ -198,7 +215,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,is_quiz_maker,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -210,7 +227,7 @@ export class Engine {
       quiz_hotkeys: parseQuizHotkeysJSON(p.quiz_hotkeys),
       notice_preferences: JSON.parse(p.notice_preferences),
       notify_friends_quiz: !!p.notify_friends_quiz,
-      role: p.is_admin ? "Host" : null,
+      role: p.is_admin ? "Host" : p.is_quiz_maker ? "Quiz Maker" : null,
     };
   }
   grantPackPulls(player, cards, sourceLabel = "Pack") {
@@ -293,7 +310,7 @@ export class Engine {
   hostIdentity(hash) {
     return (
       this.one(
-        "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_admin=1 AND (p.id='368' OR p.id IN (SELECT player FROM host_delegations))",
+        "SELECT p.id FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.account_locked=0 AND p.is_admin=1 AND (p.id='368' OR p.id IN (SELECT player FROM host_delegations))",
         hash,
         this.now(),
       )?.id || null
@@ -301,6 +318,25 @@ export class Engine {
   }
   adminSession(hash) {
     return !!this.hostIdentity(hash);
+  }
+  quizMakerSession(hash) {
+    return !!hash && !!this.one(
+      "SELECT 1 FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=? AND s.expires>? AND p.is_quiz_maker=1 AND p.account_locked=0",
+      hash, this.now(),
+    );
+  }
+  setQuizMakerAccess(actor, b) {
+    const id = text(b.player, 100);
+    if (typeof b.enabled !== "boolean") fail("Choose grant or revoke.");
+    const player = this.one("SELECT password,is_admin,is_quiz_maker FROM players WHERE id=?", id);
+    if (!player) fail("Unknown AMQ player ID.", 404);
+    if (id === "368" || player.is_admin) fail("This player already has Host access.", 409);
+    if (b.enabled && !player.password) fail("The player must register before receiving Quiz Maker access.");
+    if (!!player.is_quiz_maker !== b.enabled) {
+      this.run("UPDATE players SET is_quiz_maker=? WHERE id=?", Number(b.enabled), id);
+      this.run("INSERT INTO host_access_log(actor,player,enabled,at,role) VALUES(?,?,?,?,'Quiz Maker')", actor, id, Number(b.enabled), this.now());
+    }
+    return {message:b.enabled ? "Quiz Maker granted." : "Quiz Maker revoked."};
   }
   setHostAccess(actor, b) {
     if (actor !== "368") fail("Only arpia97 can manage host permissions.", 403);
@@ -311,6 +347,7 @@ export class Engine {
     if (!p) fail("Unknown AMQ player ID.", 404);
     if (b.enabled && !p.password)
       fail("The player must register before receiving host access.");
+    if (b.enabled && this.player(id).is_quiz_maker) this.setQuizMakerAccess(actor, {player:id, enabled:false});
     this.run("UPDATE players SET is_admin=? WHERE id=?", b.enabled ? 1 : 0, id);
     if (b.enabled)
       this.run(
@@ -1363,8 +1400,8 @@ export class Engine {
   publicRoles() {
     return Object.fromEntries(
       this.all(
-        "SELECT id FROM players WHERE is_admin=1 AND (id='368' OR id IN (SELECT player FROM host_delegations))",
-      ).map((p) => [p.id, "Host"]),
+        "SELECT id,'Host' AS role FROM players WHERE is_admin=1 AND (id='368' OR id IN (SELECT player FROM host_delegations)) UNION ALL SELECT id,'Quiz Maker' FROM players WHERE is_quiz_maker=1 AND is_admin=0",
+      ).map((p) => [p.id, p.role]),
     );
   }
   searchProfiles(query, page = 1, limit = 50) {

@@ -325,6 +325,7 @@
 #console:not([hidden]) { display:grid; grid-template-columns:184px minmax(0,1fr); align-items:start; gap:clamp(14px,2vw,28px); margin-top:16px; }
 .host-shell .host-toolbar { display:grid; position:sticky; top:12px; margin:0; padding:12px; gap:16px; background:var(--panel); border:1px solid var(--border); border-radius:9px; }
 .host-shell nav.host-tabs { display:grid; gap:16px; }
+.host-shell .host-tabs [hidden] { display:none; }
 .host-tabs h2 { margin:4px 6px 5px; color:var(--muted); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
 .host-shell .host-tabs button { display:block; width:100%; margin:1px 0; padding:8px; border:0; border-radius:5px; background:transparent; text-align:left; }
 .host-shell .host-tabs button:hover { background:#ffffff09; }

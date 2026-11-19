@@ -123,7 +123,7 @@ const mobileNavigation = installMobileNavigation({
     {key:'community',label:'Community',keys:['home','players','ranks']}
   ],
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
-  extraLinks: () => state?.me?.is_admin ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
+  extraLinks: () => (state?.me?.is_admin || state?.me?.is_quiz_maker) ? [{href:document.querySelector('.host-link').href,label:'Host Console'}] : []
 });
 const favoritesOnly = scope => favoriteCardFilter(scope, state?.me?.id);
 function resetCardFilterPage(scope) {
@@ -1904,7 +1904,7 @@ function render() {
   updateInboxBadge();
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
-  $(".host-link")?.toggleAttribute("hidden", !state.me?.is_admin);
+  $(".host-link")?.toggleAttribute("hidden", !(state.me?.is_admin || state.me?.is_quiz_maker));
   accountButton.innerHTML = state.me?.avatar_card
     ? avatarHTML(state.me)
     : escape(state.me ? state.me.name.slice(0, 2).toUpperCase() : "↗");

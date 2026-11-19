@@ -15,6 +15,9 @@ import { playRoute } from "../public/play-navigation.js";
 import { importAnimeList, listSummary } from "./play-anime-list.js";
 import { playState, playAvatar } from "./play-state.js";
 import { playAudioResponse } from "./play-media.js";
+// Only the operations available in Content & Review > Quiz accept this role.
+const quizConsoleReads = new Set(["host/console-access", "host/quizzes", "host/quiz-songs", "host/quiz-master"]);
+const quizConsoleWrites = new Set(["host/quiz-save", "host/quiz-preview", "host/quiz-audio-check", "host/quiz-master-sync", "host/quiz-master-refresh", "host/quiz-scores-reset", "host/quiz-delete"]);
 export { PlayQueue } from './play-queue.js';
 export { PlayMatch } from './play-match.js';
 import { cachedQuizCover } from "./quiz-cover-cache.js";
@@ -414,11 +417,16 @@ export class Game extends DurableObject {
           await digest(provided),
           await digest("Bearer " + this.env.HOST_TOKEN),
         );
+      const quizRoute = (post ? quizConsoleWrites : quizConsoleReads).has(path);
       const requireHost = () => {
         if (!hostTokenValid && !e.adminSession(sessionHash)) {
+          if (e.quizMakerSession(sessionHash)) {
+            if (quizRoute) return;
+            fail("Quiz Maker access is limited to the Quiz tab.", 403);
+          }
           // Opening a signed-out console is a normal session check.
-          const checkingSession = path === "host/state" && !post && !provided && !raw &&
-            url.searchParams.get("section") === "rewards";
+          const checkingSession = !post && !provided && !raw && (path === "host/console-access" ||
+            (path === "host/state" && url.searchParams.get("section") === "rewards"));
           if (!checkingSession) this.rate("host:" + ip, 20);
           fail(
             "Sign in with an administrator account or supply a valid host token.",
@@ -427,6 +435,13 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      if (path === "host/console-access" && !post)
+        return json({role: hostTokenValid || e.adminSession(sessionHash) ? "Host" : "Quiz Maker"});
+      if (path === "host/quiz-maker-access" && post) {
+        const actor = hostTokenValid ? "host-token" : e.hostIdentity(sessionHash);
+        return json(e.mutate("host:quiz-maker-access", request.headers.get("Idempotency-Key"), {actor, player:b.player, enabled:b.enabled},
+          () => e.setQuizMakerAccess(actor, b)));
+      }
       if(path==='host/play-sheet'){
         const actor=sheetActor(this.env);
         if(!actor)fail('Sheet refresh is unavailable.',503);
@@ -941,7 +956,7 @@ export class Game extends DurableObject {
           data.currentHost = hostId ? {id:hostId,name:e.player(hostId).name} : null;
         }
         if (needs("rewards", "players", "credit-audit", "resets")) {
-          const fields = needs("players") ? ",earned,is_admin,account_locked,password IS NOT NULL AS registered" : "";
+          const fields = needs("players") ? ",earned,is_admin,is_quiz_maker,account_locked,password IS NOT NULL AS registered" : "";
           data.players = e.all("SELECT id,COALESCE(display_name,name) AS name,balance" + fields + " FROM players ORDER BY name");
         }
         if (needs("players", "rewards")) data.aliases = e.all("SELECT player,alias FROM aliases ORDER BY alias");

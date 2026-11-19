@@ -1,6 +1,13 @@
 export function accessPanel(state, e) {
   const hosts = state.players.filter((p) => p.is_admin);
-  return `<section class="host-panel"><h2>Host Permissions</h2><p>Hosts can award credits, manage pick’ems and use the host console. Only arpia97 can grant or revoke host access, recover privileged accounts, or delete the player registry.</p><p>Current hosts: ${hosts.map((p) => `${e(p.name)} (${e(p.id)})${p.id === "368" ? " · owner" : ""}`).join(", ") || "None"}</p>${
+  const eligible = state.players.filter(p => !p.is_admin && p.id !== "368" && (p.registered || p.is_quiz_maker));
+  const makers = eligible.filter(p => p.is_quiz_maker);
+  const quizAccess = `<section class="host-panel"><h2>Quiz Maker Access</h2><p>Quiz Makers can manage quizzes in Content &amp; Review. Any host can grant or revoke this SS title.</p>
+    <p>Current Quiz Makers: ${makers.map(p => e(p.name)).join(", ") || "None"}</p>
+    <form id="quiz-maker-access" class="stack"><label>Player<select name="player" required><option value="">Choose a player</option>${eligible.map(p => `<option value="${e(p.id)}">${e(p.name)} (${e(p.id)})${p.is_quiz_maker ? " · Quiz Maker" : ""}</option>`).join("")}</select></label>
+    <label>Permission<select name="enabled"><option value="true">Grant Quiz Maker</option><option value="false">Revoke Quiz Maker</option></select></label>
+    <button class="button secondary" type="submit">Save Quiz Maker Access</button></form></section>`;
+  return quizAccess + `<section class="host-panel"><h2>Host Permissions</h2><p>Hosts can award credits, manage pick’ems and use the host console. Only arpia97 can grant or revoke host access, recover privileged accounts, or delete the player registry.</p><p>Current hosts: ${hosts.map((p) => `${e(p.name)} (${e(p.id)})${p.id === "368" ? " · owner" : ""}`).join(", ") || "None"}</p>${
     state.canManageHosts
       ? `<form id="host-permissions" class="stack"><label>Registered player<select name="player" required><option value="">Choose a player</option>${state.players
           .filter((p) => (p.registered || p.is_admin) && p.id !== "368")

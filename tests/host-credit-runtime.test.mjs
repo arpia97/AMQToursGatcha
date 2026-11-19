@@ -159,6 +159,20 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   const rewardState = await entry.json();
   assert.deepEqual(Object.keys(rewardState).sort(), ["aliases", "currentHost", "players", "usernames"]);
   assert.deepEqual(rewardState.currentHost,{id:"2",name:"Delegated Host"});
+  const grantQuizMaker = enabled => post("host/quiz-maker-access", {player:"1", enabled}, {Cookie:hostCookie});
+  const makerRead = path => mf.dispatchFetch("http://game/api/host/" + path, {headers:{Cookie:cookie}});
+  assert.equal((await grantQuizMaker(true)).status, 200);
+  assert.deepEqual(await (await makerRead("console-access")).json(), {role:"Quiz Maker"});
+  assert.equal((await read()).role, "Quiz Maker");
+  assert.equal((await makerRead("quizzes")).status, 200);
+  for (const path of ["state", "state?section=players", "activity-csv", "play-review", "quiz-answer-repair"]) {
+    assert.equal((await makerRead(path)).status, 403);
+  }
+  assert.equal((await post("host/quiz-maker-access", {player:"1", enabled:true}, {Cookie:cookie})).status,403);
+  assert.equal((await post("host/permissions", {player:"1", enabled:true}, {Cookie:cookie})).status,403);
+  assert.equal((await grantQuizMaker(false)).status, 200);
+  assert.equal((await makerRead("quizzes")).status, 401);
+  assert.equal((await read()).role, null);
   const rewardBody={text:'Local User (1)',event:'hosting-runtime',rewardVersion:TOUR_REWARD_VERSION,tourSize:16,maxRounds:6,multiplier:2,expectedPlayers:['1'],participants:[{player:'1',rounds:1,count:false,report:false}],receiveHostCredits:true,host:'1'};
   const awardHeaders={Cookie:hostCookie,'Idempotency-Key':'host-reward-runtime'};
   const hostingResponse=await post('host/participation-batch',rewardBody,awardHeaders);

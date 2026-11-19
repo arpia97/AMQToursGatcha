@@ -22,6 +22,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
         className: "",
         innerHTML: "",
         hidden: false,
+        replaceChildren() {},
       });
     return nodes.get(id);
   };
@@ -51,6 +52,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
     if(path==='api/host/quiz-master')return {ok:true,json:async()=>library};
     if(path==='api/host/quiz-master-refresh'){const body=JSON.parse(options.body);requests.push({path,body});library.job={status:body.action==='pause'?'paused':'running',phase:'songs',percent:1,total:38200,processed:400};return {ok:true,json:async()=>({message:'Masterlist refresh '+body.action,...library})};}
     if(path==='api/host/quiz-master-sync'){requests.push({path,body:JSON.parse(options.body)});return {ok:true,json:async()=>({message:'Quiz Answers Synced',addedAnswers:2})};}
+    if (path === "api/host/console-access") return {ok:true, json:async () => ({role:"Host"})};
     if (path === "api/host/state?section=rewards")
       return { ok: true, json: async () => hostState };
     if (path === "api/host/quiz-songs?id=saved-quiz")
@@ -168,7 +170,7 @@ test("the actual host submit handler saves a draft with a hidden id field instea
   });
   vm.runInContext(bundle.outputFiles[0].text, context);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(startupRequests, ["api/host/state?section=rewards"]);
+  assert.deepEqual(startupRequests, ["api/host/console-access", "api/host/state?section=rewards"]);
   await handlers.get("click")[0]({
     target: {
       closest: () => ({ dataset: { tab: "quiz" }, hasAttribute: () => false }),

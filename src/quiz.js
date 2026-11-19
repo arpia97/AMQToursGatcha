@@ -238,7 +238,9 @@ export class Quiz {
     };
   }
   isHost(player) {
-    return !!player && !!this.e.player(player).is_admin;
+    if (!player) return false;
+    const account = this.e.player(player);
+    return !account.account_locked && (account.role === "Host" || account.role === "Quiz Maker");
   }
   statistics() {
     // Progress has one personal-best row per player/quiz, so retries cannot
