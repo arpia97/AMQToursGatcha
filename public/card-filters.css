@@ -1,33 +1,66 @@
-/* Shared card browser toolbar. Context-specific controls keep their existing handlers. */
+/* Keep selectors in the toolbar and optional switches in a separate drawer. */
 [data-filter-scope]:is(.collection-toolbar-main,.market-sort-controls,.trade-search,.fusion-filters) {
-  display:flex; align-items:end; flex-wrap:wrap; gap:8px; padding:12px;
-  border:1px solid var(--border); border-radius:10px; background:var(--panel);
+  --control-height: 38px;
+  display:flex; align-items:flex-end; flex-wrap:wrap; gap:12px;
+  padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--panel);
+  container-type:inline-size;
 }
 .collection-toolbar:has([data-filter-scope]) { padding:0; border:0; background:transparent; }
-[data-filter-scope] > .search { flex:1 1 170px; min-width:100px; max-width:none; width:auto; height:38px; margin:0; }
-[data-filter-scope] > :is(.tabs,.trade-kind-tabs) { flex:0 1 auto; margin:0; }
-[data-filter-scope] > .sort-control { display:contents; }
-[data-filter-scope] > label, [data-filter-scope] .sort-control label { margin:0; }
-[data-filter-scope] > select, [data-filter-scope] > label select, [data-filter-scope] .sort-control select { width:auto; min-height:38px; margin:0; }
-.card-filter-toggle { display:inline-flex; align-items:center; justify-content:center; gap:7px; height:38px; padding:0 12px; margin:0; border:1px solid var(--border); border-radius:7px; background:#23252f; color:var(--text); }
+[data-filter-scope] > .search {
+  flex:1 1 175px; min-width:0; width:auto; max-width:none;
+  height:var(--control-height); margin:0; padding:0 12px;
+}
+[data-filter-scope] > .tabs { flex:0 1 auto; margin:0; }
+.card-filter-fields { display:flex; align-items:flex-end; flex-wrap:wrap; gap:10px; max-width:100%; }
+[data-filter-scope] .card-filter-field {
+  display:grid; align-items:start; gap:6px; min-width:0; margin:0;
+  color:var(--muted); font-size:11px; font-weight:600; line-height:1.2; text-transform:capitalize;
+}
+[data-filter-scope] .card-filter-field select {
+  width:clamp(116px, 13vw, 156px); height:var(--control-height); min-width:0; margin:0;
+  padding:0 10px; background:#111319; border:1px solid #3b3e49; border-radius:8px;
+  font-size:12px; color:var(--text); text-transform:none;
+}
+[data-filter-scope] .card-filter-field select:focus-visible { border-color:var(--mint); }
+.card-filter-toggle {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  height:var(--control-height); padding:0 13px; margin:0; border:1px solid #3b3e49;
+  border-radius:8px; background:var(--panel2); color:var(--text); font-size:12px; white-space:nowrap;
+}
 .card-filter-toggle svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
-.card-filter-toggle[aria-expanded=true] { color:var(--mint); border-color:#658572; }
-.card-filter-options { flex:0 0 100%; display:flex; align-items:end; flex-wrap:wrap; gap:8px 12px; border-top:1px solid var(--border); padding-top:10px; }
-.card-filter-options[hidden] { display:none; }
-.card-filter-options :is(.catalog-refinements,.collection-checkboxes) { display:contents; }
-.card-filter-options .catalog-refinements > .collection-checkboxes { display:flex; }
-.wishlist-ownership-options { display:inline-flex; flex-wrap:wrap; gap:inherit; max-width:100%; }
-.card-filter-options label { margin:0; }
-.card-filter-options label.check-label { flex:0 1 auto; min-width:0; }
+.card-filter-toggle[aria-expanded=true] { color:var(--mint); border-color:#648473; background:#202c28; }
+.card-filter-options {
+  flex:0 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; min-width:0;
+  border-top:1px solid var(--border); padding-top:12px;
+}
+.card-filter-options[hidden], .card-filter-chips:empty { display:none; }
+.card-filter-checks { display:flex; flex-wrap:wrap; align-items:center; gap:7px; max-width:100%; }
+.wishlist-ownership-options { display:contents; }
+[data-filter-scope] .card-filter-checks label {
+  display:inline-flex; flex-direction:row; align-items:center; gap:8px; min-width:0;
+  margin:0; padding:6px 10px; min-height:32px; border:1px solid #363944; border-radius:7px;
+  background:#20222b; color:#cbd0da; font-size:12px; font-weight:500; line-height:1.3; cursor:pointer;
+}
+[data-filter-scope] .card-filter-checks input[type=checkbox] {
+  flex:none; width:14px; height:14px; min-height:0; margin:0; padding:0; accent-color:var(--mint);
+}
+.card-filter-checks label:hover { border-color:#747986; }
+[data-filter-scope] .card-filter-checks label:has(:checked) { border-color:#60816e; background:#23332b; color:var(--mint); }
+.card-filter-checks label:has(:focus-visible) { outline:2px solid var(--mint); outline-offset:2px; }
+.card-filter-checks label:has(:disabled) { opacity:.55; cursor:default; }
+.card-filter-options > .text-button { margin:0 0 0 auto; padding:6px; font-size:11px; }
 .card-filter-chips { display:flex; flex-wrap:wrap; gap:5px; flex-basis:100%; }
-.card-filter-chips:empty { display:none; }
-.card-filter-chips button { display:inline-flex; align-items:center; gap:7px; border:1px solid #385348; background:#202e29; color:#c5e4cf; border-radius:20px; padding:4px 9px; font-size:11px; }
-@media(max-width:850px) {
-  [data-filter-scope] > :is(.tabs,.trade-kind-tabs) { flex:1 0 100%; }
-  [data-filter-scope] > .search { flex:1 0 100%; min-width:0; width:100%; font-size:16px; }
-  .collection-toolbar-main[data-filter-scope] > .sort-control { display:contents; }
-  [data-filter-scope] .sort-control label { flex:1; }
-  [data-filter-scope] .sort-control select { width:100%; }
-  [data-filter-scope] .card-filter-toggle { margin-left:auto; }
-  [data-filter-scope] .card-filter-options label { flex:0 1 auto; }
+.card-filter-chips button { border:1px solid #385348; background:#202e29; color:#c5e4cf; border-radius:20px; padding:4px 9px; font-size:11px; }
+[data-filter-scope] > .form-hint { flex-basis:100%; margin:0; }
+@container (max-width:760px) {
+  [data-filter-scope] > .tabs { flex:1 0 100%; }
+  [data-filter-scope] > .search { flex:1 0 100%; font-size:16px; }
+  .card-filter-fields { width:100%; display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); }
+  [data-filter-scope] .card-filter-field select { width:100%; }
+}
+@container (max-width:460px) {
+  .card-filter-fields { grid-auto-flow:row; grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .card-filter-fields > :last-child:nth-child(odd) { grid-column:1/-1; }
+  .card-filter-checks { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:stretch; }
+  [data-filter-scope] .card-filter-checks label { min-height:38px; padding:6px 8px; }
 }
