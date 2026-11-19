@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha notifications
+
+Source `f101aa9` deployed to the Gacha Worker as `d000ccba-2900-43b7-8307-778bdf46f9c9`. The inbox at `/gacha/notifications` includes group and unread filters, compact thumbnails and per-player read status. General and Notifications share the existing Settings form. New event types deliver prospectively. Personal and friend quiz overtakes are opt-in, with existing friend preferences retained. All 544 tests, syntax checks and the Worker build passed. Verified production routes, assets and guest authorization. Tested deployed desktop and mobile UI with isolated account data, including preference persistence and read actions.
+
 ## Gacha quiz lobby and gameplay
 
 Source `872cf14` deployed on Worker `242625a8-13bd-46f2-9d1c-b136661251fc`. The Gacha lobby uses the quiz cover and personal-best colour, with Song List beside Start Quiz. Top 20 scrolls within ten visible rows. Gameplay colours the header by current score. Verified Song List column sorting, reveal Enter, progress squares and leaderboard scrolling against the deployed frontend at 1440px, 390px and 360px with isolated quiz data. All 63 focused quiz tests, syntax checks and the Worker build passed. The card search design remains a local preview.
