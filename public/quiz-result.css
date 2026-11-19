@@ -43,7 +43,9 @@
 .finish-line dl{display:flex;gap:clamp(14px,3vw,36px);margin:0}
 .finish-line dt,.finish-label{font:10px/1.45 Consolas,monospace;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
 .finish-line dd{font-size:clamp(16px,2vw,25px);margin:5px 0 0;font-variant-numeric:tabular-nums;font-weight:700}
-.finish-score{display:flex;align-items:baseline;gap:6px}.finish-score b{font-size:clamp(48px,6vw,74px);font-weight:800;letter-spacing:-.065em;line-height:1}.finish-score small,.finish-line dd small{font-size:14px;color:var(--muted)}
+.finish-score{display:flex;align-items:baseline;gap:4px;white-space:nowrap}
+.finish-score b { font-size:clamp(36px,4.5vw,54px); font-weight:800; letter-spacing:normal; line-height:1.15; padding-inline-end:.08em; }
+.finish-score small,.finish-line dd small{font-size:14px;color:var(--muted)}
 .finish-track{padding:0 clamp(16px,3vw,32px) 22px}.finish-track .quiz-song-progress{margin:12px 0 0;max-width:none;width:100%}.finish-track .quiz-song-progress-track{display:grid;width:100%;max-width:none;grid-template-columns:repeat(20,minmax(0,1fr));gap:4px}.finish-track .quiz-progress-square{width:100%;height:7px;max-width:none;aspect-ratio:auto}
 .finish-reward,.finish-title{padding:13px clamp(16px,3vw,32px);border-block:1px solid var(--border);background:#ffffff03;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .finish-title{margin:0}.finish-reward strong{color:#f0cf8f}.finish-reward span{color:var(--muted);font-size:12px}

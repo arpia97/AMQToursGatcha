@@ -146,7 +146,8 @@
   .ranking-board,.broadcast-room { margin:8px auto; }
   .ranking-masthead { flex-wrap:wrap; gap:10px; }
   .ranking-mode-tabs { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
-  .ranking-board :is(th,td):nth-child(2) { position:sticky; left:0; max-width:36vw; white-space:normal; overflow-wrap:anywhere; background:var(--panel); box-shadow:1px 0 var(--border); }
+  .ranking-board :is(th,td):nth-child(2) { position:sticky; left:0; min-width:clamp(8.75rem,37vw,12rem); white-space:nowrap; background:var(--panel); box-shadow:1px 0 var(--border); }
+  .ranking-board td:nth-child(2) strong { display:block; max-width:clamp(8rem,37vw,12rem); white-space:normal; overflow-wrap:anywhere; }
   .ranking-board th:nth-child(2) { background:#20262d; }
 }
 
