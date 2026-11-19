@@ -1,8 +1,13 @@
-const versus = new Set(['ngmc-ranked','1v1','3v3']);
+import {DUEL_FORMAT} from '../public/play-mode-rules.js';
+import {songRatingPools} from '../public/ngmc-leave-policy.js';
+
+const versus = new Set(['ngmc-ranked',...Object.keys(songRatingPools)]);
 
 export function matchRecords(state){
   if(state.phase!=='finished'||!versus.has(state.format)||state.teams?.length!==2)return [];
   const [a,b]=state.teams;
+  if(state.format===DUEL_FORMAT && state.players.some(p=>p.rankedLeftAt!=null))
+    return state.players.map(p=>({id:p.id,outcome:p.rankedLeftAt!=null?'L':'W'}));
   return state.players.map(p=>({
     id:p.id, outcome:p.rankedLeftAt!=null?'L':a===b?'T':p.team===(a>b?0:1)?'W':'L'
   }));

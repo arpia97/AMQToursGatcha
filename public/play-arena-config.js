@@ -10,8 +10,3 @@ export const arenaRules = Object.freeze({
   guessSeconds: 20,
   startingRating: 1000,
 });
-
-export function queueMode(format) {
-  if (format === ARENA_FORMAT) return ARENA_FORMAT;
-  return format.startsWith('ngmc-') ? 'ngmc-ranked' : 'song-artist';
-}

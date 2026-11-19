@@ -1,7 +1,8 @@
+import {DUEL_FORMAT, soloVersus} from './play-mode-rules.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {quizDuration} from './quiz-time.js';
 const formats = {
-  "ngmc-ranked": "NGMC Ranked", "1v1": "Song/Artist 1v1", "3v3": "Song/Artist 3v3",
+  [DUEL_FORMAT]: "1v1 Ranked", "ngmc-ranked": "NGMC Ranked", "1v1": "Song/Artist 1v1", "3v3": "Song/Artist 3v3",
   quiz: "Quiz"
 };
 
@@ -18,7 +19,8 @@ function table(headers, rows,sort,dir) {
 }
 
 export function matchLeaderboard(match, esc) {
-  if (!match.history.length) return '<p>No songs scored.</p>';
+  const duel=match.format===DUEL_FORMAT;
+  if (!duel&&!match.history.length) return '<p>No songs scored.</p>';
   if (!match.ratings?.length) return '<p role="status">Calculating match ratings…</p>';
   const rows = match.ratings.map(result => ({
     ...result, name: match.players.find(p => p.id === result.id)?.name || result.id,
@@ -27,15 +29,15 @@ export function matchLeaderboard(match, esc) {
   const best = rows[0];
   const me=match.players.find(p=>p.id===match.me);
   const sides=match.teams.length>1;
-  const teamLabel=match.format==='1v1'?'Opponent':'Opponents';
-  const isMvp = row => row.performance === best.performance && row.correct === best.correct && row.correct > 0;
+  const teamLabel=soloVersus(match.format)?'Opponent':'Opponents';
+  const isMvp = row => !duel&&row.performance === best.performance && row.correct === best.correct && row.correct > 0;
   const signed = n => (n>0?'+':'')+n.toFixed(2);
   return '<section class="play-leaderboard"><h2>Match Leaderboard</h2>' +
-    table(['Player',...(sides?['Side']:[]),'Points','Performance','Rating'], rows.map(row => [
+    table(['Player',...(sides?['Side']:[]),'Points',duel?'Rating Change':'Performance','Rating'], rows.map(row => [
       esc(row.name)+(isMvp(row)?' <b class="play-mvp">MVP</b>':''),
-      ...(sides?[match.players.find(p=>p.id===row.id).team===me.team?(match.format==='1v1'?'You':'Your Team'):teamLabel]:[]),
-      row.correct, signed(row.performance), Math.round(row.after)
-    ])) + '<small>Performance is the rating change per song.</small></section>';
+      ...(sides?[match.players.find(p=>p.id===row.id).team===me.team?(soloVersus(match.format)?'You':'Your Team'):teamLabel]:[]),
+      row.correct, signed(duel?row.delta:row.performance), Math.round(row.after)
+    ])) + (duel?'':'<small>Performance is the rating change per song.</small>')+'</section>';
 }
 
 export function rankingPanel(root,format,pool='random') {
@@ -61,7 +63,7 @@ export function rankingPanel(root,format,pool='random') {
 
 export function rankingResultsHTML(format,page,data,esc,sort,dir) {
   const quiz = format === 'quiz';
-  const versus=['1v1','3v3','ngmc-ranked'].includes(format);
+  const versus=[DUEL_FORMAT,'1v1','3v3','ngmc-ranked'].includes(format);
   function recordCell(row){
     if(!row.record)return '<span title="No recorded match outcomes">—</span>';
     const count=row.record.reduce((sum,n)=>sum+n,0);

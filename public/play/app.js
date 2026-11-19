@@ -1,5 +1,6 @@
 import {playPools} from '../play-pool.js';
-import {ARENA_FORMAT, queueMode as modeForQueue} from '../play-arena-config.js';
+import {DUEL_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
+import {ARENA_FORMAT} from '../play-arena-config.js';
 import { PLAY_MODES, playRoute, playHref } from "../play-navigation.js";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "../quiz-title-display.js";
@@ -21,7 +22,7 @@ const number = (n) => Number(n || 0).toLocaleString("en-US");
 const assets = new URL("../", import.meta.url);
 const apiBase = new URL("api/", assets);
 const storage = { getItem: (key) => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) };
-let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || PLAY_MODES[0].id;
+let state = { me: null, avatar: null, titles: [] }, mode = playRoute(location.pathname) || playRoute("/play");
 let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
 try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
 let rankingSort='rank',rankingDirection='asc';
@@ -95,7 +96,7 @@ async function refreshAccount() {
   header();
 }
 const multiplayerRoot = document.createElement('div');
-const queueLabels = {'2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
+const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
 let currentQueue;
 function savedQueue(){
@@ -183,7 +184,7 @@ async function openMode(id, push = true) {
   const requested = PLAY_MODES.find(item => item.id === id);
   if (!requested) return;
   if (requested.disabled) {
-    id = PLAY_MODES[0].id;
+    id = playRoute("/play");
     history.replaceState(null, "", playHref(id));
   }
   if(songArtist?.rankedAtRisk()){
@@ -233,7 +234,7 @@ async function openMode(id, push = true) {
 }
 const accountReady = refreshAccount();
 openMode(mode, false);
-window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || PLAY_MODES[0].id, false));
+window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || playRoute("/play"), false));
 document.addEventListener("click", async (event) => {
   const link = event.target.closest("a[data-play-mode]");
   if (link && !event.defaultPrevented && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); openMode(link.dataset.playMode); return; }
@@ -278,7 +279,7 @@ document.addEventListener("click", async (event) => {
     else if (action === "retry-mode") await openMode(mode, false);
     else if (action === "logout") {
       if(songArtist&&!songArtist.confirmNavigation())return;
-      await api("logout", {}); songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked"].includes(mode)) await openMode(mode, false);
+      await api("logout", {}); songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked",DUEL_FORMAT].includes(mode)) await openMode(mode, false);
     } else if (mode === "quiz" && quiz && $("#main").contains(button)) await quiz.click(button);
   } catch (error) { fail(error); }
 });
@@ -290,7 +291,7 @@ document.addEventListener("submit", async (event) => {
   event.preventDefault(); const button = form.querySelector('[type="submit"]'); button.disabled = true;
   try {
     const { mode: action, ...body } = Object.fromEntries(new FormData(form));
-    await api(action, body); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked"].includes(mode)) await openMode(mode, false);
+    await api(action, body); resetQuiz(); await refreshAccount(); $("#modal").close(); if (["quiz","song-artist","ngmc-ranked",DUEL_FORMAT].includes(mode)) await openMode(mode, false);
   } catch (error) { form.querySelector(".form-error").textContent = error.message; }
   finally { button.disabled = false; }
 });
@@ -306,7 +307,7 @@ document.addEventListener("change", async (event) => {
   if (["play-title-mode", "play-settings-title-mode"].includes(input.id)) {
     titleMode = input.value === "english" ? "english" : "romaji";
     try { storage.setItem("amqtours-title-mode", titleMode); } catch {}
-    $("#play-title-mode").value = titleMode; if (mode === "quiz") renderQuiz(); if(['song-artist','ngmc-ranked'].includes(mode))songArtist?.render(); return;
+    $("#play-title-mode").value = titleMode; if (mode === "quiz") renderQuiz(); if(['song-artist','ngmc-ranked',DUEL_FORMAT].includes(mode))songArtist?.render(); return;
   }
   if (mode !== "quiz" || !quiz) return;
   try {

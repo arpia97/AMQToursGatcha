@@ -62,8 +62,8 @@
   #play-account { gap:12px; }
   .play-site #main { padding:25px 20px 32px; }
   .play-footer { padding:20px; }
-  #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }
-  #play-mobile-nav a { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; padding:8px 2px; min-height:50px; color:var(--muted); font-size:9px; border-radius:10px; white-space:nowrap; }
+  #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }
+  #play-mobile-nav a { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; padding:8px 2px; min-height:50px; color:var(--muted); font-size:clamp(8px,2.4vw,9px); border-radius:10px; text-align:center; }
   #play-mobile-nav a[aria-current=page] { color:var(--mint); background:#b6e2c50b; }
   #play-mobile-nav .play-icon { width:21px; height:21px; }
   .play-site .quiz-toolbar { flex-direction:column; align-items:stretch; gap:10px; }

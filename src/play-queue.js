@@ -1,5 +1,7 @@
 import {playPools, poolFormat} from '../public/play-pool.js';
-import {ARENA_FORMAT, arenaRules, queueMode} from '../public/play-arena-config.js';
+import {DUEL_FORMAT, queueMode} from '../public/play-mode-rules.js';
+import {duelRatings} from './play-duel-ratings.js';
+import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaBatch} from './play-arena.js';
 import {playRankingPage} from './play-ranking-query.js';
 import {PlayRecords} from './play-records.js';
@@ -97,7 +99,7 @@ export class PlayQueue extends DurableObject {
     this.notifyDeparture(player,'ngmc-ranked',this.rankedLeaves.record(match,player,at,'ngmc-ranked',player,pool),pool);
   }
   recordSongReadyLeave(match,format,player,name,at,pool){
-    if(!Object.hasOwn(songRatingPools,format))throw Error('Unknown Song/Artist format.');
+    if(!Object.hasOwn(songRatingPools,format))throw Error('Unknown ranked format.');
     this.notifyDeparture(player,format,this.rankedLeaves.record(match,player,at,format,name,pool),pool);
   }
   notifyDeparture(player,format,receipt,pool){
@@ -127,11 +129,14 @@ export class PlayQueue extends DurableObject {
   settleSongs(id,result){
     const saved=this.rows('SELECT data FROM song_results WHERE id=?',id)[0];
     if(saved)return JSON.parse(saved.data);
-    if(!result.history.length)return [];
     const {format,history}=result,bucket=poolFormat(format,result.pool);
+    const duel=format===DUEL_FORMAT;
+    if(!duel&&!history.length)return [];
+    if(duel)for(const p of result.players)if(p.rankedLeftAt!=null)
+      this.recordSongReadyLeave(id,format,p.id,p.name,p.rankedLeftAt,result.pool);
     const players=result.players.map(player=>({...player,elo:this.rows(
       'SELECT rating FROM song_ratings WHERE format=? AND player=?',bucket,player.id)[0]?.rating??1000}));
-    const ratings=ngmcRatings(players,history);
+    const ratings=duel?duelRatings(players,history,result.records):ngmcRatings(players,history);
     this.ctx.storage.transactionSync(()=>{
       for(const r of ratings){
         const player=players.find(p=>p.id===r.id);
@@ -168,7 +173,7 @@ export class PlayQueue extends DurableObject {
     if(result?.mode==='ngmc-ranked'&&!['lobby-ngmc','ngmc-3v3'].includes(result.format))ratings=this.settle(id,result);
     else if(status==='finished'&&Object.hasOwn(songRatingPools,result?.format))
       ratings=this.settleSongs(id,result);
-    if(status==='finished'&&['1v1','3v3','ngmc-ranked'].includes(result?.format)){
+    if(status==='finished'&&['ngmc-ranked',...Object.keys(songRatingPools)].includes(result?.format)){
       const bucket=poolFormat(result.format,result.pool);
       if(result.records?.length)this.records.save(id,bucket,result.records);
       else this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending_play_records VALUES(?,?)',id,bucket);

@@ -1,9 +1,10 @@
+import {soloVersus} from './play-mode-rules.js';
 import {songResultsHTML} from './play-round-ui.js';
 
 function finalScores(match,me){
   const scores=match.teams,freeForAll=match.format==='lobby-ffa';
   const unit=match.mode==='ngmc-ranked'?'lives':'pts';
-  const solo=freeForAll||match.format==='1v1';
+  const solo=freeForAll||soloVersus(match.format);
   const metric=(label,value)=>'<div><small>'+label+'</small><strong>'+value+' <span>'+unit+'</span></strong></div>';
   let html=metric(solo?'You':'Your team',scores[me.team]);
   if(freeForAll&&scores.length>1)html+=metric('Highest score',Math.max(...scores));

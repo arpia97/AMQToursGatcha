@@ -171,7 +171,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     ],
   });
   t.after(() => mf.dispose());
-  for(const route of ['/play/','/play/ngmc-ranked','/play/2v2-arena','/play/song-artist','/play/speed-showdown','/play/quiz']){
+  for(const route of ['/play/','/play/1v1-ranked','/play/ngmc-ranked','/play/2v2-arena','/play/song-artist','/play/speed-showdown','/play/quiz']){
     const response=await mf.dispatchFetch('https://amqtours.app'+route);
     assert.equal(response.status,200);
     const html=await response.text();assert.match(html,/<base href="\/gacha\/">/);assert.match(html,/play\/app.js/);

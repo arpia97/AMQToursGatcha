@@ -1,6 +1,7 @@
 import { inboxPage, readInbox, inboxCount } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
+import {songRatingPools} from '../public/ngmc-leave-policy.js';
 import {playRankingPage} from './play-ranking-query.js';
 import {sheetActor,currentSheet} from "./play-sheet.js";
 import {masterImportAnswers,indexQuizRecordings,bestMasterRecord,sheetRecording} from './master-song-answers.js';
@@ -1856,7 +1857,8 @@ export default {
         const format=url.searchParams.get('format')||'ngmc-ranked';
         const page=Number(url.searchParams.get('page'));
         const pool=url.searchParams.get('pool')||'random';
-        if(!['random','watched'].includes(pool)||!['ngmc-ranked','1v1','3v3'].includes(format)||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
+        const ranked=format==='ngmc-ranked'||Object.hasOwn(songRatingPools,format);
+        if(!['random','watched'].includes(pool)||!ranked||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
         return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page,url.searchParams.get('sort'),url.searchParams.get('dir'),pool));
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){

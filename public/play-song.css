@@ -525,3 +525,7 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 .room-watched-pool strong { font-size:12px; }
 .room-watched-pool small { color:var(--muted); }
 .room-watched-pool[data-short=true] { border-color:#775930; color:#f5ce80; background:#32271b; }
+
+.play-lobby-browser.duel-queue { grid-template-columns:minmax(0,1fr); max-width:760px; }
+.duel-emblem span { min-height:32px; align-content:center; }
+.duel-match .sa-answer-fields { grid-template-columns:minmax(0,1fr); }

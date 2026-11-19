@@ -315,4 +315,41 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const older=await (await mf.dispatchFetch(base+'/api/host/play-review?search='+id,{headers:auditHeaders})).json();
     assert.ok(older.matches.some(m=>m.id===id),'60-day-old match remains searchable after queue cleanup');
   }
+  for(const pool of ['random','watched']){
+    const queues=[await connect(0),await connect(1)];
+    for(const q of queues)q.send({type:'join',mode:'1v1-ranked',format:'1v1-ranked',pool});
+    const {match:id}=await queues[0].wait(m=>m.type==='matched'&&m.format==='1v1-ranked'&&m.pool===pool);
+    const rooms=[await connect(0,id),await connect(1,id)];
+    for(const room of rooms){
+      const manifest=await room.wait(m=>m.type==='manifest');
+      assert.equal(manifest.mode,'1v1-ranked');
+      assert.equal(manifest.total,20);
+      room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
+      room.send({type:'ready'});
+    }
+    const started=(await rooms[0].wait(m=>m.state?.phase==='guess')).state;
+    assert.equal(started.until-started.startsAt,20000);
+    assert.equal(started.pool,pool);
+    const {song,animeIds}=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
+    if(pool==='watched')assert.equal(new Set(animeIds).size,20);
+    if(pool==='random'){
+      rooms[0].send({type:'answer',index:0,answers:{anime:song.anime},lock:true});
+      await rooms[1].wait(m=>m.state?.players.find(p=>p.id==='1')?.locked);
+      assert.equal(rooms[1].messages.at(-1).state.players.find(p=>p.id==='1').answers,undefined);
+      rooms[1].send({type:'answer',index:0,answers:{anime:'wrong anime',song:song.title,artist:song.artist},lock:true});
+      const revealed=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;
+      assert.deepEqual(revealed.history[0].results.map(r=>Object.keys(r.correct)),[['anime'],['anime']]);
+      assert.equal(revealed.history[0].results.find(r=>r.id==='1').earned,1);
+      await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+id);
+      await mf.dispatchFetch(base+'/api/__expire?match='+id);
+    }else rooms[0].send({type:'leave'});
+    const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
+    assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);
+    assert.equal(rated.ratings.find(r=>r.id==='2').delta,pool==='random'?-16:16);
+    const rows=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
+    assert.deepEqual(rows.rows.map(r=>r.record),[[1,0,0],[0,1,0]]);
+    assert.equal(rows.rows[0].name,'Local Player '+(pool==='random'?'1':'2'));
+    for(const connection of [...queues,...rooms])connection.ws.close();
+  }
+
 });

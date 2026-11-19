@@ -1,3 +1,4 @@
+import {animeOnlyMode} from '../public/play-mode-rules.js';
 import {titleMatches,artistMatches} from './play-artists.js';
 
 const MAX_EVENTS=36000,MAX_PLAYER_EVENTS=4000;
@@ -61,7 +62,7 @@ function matches(song,field,value){
   return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):titleMatches(song.answers[field],value);
 }
 export function decoyHits(state,answers,artists){
-  const fields=state.arena||state.mode==='ngmc-ranked'?['anime']:['anime','song','artist'];
+  const fields=animeOnlyMode(state.mode)?['anime']:['anime','song','artist'];
   return (state.decoys||[]).flatMap(song=>fields.flatMap(field=>{
     const value=field==='artist'?(artists??answers[field]):answers[field];
     // Shared anime titles/artists are not useful evidence. Suppress anything

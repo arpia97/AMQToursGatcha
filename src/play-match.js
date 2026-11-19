@@ -1,3 +1,4 @@
+import {DUEL_FORMAT, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {ReviewHighlights} from './play-review-highlights.js';
@@ -25,7 +26,7 @@ export class PlayMatch extends DurableObject {
       }
       let library;
       try{
-        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:format===ARENA_FORMAT?arenaSongCount(players.length):lobby?.songs,watched});
+        library=await quizLibraryRequest(this.env,'/play-sample',{mode:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':'song-artist',count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:lobby?.songs,watched});
       }catch(error){
         if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
         throw error;
@@ -200,12 +201,12 @@ export class PlayMatch extends DurableObject {
       if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
       this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast();
-      if(input.message.type==='leave'&&state.format==='ngmc-ranked'){
+      if(input.message.type==='leave'&&['ngmc-ranked',DUEL_FORMAT].includes(state.format)){
         const departed=state.players.find(p=>p.id===input.who.id);
         if(departed.rankedLeftAt!=null){await this.schedule();await this.reportRankedLeaves(state);}
         else if(departed.left)await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(departed.id,state.id);
       }
-      if(input.message.type==='leave'&&state.mode!=='ngmc-ranked')await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(input.who.id,state.id);
+      else if(input.message.type==='leave')await this.env.PLAY_QUEUE.getByName('play-queues-v1').release(input.who.id,state.id);
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
   }
@@ -244,7 +245,7 @@ export class PlayMatch extends DurableObject {
     if(state&&!['finished','cancelled'].includes(state.phase)){
       this.reviewLog.add(state,id,'disconnected',{code});
       const p=state.players.find(p=>p.id===id);
-      if(p&&!p.left&&(state.arena||state.format==='ngmc-ranked')&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
+      if(p&&!p.left&&(state.arena||['ngmc-ranked',DUEL_FORMAT].includes(state.format))&&!this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
         p.disconnectedAt??=now;this.write(state);await this.schedule();
       }
     }
