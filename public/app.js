@@ -116,7 +116,6 @@ const mobileNavigation = installMobileNavigation({
   route: () => navigationSection(page(),state?.me?.id,profileData?.id),
   brand: {href:routeHref('home'),logo:new URL('./amq-tours-logo.png',import.meta.url).href},
   secondary: {href:'/tour',label:'Open Tour Platform'},
-  preferences: ['.card-size-control','.title-mode'],
   groups: () => [
     {key:'collect',label:'Collect',keys:['profile','collection','packs','fusion','catalog','shop','auctions']},
     {key:'play',label:'Play',keys:['quiz','pickems','arcade']},
@@ -1826,8 +1825,9 @@ const loadingPage = () => '<p class="loading">Loading…</p>';
 function updateInboxBadge() {
   const bell=$(".inbox-bell"), unread=state.inboxUnread||0;
   inboxDropdown.sync();
-  bell.innerHTML=svg(icons.notifications); bell.classList.toggle("unread",!!unread);
-  bell.setAttribute("aria-label", unread ? `Notifications, ${unread} unread` : "Notifications");
+  bell.innerHTML = svg(icons.notifications) +
+    (unread > 0 ? `<span class="inbox-bell-count" aria-hidden="true">${number(unread)}</span>` : "");
+  bell.setAttribute("aria-label", unread > 0 ? `Notifications, ${number(unread)} unread` : "Notifications");
 }
 function render() {
   if (!state) return;
@@ -1872,13 +1872,18 @@ function render() {
   $("#page-name").textContent = title;
   $("#balance").textContent = number(state.me?.balance);
   $(".host-link")?.toggleAttribute("hidden", !state.me?.is_admin);
-  $("#account").innerHTML = state.me?.avatar_card
+  accountButton.innerHTML = state.me?.avatar_card
     ? avatarHTML(state.me)
     : escape(state.me ? state.me.name.slice(0, 2).toUpperCase() : "↗");
-  $("#account").setAttribute(
-    "aria-label",
-    state.me ? "Manage account" : "Sign in",
-  );
+  accountButton.setAttribute("aria-label", state.me ? "Manage account" : "Sign in");
+  if (state.me) {
+    accountButton.setAttribute("aria-controls", accountMenu.id);
+    accountButton.setAttribute("aria-expanded", String(!accountMenu.hidden));
+  } else {
+    closeAccountMenu();
+    accountButton.removeAttribute("aria-controls");
+    accountButton.removeAttribute("aria-expanded");
+  }
   $("#main").innerHTML = {
     home,
     collection,
@@ -2176,11 +2181,33 @@ function auth(register = false, recovery = false) {
   modal(authFormHTML(recovery ? "recover" : register ? "register" : "login"));
 }
 let settingsHotkeyDraft = { ...DEFAULT_QUIZ_HOTKEYS };
+const accountButton = $("#account");
+const accountMenu = $("#account-menu");
+const accountAnchor = accountMenu.parentElement;
+$("#account-profile").href = routeHref("profile");
+
+function closeAccountMenu(restoreFocus = false) {
+  if (accountMenu.hidden) return;
+  accountMenu.hidden = true;
+  accountButton.setAttribute("aria-expanded", "false");
+  if (restoreFocus) accountButton.focus();
+}
+
 function account() {
-  if (!state.me) {
+  if (!state?.me) {
     auth();
     return;
   }
+  if (!accountMenu.hidden) {
+    closeAccountMenu(true);
+    return;
+  }
+  inboxDropdown.close();
+  accountMenu.hidden = false;
+  accountButton.setAttribute("aria-expanded", "true");
+}
+
+function accountActivity() {
   const activities = recentActivityRows(state);
   modal(
     `<section class="account-popup"><header class="account-summary"><h2>${escape(state.me.name)} ${roleBadge(state.me.role)}</h2><p>AMQ player ID · ${escape(state.me.id)}</p><div class="two-col"><div class="stat"><span>AVAILABLE</span><strong>${number(state.me.balance)}</strong></div><div class="stat"><span>LIFETIME EARNED</span><strong>${number(state.me.earned)}</strong></div></div></header><div class="section-head"><h3 id="account-activity-heading">Recent Activity</h3></div><div class="account-activity" role="region" aria-labelledby="account-activity-heading" tabindex="0">${
@@ -2192,7 +2219,7 @@ function account() {
             )
             .join("")}</tbody></table></div>`
         : "<p>No wallet or trade activity yet.</p>"
-    }</div><div class="dialog-actions">${state.me.is_admin ? '<a class="button secondary" href="host.html">Host console ↗</a>' : ""}<a class="button" href="${profileURL(state.me.id)}" id="view-profile">Your profile ↗</a>${btn("Friends", "friends-open", "", "secondary")}${btn("Settings", "edit-profile", "", "secondary")}${btn("Sign out", "logout", "", "secondary")}</div></section>`,
+    }</div></section>`,
     false,
     "account-modal",
   );
@@ -2285,6 +2312,10 @@ document.addEventListener("click", async (ev) => {
     auth();
     return;
   }
+  if (a === "account-activity") {
+    accountActivity();
+    return;
+  }
   if(a.startsWith("inbox-")) {
     const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
     if(type==="item" || type==="peek" || type==="check" || type==="read"){
@@ -2316,7 +2347,7 @@ document.addEventListener("click", async (ev) => {
     settingsHotkeyDraft = normalizeQuizHotkeys(state.me.quiz_hotkeys);
     const currentAutosell = state.me.autosell_below || "";
     modal(
-      `<h2>Settings</h2><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}<label>Anime Titles<select id="settings-title-mode"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
+      `<h2>Settings</h2><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}${cardSizeControl(currentCardSize())}<label>Anime Titles<select id="settings-title-mode" aria-label="Anime Titles"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
       false,
       "avatar-editor-modal settings-modal",
     );
@@ -2894,7 +2925,20 @@ document.addEventListener(
   },
   true,
 );
-$("#account").addEventListener("click", account);
+accountButton.addEventListener("click", account);
+accountMenu.addEventListener("click", (event) => {
+  if (event.target.closest("a, button")) closeAccountMenu(true);
+});
+function dismissOutsideAccount(event) {
+  if (!accountAnchor.contains(event.target)) closeAccountMenu();
+}
+document.addEventListener("pointerdown", dismissOutsideAccount);
+document.addEventListener("focusin", dismissOutsideAccount);
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || accountMenu.hidden) return;
+  event.preventDefault();
+  closeAccountMenu(true);
+});
 $(".dialog-close").addEventListener("click", () => $("#modal").close());
 $("#modal").addEventListener("click", (e) => {
   if (e.target === $("#modal")) {
@@ -2909,10 +2953,11 @@ $("#modal").addEventListener("click", (e) => {
   }
 });
 document.addEventListener("click", (e) => {
-  if (e.target.closest("#view-pulls,#view-profile,[data-close-dialog]"))
+  if (e.target.closest("#view-pulls,[data-close-dialog]"))
     $("#modal").close();
 });
 installNavigation(async () => {
+  closeAccountMenu();
   const destination = currentRoute();
   titleDrag.cancel();
   titleEditor.close();
@@ -2996,23 +3041,14 @@ try {
     `<div class="notice warm">${escape(err.message)}</div><a class="button" href="?demo=1">Explore the demo ↗</a>`;
 }
 
-const titleSelect = $("#title-mode");
-titleSelect
-  .closest("label")
-  .insertAdjacentHTML("beforebegin", cardSizeControl(currentCardSize()));
-titleSelect.value = titleMode;
 function setAnimeTitleMode(value) {
   if (!["romaji", "english"].includes(value)) return;
   titleMode = value;
-  titleSelect.value = value;
-  const settingsSelect = $("#settings-title-mode");
-  if (settingsSelect) settingsSelect.value = value;
   try {
     localStorage.setItem("amqtours-title-mode", titleMode);
   } catch {}
   if (state) render();
 }
-titleSelect.addEventListener("change", () => setAnimeTitleMode(titleSelect.value));
 
 let friendListView = "added", friendListPage = 1, collectorLoad = 0, friendsLoad = 0;
 const friendSaving = new Set();

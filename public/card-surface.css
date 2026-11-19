@@ -285,21 +285,6 @@
   transform: none;
 }
 
-.card-size-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  color: var(--muted);
-  white-space: nowrap;
-  margin: 0;
-}
-.card-size-control select {
-  width: auto;
-  padding: 8px 24px 8px 9px;
-  margin: 0;
-  font-size: 11px;
-}
 html[data-card-size="small"] :is(.collection-card-grid, .market-card-grid) {
   grid-template-columns: repeat(8, minmax(0, 1fr));
 }
@@ -422,9 +407,6 @@ html[data-card-size="large"]
   transform: none;
 }
 
-.card-size-control select {
-  min-width: 94px;
-}
 
 /* A gentle opacity fade remains legible without introducing reduced-motion movement. */
 @media (prefers-reduced-motion: reduce) {
@@ -486,30 +468,7 @@ html[data-card-size="large"]
   bottom: 9px;
 }
 
-/* Card size stays with the other compact header preferences. */
-.top-actions :is(.card-size-select, #title-mode) {
-  height: 32px;
-  margin: 0;
-}
-.top-actions .card-size-control {
-  gap: 7px;
-  flex-shrink: 0;
-}
-.top-actions .card-size-select {
-  min-width: 84px;
-  padding: 8px 9px;
-  font-size: 10px;
-  background: #202129;
-}
 @media (max-width: 600px) {
-  .top-actions .card-size-control > span {
-    display: none;
-  }
-  .top-actions .card-size-select {
-    min-width: 0;
-    width: 74px;
-    padding: 7px 5px;
-  }
   .topbar > div:first-child {
     min-width: 0;
     overflow: hidden;
@@ -522,9 +481,4 @@ html[data-card-size="large"]
   .topbar .wallet > span:last-child {
     display: none;
   }
-}
-
-.top-actions .title-mode {
-  flex-shrink: 0;
-  white-space: nowrap;
 }

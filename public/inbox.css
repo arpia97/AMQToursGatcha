@@ -1,6 +1,10 @@
 .inbox-bell { position:relative; display:inline-grid; place-items:center; width:32px; height:32px; color:#b4bac7; flex:none }
 .inbox-bell[hidden],.settings-modal [hidden] { display:none!important }
-.inbox-bell.unread::after { content:""; position:absolute; top:3px; right:4px; width:7px; height:7px; border-radius:50%; background:#b6e2c5; box-shadow:0 0 0 2px #15161d }
+.inbox-bell-count {
+  position:absolute; top:0; right:-4px; min-width:16px; padding:0 4px;
+  border-radius:999px; background:#b6e2c5; color:#15241b; box-shadow:0 0 0 2px #15161d;
+  font-size:10px; font-weight:750; line-height:15px; text-align:center; font-variant-numeric:tabular-nums;
+}
 .inbox-feed { max-width:980px; margin:0 auto; }
 .inbox-feed header,.inbox-tools,.inbox-feed footer { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
 .inbox-feed header { justify-content:space-between; margin-bottom:20px }

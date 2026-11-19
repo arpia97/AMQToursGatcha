@@ -219,6 +219,57 @@ nav {
   align-items: center;
   gap: 20px;
 }
+.account-anchor {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.account-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 12px);
+  right: 0;
+  width: 176px;
+  padding: 5px;
+  border: 1px solid #424550;
+  border-radius: 12px;
+  background: var(--panel);
+  box-shadow: 0 16px 42px #0007;
+}
+.account-menu :is(a, button) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.account-menu :is(a, button):is(:hover, :focus-visible) {
+  background: #ffffff0d;
+}
+.account-menu svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted);
+}
+.account-menu [data-action="logout"] {
+  color: #f799ad;
+}
+.account-menu [data-action="logout"] svg {
+  color: inherit;
+}
 .wallet {
   display: flex;
   align-items: center;
@@ -993,8 +1044,7 @@ dialog.account-modal {
   min-height: 0;
 }
 .account-summary,
-.account-popup > .section-head,
-.account-popup > .dialog-actions {
+.account-popup > .section-head {
   flex-shrink: 0;
 }
 .account-summary h2 {
@@ -1024,17 +1074,6 @@ dialog.account-modal {
 }
 .account-activity > p {
   margin: 0;
-}
-.account-popup > .dialog-actions {
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.account-popup .dialog-actions .button {
-  flex: 1 1 calc(50% - 4px);
-  padding: 10px 12px;
-  font-size: 11px;
 }
 .form-error {
   color: #ffa4b3;
@@ -1947,22 +1986,6 @@ dialog.account-modal {
 }
 
 /* MAL popularity grades are separate from enhancement frames. */
-.title-mode {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 10px;
-  color: var(--muted);
-}
-.title-mode select {
-  font: inherit;
-  color: var(--text);
-  background: #202129;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  cursor: pointer;
-}
 .grade-badge {
   position: absolute;
   top: 12px;
@@ -2047,14 +2070,6 @@ dialog.account-modal {
   padding: 8px 0;
 }
 @media (max-width: 600px) {
-  .title-mode span {
-    display: none;
-  }
-  .title-mode select {
-    max-width: 82px;
-    padding: 7px 5px;
-    font-size: 10px;
-  }
   .topbar {
     padding: 0 10px;
   }
