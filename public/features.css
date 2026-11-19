@@ -5124,6 +5124,7 @@ dialog.avatar-editor-modal {
 }
 
 /* Approved title badges: names only, card rarity colours, signature quiz aqua. */
+.role-title.tier-ss,
 .equipped-title.card-earned-title {
   --title-colour: var(--tier-color, #a1a1ac);
   border-color: color-mix(in srgb, var(--title-colour) 70%, transparent);
