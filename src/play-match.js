@@ -1,6 +1,7 @@
 import {DUEL_FORMAT, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
+import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchCreditPlan} from './play-rewards.js';
 import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
@@ -378,6 +379,10 @@ export class PlayMatch extends DurableObject {
     }
     const detail=this.reviewLog.page(options);
     if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
+    if(detail && options.view==='timeline'){
+      detail.timeline=reviewTimeline(this.ctx.storage.sql,detail.players,options);
+      return detail;
+    }
     if(detail && options.view==='highlights'){
       const pending=await this.indexHighlights(detail.id);
       detail.highlights={pending,total:this.highlights.count(),...this.highlights.list(options.player,options.offset)};

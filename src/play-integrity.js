@@ -140,7 +140,7 @@ export class MatchReview {
     const meta=[...this.sql.exec('SELECT data,expires FROM review_meta WHERE id=1')][0];
     if(!meta)return null;
     const header={...JSON.parse(meta.data),expires:null};
-    if(view==='highlights')return header;
+    if(view==='highlights'||view==='timeline')return header;
     const rows=[...this.sql.exec('SELECT * FROM review_events WHERE seq<? '+(player?'AND player=? ':'')+'ORDER BY seq DESC LIMIT 101',Number(before)||Infinity,...(player?[String(player).slice(0,100)]:[]))];
     return {...header,events:rows.slice(0,100).map(r=>({...r,data:JSON.parse(r.data)})),next:rows.length>100?rows[99].seq:null};
   }

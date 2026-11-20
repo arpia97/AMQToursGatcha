@@ -1303,6 +1303,35 @@ dialog.account-modal {
 .host-shell .stack {
   max-width: 600px;
 }
+.review-timeline { --focused: #8bcead; --unfocused: #ef8292; --unknown: #545d6f; --answer: #fff1be; border: 1px solid var(--border); border-radius: 10px; background: #181b23; overflow: hidden; }
+.review-timeline-head { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; padding: 12px 15px; border-bottom: 1px solid var(--border); background: #1c242b; }
+.review-timeline-head label { display: flex; align-items: center; gap: 8px; margin: 0; }
+.review-timeline-head select { width: auto; margin: 0; padding: 4px 8px; min-height: 33px; }
+.review-timeline-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 11px; }
+.review-timeline-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.review-timeline-legend i { width: 10px; height: 4px; border-radius: 2px; }
+.review-timeline-legend .answer { width: 2px; height: 10px; background: var(--answer); }
+.review-timeline .focused { background: var(--focused); }
+.review-timeline .unfocused { background: var(--unfocused); }
+.review-timeline .unknown { background: var(--unknown); }
+.review-timeline-row { display: grid; grid-template-columns: 130px minmax(0, 1fr); padding: 8px 18px 8px 15px; align-items: center; gap: 14px; border-bottom: 1px solid var(--border); }
+.review-timeline-axis { display: flex; justify-content: space-between; margin: 12px 18px 0 159px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.review-timeline-player { display: grid; min-width: 0; gap: 3px; overflow-wrap: anywhere; font-size: 13px; }
+.review-timeline-player small { color: var(--muted); font-size: 10px; }
+.review-timeline-line { position: relative; min-height: 26px; display: grid; align-items: center; }
+.review-timeline-band { position: relative; min-height: 5px; border-radius: 4px; overflow: hidden; background: var(--unknown); }
+.review-timeline-band > span { position: absolute; inset-block: 0; }
+.review-timeline-marker { position: absolute; top: 0; bottom: 0; width: 12px; padding: 0; border: 0; background: transparent; transform: translateX(-50%); }
+.review-timeline-marker::after { content: ''; position: absolute; width: 2px; inset: 2px auto 2px 5px; border-radius: 2px; background: var(--answer); box-shadow: 0 0 0 1px #171920; }
+.review-timeline-marker.automatic::after { opacity: .7; }
+.review-timeline-marker:focus-visible { z-index: 1; outline-offset: 0; }
+.review-timeline-detail { min-height: 38px; margin: 0; padding: 10px 15px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 540px) {
+  .review-timeline-head { align-items: start; padding: 9px 12px; }
+  .review-timeline-row { grid-template-columns: 88px minmax(0, 1fr); padding-inline: 12px; gap: 9px; }
+  .review-timeline-axis { margin-inline: 109px 12px; }
+}
+
 .host-warning {
   color: var(--yellow);
   font-size: 11px;

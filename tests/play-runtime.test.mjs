@@ -456,6 +456,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       const {decoy,decoyAnime,decoyArtist,played}=highlight.data;
       assert.deepEqual({decoy,decoyAnime,decoyArtist,played},flaggedTracks);
       assert.equal(highlights.events,undefined);
+      const timelineUrl=base+'/api/host/play-review?match='+id+'&view=timeline&round=2&player=1';
+      assert.equal((await mf.dispatchFetch(timelineUrl,{headers:{Cookie:cookies[0]}})).status,401);
+      const timeline=(await (await mf.dispatchFetch(timelineUrl,{headers:auditHeaders})).json()).timeline;
+      assert.equal(timeline.round,2);
+      assert.deepEqual(timeline.tracks.map(track=>track.player),['1']);
+      assert.deepEqual(timeline.tracks[0].answers.map(entry=>entry.fields.anime),[decoyAnime]);
       const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});
       assert.equal((await update({Cookie:cookies[0]})).status,401);
       assert.equal((await update(auditHeaders)).status,200);

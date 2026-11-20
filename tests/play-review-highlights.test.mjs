@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {reviewTimeline} from '../src/play-review-timeline.js';
 import {playedTrackLookup} from '../src/play-history.js';
 import {ReviewHighlights} from '../src/play-review-highlights.js';
 
@@ -60,4 +61,36 @@ test('host highlights correlate retained events across batches and count distinc
     }};
     assert.deepEqual([...playedTrackLookup(sql,undefined,[3,18])],[[3,track]]);
   } finally {db.close();}
+});
+
+test('song timelines use receipt times, carry focus across rounds, and mark accepted answers', () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec('CREATE TABLE review_events(seq INTEGER PRIMARY KEY,at,player,kind,data)');
+    const sql = {exec(query,...args) {
+      const rows = db.prepare(query).all(...args);
+      return Object.assign(rows,{toArray:()=>rows});
+    }};
+    const insert = db.prepare('INSERT INTO review_events(at,player,kind,data) VALUES(?,?,?,?)');
+    const add = (at,player,kind,data) => insert.run(at,player,kind,JSON.stringify({round:2,phase:'guess',...data}));
+    add(9000,'a','activity',{round:1,event:'snapshot',focused:true,visibility:'visible'});
+    add(9500,'','phase',{startsAt:10000,until:30000});
+    add(12000,'a','activity',{event:'focus',focused:false,visibility:'visible',clientAt:25});
+    add(13900,'a','activity',{event:'focus',focused:true,visibility:'visible',clientAt:26});
+    add(14000,'a','submit',{accepted:false,answers:{anime:'Rejected'}});
+    add(14200,'a','submit',{accepted:true,answers:{anime:'Official answer',song:''}});
+    add(14800,'a','disconnected',{});
+    add(15000,'a','round-result',{answers:{anime:'Official answer'}});
+    add(15001,'b','round-result',{answers:{anime:'Automatic answer'},autoSubmitted:true});
+    const timeline = reviewTimeline(sql,[{id:'a'},{id:'b'}],{round:'2'},32000);
+    assert.deepEqual(timeline,{rounds:[2],round:2,duration:5000,tracks:[
+      {player:'a',segments:[
+        {from:0,to:2000,state:'focused'},{from:2000,to:3900,state:'unfocused'},
+        {from:3900,to:4800,state:'focused'},{from:4800,to:5000,state:'unknown'},
+      ],answers:[{at:4200,fields:{anime:'Official answer'}}]},
+      {player:'b',segments:[{from:0,to:5000,state:'unknown'}],
+        answers:[{at:5000,fields:{anime:'Automatic answer'},automatic:true}]},
+    ]});
+    assert.deepEqual(reviewTimeline(sql,[{id:'a'},{id:'b'}],{player:'b'},32000).tracks,timeline.tracks.slice(1));
+  } finally { db.close(); }
 });

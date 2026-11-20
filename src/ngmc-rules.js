@@ -28,7 +28,7 @@ export function gradeNgmc(state,now) {
   const results=state.players.map(p=>{
     const hit=!p.left&&titleMatches(song.answers.anime,p.answers.anime);
     p.score+=Number(hit);
-    return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit)};
+    return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit),autoSubmitted:!!p.autoSubmitted};
   });
   state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
   state.counts=[null,null];state.phase='counting';state.until=now+8000;

@@ -272,7 +272,8 @@ collected. Solo Gacha Quiz is unchanged.
 
 Open **Match Review** in either the Play Host Console or the Gacha Host Console.
 **Flagged matches only** filters the match list. Each review opens on **Highlights**.
-**View log** opens the player's timeline at the corresponding submission or scoring event.
+**View log** opens the full log at the corresponding submission or scoring event.
+**Timeline** shows a line for each player in the selected song. Green marks reported focus, red marks reported loss of focus, and gray marks intervals with unknown focus status. A vertical marker shows an accepted answer at its server receipt time or a recorded automatic answer at scoring. The player filter applies to both views.
 
 - **Correct after refocusing** pairs a browser-reported departure 2–9 seconds into a song with an absence of at least 1.5 seconds, then a manual submission within 2 seconds of returning. The system checks the player's own server-scored answer and suppresses a matching draft already seen before the return.
 - **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Highlights and the full log show the decoy and played track. Older flags pull the played track from retained match history when available. Answers shared with a real song in the match are excluded.
