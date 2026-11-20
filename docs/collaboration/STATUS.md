@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Return to Overview after matchmaking
+
+Source `3b479d5` is live at 100% on Worker `d5bf758d-af4a-4355-9fa6-4ec22d141552`. Back and Leave Match return Overview Quick Join players to Overview. The queue origin survives a reload while waiting and is associated with the assigned match. A two-player browser fixture using the deployed scripts verified Back after queue and match reloads, and the mode-tab player stayed in 1v1 Ranked. Syntax checks and the Worker dry run passed. The live Overview route returned HTTP 200.
+
 ## Full spectator view and AMQ autocomplete
 
 Source `8227e92` is live at 100% on Worker `1241e286-917f-49ff-9041-f2823b0b8bdf`. Watch Match opens the standard board as a spectator, with Match Chat display names, Song List, and synchronized playback of the current sealed clip after guessing opens. Play and shared Quiz use AMQ-style contiguous, shortest-first title suggestions, and the browser remembers Fuzzy Search. The full 571-test suite passed during validation, and the final autocomplete and clip tests, syntax check, and Worker dry run passed. Browser fixtures exercised all four modes with deployed assets at 1440, 768, 390, and 320 px, including actual audio decode, playback, stop, and post-match chat. Live Play and Gacha Quiz routes and autocomplete assets returned 200. No production matches were created for validation.
