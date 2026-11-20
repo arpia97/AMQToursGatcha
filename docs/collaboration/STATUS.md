@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song/Artist Tab wrap
+
+Source `c8666f6` is live at 100% on Worker `966744d2-385f-442e-a6e5-0640fda292b6`. Forward Tab from the last available Song/Artist field wraps to the first available one. Shift+Tab from the first field and Tab when only one field is available retain native focus navigation. All nine multiplayer runtime tests, syntax checks, and the Worker dry run passed. Local browser matches using the deployed script verified wrapping in FFA at desktop and mobile widths and in matchmaking 1-Team, including autocomplete dismissal and skipping teammate-claimed fields. The live Song/Artist route returned 200.
+
 ## Lobby scores in Play History
 
 Source `15b00c5` is live at 100% on Worker `899c6079-8575-410a-bd88-fa42669d1104`. The Songs view shows how many players answered the anime correctly out of the match roster. The history API computes the aggregate from saved rounds and returns only the requesting player's individual answers. Records without saved lobby results display a dash. Nine runtime tests, syntax checks, and the Worker dry run passed. A browser fixture with deployed assets verified scores and expanded answers at 1440, 390, and 320 px. The live signed-out history endpoint returned 401.
