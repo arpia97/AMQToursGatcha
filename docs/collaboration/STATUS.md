@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC automatic counting takeover
+
+Source `caa575c` is live at 100% on Worker `b1a1a16e-4888-4c51-a48f-7aded185b83b`. An active teammate can take over while their team is on Auto-Count. Any guess already chosen for the current song stays in effect. All 566 tests, syntax checks and the dry run passed. Desktop and mobile browser fixtures using the deployed scripts verified the takeover control, volunteer message and counter badge. The live NGMC route and updated assets returned HTTP 200.
+
 ## Assigned multiplayer decoy
 
 Source `10d5f0b` is live at 100% on Worker `80b3406f-1296-4358-a7ef-d91ad07ab262`. New Play matches assign one unused track a random round at creation and include it in that round's encrypted download batch. The two other decoys stay unassigned in the opening batch when available. Decoy flags retain the assigned round, submitted round and played track for host review. All 566 tests, syntax checks and the dry run passed. Desktop and mobile browser fixtures verified the deployed Match Review asset in both Highlights and Full log. The live Play route returned HTTP 200 and signed-out Match Review returned HTTP 401.
