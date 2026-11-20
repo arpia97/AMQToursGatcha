@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play page scrolling
+
+Source `771691b` was deployed on Worker `8f399a90-77c4-4819-857d-7c07a9a9ca5f`. Quiz and Rankings support document scrolling. Overview and matchmaking use a viewport-height layout, with an internal scroll area for content that exceeds the available height. Local browser checks covered all seven tabs at four viewport sizes, the Overview player list, and mobile answer submission. Syntax and the Play site test passed. All seven live routes and both changed assets were verified.
+
 ## Play Overview panel alignment
 
 Source `c4a228c` was deployed on Worker `923c0cda-b7a3-4702-9460-bed4bf4748a4`. The live Overview route and stylesheet were verified. Chromium verified equal panel heights with one and 50 online players at 901, 1024 and 1280 px, plus scrolling, search, and stacked layouts at 390 and 900 px. The Play site test passed.
