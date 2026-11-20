@@ -108,6 +108,11 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 @media (max-width:900px) {
   .overview-columns {grid-template-columns:minmax(0,1fr);}
 }
+@media (width > 900px) {
+  #online-players {display:flex;flex-direction:column;align-self:stretch;}
+  /* Let Quick Join set the row height even when the roster is long. */
+  .overview-player-list {flex:1;min-height:0;max-height:none;contain:size;}
+}
 @media (max-width:600px) {
   .overview-page h1 {margin-bottom:14px;}
   .overview-mode {--mode-width:95px;padding:9px;gap:8px;}
