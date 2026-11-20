@@ -17,7 +17,7 @@ import {openMatchChat} from './play-match-chat.js';
 import {createPlaySoundCues,roundSoundCues} from './play-sound-cues.js';
 import {preparationLabel,percentDone} from './play-setup-progress.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
-import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack} from './ngmc-ui.js';
+import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack,createCounterDialog} from './ngmc-ui.js';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {PLAY_AUDIO_PROTOCOL, defaultPlayGuessSeconds} from './play-audio-format.js';
@@ -62,6 +62,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   const volumeHTML=()=>'<label class="quiz-volume-control sa-volume">Volume<input id="sa-volume" type="range" min="0" max="100" step="1" value="'+volume+'" aria-label="Game Volume"><output id="sa-volume-value">'+volume+'%</output></label>';
   const player=()=>match?.players.find(p=>p.id===match.me);
   const send=(socket,value)=>{if(socket?.readyState===1){socket.send(JSON.stringify(['answer','artists','draft'].includes(value.type)?{...value,clientAt:Date.now()}:value));return true;}return false;};
+  const counterDialog=createCounterDialog(message=>send(room,message));
+  const updateCounterDialog=now=>counterDialog.update(match,player(),now,room?.readyState===1);
   const activity=createPlayActivity(message=>{if(active&&match&&!['finished','cancelled'].includes(match.phase))send(room,message);});
   const error=message=>{onError(Error(message));};
   function socketURL(id){const url=new URL('play-connect',apiBase);url.protocol=url.protocol==='https:'?'wss:':'ws:';url.searchParams.set('protocol',String(PLAY_AUDIO_PROTOCOL));if(id)url.searchParams.set('match',id);return url;}
@@ -540,6 +542,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     root.classList.toggle('sa-match-layout',!!match);
     if(match)songDialog.update(match);
     if(!match){
+      counterDialog.close();
       if(!root.isConnected)return;
       const focused=root.contains(document.activeElement)?document.activeElement.id:null;
       root.innerHTML=lobbyHTML();structure='';updateModeRating();
@@ -563,6 +566,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(match.creditsPending)reward.textContent='Saving your credit reward. You can leave this screen.';
     }
     updateMatchVoteDialog(root,match,payload=>send(room,payload));
+    updateCounterDialog(Date.now()+offset);
     if(match.aborted)return;
     const abort=root.querySelector('[data-abort-request]');
     if(abort){
@@ -717,6 +721,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     clearTimeout(raf);if(!active||!match||['finished','cancelled'].includes(match.phase))return;
     const now=Date.now()+offset;
     updateReadyCheck(now);
+    updateCounterDialog(now);
     if(sealedCache&&(match.phase==='guess'||match.preparingClip))prepareSealedClip(now);
     // Earlier matches use direct MP3s through their original playback path.
     if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));};audio.load();}}
@@ -848,7 +853,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     leave({preserveQueue=false,cancelQueue=false}={}){
       if(!active)return;
       closeChat();sounds.stop();
-      activity.stop();songDialog.close();lobbyModal?.close();active=false;personalRatings=null;
+      activity.stop();songDialog.close();counterDialog.close();lobbyModal?.close();active=false;personalRatings=null;
       if(cancelQueue)send(queue,{type:'cancel'});
       if(!preserveQueue){queuedFormat=null;notifyQueue();}
       queue?.close();room?.close();queue=null;room=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},

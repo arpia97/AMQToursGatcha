@@ -109,8 +109,11 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  advanceMatch(mixed,mixed.until);
  answer(mixed,()=>true);
  assert.equal(mixed.counts[auto.team],null);
- assert.match(ngmcControls(matchView(mixed,claimant.id,1001),String),/Spend a Guess/);
- const chosen=mixed.players.filter(p=>p.team===auto.team&&p.guesses>0).sort((a,b)=>b.elo-a.elo)[0];
+ const countControls=ngmcControls(matchView(mixed,claimant.id,1001),String);
+ assert.match(countControls,/Spend a Guess/);
+ const tierOrder=mixed.players.filter(p=>p.team===auto.team&&p.guesses>0).sort((a,b)=>b.elo-a.elo);
+ assert.deepEqual(Array.from(countControls.matchAll(/data-sa-count="([^"]+)"/g),match=>match[1]),tierOrder.map(p=>p.id));
+ const [chosen]=tierOrder;
  matchMove(mixed,claimant.id,{type:'count',index:3,player:chosen.id},1001);
  advanceMatch(mixed,mixed.until);
  assert.equal(mixed.history.at(-1).spent[auto.team],chosen.id);
