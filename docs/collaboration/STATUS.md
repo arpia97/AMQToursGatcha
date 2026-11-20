@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC life sounds and song progress details
+
+Source `1521118` is live at 100% on Worker `25af331d-4e6c-4647-a943-36707dbe0e22`. NGMC uses the selected Arcade take-life and Pulse lose-life samples when a round's count settles. Completed markers in NGMC and Quiz open a card below the strip on hover, keyboard focus, or tap. Quiz resume data includes only revealed tracks and submitted answers. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile browser fixtures verified the placements, exact audio samples, cue sequencing, and mute. The live NGMC and both Quiz routes returned HTTP 200, and the updated scripts, CSS, and MP3s matched the deployed source.
+
 ## Play Overview
 
 Source `5440486` is live at 100% on Worker `a536d431-5491-40e0-9403-f7353b76ae97`. Overview is the Play landing tab. It shows seven matchmaking queues by pool, searchable online players for signed-in viewers, and live match rosters via hover, focus, or tap. Password-protected match rosters stay private. All 566 tests, syntax checks, and the dry run passed. Local browser tests covered public access, Watched join and leave, Random matchmaking across tabs, and mobile roster viewing. Production served the route, matching assets, and the guest-safe counts after the queue actor updated. The separate NGMC life cue previews are in `outputs/ngmc-life-cue-preview` outside the repo. Production audio is unchanged.
