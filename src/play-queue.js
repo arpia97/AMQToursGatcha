@@ -4,6 +4,7 @@ import {duelRatings} from './play-duel-ratings.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaBatch} from './play-arena.js';
 import {playRankingPage} from './play-ranking-query.js';
+import {playerHistory} from './play-history.js';
 import {PlayRecords} from './play-records.js';
 import {RankedLeaves, ngmcTable} from './ngmc-leaves.js';
 import {inactivityBanMessage,INACTIVITY_BAN_MS,RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
@@ -115,6 +116,7 @@ export class PlayQueue extends DurableObject {
     }
   }
   canAccess(player,id){return this.lobbies.forPlayer(player)?.last_match===id||!!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
+  playerHistory(player, options){return playerHistory(this,player,options);}
   hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=?',id)[0];}
   indexHighlights(id,count){
     this.ctx.storage.sql.exec('INSERT INTO match_flag_counts VALUES(?,?) ON CONFLICT(id) DO UPDATE SET total=MAX(total,excluded.total)',id,count);

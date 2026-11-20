@@ -349,7 +349,7 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
-    const playRead = ["play-state", "play-connect", "play-live"].includes(path) && !post;
+    const playRead = ["play-state", "play-connect", "play-live", "play-history"].includes(path) && !post;
     if(path==='quiz-play-rankings'&&!post){
       const page=Number(url.searchParams.get('page'));
       if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
@@ -1338,6 +1338,17 @@ export class Game extends DurableObject {
     }
     if (playRead) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
+      if(path==='play-history'){
+        if(!session)fail('Sign in to see your Play history.',401);
+        this.bursts.take('play-history:'+session.player,12,2);
+        const match=url.searchParams.get('match'),before=url.searchParams.get('before');
+        const valid=id=>!id||/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id);
+        if(!valid(match)||!valid(before))fail('Choose a valid match.',400);
+        const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+        const data=await queue.playerHistory(session.player,{before,match});
+        if(!data)fail('Match history is unavailable.',404);
+        return json(data);
+      }
       if(path==='play-live')return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').liveActivity(session?.player||null));
       return json(playState(e, session?.player));
     }

@@ -520,6 +520,24 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const rows=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
     assert.deepEqual(rows.rows.map(r=>r.record),[[1,0,0],[0,1,0]]);
     assert.equal(rows.rows[0].name,'Local Player '+(pool==='random'?'1':'2'));
+    if(pool==='random'){
+      const history=base+'/api/play-history',detail=history+'?match='+id;
+      const owned={headers:{Cookie:cookies[0]}};
+      assert.equal((await mf.dispatchFetch(history)).status,401);
+      assert.equal((await mf.dispatchFetch(detail,{headers:{Cookie:cookies[2]}})).status,404);
+      const page=await (await mf.dispatchFetch(history,owned)).json();
+      const summary=page.matches.find(row=>row.id===id);
+      assert.equal(summary.outcome,'W');
+      assert.equal(summary.songs,undefined);
+      await mf.dispatchFetch(base+'/api/__expire?match='+id);
+      const response=await mf.dispatchFetch(detail,owned);
+      assert.equal(response.status,200);
+      assert.equal(response.headers.get('Cache-Control'),'no-store');
+      const archived=await response.json();
+      assert.deepEqual(archived.songs[0],{index:0,anime:song.anime,song:song.title,artist:song.artist,
+        earned:1,correct:{anime:true},answers:{anime:song.anime}});
+      assert.equal(archived.pool,'random');
+    }
     for(const connection of [...queues,...rooms])connection.ws.close();
 
     const [host,guest,visitor]=await Promise.all([connect(0),connect(1),connect(2)]);

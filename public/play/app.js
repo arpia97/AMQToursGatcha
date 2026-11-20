@@ -69,6 +69,12 @@ function account() {
   if (!state.me) { if (accountError) toast(accountError); auth(); return; }
   accountMenu.toggle();
 }
+const loadPlayHistory = loadOnce(async () => {
+  const [history] = await Promise.all([
+    import("../play-history.js"), loadStylesheet(new URL("play-history.css", assets)),
+  ]);
+  return history;
+});
 function profile() {
   const me = state.me;
   const hostBadge = me.role === "Host" ? '<div class="profile-title-stack">' + roleBadge(me.role) + '</div>' : "";
@@ -286,6 +292,12 @@ document.addEventListener("click", async (event) => {
     const action = button.dataset.action;
     if (button.closest("#account-menu")) accountMenu.close(true);
     if (action === "profile") { profile(); return; }
+    if (action === "play-history" && state.me) {
+      const owner = state.me.id;
+      const {openPlayHistory} = await loadPlayHistory();
+      if (state.me?.id === owner) openPlayHistory({modal, api, escape, titleMode});
+      return;
+    }
     if (await accountMenu.action(action, button)) return;
     if(button.hasAttribute('data-list-remove')){await saveAnimeList(button.form,true);return;}
     if(mode==='rankings' && button.dataset.rankFormat){

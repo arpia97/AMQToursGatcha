@@ -3,6 +3,7 @@ import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchCreditPlan} from './play-rewards.js';
+import {preservePlayHistory, readPlayHistory} from './play-history.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
@@ -130,6 +131,7 @@ export class PlayMatch extends DurableObject {
     return this.finishing;
   }
   async finishSteps(state){
+    preservePlayHistory(this.ctx.storage, state);
     if(!state.reviewFinished){state.recordSongRating=true;this.reviewLog.add(state,'','ended',{reason:state.reason||'',rounds:state.history.length});state.reviewFinished=true;this.write(state);}
     await this.ctx.storage.setAlarm(Date.now()+5000);
     const checkpoint=(step,values)=>{
@@ -332,6 +334,9 @@ export class PlayMatch extends DurableObject {
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
   }
+  playerHistory(player, includeSongs){
+    return readPlayHistory(this.ctx.storage, this.read(), player, includeSongs);
+  }
   historicalRecords(format,ratings){
     const state=this.read();
     return state?.phase==='finished'?matchRecords(state):archivedRecords(this.ctx.storage.sql,format,ratings);
@@ -417,6 +422,7 @@ export class PlayMatch extends DurableObject {
       }
       if(this.pendingRankedLeaves(state).length){await this.ctx.storage.setAlarm(Date.now()+5000);return;}
       if(Date.now()<state.until){await this.schedule();return;}
+      preservePlayHistory(this.ctx.storage, state, this.ctx.storage.sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at);
       for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');
       this.ctx.storage.sql.exec('DELETE FROM match_state');
       this.ctx.storage.sql.exec('DELETE FROM room_chat');

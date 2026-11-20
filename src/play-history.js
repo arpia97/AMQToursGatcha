@@ -1,0 +1,96 @@
+import {arenaStandings} from './play-arena.js';
+import {matchRecords} from './play-records.js';
+
+const HISTORY_META_ID = 6;
+const PAGE_SIZE = 6;
+const scoreOutcome = (score, opponent) => score === opponent ? 'T' : score > opponent ? 'W' : 'L';
+
+function songResult(round, result) {
+  const {index, anime, song, artist} = round;
+  const {earned, correct, answers} = result;
+  return {index, anime, song, artist, earned, correct, answers};
+}
+
+export function preservePlayHistory(storage, state, ended = Date.now()) {
+  const {sql} = storage;
+  if (state.phase !== 'finished' || state.aborted) return;
+  if (sql.exec('SELECT 1 FROM review_meta WHERE id=?', HISTORY_META_ID).toArray().length) return;
+  const outcomes = new Map(matchRecords(state).map(row => [row.id, row.outcome]));
+  const placements = state.arena ? arenaStandings(state.arena).map(row => row.team) : null;
+  const players = state.players.map(({id, team, score, left}) => {
+    let outcome = left ? 'Left' : outcomes.get(id);
+    if (!outcome && state.teams.length === 2 && !placements && state.format !== 'lobby-ffa') {
+      const other = state.teams[1 - team];
+      outcome = scoreOutcome(state.teams[team], other);
+    }
+    const place = placements ? placements.indexOf(team) + 1 : state.format === 'lobby-ffa'
+      ? 1 + state.teams.filter(total => total > state.teams[team]).length : undefined;
+    return {id, score, outcome, place};
+  });
+  const summary = {pool: state.pool ?? state.lobby?.pool, ended, players, rounds: state.history.length};
+  storage.transactionSync(() => {
+    sql.exec('CREATE TABLE IF NOT EXISTS play_history_rounds(idx INTEGER PRIMARY KEY,data TEXT NOT NULL)');
+    for (const {index, anime, song, artist, results} of state.history) {
+      const row = {index, anime, song, artist,
+        results: results.map(({id, earned, correct, answers}) => ({id, earned, correct, answers}))};
+      sql.exec('INSERT OR REPLACE INTO play_history_rounds VALUES(?,?)', index, JSON.stringify(row));
+    }
+    sql.exec('INSERT INTO review_meta VALUES(?,?,0)', HISTORY_META_ID, JSON.stringify(summary));
+  });
+}
+
+export function readPlayHistory(storage, state, player, includeSongs) {
+  if (state && state.phase !== 'finished') return null;
+  const {sql} = storage;
+  const load = () => sql.exec('SELECT data FROM review_meta WHERE id=?', HISTORY_META_ID).toArray()[0];
+  const endedAt = () => sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at;
+  let stored = load();
+  if (!stored && state?.phase === 'finished') {
+    preservePlayHistory(storage, state, endedAt());
+    stored = load();
+  }
+  if (stored) {
+    const {pool, ended, players, rounds} = JSON.parse(stored.data);
+    const entry = players.find(row => row.id === player);
+    if (!entry) return null;
+    const songs = includeSongs ? sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().flatMap(({data}) => {
+      const round = JSON.parse(data);
+      const result = round.results.find(row => row.id === player);
+      return result ? [songResult(round, result)] : [];
+    }) : undefined;
+    return {pool, ended, score: entry.score, outcome: entry.outcome, place: entry.place,
+      rounds, ...(includeSongs ? {songs} : {})};
+  }
+  const ended = endedAt();
+  const legacy = sql.exec("SELECT data FROM review_events WHERE player=? AND kind='round-result' ORDER BY seq", player).toArray();
+  if (!legacy.length) return {ended};
+  const songs = legacy.map(({data}) => {
+    const result = JSON.parse(data);
+    return songResult({index: result.round - 1}, {...result,
+      earned: result.earned ?? Object.values(result.correct ?? {}).filter(Boolean).length});
+  });
+  return {ended, rounds: songs.length, score: songs.reduce((sum, song) => sum + song.earned, 0),
+    ...(includeSongs ? {songs, roundsOnly: true} : {})};
+}
+
+export async function playerHistory(queue, player, {before, match} = {}) {
+  const participant = "m.status='finished' AND EXISTS (SELECT 1 FROM json_each(m.players) p WHERE json_extract(p.value,'$.id')=?)";
+  const records = `SELECT m.id,m.created,m.format,r.outcome FROM match_reviews m
+    LEFT JOIN play_records r ON r.match=m.id AND r.player=? WHERE ${participant}`;
+  const detail = async (row, songs) => {
+    const saved = await queue.env.PLAY_MATCHES.getByName(row.id).playerHistory(player, songs);
+    if (!saved) return null;
+    return {id: row.id, format: row.format, date: row.created, ...saved,
+      outcome: saved.outcome ?? row.outcome};
+  };
+  if (match) {
+    const row = queue.rows(records + ' AND m.id=?', player, player, match)[0];
+    return row ? detail(row, true) : null;
+  }
+  const cursor = before && queue.rows(records + ' AND m.id=?', player, player, before)[0];
+  if (before && !cursor) return {matches: [], next: null};
+  const rows = queue.rows(records + (cursor ? ' AND (m.created,m.id)<(?,?)' : '') +
+    ' ORDER BY m.created DESC,m.id DESC LIMIT ?', player, player, ...(cursor ? [cursor.created,cursor.id] : []), PAGE_SIZE + 1);
+  const matches = await Promise.all(rows.slice(0, PAGE_SIZE).map(row => detail(row, false)));
+  return {matches: matches.filter(Boolean), next: rows.length > PAGE_SIZE ? rows[PAGE_SIZE - 1].id : null};
+}
