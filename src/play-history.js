@@ -56,7 +56,12 @@ export function readPlayHistory(storage, state, player, includeSongs) {
     const songs = includeSongs ? sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().flatMap(({data}) => {
       const round = JSON.parse(data);
       const result = round.results.find(row => row.id === player);
-      return result ? [songResult(round, result)] : [];
+      if (!result) return [];
+      const lobbyScore = {
+        correct: round.results.filter(row => row.correct?.anime === true).length,
+        total: players.length,
+      };
+      return [{...songResult(round, result), lobbyScore}];
     }) : undefined;
     return {pool, ended, score: entry.score, outcome: entry.outcome, place: entry.place,
       rounds, ...(includeSongs ? {songs} : {})};

@@ -34,19 +34,24 @@ export function songHistoryHTML(data, escape, titleMode) {
     const result = fields.length <= 1 ? (correct ? 'Correct' : 'Missed') : song.earned + '/' + fields.length;
     const indicator = correct ? '✓' : song.earned ? '•' : '×';
     const credit = [song.song, song.artist].filter(Boolean).join(' · ');
+    const score = song.lobbyScore;
+    const lobbyScore = score
+      ? '<span class="ph-lobby-score" aria-label="Lobby score: ' + escape(score.correct) + ' of ' +
+        escape(score.total) + ' players answered the anime correctly">' + escape(score.correct + '/' + score.total) + '</span>'
+      : '<span class="ph-lobby-score" aria-label="Lobby score unavailable">—</span>';
     const answer = fields.map(field => '<div><small>' + labels[field] + '</small><span>' +
       escape(song.answers?.[field] || 'No answer') + '</span><b class="' + (song.correct[field] ? 'correct' : 'miss') +
       '">' + (song.correct[field] ? 'Correct' : 'Missed') + '</b></div>').join('');
     return '<details class="ph-song"><summary><span class="ph-song-number">' + (song.index + 1) +
       '</span><span class="ph-track"><strong>' +
       escape(song.anime ? quizAnimeTitle(song, titleMode) : song.answers?.anime || 'Round ' + (song.index + 1)) +
-      '</strong>' + (credit ? '<small>' + escape(credit) + '</small>' : '') + '</span><span class="ph-badge ' +
+      '</strong>' + (credit ? '<small>' + escape(credit) + '</small>' : '') + '</span>' + lobbyScore + '<span class="ph-badge ' +
       (correct ? 'correct' : song.earned ? 'partial' : 'miss') + '"><span aria-hidden="true">' +
       indicator + '</span> ' + escape(result) + '</span><span class="ph-chevron" aria-hidden="true">›</span></summary>' +
       '<div class="ph-song-answers"><strong>Your Answers</strong>' + answer + '</div></details>';
   });
   return (data.roundsOnly ? '<p class="ph-archive">Only your answers and results were retained for this older match.</p>' : '') +
-    '<div class="ph-song-labels" aria-hidden="true"><span>#</span><span>Anime / Track</span><span>Your Result</span></div>' +
+    '<div class="ph-song-labels" aria-hidden="true"><span>#</span><span>Anime / Track</span><span title="Players who answered the anime correctly">Lobby Score</span><span>Your Result</span></div>' +
     '<div class="ph-songs">' + rows.join('') + '</div>';
 }
 

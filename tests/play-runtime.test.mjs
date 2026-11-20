@@ -385,6 +385,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.deepEqual(watchedRankings.rows[0].record,[0,0,1]);
   assert.equal(randomRankings.rows.length,0);
   assert.ok(!(await live()).matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'));
+  const rankedHistory=await(await mf.dispatchFetch(base+'/api/play-history?match='+rankedId,{headers:{Cookie:cookies[0]}})).json();
+  assert.deepEqual(rankedHistory.songs[0].lobbyScore,{correct:0,total:8});
   const settlementPath=base+'/api/host/play-review?match='+rankedId+'&view=settlement';
   assert.equal((await mf.dispatchFetch(settlementPath)).status,401);
   const settlement=await(await mf.dispatchFetch(settlementPath,{headers:{Authorization:'Bearer local-only-test-host-token-123456789'}})).json();
@@ -711,7 +713,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.equal(response.headers.get('Cache-Control'),'no-store');
       const archived=await response.json();
       assert.deepEqual(archived.songs[0],{index:0,anime:song.anime,song:song.title,artist:song.artist,
-        earned:1,correct:{anime:true},answers:{anime:song.anime}});
+        earned:1,correct:{anime:true},answers:{anime:song.anime},lobbyScore:{correct:1,total:2}});
       assert.equal(archived.pool,'random');
     }
     for(const connection of [...queues,...rooms])connection.ws.close();
