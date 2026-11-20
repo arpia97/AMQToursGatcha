@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Overview panel alignment
+
+Source `c4a228c` was deployed on Worker `923c0cda-b7a3-4702-9460-bed4bf4748a4`. The live Overview route and stylesheet were verified. Chromium verified equal panel heights with one and 50 online players at 901, 1024 and 1280 px, plus scrolling, search, and stacked layouts at 390 and 900 px. The Play site test passed.
+
 ## Four-player live match tiles
 
 Source `f60fd2b` was pushed and deployed on Worker `cd751c91-b8d5-442f-ae3b-3b5e61429d0b`. Both live Overview assets matched source. Chromium verified all eight portraits fit around the score at 1280 px and 390 px. The Play site test and syntax checks passed.
