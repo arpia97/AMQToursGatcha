@@ -17,7 +17,7 @@ function validEmoji(text) {
     && (segmenter ? Array.from(segmenter.segment(text)).length === 1 : Array.from(text.replace(/[\uFE0E\uFE0F]/g,'')).length === 1);
 }
 
-export function openMatchChat(match, sendText, {container=document.body,label='Match chat'}={}) {
+export function openMatchChat(match, sendText, {label='Match chat',showSelfName=false}={}) {
   const host=document.createElement('div');
   host.className='play-match-chat';
   const shadow=host.attachShadow({mode:'open'});
@@ -26,13 +26,9 @@ export function openMatchChat(match, sendText, {container=document.body,label='M
   sheet.href=new URL('./play-match-chat.css',import.meta.url).href;
   shadow.innerHTML=markup;
   shadow.prepend(sheet);
-  container.append(host);
+  document.body.append(host);
   const by=id=>shadow.getElementById(id);
   const panel=by('panel'),log=by('log'),fx=by('fx'),input=by('text'),emojiInput=by('customEmoji');
-  if(container!==document.body){
-    panel.classList.add('embedded');
-    by('drag').disabled=true;
-  }
   if(label!=='Match chat'){
     by('drag').lastChild.textContent=label;
     by('open').lastChild.textContent=label;
@@ -83,7 +79,7 @@ export function openMatchChat(match, sendText, {container=document.body,label='M
     message.className='message';body.textContent=row.body;
     if(!system){
       const name=document.createElement('b');
-      name.textContent=mine?'You':row.name||player?.name||'Player';
+      name.textContent=mine&&!showSelfName?'You':row.name||player?.name||'Player';
       message.append(name);
       if(spectating){
         const role=document.createElement('small');

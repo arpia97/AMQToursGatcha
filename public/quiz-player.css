@@ -84,3 +84,6 @@
   .quiz-lobby dd small {font-size:11px}
   .quiz-question .quiz-question-heading {flex-direction:row;align-items:center}
 }
+
+.fuzzy-anime-search {display:inline-flex;align-items:center;gap:6px;width:fit-content;margin:5px 0;color:var(--muted);font-size:11px;white-space:nowrap;}
+.fuzzy-anime-search input {margin:0;accent-color:var(--mint);}

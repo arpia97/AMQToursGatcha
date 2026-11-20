@@ -1,7 +1,7 @@
 import {DUEL_FORMAT, comparePlayTier, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
-import {gameEnded,liveMatchScore,spectatorTag,spectatorView} from './play-spectator.js';
+import {gameEnded,liveMatchScore,spectatorTag,spectatorView,spectatorClip} from './play-spectator.js';
 import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchCreditPlan} from './play-rewards.js';
@@ -162,10 +162,11 @@ export class PlayMatch extends DurableObject {
       closeSocket(ws,4003,'Session expired.');return false;
     });
     if(!viewers.length)return;
-    const next=JSON.stringify(spectatorView(state));
+    const clip=spectatorClip(state,now);
+    const next=JSON.stringify({state:spectatorView(state,true),clip});
     if(next===this.lastSpectatorState)return;
     this.lastSpectatorState=next;
-    const payload='{"type":"spectator","now":'+now+',"state":'+next+'}';
+    const payload='{"type":"spectator","now":'+now+','+next.slice(1);
     for(const ws of viewers){
       try{ws.send(payload);}catch{}
     }
@@ -255,7 +256,8 @@ export class PlayMatch extends DurableObject {
         const tag=spectatorTag+':'+who.id;
         const alreadyWatching=this.ctx.getWebSockets(tag).some(ws=>ws.readyState===1&&ws.deserializeAttachment().expires>Date.now());
         const {server,response}=accept(this.ctx,{...who,spectator:true},tag,[tag,spectatorTag]);
-        send(server,{type:'spectator',now:Date.now(),state:spectatorView(state)});
+        const now=Date.now();
+        send(server,{type:'spectator',now,state:spectatorView(state),clip:spectatorClip(state,now)});
         send(server,{type:'chat-history',rows:this.chatHistory()});
         if(!alreadyWatching)this.appendChat(state,'',who.name+' started spectating.');
         return response;

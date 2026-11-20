@@ -127,22 +127,38 @@ async function refreshAccount(expectedPlayer) {
 const multiplayerRoot = document.createElement('div');
 const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
-let currentQueue, overview, currentActivity;
+let currentQueue, overview, currentActivity,watchView,watchOpener,watchRequest;
+function stopWatching(){
+  watchRequest=null;
+  if(!watchView)return;
+  watchView.close();watchView=null;
+  $('#play-watch').hidden=true;
+  $('#main').hidden=false;
+  $('.play-live').hidden=mode==='overview';
+  if(watchOpener?.isConnected)watchOpener.focus({preventScroll:true});
+  watchOpener=null;
+}
 const playTab=crypto.randomUUID();
 let inactiveSince=document.hidden||!document.hasFocus()?Date.now():null;
 let reportedQuiz=false;
 const watchingPath=id=>'play-watch?match='+encodeURIComponent(id);
 async function watchMatch(id,title){
   if(!state.me){account();return;}
-  const version=viewVersion,viewer=state.me.id;
-  const {watchPlayMatch}=await import('../play-spectator-ui.js');
-  if(version!==viewVersion||state.me?.id!==viewer)return;
-  const dialog=$('#modal');
-  if(dialog.open&&dialog.classList.contains('play-watch-dialog'))return;
-  modal('<section class="watch-match" aria-labelledby="watch-title"><h2 id="watch-title">'+escape(title)+'</h2>'+
-    '<div class="watch-meta"><p class="watch-status" role="status">Connecting to match…</p><b class="watch-clock"></b></div>'+
-    '<div class="watch-body"><div class="watch-live"></div><div class="watch-chat"></div></div></section>','play-watch-dialog');
-  watchPlayMatch({dialog,api,apiBase,title,id,viewer,esc:escape});
+  if(songArtist?.inMatch()||(mode==='quiz'&&quiz?.active())){toast('Finish your current game before spectating.');return;}
+  const viewer=state.me.id,version=viewVersion,request=watchRequest={},opener=document.activeElement;
+  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js'),loadMultiplayerStyles()]);
+  if(watchRequest!==request||version!==viewVersion||state.me?.id!==viewer||songArtist?.inMatch())return;
+  stopWatching();
+  const root=$('#play-watch');
+  $('#main').hidden=true;
+  $('.play-live').hidden=true;
+  root.hidden=false;
+  watchOpener=opener;
+  watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,esc:escape,
+    animeTitle:song=>quizAnimeTitle(song,titleMode),onLeave:stopWatching,
+  });
+  root.focus({preventScroll:true});
+  void loadQuizTitleDisplay().then(()=>watchView?.refresh()).catch(()=>{});
 }
 function savedQueue(){
   try{const value=sessionStorage.getItem(queueKey());return Object.hasOwn(queueLabels,value)?value:null;}catch{return null;}
@@ -183,6 +199,7 @@ const loadMultiplayer = loadOnce(async () => {
     animeTitle: song => quizAnimeTitle(song, titleMode), prepareTitles: loadQuizTitleDisplay,
     onError: fail, onQueueChange: showQueue, onQueueCounts: counts=>overview?.updateCounts(counts), onCreditReward: refreshAccount,
     onMatchMode(id) {
+      stopWatching();
       if (mode !== id || !multiplayerRoot.isConnected) {
         viewVersion++;
         if(mode==='quiz')quiz?.leave();
@@ -249,7 +266,7 @@ async function openMode(id, push = true) {
     }
   }
   const version = ++viewVersion;
-  if($('#modal').classList.contains('play-watch-dialog'))$('#modal').close();
+  stopWatching();
   overview?.close();overview=null;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
   if (!songArtist?.waiting()) songArtist?.leave();
@@ -459,6 +476,7 @@ document.addEventListener("change", async (event) => {
     else if (input.id === "quiz-sort") quiz.setSort(input.value);
     else if (input.id === "quiz-competitive") quiz.setCompetitive(input.checked);
     else if (input.id === "quiz-friends-only") await quiz.setFriendsOnly(input.checked);
+    else if (input.matches('[data-fuzzy-anime]')) quiz.setFuzzyAnime(input.checked);
     else if (input.id === "quiz-favorites-first") quiz.setFavoritesFirst(input.checked);
     else if (input.id === "quiz-hide-perfect") quiz.setHidePerfect(input.checked);
   } catch (error) { fail(error); }

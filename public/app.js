@@ -4504,6 +4504,7 @@ document.addEventListener("change", (ev) => {
     handleFeatureClick("card-collectors",{dataset:{id:box.dataset.card,view:box.dataset.view,page:"1",friends:box.checked?"1":"0"}}).catch(err=>toast(err.message,true));
   }
   if (ev.target.id === "quiz-friends-only")quizUI.setFriendsOnly(ev.target.checked).catch(err=>toast(err.message,true));
+  if (ev.target.matches('[data-fuzzy-anime]'))quizUI.setFuzzyAnime(ev.target.checked);
   if (ev.target.id === "settings-title-motion") titleMotion.set(ev.target.value);
   if (ev.target.id === "settings-title-mode") setAnimeTitleMode(ev.target.value);
   if (ev.target.id === "quiz-favorites-first") {

@@ -90,13 +90,14 @@ export function ngmcTrack(row,esc,animeTitle){
 export function ngmcTeams(match,esc) {
   const me=match.players.find(p=>p.id===match.me),last=match.history.at(-1);
   const revealed=last?.index===match.index&&['counting','reveal','finished'].includes(match.phase);
-  return '<div class="sa-team-list ngmc-teams">'+[me.team,1-me.team].map(team=>{
+  const left=me?.team??0;
+  return '<div class="sa-team-list ngmc-teams">'+[left,1-left].map(team=>{
     const players=match.players.filter(p=>p.team===team).sort(byTier);
-    return '<section class="sa-team ngmc-team '+(team===me.team?'allies':'rivals')+'"><header><div><span>'+(team===me.team?'Your Team':'Opponents')+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating'+(match.autoCounting?.[team]?' · Auto-Count':'')+'</small></div><div class="ngmc-lives" aria-label="'+match.teams[team]+' lives remaining">'+Array.from({length:5},(_,i)=>'<i class="'+(i<match.teams[team]?'alive':'lost')+'">'+heart+'</i>').join('')+'</div></header>'+players.map(p=>{
+    return '<section class="sa-team ngmc-team '+(team===left?'allies':'rivals')+'"><header><div><span>'+(me?(team===left?'Your Team':'Opponents'):'Team '+(team+1))+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating'+(match.autoCounting?.[team]?' · Auto-Count':'')+'</small></div><div class="ngmc-lives" aria-label="'+match.teams[team]+' lives remaining">'+Array.from({length:5},(_,i)=>'<i class="'+(i<match.teams[team]?'alive':'lost')+'">'+heart+'</i>').join('')+'</div></header>'+players.map(p=>{
       const result=revealed?last.results.find(r=>r.id===p.id):null,rating=match.ratings?.find(r=>r.id===p.id);
       const answer=result?(result.answers.anime||'No Answer'):p.left?'Left':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':'Loading Audio…':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):'Listening…';
-      const badge=match.counters[team]===p.id?'<span class="ngmc-counter-badge" title="Team Counter" aria-label="Team Counter">'+counterIcon+'</span>':'';
-      return '<div class="ngmc-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="ngmc-player-name"><strong title="'+esc(p.name)+'">'+esc(p.name)+badge+'</strong><small>'+num(rating?.after??p.elo)+' Rating · '+p.score+' pts'+(p.id===me.id?' · You':'')+(rating?' · <b class="'+(rating.delta>=0?'gain':'loss')+'">'+(rating.delta>=0?'+':'')+rating.delta.toFixed(1)+'</b>':'')+'</small></div><div class="ngmc-guesses" aria-label="'+p.guesses+' of '+p.initialGuesses+' guesses remaining">'+Array.from({length:p.initialGuesses},(_,i)=>'<i class="'+(i<p.guesses?'available':'spent')+'"></i>').join('')+'</div><span class="ngmc-player-answer '+(result?result.correct.anime?'gain':'loss':'')+'" title="'+esc(answer)+'">'+(result?(result.correct.anime?'✓ ':'✕ '):'')+esc(answer)+'</span></div>';
+      const badge=match.counters?.[team]===p.id?'<span class="ngmc-counter-badge" title="Team Counter" aria-label="Team Counter">'+counterIcon+'</span>':'';
+      return '<div class="ngmc-player '+(p.id===me?.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="ngmc-player-name"><strong title="'+esc(p.name)+'">'+esc(p.name)+badge+'</strong><small>'+num(rating?.after??p.elo)+' Rating · '+p.score+' pts'+(p.id===me?.id?' · You':'')+(rating?' · <b class="'+(rating.delta>=0?'gain':'loss')+'">'+(rating.delta>=0?'+':'')+rating.delta.toFixed(1)+'</b>':'')+'</small></div><div class="ngmc-guesses" aria-label="'+p.guesses+' of '+p.initialGuesses+' guesses remaining">'+Array.from({length:p.initialGuesses},(_,i)=>'<i class="'+(i<p.guesses?'available':'spent')+'"></i>').join('')+'</div><span class="ngmc-player-answer '+(result?result.correct.anime?'gain':'loss':'')+'" title="'+esc(answer)+'">'+(result?(result.correct.anime?'✓ ':'✕ '):'')+esc(answer)+'</span></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }
@@ -134,7 +135,10 @@ export function ngmcProgress(match,esc,animeTitle) {
   return Array.from({length:match.total},(_,index)=>{
     const row=revealed.get(index);
     const own=row?.results.find(result=>result.id===match.me);
-    if(!own)return '<i class="'+(index===match.index?'current':'')+'" title="Song '+(index+1)+'"></i>';
+    if(!own){
+      if(row&&!match.me)return '<i class="hit" title="'+esc(animeTitle(row))+'"></i>';
+      return '<i class="'+(index===match.index?'current':'')+'" title="Song '+(index+1)+'"></i>';
+    }
     const correct=!!own.correct.anime;
     return '<i class="'+(correct?'hit':'miss')+'">'+songProgressTrigger(match.id,index,{
       title:row.song, artist:row.artist, anime:animeTitle(row), answer:own.answers.anime,

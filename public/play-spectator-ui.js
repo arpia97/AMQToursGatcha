@@ -1,73 +1,183 @@
-import {playPlayerAvatar} from './play-avatar.js';
 import {openMatchChat} from './play-match-chat.js';
-import {liveProgressText,liveScoreHTML} from './play-live-score.js';
 import {poolName} from './play-pool.js';
+import {createSongListDialog} from './play-song-dialog.js';
+import {songBroadcastLayout,songTeamsHTML,recapHTML,updateRoundDial,versusHTML} from './play-round-ui.js';
+import {ngmcArena,ngmcTeams,ngmcTrack,ngmcProgress} from './ngmc-ui.js';
+import {pointsBoard} from './play-lobby-ui.js';
+import {broadcastResults} from './play-match-results.js';
+import {arenaBoard} from './play-arena-ui.js';
+import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
+import {roundAudio} from './play-round-audio.js';
 
-const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',guess:'Guessing',
+const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',guess:'Listen & Answer',
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
-const fields={anime:'Anime',song:'Song',artist:'Artist'};
 const ended=phase=>phase==='finished'||phase==='cancelled';
 
-export function watchPlayMatch({dialog,api,apiBase,title,id,viewer,esc}){
-  const root=dialog.querySelector('.watch-match');
-  const status=root.querySelector('.watch-status');
-  const live=root.querySelector('.watch-live');
-  const clock=root.querySelector('.watch-clock');
-  const controller=new AbortController();
-  const path='play-watch?match='+encodeURIComponent(id);
-  const url=new URL(path,apiBase);
+export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave}){
+  root.innerHTML='<section class="sa-match-layout"><div class="sa-game-heading"><div><span class="sa-eyebrow" data-watch-pool>Spectating</span>'+
+    '<div class="play-mode-title"><h1>'+esc(title)+'</h1></div></div><div class="sa-game-actions">'+
+    '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
+    '<div class="sa-match-buttons"><button type="button" class="button mint" data-watch-action="audio">Enable Audio</button>'+
+    '<button type="button" class="button secondary" data-watch-action="songs">Song List</button>'+
+    '<button type="button" class="button secondary" data-watch-action="leave">Leave Spectating</button></div></div></div>'+
+    '<p class="sa-status watch-status" role="status">Connecting to match…</p><div class="watch-board"></div></section>';
+  const board=root.querySelector('.watch-board'),status=root.querySelector('.watch-status');
+  const enable=root.querySelector('[data-watch-action="audio"]');
+  const slider=root.querySelector('#watch-volume'),volumeLabel=slider.nextElementSibling;
+  const controller=new AbortController(),songList=createSongListDialog(esc,animeTitle);
+  const path='play-watch?match='+encodeURIComponent(id),url=new URL(path,apiBase);
   url.protocol=url.protocol==='https:'?'wss:':'ws:';
-  let socket,state,chat,offset=0,reconnect,attempts=0;
-  const interval=setInterval(tick,250);
-  dialog.addEventListener('close',()=>{
-    controller.abort();clearTimeout(reconnect);clearInterval(interval);socket?.close();chat?.close();
-  },{once:true});
 
+  let socket,state,chat,offset=0,reconnect,attempts=0,layout,history=new Map();
+  let request,clip,source,loadingAudio=false,loadingFailed=false,wantsAudio=false;
+  const values=new Map();
+  const audio=new Audio();
+  const player=roundAudio(audio,()=>{enable.textContent='Enable Audio';enable.hidden=false;},()=>{enable.hidden=true;});
+  function updateVolume(value){
+    const volume=Math.min(100,Math.max(0,Number(value)||0));
+    slider.value=volume;volumeLabel.textContent=volume+'%';audio.volume=volume/100;
+  }
+  let server='EU';
+  try{
+    const stored=localStorage.getItem('amqtours-quiz-server');
+    if(['EU','NAE','NAW'].includes(stored))server=stored;
+    updateVolume(localStorage.getItem('amqtours-quiz-volume')??30);
+  }catch{updateVolume(30);}
+
+  function setMarkup(selector,html){
+    const node=board.querySelector(selector);
+    if(node&&values.get(node)!==html){values.set(node,html);node.innerHTML=html;}
+  }
   function tick(){
-    const seconds=state?.until&&['guess','counting','reveal'].includes(state.phase)
-      ? Math.max(0,Math.ceil((state.until-Date.now()-offset)/1000)) : null;
-    const text=seconds===null?'':seconds+'s';
-    if(clock.textContent!==text)clock.textContent=text;
+    if(!state)return;
+    const now=Date.now()+offset;
+    const dial=board.querySelector('.ngmc-dial');
+    if(dial)updateRoundDial(dial,state,now);
+    if(clip&&now>=state.until){audio.pause();return;}
+    if(!clip||!source||audio.readyState<1||now<state.startsAt)return;
+    const position=(now-state.startsAt)/1000;
+    if(!Number.isFinite(audio.duration)||position<audio.duration)player.update(state.index,position);
   }
+  const interval=setInterval(tick,120);
 
+  function clearAudio(){
+    request?.abort();request=null;
+    audio.pause();audio.removeAttribute('src');audio.load();
+    if(source)URL.revokeObjectURL(source);
+    source=null;clip=null;loadingAudio=false;loadingFailed=false;player.reset();
+  }
+  function audioNotice(){
+    const label=loadingFailed?'Retry Audio':loadingAudio?'Loading Audio…':'Enable Audio';
+    enable.textContent=label;
+    enable.disabled=loadingAudio;
+    enable.hidden=ended(state?.phase)||(wantsAudio&&!loadingAudio&&!loadingFailed&&!player.needsGesture);
+  }
+  async function loadClip(current){
+    clearAudio();
+    if(!current){audioNotice();return;}
+    clip=current;loadingAudio=true;audioNotice();
+    const download=request=new AbortController();
+    try{
+      const cache=createSealedAudioCache(apiBase,state.mode);
+      await cache.prepare([clip.ticket],server,{
+        signal:AbortSignal.any([download.signal,AbortSignal.timeout(12_000)]),onProgress:()=>{},
+      });
+      const blob=await cache.decrypt(current.ticket,server,current.key);
+      if(download.signal.aborted)return;
+      source=URL.createObjectURL(blob);audio.src=source;audio.load();
+      loadingAudio=false;audioNotice();tick();
+    }catch{
+      if(download.signal.aborted)return;
+      loadingAudio=false;loadingFailed=true;audioNotice();
+    }
+  }
+  audio.addEventListener('loadedmetadata',tick,{signal:controller.signal});
+  async function enableAudio(){
+    wantsAudio=true;
+    if(source&&state?.phase==='guess'){
+      if(state.index!==undefined)player.update(state.index,Math.max(0,(Date.now()+offset-state.startsAt)/1000),true);
+      return;
+    }
+    const silent=URL.createObjectURL(silentPlayAudio());
+    try{
+      audio.src=silent;await audio.play();
+      if(audio.src===silent)audio.pause();
+    }catch{wantsAudio=false;}
+    finally{URL.revokeObjectURL(silent);audioNotice();}
+  }
+  root.addEventListener('input',event=>{
+    if(event.target!==slider)return;
+    updateVolume(slider.value);
+    try{localStorage.setItem('amqtours-quiz-volume',slider.value);}catch{}
+  },{signal:controller.signal});
+  root.addEventListener('click',event=>{
+    const action=event.target.closest('[data-watch-action]')?.dataset.watchAction;
+    if(action==='leave')onLeave();
+    if(action==='songs'&&state)songList.open(state);
+    if(action==='audio'){
+      if(loadingFailed&&clip)void loadClip(clip);
+      else void enableAudio();
+    }
+    const credits=event.target.closest('[data-sa-artist-info]');
+    if(credits)credits.setAttribute('aria-expanded',String(credits.getAttribute('aria-expanded')!=='true'));
+  },{signal:controller.signal});
+
+  function winnerLabel(){
+    if(state.teams.length===1)return 'Team score · '+state.teams[0]+' points';
+    const high=Math.max(...state.teams),leaders=state.teams.flatMap((score,team)=>score===high?[team]:[]);
+    const remaining=state.players.filter(p=>!p.left);
+    if(state.reason&&remaining.length===1)return remaining[0].name+' won by forfeit';
+    if(leaders.length>1)return 'Draw';
+    const members=state.players.filter(player=>player.team===leaders[0]);
+    return (members.length===1?members[0].name:'Team '+(leaders[0]+1))+' won';
+  }
   function render(){
-    const {reveal,players}=state;
-    const results=new Map((reveal?.results||[]).map(result=>[result.id,result]));
-    const groups=Map.groupBy(players,player=>player.team);
-    const solo=state.format==='lobby-ffa';
-    const individual=groups.size===players.length;
-    const progress=liveProgressText(state);
-    status.textContent=poolName(state.pool)+' · '+(state.aborted?'Match Aborted':(phases[state.phase]||'Live'))+' · '+progress;
-    live.innerHTML='<section class="watch-scores" aria-label="Live score"><h3>'+esc(state.unit)+'</h3>'+liveScoreHTML(state,esc)+'</section>'+
-      (reveal?'<section class="watch-reveal"><h3>'+esc(reveal.anime)+'</h3><p>'+esc(reveal.title)+' · '+esc(reveal.artist)+'</p></section>':'')+
-      '<div class="watch-rosters'+(solo?' watch-solo':'')+'">'+[...groups].sort(([a],[b])=>a-b).map(([team,members])=>
-        '<section>'+(individual?'':'<h3>'+(groups.size===1?'Players':'Team '+(team+1))+'</h3>')+'<ul>'+
-        members.map(player=>{
-          const result=results.get(player.id);
-          const answers=result?Object.entries(result.correct||{}).map(([key,correct])=>{
-            if(!Object.hasOwn(fields,key))return '';
-            const answer=result.answers?.[key];
-            return '<span class="'+(correct?'correct':'incorrect')+'" title="'+fields[key]+'">'+(correct?'✓ ':'× ')+esc(answer||'No Answer')+'</span>';
-          }).join(''):'';
-          return '<li><div class="watch-player">'+playPlayerAvatar(player,esc)+'<strong>'+esc(player.name)+'</strong><small>'+
-            (player.left?'Left':esc(player.score)+' pts')+'</small></div>'+
-            (answers?'<div class="watch-answers">'+answers+'</div>':'')+'</li>';
-        }).join('')+'</ul></section>'
-      ).join('')+'</div>'+(state.reason?'<p class="watch-reason">'+esc(state.reason)+'</p>':'');
-    tick();
+    const ngmc=state.mode==='ngmc-ranked',finished=ended(state.phase);
+    const next=finished?state.phase:ngmc?'ngmc':'song';
+    if(layout!==next){
+      values.clear();
+      board.innerHTML=finished?(state.arena?'<div class="sa-scoreboard"></div>':
+        broadcastResults(state,esc,animeTitle,()=>winnerLabel())):
+        ngmc?ngmcArena(state,''):songBroadcastLayout(state);
+      layout=next;
+    }
+    const songHeading=board.querySelector('.song-broadcast-header h2');
+    if(songHeading)setMarkup('.song-broadcast-header h2','Song '+state.song+' <small>/ '+state.total+'</small>');
+    const strip=board.querySelector('.ngmc-strip>span');
+    if(strip)strip.textContent='Song '+state.song+' / '+state.total;
+    root.querySelector('[data-watch-pool]').textContent='Spectating · '+poolName(state.pool);
+    root.querySelector('h1').textContent=finished?(state.aborted?'Match Aborted':phases[state.phase]):title;
+    status.textContent=finished?state.reason||'':state.phase==='loading'||state.phase==='buffering'
+      ? 'Waiting for '+(state.players.filter(p=>!p.left&&!p.audioReady).map(p=>p.name).join(', ')||'the next song') : '';
+    status.hidden=!status.textContent;
+
+    const phaseNode=board.querySelector('.sa-round-status');
+    if(phaseNode)phaseNode.textContent=phases[state.phase]||'Live';
+    const latest=state.history.at(-1);
+    const revealed=latest&&(finished||latest.index===state.index&&['reveal','counting'].includes(state.phase))?latest:null;
+    setMarkup('.sa-scoreboard',state.arena?arenaBoard(state,esc):
+      finished||state.lobby&&['lobby-team','lobby-ffa'].includes(state.format)?pointsBoard(state,esc):
+      ngmc?ngmcTeams(state,esc):songTeamsHTML(state,esc));
+    if(ngmc){
+      setMarkup('.ngmc-track',ngmcTrack(revealed,esc,animeTitle));
+      setMarkup('.ngmc-progress',ngmcProgress(state,esc,animeTitle));
+    }else{
+      setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+versusHTML(state,revealed,esc):'');
+    }
+    songList.update(state);audioNotice();tick();
   }
 
+  function showStatus(text){
+    status.hidden=false;status.textContent=text;
+  }
   async function checkAvailability(){
     try{await api(path,undefined,undefined,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(8000)])});}
     catch(error){
       if(controller.signal.aborted)return;
-      if([401,403,404].includes(error.status)){
-        status.textContent=error.message;clearInterval(interval);clock.textContent='';return;
-      }
+      if([401,403,404].includes(error.status)){showStatus(error.message);return;}
     }
     if(!controller.signal.aborted)connect();
   }
-
   function connect(){
     socket=new WebSocket(url);
     socket.onmessage=event=>{
@@ -76,27 +186,36 @@ export function watchPlayMatch({dialog,api,apiBase,title,id,viewer,esc}){
       if(controller.signal.aborted)return;
       if(message.type==='chat-history'&&state){
         chat??=openMatchChat({id,players:state.players,me:viewer},body=>{
-          if(socket?.readyState!==1){status.textContent='Reconnecting to match chat…';return false;}
+          if(socket.readyState!==1){showStatus('Reconnecting to match chat…');return false;}
           socket.send(JSON.stringify({type:'chat-send',body}));return true;
-        },{container:root.querySelector('.watch-chat')});
+        },{showSelfName:true});
         for(const row of message.rows)chat.receive(row,false);
         return;
       }
       if(message.type==='chat-message'){chat?.receive(message.row);return;}
-      if(message.type==='chat-error'){status.textContent=message.message;return;}
+      if(message.type==='chat-error'){showStatus(message.message);return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
-      attempts=0;offset=message.now-Date.now();state=message.state;render();
-      if(ended(state.phase))clearInterval(interval);
+      if(!message.state.teams){showStatus('The match view is updating. Reconnecting…');socket.close();return;}
+      attempts=0;offset=message.now-Date.now();state=message.state;
+      if(!state.compact)history=new Map();
+      for(const row of state.history||[])history.set(row.index,row);
+      state.history=[...history.values()];
+      if(clip?.ticket!==message.clip?.ticket)void loadClip(message.clip);
+      render();
     };
     socket.onclose=event=>{
       if(controller.signal.aborted)return;
-      if(ended(state?.phase)){status.textContent='Match Complete · Chat disconnected';return;}
-      if(event.code===4001){
-        status.textContent='Spectator view opened in another tab.';clearInterval(interval);clock.textContent='';return;
-      }
-      status.textContent='Reconnecting to '+title+'…';
-      reconnect=setTimeout(checkAvailability,Math.min(10_000,1000*2**attempts++));
+      clearAudio();
+      if(ended(state?.phase)){showStatus('Match Complete · Chat disconnected');return;}
+      if(event.code===4001){showStatus('Spectator view opened in another tab.');return;}
+      showStatus('Reconnecting to '+title+'…');
+      reconnect=setTimeout(checkAvailability,Math.min(10_000,1_000*2**attempts++));
     };
   }
   connect();
+  void enableAudio();
+  return {close(){
+    controller.abort();clearTimeout(reconnect);clearInterval(interval);
+    socket?.close();chat?.close();songList.close();clearAudio();root.replaceChildren();
+  },refresh(){if(state)render();}};
 }

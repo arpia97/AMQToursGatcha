@@ -5,19 +5,21 @@ const thumbsUp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 export function arenaBoard(match, esc) {
   const {rounds, standings, songsPerFixture} = match.arena;
-  const current = Math.floor(match.index / songsPerFixture);
-  const mine = match.players.find(p => p.id === match.me).team;
+  const current = Math.min(rounds.length-1,Math.floor(match.index / songsPerFixture));
+  const mine = match.players.find(p => p.id === match.me)?.team;
   const names = team => match.players.filter(p => p.team === team).map(p => esc(p.name)).join(' &amp; ');
   const pair = team => '<span class="arena-pair'+(team === mine ? ' arena-mine' : '')+'">'+
     match.players.filter(p => p.team === team).map(p => '<span class="play-player-identity">'+playPlayerAvatar(p,esc)+esc(p.name)+'</span>').join('')+'</span>';
-  const fixture = rounds[current].find(f => f.home === mine || f.away === mine);
-  const ownSide = fixture.home === mine ? 0 : 1;
-  const opponent = ownSide === 0 ? fixture.away : fixture.home;
+  const fixtures=mine===undefined?rounds[current]:rounds[current].filter(f=>f.home===mine||f.away===mine);
   const final = match.phase === 'finished';
   const leaders = arenaLeaders(standings);
   const title = final ? (leaders.length > 1 ? 'Joint Winners' : 'Winner') : 'Round ' + (current + 1) + ' / ' + rounds.length;
-  const headline = final ? leaders.map(row => pair(row.team)).join('') :
-    pair(mine) + '<strong>' + fixture.scores[ownSide] + ' – ' + fixture.scores[1-ownSide] + '</strong>' + pair(opponent);
+  const fixtureLabel=({home,away,scores})=>away===mine
+    ? pair(away)+'<strong>'+scores[1]+' – '+scores[0]+'</strong>'+pair(home)
+    : pair(home)+'<strong>'+scores[0]+' – '+scores[1]+'</strong>'+pair(away);
+  const headline=final?'<h2 class="arena-winners">'+leaders.map(row=>pair(row.team)).join('')+'</h2>':
+    fixtures.length===1?'<h2 class="arena-fixture-headline">'+fixtureLabel(fixtures[0])+'</h2>':
+      fixtures.map(fixture=>'<div class="arena-fixture-headline">'+fixtureLabel(fixture)+'</div>').join('');
   const table = '<div class="arena-table-scroll"><table><thead><tr><th>Pair</th><th>W–L–T</th><th>Diff</th><th>Pts</th></tr></thead><tbody>' +
     standings.map(row => '<tr' + (row.team === mine ? ' class="arena-mine"' : '') + '><th scope="row">' + names(row.team) + '</th><td>' +
       [row.won,row.lost,row.drawn].join('–') + '</td><td>' + (row.difference > 0 ? '+' : '') + row.difference + '</td><td>' + row.points + '</td></tr>').join('') +
@@ -25,7 +27,7 @@ export function arenaBoard(match, esc) {
   const schedule = rounds.map((fixtures, i) => '<section><h4>Round ' + (i + 1) + '</h4>' + fixtures.map(f =>
     '<div class="arena-pairing"><span>' + names(f.home) + '</span><b>' + (f.complete || i === current ? f.scores.join(' – ') + (f.forfeits?.length ? ' (forfeit)' : '') : 'vs') +
     '</b><span>' + names(f.away) + '</span></div>').join('') + '</section>').join('');
-  return '<section class="arena-board"><header><span class="sa-eyebrow">' + title + (!final && match.phase !== 'cancelled' ? ' · Song ' + (match.index % songsPerFixture + 1) + ' / ' + songsPerFixture : '') + '</span><h2 class="'+(final?'arena-winners':'arena-fixture-headline')+'">' + headline + '</h2></header>' +
+  return '<section class="arena-board"><header><span class="sa-eyebrow">' + title + (!final && match.phase !== 'cancelled' ? ' · Song ' + (match.index % songsPerFixture + 1) + ' / ' + songsPerFixture : '') + '</span>' + headline + '</header>' +
     '<h3>Standings</h3>' + table + '<details><summary>Round Schedule</summary>' + schedule + '</details></section>';
 }
 

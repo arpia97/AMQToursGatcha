@@ -5,7 +5,8 @@ export function createSongListDialog(esc,animeTitle){
     const songs=match.songList||match.history;
     const ngmc=match.mode==='ngmc-ranked';
     const rounds=new Map(match.history.map(row=>[row.index,row.results]));
-    const scoreHeaders=ngmc?'<th>Lobby Score</th><th>Your Result</th>':'<th>Your Score</th>';
+    const spectator=!match.me;
+    const scoreHeaders=spectator?(ngmc?'<th>Lobby Score</th>':''):ngmc?'<th>Lobby Score</th><th>Your Result</th>':'<th>Your Score</th>';
     const html=songs.length?'<table><thead><tr><th>#</th><th>Anime</th><th>Song</th><th>Artist</th>'+scoreHeaders+'</tr></thead><tbody>'+songs.map(song=>{
       const results=rounds.get(song.index);
       const own=results?.find(player=>player.id===match.me);
@@ -17,9 +18,9 @@ export function createSongListDialog(esc,animeTitle){
             ? '<span class="sa-song-result is-correct"><span aria-hidden="true">✓</span> Correct</span>'
             : '<span class="sa-song-result is-incorrect"><span aria-hidden="true">×</span> Incorrect</span>'
           : '—';
-        score='<td class="sa-lobby-score">'+lobbyScore+'</td><td>'+result+'</td>';
+        score='<td class="sa-lobby-score">'+lobbyScore+'</td>'+(spectator?'':'<td>'+result+'</td>');
       }else{
-        score='<td>'+(own?own.earned+' / '+(match.teamFields?1:3):'—')+'</td>';
+        score=spectator?'':'<td>'+(own?own.earned+' / '+(match.teamFields?1:3):'—')+'</td>';
       }
       return '<tr><td>'+(song.index+1)+'</td><td>'+esc(animeTitle({anime:song.anime}))+'</td><td>'+esc(song.song)+'</td><td>'+esc(song.artist)+'</td>'+score+'</tr>';
     }).join('')+'</tbody></table>':'<p>Songs will appear here after they are revealed.</p>';

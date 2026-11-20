@@ -1,3 +1,4 @@
+import {amqAnimeOptions,fuzzyAnimeCheckbox,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
 import { routeHref } from "./site-navigation.js";
@@ -1016,7 +1017,7 @@ export function createQuizUI({
         ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
         : "") +
       "</div>" +
-      (run.answered ? result : answerForm) +
+      (run.answered ? result : answerForm+fuzzyAnimeCheckbox(storage)) +
       songProgressHTML() +
       hotkeyHintBar() +
       '<p id="quiz-inline-error" class="form-error" role="alert">' +
@@ -1081,7 +1082,8 @@ export function createQuizUI({
   function updateInput(input) {
     draft = input.value;
     suggestionsOpen = true;
-    options = quizAnswerOptions(bank?.answers || [], draft);
+    const titles=bank?.answers||[];
+    options = fuzzyAnimeSearch(storage)?quizAnswerOptions(titles,draft):amqAnimeOptions(titles,draft);
     highlight = -1;
     drawSuggestions(input);
   }
@@ -1558,6 +1560,11 @@ export function createQuizUI({
       stop();
     },
     setVolume,
+    setFuzzyAnime(value){
+      saveFuzzyAnimeSearch(value,storage);
+      const answer=document.getElementById('quiz-answer');
+      if(answer?.value){answer.focus({preventScroll:true});updateInput(answer);}
+    },
     active: () => !!preparing || !!(selected && run && !run.finished),
     openLeaderboard(id) {
       if (!id || working || preparing) return;
@@ -1931,7 +1938,7 @@ export function createQuizUI({
       if (event.key === "Escape") closeSuggestions();
       if (event.key === "Enter" && suggestionsOpen && options.length) {
         event.preventDefault();
-        draft = options[highlight >= 0 ? highlight : 0];
+        draft = highlight>=0||fuzzyAnimeSearch(storage)?options[Math.max(0,highlight)]:event.target.value;
         event.target.value = draft;
         closeSuggestions();
         mutate("quiz-answer", draft).catch(showError);

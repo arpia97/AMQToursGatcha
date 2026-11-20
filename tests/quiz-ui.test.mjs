@@ -30,7 +30,7 @@ function fixture(
   } = {},
 ) {
   const old = globalThis.document,
-    nodes = new Map();
+    nodes = new Map(), preferences = new Map();
   const node = (id) => {
     if (!nodes.has(id))
       nodes.set(id, {
@@ -241,7 +241,10 @@ function fixture(
       ui.mount();
     },
     onWallet: () => {},
-    storage: { getItem: () => saved, setItem: (...a) => writes.push(a) },
+    storage: {
+      getItem: key => preferences.get(key) ?? saved,
+      setItem: (key,value) => { preferences.set(key,value);writes.push([key,value]); },
+    },
     clock: {
       now: () => now + wallSkew,
       monotonicNow: () => now,
@@ -554,7 +557,7 @@ test("leaderboard-only navigation never starts or resumes audio or a quiz run", 
   );
 });
 
-test("Enter locks the first match by default and the arrow-highlighted match when explicitly selected", async (t) => {
+test("AMQ-style Enter submits typed text or the arrow-highlighted title", async (t) => {
   const f = fixture(t);
   await f.start();
   await f.advance(2000);
@@ -566,7 +569,7 @@ test("Enter locks the first match by default and the arrow-highlighted match whe
   await flush();
   assert.equal(
     f.calls.filter((c) => c.path === "quiz-answer").at(-1).b.answer,
-    "Bocchi the Rock!",
+    "bo",
   );
   await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
   await f.audios.at(-1).emit("loadedmetadata");
@@ -590,6 +593,21 @@ test("Enter locks the first match by default and the arrow-highlighted match whe
   const answers = f.calls.filter((c) => c.path === "quiz-answer");
   assert.equal(answers.length, 2);
   assert.equal(answers.at(-1).b.answer, "Boku no Hero Academia");
+});
+
+test("Fuzzy Search keeps the prior first-suggestion Enter behavior",async t=>{
+  const f=fixture(t);
+  await f.start();
+  await f.advance(2000);
+  assert.match(f.ui.render(),/data-fuzzy-anime>/);
+  f.ui.setFuzzyAnime(true);
+  assert.match(f.ui.render(),/data-fuzzy-anime checked>/);
+  const input=f.node("quiz-answer");
+  input.value="bo";
+  await f.ui.input(input);
+  f.ui.key({key:"Enter",target:input,preventDefault(){}});
+  await flush();
+  assert.equal(f.calls.filter(c=>c.path==="quiz-answer").at(-1).b.answer,"Bocchi the Rock!");
 });
 
 test("answer reveals distinguish correct and incorrect glow states and escape the submitted text", async (t) => {

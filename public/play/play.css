@@ -23,7 +23,7 @@
 .play-header-actions { display:flex; align-items:center; gap:24px; margin-left:auto; }
 .play-credits { color:inherit; white-space:nowrap; }
 .play-mobile-brand,#play-mobile-nav { display:none; }
-.play-site #main { width:100%; max-width:1580px; margin:0 auto; padding:40px; flex:1; }
+.play-site :is(#main,#play-watch) { width:100%; max-width:1580px; margin:0 auto; padding:40px; flex:1; }
 .play-footer { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; max-width:none; margin:0; color:var(--muted); padding:24px 40px; border-top:1px solid var(--border); font-size:10px; }
 .play-site #modal { width:min(470px,calc(100vw - 32px)); }
 .play-site .play-account-summary { margin-bottom:24px; }
@@ -35,7 +35,7 @@
 .play-quiz-error { padding:28px; border:1px solid var(--border); border-radius:15px; background:var(--panel); }
 @media (max-width:1100px) {
   .play-site { --play-sidebar:205px; }
-  .play-site #main { padding:28px; }
+  .play-site :is(#main,#play-watch) { padding:28px; }
 }
 @media (max-width:800px) {
   .play-sidebar { display:none; }
@@ -43,7 +43,7 @@
   .play-header { gap:12px; }
   .play-header-label { display:none; }
   .play-mobile-brand { display:flex; min-width:0; overflow:hidden; }
-  .play-site #main { padding:25px 20px 32px; }
+  .play-site :is(#main,#play-watch) { padding:25px 20px 32px; }
   .play-footer { padding:20px; }
   #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }
   #play-mobile-nav a { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:6px; padding:8px 2px; min-height:50px; color:var(--muted); font-size:clamp(8px,2.4vw,9px); border-radius:10px; text-align:center; }
@@ -172,32 +172,9 @@
 .play-live-score-row>span:nth-child(even) {background:#392c39; color:#f3c4d0;}
 .play-live-score-row strong {font-variant-numeric:tabular-nums;}
 
-.play-site #modal.play-watch-dialog {width:min(1040px,calc(100vw - 28px)); max-width:none;}
-.watch-body {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(265px,1fr);gap:12px;align-items:start;}
-@media(max-width:700px){.watch-body {grid-template-columns:minmax(0,1fr);}}
-.watch-match {min-width:0;}
-.watch-match h2 {margin:0 28px 0 0;}
-.watch-meta {display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0 14px;}
-.watch-status,.watch-reason {margin:0; color:var(--muted); font-size:13px;}
-.watch-clock {color:var(--mint); font-variant-numeric:tabular-nums;}
-.watch-live {display:grid; gap:12px;}
-.watch-scores,.watch-reveal {display:grid; gap:6px; padding:12px; border:1px solid var(--border); border-radius:8px; background:#151920;}
-.watch-live h3,.watch-reveal p {margin:0;}
-.watch-scores .play-live-score-row>span {padding:7px 10px;}
-.watch-reveal {border-color:#526e60; background:#202b29; overflow-wrap:anywhere;}
-.watch-reveal p {font-size:13px; color:var(--muted);}
-.watch-rosters {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px;}
-.watch-rosters.watch-solo,.watch-rosters:has(>section:only-child) {grid-template-columns:minmax(0,1fr);}
-.watch-rosters>section {padding:9px; min-width:0; background:#151920; border:1px solid var(--border); border-radius:8px;}
-.watch-rosters h3 {font-size:12px; color:var(--muted); padding-bottom:4px;}
-.watch-rosters ul {list-style:none; padding:0; margin:0;}
-.watch-rosters li {padding:7px 0;}
-.watch-rosters li+li {border-top:1px solid var(--border);}
-.watch-player {display:flex; align-items:center; gap:6px; font-size:12px;}
-.watch-player .play-player-avatar {width:26px; height:26px; flex:none; margin:0;}
-.watch-player strong {min-width:0; overflow-wrap:anywhere;}
-.watch-player small {margin-left:auto; white-space:nowrap; color:var(--muted);}
-.watch-answers {display:flex; flex-wrap:wrap; gap:4px 7px; padding:3px 0 0; font-size:11px; overflow-wrap:anywhere;}
+.watch-board {display:grid;gap:16px;min-width:0;}
+.watch-status {margin:0;color:var(--muted);font-size:13px;}
+.ngmc-panel .fuzzy-anime-search {grid-column:1 / -1;}
 
 .account-menu button[hidden] { display:none; }
 

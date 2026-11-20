@@ -1,10 +1,22 @@
-import {isDuelFormat, soloVersus} from './play-mode-rules.js';
+import {DUEL_FORMAT,isDuelFormat, soloVersus} from './play-mode-rules.js';
+import {ARENA_FORMAT} from './play-arena-config.js';
 import {percentDone} from './play-setup-progress.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const fields={anime:'Anime Name',song:'Song Name',artist:'Artist'};
-const revealed=(match,row)=>row?.index===match.index&&['reveal','counting','finished'].includes(match.phase);
+const revealed=(match,row)=>!!row&&(row.index===match.index&&['reveal','counting','finished'].includes(match.phase)||
+  !match.me&&['finished','cancelled'].includes(match.phase));
 export const scoreBadge=(points,total=3)=>'<b class="sa-round-score" title="This Song" data-score="'+points+'">'+points+'/'+total+'</b>';
 export const roundDialHTML='<div class="ngmc-dial" hidden><b class="sa-timer" role="timer"></b><small></small></div>';
+export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton=''}={}){
+  const arena=match.mode===ARENA_FORMAT,duel=match.mode===DUEL_FORMAT;
+  const versus=!arena&&!match.lobby&&match.teams.length===2;
+  const scoreboard='<div class="sa-scoreboard"></div>';
+  return '<div class="sa-ready-wrap"></div><div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+'">'+
+    (arena?'':scoreboard)+
+    '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+match.total+'</small></h2></div>'+roundDialHTML+'</header>'+
+    '<div class="song-broadcast-body"><div class="sa-reveal-wrap"></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
+    skipButton+'</div></section>'+(arena?scoreboard:'')+'</div>';
+}
 export function updateRoundDial(dial,match,now){
   const guessing=match.phase==='guess',counting=match.phase==='counting';
   dial.hidden=!guessing&&!counting&&match.phase!=='reveal';
@@ -26,21 +38,22 @@ export function recapHTML(match,esc,animeTitle){
   const row=match.history.at(-1);
   if(!revealed(match,row))return '';
   const me=match.players.find(p=>p.id===match.me),mine=row.results.find(p=>p.id===match.me);
-  const points=match.arena?row.points[me.team]:mine?.earned||0;
+  const points=me?(match.arena?row.points[me.team]:mine?.earned||0):0;
   return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small>'+
-    (match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+(match.arena?' for Your Pair':'')+'</small></header><dl>'+
+    (me?(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+(match.arena?' for Your Pair':''):'')+'</small></header><dl>'+
     '<div><dt>Anime</dt><dd>'+esc(animeTitle({anime:row.anime}))+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
     '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl></section>';
 }
 export function songTeamsHTML(match,esc){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format),last=match.history.at(-1);
-  return '<div class="sa-team-list">'+(match.teams.length===1?[me.team]:[me.team,1-me.team]).map(team=>{
+  return '<div class="sa-team-list">'+(me?(match.teams.length===1?[me.team]:[me.team,1-me.team]):match.teams.map((_,i)=>i)).map(team=>{
     const roster=match.players.filter(p=>p.team===team);
-    const title=solo?esc(roster[0].name)+(team===me.team?' <small>You</small>':' <small>Opponent</small>'):team===me.team?'Your Team':'Opponents';
-    return '<section class="sa-team sa-song-team '+(team===me.team?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
+    const title=solo?esc(roster[0].name)+(me?(team===me.team?' <small>You</small>':' <small>Opponent</small>'):''):
+      me?(team===me.team?'Your Team':'Opponents'):match.teams.length===1?'Players':'Team '+(team+1);
+    return '<section class="sa-team sa-song-team '+(team===(me?.team??0)?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span><strong>'+match.teams[team]+'</strong></header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
       const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
-      return '<div class="sa-song-player '+(p.id===me.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,isDuelFormat(match.format)?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
+      return '<div class="sa-song-player '+(p.id===me?.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me?.id?' <small>You</small>':'')+'</strong>')+'<small>'+esc(status)+'</small></div><strong class="sa-player-points">'+(result&&!match.teamFields?scoreBadge(result.earned,isDuelFormat(match.format)?1:3):'')+'<small>'+p.score+' Points'+'</small></strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }
@@ -63,12 +76,16 @@ export function answerSideHTML(match,row,team,esc){
 export function versusHTML(match,row,esc){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format);
   const ffa=match.format==='lobby-ffa';
-  const teams=ffa?[me.team,...match.players.filter(p=>p.team!==me.team).map(p=>p.team)]:match.teams.length===1?[me.team]:[me.team,1-me.team];
-  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me.team?'You':esc(match.players.find(p=>p.team===team).name):team===me.team?'Your Team':'Opponents')+(row?scoreBadge(row.points?.[team]??0,isDuelFormat(match.format)?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc)+'</section>').join('')+'</div>';
+  const teams=!me?match.teams.map((_,i)=>i):ffa?[me.team,...match.players.filter(p=>p.team!==me.team).map(p=>p.team)]:match.teams.length===1?[me.team]:[me.team,1-me.team];
+  return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me?.team?'You':esc(match.players.find(p=>p.team===team).name):me?(team===me.team?'Your Team':'Opponents'):match.teams.length===1?'Team':'Team '+(team+1))+(row?scoreBadge(row.points?.[team]??0,isDuelFormat(match.format)?1:3):'')+'</h3>'+answerSideHTML(match,row,team,esc)+'</section>').join('')+'</div>';
 }
 export function songResultsHTML(match,esc,animeTitle){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format)||match.format==='lobby-ffa';
   const versus=match.teams.length===2&&match.format!=='lobby-ffa';
+  if(!me)return '<div class="sa-match-results single-score">'+match.history.map(row=>
+    '<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle(row))+
+    '</span></summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc)+'</details>'
+  ).join('')+'</div>';
   return '<div class="sa-match-results'+(versus?'':' single-score')+'"><div class="sa-result-columns"><span>Anime</span><span>'+(solo?'You':'Your Team')+'</span>'+(versus?'<span>'+(solo?'Opponent':'Opponents')+'</span>':'')+'</div>'+match.history.map(row=>'<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+'</span>'+scoreBadge(row.points?.[me.team]??0,isDuelFormat(match.format)?1:3)+(versus?scoreBadge(row.points?.[1-me.team]??0,isDuelFormat(match.format)?1:3):'')+'</summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p>'+versusHTML(match,row,esc)+'</details>').join('')+'</div>';
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){

@@ -4,7 +4,8 @@ import {playRuntimeFixture} from './play-runtime-fixture.mjs';
 import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
-import {liveMatchScore,spectatorView} from '../src/play-spectator.js';
+import {amqAnimeOptions} from '../public/amq-anime-search.js';
+import {liveMatchScore,spectatorClip,spectatorView} from '../src/play-spectator.js';
 import {watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
@@ -21,6 +22,29 @@ test('Watched weights sum square-root budgets from distinct MAL and AniList show
   assert.deepEqual(weightedAnimeOrder(weights,()=>.5),[1,2,3,4]);
 });
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('AMQ anime suggestions support contiguous text, sound marks, punctuation and shortest-first order',()=>{
+  const titles=["Shakugan no Shana","Shakugan no Shana S","Tōkyō★ESP","Tokyo Mew Mew",
+    "Masamune-kun's Revenge R","Majo no Tabitabi","Abc & D"];
+  assert.deepEqual(amqAnimeOptions(titles,'shana s'),['Shakugan no Shana S']);
+  assert.deepEqual(amqAnimeOptions(titles,'ge r'),["Masamune-kun's Revenge R"]);
+  assert.deepEqual(amqAnimeOptions(titles,'TOKYO'),['Tōkyō★ESP','Tokyo Mew Mew']);
+  assert.deepEqual(amqAnimeOptions(titles,'tokyo esp'),['Tōkyō★ESP']);
+  assert.deepEqual(amqAnimeOptions(titles,'kuns revenge'),["Masamune-kun's Revenge R"]);
+  assert.deepEqual(amqAnimeOptions(titles,'shna'),[]);
+  assert.deepEqual(amqAnimeOptions(titles,'m',1),['Tokyo Mew Mew']);
+  assert.deepEqual(amqAnimeOptions(Array.from({length:30},(_,i)=>'AB '+i),'a').length,25);
+});
+test('spectators get only the sealed clip active within the guessing window',()=>{
+  const state={audioSealed:true,phase:'guess',index:1,startsAt:1000,until:1200,audioPool:[
+    {round:2,ticket:'upcoming',key:'future key'},{round:null,ticket:'decoy',key:'decoy key'},
+    {round:1,ticket:'active',key:'active key'},
+  ]};
+  assert.equal(spectatorClip(state,999),null);
+  assert.deepEqual(spectatorClip(state,1000),{ticket:'active',key:'active key'});
+  assert.equal(spectatorClip(state,1200),null);
+  assert.equal(spectatorClip({...state,phase:'reveal'},1000),null);
+  assert.equal(spectatorClip({...state,audioSealed:false},1000),null);
+});
 test('spectator scores cover each Arena fixture and never expose an unrevealed answer',()=>{
   const state={id:'match',mode:'2v2-arena',format:'2v2-arena',phase:'guess',index:20,
     songs:Array(60).fill({anime:'Hidden Series',audio:'private.mp3'}),
@@ -434,10 +458,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(Number.isInteger(decoys[0].assignedRound) && decoys[0].assignedRound>=1 && decoys[0].assignedRound<=manifest.total);
     assert.equal(manifest.preload,5+Number(decoys[0].assignedRound<=3));
     assert.equal(manifest.answers,undefined);
-    let revision=0;
+    let revision=0,liveSpectator;
+    const viewFrames=[];
     const preload=Array.from({length:manifest.preload},(_,i)=>i);
     if(format==='1v1') {
       assert.equal((await mf.dispatchFetch(base+'/api/play-connect?protocol=3&match='+id,{headers:{Upgrade:'websocket',Cookie:cookies[0],Origin:base}})).status,409);
+      const observing=await mf.dispatchFetch(watchPath(id),{headers:{...upgrade,Cookie:observer}});
+      assert.equal(observing.status,101);
+      liveSpectator=observing.webSocket;
+      liveSpectator.addEventListener('message',event=>viewFrames.push(JSON.parse(event.data)));
+      liveSpectator.accept();
       const path=base+'/api/play-audio/';
       const broken=(manifest.audio[0][0]==='A'?'B':'A')+manifest.audio[0].slice(1);
       assert.equal((await mf.dispatchFetch(path+broken)).status,404);
@@ -479,6 +509,15 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const song=Number(fixtureSong.audio.match(/local-(\d+)/)[1]);
     if(format==='1v1'){
       const {slot,key}=started.playback,path=base+'/api/play-audio/';
+      for(let i=0;i<50&&!viewFrames.some(frame=>frame.clip);i++)await sleep(20);
+      assert.equal(viewFrames[0].clip,null);
+      assert.equal(viewFrames[0].state.phase,'loading');
+      assert.ok(!viewFrames.some(frame=>frame.type==='manifest'||frame.type==='audio-replaced'));
+      const liveClip=viewFrames.find(frame=>frame.clip);
+      assert.ok(liveClip&&liveClip.now>=liveClip.state.startsAt);
+      assert.deepEqual(liveClip.clip,{ticket:manifest.audio[slot],key});
+      assert.equal(liveClip.state.history.length,0);
+      liveSpectator.close();
       const wrong=(slot+1)%manifest.audio.length;
       const [selected,other]=await Promise.all([slot,wrong].map(async i=>new Uint8Array(await (await mf.dispatchFetch(path+manifest.audio[i])).arrayBuffer())));
       assert.equal(selected.length,other.length);

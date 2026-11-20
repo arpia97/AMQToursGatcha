@@ -1,3 +1,6 @@
+import {arenaStandings} from './play-arena.js';
+import {playerAudioReady} from './play-integrity.js';
+
 export const spectatorTag='play-spectators';
 export const gameEnded=phase=>phase==='finished'||phase==='cancelled';
 
@@ -20,19 +23,41 @@ export function liveMatchScore(state){
   };
 }
 
+// A watcher never needs the opening manifest or any upcoming ticket.
+export function spectatorClip(state,now){
+  if(!state.audioSealed||state.phase!=='guess'||now<state.startsAt||now>=state.until)return null;
+  const clip=state.audioPool?.find(entry=>entry.round===state.index);
+  return clip?.ticket&&clip.key?{ticket:clip.ticket,key:clip.key}:null;
+}
+
+function revealedRound(row){
+  return {index:row.index,anime:row.anime,song:row.song,artist:row.artist,artistMembers:row.artistMembers,
+    points:row.points,lives:row.lives,spent:row.spent,reset:row.reset,
+    results:(row.results||[]).map(({id,answers,correct,earned})=>({id,answers,correct,earned}))};
+}
+
 // The observer protocol is built from an allowlist. It never serializes a player view.
-export function spectatorView(state){
+export function spectatorView(state,compact=false){
   const previous=state.history.at(-1);
   const reveal=previous && (gameEnded(state.phase) ||
     (previous.index===state.index && ['reveal','counting'].includes(state.phase))) ? {
-    song:previous.index+1, anime:previous.anime, title:previous.song, artist:previous.artist,
-    results:(previous.results||[]).map(({id,answers,correct})=>({id,answers,correct})),
+    ...revealedRound(previous),song:previous.index+1,title:previous.song,
   } : null;
   return {
-    id:state.id,format:state.format,pool:state.pool||state.lobby?.pool||'random',
-    ...liveMatchScore(state),
-    until:Number.isFinite(state.until)?state.until:null, reveal,
-    players:state.players.map(({id,name,team,score,avatar,left})=>({id,name,team,score,avatar,left})),
+    id:state.id,mode:state.mode,format:state.format,pool:state.pool||state.lobby?.pool||'random',
+    ...liveMatchScore(state),index:state.index,startsAt:state.startsAt,
+    until:Number.isFinite(state.until)?state.until:null,reveal,
+    history:(compact?state.history.slice(-1):state.history).map(revealedRound),compact,
+    teams:state.teams,teamFields:!!state.teamFields,
+    ...(state.lobby?{lobby:{seconds:state.lobby.seconds}}:{}),
+    counters:state.counters,autoCounting:state.autoCounting,
+    ...(state.arena?{arena:{rounds:state.arena.rounds,songsPerFixture:state.arena.songsPerFixture,standings:arenaStandings(state.arena)}}:{}),
+    players:state.players.map(p=>({
+      id:p.id,name:p.name,team:p.team,score:p.score,avatar:p.avatar,left:p.left,elo:p.elo,
+      initialGuesses:p.initialGuesses,guesses:p.guesses,ready:p.ready,acceptedReady:p.acceptedReady,
+      audioReady:Array.isArray(p.loaded)&&playerAudioReady(state,p),locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,
+      submittedFields:state.teamFields&&p.field?[p.field]:[],
+    })),
     ...(gameEnded(state.phase)?{reason:state.reason,aborted:!!state.aborted}:{}),
   };
 }

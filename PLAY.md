@@ -7,11 +7,17 @@ NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
 Players share a movable Match Chat window. Signed-in spectators of public matches
-can read and send messages, including on the results screen. Chat announces
+see the regular match layout, hear the active song, and can use chat through the
+results screen. Chat uses the sender's display name in the spectator view. The
+spectator connection receives the current sealed clip when guessing opens. Chat announces
 when spectators start or stop watching and when players leave. Custom lobbies
 have a separate Lobby Chat for members between matches. Each chat restores up
 to 80 messages on reconnect. Three emoji shortcuts start as 🔥, 🌋 and ❓ and
 can be customized for the account in that browser.
+
+Anime suggestions use AMQ-style contiguous matching and shortest-title order.
+Fuzzy Search switches to the previous matching method and is remembered in the
+browser for Play and Quiz. Both use the same accepted answers for scoring.
 
 Any player can request a match abort. The request counts as a yes vote. More
 than half the starting roster must vote yes to void the result immediately.
