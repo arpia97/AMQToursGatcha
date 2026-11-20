@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Match Review song buttons
+
+Source `851a3af` is live at 100% on Worker `9a837758-04c5-4c50-87ed-7bbe9fc7244f`. The Timeline has a row of numbered song buttons with overflow scrolling and selected-song focus retention. Desktop and mobile Chrome verified 35- and 48-song fixtures. Syntax checks, focused review tests and the dry run passed. Production returned the updated JavaScript and stylesheets.
+
 ## Per-song Match Review timeline
 
 Source `4087709` is live at 100% on Worker `5f133c49-464b-42ac-90ad-d24c890b5421`. The host-only Timeline tab plots reported focus changes and accepted answers by player and round using server timing. Missing focus data appears gray. All 565 tests passed, including host authorization and scoring-boundary coverage. Chrome verified desktop and mobile layouts, song and player selection, and answer markers. An authorized production read confirmed timelines for a previously completed match, and a signed-out request returned HTTP 401.
