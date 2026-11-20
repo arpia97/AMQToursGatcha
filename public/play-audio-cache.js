@@ -8,7 +8,7 @@ export function createSealedAudioCache(apiBase, mode) {
     has(ticket, server) { return files.has(cacheKey(ticket, server)); },
     clear() { files.clear(); },
     discard(ticket, server) { files.delete(cacheKey(ticket, server)); },
-    async prepare(tickets, server, { signal, onProgress }) {
+    async prepare(tickets, server, { signal, onProgress, priority = "auto" }) {
       let cursor = 0, failed;
       const download = async () => {
         while (cursor < tickets.length && !failed) {
@@ -18,7 +18,7 @@ export function createSealedAudioCache(apiBase, mode) {
           const url = new URL("play-audio/" + ticket, apiBase);
           url.searchParams.set("server", server);
           try {
-            const response = await fetch(url, { signal, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+            const response = await fetch(url, { signal, priority, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
             const length = response.headers.get("Content-Length");
             if (!response.ok || length !== null && Number(length) !== expected) {
               const proof = response.headers.get("X-Play-Audio-Failure");

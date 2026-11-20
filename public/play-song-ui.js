@@ -271,7 +271,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(chat&&chat.matchId!==id)closeChat();
     room?.close();const ws=room=new WebSocket(socketURL(id));ws.matchId=id;ws.lastState=ws.lastReply=Date.now();
     let bestRtt=Infinity;
-    ws.onopen=()=>{clockReady=false;activity.snapshot();roomDelay=1000;send(ws,{type:'ping',sentAt:Date.now()});};
+    ws.onopen=()=>{
+      if(room!==ws||!active)return;
+      clockReady=false;activity.snapshot();probeRoom(ws,Date.now());
+    };
     ws.onmessage=({data})=>{if(room!==ws||!active)return;ws.lastReply=Date.now();const msg=JSON.parse(data);
       if(msg.type==='chat-error'){error(msg.message);return;}
       if(msg.type==='chat-history'&&match?.id===id){
@@ -286,6 +289,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(msg.type==='error'){if(replacingAudio){replacingAudio=false;downloadError='Replacement audio is unavailable. Retry the missing downloads.';}pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
       if(msg.type==='pong'&&msg.sentAt){
         const received=Date.now(),rtt=received-msg.sentAt;
+        if(msg.sentAt===ws.probeAt)ws.probeAt=null;
         if(rtt>=0&&rtt<=bestRtt){bestRtt=rtt;offset=msg.now-(msg.sentAt+received)/2;clockReady=true;}
         return;
       }
@@ -328,6 +332,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
           update.history=match.history.slice(0,from).concat(update.history);
         }
         if(msg.canCompactHistory)send(ws,{type:'compact-history'});
+        if(!ws.hasState){
+          ws.hasState=true;roomDelay=1000;
+          pendingLock=false;pendingArtistKey=null;
+        }
         const previous=match;match=msg.state;if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
         sounds.play(...roundSoundCues(previous,match));
         if(player()?.left)closeChat();
@@ -342,25 +350,48 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         render();tick();
       }
     };
-    ws.onclose=event=>{if(room!==ws)return;room=null;pendingLock=false;if(active&&event.code!==4001&&(match?.settlementPending||!['finished','cancelled'].includes(match?.phase))){roomRetry=setTimeout(()=>{if(!room&&id!==dismissedMatch)connectRoom(id);},roomDelay);roomDelay=Math.min(15000,roomDelay*2);}render();};
+    ws.onclose=event=>{if(room===ws)recoverRoom(ws,event.code);};
   }
-  let previousHeartbeat=0;
-  function checkConnections(){
-    const now=Date.now(),resumed=now-previousHeartbeat>45000;
-    previousHeartbeat=now;
-    for(const ws of [queue,room]){
-      if(!ws)continue;
-      if(resumed)ws.lastReply=now;
-      if(now-ws.lastReply>40000){
-        if(ws===queue){queue=null;ws.close();connectQueue();}
-        else {room=null;ws.close();if(match?.settlementPending||!['finished','cancelled'].includes(match?.phase))connectRoom(ws.matchId);}
-        continue;
+  function recoverRoom(ws,code){
+    room=null;pendingLock=false;pendingArtistKey=null;
+    if(active&&code!==4001&&(match?.settlementPending||!['finished','cancelled'].includes(match?.phase))){
+      clearTimeout(roomRetry);
+      roomRetry=setTimeout(()=>{if(!room&&ws.matchId!==dismissedMatch)connectRoom(ws.matchId);},roomDelay);
+      roomDelay=Math.min(15000,roomDelay*2);
+    }
+    render();
+  }
+  function probeRoom(ws,now){
+    if(send(ws,{type:'ping',sentAt:now})){ws.probeAt=now;ws.lastProbe=now;}
+  }
+  let lastQueueCheck=0,lastCheck=0;
+  function checkConnections(wake=false){
+    const now=Date.now(),resumed=now-lastCheck>15000;
+    lastCheck=now;
+    const ws=room;
+    if(ws){
+      // An incoming broadcast cannot confirm an answer can reach the server.
+      // Give a suspended browser a fresh round trip when its timers resume.
+      if(ws.readyState===1&&(resumed||(wake&&ws.probeAt==null)))probeRoom(ws,now);
+      const stalled=ws.readyState===1&&ws.probeAt!=null&&now-ws.probeAt>=10000;
+      if(stalled||(ws.readyState===0&&now-ws.lastReply>=20000)){
+        recoverRoom(ws);ws.close(4010,'Match connection timed out');
+      }else if(ws.readyState===1){
+        if(ws.probeAt==null&&now-(ws.lastProbe||0)>=4000)probeRoom(ws,now);
+        if(now-(ws.lastSync||0)>=5000&&(!match||match.settlementPending||
+          !['finished','cancelled'].includes(match.phase)&&(now+offset>match.until+2000||now-ws.lastState>60000))){
+          ws.lastSync=now;send(ws,{type:'sync'});
+        }
       }
-      send(ws,{type:'ping',sentAt:now,...(ws===queue&&!personalRatings?{includeRatings:true}:{})});
-      if(ws===room&&(!match||match.settlementPending||!['finished','cancelled'].includes(match.phase)&&
-        (now+offset>match.until+2000||now-ws.lastState>60000)))send(ws,{type:'sync'});
+    }
+    if(queue&&(wake||now-lastQueueCheck>=20000)){
+      lastQueueCheck=now;
+      if(now-queue.lastReply>40000&&!resumed){
+        const old=queue;queue=null;old.close();connectQueue();
+      }else send(queue,{type:'ping',sentAt:now,...(!personalRatings?{includeRatings:true}:{})});
     }
   }
+  function wakeConnection(){if(!document.hidden)checkConnections(true);}
   function loaded(){
     return sources.flatMap((source,i)=>(sealedCache ? sealedCache.has(source,server) : cache.url(source,server)) ? [i] : []);
   }
@@ -371,14 +402,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     try{
       let incomplete=false;
       let next=downloadStart;
-      const download=async(end)=>{
+      const download=async(end,priority='auto')=>{
         while(next<end&&!controller.signal.aborted){
           const ticket=sources[next++];
           for(let attempt=0;attempt<3;attempt++){
             if(attempt)await new Promise(resolve=>setTimeout(resolve,500*attempt));
             if(controller.signal.aborted)return;
             try{
-              await media.prepare([ticket],server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(120000)]),onProgress:update});
+              await media.prepare([ticket],server,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(120000)]),onProgress:update,priority});
               update();
               break;
             }catch(error){
@@ -393,7 +424,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       };
       // Reserve available bandwidth for the group everyone needs before fetching ahead.
       await Promise.all([download(downloadEnd),download(downloadEnd)]);
-      await Promise.all([download(sources.length),download(sources.length)]);
+      await download(sources.length,'low');
       if(incomplete&&!controller.signal.aborted){downloadError='Some audio is still unavailable. Retry the missing downloads.';render();}
     }
     finally{if(downloads===controller)downloads=null;}
@@ -608,7 +639,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
       :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist';
     const titleRow=modeTitleHTML(title,match.format);
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'</div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'<small data-match-reconnecting role="status" hidden>Reconnecting to match…</small></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
@@ -638,6 +669,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const next=match.id+':'+match.index+':'+(['finished','cancelled'].includes(match.phase)?match.phase:'play');
     if(next!==structure){root.innerHTML=gameHTML();structure=next;for(const field of fields){const input=root.querySelector('#sa-'+field);if(input)input.value=draft[field]||'';}}
     updateModeRating();
+    const connection=root.querySelector('[data-match-reconnecting]');
+    if(connection)connection.hidden=!!room?.hasState||['finished','cancelled'].includes(match.phase);
     for(const button of root.querySelectorAll('[data-sa-action="exit-lobby"],[data-sa-action="again"]')){
       if(match.lobby)button.disabled=queueStatus.type!=='lobby-ended';
     }
@@ -955,7 +988,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(active&&waiting()){mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];render();return;}
       const restoreFormat=restore?.format??null;
       queuedFromOverview=!!restore?.fromOverview;
-      lastCounts=null;lobbies=null;autoReady=readAutoReady();savedServer();savedVolume();pendingArtistKey=null;mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=duel()?duelRules.songs:ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);previousHeartbeat=Date.now();heartbeat=setInterval(checkConnections,20000);
+      lastCounts=null;lobbies=null;autoReady=readAutoReady();savedServer();savedVolume();pendingArtistKey=null;mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=duel()?duelRules.songs:ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);lastQueueCheck=lastCheck=Date.now();heartbeat=setInterval(checkConnections,1000);
+      document.addEventListener('visibilitychange',wakeConnection);window.addEventListener('online',wakeConnection);window.addEventListener('pageshow',wakeConnection);
   }
   return {
     enter,quickJoin,render,waiting,cancelQueue,rankedAtRisk,confirmNavigation,
@@ -963,6 +997,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     leave({preserveQueue=false,cancelQueue=false}={}){
       if(!active)return;
       closeChat();closeLobbyChat();sounds.stop();
+      document.removeEventListener('visibilitychange',wakeConnection);window.removeEventListener('online',wakeConnection);window.removeEventListener('pageshow',wakeConnection);
       activity.stop();songDialog.close();counterDialog.close();lobbyModal?.close();active=false;personalRatings=null;
       if(cancelQueue)send(queue,{type:'cancel'});
       overviewJoin=null;
