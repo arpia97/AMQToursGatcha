@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer match chat
+
+Source `4954a7d` is live at 100% on Worker `6f7362df-159f-4db9-94a0-64aa67a5169c`. Multiplayer rooms have movable chat with three editable emoji shortcuts, initially 🔥, 🌋 and ❓. The same room socket carries text and emoji messages. All 562 tests passed, including authenticated delivery to two players using a local match. Browser checks exercised the deployed chat modules with fixture sockets at 1440px and 390px, including particles, customization, dragging and minimizing.
+
 ## Play gameplay sizing and matchmaking credit payouts
 
 Source `81409fa` is live at 100% on Worker `9ee42ffd-e473-4c30-a085-e443fd46c9f2`. The Play profile-picture menu has a direct host-only console shortcut. Gameplay controls and rosters are slightly larger. Matchmaking wins pay the base reward, losses half, draws the base, and cooperative 1-Team completions pay 200. Existing wallet receipts retain their original payouts on retries. All 562 tests passed, including wallet settlement through a local match. Desktop and mobile browser checks verified the control sizes. Live checks verified the new shortcut and stylesheet and confirmed that guest access to match review is denied.
