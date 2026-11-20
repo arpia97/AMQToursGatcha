@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Resizable match chat and stable NGMC layout
+
+Source `f50555f` is live at 100% on Worker `c1001fb1-7051-4bcb-b027-4b7f55d54e03`. Match chat can resize with its corner handle or the arrow keys. Mode headers show the player’s current pool Rating through the authenticated queue connection. Arena uses the NGMC Rating used for team matching. NGMC keeps its teams and center console in place through loading, ready and guessing. All 565 tests passed, including the private Random and Watched rating read after settlement. Desktop and mobile Chrome verified the layout and mouse, touch and keyboard resizing. The live NGMC route and five updated assets responded successfully.
+
 ## Match Review song buttons
 
 Source `851a3af` is live at 100% on Worker `9a837758-04c5-4c50-87ed-7bbe9fc7244f`. The Timeline has a row of numbered song buttons with overflow scrolling and selected-song focus retention. Desktop and mobile Chrome verified 35- and 48-song fixtures. Syntax checks, focused review tests and the dry run passed. Production returned the updated JavaScript and stylesheets.
