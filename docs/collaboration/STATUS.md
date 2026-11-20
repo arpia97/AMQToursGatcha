@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC Song List accuracy
+
+Source `9ecd8b7` is live at 100% on Worker `dee01dc9-05e2-4da2-8293-11afbe0d2d77`. Each revealed NGMC song shows lobby-wide correct answers out of the starting roster and the viewer’s Correct or Incorrect result. Unplayed rows show dashes. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile fixtures verified the deployed Song List, including 4v4, 3v3, and the original Song/Artist display. The compact Match Chat header is a separate local preview in `outputs/compact-match-chat-preview`.
+
 ## NGMC life sounds and song progress details
 
 Source `1521118` is live at 100% on Worker `25af331d-4e6c-4647-a943-36707dbe0e22`. NGMC uses the selected Arcade take-life and Pulse lose-life samples when a round's count settles. Completed markers in NGMC and Quiz open a card below the strip on hover, keyboard focus, or tap. Quiz resume data includes only revealed tracks and submitted answers. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile browser fixtures verified the placements, exact audio samples, cue sequencing, and mute. The live NGMC and both Quiz routes returned HTTP 200, and the updated scripts, CSS, and MP3s matched the deployed source.
