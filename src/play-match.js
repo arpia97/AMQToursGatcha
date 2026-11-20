@@ -143,7 +143,7 @@ export class PlayMatch extends DurableObject {
     if(creditPlan?.length){
       const completedRounds=state.arena?.rounds.filter(round=>round.every(fixture=>fixture.complete)).length;
       const creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
-        .awardPlayMatchCredits(state.id,state.format,creditPlan,completedRounds);
+        .awardPlayOutcomeCredits(state.id,state.format,creditPlan,completedRounds);
       return {creditRewards};
     }
     return {};

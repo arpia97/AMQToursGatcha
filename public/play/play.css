@@ -164,3 +164,26 @@
 .play-live summary>span,.play-live li span { color:var(--muted); }
 .play-live ul { list-style:none; display:grid; gap:6px; padding:0; }
 .play-live li { display:flex; gap:4px 14px; flex-wrap:wrap; }
+
+.account-menu button[hidden] { display:none; }
+
+/* Give the in-round controls more room without scaling the surrounding navigation. */
+.play-site .sa-match-layout .sa-combobox input,
+.play-site .quiz-question #quiz-answer { min-height:48px; font-size:15px; }
+.play-site .sa-match-layout #sa-answer-form .button,
+.play-site .quiz-question #quiz-lock-answer { min-height:48px; font-size:14px; }
+.play-site .sa-match-layout .sa-answer-row > label { font-size:13px; }
+.play-site .sa-match-layout .ngmc-dial { width:72px; height:72px; }
+.play-site .sa-match-layout .ngmc-dial .sa-timer,
+.play-site .quiz-countdown-meter [role=timer] { font-size:25px; }
+.play-site .ngmc-arena .ngmc-team .ngmc-player { min-height:66px; }
+.play-site .ngmc-arena .ngmc-player-name strong,
+.play-site .song-broadcast .sa-song-player-info { font-size:13px; }
+.play-site .ngmc-arena .ngmc-player-answer { font-size:12px; }
+.play-site .ngmc-arena .ngmc-guesses i { width:6px; height:9px; }
+.play-site .song-broadcast .sa-song-player,
+.play-site .song-broadcast .lobby-member { min-height:60px; }
+@media(max-width:700px) {
+  .play-site .sa-match-layout .sa-combobox input,
+  .play-site .quiz-question #quiz-answer { font-size:16px; }
+}

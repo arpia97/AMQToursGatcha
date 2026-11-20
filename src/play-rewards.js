@@ -16,25 +16,28 @@ const rewards = Object.freeze({
 export function matchCreditPlan(state) {
   if (state.phase !== 'finished' || !state.completed || state.lobby || !Object.hasOwn(rewards, state.format)) return null;
 
-  // Use the existing ranked outcomes and Arena standings for the bonus.
-  const winners = new Set(matchRecords(state).filter(row => row.outcome === 'W').map(row => row.id));
-  const winningTeams = state.arena
-    ? arenaLeaders(arenaStandings(state.arena)).map(row => row.team)
-    : [];
-  const unrankedNgmc = state.format === 'ngmc-3v3';
-  const [first, second] = state.teams;
-  if (unrankedNgmc && first !== second) winningTeams.push(first > second ? 0 : 1);
+  const outcomes = new Map(matchRecords(state).map(row => [row.id,row.outcome]));
+  const leaders = state.arena ? arenaLeaders(arenaStandings(state.arena)).map(row => row.team) : [];
+  const [first,second] = state.teams;
 
   return state.players
     .filter(player => !player.left && player.disconnectedAt == null && player.rankedLeftAt == null)
-    .map(player => ({id:player.id, winner:winners.has(player.id) || winningTeams.includes(player.team)}));
+    .map(({id,team}) => {
+      let outcome = outcomes.get(id);
+      if (state.format === '1-team') outcome = 'cooperative';
+      if (state.format === 'ngmc-3v3') outcome = first === second ? 'T' : team === (first > second ? 0 : 1) ? 'W' : 'L';
+      if (state.arena) outcome = !leaders.includes(team) ? 'L' : leaders.length === 1 ? 'W' : 'T';
+      // Keep the same winner flag as existing receipts, including Arena joint leaders.
+      return {id,winner:outcome === 'W' || leaders.includes(team),outcome};
+    });
 }
 
 export function awardMatchCredits(engine, match, format, players, completedRounds) {
   if (!Object.hasOwn(rewards, format)) throw Error('Invalid matchmaking reward format.');
   const [rate, label] = rewards[format];
   // Preserve the receipt identity across rate changes and rolling deployments.
-  return engine.mutate('play:match-credits', match, {format, players}, () => {
+  const receiptPlayers = players.map(({id,winner}) => ({id,winner}));
+  return engine.mutate('play:match-credits', match, {format, players:receiptPlayers}, () => {
     const arena = format === ARENA_FORMAT;
     // Older match workers submit the result without a round count.
     const rounds = arena ? completedRounds ?? 2 : 1;
@@ -44,12 +47,13 @@ export function awardMatchCredits(engine, match, format, players, completedRound
     const base = rate * rounds;
     const roundLabel = arena ? ' · ' + rounds + (rounds === 1 ? ' round' : ' rounds') : '';
     const awards = [];
-    for (const {id, winner} of players) {
+    for (const {id,outcome} of players) {
+      if (!['W','L','T','cooperative'].includes(outcome)) throw Error('Missing matchmaking reward outcome.');
       if (!engine.one('SELECT 1 FROM players WHERE id=?', id)) continue;
-      const bonus = winner ? base / 10 : 0;
-      const amount = base + bonus;
-      const awarded = engine.wallet(id, amount, 'Play match: ' + label + roundLabel + (bonus ? ' · Win bonus included' : ''), true);
-      if (awarded !== false) awards.push({id, amount, bonus});
+      const amount = outcome === 'L' ? base / 2 : base;
+      const resultLabel = {W:'Win',L:'Loss',T:'Draw',cooperative:'Completed'}[outcome];
+      const awarded = engine.wallet(id, amount, 'Play match: ' + label + roundLabel + ' · ' + resultLabel, true);
+      if (awarded !== false) awards.push({id, amount, bonus:0});
     }
     return awards;
   });

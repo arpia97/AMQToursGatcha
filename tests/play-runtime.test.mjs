@@ -470,12 +470,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
     assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);
     assert.equal(rated.ratings.find(r=>r.id==='2').delta,pool==='random'?-16:16);
-    const expected=pool==='random'?[110,100]:[0,0];
+    const expected=pool==='random'?[100,50]:[0,0];
     for(const [index,amount] of expected.entries()){
       assert.equal(await wallet(index),balances[index]+amount);
       if(amount){
         const paid=await rooms[index].wait(m=>m.state?.creditReward);
-        assert.deepEqual(paid.state.creditReward,{id:String(index+1),amount,bonus:amount===110?10:0});
+        assert.deepEqual(paid.state.creditReward,{id:String(index+1),amount,bonus:0});
       }
     }
     await mf.dispatchFetch(base+'/api/__advance?match='+id);

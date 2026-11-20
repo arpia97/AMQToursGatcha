@@ -14,6 +14,12 @@ An incorrect answer, Arena title submission, or Arena vote breaks the streak.
 Cancelled matches, early forfeits, and custom lobbies do not count toward the
 streak. Ranked leave penalties continue to apply under the existing rules.
 
+Matchmaking winners earn the base reward and losers earn half. Draws pay the base
+reward to each finisher. The base is 400 for ranked NGMC 4v4, 200 for NGMC 3v3
+and Song/Artist 3v3, and 100 for ranked 1v1 and Song/Artist 1v1. Arena uses
+100 per completed round and final standings. Cooperative Song/Artist 1-Team
+pays 200 per finisher.
+
 Play Rankings includes NGMC Ranked, Song/Artist 1v1, Song/Artist 3v3 and Quiz.
 Each column sorts the full leaderboard. Rank preserves a player's position in
 the default standings. Quiz average time uses timed personal bests on published
@@ -25,7 +31,7 @@ quizzes, one per player and quiz.
   Cooperative 1-Team shows individual contributions and grants no Rating or
   ranked ready-timeout penalties.
 - Queues match in arrival order; teams are randomly assigned. One active match
-  per account. This release has no Elo, credit rewards or paid entry.
+  per account.
 - Each match selects 20 distinct recordings with verified MP3 audio. All players
   receive the same order. Song/Artist, NGMC and new Quiz imports use the master
   sheet, published Gacha quizzes, AMQ+, then the official AMQ song list. The

@@ -56,6 +56,8 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
   function sync() {
     const me = state().me;
     anchor.hidden = wallet.hidden = !me;
+    const hostShortcut = menu.querySelector('[data-action="play-console"]');
+    if (hostShortcut) hostShortcut.hidden = !me?.is_admin;
     $("#play-signin").hidden = !!me;
     dropdown.sync();
     count(state().inboxUnread || 0);

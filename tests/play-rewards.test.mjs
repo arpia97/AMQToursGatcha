@@ -5,7 +5,7 @@ import {Engine} from '../src/engine.js';
 import {arenaSchedule} from '../src/play-arena.js';
 import {matchCreditPlan, awardMatchCredits} from '../src/play-rewards.js';
 
-test('matchmaking settles each wallet and win bonus once, using final scores and Arena standings', () => {
+test('matchmaking pays by outcome once, using final scores and Arena standings', () => {
   const db = new DatabaseSync(':memory:');
   try {
     const engine = new Engine((sql,...args) => db.prepare(sql).all(...args), action => {
@@ -30,14 +30,13 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
       ['2v2-arena',100],['1v1',100],['3v3',200],['1-team',200]]) {
       const current = {...match,format,...(format==='2v2-arena'?{arena}:{})};
       const settle = () => awardMatchCredits(engine, 'match-'+format, format, matchCreditPlan(current), format==='2v2-arena'?1:undefined);
-      const bonus = format==='1-team'?0:base/10;
-      const expected = [{id:'a',amount:base+bonus,bonus},{id:'b',amount:base,bonus:0}];
+      const expected = [{id:'a',amount:base,bonus:0},{id:'b',amount:format==='1-team'?base:base/2,bonus:0}];
       assert.deepEqual(settle(),expected);
       assert.deepEqual(settle(),expected);
     }
     const arenaPlan = matchCreditPlan({...match,format:'2v2-arena',arena});
     const threeRounds = awardMatchCredits(engine, 'arena-three', '2v2-arena', arenaPlan, 3);
-    assert.deepEqual(threeRounds.map(row=>[row.amount,row.bonus]),[[330,30],[300,0]]);
+    assert.deepEqual(threeRounds.map(row=>[row.amount,row.bonus]),[[300,0],[150,0]]);
     // Older callers omitted the count. A retry still returns the original receipt.
     assert.deepEqual(awardMatchCredits(engine,'arena-three','2v2-arena',arenaPlan),threeRounds);
     assert.deepEqual(awardMatchCredits(engine,'arena-no-rounds','2v2-arena',arenaPlan,0),[]);
@@ -51,8 +50,12 @@ test('matchmaking settles each wallet and win bonus once, using final scores and
     }
 
     const tied = {...match,format:'3v3',teams:[2,2],players:[players[0],{...players[1],left:true}]};
-    assert.deepEqual(matchCreditPlan(tied),[{id:'a',winner:false}]);
-    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],answeredMatch:false}]}),[{id:'a',winner:false}]);
+    assert.deepEqual(matchCreditPlan(tied),[{id:'a',winner:false,outcome:'T'}]);
+    assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],answeredMatch:false}]}),[{id:'a',winner:false,outcome:'T'}]);
+    assert.equal(awardMatchCredits(engine,'draw','3v3',matchCreditPlan(tied))[0].amount,200);
+    const oldAward=[{id:'a',amount:220,bonus:20}];
+    engine.mutate('play:match-credits','already-paid',{format:'3v3',players:[{id:'a',winner:true}]},()=>oldAward);
+    assert.deepEqual(awardMatchCredits(engine,'already-paid','3v3',[{id:'a',winner:true,outcome:'W'}]),oldAward);
     assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],disconnectedAt:123}]}),[]);
     assert.equal(matchCreditPlan({...tied,completed:false,reason:'Player left the match.'}),null);
     assert.equal(matchCreditPlan({...tied,phase:'cancelled'}),null);
