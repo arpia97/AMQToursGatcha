@@ -3,10 +3,25 @@ export function createSongListDialog(esc,animeTitle){
   function update(match){
     if(!dialog?.open)return;
     const songs=match.songList||match.history;
-    const scores=new Map(match.history.map(row=>[row.index,row.results.find(p=>p.id===match.me)]));
-    const html=songs.length?'<table><thead><tr><th>#</th><th>Anime</th><th>Song</th><th>Artist</th><th>Your Score</th></tr></thead><tbody>'+songs.map(song=>{
-      const result=scores.get(song.index);
-      return '<tr><td>'+(song.index+1)+'</td><td>'+esc(animeTitle({anime:song.anime}))+'</td><td>'+esc(song.song)+'</td><td>'+esc(song.artist)+'</td><td>'+(result?result.earned+' / '+(match.mode==='ngmc-ranked'||match.teamFields?1:3):'—')+'</td></tr>';
+    const ngmc=match.mode==='ngmc-ranked';
+    const rounds=new Map(match.history.map(row=>[row.index,row.results]));
+    const scoreHeaders=ngmc?'<th>Lobby Score</th><th>Your Result</th>':'<th>Your Score</th>';
+    const html=songs.length?'<table><thead><tr><th>#</th><th>Anime</th><th>Song</th><th>Artist</th>'+scoreHeaders+'</tr></thead><tbody>'+songs.map(song=>{
+      const results=rounds.get(song.index);
+      const own=results?.find(player=>player.id===match.me);
+      let score;
+      if(ngmc){
+        const lobbyScore=results?results.filter(player=>player.correct?.anime).length+'/'+match.players.length:'—';
+        const result=own
+          ? own.correct?.anime
+            ? '<span class="sa-song-result is-correct"><span aria-hidden="true">✓</span> Correct</span>'
+            : '<span class="sa-song-result is-incorrect"><span aria-hidden="true">×</span> Incorrect</span>'
+          : '—';
+        score='<td class="sa-lobby-score">'+lobbyScore+'</td><td>'+result+'</td>';
+      }else{
+        score='<td>'+(own?own.earned+' / '+(match.teamFields?1:3):'—')+'</td>';
+      }
+      return '<tr><td>'+(song.index+1)+'</td><td>'+esc(animeTitle({anime:song.anime}))+'</td><td>'+esc(song.song)+'</td><td>'+esc(song.artist)+'</td>'+score+'</tr>';
     }).join('')+'</tbody></table>':'<p>Songs will appear here after they are revealed.</p>';
     if(html!==rendered){dialog.querySelector('.sa-song-list-body').innerHTML=html;rendered=html;}
   }

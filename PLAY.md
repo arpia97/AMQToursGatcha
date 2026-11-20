@@ -152,7 +152,8 @@ quizzes, one per player and quiz.
 
 ## Shared Presentation
 
-- Song List opens a dialog in every multiplayer mode. Only revealed tracks are
+- Song List opens a dialog in every multiplayer mode. NGMC shows how many players
+  answered each song correctly and the viewer’s result. Only revealed tracks are
   included while playing; the complete selection is available after the match
   finishes or is cancelled. Existing Quiz song-list dialogs remain available.
 - Submit locks an answer; pressing the button again cancels it while guessing

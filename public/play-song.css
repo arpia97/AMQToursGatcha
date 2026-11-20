@@ -128,6 +128,10 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-song-dialog::backdrop { background:#080a10bb; }
 .sa-song-dialog header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }.sa-song-dialog h2 { margin:0; font-size:20px; }
 .sa-song-list-body { max-height:65vh; overflow:auto; }.sa-song-list-body table { width:100%; border-collapse:collapse; font-size:12px; }.sa-song-list-body th,.sa-song-list-body td { padding:12px; text-align:left; border-bottom:1px solid var(--border); }.sa-song-list-body th { color:var(--muted); white-space:nowrap; }.sa-song-list-body p { color:var(--muted); font-size:12px; }
+.sa-lobby-score { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.sa-song-result { font-weight:600; white-space:nowrap; }
+.sa-song-result.is-correct { color:var(--mint); }
+.sa-song-result.is-incorrect { color:#f49ab0; }
 @media(max-width:700px){.sa-song-panel .sa-answer-fields{grid-template-columns:1fr}.sa-song-panel .sa-answer-row{padding:12px}.sa-song-panel .sa-answer-row>label{display:flex;align-items:center;justify-content:space-between;gap:10px}.sa-answer-row [data-sa-owner]{margin:0}.ngmc-player{padding-inline:8px}.sa-game-actions{max-width:175px}.sa-game-actions .button{padding:8px 10px;font-size:11px}.sa-song-dialog{padding:15px}.sa-song-list-body th,.sa-song-list-body td{padding:9px}}
 
 .sa-lock[hidden] { display:none; }
