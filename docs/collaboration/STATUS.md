@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha and Play navigation
+
+Source `f394457` is live at 100% on Worker `6051f346-1877-414d-9a5e-3e19269b3e3b`. Gacha's Play link replaces Quiz in the desktop sidebar, mobile bottom bar, and mobile More menu. It opens Play Overview. Play has a Gacha button below the logo on both layouts. Play still has its Quiz tab, and existing Gacha Quiz URLs remain valid. The navigation test, syntax check, and Worker dry run passed. Local and live browser checks verified both links and the Play Quiz tab at 1440, 390, and 320 px.
+
 ## Spectator reconnect loop
 
 Source `4d73478` is live at 100% on Worker `9fb160a6-e65c-4aa9-9105-93425174196c`. Production room logs showed repeated spectator disconnects on the earlier score-only version. The browser now accepts both spectator formats and keeps the socket and chat open. Older rooms show live scores, players and reveals, while current rooms also stream audio. All nine multiplayer runtime tests, syntax checks and the Worker dry run passed. A browser fixture using deployed assets verified both formats across NGMC, Song/Artist, Duel and Arena on desktop and mobile. The live assets matched source and Overview returned 200.
