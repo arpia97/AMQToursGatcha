@@ -1,12 +1,16 @@
 # Shared Status and Handoff
 
+## Compact Play Match Chat header
+
+Source `8f470cd` is live at 100% on Worker `f633f325-cb93-4b7c-92fd-5131d85053d2`. The approved 34 px desktop and 38 px mobile header puts resize and minimize on the right and keeps the chat title usable as a drag handle. Live-asset browser fixtures at 1440 and 390 px verified header dimensions, message area, keyboard move and resize, and minimize and reopen. All 567 tests, syntax checks, and the Worker dry run passed. The live NGMC route returned HTTP 200.
+
 ## Online Players avatar glow
 
 Source `8ddef7f` is live at 100% on Worker `d49e916d-00eb-4b40-bc50-8eb5486a2aa3`. The Play Overview scroll list gives the avatar glow a 26 px inline gutter and adds vertical breathing room. Chrome fixtures using the deployed stylesheet verified the maximum-level glow and continued scrolling at 1440, 390, and 320 px. Syntax checks and the dry run passed. The live Overview route returned HTTP 200.
 
 ## NGMC Song List accuracy
 
-Source `9ecd8b7` is live at 100% on Worker `dee01dc9-05e2-4da2-8293-11afbe0d2d77`. Each revealed NGMC song shows lobby-wide correct answers out of the starting roster and the viewer’s Correct or Incorrect result. Unplayed rows show dashes. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile fixtures verified the deployed Song List, including 4v4, 3v3, and the original Song/Artist display. The compact Match Chat header is a separate local preview in `outputs/compact-match-chat-preview`.
+Source `9ecd8b7` is live at 100% on Worker `dee01dc9-05e2-4da2-8293-11afbe0d2d77`. Each revealed NGMC song shows lobby-wide correct answers out of the starting roster and the viewer’s Correct or Incorrect result. Unplayed rows show dashes. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile fixtures verified the deployed Song List, including 4v4, 3v3, and the original Song/Artist display.
 
 ## NGMC life sounds and song progress details
 
