@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Lobby scores in Play History
+
+Source `15b00c5` is live at 100% on Worker `899c6079-8575-410a-bd88-fa42669d1104`. The Songs view shows how many players answered the anime correctly out of the match roster. The history API computes the aggregate from saved rounds and returns only the requesting player's individual answers. Records without saved lobby results display a dash. Nine runtime tests, syntax checks, and the Worker dry run passed. A browser fixture with deployed assets verified scores and expanded answers at 1440, 390, and 320 px. The live signed-out history endpoint returned 401.
+
 ## Gacha and Play navigation
 
 Source `f394457` is live at 100% on Worker `6051f346-1877-414d-9a5e-3e19269b3e3b`. Gacha's Play link replaces Quiz in the desktop sidebar, mobile bottom bar, and mobile More menu. It opens Play Overview. Play has a Gacha button below the logo on both layouts. Play still has its Quiz tab, and existing Gacha Quiz URLs remain valid. The navigation test, syntax check, and Worker dry run passed. Local and live browser checks verified both links and the Play Quiz tab at 1440, 390, and 320 px.
