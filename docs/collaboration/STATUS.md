@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Assigned multiplayer decoy
+
+Source `10d5f0b` is live at 100% on Worker `80b3406f-1296-4358-a7ef-d91ad07ab262`. New Play matches assign one unused track a random round at creation and include it in that round's encrypted download batch. The two other decoys stay unassigned in the opening batch when available. Decoy flags retain the assigned round, submitted round and played track for host review. All 566 tests, syntax checks and the dry run passed. Desktop and mobile browser fixtures verified the deployed Match Review asset in both Highlights and Full log. The live Play route returned HTTP 200 and signed-out Match Review returned HTTP 401.
+
 ## Play multiplayer sound cues
 
 Source `c3d975f` is live at 100% on Worker `2687acf3-ebb2-4b06-abd3-ba6363d99d67`. Play has six cues for correct and incorrect answers, erig, match found, matchmaking start, and counting. Correct uses three ascending bell strikes. Incorrect uses two muted taps and counting uses one beat. All cues are about 3 dB louder than the approved preview and follow game volume. All 565 tests, syntax checks and the dry run passed. Offline audio verified headroom at maximum volume. Desktop and mobile browser fixtures exercised all triggers and mute with the deployed modules. Production returned the Play page and both updated JavaScript assets. The final sampler is in the surrounding outputs/play-sound-cues-v9 directory.
