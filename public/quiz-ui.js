@@ -1770,11 +1770,12 @@ export function createQuizUI({
       }
       if (button.hasAttribute("data-quiz-answer-option")) {
         const input = document.getElementById("quiz-answer");
-        if (!input || input.disabled) return true;
-        draft = options[Number(button.dataset.quizAnswerOption)] || input.value;
+        const answer = options[Number(button.dataset.quizAnswerOption)];
+        if (!input || input.disabled || !suggestionsOpen || !answer || answerPending()) return true;
+        draft = answer;
         input.value = draft;
         closeSuggestions();
-        input.focus();
+        await mutate("quiz-answer", draft);
         return true;
       }
       return false;

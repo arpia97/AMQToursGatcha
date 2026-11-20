@@ -836,13 +836,29 @@ test("leaderboards show precise completion times and explicitly label missing le
   assert.doesNotMatch(html, /Fast <Player>/);
 });
 
+test("choosing a quiz suggestion submits that title exactly once", async (t) => {
+  const f = fixture(t);
+  await f.start();
+  await f.advance(2000);
+  const input = f.node("quiz-answer");
+  input.value = "bo";
+  await f.ui.input(input);
+  const option = f.button("data-quiz-answer-option", "1");
+  await f.ui.click(option);
+  await f.ui.click(option);
+  assert.equal(input.value, "Boku no Hero Academia");
+  assert.equal(f.node("quiz-suggestions").hidden, true);
+  const answers = f.calls.filter(({ path }) => path === "quiz-answer");
+  assert.equal(answers.length, 1);
+  assert.equal(answers[0].b.answer, "Boku no Hero Academia");
+});
+
 test("elapsed quiz clock advances through guesses and answer review, survives reload, and resets on restart", async (t) => {
   const f = fixture(t);
   await f.start();
   assert.match(f.ui.render(), /Elapsed Quiz Time/);
   await f.advance(5000);
   assert.equal(f.node("quiz-elapsed").textContent, "0:05");
-  await f.ui.click(f.button("data-quiz-answer-option", "0"));
   await f.advance(3000);
   assert.equal(f.node("quiz-elapsed").textContent, "0:08");
   await f.ui.load();

@@ -410,10 +410,15 @@ window.addEventListener('focus',updatePlayFocus);
 window.addEventListener('blur',updatePlayFocus);
 openMode(mode, false);
 window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || playRoute("/play"), false));
+document.addEventListener("pointerdown", (event) => {
+  if (mode !== "quiz" || !quiz) return;
+  if (event.target.closest("[data-quiz-answer-option]")) event.preventDefault();
+  else if (!event.target.closest(".quiz-answer-field")) quiz.closeSuggestions();
+});
 document.addEventListener("click", async (event) => {
   const link = event.target.closest("a[data-play-mode]");
   if (link && !event.defaultPrevented && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey) { event.preventDefault(); openMode(link.dataset.playMode); return; }
-  const button = event.target.closest("button"); if (!button) return;
+  const button = event.target.closest("button, [data-quiz-answer-option]"); if (!button) return;
   try {
     const action = button.dataset.action;
     if (button.closest("#account-menu")) accountMenu.close(true);

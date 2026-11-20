@@ -514,7 +514,17 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     input.setAttribute('aria-expanded',String(!!searchItems.length));if(selected>=0)input.setAttribute('aria-activedescendant','sa-option-'+selected);
     list.classList.toggle('above',input.getBoundingClientRect().bottom>innerHeight-260);
   }
-  function choose(i){const item=searchItems[i];if(!item)return;const input=root.querySelector('#sa-'+searchKind);draft[searchKind]=item;chosen[searchKind]=item;input.value=draft[searchKind];hideSuggestions();input.focus({preventScroll:true});scheduleDraft();}
+  function pickSuggestion(i){
+    const field=searchKind;
+    const title=searchItems[i];
+    const input=root.querySelector('#sa-'+field+':enabled');
+    if(!title||match?.phase!=='guess'||!input)return;
+    draft[field]=chosen[field]=input.value=title;
+    hideSuggestions();
+    input.focus({preventScroll:true});
+    scheduleDraft();
+    if(animeOnly()||teamFields()||match.format==='lobby-team'||field==='artist')submit(true,field);
+  }
   function currentArtists(){
     const list=[...(player()?.artists||[])],name=String(chosen.artist||draft.artist||'').trim();
     if(name&&!list.some(x=>x.normalize('NFKC').toLowerCase()===name.normalize('NFKC').toLowerCase()))list.push(name);
@@ -887,7 +897,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       root.querySelector('#sa-'+next)?.focus();
       scheduleDraft();
     }
-    else if(event.key==='Enter'){event.preventDefault();if(event.repeat||event.isComposing)return;if(searchKind===field&&selected>=0){choose(selected);if(animeOnly()||teamFields()||match.format==='lobby-team'||field==='artist')submit(true,field);}else if(teamFields()||match.format==='lobby-team'||field===fields.at(-1))submit(true,field);else root.querySelector('#sa-'+fields[fields.indexOf(field)+1])?.focus();}
+    else if(event.key==='Enter'){event.preventDefault();if(event.repeat||event.isComposing)return;if(searchKind===field&&selected>=0)pickSuggestion(selected);else if(teamFields()||match.format==='lobby-team'||field===fields.at(-1))submit(true,field);else root.querySelector('#sa-'+fields[fields.indexOf(field)+1])?.focus();}
     else if(event.key==='Escape')hideSuggestions();
   });
   root.addEventListener('focusout',event=>{if(event.target.dataset.saField)setTimeout(()=>{if(!root.querySelector('.sa-combobox')?.contains(document.activeElement)&&!document.activeElement?.dataset.saField)hideSuggestions();},120);});
@@ -948,7 +958,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(button.dataset.saSubmit){submit(true,button.dataset.saSubmit);return;}
     if(button.dataset.saReact){send(room,{type:'reaction',index:match.index,field:button.dataset.saReact,value:button.dataset.reaction});return;}
     if(button.dataset.saCount){send(room,{type:'count',index:match.index,player:button.dataset.saCount});return;}
-    if(button.dataset.saOption!=null){choose(Number(button.dataset.saOption));return;}
+    if(button.dataset.saOption!=null){pickSuggestion(Number(button.dataset.saOption));return;}
     if(button.dataset.saFormat){format=button.dataset.saFormat;render();return;}
     const action=button.dataset.saAction;
     if(action==='resume-audio'){sounds.unlock(ranked());playRoundAudio(Date.now()+offset,true);tick();return;}
