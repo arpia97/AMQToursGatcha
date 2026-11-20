@@ -4,7 +4,7 @@ const freshMs=10_000, fallbackMs=60_000;
 
 // Only public directory data belongs here. Signed-in presence is an authenticated heartbeat.
 export async function publicPlaySnapshot(url,namespace,cache,ctx){
-  const key=new Request(url.origin+url.pathname+'?public-snapshot=v1');
+  const key=new Request(url.origin+url.pathname+'?public-snapshot=v2');
   const saved=await cache?.match(key).catch(()=>undefined);
   const savedAt=Number(saved?.headers.get('X-Play-Snapshot-At'));
   const response=(body,at,stale=false)=>new Response(body,{headers:{

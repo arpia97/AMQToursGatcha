@@ -157,6 +157,7 @@
 .play-list-statuses { display:flex; flex-wrap:wrap; gap:.5rem 1rem; margin:0; padding:.6rem .8rem; border:1px solid var(--line); border-radius:8px; }
 .play-list-statuses label { display:inline-flex; align-items:center; gap:.4rem; }
 .play-list-statuses input[type=checkbox] { width:1rem; height:1rem; margin:0; }
+.play-live[hidden] { display:none; }
 .play-live { margin:0; padding:7px clamp(14px,3vw,40px); background:var(--panel); border-bottom:1px solid var(--border); font-size:12px; }
 .play-live summary { cursor:pointer; width:fit-content; }
 .play-live summary strong { margin-right:12px; }

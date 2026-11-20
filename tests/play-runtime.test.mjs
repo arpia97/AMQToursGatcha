@@ -185,6 +185,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     socket.send({type:'lobby-ready',ready:true});
   }
   await host.wait(m=>m.type==='lobby'&&m.players.length===4&&m.players.slice(1).every(p=>p.ready)&&m.songs===20);
+  host.send({type:'lobby-password',password:'private-arena'});
+  await host.wait(m=>m.type==='lobby'&&m.locked&&m.players.length===4);
   host.send({type:'lobby-start'});
   const {match:arenaId}=await host.wait(m=>m.type==='matched');
   const arenaRoom=await connect(0,arenaId);
@@ -195,6 +197,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(arenaMatch.lobby.seconds,20);
   assert.equal(arenaMatch.readyDeadline,undefined);
   assert.equal(new Set(arenaMatch.players.map(player=>player.team)).size,2);
+  const liveOverview=async cookie=>(await mf.dispatchFetch(base+'/api/play-live?overview=1',{headers:cookie?{Cookie:cookie}:{}})).json();
+  const protectedMatch=(await liveOverview(cookies[4])).matches.find(match=>match.id===arenaId);
+  assert.equal(protectedMatch.locked,true);
+  assert.equal(protectedMatch.roster,undefined);
   for(const socket of arenaQueues){
     const after=socket.messages.length;
     socket.send({type:'lobby-leave'});
@@ -237,6 +243,17 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(playing.online,8);
   assert.equal(playing.waiting,0);
   assert.ok(playing.matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'&&m.players===8));
+  const overview=await liveOverview(cookies[0]);
+  assert.deepEqual(overview.counts,{});
+  assert.equal(overview.onlinePlayers.length,8);
+  assert.ok(overview.onlinePlayers.every(player=>player.status==='playing'&&player.name.startsWith('Local Player')));
+  assert.equal(overview.onlinePlayers[0].avatar.level,2);
+  const matchup=overview.matches.find(match=>match.id===rankedId);
+  assert.equal(matchup.roster.length,8);
+  assert.deepEqual([0,1].map(team=>matchup.roster.filter(player=>player.team===team).length),[4,4]);
+  const publicOverview=await liveOverview();
+  assert.equal(publicOverview.onlinePlayers,undefined);
+  assert.ok(publicOverview.matches.every(match=>match.id===undefined&&match.roster===undefined));
   const rankedInfo=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+rankedId)).json();
   assert.equal(rankedInfo.animeIds.length,35);
   assert.equal(new Set(rankedInfo.animeIds).size,35);

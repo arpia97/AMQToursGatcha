@@ -45,7 +45,11 @@ export class PlayMatch extends DurableObject {
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
   async initialize(id,format,players,lobby=null,pool=lobby?.pool||'random',deadline=Date.now()+180000) {
-    if(this.read()){await this.schedule();return;}
+    const existing=this.read();
+    if(existing){
+      await this.schedule();
+      return { teams:existing.players.map(({id,team})=>({id,team})) };
+    }
     if(this.initializing)return this.initializing;
     const expired={setupError:'Song selection timed out. Please start matchmaking or your lobby again.'};
     if(deadline<=Date.now())return expired;
@@ -58,6 +62,7 @@ export class PlayMatch extends DurableObject {
       if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
       this.reviewLog.initialize(state);this.reviewLog.add(state,'','created');this.write(state);
       await this.schedule();
+      return { teams:state.players.map(({id,team})=>({id,team})) };
     }).finally(()=>{clearTimeout(timer);this.initializing=null;});
     return this.initializing;
   }

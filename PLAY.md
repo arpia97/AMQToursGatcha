@@ -30,6 +30,11 @@ and Song/Artist 3v3, and 100 for ranked 1v1 and Song/Artist 1v1. Arena uses
 100 per completed round and final standings. Cooperative Song/Artist 1-Team
 pays 200 per finisher.
 
+Overview is the Play landing tab. Quick Join uses the selected Random or Watched
+pool and keeps the current queue active while browsing. The page lists current
+matches, with hover, focus, and tap controls for lineups in unlocked rooms.
+Signed-in players can see and search the online roster. Guests can see counts.
+
 Play Rankings includes NGMC Ranked, Song/Artist 1v1, Song/Artist 3v3 and Quiz.
 Each column sorts the full leaderboard. Rank preserves a player's position in
 the default standings. Quiz average time uses timed personal bests on published

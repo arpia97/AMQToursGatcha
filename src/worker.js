@@ -15,7 +15,7 @@ import { playRoute } from "../public/play-navigation.js";
 import { importAnimeList, listSummary } from "./play-anime-list.js";
 import { awardMatchCredits } from './play-rewards.js';
 import { publicPlaySnapshot } from "./play-public-snapshot.js";
-import { guestPlayState, playState, playAvatar } from "./play-state.js";
+import { guestPlayState, playState, playAvatar, playOverviewPlayers } from "./play-state.js";
 import { playAudioResponse } from "./play-media.js";
 // Only the operations available in Content & Review > Quiz accept this role.
 const quizConsoleReads = new Set(["host/console-access", "host/quizzes", "host/quiz-songs", "host/quiz-master"]);
@@ -1349,7 +1349,12 @@ export class Game extends DurableObject {
         if(!data)fail('Match history is unavailable.',404);
         return json(data);
       }
-      if(path==='play-live')return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').liveActivity(session?.player||null));
+      if(path==='play-live'){
+        const overview=url.searchParams.get('overview')==='1';
+        const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1').liveActivity(session?.player||null,overview);
+        if(overview&&session&&data.onlinePlayers)data.onlinePlayers=playOverviewPlayers(e,data.onlinePlayers);
+        return json(data);
+      }
       return json(playState(e, session?.player));
     }
     if (path === "quiz-cover" && !post) {

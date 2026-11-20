@@ -54,7 +54,7 @@ export class PlayQueue extends DurableObject {
     return Object.fromEntries(rows.map(row=>[poolFormat(row.format,row.pool),row.waiting]));
   }
   lobbyDirectory(){return this.lobbies.directory();}
-  liveActivity(player){
+  liveActivity(player,overview=false){
     const now=Date.now(), sql=this.ctx.storage.sql;
     if(player){
       if(!this.nextPresenceCleanup||now>=this.nextPresenceCleanup){
@@ -63,20 +63,34 @@ export class PlayQueue extends DurableObject {
       }
       sql.exec('INSERT OR REPLACE INTO play_presence VALUES(?,?)',player,now+90000);
     }
+    const detailed=!!player&&overview;
     const matches=this.rows(`WITH rooms AS (
-      SELECT match,format,pool FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
-      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random')
+      SELECT match,format,pool,0 AS locked FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
+      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL
         FROM play_lobbies WHERE match IS NOT NULL
-    ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players
+    ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players,
+         rooms.locked,CASE WHEN ? THEN m.id END AS id,CASE WHEN ? THEN m.players END AS roster
       FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
-      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now);
+      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now,Number(detailed),Number(detailed));
     const online=new Set(this.rows('SELECT player FROM play_presence WHERE expires>?',now).map(r=>r.player));
     for(const ws of this.ctx.getWebSockets()){
       const who=ws.deserializeAttachment();
       if(ws.readyState===1&&who.expires>now)online.add(who.id);
     }
-    return {online:online.size,
-      waiting:Object.values(this.queueCounts()).reduce((sum,n)=>sum+n,0),matches};
+    const counts=this.queueCounts();
+    const playing=new Set();
+    const visibleMatches=matches.map(({id,locked,roster,...match})=>{
+      if(!detailed)return match;
+      const players=JSON.parse(roster);
+      for(const member of players)playing.add(member.id);
+      return {...match,id,locked:!!locked,...(!locked&&{
+        roster:players.map(({id,name,team})=>({id,name,team})),
+      })};
+    });
+    const result={online:online.size,waiting:Object.values(counts).reduce((sum,n)=>sum+n,0),matches:visibleMatches,counts};
+    if(!detailed)return result;
+    const queued=new Set(this.rows('SELECT player FROM queue WHERE match IS NULL AND expires>?',now).map(row=>row.player));
+    return {...result,onlinePlayers:[...online].map(id=>({id,status:playing.has(id)?'playing':queued.has(id)?'queued':'online'}))};
   }
   ratingReceipt(id){
     const row=this.rows('SELECT data,created FROM ngmc_results WHERE id=?',id)[0];
@@ -346,7 +360,18 @@ export class PlayQueue extends DurableObject {
         const remaining=this.lobbies.roster(lobby.code);
         for(const p of players)if(!remaining.some(m=>m.id===p.id))await match.depart(p.id);
       }
-      this.ctx.storage.sql.exec('DELETE FROM preparing WHERE id=?',row.id);
+      this.ctx.storage.transactionSync(()=>{
+        const sql=this.ctx.storage.sql;
+        if(result?.teams){
+          const assigned=new Map(result.teams.map(({id,team})=>[id,team]));
+          const review=this.rows('SELECT players FROM match_reviews WHERE id=?',row.id)[0];
+          if(review){
+            const roster=JSON.parse(review.players).map(member=>({...member,team:assigned.get(member.id)}));
+            sql.exec('UPDATE match_reviews SET players=? WHERE id=?',JSON.stringify(roster),row.id);
+          }
+        }
+        sql.exec('DELETE FROM preparing WHERE id=?',row.id);
+      });
     }
     catch {if(Date.now()-row.started>180000){for(const p of JSON.parse(row.players))for(const ws of this.ctx.getWebSockets(p.id))send(ws,{type:'error',message:'Song loading failed. Please queue again.'});await this.complete(row.id);}}
   }
