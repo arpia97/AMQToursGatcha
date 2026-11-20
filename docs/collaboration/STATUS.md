@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Spectator reconnect loop
+
+Source `4d73478` is live at 100% on Worker `9fb160a6-e65c-4aa9-9105-93425174196c`. Production room logs showed repeated spectator disconnects on the earlier score-only version. The browser now accepts both spectator formats and keeps the socket and chat open. Older rooms show live scores, players and reveals, while current rooms also stream audio. All nine multiplayer runtime tests, syntax checks and the Worker dry run passed. A browser fixture using deployed assets verified both formats across NGMC, Song/Artist, Duel and Arena on desktop and mobile. The live assets matched source and Overview returned 200.
+
 ## Return to Overview after matchmaking
 
 Source `3b479d5` is live at 100% on Worker `d5bf758d-af4a-4355-9fa6-4ec22d141552`. Back and Leave Match return Overview Quick Join players to Overview. The queue origin survives a reload while waiting and is associated with the assigned match. A two-player browser fixture using the deployed scripts verified Back after queue and match reloads, and the mode-tab player stayed in 1v1 Ranked. Syntax checks and the Worker dry run passed. The live Overview route returned HTTP 200.
