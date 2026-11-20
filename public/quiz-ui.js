@@ -1,4 +1,4 @@
-import {amqAnimeOptions,fuzzyAnimeCheckbox,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
+import {amqAnimeOptions,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
 import { routeHref } from "./site-navigation.js";
@@ -1017,7 +1017,7 @@ export function createQuizUI({
         ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
         : "") +
       "</div>" +
-      (run.answered ? result : answerForm+fuzzyAnimeCheckbox(storage)) +
+      (run.answered ? result : answerForm+answerSearchControls(storage)) +
       songProgressHTML() +
       hotkeyHintBar() +
       '<p id="quiz-inline-error" class="form-error" role="alert">' +
@@ -1560,6 +1560,7 @@ export function createQuizUI({
       stop();
     },
     setVolume,
+    setAutolock(value){saveAnswerAutolock(value,storage);},
     setFuzzyAnime(value){
       saveFuzzyAnimeSearch(value,storage);
       const answer=document.getElementById('quiz-answer');
@@ -1939,7 +1940,7 @@ export function createQuizUI({
       if (event.key === "Escape") closeSuggestions();
       if (event.key === "Enter" && suggestionsOpen && options.length) {
         event.preventDefault();
-        draft = highlight>=0||fuzzyAnimeSearch(storage)?options[Math.max(0,highlight)]:event.target.value;
+        draft = highlight >= 0 ? options[highlight] : answerAutolock(storage) ? options[0] : event.target.value;
         event.target.value = draft;
         closeSuggestions();
         mutate("quiz-answer", draft).catch(showError);

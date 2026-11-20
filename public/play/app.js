@@ -506,6 +506,7 @@ document.addEventListener("change", async (event) => {
     else if (input.id === "quiz-sort") quiz.setSort(input.value);
     else if (input.id === "quiz-competitive") quiz.setCompetitive(input.checked);
     else if (input.id === "quiz-friends-only") await quiz.setFriendsOnly(input.checked);
+    else if (input.matches('[data-answer-autolock]')) quiz.setAutolock(input.checked);
     else if (input.matches('[data-fuzzy-anime]')) quiz.setFuzzyAnime(input.checked);
     else if (input.id === "quiz-favorites-first") quiz.setFavoritesFirst(input.checked);
     else if (input.id === "quiz-hide-perfect") quiz.setHidePerfect(input.checked);

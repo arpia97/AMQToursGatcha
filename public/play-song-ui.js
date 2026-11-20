@@ -1,4 +1,4 @@
-import {fuzzyAnimeCheckbox,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
+import {answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
@@ -95,7 +95,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       answerListStatus=data.label;
       const status=root.querySelector('.sa-status');
       if(!match&&!searchReady&&!searchError&&getPlayer()&&queueStatus.type!=='preparing'&&status)status.textContent=answerListStatus;
-    }else if(data.type==='ready'){searchReady=true;joinFromOverview();render();}else if(data.type==='error'){searchFailed(data.message);}else if(data.type==='results'&&data.id===searchId){searchItems=data.items;selected=searchItems.length&&!data.standard?0:-1;showSuggestions();}};
+    }else if(data.type==='ready'){searchReady=true;joinFromOverview();render();}else if(data.type==='error'){searchFailed(data.message);}else if(data.type==='results'&&data.id===searchId){searchItems=data.items;selected=searchItems.length&&!data.standard&&answerAutolock()?0:-1;showSuggestions();}};
     worker.onerror=()=>searchFailed('Answer search could not start. Retry to load it.');
     worker.postMessage({type:'load'});
   }
@@ -655,7 +655,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
     if(done)return heading+reward+broadcastResults(match,esc,animeTitle,winnerText);
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
-      '<small class="sa-locked-answer" aria-live="polite" hidden></small>'+fuzzyAnimeCheckbox()+'</form>';
+      '<small class="sa-locked-answer" aria-live="polite" hidden></small>'+answerSearchControls()+'</form>';
     const skipButton=match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'';
     if(ranked())return heading+ngmcArena(match,answerForm+skipButton);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
@@ -897,7 +897,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       root.querySelector('#sa-'+next)?.focus();
       scheduleDraft();
     }
-    else if(event.key==='Enter'){event.preventDefault();if(event.repeat||event.isComposing)return;if(searchKind===field&&selected>=0)pickSuggestion(selected);else if(teamFields()||match.format==='lobby-team'||field===fields.at(-1))submit(true,field);else root.querySelector('#sa-'+fields[fields.indexOf(field)+1])?.focus();}
+    else if(event.key==='Enter'){
+      event.preventDefault();
+      if(event.repeat||event.isComposing)return;
+      if(searchKind===field&&searchItems.length&&(selected>=0||answerAutolock())&&event.target.getAttribute('aria-expanded')==='true'){
+        pickSuggestion(Math.max(0,selected));
+      }else if(teamFields()||match.format==='lobby-team'||field===fields.at(-1)){
+        submit(true,field);
+      }else root.querySelector('#sa-'+fields[fields.indexOf(field)+1])?.focus();
+    }
     else if(event.key==='Escape')hideSuggestions();
   });
   root.addEventListener('focusout',event=>{if(event.target.dataset.saField)setTimeout(()=>{if(!root.querySelector('.sa-combobox')?.contains(document.activeElement)&&!document.activeElement?.dataset.saField)hideSuggestions();},120);});
@@ -987,6 +995,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
   });
   root.addEventListener('change',event=>{
+    if(event.target.matches('[data-answer-autolock]')){
+      saveAnswerAutolock(event.target.checked);hideSuggestions();return;
+    }
     if(event.target.matches('[data-fuzzy-anime]')){
       saveFuzzyAnimeSearch(event.target.checked);
       const input=root.querySelector('#sa-anime');

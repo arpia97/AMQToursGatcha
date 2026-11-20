@@ -557,7 +557,7 @@ test("leaderboard-only navigation never starts or resumes audio or a quiz run", 
   );
 });
 
-test("AMQ-style Enter submits typed text or the arrow-highlighted title", async (t) => {
+test("standard search Enter submits the first suggestion or the arrow-highlighted title", async (t) => {
   const f = fixture(t);
   await f.start();
   await f.advance(2000);
@@ -569,7 +569,7 @@ test("AMQ-style Enter submits typed text or the arrow-highlighted title", async 
   await flush();
   assert.equal(
     f.calls.filter((c) => c.path === "quiz-answer").at(-1).b.answer,
-    "bo",
+    "Bocchi the Rock!",
   );
   await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
   await f.audios.at(-1).emit("loadedmetadata");
@@ -595,7 +595,35 @@ test("AMQ-style Enter submits typed text or the arrow-highlighted title", async 
   assert.equal(answers.at(-1).b.answer, "Boku no Hero Academia");
 });
 
-test("Fuzzy Search keeps the prior first-suggestion Enter behavior",async t=>{
+for (const fuzzy of [false,true]) {
+  test("Autolock off preserves typed text and explicit selections with fuzzy search "+fuzzy,async t=>{
+    const f=fixture(t);
+    await f.start();
+    await f.advance(2000);
+    assert.match(f.ui.render(),/data-answer-autolock checked/);
+    f.ui.setAutolock(false);
+    f.ui.setFuzzyAnime(fuzzy);
+    assert.doesNotMatch(f.ui.render(),/data-answer-autolock checked/);
+    const input=f.node("quiz-answer");
+    const press=key=>f.ui.key({key,target:input,preventDefault(){}});
+    input.value="bo";
+    await f.ui.input(input);
+    press("Enter");
+    await flush();
+    assert.equal(f.calls.filter(c=>c.path==="quiz-answer").at(-1).b.answer,"bo");
+    await f.ui.click(f.button("data-quiz-action","quiz-restart"));
+    await f.audios.at(-1).emit("loadedmetadata");
+    await f.audios.at(-1).emit("canplay");
+    await f.advance(2000);
+    input.value="bo";
+    await f.ui.input(input);
+    press("ArrowDown");press("ArrowDown");press("Enter");
+    await flush();
+    assert.equal(f.calls.filter(c=>c.path==="quiz-answer").at(-1).b.answer,"Boku no Hero Academia");
+  });
+}
+
+test("Fuzzy Search and Autolock submit the first suggestion on Enter",async t=>{
   const f=fixture(t);
   await f.start();
   await f.advance(2000);
