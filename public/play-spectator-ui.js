@@ -8,6 +8,7 @@ import {broadcastResults} from './play-match-results.js';
 import {arenaBoard} from './play-arena-ui.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {roundAudio} from './play-round-audio.js';
+import {liveProgressText,liveScoreHTML} from './play-live-score.js';
 
 const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',guess:'Listen & Answer',
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
@@ -70,7 +71,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     const label=loadingFailed?'Retry Audio':loadingAudio?'Loading Audio…':'Enable Audio';
     enable.textContent=label;
     enable.disabled=loadingAudio;
-    enable.hidden=ended(state?.phase)||(wantsAudio&&!loadingAudio&&!loadingFailed&&!player.needsGesture);
+    enable.hidden=(state&&!state.teams)||ended(state?.phase)||(wantsAudio&&!loadingAudio&&!loadingFailed&&!player.needsGesture);
   }
   async function loadClip(current){
     clearAudio();
@@ -133,6 +134,26 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   }
   function render(){
     const ngmc=state.mode==='ngmc-ranked',finished=ended(state.phase);
+    root.querySelector('[data-watch-pool]').textContent='Spectating · '+poolName(state.pool);
+    root.querySelector('h1').textContent=finished?(state.aborted?'Match Aborted':phases[state.phase]):title;
+    slider.parentElement.hidden=!state.teams;
+    // Rooms already in play can keep the earlier score-only protocol until they close.
+    if(!state.teams){
+      if(layout!=='summary'){
+        values.clear();
+        board.innerHTML='<section class="sa-play-panel"><header class="ngmc-strip"><span></span><strong class="sa-round-status"></strong></header>'+
+          '<div class="ngmc-track"></div><div class="watch-scores"></div></section><div class="sa-scoreboard"></div>';
+        layout='summary';
+      }
+      setMarkup('.ngmc-strip>span',esc(liveProgressText(state)));
+      setMarkup('.sa-round-status',esc(phases[state.phase]||'Live'));
+      setMarkup('.watch-scores',liveScoreHTML(state,esc));
+      setMarkup('.ngmc-track',state.reveal?ngmcTrack(state.history.at(-1),esc,animeTitle):'');
+      setMarkup('.sa-scoreboard',pointsBoard(state,esc));
+      showStatus(state.reason||'This match started on an earlier version. Live scores and chat are available. Match audio is unavailable.');
+      songList.update(state);audioNotice();
+      return;
+    }
     const next=finished?state.phase:ngmc?'ngmc':'song';
     if(layout!==next){
       values.clear();
@@ -145,8 +166,6 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     if(songHeading)setMarkup('.song-broadcast-header h2','Song '+state.song+' <small>/ '+state.total+'</small>');
     const strip=board.querySelector('.ngmc-strip>span');
     if(strip)strip.textContent='Song '+state.song+' / '+state.total;
-    root.querySelector('[data-watch-pool]').textContent='Spectating · '+poolName(state.pool);
-    root.querySelector('h1').textContent=finished?(state.aborted?'Match Aborted':phases[state.phase]):title;
     status.textContent=finished?state.reason||'':state.phase==='loading'||state.phase==='buffering'
       ? 'Waiting for '+(state.players.filter(p=>!p.left&&!p.audioReady).map(p=>p.name).join(', ')||'the next song') : '';
     status.hidden=!status.textContent;
@@ -195,10 +214,14 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
       if(message.type==='chat-message'){chat?.receive(message.row);return;}
       if(message.type==='chat-error'){showStatus(message.message);return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
-      if(!message.state.teams){showStatus('The match view is updating. Reconnecting…');socket.close();return;}
       attempts=0;offset=message.now-Date.now();state=message.state;
-      if(!state.compact)history=new Map();
-      for(const row of state.history||[])history.set(row.index,row);
+      if(state.teams){
+        if(!state.compact)history.clear();
+        for(const row of state.history||[])history.set(row.index,row);
+      }else if(state.reveal){
+        const {song,title,...row}=state.reveal;
+        history.set(song-1,{...row,index:song-1,song:title});
+      }
       state.history=[...history.values()];
       if(clip?.ticket!==message.clip?.ticket)void loadClip(message.clip);
       render();
