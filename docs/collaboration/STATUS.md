@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Shared backend stability
+
+Source `998426a` is live at 100% on Worker `f7c0b16f-ef1b-4910-bdc6-a2e0fd0195be`. Guest Play state and public presence bypass account storage. Public lobby, queue and presence reads can serve a snapshot up to 60 seconds old during storage interruptions. Sign-in has less database work, and receipt-protected quiz moves can recover once from a lost reply. All 564 tests passed, including a lost response after an answer was saved, snapshot expiry and overload handling. Live guest checks returned HTTP 200 for health, Gacha state, Play state, lobby directory, queue counts and presence.
+
 ## Interrupted multiplayer audio
 
 Source `fa53170` is live at 100% on Worker `cb225a64-93d8-4af4-b19c-53009783be0a`. During guessing, Play detects interrupted playback, retries at the room position and offers Resume Audio for gesture-required playback. Hosts can see bounded, browser-reported audio issues by round. All 563 tests passed. Chrome browser fixtures at 1440px and 390px reproduced the earlier stuck pause, then verified recovery and preserved typed answers with the deployed assets. Firefox 160.0.1 decoded an encrypted fixture using the deployed modules, reported a real autoplay block, started the clip after a user gesture and recovered from an induced pause.
