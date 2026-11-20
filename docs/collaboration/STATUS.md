@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Overview
+
+Source `5440486` is live at 100% on Worker `a536d431-5491-40e0-9403-f7353b76ae97`. Overview is the Play landing tab. It shows seven matchmaking queues by pool, searchable online players for signed-in viewers, and live match rosters via hover, focus, or tap. Password-protected match rosters stay private. All 566 tests, syntax checks, and the dry run passed. Local browser tests covered public access, Watched join and leave, Random matchmaking across tabs, and mobile roster viewing. Production served the route, matching assets, and the guest-safe counts after the queue actor updated. The separate NGMC life cue previews are in `outputs/ngmc-life-cue-preview` outside the repo. Production audio is unchanged.
+
 ## NGMC counter selection pop-up
 
 Source `c56e019` is live at 100% on Worker `fff37c32-09d8-42de-949a-58810b9dfc40`. During NGMC signup, players can volunteer, enable Auto-Count, or dismiss the pop-up. It closes when the signup expires or a teammate takes the role. Manual guess choices follow the team's tier order, highest starting Rating first. All 566 tests, syntax checks and the dry run passed. Browser fixtures with the deployed assets exercised both actions, dismissal, expiration, teammate assignment, and ordered choices at desktop and mobile widths. The live NGMC route and all three updated assets returned HTTP 200.
