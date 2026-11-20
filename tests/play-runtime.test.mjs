@@ -276,6 +276,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     for(const q of queues)assert.equal((await q.wait(m=>m.type==='matched')).match,id);
     const rooms=[];for(let i=0;i<size;i++)rooms.push(await connect(i,id));
     const roster=(await rooms[0].wait(m=>m.type==='state')).state.players;
+    if(ngmc){
+      assert.deepEqual((await rooms[0].wait(m=>m.type==='chat-history')).rows,[]);
+      rooms[0].send({type:'chat-send',body:'🌋',player:'other'});
+      const message=await rooms[1].wait(m=>m.type==='chat-message');
+      assert.equal(message.row.player,'1');
+      assert.equal(message.row.body,'🌋');
+      assert.deepEqual((await rooms[0].wait(m=>m.type==='chat-message')).row,message.row);
+      rooms[1].send({type:'chat-send',body:' '.repeat(10)});
+      await rooms[1].wait(m=>m.type==='chat-error');
+    }
     assert.equal(roster.find(p=>p.id==='1').avatar.image,'/amq-tours-logo.png');
     assert.equal(roster.find(p=>p.id==='1').avatar.level,2);
     assert.deepEqual(Object.keys(roster.find(p=>p.id==='1').avatar).sort(),['crop','image','level','rarity']);

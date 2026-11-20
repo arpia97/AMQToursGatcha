@@ -14,7 +14,32 @@ import {activeRankedGame,RECONNECT_MS} from '../public/ngmc-leave-policy.js';
 import {ngmcRatings} from './ngmc-ratings.js';
 import {PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 export class PlayMatch extends DurableObject {
-  constructor(ctx,env){super(ctx,env);this.ctx=ctx;this.env=env;ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');}
+  constructor(ctx,env){
+    super(ctx,env);this.ctx=ctx;this.env=env;
+    const sql=ctx.storage.sql;
+    sql.exec('CREATE TABLE IF NOT EXISTS match_state(id INTEGER PRIMARY KEY,data TEXT NOT NULL)');
+    this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);
+    sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');
+    sql.exec('CREATE TABLE IF NOT EXISTS room_chat(seq INTEGER PRIMARY KEY, player TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)');
+  }
+  chatHistory(){
+    return this.ctx.storage.sql.exec('SELECT * FROM room_chat ORDER BY seq').toArray();
+  }
+  chatMessage(ws,state,who,body){
+    const member=state.players.find(p=>p.id===who.id&&!p.left);
+    const message=typeof body==='string'?body.trim():'';
+    if(!member||!message||message.length>220){send(ws,{type:'chat-error',message:'Message could not be sent.'});return;}
+    const sql=this.ctx.storage.sql,now=Date.now();
+    if(sql.exec('SELECT COUNT(*) AS n FROM room_chat WHERE player=? AND at>?',who.id,now-2000).one().n>=4){
+      send(ws,{type:'chat-error',message:'Give the chat a moment before sending again.'});return;
+    }
+    const row=sql.exec('INSERT INTO room_chat(player,body,at) VALUES(?,?,?) RETURNING *',who.id,message,now).one();
+    sql.exec('DELETE FROM room_chat WHERE seq<=?',row.seq-80);
+    for(const socket of this.ctx.getWebSockets()){
+      const recipient=socket.deserializeAttachment();
+      if(recipient?.expires>now&&state.players.some(p=>p.id===recipient.id&&!p.left))send(socket,{type:'chat-message',row});
+    }
+  }
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
   async initialize(id,format,players,lobby=null,pool=lobby?.pool||'random',deadline=Date.now()+180000) {
@@ -178,6 +203,7 @@ export class PlayMatch extends DurableObject {
     if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
     send(server,audioManifest(mediaState));
       send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});
+      if(!player.left)send(server,{type:'chat-history',rows:this.chatHistory()});
       await this.schedule();
       return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
@@ -230,6 +256,7 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
       if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
+      if(input.message.type==='chat-send'){this.chatMessage(ws,state,input.who,input.message.body);return;}
       if(input.message.type==='sync'){
         const now=Date.now();
         send(ws,{type:'state',state:matchView(state,input.who.id,now)});
@@ -374,6 +401,7 @@ export class PlayMatch extends DurableObject {
       if(Date.now()<state.until){await this.schedule();return;}
       for(const ws of this.ctx.getWebSockets())ws.close(1000,'Match expired.');
       this.ctx.storage.sql.exec('DELETE FROM match_state');
+      this.ctx.storage.sql.exec('DELETE FROM room_chat');
       return;
     }
     const phase=state.phase,index=state.index,historyLength=state.history.length;advanceMatch(state);

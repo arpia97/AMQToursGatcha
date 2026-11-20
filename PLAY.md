@@ -6,6 +6,11 @@ NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
+Players in a multiplayer match share a movable chat window. Each player has
+three emoji shortcuts, initially 🔥, 🌋 and ❓. Edit saves replacements for
+that account in the same browser. Reconnecting restores the latest 80 messages
+from that match without replaying old emoji animations.
+
 Matchmaking credits require a match that reaches its gameplay finish. Players
 who leave or are still disconnected at the finish earn no credits. Missing
 songs does not affect the payout. Three consecutive completed matchmaking
