@@ -2,7 +2,7 @@
 
 ## Full spectator view and AMQ autocomplete
 
-Codex owns Play spectating, shared quiz and Play anime suggestions, and their verification from `9bc2d84`.
+Source `8227e92` is live at 100% on Worker `1241e286-917f-49ff-9041-f2823b0b8bdf`. Watch Match opens the standard board as a spectator, with Match Chat display names, Song List, and synchronized playback of the current sealed clip after guessing opens. Play and shared Quiz use AMQ-style contiguous, shortest-first title suggestions, and the browser remembers Fuzzy Search. The full 571-test suite passed during validation, and the final autocomplete and clip tests, syntax check, and Worker dry run passed. Browser fixtures exercised all four modes with deployed assets at 1440, 768, 390, and 320 px, including actual audio decode, playback, stop, and post-match chat. Live Play and Gacha Quiz routes and autocomplete assets returned 200. No production matches were created for validation.
 
 ## Play lobby chat and live preview
 
