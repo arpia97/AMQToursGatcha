@@ -523,6 +523,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const rated=(await rooms[1].wait(m=>m.state?.phase==='finished'&&m.state.ratings?.length===2)).state;
     assert.equal(rated.ratings.find(r=>r.id==='1').delta,pool==='random'?16:-25);
     assert.equal(rated.ratings.find(r=>r.id==='2').delta,pool==='random'?-16:16);
+    for(const [i,q] of queues.entries()){
+      q.send({type:'ping',includeRatings:true});
+      const {ratings}=await q.wait(m=>m.type==='ratings');
+      const own=rated.ratings.find(row=>row.id===String(i+1));
+      assert.equal(ratings[pool==='random'?'1v1-ranked':'1v1-ranked-watched'],own.after);
+      assert.equal(ratings['1v1-ranked'],i===0?1016:984);
+      assert.equal(ratings['3v3-watched'],1000);
+    }
     const expected=pool==='random'?[100,50]:[0,0];
     for(const [index,amount] of expected.entries()){
       assert.equal(await wallet(index),balances[index]+amount);

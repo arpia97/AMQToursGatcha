@@ -128,6 +128,18 @@ export class PlayQueue extends DurableObject {
   }
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}
   loadTourRate(player,pool){return loadTourRate(player,undefined,pool==='watched'?'watched':'usual');}
+  ratingSummary(player){
+    const buckets=playPools.flatMap(pool=>Object.keys(songRatingPools).map(format=>poolFormat(format,pool)));
+    const ratings=Object.fromEntries(buckets.map(bucket=>[bucket,1000]));
+    for(const {format,rating} of this.rows(`SELECT format,rating FROM song_ratings
+      WHERE player=? AND format IN (${buckets.map(()=>'?').join(',')})`,player,...buckets)){
+      ratings[format]=rating;
+    }
+    for(const pool of playPools){
+      ratings[poolFormat('ngmc-ranked',pool)]=this.rows('SELECT elo FROM '+ngmcTable(pool)+' WHERE player=?',player)[0]?.elo??1000;
+    }
+    return ratings;
+  }
   async rating(player,pool='random'){
     const table=ngmcTable(pool),key=pool+':'+player;
     const lookup=()=>this.rows('SELECT * FROM '+table+' WHERE player=?',player)[0];
@@ -420,6 +432,7 @@ export class PlayQueue extends DurableObject {
       this.lobbies.heartbeat(who.id);
       this.ctx.storage.sql.exec('UPDATE queue SET expires=? WHERE player=? AND match IS NULL',Date.now()+60000,who.id);
       send(ws,this.clientStatus(who.id));
+      if(message.includeRatings===true)send(ws,{type:'ratings',ratings:this.ratingSummary(who.id)});
       await this.lobbies.refreshWatchedPool(this.lobbies.forPlayer(who.id)?.code);
     }
     else fail('Unknown queue action.');

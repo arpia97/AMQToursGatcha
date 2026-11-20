@@ -4,15 +4,20 @@ const heart='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function ngmcArena(match,form){
-  return '<div class="sa-ready-wrap"></div><div class="ngmc-arena"><div class="sa-scoreboard"></div>'+
+  return '<div class="ngmc-arena"><div class="sa-scoreboard"></div>'+
     '<section class="sa-play-panel ngmc-panel"><header class="ngmc-strip"><span>Song '+(match.index+1)+' / '+match.total+'</span><strong class="sa-round-status"></strong></header>'+
     '<div class="ngmc-on-air"><div class="ngmc-track"></div>'+roundDialHTML+'</div>'+
-    '<div class="ngmc-console-body"><div class="sa-download-status"></div>'+form+'<div class="sa-shared-wrap"></div>'+
-    '<div class="ngmc-progress" aria-label="Song progress"></div></div></section></div>';
+    '<div class="ngmc-console-body"><div class="ngmc-action-area"><div class="ngmc-input-wrap">'+form+'</div>'+
+    '<div class="sa-ready-wrap"></div><div class="sa-shared-wrap"></div></div>'+
+    '<div class="ngmc-progress" aria-label="Song progress"></div></div></section></div>'+
+    '<div class="sa-download-status ngmc-download"></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){
-  return '<small>Anime</small><h2>'+(row?esc(animeTitle({anime:row.anime})):'Unrevealed')+'</h2><div class="ngmc-track-credits"><span><small>Song</small> '+
-    (row?esc(row.song):'—')+'</span><span><small>Artist</small> '+(row?artistCreditsHTML(row,esc):'—')+'</span></div>';
+  const title=row?esc(animeTitle({anime:row.anime})):'Unrevealed';
+  const name=row?esc(row.song):'—';
+  return '<small>Anime</small><h2 title="'+title+'">'+title+'</h2>'+
+    '<div class="ngmc-track-credits"><span><small>Song</small><span class="ngmc-song-name" title="'+name+'">'+name+'</span></span>'+
+    '<span><small>Artist</small>'+(row?artistCreditsHTML(row,esc):'—')+'</span></div>';
 }
 export function ngmcTeams(match,esc) {
   const me=match.players.find(p=>p.id===match.me),last=match.history.at(-1);

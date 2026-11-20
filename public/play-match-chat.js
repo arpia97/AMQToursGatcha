@@ -1,5 +1,5 @@
 const markup = `<aside class="chat" id="panel" aria-label="Match chat">
-<header class="bar"><button class="drag" id="drag" title="Drag to move. Use the arrow keys to reposition."><svg class="grip" viewBox="0 0 10 16" aria-hidden="true"><path d="M2 3h.1M7 3h.1M2 8h.1M7 8h.1M2 13h.1M7 13h.1" stroke-width="2.5"/></svg><svg class="bubble" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H9l-5 3v-5a7.4 7.4 0 0 1-2-5V9a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6z"/><path d="M7 9h8M7 13h5"/></svg>Match chat</button><button class="icon" id="minimize" aria-label="Minimize match chat" title="Minimize"><svg viewBox="0 0 24 24"><path d="M5 13h14"/></svg></button></header>
+<header class="bar"><button type="button" class="resize" id="resize" aria-label="Resize match chat" title="Drag or use the arrow keys to resize"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10V4h6m4 16h6v-6M4 4l6 6m4 4 6 6"/></svg></button><button class="drag" id="drag" title="Drag to move. Use the arrow keys to reposition."><svg class="grip" viewBox="0 0 10 16" aria-hidden="true"><path d="M2 3h.1M7 3h.1M2 8h.1M7 8h.1M2 13h.1M7 13h.1" stroke-width="2.5"/></svg><svg class="bubble" aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H9l-5 3v-5a7.4 7.4 0 0 1-2-5V9a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6z"/><path d="M7 9h8M7 13h5"/></svg>Match chat</button><button class="icon" id="minimize" aria-label="Minimize match chat" title="Minimize"><svg viewBox="0 0 24 24"><path d="M5 13h14"/></svg></button></header>
 <div id="content" class="content"><div class="stage"><div id="log" class="log" role="log" aria-label="Match messages" aria-live="polite"></div><div class="fx" id="fx" aria-hidden="true"></div></div>
 <div class="controls"><div class="shortcuts" id="quick"><button class="edit" id="edit"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14z"/></svg>Edit</button></div>
 <form id="compose" class="compose"><input id="text" aria-label="Message the match" maxlength="220" placeholder="Message the match…" autocomplete="off"><button aria-label="Send message" title="Send message" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 17-7-6 18-3-8zM11 13l9-10"/></svg></button></form></div></div>
@@ -27,7 +27,7 @@ export function openMatchChat(match, sendText) {
   const panel=by('panel'),log=by('log'),fx=by('fx'),input=by('text'),emojiInput=by('customEmoji');
   const players=new Map(match.players.map(p=>[p.id,p]));
   const key='amqtours-play-chat-emojis:'+match.me;
-  let slots=defaults.slice(),selected=0,lastSeq=0,drag=null;
+  let slots=defaults.slice(),selected=0,lastSeq=0,drag=null,resizing=null;
   try {
     const saved=JSON.parse(localStorage.getItem(key));
     if(Array.isArray(saved))slots=defaults.map((fallback,i)=>validEmoji(saved[i])?saved[i]:fallback);
@@ -127,6 +127,37 @@ export function openMatchChat(match, sendText) {
   by('drag').onkeydown=e=>{
     const v={ArrowLeft:[-12,0],ArrowRight:[12,0],ArrowUp:[0,-12],ArrowDown:[0,12]}[e.key];
     if(v){e.preventDefault();const r=panel.getBoundingClientRect();place(r.x+v[0],r.y+v[1]);}
+  };
+  function resize(bounds,width,height) {
+    const right=bounds.right,bottom=bounds.bottom;
+    const limitWidth=Math.max(1,right-6),limitHeight=Math.max(1,bottom-6);
+    const follow=log.scrollTop+log.clientHeight>=log.scrollHeight-10;
+    width=Math.min(limitWidth,Math.max(Math.min(260,limitWidth),width));
+    height=Math.min(limitHeight,Math.max(Math.min(230,limitHeight),height));
+    panel.classList.add('is-resized');
+    panel.style.width=width+'px';
+    panel.style.height=height+'px';
+    place(right-width,bottom-height);
+    if(follow)log.scrollTop=log.scrollHeight;
+  }
+  const handle=by('resize');
+  handle.onpointerdown=e=>{
+    if(e.button!==0)return;
+    resizing={bounds:panel.getBoundingClientRect(),x:e.clientX,y:e.clientY};
+    handle.setPointerCapture(e.pointerId);
+  };
+  handle.onpointermove=e=>{
+    if(!resizing)return;
+    const {bounds,x,y}=resizing;
+    resize(bounds,bounds.width+x-e.clientX,bounds.height+y-e.clientY);
+  };
+  handle.onlostpointercapture=()=>{resizing=null;};
+  handle.onkeydown=e=>{
+    const step={ArrowLeft:[16,0],ArrowRight:[-16,0],ArrowUp:[0,16],ArrowDown:[0,-16]}[e.key];
+    if(!step)return;
+    e.preventDefault();
+    const bounds=panel.getBoundingClientRect();
+    resize(bounds,bounds.width+step[0],bounds.height+step[1]);
   };
   window.addEventListener('resize',clamp,{signal:events.signal});
   shortcuts();
