@@ -673,7 +673,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     // Earlier matches use direct MP3s through their original playback path.
     if(!sealedCache&&match.phase==='guess'&&preparedIndex!==match.index&&!unlocking){const url=cache.url(sources[match.audioIndex??match.index],server);if(url){preparedIndex=match.index;audio.src=url;audio.onloadedmetadata=()=>{if(match?.phase==='guess')audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));};audio.load();}}
     if(!sealedCache&&match.phase==='guess'&&preparedIndex===match.index&&seekIndex!==match.index&&audio.readyState>=1&&!unlocking){audio.currentTime=sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));seekIndex=match.index;}
-    const counterTimer=root.querySelector('[data-counter-timer]');if(counterTimer)counterTimer.textContent=Math.max(0,Math.ceil((match.counterDeadline-now)/1000))+'s';
+    const counterTimer=root.querySelector('[data-counter-timer]');if(counterTimer)counterTimer.textContent=Math.max(0,Math.ceil((Number(counterTimer.dataset.counterTimer)-now)/1000))+'s';
     updateRoundDial(root.querySelector('.ngmc-dial'),match,now);
     if(match.phase==='guess'&&now>=match.startsAt&&now<match.until){
       if(draftDirty&&now>=match.until-1000)saveCurrentDraft();
@@ -779,7 +779,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(action==='skip'){saveCurrentDraft();send(room,{type:'skip',index:match.index,vote:!(match.skipVotes||[]).includes(match.me)});return;}
     if(action==='songs'){songDialog.open(match);return;}
     if(action==='queue'){if(queueStatus.type==='idle')primeAudio();if(['queued','joining'].includes(queueStatus.type))send(queue,{type:'cancel'});else if(queueStatus.type==='idle'){const selectedFormat=arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ranked()?ngmcFormat:format;const pool=preferredPool();if(send(queue,{type:'join',mode,format:selectedFormat,pool})){queuedFormat=selectedFormat;queueStatus={type:'joining',format:selectedFormat,pool};notifyQueue();render();}}}
-    else if(action==='volunteer')send(room,{type:'volunteer'});
+    else if(action==='volunteer'||action==='auto-count')send(room,{type:action});
     else if(action==='search-retry'){startWorker();render();}
     else if(action==='retry-download')preload();
     else if(action==='ready'){

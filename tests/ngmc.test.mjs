@@ -1,4 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';
+import {ngmcControls} from '../public/ngmc-ui.js';
 import {RankedLeaves} from '../src/ngmc-leaves.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -64,8 +65,36 @@ test('NGMC uses exact thresholds, optimal balance and uniform anime/type/song dr
 });
 test('NGMC gates 12 downloads and counter signup, counts once, excludes exhausted players, refills and ends at 35',()=>{
  const s=create();for(const p of s.players){p.ready=true;p.loaded=Array.from({length:11},(_,i)=>i);}
- advanceMatch(s,120000);assert.equal(s.phase,'loading');for(const p of s.players)p.loaded.push(11);
- advanceMatch(s,119999);assert.equal(s.phase,'loading');advanceMatch(s,120000);assert.equal(s.phase,'guess');assert.equal(s.until-s.startsAt,20000);
+ const volunteer=s.players[0],opponent=s.players.find(p=>p.team!==volunteer.team);
+ const controls=now=>ngmcControls(matchView(s,opponent.id,now),String);
+ assert.match(controls(19_999),/Be Counter/);
+ matchMove(s,volunteer.id,{type:'volunteer'},19_999);
+ assert.throws(()=>matchMove(s,opponent.id,{type:'volunteer'},20_000),/signup period has ended/);
+ assert.match(controls(20_000),/Counter Signup Closed/);
+ assert.doesNotMatch(controls(20_000),/Be Counter/);
+ for(const p of s.players)p.loaded.push(11);
+ advanceMatch(s,39_999);assert.equal(s.phase,'loading');
+ advanceMatch(s,40_000);assert.equal(s.phase,'guess');assert.equal(s.until-s.startsAt,20_000);
+ assert.equal(s.autoCounting[opponent.team],true);assert.equal(s.autoCounting[volunteer.team],false);
+ const slow=create();advanceMatch(slow,40_000);assert.equal(slow.phase,'loading');
+ const mixed=create(),human=mixed.players[0],auto=mixed.players.find(p=>p.team!==human.team);
+ matchMove(mixed,auto.id,{type:'auto-count'},100);
+ assert.throws(()=>matchMove(mixed,auto.id,{type:'volunteer'},200),/automatic counting for this match/);
+ matchMove(mixed,human.id,{type:'volunteer'},300);
+ assert.throws(()=>matchMove(mixed,human.id,{type:'auto-count'},400),/already has a counting assignment/);
+ for(const p of mixed.players){p.ready=true;p.loaded=Array.from({length:12},(_,i)=>i);}
+ advanceMatch(mixed,500);assert.equal(mixed.phase,'guess');
+ for(let i=0;i<2;i++){
+   const manual=mixed.players.filter(p=>p.team===human.team&&p.guesses>0).sort((a,b)=>b.elo-a.elo)[0];
+   const lowest=mixed.players.filter(p=>p.team===auto.team&&p.guesses>0).sort((a,b)=>a.elo-b.elo)[0];
+   answer(mixed,()=>true);assert.equal(mixed.counts[auto.team],lowest.id);
+   matchMove(mixed,human.id,{type:'count',index:i,player:manual.id},1001);
+   assert.equal(mixed.history.at(-1).spent[human.team],manual.id);
+   advanceMatch(mixed,mixed.until);assert.equal(matchView(mixed,auto.id).autoCounting[auto.team],true);
+ }
+ const filled=create();for(const p of filled.players){p.ready=true;p.loaded=Array.from({length:12},(_,i)=>i);}
+ for(const team of [0,1])matchMove(filled,filled.players.find(p=>p.team===team).id,{type:'volunteer'},500);
+ assert.equal(filled.phase,'guess');
  const a=s.players.filter(p=>p.team===0),b=s.players.filter(p=>p.team===1);
  s.counters=[a[0].id,b[0].id];answer(s,()=>true);assert.equal(s.phase,'counting');
  assert.equal(matchView(s,a[0].id).players.find(p=>p.id===a[1].id).answers,undefined);

@@ -19,7 +19,7 @@ export function ngmcTeams(match,esc) {
   const revealed=last?.index===match.index&&['counting','reveal','finished'].includes(match.phase);
   return '<div class="sa-team-list ngmc-teams">'+[me.team,1-me.team].map(team=>{
     const players=match.players.filter(p=>p.team===team).sort((a,b)=>b.elo-a.elo||a.id.localeCompare(b.id));
-    return '<section class="sa-team ngmc-team '+(team===me.team?'allies':'rivals')+'"><header><div><span>'+(team===me.team?'Your Team':'Opponents')+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating</small></div><div class="ngmc-lives" aria-label="'+match.teams[team]+' lives remaining">'+Array.from({length:5},(_,i)=>'<i class="'+(i<match.teams[team]?'alive':'lost')+'">'+heart+'</i>').join('')+'</div></header>'+players.map(p=>{
+    return '<section class="sa-team ngmc-team '+(team===me.team?'allies':'rivals')+'"><header><div><span>'+(team===me.team?'Your Team':'Opponents')+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating'+(match.autoCounting?.[team]?' · Auto-Count':'')+'</small></div><div class="ngmc-lives" aria-label="'+match.teams[team]+' lives remaining">'+Array.from({length:5},(_,i)=>'<i class="'+(i<match.teams[team]?'alive':'lost')+'">'+heart+'</i>').join('')+'</div></header>'+players.map(p=>{
       const result=revealed?last.results.find(r=>r.id===p.id):null,rating=match.ratings?.find(r=>r.id===p.id);
       const answer=result?(result.answers.anime||'No Answer'):p.left?'Left':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':'Loading Audio…':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):'Listening…';
       const badge=match.counters[team]===p.id?'<span class="ngmc-counter-badge" title="Team Counter" aria-label="Team Counter">'+counterIcon+'</span>':'';
@@ -30,7 +30,17 @@ export function ngmcTeams(match,esc) {
 export function ngmcControls(match,esc) {
   const me=match.players.find(p=>p.id===match.me),counter=match.players.find(p=>p.id===match.counters[me.team]);
   let html='';
-  if(match.phase==='loading'&&match.counters.some(id=>!id)&&match.now<match.counterDeadline)html+='<div class="ngmc-counter">'+(counter?'<strong>Waiting for Opponent Counter</strong>':'<button type="button" class="button secondary" data-sa-action="volunteer" title="Choose which teammate spends a guess">Be Counter</button>')+'<small>Automatic in <b data-counter-timer></b></small></div>';
+  const autoCountAt=match.autoCountAt??match.counterDeadline;
+  if(match.phase==='loading'&&match.counters.some((id,team)=>!id&&!match.autoCounting?.[team])&&match.now<autoCountAt){
+    const signupOpen=match.now<match.counterDeadline;
+    let action='<strong>Waiting for Opponent Counter</strong>';
+    if(!counter&&!match.autoCounting?.[me.team]){
+      action=signupOpen?'<button type="button" class="button secondary" data-sa-action="volunteer" title="Choose which teammate spends a guess">Be Counter</button>':'<strong>Counter Signup Closed</strong>';
+      action+='<button type="button" class="button secondary" data-sa-action="auto-count" title="Use automatic counting for your team for the whole match">Auto-Count for Match</button>';
+    }
+    const deadline=signupOpen?match.counterDeadline:autoCountAt;
+    html+='<div class="ngmc-counter">'+action+'<small>'+(signupOpen?'Signup closes in ':'Automatic counting in ')+'<b data-counter-timer="'+deadline+'"></b></small></div>';
+  }
   if(match.phase==='counting'){
     const row=match.history.at(-1),eligible=match.players.filter(p=>p.team===me.team&&!p.left&&p.guesses>0&&row.results.find(r=>r.id===p.id)?.correct.anime);
     html+='<div class="ngmc-count-options"><strong>'+(counter?.id===me.id&&match.counts[me.team]===null?'Spend a Guess':'Counting Guesses')+'</strong>';

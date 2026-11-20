@@ -99,8 +99,10 @@ export class PlayMatch extends DurableObject {
     if (!state) return;
     let next = this.pendingRankedLeaves(state).length?Math.min(now+1000,state.until):state.until;
     if(state.phase==='loading'&&state.readyDeadline&&state.players.some(p=>!p.left&&!p.acceptedReady&&!p.ready))next=Math.min(next,state.readyDeadline);
-    if (state.mode === 'ngmc-ranked' && state.phase === 'loading' && state.counterDeadline > now)
-      next = Math.min(next, state.counterDeadline);
+    if (state.mode === 'ngmc-ranked' && state.phase === 'loading' && state.counters.some((id,team) => !id && !state.autoCounting?.[team])) {
+      const deadline = now < state.counterDeadline ? state.counterDeadline : state.autoCountAt??state.counterDeadline;
+      next = Math.min(next, Math.max(now+1, deadline));
+    }
     if (state.audioSealed && state.phase === 'guess' && state.startsAt > now)
       next = Math.min(next,state.startsAt);
     if(state.arena||activeRankedGame(state,now))for(const p of state.players){

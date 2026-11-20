@@ -88,9 +88,10 @@ quizzes, one per player and quiz.
   totals at the public Tour profile endpoint. No history means three guesses.
   After an NGMC match, use cumulative NGMC hits/songs exclusively. A temporary
   Tour lookup failure prevents joining instead of silently inventing a seed.
-- Each team may volunteer a counter during the initial two-minute window. Both
-  counters plus audio readiness can start early. Missing counters use automatic
-  counting. A counter has eight seconds after reveal to choose an eligible
+- Each team has 20 seconds from match setup to volunteer a counter. If both
+  counters volunteer, play can start as soon as everyone is ready. At 40 seconds
+  from setup, teams without a volunteer use automatic counting. A team can also
+  choose automatic counting early. The choice lasts for the entire match. A counter has eight seconds after reveal to choose an eligible
   teammate; timeout uses lowest starting Elo, then canonical ID as a tie-break.
 - 35 distinct recordings, sampled uniformly by anime, then available OP/ED/IN
   category, then song. Three songs and the decoys download before start. Remaining tracks download
