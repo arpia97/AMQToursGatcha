@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Match abort and skip votes
+
+Source `22cbf55` is deployed at 100% on Worker `5957c543-cafd-4f69-aec2-1a8bafd72c85`. A strict majority of the starting roster can abort any multiplayer match. All multiplayer formats now support a per-song skip vote. All 562 tests passed, including voiding a ranked room after a scored song and checking its rating and credit receipts. Desktop and mobile browser checks exercised the deployed controls with fixture match sockets.
+
 ## Multiplayer match chat
 
 Source `4954a7d` is live at 100% on Worker `6f7362df-159f-4db9-94a0-64aa67a5169c`. Multiplayer rooms have movable chat with three editable emoji shortcuts, initially 🔥, 🌋 and ❓. The same room socket carries text and emoji messages. All 562 tests passed, including authenticated delivery to two players using a local match. Browser checks exercised the deployed chat modules with fixture sockets at 1440px and 390px, including particles, customization, dragging and minimizing.
