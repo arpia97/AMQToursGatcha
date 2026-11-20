@@ -843,11 +843,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     else if(event.key==='Tab'&&fields.length>1&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
       tabbedThisRound=true;
       hideSuggestions();
-      const choices=fields.filter(f=>!root.querySelector('#sa-'+f)?.disabled);
-      let next=choices[choices.indexOf(field)+(event.shiftKey?-1:1)];
-      if(!next&&!event.shiftKey&&match?.format==='lobby-team'&&match.players.filter(p=>!p.left).length===1){
-        next=choices[0];
-      }
+      const choices=fields.filter(f=>root.querySelector('#sa-'+f+':enabled'));
+      if(choices.length<2)return;
+      const index=choices.indexOf(field);
+      const next=event.shiftKey ? choices[index-1] : choices[(index+1)%choices.length];
       if(!next)return;
       event.preventDefault();
       selectField(next);
