@@ -4,7 +4,8 @@
 .play-site input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
 .play-sidebar { position:fixed; inset:0 auto 0 0; width:var(--play-sidebar); display:flex; flex-direction:column; padding:32px 20px 20px; border-right:1px solid var(--border); background:#13151c; overflow-y:auto; scrollbar-width:none; }
 .play-sidebar::-webkit-scrollbar { display:none; }
-.play-brand { display:flex; padding:0 8px; margin-bottom:52px; }
+.play-brand { display:flex; padding:0 8px; margin-bottom:14px; }
+.play-sidebar > .play-gacha-link { margin-bottom:14px; flex-shrink:0; }
 .play-nav-label { padding:0 12px; color:var(--muted); font-size:9px; letter-spacing:1.4px; text-transform:uppercase; margin-bottom:14px; }
 #play-nav { display:flex; flex-direction:column; gap:7px; }
 #play-nav a { display:flex; align-items:center; gap:12px; padding:14px 12px; color:var(--muted); border:1px solid transparent; border-radius:10px; font-size:12px; transition:background .16s,color .16s; }
@@ -40,9 +41,10 @@
 @media (max-width:800px) {
   .play-sidebar { display:none; }
   .play-workspace { margin-left:0; padding-bottom:calc(72px + env(safe-area-inset-bottom)); }
-  .play-header { gap:12px; }
+  .play-header { gap:12px; min-height:74px; }
   .play-header-label { display:none; }
-  .play-mobile-brand { display:flex; min-width:0; overflow:hidden; }
+  .play-mobile-brand { display:grid; justify-items:start; gap:4px; min-width:0; }
+  .play-mobile-brand .play-gacha-link { min-height:28px; padding:3px 9px; gap:5px; font-size:11px; }
   .play-site :is(#main,#play-watch) { padding:25px 20px 32px; }
   .play-footer { padding:20px; }
   #play-mobile-nav { position:fixed; inset:auto 0 0; height:auto; min-height:0; max-height:none; z-index:80; display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); padding:7px 7px calc(7px + env(safe-area-inset-bottom)); gap:3px; border-top:1px solid var(--border); background:#15171f; }

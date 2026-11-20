@@ -66,6 +66,7 @@ import {
   installNavigation,
   navigationSection,
 } from "./site-navigation.js";
+import { playHref } from "./play-navigation.js";
 import { pickemTeams } from "./tour-winner.js";
 import {
   createPickemAutosave,
@@ -113,13 +114,13 @@ const currentCardSize = installCardSize(document, {
   setItem: (key, value) => localStorage.setItem(key, value),
 });
 const mobileNavigation = installMobileNavigation({
-  bottom: [{key:'home',label:'Home'},{key:'profile',label:'Profile'},{key:'quiz',label:'Quiz'}],
+  bottom: [{key:'home',label:'Home'},{key:'profile',label:'Profile'},{key:'play',label:'Play'}],
   route: () => navigationSection(page(),state?.me?.id,profileData?.id),
   brand: {href:routeHref('home'),logo:new URL('./amq-tours-logo.png',import.meta.url).href},
   secondary: {href:'/tour',label:'Open Tour Platform'},
   groups: () => [
     {key:'collect',label:'Collect',keys:['profile','collection','packs','fusion','catalog','shop','auctions']},
-    {key:'play',label:'Play',keys:['quiz','pickems','arcade']},
+    {key:'play',label:'Play',keys:['play','pickems','arcade']},
     {key:'community',label:'Community',keys:['home','players','ranks']}
   ],
   additionalLinks: () => [{key:'collection',href:routeHref('collection'),label:'My Collection',icon:'M3 5h7v14H3z M14 5h7v14h-7z',active:page()==='collection'}],
@@ -219,8 +220,7 @@ icons.profile =
   '<circle cx="12" cy="8" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3"/>';
 icons.notifications = '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 10h18c0-2-3-3-3-10M10 21h4"/>';
 icons.catalog = icons.collection;
-icons.quiz =
-  '<path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>';
+icons.play = '<path d="m8 5 12 7-12 7z"/>';
 const routes = SITE_ROUTES;
 let heroCards = null,
   clockOffset = 0;
@@ -1896,10 +1896,15 @@ function render() {
               : routes.find((r) => r[0] === route)[1];
   const activeSection = navigationSection(route, state.me?.id, profileData?.id);
   $("#navigation").innerHTML = routes
-    .map(
-      ([id, name]) =>
-        `<a class="nav-link ${id === activeSection ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${id === activeSection ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`,
-    )
+    .map(([id, name]) => {
+      if (id === "quiz") {
+        const playUrl = playHref("overview");
+        const href = location.hostname.endsWith(".github.io") ? "https://amqtours.app" + playUrl : playUrl;
+        return `<a class="nav-link" href="${href}" data-mobile-key="play">${svg(icons.play)}<span>Play</span></a>`;
+      }
+      const active = id === activeSection;
+      return `<a class="nav-link ${active ? "active" : ""}" href="${routeHref(id)}" aria-label="${name}" ${active ? 'aria-current="page"' : ""}>${svg(icons[id])}<span>${name}</span></a>`;
+    })
     .join("");
   updateInboxBadge();
   $("#page-name").textContent = title;
