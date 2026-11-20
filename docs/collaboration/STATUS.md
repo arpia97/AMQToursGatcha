@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Online Players avatar glow
+
+Source `8ddef7f` is live at 100% on Worker `d49e916d-00eb-4b40-bc50-8eb5486a2aa3`. The Play Overview scroll list gives the avatar glow a 26 px inline gutter and adds vertical breathing room. Chrome fixtures using the deployed stylesheet verified the maximum-level glow and continued scrolling at 1440, 390, and 320 px. Syntax checks and the dry run passed. The live Overview route returned HTTP 200.
+
 ## NGMC Song List accuracy
 
 Source `9ecd8b7` is live at 100% on Worker `dee01dc9-05e2-4da2-8293-11afbe0d2d77`. Each revealed NGMC song shows lobby-wide correct answers out of the starting roster and the viewer’s Correct or Incorrect result. Unplayed rows show dashes. All 567 tests, syntax checks, and the dry run passed. Desktop and mobile fixtures verified the deployed Song List, including 4v4, 3v3, and the original Song/Artist display. The compact Match Chat header is a separate local preview in `outputs/compact-match-chat-preview`.
