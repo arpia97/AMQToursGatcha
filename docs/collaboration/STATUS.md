@@ -2,7 +2,7 @@
 
 ## Play lobby chat and live preview
 
-Codex owns the Play chat membership, spectator chat, and Overview roster and queue styling rollout from `903b3d3`.
+Source `292f948` is live at 100% on Worker `60cf6c22-0d20-4268-9e3c-936009b10064`. Players see departure notices in Match Chat, including on results, and in the custom waiting lobby. Public-match spectators share Match Chat and trigger notices on entry and exit while retaining a view-only gameplay connection. Overview uses the match roster’s Rating order and a yellow In Queue label. All 568 tests, syntax checks, and the Worker dry run passed. Browser fixtures verified custom lobby chat at 1440 and 390 px and the deployed Watch and Overview assets at 1440, 390, and 320 px. The live Overview and NGMC routes returned HTTP 200. No production matches were created for validation.
 
 ## Live spectating and Play presence
 
