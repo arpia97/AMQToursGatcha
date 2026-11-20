@@ -103,12 +103,20 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
   }
 
   async function updateScore(card,id,signal){
+    const rosterPanel=card.nextElementSibling;
     while(!signal.aborted){
       try{
         const score=await loadScore(id,signal);
         if(signal.aborted)return;
+        const order=new Map(score.playerOrder?.map((id,index)=>[String(id),index]));
+        for(const roster of rosterPanel.querySelectorAll('.overview-side ul')){
+          const players=Array.from(roster.children);
+          const sorted=players.slice().sort((a,b)=>(order.get(a.dataset.playerId)??Infinity)-(order.get(b.dataset.playerId)??Infinity));
+          if(sorted.some((row,index)=>row!==players[index]))roster.append(...sorted);
+        }
         card.innerHTML='<div class="overview-score-heading"><strong>'+esc(liveProgressText(score))+'</strong><span>'+
           esc(score.unit)+'</span></div>'+liveScoreHTML(score,esc);
+        rosterPanel.hidden=false;
       }catch(error){
         if(signal.aborted)return;
         if(error.status===404){
@@ -117,6 +125,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
           return;
         }
         if(!card.querySelector('.overview-score-heading'))card.textContent='Live score temporarily unavailable.';
+        rosterPanel.hidden=false;
       }
       await new Promise(resolve=>{
         const timer=setTimeout(done,4000);
@@ -155,9 +164,9 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
     return '<div class="overview-matchup" id="overview-match-'+index+'" role="region" aria-label="'+esc(title)+' players" hidden>'+
       '<div class="overview-matchup-title"><strong>'+esc(title)+'</strong>'+poolLabel(match.pool)+'</div>'+
       '<div class="overview-live-score"><span>Loading score…</span></div>'+
-      '<div class="overview-sides'+(teams.size===1?' single':'')+'">'+[...teams].sort(([a],[b])=>a-b).map(([team,roster])=>
+      '<div class="overview-sides'+(teams.size===1?' single':'')+'" hidden>'+[...teams].sort(([a],[b])=>a-b).map(([team,roster])=>
         '<section class="overview-side team-'+(team+1)+'"><h3>'+(teams.size===1?'Players':'Team '+(team+1))+'</h3><ul>'+
-          roster.map(player=>'<li>'+avatar({...player,avatar:byId.get(player.id)?.avatar},esc)+esc(player.name)+'</li>').join('')+
+          roster.map(player=>'<li data-player-id="'+esc(player.id)+'">'+avatar({...player,avatar:byId.get(player.id)?.avatar},esc)+esc(player.name)+'</li>').join('')+
         '</ul></section>'
       ).join('')+(teams.size===2?'<span class="overview-matchup-vs" aria-hidden="true">VS</span>':'')+'</div>'+
       '<button type="button" class="button secondary overview-watch" data-watch-match="'+esc(match.id)+'">Watch Match</button></div>';

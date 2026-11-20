@@ -6,10 +6,12 @@ NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
-Players in a multiplayer match share a movable chat window. Each player has
-three emoji shortcuts, initially 🔥, 🌋 and ❓. Edit saves replacements for
-that account in the same browser. Reconnecting restores the latest 80 messages
-from that match without replaying old emoji animations.
+Players share a movable Match Chat window. Signed-in spectators of public matches
+can read and send messages, including on the results screen. Chat announces
+when spectators start or stop watching and when players leave. Custom lobbies
+have a separate Lobby Chat for members between matches. Each chat restores up
+to 80 messages on reconnect. Three emoji shortcuts start as 🔥, 🌋 and ❓ and
+can be customized for the account in that browser.
 
 Any player can request a match abort. The request counts as a yes vote. More
 than half the starting roster must vote yes to void the result immediately.

@@ -304,6 +304,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const summaryScore=await (await mf.dispatchFetch(watchPath(rankedId),{headers:{Cookie:observer}})).json();
   assert.equal(summaryScore.song,1);assert.equal(summaryScore.total,35);assert.equal(summaryScore.unit,'Lives');
   assert.deepEqual(summaryScore.scores[0].map(side=>side.value),[5,5]);
+  assert.deepEqual(summaryScore.playerOrder,['1','2','3','4','5','6','7','8']);
+  const rankedPlayer=await connect(0,rankedId);
+  const rankedOther=await connect(1,rankedId);
   const watchResponse=await mf.dispatchFetch(base+'/api/__fake-watch-proxy?match='+rankedId,
     {headers:{...upgrade,Origin:'https://amqtours.app',Cookie:observer}});
   assert.equal(watchResponse.status,101);
@@ -311,6 +314,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   watcher.addEventListener('message',event=>observed.push(JSON.parse(event.data)));
   watcher.accept();
   t.after(()=>{if(watcher.readyState===1)watcher.close();});
+  await rankedPlayer.wait(m=>m.type==='chat-message'&&m.row.body==='Local Player 9 started spectating.');
+  watcher.send(JSON.stringify({type:'chat-send',body:'Good luck!'}));
+  const spectatorMessage=await rankedPlayer.wait(m=>m.type==='chat-message'&&m.row.body==='Good luck!');
+  assert.equal(spectatorMessage.row.player,'play-spectators:9');
+  assert.equal(spectatorMessage.row.name,'Local Player 9');
+  rankedPlayer.send({type:'chat-send',body:'Thanks!'});
+  for(let i=0;i<25&&!observed.some(m=>m.row?.body==='Thanks!');i++)await sleep(20);
+  assert.ok(observed.some(m=>m.row?.body==='Thanks!'));
   const retired=await mf.dispatchFetch(watchPath(rankedId),{headers:{...upgrade,Cookie:cookies[0]}});
   assert.equal(retired.status,101);
   const readonly=retired.webSocket, closed=Promise.withResolvers();
@@ -332,8 +343,17 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   await mf.dispatchFetch(base+'/api/__expire?match='+rankedId);
   for(let i=0;i<25&&!observed.some(m=>m.state?.phase==='finished');i++)await sleep(20);
   assert.ok(observed.some(m=>m.state?.phase==='finished'));
-  assert.ok(observed.every(event=>event.type==='spectator'));
+  assert.ok(observed.every(event=>['spectator','chat-history','chat-message'].includes(event.type)));
   assert.doesNotMatch(JSON.stringify(observed),/audioPool|playback|decoys|ballot|ticket|draft/i);
+  watcher.send(JSON.stringify({type:'chat-send',body:'Good game!'}));
+  await rankedPlayer.wait(m=>m.row?.body==='Good game!');
+  rankedPlayer.send({type:'leave'});
+  await rankedOther.wait(m=>m.row?.body==='Local Player 1 left the lobby.');
+  for(let i=0;i<25&&!observed.some(m=>m.row?.body==='Local Player 1 left the lobby.');i++)await sleep(20);
+  assert.ok(observed.some(m=>m.row?.body==='Local Player 1 left the lobby.'));
+  watcher.close();
+  await rankedOther.wait(m=>m.row?.body==='Local Player 9 stopped spectating.');
+  rankedPlayer.ws.close();rankedOther.ws.close();
   const rankingBase=base+'/api/play-rankings?format=ngmc-ranked';
   const watchedRankings=await(await mf.dispatchFetch(rankingBase+'&pool=watched')).json();
   const randomRankings=await(await mf.dispatchFetch(rankingBase+'&pool=random')).json();
@@ -701,10 +721,16 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(completed.creditReward,undefined);
     assert.deepEqual(await Promise.all([wallet(0),wallet(1)]),balances.map((balance,i)=>balance+expected[i]));
     await guest.wait(m=>m.type==='lobby-ended');
+    if(pool==='random')host.send({type:'lobby-leave'});
+    const customNotice=await customRooms[1].wait(m=>m.type==='chat-message'&&m.row.body==='Local Player 1 left the lobby.');
+    assert.equal(customNotice.row.player,'');
     const current=await(await mf.dispatchFetch(base+'/api/play-rankings?format=1v1-ranked&pool='+pool)).json();
     assert.deepEqual(current.rows,rows.rows);
     guest.send({type:'lobby-return',match:customId});
     await guest.wait(m=>m.type==='lobby'&&!m.busy&&m.host==='2');
+    guest.send({type:'lobby-chat-history',code:lobby.code});
+    const notices=await guest.wait(m=>m.type==='lobby-chat-history');
+    assert.equal(notices.rows.filter(row=>row.body==='Local Player 1 left the lobby.').length,1);
     for(const socket of [host,guest]){
       const after=socket.messages.length;
       socket.send({type:'lobby-leave'});

@@ -2,6 +2,8 @@ import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-
 import {DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
+import {send} from './play-sockets.js';
+import {retryDurableOperation} from './durable-recovery.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
@@ -49,6 +51,10 @@ export class PlayLobbies {
     if(!queue.rows('PRAGMA table_info(lobby_members)').some(c=>c.name==='ready'))
       this.sql.exec('ALTER TABLE lobby_members ADD COLUMN ready INTEGER NOT NULL DEFAULT 0');
     this.sql.exec('CREATE INDEX IF NOT EXISTS lobby_roster ON lobby_members(code)');
+    this.sql.exec(`CREATE TABLE IF NOT EXISTS lobby_chat(
+      seq INTEGER PRIMARY KEY,code TEXT NOT NULL,player TEXT NOT NULL,name TEXT,body TEXT NOT NULL,at INTEGER NOT NULL
+    )`);
+    this.sql.exec('CREATE INDEX IF NOT EXISTS lobby_chat_room ON lobby_chat(code,seq)');
   }
   forPlayer(player){
     return this.queue.rows('SELECT l.*,m.last_match FROM play_lobbies l JOIN lobby_members m USING(code) WHERE m.player=?',player)[0];
@@ -106,11 +112,47 @@ export class PlayLobbies {
       this.queue.broadcast();
   }
   heartbeat(id){this.sql.exec('UPDATE lobby_members SET expires=? WHERE player=?',Date.now()+90000,id);}
+  appendChat(code,player,name,body){
+    const row=this.sql.exec('INSERT INTO lobby_chat(code,player,name,body,at) VALUES(?,?,?,?,?) RETURNING *',
+      code,player,name,body,Date.now()).one();
+    this.sql.exec('DELETE FROM lobby_chat WHERE code=? AND seq IN (SELECT seq FROM lobby_chat WHERE code=? ORDER BY seq DESC LIMIT -1 OFFSET 80)',code,code);
+    for(const member of this.readyRoster(code)){
+      for(const socket of this.queue.ctx.getWebSockets(member.id)){
+        if(socket.deserializeAttachment()?.expires>row.at)send(socket,{type:'lobby-chat',code,row});
+      }
+    }
+  }
+  chat(ws,who,message){
+    const lobby=this.forPlayer(who.id);
+    if(!lobby||lobby.last_match||message.code!==lobby.code)return;
+    if(message.type==='lobby-chat-history'){
+      const rows=this.queue.rows('SELECT seq,player,name,body,at FROM lobby_chat WHERE code=? ORDER BY seq',lobby.code);
+      send(ws,{type:'lobby-chat-history',code:lobby.code,rows});return;
+    }
+    const body=typeof message.body==='string'?message.body.trim():'';
+    if(!body||body.length>220)return;
+    const recent=this.sql.exec('SELECT COUNT(*) AS n FROM lobby_chat WHERE code=? AND player=? AND at>?',lobby.code,who.id,Date.now()-2000).one().n;
+    if(recent<4)this.appendChat(lobby.code,who.id,who.name,body);
+    else send(ws,{type:'error',message:'Give the chat a moment before sending again.'});
+  }
   async leave(id){
     const row=this.forPlayer(id);if(!row)return;
-    if(row.match&&row.match===row.last_match)await this.queue.env.PLAY_MATCHES.getByName(row.match).depart(id);
-    this.sql.exec('DELETE FROM lobby_members WHERE player=? AND code=?',id,row.code);
-    this.sql.exec('DELETE FROM play_lobbies WHERE code=? AND NOT EXISTS(SELECT 1 FROM lobby_members WHERE code=?)',row.code,row.code);
+    const activeMatch=row.match===row.last_match?row.match:null;
+    if(activeMatch)await this.queue.env.PLAY_MATCHES.getByName(activeMatch).depart(id,row.code);
+    const leaving=this.queue.ctx.storage.transactionSync(()=>{
+      const removed=this.sql.exec('DELETE FROM lobby_members WHERE player=? AND code=? RETURNING name',id,row.code).toArray()[0];
+      if(!removed)return null;
+      const others=this.queue.rows('SELECT DISTINCT last_match FROM lobby_members WHERE code=? AND last_match IS NOT NULL',row.code);
+      const matches=new Set([row.last_match,...others.map(member=>member.last_match)]);
+      matches.delete(null);matches.delete(activeMatch);
+      const closed=this.sql.exec('DELETE FROM play_lobbies WHERE code=? AND NOT EXISTS(SELECT 1 FROM lobby_members WHERE code=?) RETURNING code',row.code,row.code).toArray().length;
+      if(closed)this.sql.exec('DELETE FROM lobby_chat WHERE code=?',row.code);
+      return {name:removed.name,matches,closed};
+    });
+    if(!leaving)return;
+    if(!leaving.closed)this.appendChat(row.code,'',null,leaving.name+' left the lobby.');
+    await Promise.allSettled([...leaving.matches].map(match=>retryDurableOperation(()=>
+      this.queue.env.PLAY_MATCHES.getByName(match).depart(id,row.code))));
     this.queue.release(id,row.match||'');
     await this.refreshWatchedPool(row.code);
   }

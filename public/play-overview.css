@@ -97,7 +97,7 @@ button.overview-match-button:hover,.overview-match-button[aria-expanded=true] {b
 div.overview-match-button {cursor:default;background:#13161d;border-color:var(--border);}
 .overview-page [hidden] {display:none;}
 .overview-player-status {color:var(--muted);font-size:10px;white-space:nowrap;}
-.overview-player-status[data-status="queued"] {color:#d6bdd9;}
+.overview-player-status[data-status="queued"] {color:#f1ca72;}
 .overview-player-status[data-status="playing"] {color:#b6e2c5;}
 .overview-player-status[data-status="quiz"] {color:#c0ccff;}
 .overview-player-status[data-status="afk"] {color:#e4be8d;}

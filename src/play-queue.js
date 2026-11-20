@@ -419,6 +419,9 @@ export class PlayQueue extends DurableObject {
   }
   async fetch(request){try{if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const who=identity(request);const {server,response}=accept(this.ctx,who);send(server,this.clientStatus(who.id));await this.scheduleQueue();return response;}catch(error){return Response.json({error:error.status?error.message:'Unable to join queue.'},{status:error.status||503});}}
   async webSocketMessage(ws,raw){try{const input=receive(ws,raw);if(!input)return;const {who,message}=input;
+    if(message.type==='lobby-chat'||message.type==='lobby-chat-history'){
+      this.lobbies.chat(ws,who,message);return;
+    }
     if(typeof message.type==='string'&&message.type.startsWith('lobby-')){
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to use lobbies.');
       await this.lobbies.action(who,message);

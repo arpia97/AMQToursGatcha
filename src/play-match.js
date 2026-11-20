@@ -1,4 +1,4 @@
-import {DUEL_FORMAT, duelRules} from '../public/play-mode-rules.js';
+import {DUEL_FORMAT, comparePlayTier, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {gameEnded,liveMatchScore,spectatorTag,spectatorView} from './play-spectator.js';
@@ -24,6 +24,8 @@ export class PlayMatch extends DurableObject {
     this.reviewLog=new MatchReview(ctx.storage);this.highlights=new ReviewHighlights(ctx.storage);
     sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');
     sql.exec('CREATE TABLE IF NOT EXISTS room_chat(seq INTEGER PRIMARY KEY, player TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)');
+    if(!sql.exec('PRAGMA table_info(room_chat)').toArray().some(col=>col.name==='name'))
+      sql.exec('ALTER TABLE room_chat ADD COLUMN name TEXT');
   }
   #playerSockets(){
     return this.ctx.getWebSockets().filter(socket=>!socket.deserializeAttachment()?.spectator);
@@ -32,19 +34,39 @@ export class PlayMatch extends DurableObject {
     return this.ctx.storage.sql.exec('SELECT * FROM room_chat ORDER BY seq').toArray();
   }
   chatMessage(ws,state,who,body){
-    const member=state.players.find(p=>p.id===who.id&&!p.left);
+    const member=who.spectator||state.players.some(p=>p.id===who.id&&!p.left&&!p.chatLeft);
     const message=typeof body==='string'?body.trim():'';
     if(!member||!message||message.length>220){send(ws,{type:'chat-error',message:'Message could not be sent.'});return;}
-    const sql=this.ctx.storage.sql,now=Date.now();
-    if(sql.exec('SELECT COUNT(*) AS n FROM room_chat WHERE player=? AND at>?',who.id,now-2000).one().n>=4){
+    const sql=this.ctx.storage.sql,now=Date.now(),spectatorId=spectatorTag+':'+who.id;
+    if(sql.exec('SELECT COUNT(*) AS n FROM room_chat WHERE player IN (?,?) AND at>?',who.id,spectatorId,now-2000).one().n>=4){
       send(ws,{type:'chat-error',message:'Give the chat a moment before sending again.'});return;
     }
-    const row=sql.exec('INSERT INTO room_chat(player,body,at) VALUES(?,?,?) RETURNING *',who.id,message,now).one();
+    this.appendChat(state,who.spectator?spectatorId:who.id,message,who.name);
+  }
+  appendChat(state,player,body,name=null){
+    this.broadcastChat(state,this.storeChat(player,body,name));
+  }
+  storeChat(player,body,name=null){
+    const sql=this.ctx.storage.sql;
+    const row=sql.exec('INSERT INTO room_chat(player,body,at,name) VALUES(?,?,?,?) RETURNING *',player,body,Date.now(),name).one();
     sql.exec('DELETE FROM room_chat WHERE seq<=?',row.seq-80);
-    for(const socket of this.#playerSockets()){
-      const recipient=socket.deserializeAttachment();
-      if(recipient?.expires>now&&state.players.some(p=>p.id===recipient.id&&!p.left))send(socket,{type:'chat-message',row});
+    return row;
+  }
+  broadcastChat(state,row){
+    const members=new Set(state.players.filter(p=>!p.left&&!p.chatLeft).map(p=>p.id));
+    for(const socket of this.ctx.getWebSockets()){
+      const who=socket.deserializeAttachment();
+      if(who?.expires>row.at&&(who.spectator||members.has(who.id)))send(socket,{type:'chat-message',row});
     }
+  }
+  recordChatExit(state,player){
+    if(!player||player.chatLeft)return;
+    player.chatLeft=true;
+    const row=this.ctx.storage.transactionSync(()=>{
+      this.write(state);
+      return this.storeChat('',player.name+' left the lobby.');
+    });
+    this.broadcastChat(state,row);
   }
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
@@ -145,12 +167,15 @@ export class PlayMatch extends DurableObject {
     this.lastSpectatorState=next;
     const payload='{"type":"spectator","now":'+now+',"state":'+next+'}';
     for(const ws of viewers){
-      try{ws.send(payload);if(gameEnded(state.phase))ws.close(1000,'Match ended.');}catch{}
+      try{ws.send(payload);}catch{}
     }
   }
   liveScore(){
     const state=this.read();
-    return !state||gameEnded(state.phase)?null:liveMatchScore(state);
+    if(!state||gameEnded(state.phase))return null;
+    const playerOrder=state.players.some(p=>Number.isFinite(p.elo))
+      ? [...state.players].sort(comparePlayTier).map(p=>p.id) : undefined;
+    return {...liveMatchScore(state),playerOrder};
   }
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;
@@ -211,13 +236,15 @@ export class PlayMatch extends DurableObject {
     }
     return {};
   }
-  async depart(id){
+  async depart(id,code=null){
     const state=this.read();
-    if(!state?.lobby||['finished','cancelled'].includes(state.phase))return;
+    if(!state?.lobby||(code&&state.lobby.code!==code))return;
     const player=state.players.find(p=>p.id===id);
-    if(!player||player.left)return;
-    matchMove(state,id,{type:'leave'});this.write(state);this.broadcast(state);
-    await this.schedule();await this.finish(state);
+    if(!player||player.chatLeft)return;
+    const playing=!gameEnded(state.phase)&&!player.left;
+    if(playing)matchMove(state,id,{type:'leave'});
+    this.recordChatExit(state,player);
+    if(playing){this.broadcast(state);await this.schedule();await this.finish(state);}
   }
   async fetch(request) {
     try {
@@ -226,8 +253,11 @@ export class PlayMatch extends DurableObject {
       if(new URL(request.url).pathname==='/spectator'){
         if(gameEnded(state.phase))fail('This match has ended.',404);
         const tag=spectatorTag+':'+who.id;
+        const alreadyWatching=this.ctx.getWebSockets(tag).some(ws=>ws.readyState===1&&ws.deserializeAttachment().expires>Date.now());
         const {server,response}=accept(this.ctx,{...who,spectator:true},tag,[tag,spectatorTag]);
         send(server,{type:'spectator',now:Date.now(),state:spectatorView(state)});
+        send(server,{type:'chat-history',rows:this.chatHistory()});
+        if(!alreadyWatching)this.appendChat(state,'',who.name+' started spectating.');
         return response;
       }
       const player=state.players.find(p=>p.id===who.id);
@@ -249,7 +279,7 @@ export class PlayMatch extends DurableObject {
     if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
     send(server,audioManifest(mediaState));
       send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});
-      if(!player.left)send(server,{type:'chat-history',rows:this.chatHistory()});
+      if(!player.left&&!player.chatLeft)send(server,{type:'chat-history',rows:this.chatHistory()});
       await this.schedule();
       return response;
     } catch(error){return Response.json({error:error.status?error.message:'Unable to join match.'},{status:error.status||503});}
@@ -303,10 +333,12 @@ export class PlayMatch extends DurableObject {
     try{return await repair;}finally{if(this.audioRepair===repair)this.audioRepair=null;}
   }
   async webSocketMessage(ws,raw) {
-    if(ws.deserializeAttachment()?.spectator){
-      closeSocket(ws,1008,'Spectating is read-only.');return;
-    }
     try{const input=receive(ws,raw);if(!input)return;
+      if(input.who.spectator){
+        if(input.message.type!=='chat-send'){closeSocket(ws,1008,'Spectators can only use chat.');return;}
+        const state=this.read();if(state)this.chatMessage(ws,state,input.who,input.message.body);
+        return;
+      }
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
       if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
@@ -351,7 +383,9 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='activity'){
         this.reviewLog.activity(state,input.who.id,input.message);return;
       }
-      const before={index:state.index,phase:state.phase,startsAt:state.startsAt,historyLength:state.history.length,locked:state.players.find(p=>p.id===input.who.id)?.locked,field:state.players.find(p=>p.id===input.who.id)?.field},at=Date.now();
+      const member=state.players.find(p=>p.id===input.who.id);
+      if(input.message.type==='leave'&&gameEnded(state.phase)){if(!state.lobby)this.recordChatExit(state,member);return;}
+      const before={index:state.index,phase:state.phase,startsAt:state.startsAt,historyLength:state.history.length,locked:member?.locked,field:member?.field},at=Date.now();
       let message=input.message;
       if(message.type==='loaded'){const indices=loadedRounds(state,message.indices);if(!indices)fail('Invalid download progress.');message={...message,indices};}
       let failure;
@@ -368,7 +402,10 @@ export class PlayMatch extends DurableObject {
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
       if(message.type==='skip')this.reviewLog.add(state,input.who.id,'skip-vote',{vote:message.vote});
-      if(message.type==='leave')this.reviewLog.add(state,input.who.id,'left');
+      if(message.type==='leave'&&member&&!member.chatLeft){
+        this.reviewLog.add(state,input.who.id,'left');
+        this.recordChatExit(state,member);
+      }
       if(before.phase!==state.phase||before.index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
       this.write(state);if(message.type==='draft'&&before.phase===state.phase){send(ws,{type:'draft-saved',index:state.index});return;}this.broadcast(state);
       if(input.message.type==='leave'&&['ngmc-ranked',DUEL_FORMAT].includes(state.format)){
@@ -452,8 +489,18 @@ export class PlayMatch extends DurableObject {
     return value;
   }
   async webSocketClose(ws,code,reason){
-    if(ws.deserializeAttachment()?.spectator){closeSocket(ws,code,reason);return;}
-    const state=this.read(),id=ws.deserializeAttachment()?.id,now=Date.now();
+    const who=ws.deserializeAttachment(),state=this.read(),now=Date.now();
+    if(who?.spectator){
+      const replaced=this.ctx.getWebSockets(spectatorTag+':'+who.id)
+        .some(other=>other!==ws&&other.readyState===1&&other.deserializeAttachment().expires>now);
+      if(state&&!replaced)this.appendChat(state,'',who.name+' stopped spectating.');
+      closeSocket(ws,code,reason);return;
+    }
+    const id=who?.id;
+    if(state&&!state.lobby&&gameEnded(state.phase)&&
+      !this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
+      this.recordChatExit(state,state.players.find(p=>p.id===id&&!p.left));
+    }
     if(state&&!['finished','cancelled'].includes(state.phase)){
       this.reviewLog.add(state,id,'disconnected',{code});
       const p=state.players.find(p=>p.id===id);

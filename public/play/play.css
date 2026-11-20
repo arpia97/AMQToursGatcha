@@ -172,7 +172,9 @@
 .play-live-score-row>span:nth-child(even) {background:#392c39; color:#f3c4d0;}
 .play-live-score-row strong {font-variant-numeric:tabular-nums;}
 
-.play-site #modal.play-watch-dialog {width:min(760px,calc(100vw - 28px)); max-width:none;}
+.play-site #modal.play-watch-dialog {width:min(1040px,calc(100vw - 28px)); max-width:none;}
+.watch-body {display:grid;grid-template-columns:minmax(0,1.6fr) minmax(265px,1fr);gap:12px;align-items:start;}
+@media(max-width:700px){.watch-body {grid-template-columns:minmax(0,1fr);}}
 .watch-match {min-width:0;}
 .watch-match h2 {margin:0 28px 0 0;}
 .watch-meta {display:flex; justify-content:space-between; align-items:center; gap:8px; margin:6px 0 14px;}

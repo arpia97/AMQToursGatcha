@@ -1,4 +1,5 @@
 import {playPlayerAvatar} from './play-avatar.js';
+import {openMatchChat} from './play-match-chat.js';
 import {liveProgressText,liveScoreHTML} from './play-live-score.js';
 import {poolName} from './play-pool.js';
 
@@ -7,7 +8,7 @@ const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',gue
 const fields={anime:'Anime',song:'Song',artist:'Artist'};
 const ended=phase=>phase==='finished'||phase==='cancelled';
 
-export function watchPlayMatch({dialog,api,apiBase,title,id,esc}){
+export function watchPlayMatch({dialog,api,apiBase,title,id,viewer,esc}){
   const root=dialog.querySelector('.watch-match');
   const status=root.querySelector('.watch-status');
   const live=root.querySelector('.watch-live');
@@ -16,10 +17,10 @@ export function watchPlayMatch({dialog,api,apiBase,title,id,esc}){
   const path='play-watch?match='+encodeURIComponent(id);
   const url=new URL(path,apiBase);
   url.protocol=url.protocol==='https:'?'wss:':'ws:';
-  let socket,state,offset=0,reconnect,attempts=0;
+  let socket,state,chat,offset=0,reconnect,attempts=0;
   const interval=setInterval(tick,250);
   dialog.addEventListener('close',()=>{
-    controller.abort();clearTimeout(reconnect);clearInterval(interval);socket?.close();
+    controller.abort();clearTimeout(reconnect);clearInterval(interval);socket?.close();chat?.close();
   },{once:true});
 
   function tick(){
@@ -72,12 +73,24 @@ export function watchPlayMatch({dialog,api,apiBase,title,id,esc}){
     socket.onmessage=event=>{
       let message;
       try{message=JSON.parse(event.data);}catch{return;}
-      if(message.type!=='spectator'||message.state?.id!==id||controller.signal.aborted)return;
+      if(controller.signal.aborted)return;
+      if(message.type==='chat-history'&&state){
+        chat??=openMatchChat({id,players:state.players,me:viewer},body=>{
+          if(socket?.readyState!==1){status.textContent='Reconnecting to match chat…';return false;}
+          socket.send(JSON.stringify({type:'chat-send',body}));return true;
+        },{container:root.querySelector('.watch-chat')});
+        for(const row of message.rows)chat.receive(row,false);
+        return;
+      }
+      if(message.type==='chat-message'){chat?.receive(message.row);return;}
+      if(message.type==='chat-error'){status.textContent=message.message;return;}
+      if(message.type!=='spectator'||message.state?.id!==id)return;
       attempts=0;offset=message.now-Date.now();state=message.state;render();
-      if(ended(state.phase)){clearInterval(interval);socket.close();}
+      if(ended(state.phase))clearInterval(interval);
     };
     socket.onclose=event=>{
-      if(controller.signal.aborted||ended(state?.phase))return;
+      if(controller.signal.aborted)return;
+      if(ended(state?.phase)){status.textContent='Match Complete · Chat disconnected';return;}
       if(event.code===4001){
         status.textContent='Spectator view opened in another tab.';clearInterval(interval);clock.textContent='';return;
       }

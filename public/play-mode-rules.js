@@ -1,6 +1,8 @@
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from './play-arena-config.js';
 
 export const PLAY_REVEAL_MS = 3_000;
+export const comparePlayTier=(a,b)=>(b.elo??-Infinity)-(a.elo??-Infinity)||String(a.id).localeCompare(String(b.id));
+
 export const DUEL_FORMAT = '1v1-ranked';
 export const DUEL_LOBBY_FORMAT = 'lobby-duel';
 export const isDuelFormat = format => format === DUEL_FORMAT || format === DUEL_LOBBY_FORMAT;

@@ -141,8 +141,8 @@ async function watchMatch(id,title){
   if(dialog.open&&dialog.classList.contains('play-watch-dialog'))return;
   modal('<section class="watch-match" aria-labelledby="watch-title"><h2 id="watch-title">'+escape(title)+'</h2>'+
     '<div class="watch-meta"><p class="watch-status" role="status">Connecting to match…</p><b class="watch-clock"></b></div>'+
-    '<div class="watch-live"></div></section>','play-watch-dialog');
-  watchPlayMatch({dialog,api,apiBase,title,id,esc:escape});
+    '<div class="watch-body"><div class="watch-live"></div><div class="watch-chat"></div></div></section>','play-watch-dialog');
+  watchPlayMatch({dialog,api,apiBase,title,id,viewer,esc:escape});
 }
 function savedQueue(){
   try{const value=sessionStorage.getItem(queueKey());return Object.hasOwn(queueLabels,value)?value:null;}catch{return null;}

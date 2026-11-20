@@ -17,7 +17,7 @@ function validEmoji(text) {
     && (segmenter ? Array.from(segmenter.segment(text)).length === 1 : Array.from(text.replace(/[\uFE0E\uFE0F]/g,'')).length === 1);
 }
 
-export function openMatchChat(match, sendText) {
+export function openMatchChat(match, sendText, {container=document.body,label='Match chat'}={}) {
   const host=document.createElement('div');
   host.className='play-match-chat';
   const shadow=host.attachShadow({mode:'open'});
@@ -26,9 +26,18 @@ export function openMatchChat(match, sendText) {
   sheet.href=new URL('./play-match-chat.css',import.meta.url).href;
   shadow.innerHTML=markup;
   shadow.prepend(sheet);
-  document.body.append(host);
+  container.append(host);
   const by=id=>shadow.getElementById(id);
   const panel=by('panel'),log=by('log'),fx=by('fx'),input=by('text'),emojiInput=by('customEmoji');
+  if(container!==document.body){
+    panel.classList.add('embedded');
+    by('drag').disabled=true;
+  }
+  if(label!=='Match chat'){
+    by('drag').lastChild.textContent=label;
+    by('open').lastChild.textContent=label;
+    panel.setAttribute('aria-label',label);
+  }
   const players=new Map(match.players.map(p=>[p.id,p]));
   const key='amqtours-play-chat-emojis:'+match.me;
   let slots=defaults.slice(),selected=0,lastSeq=0,drag=null,resizing=null;
@@ -63,15 +72,26 @@ export function openMatchChat(match, sendText) {
   function receive(row,animate=true) {
     if(row.seq<=lastSeq)return;
     lastSeq=row.seq;
-    const player=players.get(row.player),mine=row.player===match.me;
+    const system=row.player==='',spectating=row.player.startsWith('play-spectators:');
+    const id=spectating?row.player.slice('play-spectators:'.length):row.player;
+    const player=players.get(id),mine=!system&&id===match.me;
     const follow=mine||log.scrollTop+log.clientHeight>=log.scrollHeight-10;
     const line=document.createElement('div'),time=document.createElement('time'),message=document.createElement('div');
-    const name=document.createElement('b'),body=document.createElement('span');
-    line.className='line '+(mine?'mine':player?.team!==players.get(match.me)?.team?'away':'');
+    const body=document.createElement('span');
+    line.className='line '+(system?'system':spectating?'spectator':mine?'mine':player?.team!==players.get(match.me)?.team?'away':'');
     time.textContent=new Date(row.at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
-    message.className='message';name.textContent=mine?'You':player?.name||'Player';body.textContent=row.body;
-    if(validEmoji(row.body)){body.className='emoji';if(animate)burst(row.body);}
-    message.append(name,body);line.append(time,message);log.append(line);
+    message.className='message';body.textContent=row.body;
+    if(!system){
+      const name=document.createElement('b');
+      name.textContent=mine?'You':row.name||player?.name||'Player';
+      message.append(name);
+      if(spectating){
+        const role=document.createElement('small');
+        role.className='chat-role';role.textContent='Spectator';message.append(role);
+      }
+      if(validEmoji(row.body)){body.className='emoji';if(animate)burst(row.body);}
+    }
+    message.append(body);line.append(time,message);log.append(line);
     while(log.children.length>80)log.firstChild.remove();
     if(follow)log.scrollTop=log.scrollHeight;
   }

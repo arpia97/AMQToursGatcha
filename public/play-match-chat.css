@@ -27,6 +27,13 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}button:focus-visib
 .compose,.custom{display:flex;gap:6px}.compose input,.custom input{min-width:0;flex:1;border:1px solid #404753;border-radius:7px;background:#12151b;padding:9px 10px}.compose button,.assign,.open{border:1px solid #acdabe;border-radius:7px;background:var(--mint);color:#14221c;font-weight:700}.compose button{width:40px}.compose button:disabled,.assign:disabled{opacity:.45;cursor:default}
 .editor{padding:12px 14px 15px;min-height:0;overflow:auto}.editor h2{font-size:15px;margin:0}.editor p{font-size:12px;color:var(--muted);margin:2px 0 10px}.slots,.palette{display:flex;gap:6px;flex-wrap:wrap}.slot{flex:1}.slot[aria-pressed=true],.pick[aria-pressed=true]{border-color:var(--mint);box-shadow:inset 0 0 0 1px var(--mint);background:#2c3e36}.palette{margin:12px 0}.pick{min-width:32px;height:32px;font-size:18px}.custom input{width:8em}.assign{padding:0 12px}.error{color:var(--pink);min-height:1em;margin:4px 0 0;font-size:12px}.open{position:fixed;right:16px;bottom:15px;padding:9px 14px;display:flex;gap:7px;align-items:center;z-index:81}
 @media(max-width:540px){.chat{right:10px;bottom:calc(74px + env(safe-area-inset-bottom));width:min(366px,calc(100vw - 20px))}.chat:not(.is-resized) .log{min-height:150px;max-height:150px}.bar{min-height:38px}.resize,.icon,.drag{height:34px}.compose input,.custom input{font-size:16px}.quick,.slot{height:39px}}
+.line.system .message {color:#aab4c5;font-size:12px;}
+.line.spectator b {color:#cbd1fa;}
+.chat-role {margin-right:6px;color:#b7c0d7;font-size:10px;}
+.chat.embedded {position:static;width:100%;max-width:none;max-height:none;box-shadow:none;}
+.chat.embedded .drag {cursor:default;}
+.chat.embedded .grip,.chat.embedded #resize,.chat.embedded #minimize {display:none;}
+.chat.embedded .log {min-height:120px;max-height:120px;}
 @media(max-height:450px){.chat:not(.is-resized) .log{min-height:75px;max-height:75px}.editor{max-height:calc(100dvh - 84px)}}
 
-@media(max-width:800px){.open{bottom:calc(74px + env(safe-area-inset-bottom))}.chat:not([style*="top:"]){bottom:calc(74px + env(safe-area-inset-bottom));max-height:calc(100dvh - 90px)}}
+@media(max-width:800px){.open{bottom:calc(74px + env(safe-area-inset-bottom))}.chat:not(.embedded):not([style*="top:"]){bottom:calc(74px + env(safe-area-inset-bottom));max-height:calc(100dvh - 90px)}}
