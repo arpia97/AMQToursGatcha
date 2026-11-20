@@ -174,10 +174,14 @@ export function matchMove(state,id,message,now=Date.now()) {
     state.autoCounting??=[false,false];
     state.autoCounting[player.team]=true;
   } else if(message.type==='volunteer'&&state.mode==='ngmc-ranked'){
-    if(state.autoCounting?.[player.team])fail('Your team chose automatic counting for this match.',409);
-    if(state.phase!=='loading'||now>=state.counterDeadline)fail('The counter signup period has ended.',409);
-    if(state.counters[player.team]&&state.counters[player.team]!==id)fail('Your team already has a counter.',409);
-    state.counters[player.team]=id;
+    if(['finished','cancelled'].includes(state.phase))fail('This match has ended.',409);
+    const team=player.team;
+    if(state.counters[team]===id)return;
+    if(state.counters[team])fail('Your team already has a counter.',409);
+    if(!state.autoCounting?.[team]&&(state.phase!=='loading'||now>=state.counterDeadline))
+      fail('The counter signup period has ended.',409);
+    state.counters[team]=id;
+    if(state.autoCounting)state.autoCounting[team]=false;
   } else if(message.type==='count'&&state.mode==='ngmc-ranked'){
     if(state.phase!=='counting'||message.index!==state.index||state.counters[player.team]!==id)fail('Only your team counter can choose during counting.',403);
     if(state.counts[player.team]!==null)return;

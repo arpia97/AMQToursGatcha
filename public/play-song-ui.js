@@ -510,10 +510,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
     const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
+    const takeOver=!done&&ranked()?'<button type="button" class="button secondary" data-sa-action="volunteer" data-ngmc-takeover hidden>Take Over Counting</button>':'';
     const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
       :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist';
     const titleRow=modeTitleHTML(title,match.format);
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'</div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'</div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
@@ -579,6 +580,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(progress)updateMarkup(progress,ngmcProgress(match));
     const status=root.querySelector('.sa-round-status');if(!status)return;
     const me=player(),indices=loaded();
+    const takeOver=root.querySelector('[data-ngmc-takeover]');
+    if(takeOver){
+      takeOver.hidden=me.left||!match.autoCounting?.[me.team];
+      takeOver.disabled=room?.readyState!==1;
+    }
     const waitingAudio=['loading','buffering'].includes(match.phase)&&match.audioWindow;
     const start=waitingAudio?waitingAudio.start:downloadStart;
     const end=waitingAudio?waitingAudio.end:sources.length;

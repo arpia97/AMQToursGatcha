@@ -77,9 +77,12 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  advanceMatch(s,40_000);assert.equal(s.phase,'guess');assert.equal(s.until-s.startsAt,20_000);
  assert.equal(s.autoCounting[opponent.team],true);assert.equal(s.autoCounting[volunteer.team],false);
  const slow=create();advanceMatch(slow,40_000);assert.equal(slow.phase,'loading');
+ const lateCounter=slow.players[0];
+ matchMove(slow,lateCounter.id,{type:'volunteer'},40_001);
+ assert.equal(slow.counters[lateCounter.team],lateCounter.id);
+ assert.equal(slow.autoCounting[lateCounter.team],false);
  const mixed=create(),human=mixed.players[0],auto=mixed.players.find(p=>p.team!==human.team);
  matchMove(mixed,auto.id,{type:'auto-count'},100);
- assert.throws(()=>matchMove(mixed,auto.id,{type:'volunteer'},200),/automatic counting for this match/);
  matchMove(mixed,human.id,{type:'volunteer'},300);
  assert.throws(()=>matchMove(mixed,human.id,{type:'auto-count'},400),/already has a counting assignment/);
  for(const p of mixed.players){p.ready=true;p.loaded=Array.from({length:12},(_,i)=>i);}
@@ -92,6 +95,25 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
    assert.equal(mixed.history.at(-1).spent[human.team],manual.id);
    advanceMatch(mixed,mixed.until);assert.equal(matchView(mixed,auto.id).autoCounting[auto.team],true);
  }
+ const claimant=mixed.players.find(p=>p.team===auto.team&&p.id!==auto.id);
+ answer(mixed,()=>true);
+ const autoChoice=mixed.counts[auto.team];
+ matchMove(mixed,claimant.id,{type:'volunteer'},1001);
+ assert.equal(mixed.counters[auto.team],claimant.id);
+ assert.equal(mixed.autoCounting[auto.team],false);
+ assert.throws(()=>matchMove(mixed,auto.id,{type:'volunteer'},1002),/already has a counter/);
+ matchMove(mixed,claimant.id,{type:'count',index:2,player:claimant.id},1003);
+ assert.equal(mixed.counts[auto.team],autoChoice);
+ matchMove(mixed,human.id,{type:'count',index:2,player:human.id},1004);
+ assert.equal(mixed.history.at(-1).spent[auto.team],autoChoice);
+ advanceMatch(mixed,mixed.until);
+ answer(mixed,()=>true);
+ assert.equal(mixed.counts[auto.team],null);
+ assert.match(ngmcControls(matchView(mixed,claimant.id,1001),String),/Spend a Guess/);
+ const chosen=mixed.players.filter(p=>p.team===auto.team&&p.guesses>0).sort((a,b)=>b.elo-a.elo)[0];
+ matchMove(mixed,claimant.id,{type:'count',index:3,player:chosen.id},1001);
+ advanceMatch(mixed,mixed.until);
+ assert.equal(mixed.history.at(-1).spent[auto.team],chosen.id);
  const filled=create();for(const p of filled.players){p.ready=true;p.loaded=Array.from({length:12},(_,i)=>i);}
  for(const team of [0,1])matchMove(filled,filled.players.find(p=>p.team===team).id,{type:'volunteer'},500);
  assert.equal(filled.phase,'guess');

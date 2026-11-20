@@ -41,7 +41,7 @@ export function ngmcControls(match,esc) {
     let action='<strong>Waiting for Opponent Counter</strong>';
     if(!counter&&!match.autoCounting?.[me.team]){
       action=signupOpen?'<button type="button" class="button secondary" data-sa-action="volunteer" title="Choose which teammate spends a guess">Be Counter</button>':'<strong>Counter Signup Closed</strong>';
-      action+='<button type="button" class="button secondary" data-sa-action="auto-count" title="Use automatic counting for your team for the whole match">Auto-Count for Match</button>';
+      action+='<button type="button" class="button secondary" data-sa-action="auto-count" title="Use automatic counting until a teammate takes over">Auto-Count</button>';
     }
     const deadline=signupOpen?match.counterDeadline:autoCountAt;
     html+='<div class="ngmc-counter">'+action+'<small>'+(signupOpen?'Signup closes in ':'Automatic counting in ')+'<b data-counter-timer="'+deadline+'"></b></small></div>';
