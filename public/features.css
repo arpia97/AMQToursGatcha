@@ -5814,6 +5814,43 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
   background: #f2cf76;
   box-shadow: 0 0 0 2px #f2cf7618, 0 0 10px #f2cf7626;
 }
+.quiz-progress-square:has(.song-progress-trigger),
+.ngmc-progress i:has(.song-progress-trigger) { position:relative; }
+.song-progress-trigger {
+  position:absolute; inset:0; width:100%; padding:0; border:0; border-radius:inherit;
+  background:transparent; cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+.ngmc-progress .song-progress-trigger { inset:-5px 0; }
+.song-progress-trigger:focus-visible { outline:none; }
+.quiz-progress-square:has(.song-progress-trigger:is(:focus-visible,[aria-expanded=true])),
+.ngmc-progress i:has(.song-progress-trigger:is(:focus-visible,[aria-expanded=true])) {
+  outline:2px solid #e6eaf2; outline-offset:2px;
+}
+.detail-popover.song-progress-popover {
+  --song-progress-color:var(--mint);
+  position:absolute; width:min(273px,calc(100vw - 24px)); max-height:none;
+  padding:0; overflow:visible;
+  color:var(--text); background:#1b1e27; border:1px solid #414751; border-radius:9px;
+  box-shadow:0 9px 32px #0008; text-align:left; white-space:normal; line-height:1.35;
+}
+.song-progress-popover[data-result=incorrect] { --song-progress-color:#f49ab0; }
+.song-progress-popover::after {
+  content:''; position:absolute; width:8px; height:8px; left:calc(var(--song-progress-anchor) - 4px);
+  top:-5px; background:#1b1e27; border-top:1px solid #414751; border-left:1px solid #414751;
+  transform:rotate(45deg);
+}
+.song-progress-content { max-height:min(320px,65dvh); overflow:auto; }
+.song-progress-head {
+  display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 12px;
+  color:#adb6ca; font:700 11px/1.2 Consolas,monospace; letter-spacing:.06em; text-transform:uppercase;
+}
+.song-progress-head strong { color:var(--song-progress-color); font-family:Inter,'Segoe UI',sans-serif; letter-spacing:0; text-transform:none; }
+.song-progress-track { display:grid; gap:4px; padding:0 12px 10px; }
+.song-progress-track strong { font-size:14px; }
+.song-progress-track span { color:#b7c0d0; font-size:11px; }
+.song-progress-answer { display:grid; gap:4px; padding:9px 12px; border-top:1px solid #303440; }
+.song-progress-answer span { color:#adb6ca; font-size:10px; }
+.song-progress-answer strong { color:var(--song-progress-color); font-size:12px; }
 @media (max-width: 600px) {
   .quiz-song-progress { margin-top: 18px; padding-top: 15px; }
   .quiz-song-progress-track { gap: 4px; }

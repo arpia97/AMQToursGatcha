@@ -683,7 +683,12 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
       );
       const recovered = (await lostResponse.json()).run;
       assert.ok(recovered.elapsedMs >= answered.elapsedMs);
-      const { elapsedMs: recoveredMs, ...savedAnswer } = recovered;
+      const { elapsedMs: recoveredMs, progressDetails, ...savedAnswer } = recovered;
+      assert.equal(progressDetails.length, 1);
+      assert.equal(progressDetails[0].submittedAnswer, answered.submittedAnswer);
+      assert.equal(progressDetails[0].title, answered.songTitle);
+      assert.ok(!("audio" in progressDetails[0]) && !("answers" in progressDetails[0]));
+      assert.equal(answered.progressDetails, undefined);
       const { elapsedMs: answeredMs, ...originalAnswer } = answered;
       assert.deepEqual(savedAnswer, originalAnswer);
     }
@@ -885,6 +890,16 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     assert.equal((await post(endpoint,{...body,answer:"Changed"},{...fastAuth,"Idempotency-Key":key})).status,409);
     assert.equal((await post(endpoint,{...body,answer:"Changed"},fastAuth)).status,409);
     if(i<19) await fastMove("quiz-next",{ready:true});
+    if(i===0){
+      const resumed=(await getFast()).run;
+      assert.equal(resumed.index,1);
+      assert.equal(resumed.answer,undefined);
+      assert.equal(resumed.progressDetails.length,1);
+      assert.equal(resumed.progressDetails[0].index,0);
+      assert.equal(resumed.progressDetails[0].submittedAnswer,"Anime Test");
+      assert.ok(!("audio" in resumed.progressDetails[0]) && !("answers" in resumed.progressDetails[0]));
+      assert.equal(fast.progressDetails,undefined);
+    }
   }
   const probeFast=await (await mf.dispatchFetch("http://game/api/__quiz-probe")).json();
   assert.deepEqual(probeFast,{sql:0,market:0,schedule:0,starters:0},"no shared-engine calls during all 20 questions");

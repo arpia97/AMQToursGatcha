@@ -13,6 +13,11 @@ const cues = {
   counting: [[440,0,.102,.28]],
 };
 
+const lifeSamples = {
+  'take-life': new URL('./play-take-life.mp3', import.meta.url),
+  'lose-life': new URL('./play-lose-life.mp3', import.meta.url),
+};
+
 export const PLAY_CUE_GAIN = 1.3;
 
 export function schedulePlayCue(context, output, name, start, track = () => {}) {
@@ -38,10 +43,23 @@ export function schedulePlayCue(context, output, name, start, track = () => {}) 
 }
 
 export function createPlaySoundCues(getVolume) {
-  let context, unlockPending, generation = 0;
+  let context, unlockPending, preloadPending, generation = 0, scheduledUntil = 0;
   const active = new Set();
+  const buffers = new Map();
 
-  function unlock() {
+  function preloadLives() {
+    if (buffers.size === Object.keys(lifeSamples).length) return;
+    preloadPending ??= Promise.all(Object.entries(lifeSamples).map(async ([name, url]) => {
+      if (buffers.has(name)) return;
+      try {
+        const response = await fetch(url);
+        if (response.ok) buffers.set(name, await context.decodeAudioData(await response.arrayBuffer()));
+      } catch { /* Sound effects are optional if audio is unavailable. */ }
+    })).finally(() => { preloadPending = null; });
+    return preloadPending;
+  }
+
+  function unlock(ngmc = false) {
     try {
       const Audio = globalThis.AudioContext ?? globalThis.webkitAudioContext;
       if (!Audio) return;
@@ -49,6 +67,7 @@ export function createPlaySoundCues(getVolume) {
       if (context.state !== 'running' && !unlockPending) {
         unlockPending = context.resume().catch(() => {}).finally(() => { unlockPending = null; });
       }
+      if (ngmc) void preloadLives();
     } catch { /* Gameplay is still usable without sound effects. */ }
   }
 
@@ -56,11 +75,13 @@ export function createPlaySoundCues(getVolume) {
     generation++;
     for (const note of active) note.stop();
     active.clear();
+    scheduledUntil = 0;
   }
 
   function play(...names) {
     if (!names.length || !context) return;
-    stop();
+    const append = names.every(name => Object.hasOwn(lifeSamples, name));
+    if (!append) stop();
     const current = generation;
     const requestedAt = performance.now();
     const begin = () => {
@@ -70,18 +91,40 @@ export function createPlaySoundCues(getVolume) {
       const output = context.createGain();
       output.gain.value = volume * PLAY_CUE_GAIN;
       output.connect(context.destination);
-      let start = context.currentTime + .01;
+      let start = Math.max(context.currentTime + .01, scheduledUntil);
+      let sources = 0;
+      const track = node => {
+        sources++;
+        active.add(node);
+        node.addEventListener('ended', () => {
+          active.delete(node);
+          if (--sources === 0) output.disconnect();
+        }, {once: true});
+      };
       for (const name of names) {
-        start = schedulePlayCue(context, output, name, start, note => {
-          active.add(note);
-          note.addEventListener('ended', () => {
-            active.delete(note);
-            if (!active.size || current !== generation) output.disconnect();
-          }, {once: true});
-        }) + .06;
+        if (!Object.hasOwn(lifeSamples, name)) {
+          start = schedulePlayCue(context, output, name, start, track) + .06;
+          continue;
+        }
+        const buffer = buffers.get(name);
+        if (!buffer) continue;
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(output);
+        track(source);
+        source.addEventListener('ended', () => source.disconnect(), {once: true});
+        source.start(start);
+        start += buffer.duration + .06;
       }
+      if (sources) scheduledUntil = start;
+      else output.disconnect();
     };
-    if (unlockPending) void unlockPending.then(begin);
+    const ready = [unlockPending];
+    if (names.some(name => Object.hasOwn(lifeSamples, name) && !buffers.has(name))) {
+      const samplesReady = preloadLives();
+      if (append) ready.push(samplesReady);
+    }
+    if (ready.some(Boolean)) void Promise.all(ready).then(begin);
     else begin();
   }
 
@@ -89,17 +132,26 @@ export function createPlaySoundCues(getVolume) {
 }
 
 export function roundSoundCues(previous, next) {
-  if (!previous || previous.id !== next.id || previous.index !== next.index || previous.phase !== 'guess' ||
+  if (!previous || previous.id !== next.id || previous.index !== next.index ||
       !['counting','reveal'].includes(next.phase)) return [];
+  const grading = previous.phase === 'guess';
+  if (!grading && !(previous.phase === 'counting' && next.phase === 'reveal')) return [];
+  const player = next.players.find(player => player.id === next.me);
+  if (!player || player.left) return [];
   const round = next.history.at(-1);
   const own = round?.index === next.index && round.results.find(result => result.id === next.me);
   const sounds = [];
-  if (own && !next.players.find(player => player.id === next.me)?.left) {
+  if (grading && own) {
     if (next.mode === 'ngmc-ranked' && own.correct.anime && round.results.filter(result => result.correct.anime).length === 1)
       sounds.push('erig');
     else if (Object.values(own.correct).some(Boolean)) sounds.push('correct');
     else if (Object.values(own.answers).some(Boolean)) sounds.push('incorrect');
   }
   if (next.phase === 'counting') sounds.push('counting');
+  if (next.phase === 'reveal' && next.mode === 'ngmc-ranked' && own) {
+    const {team} = player;
+    if (next.teams?.[team] < previous.teams?.[team]) sounds.push('lose-life');
+    else if (next.teams?.[1-team] < previous.teams?.[1-team]) sounds.push('take-life');
+  }
   return sounds;
 }

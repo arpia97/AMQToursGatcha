@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {ngmcControls} from '../public/ngmc-ui.js';
+import {roundSoundCues} from '../public/play-sound-cues.js';
 import {RankedLeaves} from '../src/ngmc-leaves.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -146,6 +147,33 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  gradeRound(timed,21000);advanceMatch(timed,timed.until);assert.equal(locked.lockedElapsedMs,undefined,'new song clears lock time');
  const all=create();for(let i=0;i<35;i++){answer(all,()=>true);advanceMatch(all,all.until);}assert.equal(all.phase,'finished');assert.equal(all.history.length,35);assert.deepEqual(all.teams,[5,5]);
 });
+test('NGMC plays the appropriate life cue once when automatic or manual counting settles',()=>{
+ const state=create(),captain=state.players.find(p=>p.team===0),opponent=state.players.find(p=>p.team===1);
+ state.counters[0]=captain.id;
+ state.phase='guess';state.until=20000;
+ const guess=matchView(state,captain.id,900);
+ answer(state,p=>p.team===0);
+ const counting=structuredClone(matchView(state,captain.id,1000));
+ const opposing=structuredClone(matchView(state,opponent.id,1000));
+ assert.deepEqual(roundSoundCues(guess,counting),['correct','counting']);
+ matchMove(state,captain.id,{type:'count',index:0,player:captain.id},1001);
+ const reveal=matchView(state,captain.id,1001);
+ assert.deepEqual(roundSoundCues(counting,reveal),['take-life']);
+ assert.deepEqual(roundSoundCues(opposing,matchView(state,opponent.id,1001)),['lose-life']);
+ assert.deepEqual(roundSoundCues(reveal,reveal),[]);
+
+ const auto=create(),who=auto.players[0];
+ auto.phase='guess';
+ const before=structuredClone(matchView(auto,who.id,900));
+ answer(auto,p=>p.id===who.id);
+ assert.deepEqual(roundSoundCues(before,matchView(auto,who.id,1000)),['erig','take-life']);
+ const even=create(),viewer=even.players[0];
+ even.phase='guess';
+ const tied=matchView(even,viewer.id,900);
+ answer(even,()=>true);
+ assert.deepEqual(roundSoundCues(tied,matchView(even,viewer.id,1000)),['correct']);
+});
+
 test('NGMC ratings match Python global TrueSkill and apply simultaneous per-song pair adjustments',()=>{
  const roster=players.map(p=>({...p,elo:1000}));
  const history=[{results:roster.map((p,i)=>({id:p.id,correct:{anime:i<4}}))}];

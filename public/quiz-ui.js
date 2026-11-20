@@ -1,4 +1,5 @@
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
+import {songProgressTrigger} from './detail-popover.js';
 import { routeHref } from "./site-navigation.js";
 import {
   QUIZ_SERVERS,
@@ -205,6 +206,21 @@ export function createQuizUI({
     }
     if (value?.transport === "session" && value.id === run?.id && !value.sessionTicket)
       value = { ...value, sessionTicket: run.sessionTicket };
+    if (value && !value.finished) {
+      const progressDetails = value.progressDetails || (value.id === run?.id ? run.progressDetails : []) || [];
+      if (value.answered) {
+        progressDetails[value.index] = {
+          anime: value.answer,
+          title: value.songTitle,
+          artist: value.artist,
+          submittedAnswer: value.submittedAnswer,
+          correct: value.correct,
+          timedOut: value.timedOut,
+          skipped: value.skipped,
+        };
+      }
+      value = { ...value, progressDetails };
+    }
     run = value;
     const key = run ? run.id + ":" + run.index : "";
     if (key !== draftKey) {
@@ -936,8 +952,20 @@ export function createQuizUI({
           : !run.finished && index === run.index ? "current" : "upcoming";
         const label = "Song " + (index + 1) + ": " +
           ({ correct: "Correct", incorrect: "Incorrect", current: "Current Song", upcoming: run.finished || index < run.index ? "Result Not Recorded" : "Upcoming" })[state];
-        return '<li class="quiz-progress-square is-' + state + '" aria-label="' + label +
-          '" title="' + label + '"' + (state === "current" ? ' aria-current="step"' : '') + '></li>';
+        const track = (run.finished ? run.history : run.progressDetails)?.[index];
+        const details = typeof result === "boolean" && track
+          ? songProgressTrigger(run.id, index, {
+              title: track.title,
+              artist: track.artist,
+              anime: animeTitle(track) || track.anime,
+              answer: track.submittedAnswer,
+              result: songResult(track),
+              correct: result,
+            }, e)
+          : "";
+        const attributes = details ? "" : ' aria-label="' + label + '" title="' + label + '"';
+        return '<li class="quiz-progress-square is-' + state + '"' + attributes +
+          (state === "current" ? ' aria-current="step"' : '') + '>' + details + '</li>';
       }).join("") + '</ol></section>';
   }
   function questionHTML(q) {

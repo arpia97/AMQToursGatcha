@@ -28,7 +28,7 @@ export class QuizSession extends DurableObject {
     this.write(state);
     if (!(await this.ctx.storage.getAlarm()))
       await this.ctx.storage.setAlarm(Date.now() + 30 * 86400000);
-    return quizRunView(state.q, state.run, Date.now());
+    return quizRunView(state.q, state.run, Date.now(), true);
   }
   authorize(state, sessionHash) {
     if (!state || state.cancelled || !sessionHash || state.sessionHash !== sessionHash || !Number.isSafeInteger(state.expires) || state.expires <= Date.now())
@@ -37,7 +37,7 @@ export class QuizSession extends DurableObject {
   view(sessionHash) {
     const state = this.read();
     this.authorize(state, sessionHash);
-    return quizRunView(state.q, state.run, Date.now());
+    return quizRunView(state.q, state.run, Date.now(), true);
   }
   move(sessionHash, b, key, receivedAt) {
     const state = this.read();

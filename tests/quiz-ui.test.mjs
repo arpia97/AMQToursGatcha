@@ -404,7 +404,7 @@ test("quiz starts at 30% volume, waits two seconds, autoplays, and submits the t
   assert.equal(answers.length, 1);
   assert.equal(answers[0].b.answer, "Bocchi the Rock!");
   assert.match(f.ui.render(), /Score<\/span><strong>1 \/ 20/);
-  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-correct"><button[^>]+aria-label="Song 1, Correct, show details"/);
   assert.doesNotMatch(f.ui.render(), /is-current/);
 });
 test("dropdown filters without per-keystroke requests, Enter locks the selected title, and volume persists including mute", async (t) => {
@@ -533,7 +533,7 @@ test("new songs autofocus once, Enter advances the revealed answer once, and Res
   assert.equal(prevented, 1);
   assert.equal(f.calls.filter((c) => c.path === "quiz-next").length, 1);
   assert.match(f.ui.render(), /Song 2 of 20/);
-  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-correct"><button[^>]+aria-label="Song 1, Correct, show details"/);
   assert.match(f.ui.render(), /is-current" aria-label="Song 2: Current Song/);
   await f.ui.click(f.button("data-quiz-action", "quiz-restart"));
   assert.match(f.ui.render(), /Song 1 of 20/);
@@ -1098,11 +1098,12 @@ test("finished quiz recap shows escaped songs, right/wrong results and recorded 
   assert.match(f.ui.render(), /Anime Romaji/);
   await f.ui.click(f.button("data-quiz-song-sort", "result"));
   await f.ui.click(f.button("data-quiz-song-sort", "result"));
-  assert.ok(f.ui.render().indexOf('Song Two') < f.ui.render().indexOf('Song &lt;One>'));
+  const recapHTML=()=>f.ui.render().split(' quiz-recap-dialog')[1];
+  assert.ok(recapHTML().indexOf('Song Two') < recapHTML().indexOf('Song &lt;One>'));
   for (const key of ["elapsed", "response"]) {
     await f.ui.click(f.button("data-quiz-song-sort", key));
     await f.ui.click(f.button("data-quiz-song-sort", key));
-    assert.ok(f.ui.render().indexOf('Song &lt;One>') < f.ui.render().indexOf('Song Two'), 'missing times stay last in descending order');
+    assert.ok(recapHTML().indexOf('Song &lt;One>') < recapHTML().indexOf('Song Two'), 'missing times stay last in descending order');
   }
   assert.equal(f.calls.length, count);
   await f.ui.click(f.button("data-quiz-songs-close"));
@@ -1277,7 +1278,7 @@ test("fast session starts buffered next audio before acknowledgment without repl
   const transition=f.ui.click(f.button("data-quiz-action","quiz-next"));
   await flush();
   assert.equal(nextAudio.plays,1,"playback starts while the Next acknowledgment is still delayed");
-  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-correct"><button[^>]+aria-label="Song 1, Correct, show details"/);
   assert.match(f.ui.render(), /is-current" aria-label="Song 2: Current Song/);
   assert.equal(f.node("quiz-answer").disabled,false,"typing is available immediately");
   assert.equal(f.node("quiz-lock-answer").disabled,false,"submission is available before Next acknowledgment");
@@ -1294,7 +1295,7 @@ test("fast session starts buffered next audio before acknowledgment without repl
   assert.equal(f.renders.length,renderCount+1,"only the queued answer reveal replaces the textbox");
   assert.equal(f.calls.filter(c=>c.b?.action==="quiz-answer"&&c.b.index===1).length,1);
   assert.equal(f.calls.find(c=>c.b?.action==="quiz-answer"&&c.b.index===1).b.answer,"Bocchi the Rock!");
-  assert.match(f.ui.render(), /is-correct" aria-label="Song 1: Correct/);
+  assert.match(f.ui.render(), /is-correct"><button[^>]+aria-label="Song 1, Correct, show details"/);
   assert.ok(f.calls.some(c=>c.path==="quiz-session?run=run" && c.b.action==="quiz-answer"));
   assert.equal(f.calls.filter(c=>c.path==="quiz-answer").length,0);
   const prefetched2=f.audios.at(-1);await prefetched2.emit("loadedmetadata");await prefetched2.emit("canplay");

@@ -108,7 +108,9 @@ quizzes, one per player and quiz.
   player's own draft is visible until reveal. Lives reaching zero ends play;
   after song 35, most lives wins and equal lives is a draw.
 - Enter selects the highlighted anime and locks it. All active players locking
-  ends guessing early. Mirrored team cards show Gacha avatars, counter badges,
+  ends guessing early. The completed song markers show track details and your
+  submitted answer below the progress bar. Life changes play the take or lose cue
+  when counting settles. Mirrored team cards show Gacha avatars, counter badges,
   guesses remaining, and each submitted answer at reveal. Download counts stay
   hidden; a missing next track pauses everyone before the shared countdown.
 - While the room shows “Selecting songs for your match…”, the server reads song

@@ -1,4 +1,5 @@
 import {playPlayerAvatar} from './play-avatar.js';
+import {songProgressTrigger} from './detail-popover.js';
 import {artistCreditsHTML,roundDialHTML} from './play-round-ui.js';
 const heart='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
 const num=n=>Math.round(n).toLocaleString('en-US');
@@ -128,7 +129,16 @@ export function ngmcControls(match,esc) {
   }
   return html;
 }
-export function ngmcProgress(match) {
-  const me=match.players.find(p=>p.id===match.me);
-  return Array.from({length:35},(_,i)=>{const row=match.history.find(r=>r.index===i);return '<i class="'+(row?row.results.find(r=>r.id===me.id)?.correct.anime?'hit':'miss':i===match.index?'current':'')+'" title="Song '+(i+1)+'"></i>';}).join('');
+export function ngmcProgress(match,esc,animeTitle) {
+  const revealed=new Map(match.history.map(row=>[row.index,row]));
+  return Array.from({length:match.total},(_,index)=>{
+    const row=revealed.get(index);
+    const own=row?.results.find(result=>result.id===match.me);
+    if(!own)return '<i class="'+(index===match.index?'current':'')+'" title="Song '+(index+1)+'"></i>';
+    const correct=!!own.correct.anime;
+    return '<i class="'+(correct?'hit':'miss')+'">'+songProgressTrigger(match.id,index,{
+      title:row.song, artist:row.artist, anime:animeTitle(row), answer:own.answers.anime,
+      result:correct?'Correct':'Incorrect', correct,
+    },esc)+'</i>';
+  }).join('');
 }

@@ -3,8 +3,21 @@ import { QUIZ_SONG_MS, QUIZ_LEAD_IN_MS, QUIZ_ANSWER_GRACE_MS, quizAnswerKey } fr
 
 function reject(message, status = 409) { throw Object.assign(new Error(message), { status }); }
 
+function revealedSong(song, answer, index) {
+  return {
+    index,
+    title: song.title || "Unknown Song",
+    artist: song.artist || "",
+    anime: song.answers?.[0] || "",
+    submittedAnswer: answer.submittedAnswer ?? answer.answer ?? "",
+    correct: !!answer.correct,
+    timedOut: !!answer.timedOut,
+    skipped: !!answer.skipped,
+  };
+}
+
 // Shared by the legacy economy path and isolated quiz sessions.
-export function quizRunView(q, run, now) {
+export function quizRunView(q, run, now, includeProgress = false) {
   if (!run) return { now, run: null };
   const score = run.answers.filter((a) => a.correct).length;
   if (run.finished)
@@ -24,15 +37,8 @@ export function quizRunView(q, run, now) {
         history: run.songs.map((song, index) => {
           const answer = run.answers[index] || {};
           return {
-            index,
-            title: song.title || "Unknown Song",
-            artist: song.artist || "",
-            anime: song.answers?.[0] || "",
-            submittedAnswer: answer.submittedAnswer ?? answer.answer ?? "",
-            correct: !!answer.correct,
-            timedOut: !!answer.timedOut,
+            ...revealedSong(song, answer, index),
             answerReceivedAt: answer.receivedAt ?? null,
-            skipped: !!answer.skipped,
             elapsedMs: answer.elapsedMs ?? null,
             responseMs: answer.responseMs ?? null,
           };
@@ -44,7 +50,8 @@ export function quizRunView(q, run, now) {
     // Once the current song is revealed, the client may buffer the next
     // song's audio so moving on does not wait for a fresh download. The
     // scored clock still starts only when the server records readiness.
-    upcoming = answer ? run.songs[run.index + 1] : null;
+    upcoming = answer ? run.songs[run.index + 1] : null,
+    submitted = run.answers.slice(0, run.index + (answer ? 1 : 0));
   return {
     now,
     run: {
@@ -52,8 +59,11 @@ export function quizRunView(q, run, now) {
       ...(run.fast ? { transport: "session" } : {}),
       index: run.index,
       score,
-      // Only submitted outcomes; never expose upcoming song metadata or keys.
-      results: run.answers.slice(0, run.index + (answer ? 1 : 0)).map((a) => !!a.correct),
+      results: submitted.map((a) => !!a.correct),
+      // Resuming gets only revealed tracks. Later moves return the current reveal.
+      ...(includeProgress && submitted.length ? {
+        progressDetails: submitted.map((a, index) => a ? revealedSong(run.songs[index], a, index) : null),
+      } : {}),
       finished: false,
       startedAt: run.startedAt ?? null,
       timingPending: run.clockFromAudio === true && run.startedAt == null,
@@ -68,6 +78,7 @@ export function quizRunView(q, run, now) {
         ? {
             correct: answer.correct,
             timedOut: !!answer.timedOut,
+            skipped: !!answer.skipped,
             answerReceivedAt: answer.receivedAt ?? null,
             answer: song.answers[0],
             submittedAnswer: answer.submittedAnswer ?? answer.answer,

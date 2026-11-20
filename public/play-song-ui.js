@@ -623,7 +623,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(open)scoreboard.querySelector('details').open=true;
     }else updateMarkup(scoreboard,match.phase==='finished'?(match.lobby||match.format==='1-team'||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML());
     const progress=ranked()&&root.querySelector('.ngmc-progress');
-    if(progress)updateMarkup(progress,ngmcProgress(match));
+    if(progress)updateMarkup(progress,ngmcProgress(match,esc,animeTitle));
     const status=root.querySelector('.sa-round-status');if(!status)return;
     const me=player(),indices=loaded();
     const takeOver=root.querySelector('[data-ngmc-takeover]');
@@ -704,7 +704,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     for(const box of root.querySelectorAll('[data-auto-ready]'))box.checked=value;
   }
   function primeAudio(){
-    sounds.unlock();
+    sounds.unlock(ranked());
     if(match)return;
     const url=URL.createObjectURL(silentPlayAudio());audio.src=url;
     audio.play().then(()=>{if(audio.src===url)audio.pause();}).catch(()=>{}).finally(()=>URL.revokeObjectURL(url));
@@ -738,7 +738,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function acceptReady(){
     if(!match||player()?.left)return;
-    sounds.unlock();
+    sounds.unlock(ranked());
     if(match.phase==='loading'&&!player()?.acceptedReady)send(room,{type:'accept-ready'});
     root.querySelector('.sa-ready-reminder')?.remove();
     autoAttempt=match.id;
@@ -870,7 +870,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(button.dataset.saOption!=null){choose(Number(button.dataset.saOption));return;}
     if(button.dataset.saFormat){format=button.dataset.saFormat;render();return;}
     const action=button.dataset.saAction;
-    if(action==='resume-audio'){sounds.unlock();playRoundAudio(Date.now()+offset,true);tick();return;}
+    if(action==='resume-audio'){sounds.unlock(ranked());playRoundAudio(Date.now()+offset,true);tick();return;}
     if(action==='skip'){saveCurrentDraft();send(room,{type:'skip',index:match.index,vote:!(match.skipVotes||[]).includes(match.me)});return;}
     if(action==='songs'){songDialog.open(match);return;}
     if(action==='queue'){

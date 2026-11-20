@@ -500,7 +500,7 @@ export class Quiz {
   }
   view(player, id) {
     const q = this.definition(id, player);
-    return this.runView(q, this.run(player, q.id));
+    return quizRunView(q, this.run(player, q.id), this.e.now(), true);
   }
   receiptView(player, quiz, result) {
     return correctQuizReceipt(this.e, player, quiz, result);
