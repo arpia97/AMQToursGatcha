@@ -2,8 +2,9 @@ import { inboxCount } from "./inbox.js";
 import { listSummary } from "./play-anime-list.js";
 
 // A compact, session-scoped header read. No inventory listing or game settlement.
+export const guestPlayState=now=>({now,me:null,avatar:null,titles:[]});
 export function playState(e, player) {
-  if (!player) return { now: e.now(), me: null, avatar: null, titles: [] };
+  if (!player) return guestPlayState(e.now());
   const me = e.player(player);
   const item = me.avatar_card
     ? e.one("SELECT level FROM inventory WHERE player=? AND card=?", player, me.avatar_card)

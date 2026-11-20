@@ -55,8 +55,13 @@ export class PlayQueue extends DurableObject {
   lobbyDirectory(){return this.lobbies.directory();}
   liveActivity(player){
     const now=Date.now(), sql=this.ctx.storage.sql;
-    sql.exec('DELETE FROM play_presence WHERE expires<=?',now);
-    if(player)sql.exec('INSERT OR REPLACE INTO play_presence VALUES(?,?)',player,now+90000);
+    if(player){
+      if(!this.nextPresenceCleanup||now>=this.nextPresenceCleanup){
+        sql.exec('DELETE FROM play_presence WHERE expires<=?',now);
+        this.nextPresenceCleanup=now+60_000;
+      }
+      sql.exec('INSERT OR REPLACE INTO play_presence VALUES(?,?)',player,now+90000);
+    }
     const matches=this.rows(`WITH rooms AS (
       SELECT match,format,pool FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
       UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random')
@@ -64,7 +69,7 @@ export class PlayQueue extends DurableObject {
     ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players
       FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
       AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now);
-    const online=new Set(this.rows('SELECT player FROM play_presence').map(r=>r.player));
+    const online=new Set(this.rows('SELECT player FROM play_presence WHERE expires>?',now).map(r=>r.player));
     for(const ws of this.ctx.getWebSockets()){
       const who=ws.deserializeAttachment();
       if(ws.readyState===1&&who.expires>now)online.add(who.id);

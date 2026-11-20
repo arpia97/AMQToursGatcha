@@ -149,9 +149,10 @@ export class Economy {
       );
     });
   }
-  fundStarters() {
+  fundStarters(player=null) {
     for (const p of this.e.all(
-      "SELECT id,starter_granted,starter_amount FROM players WHERE starter_amount<5000 AND account_locked=0",
+      "SELECT id,starter_granted,starter_amount FROM players WHERE starter_amount<5000 AND account_locked=0"+(player===null?"":" AND id=?"),
+      ...(player===null?[]:[player]),
     )) {
       // Old funded identities received 1,000 before the amount marker existed.
       const received = p.starter_amount || (p.starter_granted ? 1000 : 0);

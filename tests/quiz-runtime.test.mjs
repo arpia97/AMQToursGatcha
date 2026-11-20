@@ -18,6 +18,13 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
         export {QuizLibrary} from './src/worker.js';
         import {QuizSession as OriginalQuizSession} from './src/worker.js';
         export class QuizSession extends OriginalQuizSession {
+          move(hash,body,key,receivedAt){
+            const result=super.move(hash,body,key,receivedAt);
+            if(key==='fast-lock-0'&&!this.lostReply){
+              this.lostReply=true;throw Error('Network connection lost.');
+            }
+            return result;
+          }
           expireForTest() {
             const state=this.read(),end=Date.now()-2000;
             state.run.timing={index:state.run.index,startsAt:end-20000,endsAt:end};

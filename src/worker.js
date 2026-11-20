@@ -14,7 +14,8 @@ import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute } from "../public/play-navigation.js";
 import { importAnimeList, listSummary } from "./play-anime-list.js";
 import { awardMatchCredits } from './play-rewards.js';
-import { playState, playAvatar } from "./play-state.js";
+import { publicPlaySnapshot } from "./play-public-snapshot.js";
+import { guestPlayState, playState, playAvatar } from "./play-state.js";
 import { playAudioResponse } from "./play-media.js";
 // Only the operations available in Content & Review > Quiz accept this role.
 const quizConsoleReads = new Set(["host/console-access", "host/quizzes", "host/quiz-songs", "host/quiz-master"]);
@@ -168,21 +169,22 @@ export class Game extends DurableObject {
   }
   syncCommunityCards() {
     if (this._communitySynced) return;
-    this._communitySynced = true;
     const hasSeed = this.engine.one(
       "SELECT id FROM catalog WHERE id='community-ggius-arronchu'",
     );
-    const missingCards = hasSeed
-      ? communityCards.filter(
-          (c) => !this.engine.one("SELECT id FROM catalog WHERE id=?", c.id),
-        )
-      : [];
+    if (!hasSeed) {this._communitySynced=true;return;}
+    const existing = new Set(this.engine.all(
+      "SELECT id FROM catalog WHERE id IN (SELECT value FROM json_each(?))",
+      JSON.stringify(communityCards.map(card=>card.id)),
+    ).map(row=>row.id));
+    const missingCards = communityCards.filter(card=>!existing.has(card.id));
     if (missingCards.length) {
       this.engine.tx(() => {
         this.engine.host("catalog", { cards: missingCards });
       });
     }
-    if (hasSeed) applyPortraitRepairs(this.engine);
+    applyPortraitRepairs(this.engine);
+    this._communitySynced = true;
   }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.
@@ -304,7 +306,7 @@ export class Game extends DurableObject {
       return await this.handle(request);
     } catch (err) {
       const limited =
-        storageQuotaResponse(err) || storageUnavailableResponse(err);
+        storageQuotaResponse(err) || storageUnavailableResponse(err,"account-storage");
       if (limited) return limited;
       if (!err.status)
         console.error(
@@ -328,11 +330,12 @@ export class Game extends DurableObject {
     }
   }
   async handle(request) {
-    this.syncCommunityCards();
     const e = this.engine,
       url = new URL(request.url),
       path = url.pathname.slice(5),
       post = request.method === "POST";
+    const authenticating = post && (path==="login"||path==="register");
+    if(!authenticating)this.syncCommunityCards();
     // Timed quiz moves do not award starters or alter market/import alarms.
     // Leave shared housekeeping to normal requests and the existing alarm.
     const quizMove = [
@@ -359,7 +362,7 @@ export class Game extends DurableObject {
     }
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1269,12 +1272,10 @@ export class Game extends DurableObject {
       if(valid?.account_locked) fail("This account is locked. Contact the host.",403);
       if (!valid?.password || valid.password !== expectedPassword)
         fail("Account access changed. Please try again.", 401);
-      e.run(
-        "INSERT INTO sessions VALUES(?,?,?)",
-        hash,
-        p.id,
-        Date.now() + 30 * 86400000,
-      );
+      e.tx(()=>{
+        e.economy.fundStarters(p.id);
+        e.run("INSERT INTO sessions VALUES(?,?,?)",hash,p.id,Date.now()+30*86400000);
+      });
       return json({ message: "Welcome back." }, 200, {
         "Set-Cookie": cookie(session, secure),
       });
@@ -1893,14 +1894,11 @@ export default {
     if(url.pathname==='/quiz-library/master-answers.json')return new Response(null,{status:404});
     if (url.pathname.startsWith("/api/")) {
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
-      if(['/api/play-queue-counts','/api/play-lobbies'].includes(url.pathname)&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+url.pathname);
-        const hit=await cache?.match(key);if(hit)return hit;
-        const queue=env.PLAY_QUEUE.getByName('play-queues-v1');
-        const data=url.pathname==='/api/play-lobbies'?await queue.lobbyDirectory():await queue.queueCounts();
-        const response=json(data,200,{'Cache-Control':'public, max-age=10'});
-        if(cache)ctx.waitUntil(cache.put(key,response.clone()));
-        return response;
+      if(request.method==='GET'){
+        const guest=!/(?:^|;\s*)amq_session=/.test(request.headers.get('Cookie')||'');
+        if(guest&&url.pathname==='/api/play-state')return json(guestPlayState(Date.now()));
+        if(url.pathname==='/api/play-lobbies'||url.pathname==='/api/play-queue-counts'||(guest&&url.pathname==='/api/play-live'))
+          return publicPlaySnapshot(url,env.PLAY_QUEUE,globalThis.caches?.default,ctx);
       }
       if(url.pathname==='/api/play-rankings'&&request.method==='GET'){
         const format=url.searchParams.get('format')||'ngmc-ranked';
@@ -1959,7 +1957,7 @@ export default {
         return await durableRead(env.GAME, forwarded);
       } catch (err) {
         const limited =
-          storageQuotaResponse(err) || storageUnavailableResponse(err);
+          storageQuotaResponse(err) || storageUnavailableResponse(err,"account-forward");
         if (limited) return limited;
         console.error(
           JSON.stringify({ event: "durable_forward_failed", name: err.name }),

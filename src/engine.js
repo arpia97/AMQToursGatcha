@@ -76,6 +76,7 @@ export class Engine {
     this.rand = rand;
     for (const statement of SCHEMA.split(";").filter((s) => s.trim()))
       this.run(statement);
+    const schemaColumns = new Map();
     for (const [table, column, definition] of [
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
@@ -104,10 +105,14 @@ export class Engine {
       ["catalog", "series_english", "TEXT NOT NULL DEFAULT ''"],
       ["catalog", "fixed_rarity", "TEXT"],
     ]) {
-      if (
-        !this.all(`PRAGMA table_info(${table})`).some((c) => c.name === column)
-      )
+      if (!schemaColumns.has(table)) {
+        schemaColumns.set(table, new Set(this.all(`PRAGMA table_info(${table})`).map(row => row.name)));
+      }
+      const columns = schemaColumns.get(table);
+      if (!columns.has(column)) {
         this.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+        columns.add(column);
+      }
     }
     this.run(
       "INSERT OR IGNORE INTO settings VALUES ('character_price',500),('seiyuu_price',500)",

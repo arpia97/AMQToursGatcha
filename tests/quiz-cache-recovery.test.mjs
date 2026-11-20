@@ -1,4 +1,5 @@
 import test from "node:test";
+import { publicPlaySnapshot } from "../src/play-public-snapshot.js";
 import assert from "node:assert/strict";
 import {
   quizAudioUrl,
@@ -95,4 +96,27 @@ test("Storage recovery reacquires a stub for one safe read retry, never replays 
   }
   assert.equal(storageUnavailableResponse(failure).status, 503);
   assert.equal(storageUnavailableResponse(Error("coding error")), null);
+});
+
+test("Public lobby snapshots survive a short queue outage and expire after one minute",async()=>{
+  let at=Date.now(),calls=0,fail=false;
+  const url=new URL('https://game/api/play-lobbies');
+  const rooms=[{code:'fixture',locked:true}];
+  let entry;
+  const cache={match:async()=>entry&&new Response(await entry.clone().text(),{headers:{
+    'X-Play-Snapshot-At':String(at),
+  }}),put:async(key,value)=>{entry=value;}};
+  const namespace={getByName:()=>({lobbyDirectory(){calls++;if(fail)throw Object.assign(Error('busy'),{overloaded:true});return rooms;}})};
+  const ctx={waitUntil(){}};
+  assert.deepEqual(await (await publicPlaySnapshot(url,namespace,cache,ctx)).json(),rooms);
+  fail=true;
+  assert.equal((await publicPlaySnapshot(url,namespace,cache,ctx)).headers.get('X-Play-Snapshot'),'fresh');
+  assert.equal(calls,1);
+  at-=15_000;
+  const stale=await publicPlaySnapshot(url,namespace,cache,ctx);
+  assert.equal(stale.headers.get('X-Play-Snapshot'),'stale');
+  assert.equal(stale.headers.get('Cache-Control'),'no-store');assert.deepEqual(await stale.json(),rooms);
+  at-=60_000;
+  assert.equal((await publicPlaySnapshot(url,namespace,cache,ctx)).status,503);
+  assert.equal(calls,3);
 });

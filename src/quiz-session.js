@@ -1,3 +1,4 @@
+import { retryDurableOperation } from "./durable-recovery.js";
 import { DurableObject } from "cloudflare:workers";
 import { advanceQuizRun, quizRunView } from "./quiz-run-state.js";
 
@@ -130,8 +131,7 @@ export async function quizSessionRequest(request, env) {
     // A made-up UUID and syntactically valid cookie must not allocate storage.
     if (!(await validTicket(env, request.headers.get("X-Quiz-Session"), run, hash)))
       return json({ error: "Reopen the quiz to authorize this session." }, 401);
-    const stub = quizSessionStub(env, run);
-    if (request.method === "GET") return json(await stub.view(hash));
+    if (request.method === "GET") return json(await retryDurableOperation(()=>quizSessionStub(env,run).view(hash)));
     if (!request.headers.get("Content-Type")?.startsWith("application/json"))
       return json({ error: "JSON is required." }, 415);
     // Bound actual bytes, not an attacker-controlled Content-Length.
@@ -152,7 +152,8 @@ export async function quizSessionRequest(request, env) {
     catch { return json({ error: "Invalid JSON." }, 400); }
     if (!body || Array.isArray(body) || typeof body !== "object" || body.run !== run)
       return json({ error: "Choose a valid quiz move." }, 400);
-    return json(await stub.move(hash, body, request.headers.get("Idempotency-Key"), receivedAt));
+    const key=request.headers.get("Idempotency-Key");
+    return json(await retryDurableOperation(()=>quizSessionStub(env,run).move(hash,body,key,receivedAt)));
   } catch (error) {
     // Do not log cookies, submitted answers, or hidden song metadata.
     return json({ error: error.status ? error.message : "The quiz session is temporarily unavailable. Retry your saved move.",

@@ -399,7 +399,9 @@ test("anime progress prioritizes pins and sorts by percentage globally before pa
 });
 test("starting grants are once per identity, including existing users", () => {
   const { e } = fixture();
-  e.tx(() => e.economy.fundStarters());
+  const before=e.player("seller").balance;
+  e.tx(() => e.economy.fundStarters("buyer"));
+  assert.equal(e.player("seller").balance,before);
   assert.equal(e.player("buyer").balance, 15000);
   assert.equal(e.player("buyer").earned, 15000);
   e.tx(() => e.economy.fundStarters());
