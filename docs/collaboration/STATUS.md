@@ -2,7 +2,7 @@
 
 ## Live spectating and Play presence
 
-Codex owns this Play rollout from `df0f037`. Scope is the live directory, a read-only public-match feed, and per-tab presence. Main deployment stays with this task until validation is complete.
+Source `b93d2bb` is live at 100% on Worker `5256cab1-276d-476f-9dc6-deb8231e69a8`. Signed-in viewers can watch public matches over a separate read-only socket with immediate reveals. The overview popup shows song progress and live scores. Online Players shows quiz play, browsing, and three-minute AFK alongside queue and match status, using the most recently active Play tab. All 568 tests, syntax checks, and the Worker dry run passed. Browser fixtures using the live UI assets passed at 1440, 390, and 320 px. The live Overview returned 200 and the guest Watch request returned 401. No production sessions or matches were created for validation.
 
 ## Compact Play Match Chat header
 
