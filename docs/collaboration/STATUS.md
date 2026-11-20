@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Four-player live match tiles
+
+Source `f60fd2b` was pushed and deployed on Worker `cd751c91-b8d5-442f-ae3b-3b5e61429d0b`. Both live Overview assets matched source. Chromium verified all eight portraits fit around the score at 1280 px and 390 px. The Play site test and syntax checks passed.
+
 ## Answer Autolock
 
 Source `fbb84a5` is live at 100% on Worker `bdfaf407-53a6-4e13-a047-ad8f87e1e265`. Quiz and multiplayer share a browser-saved Autolock checkbox, enabled by default. Enter chooses the first visible suggestion when enabled. An explicit arrow-key selection takes precedence in either setting. All 574 tests passed. Mobile Chromium covered Gacha Quiz, Play Quiz, Ranked 1v1 and Song/Artist 1v1. Both quiz routes and all seven changed live assets were verified.
