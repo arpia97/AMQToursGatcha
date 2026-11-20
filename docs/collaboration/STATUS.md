@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play multiplayer sound cues
+
+Source `c3d975f` is live at 100% on Worker `2687acf3-ebb2-4b06-abd3-ba6363d99d67`. Play has six cues for correct and incorrect answers, erig, match found, matchmaking start, and counting. Correct uses three ascending bell strikes. Incorrect uses two muted taps and counting uses one beat. All cues are about 3 dB louder than the approved preview and follow game volume. All 565 tests, syntax checks and the dry run passed. Offline audio verified headroom at maximum volume. Desktop and mobile browser fixtures exercised all triggers and mute with the deployed modules. Production returned the Play page and both updated JavaScript assets. The final sampler is in the surrounding outputs/play-sound-cues-v9 directory.
+
 ## Rating badge placement across Play modes
 
 Source `bfa323f` is live on Worker `9fa18eb9-d44e-4a04-9e60-a77cf5945167`. NGMC, 1v1 Ranked, 2v2 Arena, and rated Song/Artist formats share the title-side Rating badge in matchmaking and during play. Chrome verified all four modes at 1440px, 390px, and 320px, including Random and Watched switching. Syntax checks and the dry run passed. Production returned both updated assets.
