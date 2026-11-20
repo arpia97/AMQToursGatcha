@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Decoy and played tracks in Match Review
+
+Source `0299491` is live at 100% on Worker `3e980ad8-dc16-4f69-a464-4230113c56ed`. Decoy flags retain the unused recording and the actual round recording. Existing flags can resolve the actual recording from retained match history. All 564 tests passed, including live-room recording and a historical lookup fixture. The deployed UI showed both tracks in Highlights and Full log at desktop and mobile widths. Production host checks recovered both flagged rounds in the earlier reviewed match.
+
 ## Play history
 
 Source `60b3ab4` is live at 100% on Worker `69bf458d-fb5a-4d33-aa9f-5064c4880554`. The Play profile menu opens private match and song history. Finished room snapshots retain song titles and the player’s own answers. Older archived reviews show the retained answers and results when titles are unavailable. All 564 tests passed, including participant-only access and history after room expiry. Local Chrome verified both tabs, song expansion, paging and mobile layout. The production Play page and updated assets returned HTTP 200, and the live history endpoint returned its expected sign-in response after code propagation.
