@@ -3,6 +3,7 @@ import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
 import {DatabaseSync} from 'node:sqlite';
 import {playRankingPage} from '../src/play-ranking-query.js';
+import {roundAudio} from '../public/play-round-audio.js';
 import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -360,4 +361,23 @@ test('Play shows the submitted language in guesses and translates the official a
   const result = songResultsHTML(match,escape,animeTitle);
   assert.match(result,/Romaji Title/);
   assert.match(result,/>English &amp; Title</);
+});
+
+test('round audio recovers an interruption at room time and retries blocked playback on the same clip',async()=>{
+  const issues=[],starts=[];
+  let denied=false,plays=0;
+  const audio={duration:20,paused:true,currentTime:0,
+    play(){plays++;if(denied)return Promise.reject(new DOMException('blocked','NotAllowedError'));this.paused=false;return Promise.resolve();},
+    pause(){this.paused=true;}
+  };
+  const player=roundAudio(audio,reason=>issues.push(reason),round=>starts.push(round));
+  player.update(4,1);await Promise.resolve();
+  audio.pause();denied=true;player.update(4,5);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(player.needsGesture,true);assert.deepEqual(issues,['paused','blocked']);
+  player.update(4,6);assert.equal(plays,2);
+  denied=false;player.update(4,7,true);await Promise.resolve();
+  assert.equal(audio.currentTime,7);assert.equal(audio.paused,false);assert.equal(player.needsGesture,false);
+  audio.ended=true;audio.pause();player.update(4,10);assert.equal(plays,3);
+  assert.deepEqual(starts,[4]);
 });

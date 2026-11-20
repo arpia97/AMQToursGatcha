@@ -286,6 +286,18 @@ export class PlayMatch extends DurableObject {
         }
         return;
       }
+      if(input.message.type==='audio-issue'){
+        const {reason,index}=input.message,who=input.who;
+        if(index!==state.index||['finished','cancelled'].includes(state.phase)||
+           !['blocked','play-error','paused','stalled','decode'].includes(reason)||
+           !state.players.some(p=>p.id===who.id&&!p.left))return;
+        const seen=who.audioIssueRound===index?who.audioIssues||[]:[];
+        if(!seen.includes(reason)){
+          ws.serializeAttachment({...who,audioIssueRound:index,audioIssues:[...seen,reason]});
+          this.reviewLog.add(state,who.id,'audio-issue',{reason});
+        }
+        return;
+      }
       if(input.message.type==='activity'){
         this.reviewLog.activity(state,input.who.id,input.message);return;
       }

@@ -12,6 +12,7 @@ export function mountPlayReview(root,initial,api,esc){
     if(d.answers)return Object.entries(d.answers).map(([field,value])=>'<div><small>'+esc(field)+': </small>'+esc(value||'—')+(d.correct?' <strong class="'+(d.correct[field]?'correct':'incorrect')+'">'+(d.correct[field]?'Correct':'Incorrect')+'</strong>':'')+'</div>').join('')+'<small>'+(row.kind==='round-result'?'Scored by Server':d.accepted?'Accepted':'Not accepted')+(d.error?' · '+esc(d.error):'')+(Number.isFinite(d.elapsedMs)?' · '+(d.elapsedMs/1000).toFixed(3)+'s after start':'')+'</small>'+(d.flags||[]).map(f=>'<div class="host-warning">Decoy-answer match ('+esc(f.field)+'): '+esc(f.song)+' · '+esc(f.anime)+' · '+esc(f.artist)+'</div>').join('');
     if(row.kind==='propose')return esc(d.field||'')+' · '+esc(d.answer||'—')+'<small>'+(d.accepted?'Accepted':'Not accepted')+'</small>';
     if(row.kind==='activity')return esc(d.event+' · '+d.visibility+' · '+(d.focused?'focused':'unfocused'))+' <small>(client-reported)</small>';
+    if(row.kind==='audio-issue')return esc(({blocked:'Browser blocked playback','play-error':'Playback failed',paused:'Playback paused',stalled:'Playback stopped advancing',decode:'Clip could not be decoded'})[d.reason]||'Audio issue')+' <small>(client-reported)</small>';
     if(row.kind==='phase')return esc(d.phase)+(d.startsAt?'<small> · Song starts '+esc(time(d.startsAt))+'</small>':'');
     if(row.kind==='ended')return esc(d.reason||d.phase)+' · '+(d.rounds||0)+' songs reported';
     return esc(d.message||d.code||'—');

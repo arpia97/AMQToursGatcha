@@ -188,6 +188,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-game-actions { display:grid;justify-items:end;gap:8px;max-width:none; }
 .sa-match-buttons { display:flex;align-items:stretch;justify-content:flex-end;gap:8px; }
 .sa-match-buttons .button { margin:0; }
+.sa-match-buttons .button[hidden] { display:none; }
 @media(max-width:650px){
  .sa-game-heading { flex-direction:column;align-items:stretch;gap:8px; }
  .sa-game-actions { justify-content:stretch; }

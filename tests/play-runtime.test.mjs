@@ -381,6 +381,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       rooms[1].send({type:'loaded',revision,indices:preload});
       rooms[1].send({type:'ready'});
     }
+    rooms[0].send({type:'audio-issue',index:0,reason:'paused'});
+    rooms[0].send({type:'audio-issue',index:0,reason:'paused'});
+    rooms[0].send({type:'audio-issue',index:0,reason:'unrecognized'});
     rooms[0].send({type:'activity',event:'visibility',visibility:'hidden',focused:false,clientAt:123});
     const teamFields=['1-team','3v3'].includes(format),counts={};
     const firstAnswer=teamFields?{type:'answer',index:0,field:'anime',answer:'wrong'}:{type:'answer',index:0,answers:{anime:'wrong',song:'',artist:''},lock:true};
@@ -431,6 +434,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     const auditHeaders={Authorization:'Bearer local-only-test-host-token-123456789'};
     assert.equal((await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:{Cookie:cookies[0]}})).status,401);
     const reviewResponse=await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders});assert.equal(reviewResponse.status,200,await reviewResponse.clone().text());const review=await reviewResponse.json();
+    const audioAudit=await(await mf.dispatchFetch(base+'/api/host/play-review?match='+id+'&player=1',{headers:auditHeaders})).json();
+    assert.deepEqual(audioAudit.events.filter(e=>e.kind==='audio-issue').map(e=>e.data.reason),['paused']);
     assert.ok(review.events.some(e=>e.kind==='unlock'&&e.data.accepted&&e.player==='1'));
     assert.ok(review.events.some(e=>e.kind==='activity'&&e.player==='1'&&e.data.clientAt===123&&e.at>123));
     assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.accepted&&e.data.answers.anime));

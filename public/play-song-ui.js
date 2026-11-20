@@ -8,6 +8,7 @@ import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,po
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
 import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,roundDialHTML,updateRoundDial} from './play-round-ui.js';
+import {roundAudio} from './play-round-audio.js';
 import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
 import {answerFieldsHTML,teamAnswerTilesHTML,updateTeamFields,updateArtistChips} from './play-team-ui.js';
@@ -37,7 +38,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function closeChat(){chat?.close();chat=null;}
   let ngmcFormat='ngmc-ranked',dismissedMatch=null;
   let active=false,format='1v1',server='EU',queue=null,room=null,match=null,queueStatus={type:'idle'},worker=null,searchReady=false,searchError='',searchId=0,searchItems=[],searchKind='',selected=-1;
-  let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,playingIndex=-1,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
+  let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
   let selectedField='anime',draft={anime:'',song:'',artist:''},chosen={},pendingLock=false,volume=30,structure='',loadGeneration=0,connecting=false,unlocking=false,lastLoaded='',progressTimer=null,pendingArtistKey=null;
   let seekIndex=-1,autoReady=false,autoAttempt='',readyReminder='',lobbyDraft=null,lobbyModal=null,lobbies=null;
   const preferenceKey=()=>'amqtours-play-auto-ready-'+(getPlayer()?.id||'guest');
@@ -213,7 +214,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():'anime');const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
-        if(match.phase!=='guess'&&!unlocking)audio.pause();
+        if(match.phase!=='guess'&&!unlocking){audio.pause();songAudio.reset();}
         if(['finished','cancelled'].includes(match.phase)){downloads?.abort();}
         if(match.creditReward&&(!previous?.creditReward||previous.id!==match.id))onCreditReward(match.me);
 
@@ -276,6 +277,23 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
     finally{if(downloads===controller)downloads=null;}
   }
+  const audioIssueKeys=new Set();
+  function reportAudioIssue(reason){
+    if(!match)return;
+    const key=match.index+':'+reason;
+    if(audioIssueKeys.has(key))return;
+    if(send(room,{type:'audio-issue',index:match.index,reason}))audioIssueKeys.add(key);
+  }
+  const songAudio=roundAudio(audio,reportAudioIssue,index=>{
+    if(match?.phase!=='guess'||match.index!==index||tabbedThisRound||document.querySelector('dialog[open]')||
+       document.activeElement?.matches('input,textarea,select,.play-match-chat'))return;
+    root.querySelector('#sa-'+(teamFields()?selectedField:'anime'))?.focus({preventScroll:true});
+  });
+  function playRoundAudio(now,manual=false){
+    if(!ready||preparedIndex!==match.index||audio.readyState<1||match.phase!=='guess'||now<match.startsAt||now>=match.until)return;
+    const sample=sealedCache?0:sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));
+    songAudio.update(match.index,sample+(now-match.startsAt)/1000,manual);
+  }
   function revokePlayback() {
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
     playbackUrl = null;
@@ -285,7 +303,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     audio.pause(); audio.muted=false; audio.onloadedmetadata=null; audio.onloadeddata=null; audio.onerror=null;
     audio.oncanplay=null;audio.removeAttribute('src'); audio.load();
     revokePlayback(); cache.clear(); sealedCache?.clear(); sealedCache=null;
-    sources=[]; playingIndex=-1; preparedIndex=-1; seekIndex=-1; preparingRound=-1; keyRequestedAt=0; unlocking=false;
+    songAudio.reset();audioIssueKeys.clear(); sources=[]; preparedIndex=-1; seekIndex=-1; preparingRound=-1; keyRequestedAt=0; unlocking=false;
     manifestId=''; downloadError='';replacingAudio=false;
   }
   function prepareSealedClip(now) {
@@ -310,14 +328,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const current=()=>active&&generation===loadGeneration&&match?.index===index&&sources[playback.slot]===ticket&&(match.preparingClip||match.phase==='guess');
     const cannotPlay=()=>{
       if(!current())return;
-      ready=false;preparedIndex=-1;
+      ready=false;preparedIndex=-1;songAudio.reset();reportAudioIssue('decode');
       render();
       error('Could not play the encrypted clip. Tap Ready to retry.');
     };
     preparingRound=index;
     sealedCache.decrypt(ticket,server,playback.key).then(blob=>{
       if(!blob||!current())return;
-      revokePlayback();
+      revokePlayback();songAudio.reset();
       audio.onloadedmetadata=null;
       audio.oncanplay=()=>{
         if(!current())return;
@@ -455,8 +473,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const teamSize=match.players.length/2;
     const duelLabel=match.lobby?'1v1 Unranked':'1v1 Ranked';
     const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
+    const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
@@ -614,9 +633,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         }
         await audio.play();
         if(generation!==loadGeneration||!active)return;
-        audio.pause();audio.currentTime=0;ready=true;playingIndex=-1;
+        audio.pause();audio.currentTime=0;ready=true;songAudio.reset();
         send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});send(room,{type:'ready'});render();
-      }catch{if(generation===loadGeneration&&active)error('Audio could not start. Please retry or check your browser’s autoplay setting.');}
+      }catch(failure){
+        if(generation===loadGeneration&&active){
+          reportAudioIssue(failure.name==='NotAllowedError'?'blocked':'play-error');
+          error('Audio could not start. Tap Ready to enable audio in this browser.');
+        }
+      }
       finally{if(generation===loadGeneration){audio.muted=false;unlocking=false;}}
   }
   function acceptReady(){
@@ -656,16 +680,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const skip=root.querySelector('[data-sa-action=skip]');if(skip&&ready&&room?.readyState===1)skip.disabled=false;
       const input=root.querySelector('#sa-'+(teamFields()?selectedField:'anime'));
       if(input?.disabled&&!pendingLock&&pendingArtistKey===null&&ready&&room?.readyState===1){render();}
-      if(ready&&playingIndex!==match.index&&preparedIndex===match.index&&audio.readyState>=1){playingIndex=match.index;audio.currentTime=Math.min(Math.max(0,audio.duration-.05),(sealedCache?0:sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode)))+Math.max(0,(now-match.startsAt)/1000));const round=match;
-        audio.play().then(()=>{
-          if(match?.id!==round.id||match.index!==round.index||match.phase!=='guess')return;
-          if(!tabbedThisRound&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select,.play-match-chat'))input?.focus({preventScroll:true});
-        }).catch(()=>{
-          if(match?.id!==round.id||match.index!==round.index||match.phase!=='guess')return;
-          playingIndex=-1;ready=false;render();error('Tap Ready · Enable Audio to allow playback.');
-        });
-      }
+      playRoundAudio(now);
     }else if(!unlocking&&(match.phase!=='guess'||now>=match.until))audio.pause();
+    const resume=root.querySelector('[data-sa-action="resume-audio"]');
+    if(resume)resume.hidden=match.phase!=='guess'||!songAudio.needsGesture;
     raf=setTimeout(tick,100);
   }
   root.addEventListener('input',event=>{
@@ -757,6 +775,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(button.dataset.saOption!=null){choose(Number(button.dataset.saOption));return;}
     if(button.dataset.saFormat){format=button.dataset.saFormat;render();return;}
     const action=button.dataset.saAction;
+    if(action==='resume-audio'){playRoundAudio(Date.now()+offset,true);tick();return;}
     if(action==='skip'){saveCurrentDraft();send(room,{type:'skip',index:match.index,vote:!(match.skipVotes||[]).includes(match.me)});return;}
     if(action==='songs'){songDialog.open(match);return;}
     if(action==='queue'){if(queueStatus.type==='idle')primeAudio();if(['queued','joining'].includes(queueStatus.type))send(queue,{type:'cancel'});else if(queueStatus.type==='idle'){const selectedFormat=arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ranked()?ngmcFormat:format;const pool=preferredPool();if(send(queue,{type:'join',mode,format:selectedFormat,pool})){queuedFormat=selectedFormat;queueStatus={type:'joining',format:selectedFormat,pool};notifyQueue();render();}}}
