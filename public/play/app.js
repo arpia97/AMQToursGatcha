@@ -251,6 +251,7 @@ function createQuizController(createQuizUI) {
 }
 function nav() {
   document.title = PLAY_MODES.find((item) => item.id === mode).name + " · AMQ Tours Play";
+  document.body.classList.toggle("play-viewport", mode !== "quiz" && mode !== "rankings");
   $('.play-live').hidden=mode==='overview';
   for (const mobile of [false, true]) {
     $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.filter(item=>!mobile||!item.disabled).map((item) => '<a ' + (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && item.disabled ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
