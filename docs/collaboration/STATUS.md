@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Interrupted multiplayer audio
+
+Source `fa53170` is live at 100% on Worker `cb225a64-93d8-4af4-b19c-53009783be0a`. During guessing, Play detects interrupted playback, retries at the room position and offers Resume Audio for gesture-required playback. Hosts can see bounded, browser-reported audio issues by round. All 563 tests passed. Chrome browser fixtures at 1440px and 390px reproduced the earlier stuck pause, then verified recovery and preserved typed answers with the deployed assets. Firefox 160.0.1 decoded an encrypted fixture using the deployed modules, reported a real autoplay block, started the clip after a user gesture and recovered from an induced pause.
+
 ## Match abort and skip votes
 
 Source `22cbf55` is deployed at 100% on Worker `5957c543-cafd-4f69-aec2-1a8bafd72c85`. A strict majority of the starting roster can abort any multiplayer match. All multiplayer formats now support a per-song skip vote. All 562 tests passed, including voiding a ranked room after a scored song and checking its rating and credit receipts. Desktop and mobile browser checks exercised the deployed controls with fixture match sockets.
