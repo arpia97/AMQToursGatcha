@@ -32,7 +32,7 @@ function updateMarkup(element,html){
   return true;
 }
 
-export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onQueueChange=()=>{},onQueueCounts=()=>{},onCreditReward=()=>{}}) {
+export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onMatchExit=()=>{},onQueueChange=()=>{},onQueueCounts=()=>{},onCreditReward=()=>{}}) {
   let mode='song-artist',fields=['anime','song','artist'],totalSongs=20;
   const arena=()=>mode===ARENA_FORMAT, duel=()=>mode===DUEL_FORMAT, ranked=()=>mode==='ngmc-ranked', animeOnly=()=>animeOnlyMode(mode),teamFields=()=>!!match?.teamFields;
   const songDialog=createSongListDialog(esc,animeTitle);
@@ -131,24 +131,25 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const label=arena()?'NGMC Rating':'Your Rating';
     updateMarkup(chip,'<small>'+poolName(pool)+' · '+label+'</small><strong>'+(Number.isFinite(value)?Math.round(value).toLocaleString('en-US'):'—')+'</strong>');
   }
-  let queuedFormat=null,overviewJoin=null,answerListStatus='Loading answer lists…';
+  let queuedFormat=null,overviewJoin=null,queuedFromOverview=false,answerListStatus='Loading answer lists…';
   function waiting(){
     return active&&!match&&(!!overviewJoin||!!queuedFormat&&['queued','joining','preparing','matched'].includes(queueStatus.type));
   }
   function notifyQueue(){
-    onQueueChange(overviewJoin?{...overviewJoin,type:'joining',connected:true}:waiting()?{
-      format:queuedFormat,type:queueStatus.type,connected:queue?.readyState===1,waiting:queueStatus.waiting,
-      needed:queueStatus.needed,pool:queueStatus.pool,progress:queueStatus.progress}:null);
+    onQueueChange(overviewJoin?{...overviewJoin,type:'joining',connected:true,fromOverview:true}:waiting()?{
+      format:queuedFormat,fromOverview:queuedFromOverview,type:queueStatus.type,connected:queue?.readyState===1,waiting:queueStatus.waiting,
+      needed:queueStatus.needed,pool:queueStatus.pool,progress:queueStatus.progress,match:queueStatus.match}:null);
   }
   function cancelQueue(){
     if(overviewJoin){overviewJoin=null;notifyQueue();render();return;}
     if(!waiting()||['preparing','matched'].includes(queueStatus.type))return;
     if(!send(queue,{type:'cancel'}))error('Reconnect to leave the queue.');
   }
-  function joinQueue(selectedFormat,pool){
+  function joinQueue(selectedFormat,pool,fromOverview=false){
     if(!send(queue,{type:'join',mode:queueMode(selectedFormat),format:selectedFormat,pool}))return;
     sounds.play('matching-start');
     queuedFormat=selectedFormat;
+    queuedFromOverview=fromOverview;
     queueStatus={type:'joining',format:selectedFormat,pool};
     notifyQueue();render();
   }
@@ -162,7 +163,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(!searchReady)return;
     const request=overviewJoin;
     overviewJoin=null;
-    joinQueue(request.format,request.pool);
+    joinQueue(request.format,request.pool,true);
   }
   function quickJoin(selectedFormat,pool){
     if(!getPlayer()||waiting())return;
@@ -258,6 +259,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     dismissedMatch=match?.id;const old=room;room=null;old?.close();match=null;ready=false;clearTimeout(raf);clearAudio();songDialog.close();
     send(queue,{type:'ping',includeRatings:true});render();
   }
+  function exitQueueMatch(){
+    const id=match?.id;
+    queueStatus={type:'idle'};
+    resetLobbyMatch();
+    if(!onMatchExit(id))connectQueue();
+  }
   function connectRoom(id){
     if(!active||room?.matchId===id&&(room.readyState===0||room.readyState===1))return;
     closeLobbyChat();
@@ -301,7 +308,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         downloadEnd=msg.downloadEnd??msg.preload??msg.audio.length;
         const changedRevision=manifestRevision!==(msg.revision||0);
         manifestRevision=msg.revision||0;
-        mode=msg.mode||'song-artist';onMatchMode(mode);fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
+        mode=msg.mode||'song-artist';onMatchMode(mode,msg.id);fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
         if(manifestId===msg.id&&sealedCache&&msg.sealed){
           if(changedRevision||sources.some((source,i)=>source!==msg.audio[i])){
             downloads?.abort();downloads=null;replacingAudio=false;
@@ -927,14 +934,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     else if(action==='retry-download')preload();
     else if(action==='ready'){
       acceptReady();
-    }else if(action==='leave'){if(confirm(rankedAtRisk()?leaveWarning(match.format):'Leave this match? Your teammates can continue.')){if(match?.lobby){send(queue,{type:'lobby-leave'});resetLobbyMatch();return;}if(send(room,{type:'leave'})){resetLobbyMatch();}else error('Reconnect to confirm leaving.');}}
+    }else if(action==='leave'){if(confirm(rankedAtRisk()?leaveWarning(match.format):'Leave this match? Your teammates can continue.')){if(match?.lobby){send(queue,{type:'lobby-leave'});resetLobbyMatch();return;}if(send(room,{type:'leave'})){exitQueueMatch();}else error('Reconnect to confirm leaving.');}}
     else if(action==='exit-lobby'||action==='again'&&(match?.lobby||queueStatus.type==='lobby-ended')){
       if(!send(queue,{type:action==='exit-lobby'?'lobby-leave':'lobby-return',match:match?.id||queueStatus.match})){error('Reconnect to choose a lobby action.');return;}
       resetLobbyMatch();
     }
     else if(action==='again'){
       send(room,{type:'leave'});
-      queueStatus={type:'idle'};resetLobbyMatch();connectQueue();
+      exitQueueMatch();
     }
   });
   root.addEventListener('change',event=>{
@@ -945,8 +952,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       return;
     }
     if(event.target.hasAttribute('data-auto-ready')){setAutoReady(event.target.checked);if(autoReady){if(!match)primeAudio();syncLobbyReady();if(match?.phase==='loading')acceptReady();}return;}if(event.target.id==='sa-server'){if(!['EU','NAE','NAW'].includes(event.target.value))return;server=event.target.value;try{localStorage.setItem('amqtours-quiz-server',server);}catch{}}});
-  function enter(nextMode='song-artist',restoreFormat=null){
+  function enter(nextMode='song-artist',restore=null){
       if(active&&waiting()){mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];render();return;}
+      const restoreFormat=restore?.format??null;
+      queuedFromOverview=!!restore?.fromOverview;
       lastCounts=null;lobbies=null;autoReady=readAutoReady();savedServer();savedVolume();pendingArtistKey=null;mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=duel()?duelRules.songs:ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);previousHeartbeat=Date.now();heartbeat=setInterval(checkConnections,20000);
   }
   return {

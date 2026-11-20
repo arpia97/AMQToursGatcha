@@ -161,12 +161,21 @@ async function watchMatch(id,title){
   void loadQuizTitleDisplay().then(()=>watchView?.refresh()).catch(()=>{});
 }
 function savedQueue(){
-  try{const value=sessionStorage.getItem(queueKey());return Object.hasOwn(queueLabels,value)?value:null;}catch{return null;}
+  try{
+    const key=queueKey(),format=sessionStorage.getItem(key);
+    return Object.hasOwn(queueLabels,format)?{format,fromOverview:sessionStorage.getItem(key+'-overview')==='1'}:null;
+  }catch{return null;}
 }
 function showQueue(status){
   const box=$('#play-current-queue'),format=status?.format;
-  if(currentQueue?.format!==format&&state.me){
-    try{if(format)sessionStorage.setItem(queueKey(),format);else sessionStorage.removeItem(queueKey());}catch{}
+  if(state.me&&(currentQueue?.format!==format||currentQueue?.fromOverview!==status?.fromOverview)){
+    try{
+      const key=queueKey();
+      if(format)sessionStorage.setItem(key,format);
+      else sessionStorage.removeItem(key);
+      if(status?.fromOverview)sessionStorage.setItem(key+'-overview','1');
+      else sessionStorage.removeItem(key+'-overview');
+    }catch{}
   }
   const wasQueued=!!currentQueue;
   currentQueue=status;
@@ -198,9 +207,19 @@ const loadMultiplayer = loadOnce(async () => {
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
     animeTitle: song => quizAnimeTitle(song, titleMode), prepareTitles: loadQuizTitleDisplay,
     onError: fail, onQueueChange: showQueue, onQueueCounts: counts=>overview?.updateCounts(counts), onCreditReward: refreshAccount,
-    onMatchMode(id) {
+    onMatchMode(id,matchId) {
       stopWatching();
-      if (mode !== id || !multiplayerRoot.isConnected) {
+      const navigating=mode!==id||!multiplayerRoot.isConnected;
+      // Bind the queue origin to this match so reconnects and reloads retain it.
+      const saved=history.state?.overviewMatch;
+      const returnToOverview=matchId&&(
+        currentQueue?.match===matchId&&currentQueue.fromOverview||
+        saved?.id===matchId&&saved.player===state.me?.id
+      );
+      if(navigating||returnToOverview){
+        history.replaceState(returnToOverview?{overviewMatch:{id:matchId,player:state.me?.id}}:null,"",playHref(id));
+      }
+      if (navigating) {
         viewVersion++;
         if(mode==='quiz')quiz?.leave();
         overview?.close();overview=null;
@@ -208,9 +227,15 @@ const loadMultiplayer = loadOnce(async () => {
         $('#main').replaceChildren(multiplayerRoot);
         mode = id;
         if(reportedQuiz)void refreshLive(true);
-        history.replaceState(null, "", playHref(id));
         nav();
       }
+    },
+    onMatchExit(id){
+      const saved=history.state?.overviewMatch;
+      if(!id||saved?.id!==id||saved.player!==state.me?.id)return;
+      history.replaceState(null,"",playHref('overview'));
+      void openMode('overview',false);
+      return true;
     },
   });
 });
@@ -249,7 +274,7 @@ async function resumeBackgroundQueue(version){
   const saved=savedQueue();
   if(!saved)return;
   const multiplayer=await loadMultiplayer();
-  if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved),saved);
+  if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved.format),saved);
 }
 async function openMode(id, push = true) {
   const requested = PLAY_MODES.find(item => item.id === id);
