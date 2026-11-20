@@ -12,13 +12,17 @@ export function mountPlayReview(root,initial,api,esc){
   function trackText(track){
     return [track.song,track.artist,track.anime].filter(Boolean).map(esc).join(' · ');
   }
-  function decoyEvidence(decoy,played){
+  function decoyEvidence(decoy,played,round){
+    const assigned=decoy.assignedRound;
+    const timing=Number.isInteger(assigned)
+      ? '<small>Assigned to Song '+assigned+(assigned===round?' · Submitted on assigned song':'')+'</small>'
+      : '';
     return '<div><strong>Decoy</strong> · '+trackText(decoy)+'</div><div><strong>Played</strong> · '+
-      (played?trackText(played):'Unavailable in retained history')+'</div>';
+      (played?trackText(played):'Unavailable in retained history')+'</div>'+timing;
   }
   function eventText(row){
     const d=row.data;
-    const decoys=(d.flags||[]).map(flag=>'<div class="host-warning">'+decoyEvidence(flag,flag.played)+'</div>').join('');
+    const decoys=(d.flags||[]).map(flag=>'<div class="host-warning">'+decoyEvidence(flag,flag.played,d.round)+'</div>').join('');
     if(d.answers)return Object.entries(d.answers).map(([field,value])=>'<div><small>'+esc(field)+': </small>'+esc(value||'—')+(d.correct?' <strong class="'+(d.correct[field]?'correct':'incorrect')+'">'+(d.correct[field]?'Correct':'Incorrect')+'</strong>':'')+'</div>').join('')+'<small>'+(row.kind==='round-result'?'Scored by Server':d.accepted?'Accepted':'Not accepted')+(d.error?' · '+esc(d.error):'')+(Number.isFinite(d.elapsedMs)?' · '+(d.elapsedMs/1000).toFixed(3)+'s after start':'')+'</small>'+decoys;
     if(row.kind==='propose')return esc(d.field||'')+' · '+esc(d.answer||'—')+'<small>'+(d.accepted?'Accepted':'Not accepted')+'</small>'+decoys;
     if(row.kind==='activity')return esc(d.event+' · '+d.visibility+' · '+(d.focused?'focused':'unfocused'))+' <small>(client-reported)</small>';
@@ -47,7 +51,7 @@ export function mountPlayReview(root,initial,api,esc){
     const rows=h.rows.map(row=>{
       const d=row.data;
       const why=row.kind==='decoy'
-        ? decoyEvidence({song:d.decoy,anime:d.decoyAnime,artist:d.decoyArtist},d.played)+(d.auto?'<small>Scored at timeout</small>':'')
+        ? decoyEvidence({song:d.decoy,anime:d.decoyAnime,artist:d.decoyArtist,assignedRound:d.assignedRound},d.played,row.round)+(d.auto?'<small>Scored at timeout</small>':'')
         : esc(row.kind==='return'
           ? 'Left at +'+seconds(d.out-(d.submitAt-d.elapsed))+' · Away '+seconds(d.back-d.out)+' · Submitted '+seconds(d.submitAt-d.back)+' after return'
           : 'Submitted at +'+seconds(d.elapsed)+' · Correct within 1s on songs '+d.rounds.join(', '));

@@ -19,7 +19,10 @@ export function inspectReviewEvent(memory, row, data, highlight) {
   if (((row.kind === 'submit' || proposal) && accepted) || row.kind === 'round-result') {
     for (const flag of data.flags || []) {
       const answer = proposal ? data.answer : data.answers?.[flag.field];
-      if (answer) highlight('decoy', {field: flag.field, answer, decoy: flag.song, decoyAnime:flag.anime, decoyArtist:flag.artist, played:flag.played, auto:!!data.autoSubmitted});
+      if (answer) highlight('decoy', {
+        field:flag.field, answer, decoy:flag.song, decoyAnime:flag.anime, decoyArtist:flag.artist,
+        played:flag.played, assignedRound:flag.assignedRound, auto:!!data.autoSubmitted
+      });
     }
   }
   if (['connected','disconnected','unlock','withdraw'].includes(row.kind) && data.accepted !== false) {

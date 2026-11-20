@@ -64,7 +64,7 @@ quizzes, one per player and quiz.
   answers remain private until reveal. Submitted 1v1 answers require explicit cancellation to edit. Drafts
   already received at the deadline are scored; client timestamps are not trusted.
 - All players must download the encrypted first batch, which includes up to three songs
-  and any decoys, and enable audio before starting. Remaining clips download in
+  and the unassigned decoys, and enable audio before starting. Remaining clips download in
   two concurrent streams in the background. Players missing the next batch wait together before
   its countdown. Initial readiness expires
   after 3 minutes; later buffering after 90 seconds. A reconnect does not extend
@@ -94,8 +94,8 @@ quizzes, one per player and quiz.
   choose automatic counting early. The choice lasts for the entire match. A counter has eight seconds after reveal to choose an eligible
   teammate; timeout uses lowest starting Elo, then canonical ID as a tie-break.
 - 35 distinct recordings, sampled uniformly by anime, then available OP/ED/IN
-  category, then song. Three songs and the decoys download before start. Remaining tracks download
-  in the background. NGMC uses a shared 20-second answer clock and countdown bar. Only each
+  category, then song. Three songs and the unassigned decoys download before start. Remaining tracks
+  download in the background. NGMC uses a shared 20-second answer clock and countdown bar. Only each
   player's own draft is visible until reveal. Lives reaching zero ends play;
   after song 35, most lives wins and equal lives is a draw.
 - Enter selects the highlighted anime and locks it. All active players locking
@@ -276,14 +276,15 @@ Open **Match Review** in either the Play Host Console or the Gacha Host Console.
 **Timeline** shows a line for each player in the selected song. Green marks reported focus, red marks reported loss of focus, and gray marks intervals with unknown focus status. A vertical marker shows an accepted answer at its server receipt time or a recorded automatic answer at scoring. The player filter applies to both views.
 
 - **Correct after refocusing** pairs a browser-reported departure 2–9 seconds into a song with an absence of at least 1.5 seconds, then a manual submission within 2 seconds of returning. The system checks the player's own server-scored answer and suppresses a matching draft already seen before the return.
-- **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Highlights and the full log show the decoy and played track. Older flags pull the played track from retained match history when available. Answers shared with a real song in the match are excluded.
+- **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Highlights and the full log show both tracks and identify hits on the decoy's assigned round when applicable. Older flags pull the played track from retained match history when available. Answers shared with a real song in the match are excluded.
 - **Repeated fast correct answers** starts at the third distinct song in a match where a player manually submits a correct answer within one second. The evidence lists the qualifying song numbers.
 
 New matches are indexed automatically after they finish. Opening Highlights also indexes the retained events for older or active matches. Each player, song and signal type appears once. Hosts decide how to interpret the evidence and can record notes and review status. These observations have no effect on scoring, ratings or account access.
 
-The library optionally supplies up to three verified unused audio tracks. The
-initial batch contains up to three real tracks in each multiplayer mode, plus
-the available decoys. All candidates use fixed-length sealed tickets and equally
+The library optionally supplies up to three verified unused audio tracks. One
+decoy is assigned a random round at match creation and shuffled into that round's
+download batch. Up to two unassigned decoys go into the opening batch with up to
+three real tracks. All candidates use fixed-length sealed tickets and equally
 sized AES-GCM packets within a mode. Downloads use same-origin `/api/play-audio/`
 and encrypted edge caching. Only the Worker sees the AMQ MP3 URLs. The ready
 button enables audio with silence, and readiness checks whole batches. Before guessing, each active player receives the current clip's slot and

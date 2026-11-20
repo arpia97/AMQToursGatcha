@@ -4,7 +4,7 @@ import {closeSocket} from '../src/play-sockets.js';
 import {DatabaseSync} from 'node:sqlite';
 import {playRankingPage} from '../src/play-ranking-query.js';
 import {roundAudio} from '../public/play-round-audio.js';
-import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits} from '../src/play-integrity.js';
+import {MatchReview,prepareAudioPool,audioManifest,loadedRounds,decoyHits,playbackView} from '../src/play-integrity.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 test('Quiz ranking sorts across pages, retains overall ranks and places untimed players last',()=>{
@@ -112,6 +112,31 @@ test('unused audio never becomes a round; review suppresses shared answers and p
     db.prepare('UPDATE review_meta SET expires=1').run();assert.equal(log.page().events.length,5);assert.equal(log.page().expires,null);
   }finally{db.close();}
 });
+test('sealed matches attach one private decoy to its round batch and keep two in the opening batch',t=>{
+  const state=makeMatch('decoys','1v1',players.slice(0,2),structuredClone(songs),0);
+  const decoys=Array.from({length:3},(_,i)=>({...songs[0],audio:'https://example.test/decoy-'+i+'.mp3'}));
+  const random=t.mock.method(crypto,'getRandomValues',array=>array.fill(4));
+  try{prepareAudioPool(state,decoys,true);}finally{random.mock.restore();}
+  state.audioSealed=true;
+  const slots=state.audioPool;
+  for(const [slot,entry] of slots.entries()){entry.ticket='ticket-'+slot;entry.key='key-'+slot;}
+  assert.deepEqual(state.decoys.map(d=>d.assignedRound),[5,undefined,undefined]);
+  assert.equal(audioManifest(state).downloadEnd,5);
+  assert.deepEqual(slots.slice(0,5).filter(e=>e.round===null).map(e=>e.audio).sort(),
+    decoys.slice(1).map(d=>d.audio));
+  state.phase='guess';state.until=1000;state.index=4;
+  const assignedBatch=audioManifest(state);
+  assert.deepEqual([assignedBatch.downloadStart,assignedBatch.downloadEnd],[5,10]);
+  assert.ok(slots.slice(5,10).some(e=>e.round===null&&e.audio===decoys[0].audio));
+  assert.ok(!JSON.stringify(assignedBatch).includes('assignedRound'));
+  const playback=playbackView(state,state.players[0],1).playback;
+  assert.equal(slots[playback.slot].audio,songs[4].audio);
+  assert.equal(playback.key,slots[playback.slot].key);
+  state.index=7;
+  const nextBatch=audioManifest(state);
+  assert.deepEqual([nextBatch.downloadStart,nextBatch.downloadEnd],[10,14]);
+});
+
 test('sealed matches wait together for the current group and give progressing downloads more time',()=>{
   const state=makeMatch('slow','1v1',players.slice(0,2),structuredClone(songs),0);
   prepareAudioPool(state,[],true);

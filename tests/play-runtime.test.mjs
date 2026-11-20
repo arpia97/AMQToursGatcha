@@ -318,7 +318,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.equal(new Set(manifest.audio).size,manifest.audio.length);
     assert.ok(manifest.audio.every(ticket=>/^[A-Za-z0-9_-]{379}$/.test(ticket)));
     assert.equal(manifest.total,ngmc?35:20);
-    assert.equal(manifest.preload,6);
+    const {decoys}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
+    assert.ok(Number.isInteger(decoys[0].assignedRound) && decoys[0].assignedRound>=1 && decoys[0].assignedRound<=manifest.total);
+    assert.equal(manifest.preload,5+Number(decoys[0].assignedRound<=3));
     assert.equal(manifest.answers,undefined);
     let revision=0;
     const preload=Array.from({length:manifest.preload},(_,i)=>i);
@@ -403,7 +405,6 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(reveal.players.every(p=>p.score===(ngmc?Number(Number(p.id)<=4):teamFields?1:3)));if(!ngmc)assert.ok(reveal.teams.every(p=>p===3));assert.equal(reveal.history.length,1);
     let flaggedTracks;
     if(format==='1v1'){
-      const {decoys}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
       await mf.dispatchFetch(base+'/api/__expire?match='+id);await mf.dispatchFetch(base+'/api/__advance?match='+id);
       await rooms[0].wait(m=>m.state?.phase==='guess'&&m.state.index===1&&m.state.now>=m.state.startsAt);
       rooms[0].send({type:'answer',index:1,answers:{anime:decoys[0].anime,song:'',artist:''},lock:true});
@@ -415,7 +416,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.equal(patch.songList,undefined);
       const {anime,song:playedSong,artist}=second.history[1];
       flaggedTracks={decoy:decoys[0].title,decoyAnime:decoys[0].anime,decoyArtist:decoys[0].artist,
-        played:{anime,song:playedSong,artist}};
+        played:{anime,song:playedSong,artist},assignedRound:decoys[0].assignedRound};
       assert.equal(second.history[1].results.find(p=>p.id==='1').correct.anime,false);
       assert.equal(second.songList.length,2);assert.ok(!JSON.stringify(second).includes('decoy'));
       assert.equal(second.playback,undefined);
@@ -453,8 +454,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       } while(highlights.highlights.pending);
       const highlight=highlights.highlights.rows.find(r=>r.kind==='decoy'&&r.player==='1'&&r.round===2);
       assert.ok(highlight);
-      const {decoy,decoyAnime,decoyArtist,played}=highlight.data;
-      assert.deepEqual({decoy,decoyAnime,decoyArtist,played},flaggedTracks);
+      const {decoy,decoyAnime,decoyArtist,played,assignedRound}=highlight.data;
+      assert.deepEqual({decoy,decoyAnime,decoyArtist,played,assignedRound},flaggedTracks);
       assert.equal(highlights.events,undefined);
       const timelineUrl=base+'/api/host/play-review?match='+id+'&view=timeline&round=2&player=1';
       assert.equal((await mf.dispatchFetch(timelineUrl,{headers:{Cookie:cookies[0]}})).status,401);
@@ -468,7 +469,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.equal((await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders})).json()).assessment.note,'Check round 1');
       for(const kind of ['submit','round-result']){
         const entry=review.events.find(e=>e.kind===kind&&e.data.round===2&&e.data.flags?.length);
-        assert.deepEqual(entry?.data.flags,[{field:'anime',song:decoy,anime:decoyAnime,artist:decoyArtist,played}]);
+        assert.deepEqual(entry?.data.flags,[{field:'anime',song:decoy,anime:decoyAnime,artist:decoyArtist,played,assignedRound}]);
         if(kind==='round-result')assert.equal(entry.data.correct.anime,false);
       }
     }

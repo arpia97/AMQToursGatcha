@@ -242,7 +242,10 @@ export class PlayMatch extends DurableObject {
       if(!live||live.audioPool[slot]?.key!==entry.key||!replaceable(live))return;
       if(entry.round===null){
         const i=live.decoys.findIndex(s=>s.audio===entry.audio);
-        if(i>=0)live.decoys[i]=song;
+        if(i>=0){
+          const {assignedRound}=live.decoys[i];
+          live.decoys[i]=assignedRound ? {...song,assignedRound} : song;
+        }
       }else if(entry.round>=live.index)live.songs[entry.round]=song; // Past rounds keep their original answers and scores.
       (live.failedAudio??=[]).push(entry.audio);
       if(entry.round===live.index){

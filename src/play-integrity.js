@@ -10,20 +10,32 @@ const laterBatchSize = 4;
 const firstRounds = state => Math.min(state.songs.length,state.mode === 'ngmc-ranked' ? 12 : 10);
 
 export function prepareAudioPool(state,decoys=[],sealed=false){
-  const first=sealed ? Math.min(3,state.songs.length) : firstRounds(state);
-  if (sealed) state.openingSongs=first;
-  state.decoys=decoys.filter(d=>!state.songs.some(s=>s.audio===d.audio)).slice(0,3);
-  const entries=state.songs.map((s,round)=>({audio:s.audio,round}));
-  const initial=shuffle([...entries.slice(0,first),...state.decoys.map(d=>({audio:d.audio,round:null}))]);
-  const later = entries.slice(first);
-  state.audioPool = [...initial];
+  const first = sealed ? Math.min(3,state.songs.length) : firstRounds(state);
+  const entries = state.songs.map((s,round)=>({audio:s.audio,round}));
+  state.decoys = decoys.filter(d=>!state.songs.some(s=>s.audio===d.audio)).slice(0,3);
+
+  const assignedIndex = sealed && first && state.decoys.length
+    ? crypto.getRandomValues(new Uint32Array(1))[0] % entries.length
+    : -1;
+  if (assignedIndex >= 0) state.decoys[0] = {...state.decoys[0], assignedRound:assignedIndex+1};
+  const openingDecoys = assignedIndex >= first ? state.decoys.slice(1) : state.decoys;
+  const decoySlot = decoy => ({audio:decoy.audio,round:null});
+  state.audioPool = shuffle([...entries.slice(0,first),...openingDecoys.map(decoySlot)]);
+  state.audioPreload = state.audioPool.length;
+
   if (sealed) {
-    // Only whole batches can gate playback. Download acknowledgments cannot
-    // reveal the specific clip that made a round ready.
-    for (let offset = 0; offset < later.length; offset += laterBatchSize)
-      state.audioPool.push(...shuffle(later.slice(offset, offset + laterBatchSize)));
-  } else state.audioPool.push(...shuffle(later));
-  state.audioPreload=initial.length;
+    state.openingSongs = first;
+    state.audioBatchEnds = [state.audioPreload];
+    // Only whole batches can gate playback. The assigned decoy shares the
+    // round's batch while remaining ineligible for playback.
+    for (let start = first; start < entries.length; start += laterBatchSize) {
+      const end = start + laterBatchSize;
+      const batch = entries.slice(start,end);
+      if (assignedIndex >= start && assignedIndex < end) batch.push(decoySlot(state.decoys[0]));
+      state.audioPool.push(...shuffle(batch));
+      state.audioBatchEnds.push(state.audioPool.length);
+    }
+  } else state.audioPool.push(...shuffle(entries.slice(first)));
 }
 export function audioManifest(state){
   const window=state.audioSealed?audioWindow(state):null;
@@ -44,6 +56,7 @@ export function audioWindow(state) {
   const opening = state.openingSongs ?? firstRounds(state);
   if (state.index < opening) return {start:0, end:state.audioPreload};
   const group = Math.floor((state.index - opening) / laterBatchSize);
+  if (state.audioBatchEnds) return {start:state.audioBatchEnds[group], end:state.audioBatchEnds[group+1]};
   const start = state.audioPreload + group * laterBatchSize;
   return {start, end:Math.min(start + laterBatchSize,state.audioPool.length)};
 }
@@ -81,7 +94,8 @@ export function decoyHits(state,answers,artists,round=state.index){
     // Shared anime titles/artists are not useful evidence. Suppress anything
     // that is an accepted answer anywhere in the actual match, not just now.
     if(!value||!matches(song,field,value)||state.songs.some(s=>matches(s,field,value)))return [];
-    return [{field,anime:song.anime,song:song.title,artist:song.artist,played}];
+    return [{field,anime:song.anime,song:song.title,artist:song.artist,played,
+      ...(song.assignedRound ? {assignedRound:song.assignedRound} : {})}];
   }));
 }
 export class MatchReview {
