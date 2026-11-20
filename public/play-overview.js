@@ -136,7 +136,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       for(const [i,stack] of [...row.querySelectorAll('.overview-stack')].entries()){
         const team=leading[i]?.team;
         const avatars=row.querySelectorAll('.overview-side.team-'+(Number(team)+1)+' .overview-avatar');
-        stack.replaceChildren(...[...avatars].slice(0,3).map(el=>el.cloneNode(true)));
+        stack.replaceChildren(...[...avatars].slice(0,4).map(el=>el.cloneNode(true)));
       }
       const fixture=score.scores.length>1?' · Fixture 1':group.length>2?' · Leader':'';
       row.querySelector('.overview-song').textContent=liveProgressText(score)+fixture;

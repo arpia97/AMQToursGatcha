@@ -146,6 +146,9 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-stack:last-child {justify-content:flex-end}
 .overview-stack .overview-avatar {width:23px;height:23px}
 .overview-stack .overview-avatar+.overview-avatar {margin-left:-6px}
+.overview-versus:has(.overview-avatar:nth-child(4)) {gap:4px}
+.overview-versus:has(.overview-avatar:nth-child(4)) .overview-card-score {font-size:18px;word-spacing:-2px}
+.overview-stack:has(.overview-avatar:nth-child(4)) .overview-avatar {width:20px;height:20px}
 .overview-card-foot {padding-top:5px;margin-top:5px;border-top:1px solid #ffffff20}
 .overview-card-foot small {font:10px Consolas,monospace;color:#bec8d1}
 .overview-card-foot .overview-watch {width:auto;margin:0;min-height:24px;padding:2px 7px;font-size:11px}
