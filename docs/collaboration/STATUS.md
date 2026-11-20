@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play history
+
+Source `60b3ab4` is live at 100% on Worker `69bf458d-fb5a-4d33-aa9f-5064c4880554`. The Play profile menu opens private match and song history. Finished room snapshots retain song titles and the player’s own answers. Older archived reviews show the retained answers and results when titles are unavailable. All 564 tests passed, including participant-only access and history after room expiry. Local Chrome verified both tabs, song expansion, paging and mobile layout. The production Play page and updated assets returned HTTP 200, and the live history endpoint returned its expected sign-in response after code propagation.
+
 ## NGMC team counter selection
 
 Source `346e2ef` deployed as Worker `ab068aa6-6d1b-4697-9815-a53ce023ed73`. New NGMC matches close volunteer signup at 20 seconds and assign automatic counting to unfilled teams at 40 seconds from setup. Teams can opt in earlier and keep the assignment across songs. The suite passed all 564 tests, including mixed manual and automatic teams across rounds. The live NGMC page and its three updated UI modules returned HTTP 200.
