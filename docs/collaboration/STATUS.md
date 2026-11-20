@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Per-song Match Review timeline
+
+Source `4087709` is live at 100% on Worker `5f133c49-464b-42ac-90ad-d24c890b5421`. The host-only Timeline tab plots reported focus changes and accepted answers by player and round using server timing. Missing focus data appears gray. All 565 tests passed, including host authorization and scoring-boundary coverage. Chrome verified desktop and mobile layouts, song and player selection, and answer markers. An authorized production read confirmed timelines for a previously completed match, and a signed-out request returned HTTP 401.
+
 ## Decoy and played tracks in Match Review
 
 Source `0299491` is live at 100% on Worker `3e980ad8-dc16-4f69-a464-4230113c56ed`. Decoy flags retain the unused recording and the actual round recording. Existing flags can resolve the actual recording from retained match history. All 564 tests passed, including live-room recording and a historical lookup fixture. The deployed UI showed both tracks in Highlights and Full log at desktop and mobile widths. Production host checks recovered both flagged rounds in the earlier reviewed match.
