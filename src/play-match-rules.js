@@ -3,7 +3,7 @@ import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
-import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn} from './play-lobby-votes.js';
+import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn,voteToAbort,checkAbort} from './play-lobby-votes.js';
 import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
@@ -11,7 +11,6 @@ import {saveDraft,applyTimeoutDrafts} from './play-drafts.js';
 export const PLAY_FORMATS=Object.freeze({[DUEL_FORMAT]:{size:2,teams:2},[ARENA_FORMAT]:{size:arenaRules.preferredPlayers},'ngmc-3v3':{size:6,teams:2},'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1}});
 export const FIELDS=['anime','song','artist'];
 function skipMajority(state){
-  if(!['1-team','lobby-team'].includes(state.format))return 0;
   return Math.floor(state.players.filter(p=>!p.left).length/2)+1;
 }
 export const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
@@ -93,7 +92,7 @@ export function advanceMatch(state,now=Date.now()) {
       state.until=now+86400000;return;
     }
   }
-  if(checkReturn(state,now))return;
+  if(checkAbort(state,now)||checkReturn(state,now))return;
   if(ngmc&&state.history.length&&state.teams.some((_,team)=>!active.some(p=>p.team===team))){if(state.phase==='counting')finishNgmcCount(state,Infinity);for(let team=0;team<2;team++)if(!active.some(p=>p.team===team))state.teams[team]=0;state.phase='finished';state.reason='A team left the match.';state.until=now+86400000;return;}
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
@@ -120,7 +119,7 @@ export function advanceMatch(state,now=Date.now()) {
     const needed=skipMajority(state);
     const skipped=needed>0&&active.filter(p=>p.skip).length>=needed;
     const answered=state.format==='lobby-team'?ballotsComplete(state):active.every(p=>p.locked);
-    if(now>=state.until||!state.arena&&now>=state.startsAt&&(skipped||answered))gradeRound(state,now);
+    if(now>=state.until||now>=state.startsAt&&(skipped||(!state.arena&&answered)))gradeRound(state,now);
   }
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
@@ -149,10 +148,13 @@ export function matchMove(state,id,message,now=Date.now()) {
   if(state.readyForfeit)return;
   if(message.type==='accept-ready'&&state.phase==='loading'&&!player.left){player.acceptedReady=true;return;}
   if(player.left)fail('You left this match.',409);
+  if(['abort-request','abort-vote'].includes(message.type)){
+    voteToAbort(state,player,message);checkAbort(state,now);return;
+  }
   if(state.lobby&&['return-request','return-vote'].includes(message.type)){
     returnVote(state,player,message);checkReturn(state,now);return;
   }
-  if (state.arena && !['loaded','ready'].includes(message.type)) {
+  if (state.arena && !['loaded','ready','skip'].includes(message.type)) {
     if (!['propose','vote'].includes(message.type) || message.field !== 'anime' ||
         state.phase !== 'guess' || message.index !== state.index || now < state.startsAt || now >= state.until)
       fail('This song is no longer accepting titles or votes.',409);
@@ -241,10 +243,10 @@ export function matchView(state,id,now=Date.now(),compactHistory=false) {
   return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,counterDeadline:state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...(ended?{settlementPending:!state.rankingsSettled,ratingsPending:!state.ratingsDone&&!state.rankingsSettled,
       creditsPending:!!(state.completed&&!state.lobby&&!me.left&&me.disconnectedAt==null&&me.rankedLeftAt==null&&!state.creditsDone&&!state.rankingsSettled)}:{}),
-    preparingClip:!!state.preparingClip,...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:['1-team','lobby-team'].includes(state.format)?state.players.filter(p=>!p.left&&p.skip).map(p=>p.id):undefined,
-    ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,creditReward:state.creditRewards?.find(row=>row.id===me.id),returnPoll:state.returnPoll,ballot:state.ballot,myVotes:me.votes,
+    preparingClip:!!state.preparingClip,...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:state.players.filter(p=>!p.left&&p.skip).map(p=>p.id),
+    ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,creditReward:state.creditRewards?.find(row=>row.id===me.id),returnPoll:ended?undefined:state.returnPoll,abortPoll:ended?undefined:state.abortPoll,aborted:state.aborted,ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(FIELDS.flatMap(f=>state.ballot[f].map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[f]===o.id).length]))):undefined,
     myDraft:me.draft,teams:state.teams,me:id,history:compact?state.history.slice(historyFrom):state.history,...(compact?{historyFrom}:{}),teamFields:!!state.teamFields,
-    songList:ended?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),
+    songList:ended&&!state.aborted?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),
     players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p)&&(!state.preparingClip||p.clipReadyIndex===state.index),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,acceptedReady:p.acceptedReady||p.ready,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(animeOnlyMode(state.mode)?['anime']:FIELDS):[],...((animeOnlyMode(state.mode)?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

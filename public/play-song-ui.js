@@ -4,7 +4,7 @@ import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
 import {DUEL_FORMAT, duelRules, animeOnlyMode, soloVersus, queueMode, lobbyGameMode} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
-import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateReturnDialog} from './play-lobby-ui.js';
+import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
 import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,roundDialHTML,updateRoundDial} from './play-round-ui.js';
@@ -455,13 +455,16 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const teamSize=match.players.length/2;
     const duelLabel=match.lobby?'1v1 Unranked':'1v1 Ranked';
     const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1></div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
+    if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
     if(done)return heading+reward+broadcastResults(match,esc,animeTitle,winnerText);
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
       '<small class="sa-locked-answer" aria-live="polite" hidden></small></form>';
-    if(ranked())return heading+ngmcArena(match,answerForm);
+    const skipButton=match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'';
+    if(ranked())return heading+ngmcArena(match,answerForm+skipButton);
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
     const versus=!arena()&&!match.lobby&&match.teams.length===2;
     const scoreboard='<div class="sa-scoreboard"></div>';
@@ -469,7 +472,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       (arena()?'':scoreboard)+
       '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+totalSongs+'</small></h2></div>'+roundDialHTML+'</header>'+
       '<div class="song-broadcast-body"><div class="sa-reveal-wrap"></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
-      (match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'')+'</div></section>'+(arena()?scoreboard:'')+'</div>';
+      skipButton+'</div></section>'+(arena()?scoreboard:'')+'</div>';
   }
   function winnerText(){
     if(duel()&&match.players.some(p=>p.left&&p.id!==match.me)&&match.history.length<match.total)return 'You won by forfeit';
@@ -500,7 +503,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       reward.hidden=!match.creditsPending;
       if(match.creditsPending)reward.textContent='Saving your credit reward. You can leave this screen.';
     }
-    updateReturnDialog(root,match,payload=>send(room,payload));
+    updateMatchVoteDialog(root,match,payload=>send(room,payload));
+    if(match.aborted)return;
+    const abort=root.querySelector('[data-abort-request]');
+    if(abort){
+      const poll=match.abortPoll;
+      abort.disabled=!!(poll||match.returnPoll||player()?.left);
+      abort.textContent=poll?'Abort Vote · '+match.players.filter(p=>!p.left&&poll.votes[p.id]===true).length+'/'+poll.required:'Request Abort Vote';
+    }
     const scoreboard=root.querySelector('.sa-scoreboard');
     if(arena()){
       const open=scoreboard.querySelector('details')?.open;
@@ -729,6 +739,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         lobbyDraft=null;
       }
       send(queue,{type:'lobby-'+button.dataset.lobbyAction,...customSettings()});return;
+    }
+    if(button.hasAttribute('data-abort-request')){
+      if(confirm('Vote to abort this match? Your vote counts as yes.'))send(room,{type:'abort-request'});
+      return;
     }
     if(button.hasAttribute('data-return-request')){if(confirm('Vote to end this match and return everyone to the lobby?'))send(room,{type:'return-request'});return;}
     if(button.dataset.propose){submit(true,button.dataset.propose);return;}

@@ -262,6 +262,28 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.ok(migration.appliedAt,JSON.stringify(migration.error));
   assert.ok(migration.updates.some(g=>g.id===rankedId&&g.pool==='watched'));
   assert.deepEqual(await applyBalanced(),migration);
+  for(const q of rankedQueues)q.send({type:'join',mode:'ngmc-ranked',format:'ngmc-ranked',pool:'watched'});
+  const abortId=(await rankedQueues[0].wait(m=>m.type==='matched'&&m.match!==rankedId)).match;
+  const voters=await Promise.all(rankedQueues.map((_,i)=>connect(i,abortId)));
+  await Promise.all(voters.map(r=>r.wait(m=>m.type==='state')));
+  await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+abortId);
+  voters[0].send({type:'abort-request'});
+  const poll=(await voters[1].wait(m=>m.state?.abortPoll)).state.abortPoll;
+  assert.equal(poll.required,5);
+  for(let i=1;i<=3;i++)voters[i].send({type:'abort-vote',poll:poll.id,yes:true});
+  await voters[0].wait(m=>m.state?.phase==='reveal'&&Object.keys(m.state.abortPoll?.votes||{}).length===4);
+  voters[1].send({type:'abort-vote',poll:poll.id,yes:true});
+  voters[4].send({type:'abort-vote',poll:poll.id,yes:true});
+  const aborted=(await voters[7].wait(m=>m.state?.aborted&&!m.state.settlementPending)).state;
+  assert.equal(aborted.phase,'cancelled');assert.equal(aborted.reason,'Match aborted');
+  assert.equal(aborted.creditReward,undefined);assert.equal(aborted.ratings,undefined);
+  assert.equal(aborted.songList.length,aborted.history.length);
+  const abortReceipt=await(await mf.dispatchFetch(settlementPath.replace(rankedId,abortId),
+    {headers:{Authorization:'Bearer local-only-test-host-token-123456789'}})).json();
+  assert.equal(abortReceipt.ratingReceipt,null);assert.ok(!abortReceipt.creditReceipt);
+  assert.deepEqual((await(await mf.dispatchFetch(rankingBase+'&pool=watched')).json()).rows,watchedRankings.rows);
+  assert.ok(!(await live()).matches.some(m=>m.match===abortId||m.id===abortId));
+  for(const r of voters)r.ws.close();
   for(const connection of rankedQueues)connection.ws.close();
   const catalog=await (await mf.dispatchFetch(base+'/api/play-catalog')).json();assert.equal(catalog.anime.length,80);assert.equal(catalog.song.length,40);assert.equal(catalog.songs,undefined);
   assert.ok(catalog.anime.includes('Sheet Anime 1')&&!catalog.anime.includes('Anime 1'));

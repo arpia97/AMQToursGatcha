@@ -120,15 +120,17 @@ export function ballotHTML(match,esc){
     }).join('')+(options.length?'':'<small class="muted">No guesses yet</small>')+'</section>';
   }).join('')+'</div>';
 }
-export function updateReturnDialog(root,match,send){
-  let dialog=root.querySelector('dialog.lobby-poll');
-  const poll=match?.returnPoll;
-  if(!poll||Object.hasOwn(poll.votes,match.me)){dialog?.remove();return;}
+export function updateMatchVoteDialog(root,match,send){
+  let dialog=root.querySelector('dialog[data-poll]');
+  const abort=!!match.abortPoll,poll=match.abortPoll||match.returnPoll;
+  if(!poll||match.players.find(p=>p.id===match.me)?.left||Object.hasOwn(poll.votes,match.me)){dialog?.remove();return;}
   if(dialog?.dataset.poll===poll.id)return;
   dialog?.remove();dialog=document.createElement('dialog');dialog.className='lobby-poll';
-  dialog.dataset.poll=poll.id;dialog.setAttribute('aria-label','Return to lobby vote');
-  dialog.innerHTML='<h2>Return to Lobby?</h2><p>A majority vote ends this match.</p><button class="button mint" data-yes>Return to Lobby</button> <button class="button secondary">Keep Playing</button>';
-  const vote=yes=>send({type:'return-vote',poll:poll.id,yes});
+  dialog.dataset.poll=poll.id;dialog.setAttribute('aria-label',abort?'Match abort vote':'Return to lobby vote');
+  dialog.innerHTML=abort
+    ? '<h2>Abort this match?</h2><p>'+poll.required+' yes votes end the match immediately. The result will not count toward ratings, records or credits.</p><button class="button secondary" data-yes>Yes, Abort</button> <button class="button mint">Keep Playing</button>'
+    : '<h2>Return to Lobby?</h2><p>A majority vote ends this match.</p><button class="button mint" data-yes>Return to Lobby</button> <button class="button secondary">Keep Playing</button>';
+  const vote=yes=>send({type:abort?'abort-vote':'return-vote',poll:poll.id,yes});
   dialog.addEventListener('click',e=>{const button=e.target.closest('button');if(button)vote(button.hasAttribute('data-yes'));});
   dialog.addEventListener('cancel',e=>{e.preventDefault();vote(false);});
   root.append(dialog);dialog.showModal();

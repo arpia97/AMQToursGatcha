@@ -41,10 +41,33 @@ export function selectWinners(state){
     active.find(p=>p.id===chosen.owner).answers[field]=chosen.answer;
   }
 }
+export function voteToAbort(state,player,message){
+  if(['finished','cancelled'].includes(state.phase))reject('Match has ended.');
+  if(message.type==='abort-request'){
+    if(state.abortPoll||state.returnPoll)reject('A match vote is already open.');
+    state.abortPoll={id:crypto.randomUUID(),required:Math.floor(state.players.length/2)+1,votes:{[player.id]:true}};
+    return;
+  }
+  const poll=state.abortPoll;
+  if(!poll||message.poll!==poll.id||typeof message.yes!=='boolean')reject('This vote has ended.');
+  poll.votes[player.id]=message.yes;
+}
+export function checkAbort(state,now){
+  const poll=state.abortPoll;
+  if(!poll)return false;
+  const active=state.players.filter(p=>!p.left);
+  const yes=active.filter(p=>poll.votes[p.id]===true).length;
+  if(yes>=poll.required){
+    state.aborted=true;state.phase='cancelled';state.reason='Match aborted';state.until=now+86400000;
+    delete state.abortPoll;return true;
+  }
+  if(yes+active.filter(p=>!Object.hasOwn(poll.votes,p.id)).length<poll.required)delete state.abortPoll;
+  return false;
+}
 export function returnVote(state,player,message){
   if(['finished','cancelled'].includes(state.phase))reject('Match has ended.');
   if(message.type==='return-request'){
-    if(state.returnPoll)reject('A return vote is already open.');
+    if(state.returnPoll||state.abortPoll)reject('A match vote is already open.');
     state.returnPoll={id:crypto.randomUUID(),votes:{[player.id]:true}};
   }else{
     if(!state.returnPoll||message.poll!==state.returnPoll.id||typeof message.yes!=='boolean')reject('This vote has ended.');

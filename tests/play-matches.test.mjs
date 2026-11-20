@@ -262,12 +262,14 @@ test('private current answers score at timeout; team skip needs two distinct vot
   matchMove(conflict,'2',{type:'answer',index:0,field:'anime',answer:'Anime'},now+2);
   advanceMatch(conflict,conflict.until);assert.deepEqual(conflict.teams,[1]);assert.equal(conflict.players.filter(p=>p.field==='anime').length,1);
   const solo=makeMatch('solo','1v1',players.slice(0,2),structuredClone(songs),now);solo.phase='guess';solo.startsAt=now;solo.until=now+30000;
-  assert.throws(()=>matchMove(solo,'0',{type:'skip',index:0,vote:true},now),/unavailable/);
+  matchMove(solo,'0',{type:'skip',index:0,vote:true},now);
+  assert.equal(solo.phase,'guess');
   matchMove(solo,'0',{...draft('artist','Artist'),answers:{anime:'Anime',song:'Song',artist:'Artist'}},now);
   assert.equal(matchView(solo,'1').myDraft,undefined);assert.equal(matchView(solo,'1').players.find(p=>p.id==='0').answers,undefined);
   matchMove(solo,'0',{type:'artists',index:0,artists:['Artist']},now+1);
   assert.equal(solo.players.find(p=>p.id==='0').draft.answers.anime,'Anime');
-  advanceMatch(solo,solo.until);assert.equal(solo.players.find(p=>p.id==='0').score,3);
+  matchMove(solo,'1',{type:'skip',index:0,vote:true},now+2);
+  assert.equal(solo.phase,'reveal');assert.equal(solo.players.find(p=>p.id==='0').score,3);
 });
 
 test('custom team ballots reject duplicate proposals, settle early and credit the selected owner',()=>{

@@ -11,6 +11,11 @@ three emoji shortcuts, initially 🔥, 🌋 and ❓. Edit saves replacements for
 that account in the same browser. Reconnecting restores the latest 80 messages
 from that match without replaying old emoji animations.
 
+Any player can request a match abort. The request counts as a yes vote. More
+than half the starting roster must vote yes to void the result immediately.
+During guessing, a separate Skip Song vote reveals the current song when a
+majority of active players agree. Submitted answers are scored.
+
 Matchmaking credits require a match that reaches its gameplay finish. Players
 who leave or are still disconnected at the finish earn no credits. Missing
 songs does not affect the payout. Three consecutive completed matchmaking

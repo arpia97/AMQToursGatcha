@@ -148,6 +148,10 @@ export class PlayMatch extends DurableObject {
     }
   }
   async finishRatings(state){
+    if(state.aborted){
+      await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,null,'cancelled');
+      return {};
+    }
     const participation=state.completed&&!state.lobby
       ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean')
         .map(({id,answeredMatch})=>({id,answered:answeredMatch}))
@@ -291,7 +295,7 @@ export class PlayMatch extends DurableObject {
       let failure;
       try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
-      if(['propose','vote','withdraw','return-vote','return-request'].includes(message.type)){
+      if(['propose','vote','withdraw','return-vote','return-request','abort-request','abort-vote'].includes(message.type)){
         const proposal=message.type==='propose'&&!failure;
         this.reviewLog.add({...state,index:before.index,phase:before.phase},input.who.id,message.type,{
           field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure,
