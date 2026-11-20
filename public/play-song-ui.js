@@ -87,6 +87,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(!getPlayer()||!ratingBucket(format))return '';
     return '<span class="play-mode-rating" data-mode-rating></span>';
   }
+  function ngmcTitleHTML(title,format){
+    return '<div class="ngmc-mode-title"><h1>'+title+'</h1>'+ratingHTML(format)+'</div>';
+  }
   function updateModeRating(){
     const chip=root.querySelector('[data-mode-rating]');
     if(!chip)return;
@@ -476,9 +479,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const status=(!getPlayer()?'Sign in above to join a queue.':queueStatus.type==='preparing'&&!otherQueue?preparationLabel(queueStatus.progress):searchError?esc(searchError):!searchReady?esc(answerListStatus):connecting?'Connecting…':otherQueue?'':queueStatus.type==='joining'?'Joining matchmaking…':queueStatus.type==='queued'?'Finding Players · '+queueStatus.waiting+(arena()?' in queue':' / '+queueStatus.needed+' · '+percentDone(queueStatus.waiting,queueStatus.needed)):queueStatus.type==='matched'?'Selecting songs for your match…':'');
     const disabled=otherQueue||['preparing','matched'].includes(queueStatus.type)||!searchReady||connecting||!getPlayer()||queue?.readyState!==1;
     const modeIcon=duel()?'<span class="arena-emblem duel-emblem"><span><i></i></span><b></b><span><i></i></span></span>':arena()?'<span class="arena-emblem"><span><i></i><i></i></span><b></b><span><i></i><i></i></span></span>':ngmc?'<span class="score-formation">'+ '<i></i>'.repeat(8)+'</span>':'<span class="score-note">♪</span>';
+    const title=ngmc?ngmcTitleHTML('NGMC Ranked',selectedFormat)
+      :'<h1>'+(duel()?'1v1 Ranked':arena()?'2v2 Arena':'Song/Artist')+'</h1>';
     return '<div class="play-lobby-browser '+(duel()?'':ngmc?'ngmc-queue':'song-queue')+'">'+
-      '<header class="play-queue-banner"><div><span class="sa-eyebrow">Matchmaking</span><h1>'+(duel()?'1v1 Ranked':arena()?'2v2 Arena':ngmc?'NGMC Ranked':'Song/Artist')+'</h1>'+
-      '<p>'+(duel()?duelRules.songs+' songs · '+duelRules.guessSeconds+'s guesses · 1 point per correct anime':arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture · '+arenaRules.guessSeconds+'s guesses':ngmc?'35 songs · 20s guesses · 5 lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div class="play-queue-banner-end">'+ratingHTML(selectedFormat)+'<div class="play-queue-emblem" aria-hidden="true">'+modeIcon+'</div></div></header>'+
+      '<header class="play-queue-banner"><div><span class="sa-eyebrow">Matchmaking</span>'+title+
+      '<p>'+(duel()?duelRules.songs+' songs · '+duelRules.guessSeconds+'s guesses · 1 point per correct anime':arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture · '+arenaRules.guessSeconds+'s guesses':ngmc?'35 songs · 20s guesses · 5 lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div class="play-queue-banner-end">'+(ngmc?'':ratingHTML(selectedFormat))+'<div class="play-queue-emblem" aria-hidden="true">'+modeIcon+'</div></div></header>'+
       '<section class="sa-lobby play-queue-card"><div class="play-queue-heading"><h2>Find Match</h2>'+poolToggle(pool,'data-queue-pool',!idle)+'</div><div class="score-formats" role="group" aria-label="Match format">'+formatButtons+'</div>'+
       '<div class="score-settings"><label>Audio Server<select id="sa-server" '+(idle?'':'disabled')+'>'+
       ['EU','NAE','NAW'].map(s=>'<option '+(s===server?'selected':'')+'>'+s+'</option>').join('')+'</select></label>'+autoReadyHTML(autoReady)+'</div>'+
@@ -498,7 +503,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
     const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span><h1>'+(done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended':duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist')+'</h1>'+ratingHTML(match.format)+'</div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
+      :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist';
+    const titleRow=ranked()?ngmcTitleHTML(title,match.format):'<h1>'+title+'</h1>'+ratingHTML(match.format);
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'</div><div class="sa-game-actions">'+volumeHTML()+'<div class="sa-match-buttons">'+resumeAudio+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';

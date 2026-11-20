@@ -10,7 +10,14 @@
 .play-mode-rating small {color:var(--muted);font-size:10px;}
 .play-mode-rating strong {color:var(--mint);font:700 16px/1.2 Consolas,monospace;}
 .play-mode-rating:empty {display:none;}
-@media(max-width:540px){.play-queue-banner-end:has(.play-mode-rating) .play-queue-emblem {display:none;}}
+.ngmc-mode-title {display:flex;align-items:center;gap:12px;}
+.ngmc-mode-title h1 {min-width:0;}
+.ngmc-mode-title .play-mode-rating {flex:none;}
+@media(max-width:540px){
+  .play-queue-banner-end:has(.play-mode-rating) .play-queue-emblem,
+  .ngmc-queue .play-queue-banner:has(.play-mode-rating) .play-queue-banner-end {display:none;}
+  .play-queue-banner .ngmc-mode-title h1,.sa-game-heading .ngmc-mode-title h1 {font-size:clamp(20px,6vw,26px);}
+}
 .score-formation {display:grid;grid-template-columns:repeat(4,1fr);gap:4px;width:clamp(52px,8vw,104px);}
 .score-formation i {height:8px;border:1px solid var(--queue-accent);background:var(--queue-accent);}
 .score-formation i:nth-child(n+5) {background:transparent;}
