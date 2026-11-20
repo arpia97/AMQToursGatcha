@@ -73,6 +73,21 @@ export function readPlayHistory(storage, state, player, includeSongs) {
     ...(includeSongs ? {songs, roundsOnly: true} : {})};
 }
 
+export function playedTrackLookup(sql, history = [], rounds) {
+  const tracks = new Map();
+  const wanted = new Set(rounds);
+  const add = ({index, anime, song, artist}) => tracks.set(index + 1, {anime, song, artist});
+  for (const row of history) if (wanted.delete(row.index + 1)) add(row);
+  if (wanted.size && sql.exec('SELECT 1 FROM review_meta WHERE id=?', HISTORY_META_ID).toArray().length) {
+    const indices = [...wanted].map(round => round - 1);
+    const rows = sql.exec(`SELECT idx AS "index", json_extract(data,'$.anime') AS anime,
+      json_extract(data,'$.song') AS song, json_extract(data,'$.artist') AS artist
+      FROM play_history_rounds WHERE idx IN (${indices.map(() => '?').join(',')})`, ...indices);
+    for (const row of rows) add(row);
+  }
+  return tracks;
+}
+
 export async function playerHistory(queue, player, {before, match} = {}) {
   const participant = "m.status='finished' AND EXISTS (SELECT 1 FROM json_each(m.players) p WHERE json_extract(p.value,'$.id')=?)";
   const records = `SELECT m.id,m.created,m.format,r.outcome FROM match_reviews m

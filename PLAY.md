@@ -275,7 +275,7 @@ Open **Match Review** in either the Play Host Console or the Gacha Host Console.
 **View log** opens the player's timeline at the corresponding submission or scoring event.
 
 - **Correct after refocusing** pairs a browser-reported departure 2–9 seconds into a song with an absence of at least 1.5 seconds, then a manual submission within 2 seconds of returning. The system checks the player's own server-scored answer and suppresses a matching draft already seen before the return.
-- **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Answers shared with a real song in the match are excluded.
+- **Decoy answer** records an answer matching an unused track, including accepted team-lobby proposals. Highlights and the full log show the decoy and played track. Older flags pull the played track from retained match history when available. Answers shared with a real song in the match are excluded.
 - **Repeated fast correct answers** starts at the third distinct song in a match where a player manually submits a correct answer within one second. The evidence lists the qualifying song numbers.
 
 New matches are indexed automatically after they finish. Opening Highlights also indexes the retained events for older or active matches. Each player, song and signal type appears once. Hosts decide how to interpret the evidence and can record notes and review status. These observations have no effect on scoring, ratings or account access.

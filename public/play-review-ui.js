@@ -7,10 +7,18 @@ export function mountPlayReview(root,initial,api,esc){
   function list(){
     root.querySelector('[data-review-matches]').innerHTML='<div class="table-wrap"><table><thead><tr><th>Started</th><th>Mode</th><th>Players</th><th>Status</th><th>Highlights</th><th></th></tr></thead><tbody>'+index.matches.map(m=>'<tr><td>'+esc(time(m.created))+'</td><td>'+esc(m.format)+'</td><td>'+m.players.map(p=>esc(p.name)).join(' · ')+'</td><td>'+esc(m.status)+'</td><td>'+ (m.flags?'<strong class="review-badge">'+Number(m.flags)+'</strong>':'—') +'</td><td><button class="text-button" type="button" data-review-match="'+esc(m.id)+'">Review</button></td></tr>').join('')+'</tbody></table></div>'+(!index.matches.length?'<p>No matches found.</p>':'')+(index.next?'<button class="button secondary" type="button" data-review-older-matches="'+index.next+'">Older Matches</button>':'');
   }
+  function trackText(track){
+    return [track.song,track.artist,track.anime].filter(Boolean).map(esc).join(' · ');
+  }
+  function decoyEvidence(decoy,played){
+    return '<div><strong>Decoy</strong> · '+trackText(decoy)+'</div><div><strong>Played</strong> · '+
+      (played?trackText(played):'Unavailable in retained history')+'</div>';
+  }
   function eventText(row){
     const d=row.data;
-    if(d.answers)return Object.entries(d.answers).map(([field,value])=>'<div><small>'+esc(field)+': </small>'+esc(value||'—')+(d.correct?' <strong class="'+(d.correct[field]?'correct':'incorrect')+'">'+(d.correct[field]?'Correct':'Incorrect')+'</strong>':'')+'</div>').join('')+'<small>'+(row.kind==='round-result'?'Scored by Server':d.accepted?'Accepted':'Not accepted')+(d.error?' · '+esc(d.error):'')+(Number.isFinite(d.elapsedMs)?' · '+(d.elapsedMs/1000).toFixed(3)+'s after start':'')+'</small>'+(d.flags||[]).map(f=>'<div class="host-warning">Decoy-answer match ('+esc(f.field)+'): '+esc(f.song)+' · '+esc(f.anime)+' · '+esc(f.artist)+'</div>').join('');
-    if(row.kind==='propose')return esc(d.field||'')+' · '+esc(d.answer||'—')+'<small>'+(d.accepted?'Accepted':'Not accepted')+'</small>';
+    const decoys=(d.flags||[]).map(flag=>'<div class="host-warning">'+decoyEvidence(flag,flag.played)+'</div>').join('');
+    if(d.answers)return Object.entries(d.answers).map(([field,value])=>'<div><small>'+esc(field)+': </small>'+esc(value||'—')+(d.correct?' <strong class="'+(d.correct[field]?'correct':'incorrect')+'">'+(d.correct[field]?'Correct':'Incorrect')+'</strong>':'')+'</div>').join('')+'<small>'+(row.kind==='round-result'?'Scored by Server':d.accepted?'Accepted':'Not accepted')+(d.error?' · '+esc(d.error):'')+(Number.isFinite(d.elapsedMs)?' · '+(d.elapsedMs/1000).toFixed(3)+'s after start':'')+'</small>'+decoys;
+    if(row.kind==='propose')return esc(d.field||'')+' · '+esc(d.answer||'—')+'<small>'+(d.accepted?'Accepted':'Not accepted')+'</small>'+decoys;
     if(row.kind==='activity')return esc(d.event+' · '+d.visibility+' · '+(d.focused?'focused':'unfocused'))+' <small>(client-reported)</small>';
     if(row.kind==='audio-issue')return esc(({blocked:'Browser blocked playback','play-error':'Playback failed',paused:'Playback paused',stalled:'Playback stopped advancing',decode:'Clip could not be decoded'})[d.reason]||'Audio issue')+' <small>(client-reported)</small>';
     if(row.kind==='phase')return esc(d.phase)+(d.startsAt?'<small> · Song starts '+esc(time(d.startsAt))+'</small>':'');
@@ -36,10 +44,12 @@ export function mountPlayReview(root,initial,api,esc){
     const labels={decoy:'Decoy answer',return:'Correct after refocusing',fast:'Repeated fast correct answers'};
     const rows=h.rows.map(row=>{
       const d=row.data;
-      const why=row.kind==='decoy'?'Matched unused song: '+d.decoy+' · '+d.decoyAnime+(d.auto?' · Scored at timeout':''):
-        row.kind==='return'?'Left at +'+seconds(d.out-(d.submitAt-d.elapsed))+' · Away '+seconds(d.back-d.out)+' · Submitted '+seconds(d.submitAt-d.back)+' after return':
-        'Submitted at +'+seconds(d.elapsed)+' · Correct within 1s on songs '+d.rounds.join(', ');
-      return '<tr><td><strong class="review-badge">'+esc(labels[row.kind])+'</strong></td><td>'+esc(names.get(row.player)||row.player)+'</td><td>'+row.round+'</td><td>'+esc(time(d.submitAt??d.at))+'<small>'+esc(d.field)+' · '+esc(d.answer)+'</small></td><td>'+esc(why)+'</td><td><button type="button" class="text-button" data-review-context="'+(d.submitSeq??row.seq)+'" data-player="'+esc(row.player)+'">View log</button></td></tr>';
+      const why=row.kind==='decoy'
+        ? decoyEvidence({song:d.decoy,anime:d.decoyAnime,artist:d.decoyArtist},d.played)+(d.auto?'<small>Scored at timeout</small>':'')
+        : esc(row.kind==='return'
+          ? 'Left at +'+seconds(d.out-(d.submitAt-d.elapsed))+' · Away '+seconds(d.back-d.out)+' · Submitted '+seconds(d.submitAt-d.back)+' after return'
+          : 'Submitted at +'+seconds(d.elapsed)+' · Correct within 1s on songs '+d.rounds.join(', '));
+      return '<tr><td><strong class="review-badge">'+esc(labels[row.kind])+'</strong></td><td>'+esc(names.get(row.player)||row.player)+'</td><td>'+row.round+'</td><td>'+esc(time(d.submitAt??d.at))+'<small>'+esc(d.field)+' · '+esc(d.answer)+'</small></td><td>'+why+'</td><td><button type="button" class="text-button" data-review-context="'+(d.submitSeq??row.seq)+'" data-player="'+esc(row.player)+'">View log</button></td></tr>';
     }).join('');
     return (h.pending?'<p role="status">Checking retained match events…</p>':'')+
       (rows?'<div class="table-wrap"><table><thead><tr><th>Signal</th><th>Player</th><th>Song</th><th>Answer / Server Time</th><th>Evidence</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':h.pending?'':'<p>No review signals found in the retained events for this selection.</p>')+

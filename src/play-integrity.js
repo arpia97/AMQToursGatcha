@@ -72,14 +72,16 @@ export function playbackView(state, player, now) {
 function matches(song,field,value){
   return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):titleMatches(song.answers[field],value);
 }
-export function decoyHits(state,answers,artists){
+export function decoyHits(state,answers,artists,round=state.index){
+  const current = state.songs[round];
+  const played = current ? {anime:current.anime,song:current.title,artist:current.artist} : undefined;
   const fields=animeOnlyMode(state.mode)?['anime']:['anime','song','artist'];
   return (state.decoys||[]).flatMap(song=>fields.flatMap(field=>{
     const value=field==='artist'?(artists??answers[field]):answers[field];
     // Shared anime titles/artists are not useful evidence. Suppress anything
     // that is an accepted answer anywhere in the actual match, not just now.
     if(!value||!matches(song,field,value)||state.songs.some(s=>matches(s,field,value)))return [];
-    return [{field,anime:song.anime,song:song.title,artist:song.artist}];
+    return [{field,anime:song.anime,song:song.title,artist:song.artist,played}];
   }));
 }
 export class MatchReview {
@@ -120,7 +122,7 @@ export class MatchReview {
     const alreadyLocked=before.locked&&message.type==='answer'&&!state.teamFields&&message.lock!==true;
     const accepted=!error&&!alreadyLocked;
     const final=accepted&&(state.teamFields&&message.type==='answer'||message.lock===true);
-    const flags=final?decoyHits(state,player.answers,player.artists):[];
+    const flags=final?decoyHits(state,player.answers,player.artists,before.index):[];
     this.add({...state,index:before.index,phase:before.phase},id,final?'submit':message.type==='artists'?'artist-edit':'answer-draft',{
       answers,accepted,locked:!!player?.locked,requestedRound:Number.isInteger(message.index)?message.index+1:null,
       elapsedMs:before.startsAt?at-before.startsAt:null,clientAt:Number.isFinite(message.clientAt)?message.clientAt:null,
@@ -131,7 +133,7 @@ export class MatchReview {
     const row=state.history.at(-1);if(!row)return;
     for(const result of row.results){
       const player=state.players.find(p=>p.id===result.id);
-      this.add(state,result.id,'round-result',{answers:result.answers,correct:result.correct,earned:result.earned,autoSubmitted:!!result.autoSubmitted,flags:decoyHits(state,result.answers,player?.artists)},at);
+      this.add(state,result.id,'round-result',{answers:result.answers,correct:result.correct,earned:result.earned,autoSubmitted:!!result.autoSubmitted,flags:decoyHits(state,result.answers,player?.artists,row.index)},at);
     }
   }
   page({before=Infinity,player='',view='events'}={}){

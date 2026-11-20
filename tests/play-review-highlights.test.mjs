@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {playedTrackLookup} from '../src/play-history.js';
 import {ReviewHighlights} from '../src/play-review-highlights.js';
 
 test('host highlights correlate retained events across batches and count distinct scored rounds', () => {
@@ -48,5 +49,15 @@ test('host highlights correlate retained events across batches and count distinc
     assert.equal(focus.kind,'return');assert.equal(focus.data.out,35000);assert.equal(focus.data.back,42000);
     assert.equal(focus.data.submitAt,42500);assert.equal(focus.data.answer,'Example');
     assert.equal(resumed.list('b').rows[0].kind,'decoy');
+
+    // Older review flags can recover the scored recording from archived rounds.
+    db.exec("CREATE TABLE play_history_rounds(idx INTEGER PRIMARY KEY,data); INSERT INTO review_meta VALUES(6,'{}',0)");
+    const track={anime:'Played Anime',song:'Played Song',artist:'Played Artist'};
+    db.prepare('INSERT INTO play_history_rounds VALUES(?,?)').run(2,JSON.stringify({...track,results:['private data']}));
+    const sql={exec:(query,...args)=>{
+      const rows=db.prepare(query).all(...args);
+      return Object.assign(rows,{toArray:()=>rows});
+    }};
+    assert.deepEqual([...playedTrackLookup(sql,undefined,[3,18])],[[3,track]]);
   } finally {db.close();}
 });

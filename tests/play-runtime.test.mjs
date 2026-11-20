@@ -401,6 +401,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     if(ngmc){await rooms[0].wait(m=>m.state?.phase==='counting'||m.state?.phase==='reveal');await mf.dispatchFetch(base+'/api/__expire?match='+id);}
     const reveal=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;
     assert.ok(reveal.players.every(p=>p.score===(ngmc?Number(Number(p.id)<=4):teamFields?1:3)));if(!ngmc)assert.ok(reveal.teams.every(p=>p===3));assert.equal(reveal.history.length,1);
+    let flaggedTracks;
     if(format==='1v1'){
       const {decoys}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
       await mf.dispatchFetch(base+'/api/__expire?match='+id);await mf.dispatchFetch(base+'/api/__advance?match='+id);
@@ -412,6 +413,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       const patch=(await rooms[1].wait(m=>m.state?.historyFrom===1)).state;
       assert.deepEqual(patch.history,second.history.slice(1));
       assert.equal(patch.songList,undefined);
+      const {anime,song:playedSong,artist}=second.history[1];
+      flaggedTracks={decoy:decoys[0].title,decoyAnime:decoys[0].anime,decoyArtist:decoys[0].artist,
+        played:{anime,song:playedSong,artist}};
       assert.equal(second.history[1].results.find(p=>p.id==='1').correct.anime,false);
       assert.equal(second.songList.length,2);assert.ok(!JSON.stringify(second).includes('decoy'));
       assert.equal(second.playback,undefined);
@@ -447,14 +451,20 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       do {
         highlights=await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id+'&view=highlights',{headers:auditHeaders})).json();
       } while(highlights.highlights.pending);
-      assert.ok(highlights.highlights.rows.some(r=>r.kind==='decoy'&&r.player==='1'&&r.round===2));
+      const highlight=highlights.highlights.rows.find(r=>r.kind==='decoy'&&r.player==='1'&&r.round===2);
+      assert.ok(highlight);
+      const {decoy,decoyAnime,decoyArtist,played}=highlight.data;
+      assert.deepEqual({decoy,decoyAnime,decoyArtist,played},flaggedTracks);
       assert.equal(highlights.events,undefined);
       const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});
       assert.equal((await update({Cookie:cookies[0]})).status,401);
       assert.equal((await update(auditHeaders)).status,200);
       assert.equal((await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id,{headers:auditHeaders})).json()).assessment.note,'Check round 1');
-      assert.ok(review.events.some(e=>e.kind==='submit'&&e.data.flags.length===1));
-      assert.ok(review.events.some(e=>e.kind==='round-result'&&e.data.flags.length===1&&!e.data.correct.anime));
+      for(const kind of ['submit','round-result']){
+        const entry=review.events.find(e=>e.kind===kind&&e.data.round===2&&e.data.flags?.length);
+        assert.deepEqual(entry?.data.flags,[{field:'anime',song:decoy,anime:decoyAnime,artist:decoyArtist,played}]);
+        if(kind==='round-result')assert.equal(entry.data.correct.anime,false);
+      }
     }
     const reviews=await (await mf.dispatchFetch(base+'/api/host/play-review?search=Local%20Player%201',{headers:auditHeaders})).json();assert.ok(reviews.matches.some(m=>m.id===id&&m.status!=='active'));
     assert.equal((await mf.dispatchFetch(base+'/api/host/play-review?match='+crypto.randomUUID(),{headers:auditHeaders})).status,404);

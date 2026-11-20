@@ -3,7 +3,7 @@ import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchCreditPlan} from './play-rewards.js';
-import {preservePlayHistory, readPlayHistory} from './play-history.js';
+import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
@@ -315,7 +315,7 @@ export class PlayMatch extends DurableObject {
         const proposal=message.type==='propose'&&!failure;
         this.reviewLog.add({...state,index:before.index,phase:before.phase},input.who.id,message.type,{
           field:message.field,answer:message.answer,choice:message.choice,yes:message.yes,accepted:!failure,
-          ...(proposal?{elapsedMs:at-before.startsAt,flags:decoyHits(state,{[message.field]:message.answer})}:{})
+          ...(proposal?{elapsedMs:at-before.startsAt,flags:decoyHits(state,{[message.field]:message.answer},undefined,before.index)}:{})
         },at);
       }
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
@@ -381,6 +381,18 @@ export class PlayMatch extends DurableObject {
     if(detail && options.view==='highlights'){
       const pending=await this.indexHighlights(detail.id);
       detail.highlights={pending,total:this.highlights.count(),...this.highlights.list(options.player,options.offset)};
+    }
+    if(detail){
+      const missing = detail.highlights
+        ? detail.highlights.rows.filter(row=>row.kind==='decoy'&&!row.data.played).map(row=>[row.round,row.data])
+        : detail.events.flatMap(row=>(row.data.flags||[]).filter(flag=>!flag.played).map(flag=>[row.data.round,flag]));
+      if(missing.length){
+        const tracks=playedTrackLookup(this.ctx.storage.sql,this.read()?.history,missing.map(([round])=>round));
+        for(const [round,evidence] of missing){
+          const played=tracks.get(round);
+          if(played)evidence.played=played;
+        }
+      }
     }
     return detail;
   }
