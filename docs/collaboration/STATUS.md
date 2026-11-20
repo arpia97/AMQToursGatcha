@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play gameplay sizing and matchmaking credit payouts
+
+Source `81409fa` is live at 100% on Worker `9ee42ffd-e473-4c30-a085-e443fd46c9f2`. The Play profile-picture menu has a direct host-only console shortcut. Gameplay controls and rosters are slightly larger. Matchmaking wins pay the base reward, losses half, draws the base, and cooperative 1-Team completions pay 200. Existing wallet receipts retain their original payouts on retries. All 562 tests passed, including wallet settlement through a local match. Desktop and mobile browser checks verified the control sizes. Live checks verified the new shortcut and stylesheet and confirmed that guest access to match review is denied.
+
 ## Balanced ranked NGMC 4v4
 
 Source `42a6fcd` is live at 100% on Worker `184b0ff9-5f25-4d5d-86da-116a0c355e6e`. Ranked 4v4 now uses match-start Balanced Rating with a 48-point limit. The owner-authorized production replay on November 20 covered all 25 settled matches from the first game, 43 players, and the starting ratings of two active games. All historical matches were Random. Watched has a separate ladder with the same formula. An independent replay agreed with all historical receipts and all 43 leaderboard entries. The median absolute change per match was 5.09 points and the largest was 22.35. All 562 tests, syntax checks, and the Worker dry run passed.
