@@ -50,6 +50,10 @@ button.overview-match-button:hover,.overview-match-button[aria-expanded=true] {b
 .overview-matchup[hidden] {display:none;}
 .overview-matchup::after {position:absolute;top:0;left:100%;width:14px;height:100%;content:'';}
 .overview-matchup-title {display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px;font-size:12px;}
+.overview-live-score {display:grid;gap:5px;margin:0 0 8px;padding:7px 8px;border:1px solid var(--border);border-radius:5px;color:var(--muted);font-size:10px;}
+.overview-score-heading {display:flex;justify-content:space-between;gap:6px;}
+.overview-score-heading strong {color:var(--mint);}
+.overview-watch.button {width:100%;min-height:30px;margin:9px 0 0;padding:5px 8px;font-size:11px;}
 .overview-sides {position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 13px;}
 .overview-side {min-width:0;border-top:2px solid var(--mint);border-radius:4px;background:#151920;padding:7px 8px;}
 .overview-side.team-2 {border-color:var(--pink);}
@@ -93,8 +97,10 @@ button.overview-match-button:hover,.overview-match-button[aria-expanded=true] {b
 div.overview-match-button {cursor:default;background:#13161d;border-color:var(--border);}
 .overview-page [hidden] {display:none;}
 .overview-player-status {color:var(--muted);font-size:10px;white-space:nowrap;}
-.overview-player-status[data-status="In Queue"] {color:#d6bdd9;}
-.overview-player-status[data-status="In Match"] {color:#b6e2c5;}
+.overview-player-status[data-status="queued"] {color:#d6bdd9;}
+.overview-player-status[data-status="playing"] {color:#b6e2c5;}
+.overview-player-status[data-status="quiz"] {color:#c0ccff;}
+.overview-player-status[data-status="afk"] {color:#e4be8d;}
 .overview-no-players {padding:14px 0 2px;color:var(--muted);font-size:12px;}
 .overview-mobile-links {display:none;}
 .overview-columns section {scroll-margin-top:14px;}

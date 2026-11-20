@@ -15,6 +15,7 @@ import { balancedNgmcRatings,ngmcRatings } from './ngmc-ratings.js';
 import {reconcileRankedIncident} from './play-rating-repair.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
+import {PlayPresence} from './play-presence.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 // Only matchmaking lives here; every match has its own isolated actor.
 export class PlayQueue extends DurableObject {
@@ -46,7 +47,7 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_flag_counts(id TEXT PRIMARY KEY,total INTEGER NOT NULL)');
     this.records=new PlayRecords(this);
-    ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS play_presence(player TEXT PRIMARY KEY,expires INTEGER NOT NULL)');
+    this.presence=new PlayPresence(ctx.storage);
   }
   rows(sql,...args){return [...this.ctx.storage.sql.exec(sql,...args)];}
   queueCounts(){
@@ -54,33 +55,36 @@ export class PlayQueue extends DurableObject {
     return Object.fromEntries(rows.map(row=>[poolFormat(row.format,row.pool),row.waiting]));
   }
   lobbyDirectory(){return this.lobbies.directory();}
-  liveActivity(player,overview=false){
-    const now=Date.now(), sql=this.ctx.storage.sql;
-    if(player){
-      if(!this.nextPresenceCleanup||now>=this.nextPresenceCleanup){
-        sql.exec('DELETE FROM play_presence WHERE expires<=?',now);
-        this.nextPresenceCleanup=now+60_000;
-      }
-      sql.exec('INSERT OR REPLACE INTO play_presence VALUES(?,?)',player,now+90000);
-    }
+  canWatch(id){
+    return !!this.rows(`SELECT 1 FROM match_reviews m WHERE m.id=? AND m.status='active'
+      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id)
+      AND (EXISTS(SELECT 1 FROM queue q WHERE q.match=m.id AND q.expires>?)
+        OR EXISTS(SELECT 1 FROM play_lobbies l WHERE l.match=m.id AND l.password_hash IS NULL))`,id,Date.now())[0];
+  }
+  liveActivity(player,overview=false,details=null,presenceOnly=false){
+    const now=Date.now();
+    if(player)this.presence.record(player,details,now);
+    if(presenceOnly)return {};
     const detailed=!!player&&overview;
     const matches=this.rows(`WITH rooms AS (
       SELECT match,format,pool,0 AS locked FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
       UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL
         FROM play_lobbies WHERE match IS NOT NULL
     ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players,
-         rooms.locked,CASE WHEN ? THEN m.id END AS id,CASE WHEN ? THEN m.players END AS roster
+         rooms.locked,CASE WHEN ? AND NOT rooms.locked THEN m.id END AS id,
+         CASE WHEN ? THEN m.players END AS roster
       FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
-      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now,Number(detailed),Number(detailed));
-    const online=new Set(this.rows('SELECT player FROM play_presence WHERE expires>?',now).map(r=>r.player));
+      AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now,Number(!!player),Number(detailed));
+    const online=this.presence.online(now);
     for(const ws of this.ctx.getWebSockets()){
       const who=ws.deserializeAttachment();
-      if(ws.readyState===1&&who.expires>now)online.add(who.id);
+      if(ws.readyState===1&&who.expires>now&&!online.has(who.id))online.set(who.id,'browsing');
     }
     const counts=this.queueCounts();
     const playing=new Set();
     const visibleMatches=matches.map(({id,locked,roster,...match})=>{
-      if(!detailed)return match;
+      if(!player)return match;
+      if(!detailed)return {...match,id,locked:!!locked};
       const players=JSON.parse(roster);
       for(const member of players)playing.add(member.id);
       return {...match,id,locked:!!locked,...(!locked&&{
@@ -90,7 +94,7 @@ export class PlayQueue extends DurableObject {
     const result={online:online.size,waiting:Object.values(counts).reduce((sum,n)=>sum+n,0),matches:visibleMatches,counts};
     if(!detailed)return result;
     const queued=new Set(this.rows('SELECT player FROM queue WHERE match IS NULL AND expires>?',now).map(row=>row.player));
-    return {...result,onlinePlayers:[...online].map(id=>({id,status:playing.has(id)?'playing':queued.has(id)?'queued':'online'}))};
+    return {...result,onlinePlayers:[...online].map(([id,status])=>({id,status:playing.has(id)?'playing':queued.has(id)?'queued':status}))};
   }
   ratingReceipt(id){
     const row=this.rows('SELECT data,created FROM ngmc_results WHERE id=?',id)[0];

@@ -4,6 +4,7 @@ import {playRuntimeFixture} from './play-runtime-fixture.mjs';
 import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
+import {liveMatchScore,spectatorView} from '../src/play-spectator.js';
 import {watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
@@ -20,6 +21,29 @@ test('Watched weights sum square-root budgets from distinct MAL and AniList show
   assert.deepEqual(weightedAnimeOrder(weights,()=>.5),[1,2,3,4]);
 });
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+test('spectator scores cover each Arena fixture and never expose an unrevealed answer',()=>{
+  const state={id:'match',mode:'2v2-arena',format:'2v2-arena',phase:'guess',index:20,
+    songs:Array(60).fill({anime:'Hidden Series',audio:'private.mp3'}),
+    teams:[99,99,99,99],players:[{id:'1',team:0,name:'A',answers:{anime:'Hidden Answer'}}],
+    history:[{index:19,anime:'Previous Series'}],arena:{songsPerFixture:20,rounds:[
+      [],[{home:2,away:0,scores:[1,2]},{home:3,away:1,scores:[3,4]}],[],
+    ]}};
+  const summary=liveMatchScore(state);
+  assert.equal(summary.song,21);assert.equal(summary.total,60);assert.equal(summary.round,2);
+  assert.deepEqual(summary.scores.map(fixture=>fixture.map(side=>side.value)),[[1,2],[3,4]]);
+  assert.equal(spectatorView(state).reveal,null);
+  assert.doesNotMatch(JSON.stringify(spectatorView(state)),/Hidden|private/);
+  state.phase='reveal';
+  state.history.push({index:20,anime:'Now Visible',song:'Opening',artist:'Artist',
+    results:[{id:'1',answers:{anime:'Now Visible'},correct:{anime:true},draft:'ignored'}]});
+  const reveal=spectatorView(state).reveal;
+  assert.equal(reveal.anime,'Now Visible');
+  assert.deepEqual(reveal.results[0].correct,{anime:true});
+  assert.equal(reveal.results[0].draft,undefined);
+  const ffa=liveMatchScore({...state,arena:null,format:'lobby-ffa',teams:[7,9],
+    players:[{name:'A',team:0},{name:'B',team:1}]});
+  assert.deepEqual(ffa.scores[0].map(side=>[side.label,side.value]),[['A',7],['B',9]]);
+});
 test('a slow mirror does not block later Watched probes or change playlist order',async()=>{
   const order=Array.from({length:10},(_,i)=>i+1);
   const options=new Map(order.map(id=>[id,[{group:id,source:String(id)}]]));
@@ -103,6 +127,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   t.after(()=>gate.resolve());
   const mf=await playRuntimeFixture({beforeAudio:id=>id===3?gate.promise:undefined});t.after(()=>mf.dispose());
   const base='http://game',cookies=[];
+  const watchPath=id=>base+'/api/play-watch?match='+id;
+  const upgrade={Upgrade:'websocket',Origin:base};
   const slow=await (await mf.dispatchFetch(base+'/api/__slow-setup')).json();
   assert.match(slow.result.setupError,/timed out/);
   assert.equal(slow.created,false);
@@ -144,6 +170,9 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(!visitor.messages.some(m=>m.type==='preparing'&&m.match===checking.match));
   }finally{gate.resolve();}
   const watchedMatch=await host.wait(m=>m.type==='matched');
+  const watchedScore=await mf.dispatchFetch(watchPath(watchedMatch.match),{headers:{Cookie:cookies[4]}});
+  assert.equal(watchedScore.status,200);
+  assert.equal((await watchedScore.json()).unit,'Points');
   const watchedInfo=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedMatch.match)).json();
   assert.equal(watchedInfo.song.title,'Song 3');
   const ownState=await (await mf.dispatchFetch(base+'/api/play-state',{headers:{Cookie:cookies[0]}})).json();
@@ -198,9 +227,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(arenaMatch.readyDeadline,undefined);
   assert.equal(new Set(arenaMatch.players.map(player=>player.team)).size,2);
   const liveOverview=async cookie=>(await mf.dispatchFetch(base+'/api/play-live?overview=1',{headers:cookie?{Cookie:cookie}:{}})).json();
-  const protectedMatch=(await liveOverview(cookies[4])).matches.find(match=>match.id===arenaId);
+  const protectedMatch=(await liveOverview(cookies[4])).matches.find(match=>match.format==='lobby-arena');
   assert.equal(protectedMatch.locked,true);
+  assert.equal(protectedMatch.id,null);
   assert.equal(protectedMatch.roster,undefined);
+  assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{Cookie:cookies[0]}})).status,404);
+  assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{...upgrade,Cookie:cookies[4]}})).status,404);
   for(const socket of arenaQueues){
     const after=socket.messages.length;
     socket.send({type:'lobby-leave'});
@@ -254,11 +286,54 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const publicOverview=await liveOverview();
   assert.equal(publicOverview.onlinePlayers,undefined);
   assert.ok(publicOverview.matches.every(match=>match.id===undefined&&match.roster===undefined));
+  const observer=(await (await mf.dispatchFetch(base+'/api/__test-session?id=9')).json()).cookie;
+  const presence=async(tab,idle,quiz=false,hidden=false)=>mf.dispatchFetch(base+'/api/play-live?'+new URLSearchParams({
+    tab,idle:String(idle),quiz:quiz?'1':'0',hidden:hidden?'1':'0',presence:'1',
+  }),{headers:{Cookie:observer}});
+  const observerStatus=async()=>(await liveOverview(cookies[0])).onlinePlayers.find(p=>p.id==='9')?.status;
+  const background=crypto.randomUUID(),foreground=crypto.randomUUID();
+  await presence(background,180_500,true,true);
+  assert.equal(await observerStatus(),'afk');
+  await presence(foreground,0);
+  assert.equal(await observerStatus(),'browsing');
+  await presence(foreground,0,true);
+  await presence(background,180_500,false,true);
+  assert.equal(await observerStatus(),'quiz');
+  assert.equal((await mf.dispatchFetch(watchPath(rankedId))).status,401);
+  assert.equal((await mf.dispatchFetch(watchPath(rankedId),{headers:{...upgrade,Origin:'https://wrong.test',Cookie:observer}})).status,403);
+  const summaryScore=await (await mf.dispatchFetch(watchPath(rankedId),{headers:{Cookie:observer}})).json();
+  assert.equal(summaryScore.song,1);assert.equal(summaryScore.total,35);assert.equal(summaryScore.unit,'Lives');
+  assert.deepEqual(summaryScore.scores[0].map(side=>side.value),[5,5]);
+  const watchResponse=await mf.dispatchFetch(base+'/api/__fake-watch-proxy?match='+rankedId,
+    {headers:{...upgrade,Origin:'https://amqtours.app',Cookie:observer}});
+  assert.equal(watchResponse.status,101);
+  const watcher=watchResponse.webSocket, observed=[];
+  watcher.addEventListener('message',event=>observed.push(JSON.parse(event.data)));
+  watcher.accept();
+  t.after(()=>{if(watcher.readyState===1)watcher.close();});
+  const retired=await mf.dispatchFetch(watchPath(rankedId),{headers:{...upgrade,Cookie:cookies[0]}});
+  assert.equal(retired.status,101);
+  const readonly=retired.webSocket, closed=Promise.withResolvers();
+  readonly.addEventListener('close',event=>closed.resolve(event.code),{once:true});
+  readonly.accept();readonly.send(JSON.stringify({type:'leave'}));
+  assert.equal(await Promise.race([closed.promise,sleep(1000).then(()=>null)]),1008);
   const rankedInfo=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+rankedId)).json();
   assert.equal(rankedInfo.animeIds.length,35);
   assert.equal(new Set(rankedInfo.animeIds).size,35);
   await mf.dispatchFetch(base+'/api/__fixture-final-song?match='+rankedId);
+  for(let i=0;i<25&&!observed.some(m=>m.state?.reveal);i++)await sleep(20);
+  const initial=observed[0].state;
+  assert.equal(initial.reveal,null);
+  assert.ok(initial.players.every(player=>!player.left));
+  const revealed=observed.find(m=>m.state?.reveal).state;
+  assert.equal(revealed.reveal.song,35);
+  assert.match(revealed.reveal.anime,/Anime/);
+  assert.equal(revealed.reveal.results.length,8);
   await mf.dispatchFetch(base+'/api/__expire?match='+rankedId);
+  for(let i=0;i<25&&!observed.some(m=>m.state?.phase==='finished');i++)await sleep(20);
+  assert.ok(observed.some(m=>m.state?.phase==='finished'));
+  assert.ok(observed.every(event=>event.type==='spectator'));
+  assert.doesNotMatch(JSON.stringify(observed),/audioPool|playback|decoys|ballot|ticket|draft/i);
   const rankingBase=base+'/api/play-rankings?format=ngmc-ranked';
   const watchedRankings=await(await mf.dispatchFetch(rankingBase+'&pool=watched')).json();
   const randomRankings=await(await mf.dispatchFetch(rankingBase+'&pool=random')).json();

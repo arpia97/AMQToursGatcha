@@ -1,6 +1,7 @@
 import {DUEL_FORMAT, duelRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
+import {gameEnded,liveMatchScore,spectatorTag,spectatorView} from './play-spectator.js';
 import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {matchCreditPlan} from './play-rewards.js';
@@ -24,6 +25,9 @@ export class PlayMatch extends DurableObject {
     sql.exec('CREATE TABLE IF NOT EXISTS reported_leaves(player TEXT PRIMARY KEY)');
     sql.exec('CREATE TABLE IF NOT EXISTS room_chat(seq INTEGER PRIMARY KEY, player TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)');
   }
+  #playerSockets(){
+    return this.ctx.getWebSockets().filter(socket=>!socket.deserializeAttachment()?.spectator);
+  }
   chatHistory(){
     return this.ctx.storage.sql.exec('SELECT * FROM room_chat ORDER BY seq').toArray();
   }
@@ -37,7 +41,7 @@ export class PlayMatch extends DurableObject {
     }
     const row=sql.exec('INSERT INTO room_chat(player,body,at) VALUES(?,?,?) RETURNING *',who.id,message,now).one();
     sql.exec('DELETE FROM room_chat WHERE seq<=?',row.seq-80);
-    for(const socket of this.ctx.getWebSockets()){
+    for(const socket of this.#playerSockets()){
       const recipient=socket.deserializeAttachment();
       if(recipient?.expires>now&&state.players.some(p=>p.id===recipient.id&&!p.left))send(socket,{type:'chat-message',row});
     }
@@ -122,11 +126,31 @@ export class PlayMatch extends DurableObject {
   broadcast(state=this.read()){
     if(!state)return;
     const now=Date.now();
-    for(const ws of this.ctx.getWebSockets()){
+    for(const ws of this.#playerSockets()){
       const who=ws.deserializeAttachment();
       if(who.expires<=now)ws.close(4003,'Session expired.');
       else send(ws,{type:'state',state:matchView(state,who.id,now,who.compactHistory)});
     }
+    this.broadcastSpectators(state,now);
+  }
+  broadcastSpectators(state,now=Date.now()){
+    const viewers=this.ctx.getWebSockets(spectatorTag).filter(ws=>{
+      if(ws.readyState!==1)return false;
+      if(ws.deserializeAttachment().expires>now)return true;
+      closeSocket(ws,4003,'Session expired.');return false;
+    });
+    if(!viewers.length)return;
+    const next=JSON.stringify(spectatorView(state));
+    if(next===this.lastSpectatorState)return;
+    this.lastSpectatorState=next;
+    const payload='{"type":"spectator","now":'+now+',"state":'+next+'}';
+    for(const ws of viewers){
+      try{ws.send(payload);if(gameEnded(state.phase))ws.close(1000,'Match ended.');}catch{}
+    }
+  }
+  liveScore(){
+    const state=this.read();
+    return !state||gameEnded(state.phase)?null:liveMatchScore(state);
   }
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;
@@ -199,6 +223,13 @@ export class PlayMatch extends DurableObject {
     try {
       if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
       const who=identity(request),state=this.read();if(!state)fail('The match is preparing. Reconnect shortly.',503);
+      if(new URL(request.url).pathname==='/spectator'){
+        if(gameEnded(state.phase))fail('This match has ended.',404);
+        const tag=spectatorTag+':'+who.id;
+        const {server,response}=accept(this.ctx,{...who,spectator:true},tag,[tag,spectatorTag]);
+        send(server,{type:'spectator',now:Date.now(),state:spectatorView(state)});
+        return response;
+      }
       const player=state.players.find(p=>p.id===who.id);
       if(!player)fail('You are not in this match.',403);
       if(!['finished','cancelled'].includes(state.phase)){
@@ -208,6 +239,7 @@ export class PlayMatch extends DurableObject {
       const supported = state.syncPlayback ? [PLAY_AUDIO_PROTOCOL] : state.audioSealed ? [4,PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3,4,PLAY_AUDIO_PROTOCOL] : [2,3,4,PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
       const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
+      this.broadcastSpectators(state);
       const {server,response}=accept(this.ctx,who);
       this.reviewLog.initialize(state);this.reviewLog.add(state,who.id,'connected');
       // A long custom match may outlive the original download tickets. Renew only
@@ -262,13 +294,18 @@ export class PlayMatch extends DurableObject {
       for(const p of live.players)p.loaded=p.loaded.filter(index=>index!==slot);
       if(['loading','buffering'].includes(live.phase))live.until=Math.max(live.until,Date.now()+60000);
       this.write(live);
-      for(const ws of this.ctx.getWebSockets())if(ws.deserializeAttachment().expires>Date.now())send(ws,{type:'audio-replaced',slot,ticket:next.ticket,revision:live.audioRevision});
+      for(const ws of this.#playerSockets()){
+        if(ws.deserializeAttachment().expires>Date.now())send(ws,{type:'audio-replaced',slot,ticket:next.ticket,revision:live.audioRevision});
+      }
       this.broadcast(live);await this.schedule();return true;
     })();
     this.audioRepair=repair;
     try{return await repair;}finally{if(this.audioRepair===repair)this.audioRepair=null;}
   }
   async webSocketMessage(ws,raw) {
+    if(ws.deserializeAttachment()?.spectator){
+      closeSocket(ws,1008,'Spectating is read-only.');return;
+    }
     try{const input=receive(ws,raw);if(!input)return;
       if(input.message.type==='ping'){send(ws,{type:'pong',now:Date.now(),sentAt:Number(input.message.sentAt)||0});return;}
       if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
@@ -415,6 +452,7 @@ export class PlayMatch extends DurableObject {
     return value;
   }
   async webSocketClose(ws,code,reason){
+    if(ws.deserializeAttachment()?.spectator){closeSocket(ws,code,reason);return;}
     const state=this.read(),id=ws.deserializeAttachment()?.id,now=Date.now();
     if(state&&!['finished','cancelled'].includes(state.phase)){
       this.reviewLog.add(state,id,'disconnected',{code});

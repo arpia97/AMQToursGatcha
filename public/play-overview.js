@@ -3,6 +3,7 @@ import {ARENA_FORMAT} from './play-arena-config.js';
 import {DUEL_FORMAT} from './play-mode-rules.js';
 import {playPools,poolFormat,poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
+import {liveProgressText,liveScoreHTML} from './play-live-score.js';
 
 const modes=new Map(PLAY_MODES.map(mode=>[mode.id,mode]));
 const icon=path=>'<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+path+'"/></svg>';
@@ -30,9 +31,9 @@ const defaultPool=()=>{
   catch{return 'random';}
 };
 
-export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
+export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore,viewer}) {
   let pool=defaultPool(),counts,currentQueue,players=[],signedIn=!!viewer,openMatch=null,pinned=false;
-  let matchSnapshot,playerSnapshot;
+  let matchSnapshot,playerSnapshot,scoreRequest;
   root.innerHTML=`<div class="overview-page">
     <h1>Overview</h1>
     <div class="overview-mobile-links" aria-label="Overview sections">
@@ -101,7 +102,33 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     }
   }
 
+  async function updateScore(card,id,signal){
+    while(!signal.aborted){
+      try{
+        const score=await loadScore(id,signal);
+        if(signal.aborted)return;
+        card.innerHTML='<div class="overview-score-heading"><strong>'+esc(liveProgressText(score))+'</strong><span>'+
+          esc(score.unit)+'</span></div>'+liveScoreHTML(score,esc);
+      }catch(error){
+        if(signal.aborted)return;
+        if(error.status===404){
+          card.textContent='Match ended.';
+          card.closest('.overview-match').querySelector('[data-watch-match]').disabled=true;
+          return;
+        }
+        if(!card.querySelector('.overview-score-heading'))card.textContent='Live score temporarily unavailable.';
+      }
+      await new Promise(resolve=>{
+        const timer=setTimeout(done,4000);
+        function done(){clearTimeout(timer);signal.removeEventListener('abort',done);resolve();}
+        signal.addEventListener('abort',done,{once:true});
+      });
+    }
+  }
+
   function setMatch(row,keepOpen=false) {
+    if(openMatch===row){pinned=keepOpen;return;}
+    scoreRequest?.abort();
     if(openMatch){
       openMatch.querySelector('button').setAttribute('aria-expanded','false');
       openMatch.querySelector('.overview-matchup').hidden=true;
@@ -111,6 +138,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     if(row){
       row.querySelector('button').setAttribute('aria-expanded','true');
       row.querySelector('.overview-matchup').hidden=false;
+      scoreRequest=new AbortController();
+      void updateScore(row.querySelector('.overview-live-score'),row.dataset.matchId,scoreRequest.signal);
     }
   }
 
@@ -125,18 +154,21 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     }
     return '<div class="overview-matchup" id="overview-match-'+index+'" role="region" aria-label="'+esc(title)+' players" hidden>'+
       '<div class="overview-matchup-title"><strong>'+esc(title)+'</strong>'+poolLabel(match.pool)+'</div>'+
+      '<div class="overview-live-score"><span>Loading score…</span></div>'+
       '<div class="overview-sides'+(teams.size===1?' single':'')+'">'+[...teams].sort(([a],[b])=>a-b).map(([team,roster])=>
         '<section class="overview-side team-'+(team+1)+'"><h3>'+(teams.size===1?'Players':'Team '+(team+1))+'</h3><ul>'+
           roster.map(player=>'<li>'+avatar({...player,avatar:byId.get(player.id)?.avatar},esc)+esc(player.name)+'</li>').join('')+
         '</ul></section>'
-      ).join('')+(teams.size===2?'<span class="overview-matchup-vs" aria-hidden="true">VS</span>':'')+'</div></div>';
+      ).join('')+(teams.size===2?'<span class="overview-matchup-vs" aria-hidden="true">VS</span>':'')+'</div>'+
+      '<button type="button" class="button secondary overview-watch" data-watch-match="'+esc(match.id)+'">Watch Match</button></div>';
   }
 
   function renderMatches(matches,byId) {
     const key=JSON.stringify(matches);
     if(matchSnapshot===key)return;
     matchSnapshot=key;
-    const priorId=openMatch?.dataset.matchId,keepOpen=pinned,refocus=openMatch?.contains(document.activeElement);
+    const focus=document.activeElement;
+    const priorId=openMatch?.dataset.matchId,keepOpen=pinned,refocus=openMatch?.contains(focus);
     setMatch(null);
     matchList.innerHTML=matches.map((match,index)=>{
       const [mode,title]=matchModes[match.format]||['overview',match.format];
@@ -153,16 +185,16 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     empty.hidden=matches.length>0;
     empty.textContent='No matches in progress.';
     for (const row of matchList.querySelectorAll('.overview-match')) {
-      const button=row.querySelector('button');
+      const button=row.querySelector('button.overview-match-button');
       if(!button)continue;
       row.onpointerenter=event=>{if(event.pointerType==='mouse'&&!pinned)setMatch(row);};
       row.onpointerleave=event=>{if(event.pointerType==='mouse'&&!pinned&&!button.matches(':focus-visible'))setMatch(null);};
       button.onfocus=()=>{if(button.matches(':focus-visible'))setMatch(row);};
-      button.onblur=()=>{if(!pinned&&!row.matches(':hover'))setMatch(null);};
+      row.onfocusout=event=>{if(!pinned&&!row.matches(':hover')&&!row.contains(event.relatedTarget))setMatch(null);};
       button.onclick=()=>openMatch===row&&pinned?setMatch(null):setMatch(row,true);
       if(priorId===row.dataset.matchId){
-        if(refocus)button.focus({preventScroll:true});
         setMatch(row,keepOpen);
+        if(refocus)(focus.matches('[data-watch-match]')?row.querySelector('[data-watch-match]'):button).focus({preventScroll:true});
       }
     }
   }
@@ -184,11 +216,11 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     if(playerSnapshot!==key){
       playerSnapshot=key;
       const top=playerList.scrollTop;
-      playerList.innerHTML=players.map(player=>{
-        const label=player.status==='playing'?'In Match':player.status==='queued'?'In Queue':'';
-        return '<li data-name="'+esc(player.name.toLowerCase())+'">'+avatar(player,esc)+'<strong title="'+esc(player.name)+'">'+esc(player.name)+'</strong>'+
-          (label?'<span class="overview-player-status" data-status="'+label+'">'+label+'</span>':'')+'</li>';
-      }).join('');
+      const labels={playing:'In Match',queued:'In Queue',quiz:'Playing Quiz',afk:'AFK',browsing:'Browsing'};
+      playerList.innerHTML=players.map(player=>
+        '<li data-name="'+esc(player.name.toLowerCase())+'">'+avatar(player,esc)+'<strong title="'+esc(player.name)+'">'+esc(player.name)+'</strong>'+
+          '<span class="overview-player-status" data-status="'+esc(player.status)+'">'+(labels[player.status]||labels.browsing)+'</span></li>'
+      ).join('');
       playerList.scrollTop=top;
     }
     $('.overview-search').hidden=!signedIn;
@@ -219,6 +251,13 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
       renderQueues();
       return;
     }
+    const spectate=event.target.closest('[data-watch-match]');
+    if(spectate){
+      const row=spectate.closest('.overview-match');
+      setMatch(row,true);
+      const title=row.querySelector('.overview-match-mode strong').textContent;
+      watch(spectate.dataset.watchMatch,title);return;
+    }
     const queue=event.target.closest('[data-overview-join]');
     if(!queue||queue.disabled)return;
     if(queue.dataset.label==='Leave'){leave();return;}
@@ -232,7 +271,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,viewer}) {
     update,
     updateCounts(value){if(value){counts=value;renderQueues();}},
     updateQueue(value){currentQueue=value;renderQueues();},
-    close(){listeners.abort();},
+    close(){listeners.abort();scoreRequest?.abort();},
     unavailable(){
       if(matchSnapshot===undefined)$('.overview-match-empty').textContent='Live matches unavailable. Retrying…';
       if(playerSnapshot===undefined)$('.overview-player-empty').textContent='Online players unavailable. Retrying…';

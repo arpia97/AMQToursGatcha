@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Live spectating and Play presence
+
+Codex owns this Play rollout from `df0f037`. Scope is the live directory, a read-only public-match feed, and per-tab presence. Main deployment stays with this task until validation is complete.
+
 ## Compact Play Match Chat header
 
 Source `8f470cd` is live at 100% on Worker `f633f325-cb93-4b7c-92fd-5131d85053d2`. The approved 34 px desktop and 38 px mobile header puts resize and minimize on the right and keeps the chat title usable as a drag handle. Live-asset browser fixtures at 1440 and 390 px verified header dimensions, message area, keyboard move and resize, and minimize and reopen. All 567 tests, syntax checks, and the Worker dry run passed. The live NGMC route returned HTTP 200.

@@ -5,10 +5,10 @@ export function identity(request) {
   if(!value?.id||!value.name||value.expires<=Date.now())fail('Sign in to play.',401);
   return value;
 }
-export function accept(ctx,who) {
-  for(const old of ctx.getWebSockets(who.id))old.close(4001,'Opened in another tab.');
+export function accept(ctx,who,tag=who.id,tags=[tag]) {
+  for(const old of ctx.getWebSockets(tag))old.close(4001,'Opened in another tab.');
   const pair=new WebSocketPair(),client=pair[0],server=pair[1];
-  ctx.acceptWebSocket(server,[who.id]);server.serializeAttachment({...who,window:Date.now(),count:0});
+  ctx.acceptWebSocket(server,tags);server.serializeAttachment({...who,window:Date.now(),count:0});
   return {server,response:new Response(null,{status:101,webSocket:client})};
 }
 export function receive(ws,raw) {

@@ -349,7 +349,7 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
-    const playRead = ["play-state", "play-connect", "play-live", "play-history"].includes(path) && !post;
+    const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch"].includes(path) && !post;
     if(path==='quiz-play-rankings'&&!post){
       const page=Number(url.searchParams.get('page'));
       if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
@@ -1349,9 +1349,36 @@ export class Game extends DurableObject {
         if(!data)fail('Match history is unavailable.',404);
         return json(data);
       }
+      if(path==='play-watch'){
+        if(!session)fail('Sign in to watch matches.',401);
+        e.assertAccountUnlocked(session.player);
+        const id=url.searchParams.get('match');
+        if(!id||!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id))fail('Choose a valid match.',400);
+        const upgrade=request.headers.get('Upgrade')?.toLowerCase()==='websocket';
+        if(upgrade&&request.headers.get('Origin')!==url.origin)fail('Cross-origin requests are not allowed.',403);
+        this.bursts.take('play-watch:'+session.player,10,1);
+        const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+        if(!await queue.canWatch(id))fail('This public match is no longer available.',404);
+        const room=this.env.PLAY_MATCHES.getByName(id);
+        if(upgrade){
+          const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({
+            id:session.player,name:e.player(session.player).name,expires:Math.min(session.expires,Date.now()+30*60_000),
+          })});
+          return room.fetch(new Request('https://play.internal/spectator',{headers}));
+        }
+        const score=await room.liveScore();
+        if(!score)fail('This public match is no longer available.',404);
+        return json(score);
+      }
       if(path==='play-live'){
         const overview=url.searchParams.get('overview')==='1';
-        const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1').liveActivity(session?.player||null,overview);
+        const tab=url.searchParams.get('tab');
+        const details=tab&&/^[a-f0-9-]{36}$/.test(tab)?{
+          tab,idle:Number(url.searchParams.get('idle')),hidden:url.searchParams.get('hidden')==='1',
+          quiz:url.searchParams.get('quiz')==='1',
+        }:null;
+        const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1')
+          .liveActivity(session?.player||null,overview,details,url.searchParams.get('presence')==='1');
         if(overview&&session&&data.onlinePlayers)data.onlinePlayers=playOverviewPlayers(e,data.onlinePlayers);
         return json(data);
       }

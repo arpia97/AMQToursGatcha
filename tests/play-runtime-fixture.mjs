@@ -64,7 +64,11 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
       if(url.pathname==='/api/__fixture-final-song'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureFinalSong();return Response.json({ok:true});}
       if(url.pathname==='/api/__fixture-info')return Response.json(await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).fixtureInfo());
       if(url.pathname==='/api/__expire-review'){const id=url.searchParams.get('match');await env.PLAY_QUEUE.getByName('play-queues-v1').ageReview(id);return Response.json({tables:await env.PLAY_MATCHES.getByName(id).expireReview()});}
-      if(url.pathname==='/api/__fake-proxy'){const original=new Request('https://amqtours.app/gacha/api/play-connect'+url.search,request);return proxy.fetch(original,{GAME_SITE:{fetch:r=>worker.fetch(r,env,ctx)}});}
+      if(['/api/__fake-proxy','/api/__fake-watch-proxy'].includes(url.pathname)){
+        const endpoint=url.pathname==='/api/__fake-watch-proxy'?'play-watch':'play-connect';
+        const original=new Request('https://amqtours.app/gacha/api/'+endpoint+url.search,request);
+        return proxy.fetch(original,{GAME_SITE:{fetch:r=>worker.fetch(r,env,ctx)}});
+      }
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});

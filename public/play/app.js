@@ -128,6 +128,22 @@ const multiplayerRoot = document.createElement('div');
 const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
 let currentQueue, overview, currentActivity;
+const playTab=crypto.randomUUID();
+let inactiveSince=document.hidden||!document.hasFocus()?Date.now():null;
+let reportedQuiz=false;
+const watchingPath=id=>'play-watch?match='+encodeURIComponent(id);
+async function watchMatch(id,title){
+  if(!state.me){account();return;}
+  const version=viewVersion,viewer=state.me.id;
+  const {watchPlayMatch}=await import('../play-spectator-ui.js');
+  if(version!==viewVersion||state.me?.id!==viewer)return;
+  const dialog=$('#modal');
+  if(dialog.open&&dialog.classList.contains('play-watch-dialog'))return;
+  modal('<section class="watch-match" aria-labelledby="watch-title"><h2 id="watch-title">'+escape(title)+'</h2>'+
+    '<div class="watch-meta"><p class="watch-status" role="status">Connecting to match…</p><b class="watch-clock"></b></div>'+
+    '<div class="watch-live"></div></section>','play-watch-dialog');
+  watchPlayMatch({dialog,api,apiBase,title,id,esc:escape});
+}
 function savedQueue(){
   try{const value=sessionStorage.getItem(queueKey());return Object.hasOwn(queueLabels,value)?value:null;}catch{return null;}
 }
@@ -174,6 +190,7 @@ const loadMultiplayer = loadOnce(async () => {
         $('#modal').close();
         $('#main').replaceChildren(multiplayerRoot);
         mode = id;
+        if(reportedQuiz)void refreshLive(true);
         history.replaceState(null, "", playHref(id));
         nav();
       }
@@ -199,6 +216,7 @@ function nav() {
 }
 function renderQuiz({ questionOnly = false } = {}) {
   if (mode !== "quiz" || !quiz) return;
+  if(quiz.active()!==reportedQuiz)void refreshLive(true);
   if (questionOnly && quiz.updateQuestion()) return;
   const active = document.activeElement;
   const focus = $("#main").contains(active) && active.id ? { id: active.id, start: active.selectionStart, end: active.selectionEnd } : null;
@@ -231,10 +249,12 @@ async function openMode(id, push = true) {
     }
   }
   const version = ++viewVersion;
+  if($('#modal').classList.contains('play-watch-dialog'))$('#modal').close();
   overview?.close();overview=null;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
   if (!songArtist?.waiting()) songArtist?.leave();
   mode = id;
+  if(reportedQuiz&&mode!=='quiz')void refreshLive(true);
   if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
   if(id!=='rankings'||!$('#ranking-results'))
@@ -252,6 +272,8 @@ async function openMode(id, push = true) {
       };
       overview=mount($('#main'),{esc:escape,join,leave:()=>songArtist?.cancelQueue(),viewer:state.me,
         viewQueue:()=>currentQueue&&openMode(modeForQueue(currentQueue.format)),
+        watch:(id,title)=>watchMatch(id,title).catch(fail),
+        loadScore:(id,signal)=>api(watchingPath(id),undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),
       });
       overview.updateQueue(currentQueue);
       if(currentActivity)overview.update(currentActivity,state.me);
@@ -286,35 +308,64 @@ async function openMode(id, push = true) {
   }
 }
 const accountReady = refreshAccount();
-let activityBusy=false;
-async function refreshLive(){
-  if(document.hidden||activityBusy)return;
+const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked',
+  'lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
+let activityBusy=false,activityPending=false,drawerSnapshot;
+async function refreshLive(force=false){
+  if(activityBusy){activityPending||=force;return;}
+  const hidden=document.hidden,viewer=state.me?.id;
+  if(hidden&&!viewer)return;
   activityBusy=true;
-  const detailed=mode==='overview',viewer=state.me?.id;
+  const detailed=!hidden&&mode==='overview';
+  const params=new URLSearchParams();
+  if(detailed)params.set('overview','1');
+  if(viewer){
+    params.set('tab',playTab);
+    params.set('idle',String(inactiveSince===null?0:Math.max(0,Date.now()-inactiveSince)));
+    reportedQuiz=mode==='quiz'&&!!quiz?.active();
+    if(reportedQuiz)params.set('quiz','1');
+    if(hidden){params.set('hidden','1');params.set('presence','1');}
+  }
   try{
-    const data=await api(detailed?'play-live?overview=1':'play-live');
-    if(detailed&&viewer!==state.me?.id)return;
+    const data=await api('play-live?'+params);
+    if(hidden||viewer!==state.me?.id||document.hidden)return;
     const {matches,online,waiting}=data;
     currentActivity=data;
     if(detailed)overview?.update(data,state.me);
     $('#live-count').textContent=number(matches.length);
     $('#live-counts').textContent=number(online)+' online · '+number(waiting)+' finding a match';
-    const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked','lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
-    $('#live-matches').innerHTML=matches.length?'<ul>'+matches.map(m=>'<li><strong>'+escape(labels[m.format]||m.format)+'</strong><span>'+
-      (m.pool==='watched'?'Watched':'Random')+' · '+number(m.players)+' players · Started '+
-      escape(new Date(m.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</span></li>').join('')+'</ul>':'<p>No matches in progress.</p>';
+    const key=JSON.stringify(matches.map(({roster,...match})=>match));
+    if(drawerSnapshot!==key){
+      drawerSnapshot=key;
+      $('#live-matches').innerHTML=matches.length?'<ul>'+matches.map(m=>'<li><div><strong>'+escape(labels[m.format]||m.format)+'</strong><span>'+
+        (m.pool==='watched'?'Watched':'Random')+' · '+number(m.players)+' players · Started '+
+        escape(new Date(m.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}))+'</span></div>'+
+        (m.id?'<button type="button" class="button secondary" data-drawer-watch="'+escape(m.id)+'" data-watch-title="'+escape(labels[m.format]||m.format)+'">Watch</button>':'')+'</li>').join('')+'</ul>':'<p>No matches in progress.</p>';
+    }
   }catch{
+    if(hidden)return;
+    drawerSnapshot=undefined;
     $('#live-count').textContent='—';$('#live-counts').textContent='Activity unavailable';
     $('#live-matches').textContent='Retrying automatically.';
     if(detailed)overview?.unavailable();
   }finally{
     activityBusy=false;
-    if(mode==='overview'&&(!detailed||viewer!==state.me?.id))void refreshLive();
+    if(activityPending||(!document.hidden&&((!detailed&&mode==='overview')||viewer!==state.me?.id))){
+      activityPending=false;void refreshLive();
+    }
   }
 }
 void refreshLive();
-setInterval(refreshLive,30000);
-document.addEventListener('visibilitychange',refreshLive);
+void accountReady.then(()=>refreshLive(true));
+setInterval(refreshLive,30_000);
+function updatePlayFocus(){
+  if(document.hidden||!document.hasFocus())inactiveSince??=Date.now();
+  else inactiveSince=null;
+  void refreshLive(true);
+}
+document.addEventListener('visibilitychange',updatePlayFocus);
+window.addEventListener('focus',updatePlayFocus);
+window.addEventListener('blur',updatePlayFocus);
 openMode(mode, false);
 window.addEventListener("popstate", () => openMode(playRoute(location.pathname) || playRoute("/play"), false));
 document.addEventListener("click", async (event) => {
@@ -324,6 +375,7 @@ document.addEventListener("click", async (event) => {
   try {
     const action = button.dataset.action;
     if (button.closest("#account-menu")) accountMenu.close(true);
+    if(button.dataset.drawerWatch){await watchMatch(button.dataset.drawerWatch,button.dataset.watchTitle);return;}
     if (action === "profile") { profile(); return; }
     if (action === "play-history" && state.me) {
       const owner = state.me.id;
