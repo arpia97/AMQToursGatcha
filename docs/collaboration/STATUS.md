@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Broadcast Play Overview
+
+Source `44dfed3` is live at 100% on Worker `0ef85199-3fa7-435a-a616-e9f6a9b7d106`. Compact live scorecards scroll horizontally above Quick Join and Online Players. The online total is green and queue counts turn green above zero. Browser fixtures verified six cards at 1280 and 390 px, zero and positive counts, roster details, queue joining and cancellation. The Play route and both live assets were verified. Play route and runtime tests, syntax checks and the Worker dry run passed.
+
 ## Quiz and Play answer suggestion taps
 
 Source `6e09ea8` is live at 100% on Worker `77910254-c944-42ba-aba1-b91f3b6de6df`. Tapping a quiz suggestion submits the chosen title once in both Gacha and Play. Multiplayer taps follow each mode's keyboard selection rules, including selecting an anime title without locking the full answer in Song/Artist 1v1. All 572 tests, syntax checks, and the dry run passed. Touch emulation verified both quiz pages, Ranked 1v1, Song/Artist 1v1, and matchmaking 1-Team. Both quiz routes returned 200 and the three deployed scripts matched source.
