@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Balanced ranked NGMC 4v4
+
+Source `42a6fcd` is live at 100% on Worker `184b0ff9-5f25-4d5d-86da-116a0c355e6e`. Ranked 4v4 now uses match-start Balanced Rating with a 48-point limit. The owner-authorized production replay on November 20 covered all 25 settled matches from the first game, 43 players, and the starting ratings of two active games. All historical matches were Random. Watched has a separate ladder with the same formula. An independent replay agreed with all historical receipts and all 43 leaderboard entries. The median absolute change per match was 5.09 points and the largest was 22.35. All 562 tests, syntax checks, and the Worker dry run passed.
+
 ## Play presence, input focus and ranked settlement
 
 Source commits `8359cb5` and `0295bee` are live at 100% on Worker `43b605ac-a9a9-49b0-aa56-27429cd272ef`. The Play activity bar lists ongoing matches and signed-in online and searching totals. Answer fields retain focus through submission. Desktop and mobile browser checks verified the deployed assets, the public activity API returned live counts, and all 561 tests, syntax checks and the Worker dry run passed.
