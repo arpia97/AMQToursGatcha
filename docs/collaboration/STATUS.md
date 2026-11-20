@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play match connection recovery
+
+Source `f66056f` is live at 100% on Worker `a7f567a4-6b90-4638-b9a2-d5dc47624765`. Player match sockets check round-trip delivery, reconnect after a missed heartbeat, and refresh the authoritative state. Background song prefetch uses one lower-priority download after the opening window. A disposable browser match recovered in 13 seconds with outbound traffic dropped and inbound events continuing. The typed answer survived and the server accepted the subsequent submission and chat message. All 571 tests, syntax checks and the dry run passed. The live NGMC route returned 200 and both deployed client files matched source.
+
 ## Song/Artist Tab wrap
 
 Source `c8666f6` is live at 100% on Worker `966744d2-385f-442e-a6e5-0640fda292b6`. Forward Tab from the last available Song/Artist field wraps to the first available one. Shift+Tab from the first field and Tab when only one field is available retain native focus navigation. All nine multiplayer runtime tests, syntax checks, and the Worker dry run passed. Local browser matches using the deployed script verified wrapping in FFA at desktop and mobile widths and in matchmaking 1-Team, including autocomplete dismissal and skipping teammate-claimed fields. The live Song/Artist route returned 200.
