@@ -10,13 +10,15 @@ function answerText(answer) {
 
 export function timelineHTML(data, names, escape) {
   if (!data?.rounds.length) return '<p>No song timelines were recorded for this match.</p>';
-  const options = data.rounds.map(round => '<option value="' + round + '"' +
-    (round === data.round ? ' selected' : '') + '>Song ' + round + '</option>').join('');
-  const header = '<header class="review-timeline-head"><label>Song <select data-review-round>' + options +
-    '</select></label><div class="review-timeline-legend">' +
+  const songs = data.rounds.map(round => '<button type="button" data-review-round="' + round +
+    '" aria-label="Song ' + round + '" aria-pressed="' + (round === data.round) + '">' + round + '</button>').join('');
+  const header = '<header class="review-timeline-head"><div class="review-timeline-toolbar"><strong>Songs</strong>' +
+    '<div class="review-timeline-legend">' +
     Object.entries(stateLabels).map(([state, label]) => '<span><i class="' + state + '"></i>' + label + '</span>').join('') +
-    '<span><i class="answer"></i>Answer</span></div></header>';
-  if (data.duration === null) return header + '<p>Timing is unavailable for this song.</p>';
+    '<span><i class="answer"></i>Answer</span></div></div>' +
+    '<div class="review-timeline-songs" role="group" aria-label="Songs">' + songs + '</div></header>';
+  if (data.duration === null) return '<section class="review-timeline">' + header +
+    '<p class="review-timeline-detail">Timing is unavailable for this song.</p></section>';
 
   const axis = '<div class="review-timeline-axis">' + [0, .25, .5, .75, 1].map(part =>
     '<span>' + seconds(data.duration * part, 1) + '</span>').join('') + '</div>';

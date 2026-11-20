@@ -59,7 +59,18 @@ export function mountPlayReview(root,initial,api,esc){
   }
   function events(){
     const names=new Map(detail.players.map(p=>[p.id,p.name]));
+    const scroll = root.querySelector('.review-timeline-songs')?.scrollLeft ?? 0;
+    const restoreSongFocus = document.activeElement?.matches('[data-review-round]') && root.contains(document.activeElement);
     root.querySelector('[data-review-detail]').innerHTML='<div class="play-review-tools"><div><h3>'+esc(detail.format)+' · Match Review</h3><small>'+esc(detail.id)+'</small></div><label>Player<select data-review-player><option value="">All Players</option>'+detail.players.map(p=>'<option value="'+esc(p.id)+'" '+(player===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select></label><button class="button secondary" type="button" data-review-latest>Refresh</button></div>'+assessment()+'<div class="play-review-tools" aria-label="Review view">'+['highlights','timeline','events'].map(v=>'<button class="button secondary" type="button" data-review-view="'+v+'" aria-pressed="'+(v===view)+'">'+({highlights:'Highlights',timeline:'Timeline',events:'Full log'}[v])+'</button>').join('')+'</div>'+(detail.highlights?highlights(names):view==='timeline'?timelineHTML(detail.timeline,names,esc):'<div class="table-wrap"><table><thead><tr><th>Server Time</th><th>Player</th><th>Song / Phase</th><th>Event</th><th>Answer / Activity</th></tr></thead><tbody>'+detail.events.map(row=>'<tr><td>'+esc(time(row.at))+(row.data.clientAt?'<small>Client: '+esc(time(row.data.clientAt))+'</small>':'')+'</td><td>'+esc(names.get(row.player)||row.player||'Server')+'</td><td>'+row.data.round+' · '+esc(row.data.phase)+'</td><td>'+esc(row.kind)+'</td><td>'+eventText(row)+'</td></tr>').join('')+'</tbody></table></div>'+(detail.next?'<button class="button secondary" type="button" data-review-older-events="'+detail.next+'">Older Events</button>':''));
+    const songs = root.querySelector('.review-timeline-songs');
+    const selectedSong = songs?.querySelector('[aria-pressed="true"]');
+    if (selectedSong) {
+      songs.scrollLeft = scroll;
+      if (selectedSong.offsetLeft < songs.scrollLeft) songs.scrollLeft = selectedSong.offsetLeft;
+      const right = selectedSong.offsetLeft + selectedSong.offsetWidth;
+      if (right > songs.scrollLeft + songs.clientWidth) songs.scrollLeft = right - songs.clientWidth;
+      if (restoreSongFocus) selectedSong.focus({preventScroll:true});
+    }
   }
   async function loadEvents(before,offset){
     const params={match:selected,player,view,...(view==='timeline'&&round?{round}:{}),...(before?{before}:{}),...(offset?{offset}:{})};
@@ -84,15 +95,15 @@ export function mountPlayReview(root,initial,api,esc){
   root.addEventListener('input',e=>{if(!e.target.matches('[data-review-search]'))return;clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(root.isConnected)loadMatches();},300);});
   root.addEventListener('change',e=>{if(e.target.matches('[data-review-flagged]'))loadMatches();
     if(e.target.matches('[data-review-player]')){player=e.target.value;loadEvents();}
-    if(e.target.matches('[data-review-round]')){
-      round=e.target.value;
-      loadEvents().then(()=>{if(view==='timeline'&&root.isConnected)root.querySelector('[data-review-round]')?.focus({preventScroll:true});});
-    }
   });
   root.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;
     if(button.dataset.reviewMatch){detail=null;root.querySelector('[data-review-detail]').replaceChildren();selected=button.dataset.reviewMatch;player='';round=undefined;view='highlights';loadEvents();}
     else if(button.dataset.reviewView){view=button.dataset.reviewView;loadEvents();}
     else if(button.dataset.reviewContext){view='events';player=button.dataset.player;loadEvents(Number(button.dataset.reviewContext)+1);}
+    else if(button.dataset.reviewRound && button.getAttribute('aria-pressed') !== 'true'){
+      round=button.dataset.reviewRound;
+      loadEvents();
+    }
     else if(button.dataset.reviewTrack !== undefined){
       const names=new Map(detail.players.map(p=>[p.id,p.name]));
       showTimelineAnswer(root.querySelector('[data-review-marker-detail]'),detail.timeline,names,button.dataset);
