@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz and Play answer suggestion taps
+
+Source `6e09ea8` is live at 100% on Worker `77910254-c944-42ba-aba1-b91f3b6de6df`. Tapping a quiz suggestion submits the chosen title once in both Gacha and Play. Multiplayer taps follow each mode's keyboard selection rules, including selecting an anime title without locking the full answer in Song/Artist 1v1. All 572 tests, syntax checks, and the dry run passed. Touch emulation verified both quiz pages, Ranked 1v1, Song/Artist 1v1, and matchmaking 1-Team. Both quiz routes returned 200 and the three deployed scripts matched source.
+
 ## Play match connection recovery
 
 Source `f66056f` is live at 100% on Worker `a7f567a4-6b90-4638-b9a2-d5dc47624765`. Player match sockets check round-trip delivery, reconnect after a missed heartbeat, and refresh the authoritative state. Background song prefetch uses one lower-priority download after the opening window. A disposable browser match recovered in 13 seconds with outbound traffic dropped and inbound events continuing. The typed answer survived and the server accepted the subsequent submission and chat message. All 571 tests, syntax checks and the dry run passed. The live NGMC route returned 200 and both deployed client files matched source.
