@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Rating badge placement across Play modes
+
+Source `bfa323f` is live on Worker `9fa18eb9-d44e-4a04-9e60-a77cf5945167`. NGMC, 1v1 Ranked, 2v2 Arena, and rated Song/Artist formats share the title-side Rating badge in matchmaking and during play. Chrome verified all four modes at 1440px, 390px, and 320px, including Random and Watched switching. Syntax checks and the dry run passed. Production returned both updated assets.
+
 ## NGMC Rating badge placement
 
 Source `381df7e` is live at 100% on Worker `819b978b-0c89-4200-bd48-630414891487`. The Rating badge sits beside the NGMC title in matchmaking and during play. Chrome verified alignment at 1440px, 390px and 320px. Syntax checks and the dry run passed. Production returned both updated assets.
