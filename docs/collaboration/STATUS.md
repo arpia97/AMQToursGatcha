@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC team counter selection
+
+Source `346e2ef` deployed as Worker `ab068aa6-6d1b-4697-9815-a53ce023ed73`. New NGMC matches close volunteer signup at 20 seconds and assign automatic counting to unfilled teams at 40 seconds from setup. Teams can opt in earlier and keep the assignment across songs. The suite passed all 564 tests, including mixed manual and automatic teams across rounds. The live NGMC page and its three updated UI modules returned HTTP 200.
+
 ## Shared backend stability
 
 Source `998426a` is live at 100% on Worker `f7c0b16f-ef1b-4910-bdc6-a2e0fd0195be`. Guest Play state and public presence bypass account storage. Public lobby, queue and presence reads can serve a snapshot up to 60 seconds old during storage interruptions. Sign-in has less database work, and receipt-protected quiz moves can recover once from a lost reply. All 564 tests passed, including a lost response after an answer was saved, snapshot expiry and overload handling. Live guest checks returned HTTP 200 for health, Gacha state, Play state, lobby directory, queue counts and presence.
