@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC counter selection pop-up
+
+Source `c56e019` is live at 100% on Worker `fff37c32-09d8-42de-949a-58810b9dfc40`. During NGMC signup, players can volunteer, enable Auto-Count, or dismiss the pop-up. It closes when the signup expires or a teammate takes the role. Manual guess choices follow the team's tier order, highest starting Rating first. All 566 tests, syntax checks and the dry run passed. Browser fixtures with the deployed assets exercised both actions, dismissal, expiration, teammate assignment, and ordered choices at desktop and mobile widths. The live NGMC route and all three updated assets returned HTTP 200.
+
 ## NGMC automatic counting takeover
 
 Source `caa575c` is live at 100% on Worker `b1a1a16e-4888-4c51-a48f-7aded185b83b`. An active teammate can take over while their team is on Auto-Count. Any guess already chosen for the current song stays in effect. All 566 tests, syntax checks and the dry run passed. Desktop and mobile browser fixtures using the deployed scripts verified the takeover control, volunteer message and counter badge. The live NGMC route and updated assets returned HTTP 200.
