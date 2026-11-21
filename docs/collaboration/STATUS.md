@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play mobile navigation
+
+Source `e84a9b5` is deployed on Worker `02712fca-fb2e-4236-ae7e-dc7e90426a88`. The mobile bottom bar has Overview, NGMC, Quiz and More. More contains 1v1 Ranked, 2v2 Arena, Song/Artist, Rankings and the Gacha shortcut. Chromium verified mobile at 320 and 390 px and the desktop sidebar at 1440 px. The ten Play route and runtime tests and syntax checks passed. Live Play markup and both revised assets were verified.
+
 ## Owned Only on other players' wishlists
 
 Source `9743318` was deployed on Worker `da811c61-da3e-47a2-a0bf-87021ebac5c7`. Owned Only uses the signed-in viewer's collection, including when the wishlist owner has a private collection. The live assets matched source and the endpoint required sign-in after the Durable Object updated. Chromium verified the signed-in flow with local accounts at 320, 390, and 1440 px. All 574 tests, syntax checks and the Worker dry run passed.
