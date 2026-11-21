@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC search and skip controls
+
+Source `cecedbb` is live on Worker `20870194-a377-4577-829a-7bd54a3c36a6`. The answer confirmation has a reserved row, and Skip Song follows the search checkboxes in the layout. Chromium tested the deployed stylesheet with an isolated match at 320, 390, 1024, and 1440 px. The search checkboxes and skip vote remained clickable after locking a short or long answer, and song progress stayed in place. The live route, asset, syntax checks, and 16 focused tests passed.
+
 ## Quiz upload and edit attribution
 
 Source `3964f19` is live on Worker `b953a298-deb2-4fac-aa0f-8eb8ed03cc32`. The selected quiz shows uploader and latest editor with timestamps above its song pool. New attribution comes from the authenticated actor, and shared-token edits are labeled Host API. Legacy quizzes show unknown attribution where absent and retain their saved latest update timestamp. The live console, editor asset and unauthenticated rejection were verified. Local Chromium covered a Quiz Maker edit at 390 and 1440 px. All 575 tests, syntax checks and the Worker dry run passed.
