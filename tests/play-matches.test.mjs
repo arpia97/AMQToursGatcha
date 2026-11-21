@@ -80,6 +80,19 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));
 const players=Array.from({length:6},(_,i)=>({id:String(i),name:'Player '+i}));
 
+test('Song/Artist accepts Nagi Yanagi and yanaginagi interchangeably',()=>{
+  const library=buildArtistLibrary({
+    artistMap:{1:{name:'yanaginagi',altNameLinks:['nagi']},2:{name:'Jun Maeda'}},
+    groupMap:{1:{name:'Jun Maeda×yanaginagi',artistMembers:[1,2]}},
+  });
+  assert.equal(artistMatches('yanaginagi',['Nagi Yanagi'],library.rules),true);
+  assert.equal(artistMatches('Nagi Yanagi',['yanaginagi'],library.rules),true);
+  assert.equal(artistMatches('yanaginagi','Yanagi Nagi'),true);
+  assert.equal(artistMatches('Nagi Yanagi','nagi',library.rules),true);
+  assert.equal(artistMatches('Jun Maeda×yanaginagi',['Jun Maeda','Nagi Yanagi'],library.rules),true);
+  assert.equal(artistMatches('Jun Maeda×yanaginagi',['Nagi Yanagi'],library.rules),false);
+});
+
 test('unused audio never becomes a round; review suppresses shared answers and preserves server receipts with bounded private retention',()=>{
   const state=makeMatch('local','1v1',players.slice(0,2),structuredClone(songs));
   const decoy={audio:'https://example.test/unused.mp3',anime:'Unused Anime',title:'Unused Song',artist:'Unused Artist',answers:{anime:['unused anime'],song:['unused song'],artist:['Unused Artist']}};

@@ -7,7 +7,14 @@ export const titleKey = value => answerKey(value).replace(/\s+/g,'')||String(val
 export const titleMatches = (expected,value) => {
   const key=titleKey(value);return !!key&&expected.some(answer=>titleKey(answer)===key);
 };
-export const artistKey = value => answerKey(value).split(/\s+/).sort().join(' ');
+const sortedArtistKey = value => answerKey(value).split(/\s+/).sort().join(' ');
+const artistAliases = [['Nagi Yanagi', 'yanaginagi']];
+const artistAliasKeys = new Map(artistAliases.map(([alias,credit])=>[sortedArtistKey(alias),sortedArtistKey(credit)]));
+export const artistAliasLabels = artistAliases.map(([alias])=>alias);
+export const artistKey = value => {
+  const key=sortedArtistKey(value);
+  return artistAliasKeys.get(key)??key;
+};
 const values = value => Array.isArray(value) ? value.flatMap(values) : value == null ? [] : typeof value !== 'object' ? [value]
   : ['name','artistName','artistId','songArtistId','id'].some(k => value[k] != null) ? [value]
   : Object.entries(value).flatMap(([key, v]) => v == null || v === true ? [key] : /^\d+$/.test(key) ? [v] : [key,v]);

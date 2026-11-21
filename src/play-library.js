@@ -4,7 +4,7 @@ import {playAudioSource,playableMirror} from './play-media.js';
 import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON, libraryShards } from './quiz-library.js';
-import { titleKey, artistKey } from './play-artists.js';
+import { titleKey, artistKey, artistAliasLabels } from './play-artists.js';
 import {loadMasterSongAnswers,bestMasterRecord,indexQuizRecordings,sheetRecording} from './master-song-answers.js';
 export class PlayLibrary {
   constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets)) {
@@ -42,7 +42,7 @@ export class PlayLibrary {
     const [artist,creditedNames]=await Promise.all([
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
     ]);
-    const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames]),playable=new Map(),withAudio=new Map(),ngmcRows=[];
+    const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames,...artistAliasLabels]),playable=new Map(),withAudio=new Map(),ngmcRows=[];
     const occurrenceAnime=new Map(), linkedAnime=new Map();
     for(const [ann,[myanimelist,anilist]] of Object.entries(master.animeLinks||{}))linkedAnime.set(Number(ann),{myanimelist,anilist});
     const extras=new Map(), officialById=new Map(), matchedSheet=new Set(),matchedQuiz=new Set(),alternates=new Map();
