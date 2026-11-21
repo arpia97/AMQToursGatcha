@@ -351,12 +351,13 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-console-body #sa-answer-form:not([hidden]) { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:8px; max-width:none; margin:0; }
 .ngmc-console-body .sa-lock { width:auto; margin:0; min-height:44px; border-radius:4px; }
 .ngmc-console-body .sa-combobox input { height:44px; }
-.ngmc-action-area { position:relative; height:140px; display:grid; grid-template-rows:minmax(0,1fr); }
+.ngmc-action-area { display:grid; grid-template-rows:minmax(192px,auto); }
 .ngmc-action-area>* { grid-area:1/1; min-width:0; }
 .ngmc-input-wrap:has(#sa-answer-form[hidden]),.ngmc-action-area .sa-shared-wrap:empty,.ngmc-download:empty { display:none; }
-.ngmc-input-wrap .sa-locked-answer { max-height:2.8em; overflow:auto; }
-.ngmc-input-wrap .sa-skip-row { position:absolute; bottom:0; inset-inline:0; }
-.ngmc-action-area .sa-shared-wrap,.ngmc-action-area .sa-ready-wrap { overflow:auto; }
+/* Reserve the confirmation row so locking an answer leaves both controls in place. */
+.ngmc-input-wrap #sa-answer-form .sa-locked-answer { display:block; grid-column:1/-1; height:2.8em; margin:0; line-height:1.4; overflow:auto; }
+.ngmc-input-wrap .sa-locked-answer[hidden] { visibility:hidden; }
+.ngmc-action-area .sa-shared-wrap,.ngmc-action-area .sa-ready-wrap { contain:size; overflow:auto; }
 .ngmc-action-area:has(.sa-ready-wrap:not([hidden])) .sa-shared-wrap { display:none; }
 .ngmc-action-area .sa-ready-panel { margin:0; padding:7px 10px; gap:4px; }
 .ngmc-action-area .sa-ready-panel h2 { font-size:14px; }
