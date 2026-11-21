@@ -213,6 +213,8 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 }
 .sa-game-heading>div:first-child { min-width:0; }.sa-game-heading .sa-eyebrow { display:block;overflow-wrap:anywhere; }
 .sa-game-actions .sa-volume { grid-column:1/-1;width:min(230px,100%);max-width:none;display:grid;grid-template-columns:auto minmax(45px,1fr) 34px;margin:0;gap:8px; }
+.sa-game-preferences { display:flex;align-items:center;justify-content:flex-end;gap:12px;max-width:100%; }
+.sa-game-preferences .fuzzy-anime-search { margin:0; }
 .sa-volume input { width:100%;min-width:0;max-width:none; }.sa-volume output { min-width:34px; }
 .sa-game-actions .button { white-space:nowrap; }
 .sa-song-player { display:flex;align-items:center;gap:10px;min-height:65px;padding:8px;border-radius:7px; }.sa-song-player.self { background:#b6e2c509; }
