@@ -21,6 +21,22 @@ import { installDetailPopovers } from "../detail-popover.js";
 installTitleMotion();
 installDetailPopovers(document);
 const $ = (selector) => document.querySelector(selector);
+const mobileTabs = new Set(["overview", "ngmc-ranked", "quiz"]);
+const mobileMenu = $("#play-mobile-menu");
+const moreButton = $("#play-mobile-more");
+moreButton.addEventListener("click", () => {
+  mobileMenu.showModal();
+  moreButton.setAttribute("aria-expanded", "true");
+});
+mobileMenu.addEventListener("close", () => moreButton.setAttribute("aria-expanded", "false"));
+mobileMenu.addEventListener("click", (event) => {
+  if (event.target !== mobileMenu) return;
+  const { top, right, bottom, left } = mobileMenu.getBoundingClientRect();
+  if (event.clientY < top || event.clientY > bottom || event.clientX < left || event.clientX > right) mobileMenu.close();
+});
+matchMedia("(max-width:800px)").addEventListener("change", (event) => {
+  if (!event.matches) mobileMenu.close();
+});
 const escape = (value) => String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 const number = (n) => Number(n || 0).toLocaleString("en-US");
 const assets = new URL("../", import.meta.url);
@@ -253,9 +269,16 @@ function nav() {
   document.title = PLAY_MODES.find((item) => item.id === mode).name + " · AMQ Tours Play";
   document.body.classList.toggle("play-viewport", mode !== "quiz" && mode !== "rankings");
   $('.play-live').hidden=mode==='overview';
-  for (const mobile of [false, true]) {
-    $(mobile ? "#play-mobile-nav" : "#play-nav").innerHTML = PLAY_MODES.filter(item=>!mobile||!item.disabled).map((item) => '<a ' + (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') + (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) + '<span>' + (mobile ? item.short : item.name) + '</span>' + (!mobile && item.disabled ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>').join("");
-  }
+  const link = (item, compact = false) => '<a ' +
+    (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') +
+    (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) +
+    '<span>' + (compact ? item.short : item.name) + '</span>' +
+    (item.disabled ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>';
+  $("#play-nav").innerHTML = PLAY_MODES.map(item => link(item)).join("");
+  $("#play-mobile-primary").innerHTML = PLAY_MODES.filter(item => mobileTabs.has(item.id)).map(item => link(item, true)).join("");
+  $("#play-mobile-links").innerHTML = PLAY_MODES.filter(item => !item.disabled && !mobileTabs.has(item.id)).map(item => link(item)).join("");
+  moreButton.toggleAttribute("data-current", !mobileTabs.has(mode));
+  if (mobileMenu.open) mobileMenu.close();
 }
 function renderQuiz({ questionOnly = false } = {}) {
   if (mode !== "quiz" || !quiz) return;
@@ -514,7 +537,7 @@ document.addEventListener("change", async (event) => {
   } catch (error) { fail(error); }
 });
 document.addEventListener("keydown", (event) => {
-  if (mode === "quiz" && !$("#modal").open) quiz?.key(event);
+  if (mode === "quiz" && !$("#modal").open && !mobileMenu.open) quiz?.key(event);
   if(mode!=='rankings'||!event.target.matches('[data-rank-format]'))return;
   const tabs=[...event.target.parentElement.querySelectorAll('[role=tab]')];
   const index=tabs.indexOf(event.target);

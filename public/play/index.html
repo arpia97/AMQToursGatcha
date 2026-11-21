@@ -27,10 +27,7 @@
     </aside>
     <div class="play-workspace">
       <header class="play-header">
-        <div class="play-mobile-brand">
-          <a class="amq-wordmark amq-wordmark--compact" href="/play/" aria-label="AMQ Tours Play home"><img src="amq-tours-logo.png" width="26" height="26" alt=""><span>AMQ TOURS<small>PLAY</small></span></a>
-          <a class="button secondary play-gacha-link" href="/gacha/">Gacha <span aria-hidden="true">↗</span></a>
-        </div>
+        <a class="play-mobile-brand amq-wordmark amq-wordmark--compact" href="/play/" aria-label="AMQ Tours Play home"><img src="amq-tours-logo.png" width="26" height="26" alt=""><span>AMQ TOURS<small>PLAY</small></span></a>
         <span class="play-header-label">AMQ TOURS <span>/</span> PLAY</span>
         <div class="play-header-actions">
           <div id="play-current-queue" hidden>
@@ -71,7 +68,25 @@
       <main id="play-watch" tabindex="-1" hidden></main>
       <footer class="play-footer"><span>AMQ Tours</span></footer>
     </div>
-    <nav id="play-mobile-nav" aria-label="Game Modes"></nav>
+    <nav id="play-mobile-nav" aria-label="Mobile Navigation">
+      <div id="play-mobile-primary"></div>
+      <button id="play-mobile-more" type="button" aria-haspopup="dialog" aria-controls="play-mobile-menu" aria-expanded="false">
+        <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16 M4 12h16 M4 18h16"/></svg><span>More</span>
+      </button>
+    </nav>
+    <dialog id="play-mobile-menu" aria-labelledby="play-mobile-menu-title">
+      <div class="play-menu-heading">
+        <h2 id="play-mobile-menu-title">More</h2>
+        <form method="dialog"><button type="submit" aria-label="Close menu">×</button></form>
+      </div>
+      <div class="play-menu-scroll">
+        <nav id="play-mobile-links" aria-label="More Play Tabs"></nav>
+        <a class="play-menu-gacha" href="/gacha/">
+          <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="12" height="15" rx="2"/><path d="M4 16V6a3 3 0 0 1 3-3m6 6 1.2 2.8L17 13l-2.8 1.2L13 17l-1.2-2.8L9 13l2.8-1.2Z"/></svg>
+          Gacha <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </dialog>
     <dialog id="modal"><button type="button" class="dialog-close" aria-label="Close dialog">×</button><div id="modal-body"></div></dialog>
     <div id="toast" role="status" aria-live="polite"></div>
   </body>
