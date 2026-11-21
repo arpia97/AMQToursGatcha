@@ -1792,6 +1792,8 @@ async function loadDynamic() {
     const view = ui.profileView;
     const filters = profileInventoryFilters(view);
     const scope = "profile-"+view+"-search";
+    const wishlistOwnership = ui.profileWishlist.ownership;
+    const useWishlistOwnership = wishlistOwnership === "owned" ? !!state.me : !data.collectionHidden;
     profileCardsResult = await api(
       "player-cards?id=" +
         encodeURIComponent(data.id) +
@@ -1802,14 +1804,17 @@ async function loadDynamic() {
         (view === "collection" || view === "favorites"
           ? "&" + new URLSearchParams({kind:filters.kind,q:filters.query,strict:strictCards(scope)?"1":"0",favorites:favoritesOnly(scope)?"1":"0",rarity:filters.rarity,role:filters.kind==="character"?filters.role:"",sort:filters.sort,wishlist:filters.wishlist?"1":"0",tradeable:filters.tradeable?"1":"0"})
           : view === "wishlist"
-            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards("profile-wishlist-search")?"1":"0",favorites:favoritesOnly("profile-wishlist-search")?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,ownership:data.collectionHidden?"":ui.profileWishlist.ownership})
+            ? "&" + new URLSearchParams({kind:ui.profileWishlist.kind,q:ui.profileWishlist.query,strict:strictCards(scope)?"1":"0",favorites:favoritesOnly(scope)?"1":"0",rarity:ui.profileWishlist.rarity,role:ui.profileWishlist.kind==="character"?ui.profileWishlist.role:"",sort:ui.profileWishlist.sort,ownership:useWishlistOwnership?wishlistOwnership:""})
             : ""),
     );
   }
   if((current==='player'||current==='profile')&&data&&ui.profileView==='quiz')
     profileQuizResult=await api('player-quiz?id='+encodeURIComponent(data.id));
   if (version !== loadVersion || currentRoute() !== route) return;
-  if (profileCardsResult?.ownershipHidden) ui.profileWishlist.ownership = "";
+  if (profileCardsResult?.view === "wishlist" &&
+      (ui.profileWishlist.ownership === "owned" ? !state.me : profileCardsResult.ownershipHidden)) {
+    ui.profileWishlist.ownership = "";
+  }
   if(profileQuizResult)ui.profileQuizData=profileQuizResult;
   if (profileCardsResult) {
     rememberCards(profileCardsResult.cards);

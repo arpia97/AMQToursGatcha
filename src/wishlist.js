@@ -254,7 +254,8 @@ export class Wishlist {
       ownershipHidden = !ownershipVisible;
       const ownership = options.excludeOwned ? "unowned" : options.ownership;
       const filterOwnership = ownership === "owned" || ownership === "unowned";
-      if (filterOwnership && !ownershipVisible) fail("This collection is private.", 403);
+      if (ownership === "owned" && !options.viewer) fail("Sign in to filter by the cards you own.", 401);
+      if (ownership === "unowned" && !ownershipVisible) fail("This collection is private.", 403);
       const ownershipColumn = ownershipVisible ? "COALESCE(i.protected,0)" : "NULL";
       const ownershipJoin = ownershipVisible
         ? "LEFT JOIN inventory i ON i.player=w.player AND i.card=w.card"
@@ -277,7 +278,11 @@ export class Wishlist {
         );
         if (favoriteIds) allWish = allWish.filter(w => favoriteIds.has(w.card));
         if (filterOwnership) {
-          const owned=new Set(e.all(`SELECT DISTINCT card FROM ${ownedCardCopies} WHERE player=? AND available_at<=?`,id,e.now()).map(r=>r.card));
+          const collectionPlayer = ownership === "owned" ? options.viewer : id;
+          const owned = new Set(e.all(
+            `SELECT DISTINCT card FROM ${ownedCardCopies} WHERE player=? AND available_at<=?`,
+            collectionPlayer, e.now(),
+          ).map(r => r.card));
           allWish = allWish.filter(w => owned.has(w.card) === (ownership === "owned"));
         }
         const cardMap = new Map(e.catalogStore.cards(allWish.map((w) => w.card)).map((c) => [c.id, c]));

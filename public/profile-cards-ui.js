@@ -33,7 +33,7 @@ export function profileCardTabs(view, friendControl = "") {
 function profileCollectionControls(
   filters = {},
   e,
-  { own = false, canWishlist = false, view = "collection", ownershipHidden = false } = {},
+  { own = false, canWishlist = false, view = "collection", ownershipHidden = false, signedIn = false } = {},
 ) {
   const isWishlist = view === "wishlist";
   const title = isWishlist ? "Wishlist" : view === "favorites" ? "Favorites" : "Collection";
@@ -120,9 +120,14 @@ function profileCollectionControls(
       ? '<div class="wishlist-ownership-options">'+[
           ["unowned", "exclude-owned", "Exclude Owned"],
           ["owned", "owned-only", "Owned Only"],
-        ].map(([value,id,label]) => '<label class="check-label"><input type="checkbox" name="wishlist-ownership" id="'+prefix+'-'+id+'" value="'+value+'" '+
-          (filters.ownership === value && !ownershipHidden ? 'checked' : '')+' '+
-          (ownershipHidden ? 'disabled title="This collection is private"' : '')+'> '+label+'</label>').join('')+'</div></div>'
+        ].map(([value,id,label]) => {
+          const reason = value === "owned"
+            ? (signedIn ? "" : "Sign in to filter by the cards you own")
+            : (ownershipHidden ? "This collection is private" : "");
+          return '<label class="check-label"><input type="checkbox" name="wishlist-ownership" id="'+prefix+'-'+id+'" value="'+value+'" '+
+            (filters.ownership === value && !reason ? 'checked' : '')+' '+
+            (reason ? 'disabled title="'+e(reason)+'"' : '')+'> '+label+'</label>';
+        }).join('')+'</div></div>'
       : '<label class="check-label profile-collection-tradeable-toggle"><input type="checkbox" id="'+prefix+'-tradeable" '+(filters.tradeable ? 'checked' : '')+'> Tradeable Only</label></div>') +
     '<button type="button" class="text-button" data-action="clear-'+prefix+'-filters">Clear Filters</button></div></div>'
   );
@@ -191,7 +196,7 @@ export function profileCardPanel(
         ? '<button class="text-button" data-action="wishlist-arrange" aria-pressed="false">Arrange Wishlist</button>'
         : "") +
     "</div>" +
-    (data.view === "wishlist" ? profileCollectionControls({...wishlistFilters,kind:wishKind},e,{view:"wishlist",ownershipHidden:data.ownershipHidden}) : '') +
+    (data.view === "wishlist" ? profileCollectionControls({...wishlistFilters,kind:wishKind},e,{view:"wishlist",ownershipHidden:data.ownershipHidden,signedIn:!!state?.me}) : '') +
     (inventoryView
       ? profileCollectionControls(collectionFilters, e, {
           own,
