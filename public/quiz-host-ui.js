@@ -389,8 +389,22 @@ export async function handleQuizAudioReview(event, call, e) {
   return true;
 }
 
+const quizEditDate = new Intl.DateTimeFormat(undefined, {
+  year: "numeric", month: "short", day: "numeric",
+  hour: "numeric", minute: "2-digit", timeZoneName: "short",
+});
+function quizEditTimestamp(value, e) {
+  if (!Number.isFinite(value) || value <= 0) return "Date unavailable";
+  const date = new Date(value);
+  return '<time datetime="' + date.toISOString() + '">' + e(quizEditDate.format(date)) + '</time>';
+}
+
 export function quizPoolEditor(pool, e) {
   return (
+    '<p class="form-hint"><strong>Uploaded by</strong> ' + e(pool.uploadedBy || "Unknown") +
+    ' · ' + quizEditTimestamp(pool.uploadedAt, e) +
+    ' | <strong>Last updated by</strong> ' + e(pool.updatedBy || "Unknown") +
+    ' · ' + quizEditTimestamp(pool.updated, e) + '</p>' +
     '<input type="hidden" name="expectedUpdated" value="' +
     pool.updated +
     '"><details class="quiz-pool-editor" open><summary>Current Song Pool · ' +

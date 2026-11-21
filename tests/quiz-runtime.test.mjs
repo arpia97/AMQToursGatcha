@@ -331,6 +331,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     await (await mf.dispatchFetch("http://game/api/quizzes")).json()
   ).quizzes.find((q) => q.id === "test");
   assert.equal(tile.favorited, 0);
+  assert.ok(!Object.hasOwn(tile, "uploadedBy") && !Object.hasOwn(tile, "updatedBy"));
   assert.equal((await post("quiz-favorite",{quiz:"test",favorited:true})).status,401);
   await post("__quiz-probe",{});
   const favoriteKey=crypto.randomUUID();
@@ -371,6 +372,9 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     headers: host,
   });
   let editing = await response.json();
+  assert.equal(editing.uploadedBy, "Host API");
+  assert.equal(editing.updatedBy, "Host API");
+  assert.equal(editing.uploadedAt, editing.updated);
   response = await post(
     "host/quiz-audio-check",
     {

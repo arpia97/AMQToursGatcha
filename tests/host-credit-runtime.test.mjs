@@ -165,6 +165,30 @@ test("live Worker routes protect credit previews/deductions, preserve earned cre
   assert.deepEqual(await (await makerRead("console-access")).json(), {role:"Quiz Maker"});
   assert.equal((await read()).role, "Quiz Maker");
   assert.equal((await makerRead("quizzes")).status, 200);
+  const quizId = "attribution-test";
+  const creatorHeaders = { Cookie: hostCookie, "Idempotency-Key": "quiz-attribution-create" };
+  const quizCreate = { id: quizId, name: "Attribution Draft", uploadedBy: "Forged" };
+  assert.equal((await post("host/quiz-save", quizCreate, creatorHeaders)).status, 200);
+  const readQuizPool = async () => {
+    const response = await makerRead("quiz-songs?id=" + quizId);
+    assert.equal(response.status, 200);
+    return response.json();
+  };
+  const originalPool = await readQuizPool();
+  assert.equal(originalPool.uploadedBy, "Delegated Host");
+  assert.equal(originalPool.updatedBy, "Delegated Host");
+  assert.ok(originalPool.uploadedAt > 0);
+  assert.equal(originalPool.updated, originalPool.uploadedAt);
+  assert.equal((await post("host/quiz-save", {
+    id: quizId, name: "Revised Draft", expectedUpdated: originalPool.updated, updatedBy: "Forged",
+  }, { Cookie: cookie })).status, 200);
+  const updatedPool = await readQuizPool();
+  assert.equal(updatedPool.uploadedBy, originalPool.uploadedBy);
+  assert.equal(updatedPool.uploadedAt, originalPool.uploadedAt);
+  assert.equal(updatedPool.updatedBy, "Local User");
+  assert.ok(updatedPool.updated > originalPool.updated);
+  assert.equal((await post("host/quiz-save", quizCreate, creatorHeaders)).status, 200);
+  assert.deepEqual(await readQuizPool(), updatedPool);
   for (const path of ["state", "state?section=players", "activity-csv", "play-review", "quiz-answer-repair"]) {
     assert.equal((await makerRead(path)).status, 403);
   }

@@ -29,10 +29,15 @@ export class Quiz {
       "DROP INDEX IF EXISTS quiz_completion_scores",
     ])
       e.run(sql);
-    if (!e.all("PRAGMA table_info(quizzes)").some((c) => c.name === "category"))
-      e.run(
-        "ALTER TABLE quizzes ADD COLUMN category TEXT NOT NULL DEFAULT 'singers'",
-      );
+    const quizColumns = new Set(e.all("PRAGMA table_info(quizzes)").map(c => c.name));
+    for (const [name, type] of [
+      ["category", "TEXT NOT NULL DEFAULT 'singers'"],
+      ["uploaded_at", "INTEGER"],
+      ["uploaded_by", "TEXT"],
+      ["updated_by", "TEXT"],
+    ]) {
+      if (!quizColumns.has(name)) e.run(`ALTER TABLE quizzes ADD COLUMN ${name} ${type}`);
+    }
     if (
       !e
         .all("PRAGMA table_info(quiz_progress)")
@@ -297,7 +302,7 @@ export class Quiz {
   }
   hostSongs(id) {
     const quiz = this.e.one(
-      "SELECT id,updated FROM quizzes WHERE id=?",
+      "SELECT id,updated,uploaded_at AS uploadedAt,uploaded_by AS uploadedBy,updated_by AS updatedBy FROM quizzes WHERE id=?",
       text(id, 100),
     );
     if (!quiz) fail("Quiz was not found.", 404);
@@ -308,7 +313,7 @@ export class Quiz {
         .map((row) => JSON.parse(row.data)),
     };
   }
-  save(b) {
+  save(b, editor = null) {
     const e = this.e,
       id = text(b.id || crypto.randomUUID(), 100),
       name = text(b.name, 100),
@@ -451,16 +456,23 @@ export class Quiz {
     ).n;
     if (b.published && count < QUIZ_LENGTH)
       fail("At least 20 matched MP3 songs are needed before publishing.");
+    const updated = Math.max(e.now(), (existing?.updated || 0) + 1);
     e.run(
-      "INSERT INTO quizzes(id,name,cover,title,published,source,updated,category) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,cover=excluded.cover,title=excluded.title,published=excluded.published,source=excluded.source,updated=excluded.updated,category=excluded.category",
+      `INSERT INTO quizzes(id,name,cover,title,published,source,updated,category,uploaded_at,uploaded_by,updated_by)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+       name=excluded.name,cover=excluded.cover,title=excluded.title,published=excluded.published,source=excluded.source,
+       updated=excluded.updated,category=excluded.category,updated_by=excluded.updated_by`,
       id,
       name,
       cover,
       title,
       b.published ? 1 : 0,
       String(b.source || existing?.source || ""),
-      Math.max(e.now(), (existing?.updated || 0) + 1),
+      updated,
       category,
+      updated,
+      editor,
+      editor,
     );
     return {
       id,
@@ -472,6 +484,15 @@ export class Quiz {
       songs: count,
       rejected: b.rejected || [],
     };
+  }
+  recordAnswerUpdate(id, source, editor) {
+    this.e.run(
+      "UPDATE quizzes SET source=?,updated=MAX(updated+1,?),updated_by=? WHERE id=?",
+      source,
+      this.e.now(),
+      editor,
+      id,
+    );
   }
   definition(id, player = null) {
     const q = this.e.one(

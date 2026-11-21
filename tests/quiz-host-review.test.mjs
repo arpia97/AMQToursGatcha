@@ -3,6 +3,7 @@ import {quizNameMatches,quizNameWarningHTML,quizReviewWarnings,sortQuizReview} f
 import assert from "node:assert/strict";
 import {
   quizHostPanel,
+  quizPoolEditor,
   quizSongReview,
   readQuizJSON,
   previewQuizFile,
@@ -53,6 +54,16 @@ test("host quiz selector keeps selection and status beside New Quiz without a bu
   assert.match(franchise, /value="franchise" selected>Franchise/);
   assert.doesNotMatch(franchise, /value="singers" selected/);
   assert.match(franchise, /Franchise quizzes do not award credits/);
+});
+test("the quiz editor displays upload and update attribution with safe legacy fallbacks", () => {
+  const uploadedAt = Date.UTC(2026, 10, 20, 11);
+  const updated = Date.UTC(2026, 10, 21, 12);
+  const html = quizPoolEditor({ songs: [], uploadedAt, uploadedBy: "<Uploader>", updated, updatedBy: "Editor" }, e);
+  assert.match(html, /Uploaded by<\/strong> &lt;Uploader> · <time datetime="2026-11-20T11:00:00.000Z"/);
+  assert.match(html, /Last updated by<\/strong> Editor · <time datetime="2026-11-21T12:00:00.000Z"/);
+  const legacy = quizPoolEditor({ songs: [], updated }, e);
+  assert.match(legacy, /Uploaded by<\/strong> Unknown · Date unavailable/);
+  assert.match(legacy, /Last updated by<\/strong> Unknown · <time/);
 });
 test("song review escapes metadata and shows matched titles, artist, anime and skipped rows", () => {
   const html = quizSongReview(

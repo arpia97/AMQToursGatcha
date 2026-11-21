@@ -2,7 +2,7 @@ import { quizAnswerIndex } from "../public/quiz-answer-index.js";
 import { quizAnswerKey } from "../public/quiz-rules.js";
 import { fail } from "./engine.js";
 const ID = "quiz-working-answers-2026-11-05";
-export function repairQuizAnswers(e, master, apply = false, expected = null) {
+export function repairQuizAnswers(e, master, apply = false, expected = null, editor = null) {
   e.run(
     "CREATE TABLE IF NOT EXISTS quiz_answer_repairs(id TEXT PRIMARY KEY,at INTEGER NOT NULL,result TEXT NOT NULL)",
   );
@@ -83,12 +83,7 @@ export function repairQuizAnswers(e, master, apply = false, expected = null) {
         quiz,
       );
     }
-    e.run(
-      "UPDATE quizzes SET source=?,updated=MAX(updated+1,?) WHERE id=?",
-      master.masterListId,
-      e.now(),
-      quiz,
-    );
+    e.quiz.recordAnswerUpdate(quiz, master.masterListId, editor);
   }
   e.run(
     "INSERT INTO quiz_answer_repairs VALUES(?,?,?)",

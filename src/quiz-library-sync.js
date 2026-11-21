@@ -2,7 +2,7 @@ import { quizAnswerIndex } from "../public/quiz-answer-index.js";
 import { quizAnswerKey } from "../public/quiz-rules.js";
 import { fail } from "./engine.js";
 // Add titles to this quiz only. AMQ exports and active-run snapshots are preserved.
-export function syncQuizLibraryAnswers(e, id, before, master, library) {
+export function syncQuizLibraryAnswers(e, id, before, master, library, editor = null) {
   const q = e.one("SELECT * FROM quizzes WHERE id=?", id);
   if (!q) fail("Choose a Quiz.");
   const rows = e.all(
@@ -48,12 +48,7 @@ export function syncQuizLibraryAnswers(e, id, before, master, library) {
           answer,
           quizAnswerKey(answer),
         );
-    e.run(
-      "UPDATE quizzes SET source=?,updated=MAX(updated+1,?) WHERE id=?",
-      library.version || master.masterListId,
-      e.now(),
-      id,
-    );
+    e.quiz.recordAnswerUpdate(id, library.version || master.masterListId, editor);
   }
   return {
     message:

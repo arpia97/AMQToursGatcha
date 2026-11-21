@@ -232,14 +232,14 @@ test("AMQ export titles and audio beat incomplete fallback data; metadata lookup
   const f = dbFixture(t),
     e = new Engine(f.all, f.tx);
   e.host("players", { players: [{ id: "p", name: "Player" }] });
-  e.quiz.save({ id: "export", name: "Export", songs: prepared.songs });
+  e.quiz.save({ id: "export", name: "Export", songs: prepared.songs }, "Uploader");
   const simple = {
     ...prepared.songs[0],
     answerSource: "amq",
     workingTitles: [],
     answers: ["AMQ Known"],
   };
-  e.quiz.save({ id: "fallback", name: "Fallback", songs: [simple] });
+  e.quiz.save({ id: "fallback", name: "Fallback", songs: [simple] }, "Uploader");
   e.run(
     "INSERT INTO quiz_runs VALUES(?,?,?)",
     "p",
@@ -250,14 +250,21 @@ test("AMQ export titles and audio beat incomplete fallback data; metadata lookup
   const before = (id) =>
     e.all("SELECT id,data FROM quiz_songs WHERE quiz=? ORDER BY id", id);
   const protectedResult = e.tx(() =>
-    syncQuizLibraryAnswers(e, "export", before("export"), master, fallback),
+    syncQuizLibraryAnswers(e, "export", before("export"), master, fallback, "Editor"),
   );
   assert.equal(protectedResult.protectedSongs, 1);
   assert.equal(protectedResult.addedAnswers, 0);
+  assert.equal(e.quiz.hostSongs("export").updatedBy, "Uploader");
+  const original = e.quiz.hostSongs("fallback");
   const updated = e.tx(() =>
-    syncQuizLibraryAnswers(e, "fallback", before("fallback"), master, fallback),
+    syncQuizLibraryAnswers(e, "fallback", before("fallback"), master, fallback, "Editor"),
   );
   assert.equal(updated.addedAnswers, 1);
+  const current = e.quiz.hostSongs("fallback");
+  assert.equal(current.uploadedBy, "Uploader");
+  assert.equal(current.uploadedAt, original.uploadedAt);
+  assert.equal(current.updatedBy, "Editor");
+  assert.ok(current.updated > original.updated);
   assert.equal(
     e.one("SELECT data FROM quiz_runs WHERE player=?", "p").data,
     attempt,

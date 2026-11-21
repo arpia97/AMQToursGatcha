@@ -442,6 +442,10 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      const quizEditor = () => hostTokenValid ? "Host API" : e.one(
+        "SELECT COALESCE(p.display_name,p.name) AS name FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=?",
+        sessionHash,
+      ).name;
       if (path === "host/console-access" && !post)
         return json({role: hostTokenValid || e.adminSession(sessionHash) ? "Host" : "Quiz Maker"});
       if (path === "host/quiz-maker-access" && post) {
@@ -828,7 +832,7 @@ export class Game extends DurableObject {
         const master = await loadQuizMaster(fetch, this.env.ASSETS, true);
         requireOwner();
         return json(
-          e.tx(() => repairQuizAnswers(e, master.data, post, b.signature)),
+          e.tx(() => repairQuizAnswers(e, master.data, post, b.signature, post ? quizEditor() : null)),
         );
       }
       if (path === "host/quiz-songs" && !post)
@@ -839,7 +843,7 @@ export class Game extends DurableObject {
         const id=text(b.quiz,100),key=text(request.headers.get('Idempotency-Key'),100),fingerprint={digest:await digest(JSON.stringify(b))};
         const before=e.all('SELECT id,data FROM quiz_songs WHERE quiz=? ORDER BY id',id);if(!before.length)fail('Choose a Saved Quiz.');
         const library=await quizLibraryRequest(this.env,'/lookup',libraryQuery(before.map(row=>JSON.parse(row.data))));if(!library)fail('The Song Cache Is Not Configured.',503);
-        const master=await this.quizAnswersMaster();requireHost();return json(e.mutate('host:quiz-master-sync',key,fingerprint,()=>syncQuizLibraryAnswers(e,id,before,master.data,library)));
+        const master=await this.quizAnswersMaster();requireHost();return json(e.mutate('host:quiz-master-sync',key,fingerprint,()=>syncQuizLibraryAnswers(e,id,before,master.data,library,quizEditor())));
       }
       if (path === "host/quizzes" && !post)
         return json({ quizzes: e.quiz.list(null, true) });
@@ -949,7 +953,7 @@ export class Game extends DurableObject {
         requireHost();
         return json(
           e.mutate("host:quiz-save", key, fingerprint, () => ({
-            ...e.quiz.save(b),
+            ...e.quiz.save(b, quizEditor()),
             answerSource: this.quizMaster?.mode || "saved",
             answerVersion: b.source,
           })),
