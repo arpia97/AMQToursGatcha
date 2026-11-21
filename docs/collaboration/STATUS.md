@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song/Artist credit spelling
+
+Source `9114106` is deployed on Worker `fd611418-85d8-4085-8505-56a3982e966a`. Nagi Yanagi, Yanagi Nagi, and yanaginagi share an artist key for gameplay. The live Play catalog offers Nagi Yanagi and yanaginagi. All 16 focused tests, fixture checks against the artist data, syntax checks, and the Worker dry run passed.
+
 ## NGMC final life
 
 Source `1428395` is deployed on Worker `ae8b5519-d02a-4a90-87b2-91ca941b61aa`. An undefended final life is taken during grading using the lowest-rated eligible player, and the normal final reveal precedes match completion. Tests covered exhausted defenders, a solo hit, both team orientations, and nonfinal and defended hits. All 577 tests, syntax checks, and the Worker dry run passed. The live NGMC route and Worker health were verified.
