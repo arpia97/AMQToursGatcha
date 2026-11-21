@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Owned Only on other players' wishlists
+
+Source `9743318` was deployed on Worker `da811c61-da3e-47a2-a0bf-87021ebac5c7`. Owned Only uses the signed-in viewer's collection, including when the wishlist owner has a private collection. The live assets matched source and the endpoint required sign-in after the Durable Object updated. Chromium verified the signed-in flow with local accounts at 320, 390, and 1440 px. All 574 tests, syntax checks and the Worker dry run passed.
+
 ## Play page scrolling
 
 Source `771691b` was deployed on Worker `8f399a90-77c4-4819-857d-7c07a9a9ca5f`. Quiz and Rankings support document scrolling. Overview and matchmaking use a viewport-height layout, with an internal scroll area for content that exceeds the available height. Local browser checks covered all seven tabs at four viewport sizes, the Overview player list, and mobile answer submission. Syntax and the Play site test passed. All seven live routes and both changed assets were verified.
