@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC final life
+
+Source `1428395` is deployed on Worker `ae8b5519-d02a-4a90-87b2-91ca941b61aa`. An undefended final life is taken during grading using the lowest-rated eligible player, and the normal final reveal precedes match completion. Tests covered exhausted defenders, a solo hit, both team orientations, and nonfinal and defended hits. All 577 tests, syntax checks, and the Worker dry run passed. The live NGMC route and Worker health were verified.
+
 ## Multiplayer Autoskip
 
 Source `6f198f4` is deployed on Worker `38c73277-bc6f-47ee-9137-cd59e08a5a5c`. Autoskip starts off for each match and applies the player's normal skip vote at the start of each eligible song while enabled. Unchecking it withdraws the current vote while guessing is open. The checkbox stays available through reveal. Local Ranked 1v1 verified majority and withdrawal. Chromium tested the deployed assets at 320, 390, 1024, and 1440 px. All four multiplayer routes, 16 focused tests, and syntax checks passed.
