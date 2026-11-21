@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer Autolock and NGMC spacing
+
+Source `89c4d98` is deployed on Worker `8bb01f56-684c-4299-817c-c9b53e60405c`. Enter with Autolock enabled waits for the in-flight suggestion search for the current input. The NGMC answer confirmation reserves a single line and the checkboxes and Skip keep their positions. Chromium verified consecutive rounds at 320, 390, 1024, and 1440 px using both deployed assets. Local 1v1 Ranked and Song/Artist browser checks, 19 focused tests, syntax checks, and the live NGMC route passed.
+
 ## NGMC search and skip controls
 
 Source `cecedbb` is live on Worker `20870194-a377-4577-829a-7bd54a3c36a6`. The answer confirmation has a reserved row, and Skip Song follows the search checkboxes in the layout. Chromium tested the deployed stylesheet with an isolated match at 320, 390, 1024, and 1440 px. The search checkboxes and skip vote remained clickable after locking a short or long answer, and song progress stayed in place. The live route, asset, syntax checks, and 16 focused tests passed.
