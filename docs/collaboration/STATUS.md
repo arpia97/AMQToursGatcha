@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz upload and edit attribution
+
+Source `3964f19` is live on Worker `b953a298-deb2-4fac-aa0f-8eb8ed03cc32`. The selected quiz shows uploader and latest editor with timestamps above its song pool. New attribution comes from the authenticated actor, and shared-token edits are labeled Host API. Legacy quizzes show unknown attribution where absent and retain their saved latest update timestamp. The live console, editor asset and unauthenticated rejection were verified. Local Chromium covered a Quiz Maker edit at 390 and 1440 px. All 575 tests, syntax checks and the Worker dry run passed.
+
 ## Play mobile navigation
 
 Source `e84a9b5` is deployed on Worker `02712fca-fb2e-4236-ae7e-dc7e90426a88`. The mobile bottom bar has Overview, NGMC, Quiz and More. More contains 1v1 Ranked, 2v2 Arena, Song/Artist, Rankings and the Gacha shortcut. Chromium verified mobile at 320 and 390 px and the desktop sidebar at 1440 px. The ten Play route and runtime tests and syntax checks passed. Live Play markup and both revised assets were verified.
