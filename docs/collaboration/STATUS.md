@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer Autoskip
+
+Source `6f198f4` is deployed on Worker `38c73277-bc6f-47ee-9137-cd59e08a5a5c`. Autoskip starts off for each match and applies the player's normal skip vote at the start of each eligible song while enabled. Unchecking it withdraws the current vote while guessing is open. The checkbox stays available through reveal. Local Ranked 1v1 verified majority and withdrawal. Chromium tested the deployed assets at 320, 390, 1024, and 1440 px. All four multiplayer routes, 16 focused tests, and syntax checks passed.
+
 ## Multiplayer Autolock and NGMC spacing
 
 Source `89c4d98` is deployed on Worker `8bb01f56-684c-4299-817c-c9b53e60405c`. Enter with Autolock enabled waits for the in-flight suggestion search for the current input. The NGMC answer confirmation reserves a single line and the checkboxes and Skip keep their positions. Chromium verified consecutive rounds at 320, 390, 1024, and 1440 px using both deployed assets. Local 1v1 Ranked and Song/Artist browser checks, 19 focused tests, syntax checks, and the live NGMC route passed.
