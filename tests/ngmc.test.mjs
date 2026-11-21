@@ -147,6 +147,51 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  gradeRound(timed,21000);advanceMatch(timed,timed.until);assert.equal(locked.lockedElapsedMs,undefined,'new song clears lock time');
  const all=create();for(let i=0;i<35;i++){answer(all,()=>true);advanceMatch(all,all.until);}assert.equal(all.phase,'finished');assert.equal(all.history.length,35);assert.deepEqual(all.teams,[5,5]);
 });
+test('NGMC takes an undefended final life immediately even when the counter has multiple choices',()=>{
+ for(const attackingTeam of [0,1]){
+   const state=create(),defendingTeam=1-attackingTeam;
+   const attackers=state.players.filter(p=>p.team===attackingTeam).sort((a,b)=>a.elo-b.elo);
+   const defenders=state.players.filter(p=>p.team===defendingTeam);
+   state.counters[attackingTeam]=attackers[1].id;
+   state.counters[defendingTeam]=defenders[0].id;
+   state.teams[defendingTeam]=1;
+   attackers[0].guesses=2;attackers[1].guesses=2;defenders[0].guesses=0;
+   answer(state,p=>p.id===attackers[0].id||p.id===attackers[1].id||p.id===defenders[0].id);
+   assert.equal(state.phase,'reveal');
+   assert.equal(state.until,4000);
+   assert.equal(state.teams[defendingTeam],0);
+   assert.equal(state.teams[attackingTeam],5);
+   assert.equal(attackers[0].guesses,1);
+   assert.equal(attackers[1].guesses,2);
+   assert.equal(defenders[0].score,1);
+   assert.equal(defenders[0].guesses,0);
+   assert.equal(state.history[0].spent[attackingTeam],attackers[0].id);
+   assert.equal(state.history[0].spent[defendingTeam],'');
+   advanceMatch(state,3999);assert.equal(state.phase,'reveal');
+   advanceMatch(state,4000);assert.equal(state.phase,'finished');assert.equal(state.completed,true);
+ }
+ const solo=create(),single=solo.players.find(p=>p.team===1);
+ solo.teams[0]=1;
+ solo.counters[1]=single.id;
+ answer(solo,p=>p.id===single.id);
+ assert.equal(solo.phase,'reveal');assert.deepEqual(solo.teams,[0,5]);
+ assert.equal(solo.history[0].spent[1],single.id);
+});
+
+test('NGMC still counts normally for defended last lives and nonfinal hits',()=>{
+ for(const {lives,counterable} of [{lives:1,counterable:true},{lives:2,counterable:false}]){
+   const state=create(),attackers=state.players.filter(p=>p.team===0);
+   const defender=state.players.find(p=>p.team===1);
+   state.counters[0]=attackers[0].id;
+   state.teams[1]=lives;
+   answer(state,p=>p.team===0||(counterable&&p.id===defender.id));
+   assert.equal(state.phase,'counting');assert.deepEqual(state.teams,[5,lives]);
+   matchMove(state,attackers[0].id,{type:'count',index:0,player:attackers[1].id},1001);
+   assert.equal(state.phase,'reveal');
+   assert.deepEqual(state.teams,[5,counterable?lives:lives-1]);
+ }
+});
+
 test('NGMC plays the appropriate life cue once when automatic or manual counting settles',()=>{
  const state=create(),captain=state.players.find(p=>p.team===0),opponent=state.players.find(p=>p.team===1);
  state.counters[0]=captain.id;

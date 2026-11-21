@@ -95,6 +95,9 @@ quizzes, one per player and quiz.
   per team to spend one guess. One eligible team takes a life; both eligible
   teams spend a guess without damage; neither eligible team changes lives.
   Correct answers from players with zero guesses cannot attack or block.
+- When only one team can spend a guess and the opponent has one life left, the
+  lowest-rated eligible player spends a guess immediately. The final song reveal
+  begins as soon as the life is taken.
 - Per-team guesses refill once all four reach zero. Initial allowances by GR:
   <8% = 1, 8–<19% = 2, 19–<28% = 3, 28–<40% = 4, >=40% = 5.
 - Seed GR once from the canonical account ID's Usual tour correct/encounter

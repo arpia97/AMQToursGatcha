@@ -32,9 +32,12 @@ export function gradeNgmc(state,now) {
   });
   state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
   state.counts=[null,null];state.phase='counting';state.until=now+8000;
+  const candidates=[eligibleNgmc(state,0),eligibleNgmc(state,1)];
   for(let team=0;team<2;team++) {
-    const candidates=eligibleNgmc(state,team),counter=state.players.find(p=>p.id===state.counters[team]);
-    if(!counter||counter.left||candidates.length<2)state.counts[team]=candidates[0]?.id||'';
+    const opponent=1-team;
+    const takesFinalLife=state.teams[opponent]===1&&candidates[opponent].length===0;
+    const counter=state.players.find(p=>p.id===state.counters[team]);
+    if(takesFinalLife||!counter||counter.left||candidates[team].length<2)state.counts[team]=candidates[team][0]?.id||'';
   }
   finishNgmcCount(state,now);
 }
