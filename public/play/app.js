@@ -163,7 +163,7 @@ async function watchMatch(id,title){
   if(!state.me){account();return;}
   if(songArtist?.inMatch()||(mode==='quiz'&&quiz?.active())){toast('Finish your current game before spectating.');return;}
   const viewer=state.me.id,version=viewVersion,request=watchRequest={},opener=document.activeElement;
-  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=team-skip-audio'),loadMultiplayerStyles()]);
+  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=guesses-above-input'),loadMultiplayerStyles()]);
   if(watchRequest!==request||version!==viewVersion||state.me?.id!==viewer||songArtist?.inMatch())return;
   stopWatching();
   const root=$('#play-watch');
@@ -226,10 +226,10 @@ const loadOverview=loadOnce(async()=>{
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=timeout-autolock"));
-const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=compact-team-guesses", import.meta.url)));
+const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=guesses-above-input", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=team-skip-audio"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=guesses-above-input"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,

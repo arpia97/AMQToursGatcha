@@ -8,7 +8,7 @@ import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,son
 import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=compact-team-guesses';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
-import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=team-skip-audio';
+import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=guesses-above-input';
 import {roundAudio} from './play-round-audio.js';
 import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
@@ -18,7 +18,7 @@ import {openMatchChat} from './play-match-chat.js';
 import {createPlaySoundCues,roundSoundCues} from './play-sound-cues.js?v=team-skip-audio';
 import {preparationLabel,percentDone} from './play-setup-progress.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
-import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack,createCounterDialog} from './ngmc-ui.js?v=team-skip-audio';
+import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack,createCounterDialog} from './ngmc-ui.js?v=guesses-above-input';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {PLAY_AUDIO_PROTOCOL, defaultPlayGuessSeconds} from './play-audio-format.js';

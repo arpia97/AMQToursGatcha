@@ -24,7 +24,7 @@ export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton='',
     '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+match.total+'</small></h2>'+
     (survival?'<div class="one-team-mobile-lives"></div>':'')+'</div>'+roundDialHTML+'</header>'+
     '<div class="song-broadcast-body">'+(survival?ready:'')+'<div class="sa-reveal-wrap"></div>'+
-    (survival?answerForm+skipButton+'<div class="sa-shared-wrap"></div>':download+'<div class="sa-shared-wrap"></div>'+tiles+answerForm+skipButton)+
+    (survival?'':download)+'<div class="sa-shared-wrap"></div>'+(survival?'':tiles)+answerForm+skipButton+
     '</div></section>'+(arena?scoreboard:'')+'</div>'+(survival?'<div class="one-team-audio-footer">'+download+resumeAudio+'</div>':'');
 }
 export function updateRoundDial(dial,match,now){
