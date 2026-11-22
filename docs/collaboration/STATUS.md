@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC counter signup
+
+Source `2a73c22` is live at 100% on Worker `8538af43-ddcb-48be-93e8-93b75f5d618d`. Signup remains available for 40 seconds after match preparation, through the Auto-Count fallback. Players can reopen the prompt from the match header. An action keeps the prompt open until confirmed, and the Ready reminder waits until the counter prompt closes. Local Chromium verified this in an eight-player mobile match after 30 seconds with a delayed confirmation. All 582 tests, syntax checks, and the Worker dry run passed. The live NGMC route, health endpoint, and updated assets passed read-only verification.
+
 ## Play accepted anime title popups
 
 Source `045be05` is live at 100% on Worker `cbccdf96-69a4-421e-bfc4-a46f87f08cf3`. Play reveals and Song List show a popup with the original accepted title spellings after the answer is revealed. The Play and Quiz popup triggers have no underline. Matches sampled before the update can lack display metadata for alternate titles. Local Chromium verified mouse, keyboard, and touch, including inside the native Song List dialog. All 582 tests, syntax checks and the Worker dry run passed. The live Play routes and updated assets passed read-only verification.
