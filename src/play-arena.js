@@ -113,6 +113,11 @@ export function arenaBallotView(state, me) {
   });
 }
 
+export function arenaVotesComplete(active) {
+  return active.every(player => player.autoSkip || active.some(teammate =>
+    teammate.team === player.team && teammate.arenaTitle?.id && teammate.arenaTitle.id === player.arenaVote));
+}
+
 export function selectArenaTitles(state) {
   for (const player of state.players) player.answers = {};
   for (let team = 0; team < state.teams.length; team++) {

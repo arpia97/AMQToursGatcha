@@ -65,7 +65,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
   let selectedField='anime',draft={anime:'',song:'',artist:''},chosen={},pendingLock=false,volume=30,structure='',loadGeneration=0,connecting=false,unlocking=false,lastLoaded='',progressTimer=null,pendingArtistKey=null;
   let seekIndex=-1,autoReady=false,autoAttempt='',readyReminder='',lobbyDraft=null,lobbyModal=null,lobbies=null;
-  let autoSkip=false,skipIntent=null;
+  let autoSkip=false,skipIntent=null,autoSkipIntent=null;
   const sounds=createPlaySoundCues(()=>volume/100);
   const preferenceKey=()=>'amqtours-play-auto-ready-'+(getPlayer()?.id||'guest');
   function readAutoReady(){try{return localStorage.getItem(preferenceKey())==='1';}catch{return false;}}
@@ -355,9 +355,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
           pendingLock=false;pendingArtistKey=null;
         }
         const previous=match;match=msg.state;fields=matchGuessFields(match);if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
-        if(previous?.id!==match.id)autoSkip=false;
-        if(previous?.id!==match.id||previous?.index!==match.index)skipIntent=null;
-        else if(skipIntent?.socket===room&&skipIntent.vote===!!match.skipVotes?.includes(match.me))skipIntent=null;
+        if(previous?.id!==match.id)autoSkip=!!match.myAutoSkip;
+        if(previous?.id!==match.id||previous?.index!==match.index){
+          skipIntent=null;
+          autoSkipIntent=null;
+        }else{
+          if(skipIntent?.socket===room&&skipIntent.vote===!!match.skipVotes?.includes(match.me))skipIntent=null;
+          if(autoSkipIntent?.socket===room&&autoSkipIntent.vote===!!match.myAutoSkip)autoSkipIntent=null;
+        }
         sounds.play(...roundSoundCues(previous,match));
         if(player()?.left)closeChat();
         if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);timeoutSuggestions.clear();draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():fields[0]);const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
@@ -730,7 +735,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
       :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:match.format===ONE_TEAM_FORMAT?'1-Team':'Song/Artist';
     const titleRow=modeTitleHTML(title,match.format);
-    const autoskip=!done&&match.skipRequired?'<label class="fuzzy-anime-search"><input type="checkbox" data-auto-skip'+(autoSkip?' checked':'')+'> Autoskip</label>':'';
+    const autoskip=!done&&match.skipRequired?'<label class="fuzzy-anime-search" title="Ready for the next song once everyone else is ready"><input type="checkbox" data-auto-skip'+(autoSkip?' checked':'')+'> Autoskip</label>':'';
     const preferences=autoskip?'<div class="sa-game-preferences">'+volumeHTML()+autoskip+'</div>':volumeHTML();
     const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'<small data-match-reconnecting role="status" hidden>Reconnecting to match…</small></div><div class="sa-game-actions">'+preferences+'<div class="sa-match-buttons">'+resumeAudio+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
@@ -893,16 +898,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function syncSkipVote(now){
     if(!canVoteToSkip(now))return;
-    if(!skipIntent&&autoSkip&&!match.skipVotes?.includes(match.me))skipIntent={vote:true};
-    if(!skipIntent||skipIntent.socket===room)return;
-    saveCurrentDraft();
-    if(send(room,{type:'skip',index:match.index,vote:skipIntent.vote}))skipIntent.socket=room;
+    if(!autoSkipIntent&&autoSkip!==!!match.myAutoSkip)autoSkipIntent={vote:autoSkip};
+    for(const [type,intent] of [['skip',skipIntent],['auto-skip',autoSkipIntent]]){
+      if(!intent||intent.socket===room)continue;
+      saveCurrentDraft();
+      if(send(room,{type,index:match.index,vote:intent.vote}))intent.socket=room;
+    }
   }
   function setAutoSkip(checked){
     autoSkip=checked;
     const checkbox=root.querySelector('[data-auto-skip]');
     if(checkbox)checkbox.checked=checked;
-    skipIntent={vote:checked};
+    autoSkipIntent={vote:checked};
     syncSkipVote(Date.now()+offset);
   }
   function setAutoReady(value){
@@ -1096,8 +1103,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(action==='resume-audio'){sounds.unlock(ranked());playRoundAudio(Date.now()+offset,true);tick();return;}
     if(action==='skip'){
       const vote=!(skipIntent?.vote??match.skipVotes?.includes(match.me));
-      if(!vote&&autoSkip)setAutoSkip(false);
-      else{skipIntent={vote};syncSkipVote(Date.now()+offset);}
+      skipIntent={vote};
+      syncSkipVote(Date.now()+offset);
       return;
     }
     if(action==='songs'){songDialog.open(match);return;}

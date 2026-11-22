@@ -31,7 +31,7 @@ export function ballotsComplete(state){
   const active=state.players.filter(p=>!p.left),ids=new Set(active.map(p=>p.id));
   return matchGuessFields(state).every(field=>{
     const choices=new Set((state.ballot?.[field]||[]).filter(o=>ids.has(o.owner)).map(o=>o.id));
-    return active.every(p=>choices.has(p.votes?.[field]));
+    return active.every(p=>p.autoSkip||choices.has(p.votes?.[field]));
   });
 }
 export function selectWinners(state){

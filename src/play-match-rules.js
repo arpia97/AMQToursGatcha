@@ -1,7 +1,7 @@
 import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, matchGuessFields, songArtistFields, animeOnlyMode, DUEL_FORMAT, duelRules, DUEL_LOBBY_FORMAT, ONE_TEAM_MODE, ONE_TEAM_FORMAT, oneTeamRules, PLAY_REVEAL_MS, queueMode, usesTeamBallot} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
-import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
+import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, arenaVotesComplete, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
 import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn,voteToAbort,checkAbort} from './play-lobby-votes.js';
 import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
@@ -12,6 +12,15 @@ export const PLAY_FORMATS=Object.freeze({[DUEL_FORMAT]:{size:2,teams:2},[ARENA_F
 export const FIELDS=songArtistFields;
 function skipMajority(state){
   return Math.floor(state.players.filter(p=>!p.left).length/2)+1;
+}
+function allPlayersReadyToReveal(state, active) {
+  if (usesTeamBallot(state.format)) return ballotsComplete(state);
+  const hasAutoskip = active.some(player => player.autoSkip);
+  if (state.arena) return hasAutoskip && arenaVotesComplete(active);
+  if (state.teamFields && hasAutoskip) {
+    return active.every(player => player.autoSkip || !!player.answers[player.field]);
+  }
+  return active.every(player => player.locked || player.autoSkip);
 }
 export const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
@@ -132,15 +141,14 @@ export function advanceMatch(state,now=Date.now()) {
   } else if(state.phase==='guess'){
     const needed=skipMajority(state);
     const skipped=needed>0&&active.filter(p=>p.skip).length>=needed;
-    const answered=usesTeamBallot(state.format)?ballotsComplete(state):active.every(p=>p.locked);
-    if(now>=state.until||now>=state.startsAt&&(skipped||(!state.arena&&answered)))gradeRound(state,now);
+    if(now>=state.until||now>=state.startsAt&&(skipped||allPlayersReadyToReveal(state,active)))gradeRound(state,now);
   }
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
     if(state.index===state.songs.length-1||(ngmc||state.format===ONE_TEAM_FORMAT)&&state.teams.includes(0)){state.completed=true;state.phase='finished';state.until=now+86400000;return;}
     state.index++;state.phase='buffering';state.until=now+90000;delete state.audioWaitLimit;
     delete state.ballot;
-    for(const p of state.players){delete p.votes;delete p.arenaTitle;delete p.arenaVote;delete p.draft;delete p.autoSubmitted;delete p.skip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
+    for(const p of state.players){delete p.votes;delete p.arenaTitle;delete p.arenaVote;delete p.draft;delete p.autoSubmitted;delete p.skip;delete p.autoSkip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now);
   }
 }
@@ -168,14 +176,15 @@ export function matchMove(state,id,message,now=Date.now()) {
   if(state.lobby&&['return-request','return-vote'].includes(message.type)){
     returnVote(state,player,message);checkReturn(state,now);return;
   }
-  if (state.arena && !['loaded','ready','skip','draft'].includes(message.type)) {
+  if (state.arena && !['loaded','ready','skip','auto-skip','draft'].includes(message.type)) {
     if (!['propose','vote'].includes(message.type) || message.field !== 'anime' ||
         state.phase !== 'guess' || message.index !== state.index || now < state.startsAt || now >= state.until)
       fail('This song is no longer accepting titles or votes.',409);
     arenaVoteAction(state,player,message);
+    advanceMatch(state,now);
     return;
   }
-  if(usesTeamBallot(state.format)&&!['loaded','ready','skip','draft'].includes(message.type)){
+  if(usesTeamBallot(state.format)&&!['loaded','ready','skip','auto-skip','draft'].includes(message.type)){
     if(!['propose','vote','withdraw'].includes(message.type)||state.phase!=='guess'||state.index!==message.index||now<state.startsAt||now>=state.until)fail('Voting is unavailable.',409);
     proposeOrVote(state,player,message);advanceMatch(state,now);return;
   }
@@ -214,10 +223,11 @@ export function matchMove(state,id,message,now=Date.now()) {
     if(state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('This song is no longer accepting answers.',409);
     saveDraft(state,player,message,now);
     return;
-  } else if(message.type==='skip'){
+  } else if(message.type==='skip'||message.type==='auto-skip'){
     if(!skipMajority(state)||state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('Skip voting is unavailable.',409);
     if(typeof message.vote!=='boolean')fail('Choose a valid skip vote.');
-    player.skip=message.vote;
+    if(message.type==='auto-skip')player.autoSkip=message.vote;
+    else player.skip=message.vote;
   } else if(message.type==='unlock') {
     if(state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('This song is no longer accepting changes.',409);
     delete player.draft;player.locked=false;delete player.lockedElapsedMs;
@@ -244,6 +254,7 @@ export function matchMove(state,id,message,now=Date.now()) {
       if(state.players.some(p=>p.team===player.team&&p.id!==id&&p.field===field))fail('A teammate already claimed this field.',409);
       delete player.draft;player.field=field;player.answers={[field]:artists?artists.join(', '):message.answer.trim()};if(field==='artist')player.artists=artists||[message.answer.trim()];
       if(player.answeredMatch===false && player.answers[field])player.answeredMatch=true;
+      advanceMatch(state,now);
       return;
     }
     if(player.locked&&message.lock!==true)return;
@@ -268,7 +279,7 @@ export function matchView(state,id,now=Date.now(),compactHistory=false) {
   return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,autoCounting:state.autoCounting,counterDeadline:ngmcCounterDeadline(state),autoCountAt:ngmcCounterDeadline(state),readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...(ended?{settlementPending:!state.rankingsSettled,ratingsPending:!state.ratingsDone&&!state.rankingsSettled,
       creditsPending:!!(state.format!==ONE_TEAM_FORMAT&&state.completed&&!state.lobby&&!me.left&&me.disconnectedAt==null&&me.rankedLeftAt==null&&!state.creditsDone&&!state.rankingsSettled)}:{}),
-    preparingClip:!!state.preparingClip,...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:state.players.filter(p=>!p.left&&p.skip).map(p=>p.id),
+    preparingClip:!!state.preparingClip,...playbackView(state,me,now),skipRequired:skipMajority(state),myAutoSkip:!!me.autoSkip,skipVotes:state.players.filter(p=>!p.left&&p.skip).map(p=>p.id),
     ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,creditReward:state.creditRewards?.find(row=>row.id===me.id),returnPoll:ended?undefined:state.returnPoll,abortPoll:ended?undefined:state.abortPoll,aborted:state.aborted,ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(Object.entries(state.ballot).flatMap(([field,options])=>
       options.map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[field]===o.id).length]))):undefined,

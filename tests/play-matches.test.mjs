@@ -313,6 +313,48 @@ test('private current answers score at timeout; team skip needs two distinct vot
   assert.equal(solo.phase,'reveal');assert.equal(solo.players.find(p=>p.id==='0').score,3);
 });
 
+test('Autoskip combines with submitted answers without casting a Skip Song vote',()=>{
+  const now=1000;
+  const roster=players.slice(0,2);
+  const make=()=>Object.assign(makeMatch('autoskip','1v1',roster,songs,now),{
+    phase:'guess',startsAt:now,until:now+20000
+  });
+  const auto=(state,id,vote)=>matchMove(state,id,{type:'auto-skip',index:0,vote},now+100);
+  const submit=(state,id,anime)=>matchMove(state,id,{
+    type:'answer',index:0,answers:{anime,song:'',artist:''},lock:true
+  },now+200);
+
+  const match=make();
+  auto(match,'0',true);
+  assert.equal(match.phase,'guess');
+  assert.equal(matchView(match,'0').myAutoSkip,true);
+  assert.deepEqual(matchView(match,'0').skipVotes,[]);
+  assert.equal(matchView(match,'0').players.find(player=>player.id==='0').locked,false);
+  auto(match,'0',false);
+  submit(match,'1','Anime');
+  assert.equal(match.phase,'guess');
+  auto(match,'0',true);
+  assert.equal(match.phase,'reveal');
+  assert.equal(match.history[0].results.find(result=>result.id==='1').answers.anime,'Anime');
+
+  const manual=make();
+  matchMove(manual,'0',{type:'skip',index:0,vote:true},now+100);
+  auto(manual,'1',true);
+  assert.equal(manual.phase,'guess');
+  auto(manual,'1',false);
+  matchMove(manual,'1',{type:'skip',index:0,vote:true},now+200);
+  assert.equal(manual.phase,'reveal');
+
+  const lobby=Object.assign(makeMatch('autoskip-ballot','lobby-team',roster,songs.slice(0,1),now,
+    {songs:1,seconds:20,guessFields:['anime']}),{phase:'guess',startsAt:now,until:now+20000});
+  auto(lobby,'0',true);
+  matchMove(lobby,'1',{type:'propose',index:0,field:'anime',answer:'Anime'},now+300);
+  assert.equal(lobby.phase,'guess');
+  matchMove(lobby,'1',{type:'vote',index:0,field:'anime',choice:lobby.ballot.anime[0].id},now+400);
+  assert.equal(lobby.phase,'reveal');
+  assert.equal(lobby.history[0].results.find(result=>result.id==='1').earned,1);
+});
+
 test('Play scores private dropdown choices on expiry and preserves earlier manual actions',()=>{
   const now=1000;
   const duel=makeMatch('timeout-choice','1v1',players.slice(0,2),songs,now);

@@ -412,7 +412,7 @@ export class PlayMatch extends DurableObject {
       if(message.type==='unlock')this.reviewLog.add(state,input.who.id,'unlock',{accepted:!failure,requestedRound:message.index,error:failure?.message||null},at);
       if(failure)throw failure;
       if(state.history.length>before.historyLength)this.reviewLog.round(state,at);
-      if(message.type==='skip')this.reviewLog.add(state,input.who.id,'skip-vote',{vote:message.vote});
+      if(message.type==='skip'||message.type==='auto-skip')this.reviewLog.add(state,input.who.id,'skip-vote',{vote:message.vote,...(message.type==='auto-skip'?{automatic:true}:{})});
       if(message.type==='leave'&&member&&!member.chatLeft){
         this.reviewLog.add(state,input.who.id,'left');
         this.recordChatExit(state,member);
