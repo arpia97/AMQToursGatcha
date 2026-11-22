@@ -738,7 +738,7 @@ const workingTitlePopovers = installDetailPopovers(document);
 let quizUI, arcadePage;
 const quizPlaying = () => page() === "quiz" && quizUI?.active();
 const loadQuizUI = loadOnce(async () => {
-  const { createQuizUI } = await import("./quiz-ui.js?v=ctrl-enter-answer");
+  const { createQuizUI } = await import("./quiz-ui.js?v=autolock-shortcut-help");
   return quizUI = createQuizUI({
     gachaLayout: true,
     api,
