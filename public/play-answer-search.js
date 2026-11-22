@@ -1,6 +1,16 @@
+import {quizAnswerOptions} from './quiz-autocomplete.js';
 import {relevantAnswers} from './answer-relevance.js';
 export const searchKey=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[’'`]/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
-export function answerSearchIndex(catalog){return Object.fromEntries(['anime','artist','song'].map(kind=>[kind,[...new Set(catalog[kind]||[])].map(value=>{const key=searchKey(value);return {value,key,words:key.split(/\s+/)};}).sort((a,b)=>a.value.length-b.value.length||a.value.localeCompare(b.value))]));}
+export function answerSearchIndex(catalog) {
+  const index = {anime: [...new Set(catalog.anime || [])]};
+  for (const kind of ['artist', 'song']) {
+    index[kind] = [...new Set(catalog[kind] || [])].map(value => {
+      const key = searchKey(value);
+      return {value, key, words: key.split(/\s+/)};
+    }).sort((a,b) => a.value.length-b.value.length || a.value.localeCompare(b.value));
+  }
+  return index;
+}
 // A fallback for a single mistyped word. Strong matches always get the full list first.
 function nearWord(a,b){
   if(Math.abs(a.length-b.length)>1)return false;
@@ -12,6 +22,7 @@ function nearWord(a,b){
     (a[i]===b[i+1]&&a[i+1]===b[i]&&a.slice(i+2)===b.slice(i+2));
 }
 export function searchAnswers(index,kind,query,limit=20){
+  if(kind==='anime')return quizAnswerOptions(index.anime,query,limit);
   const rows=index[kind]||[],raw=String(query||'').trim().slice(0,120);
   if(!raw||limit<=0)return [];
   const key=searchKey(raw);

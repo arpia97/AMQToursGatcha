@@ -370,17 +370,20 @@ test("title suggestions put shorter matching titles first and normalize accents 
     "ぼっち・ざ・ろっく！",
   ]);
   const shana=["Shakugan no Shana","Burning-Eyed Shana","Shakugan no Shana S"];
-  assert.deepEqual(quizAnswerOptions(shana,"shana s"),["Shakugan no Shana S","Shakugan no Shana","Burning-Eyed Shana"]);
-  assert.deepEqual(quizAnswerOptions(shana,"s shana",1),["Shakugan no Shana S"]);
-  assert.deepEqual(quizAnswerOptions(["Shana Special","Shakugan no Shana S"],"shana s"),["Shakugan no Shana S","Shana Special"]);
+  assert.deepEqual(quizAnswerOptions(shana,"shana s"),["Shakugan no Shana S","Shakugan no Shana"]);
+  assert.deepEqual(quizAnswerOptions(shana,"s shana",1),["Shakugan no Shana"]);
+  assert.deepEqual(quizAnswerOptions(["Shana Special","Shakugan no Shana S"],"shana s"),["Shana Special","Shakugan no Shana S"]);
   assert.deepEqual(quizAnswerOptions(["Shana S","Shakugan no Shana S"],"shana s"),["Shana S","Shakugan no Shana S"]);
-  assert.deepEqual(quizAnswerOptions(["Manaka Iwami","Iwami Manaka Longer"],"iwami manaka"),["Manaka Iwami","Iwami Manaka Longer"]);
+  assert.deepEqual(quizAnswerOptions(["Manaka Iwami","Iwami Manaka Longer"],"iwami manaka"),["Iwami Manaka Longer","Manaka Iwami"]);
   const revenge=["Masamune-kun's Revenge","Masamune-kun no Revenge","Masamune-kun's Revenge R","Masamune-kun no Revenge R"];
-  assert.deepEqual(quizAnswerOptions(revenge,"ge r"),["Masamune-kun's Revenge R","Masamune-kun no Revenge R","Masamune-kun's Revenge","Masamune-kun no Revenge"]);
+  assert.deepEqual(quizAnswerOptions(revenge,"ge r"),["Masamune-kun's Revenge R","Masamune-kun no Revenge R"]);
   assert.deepEqual(quizAnswerOptions(revenge,"enge r",1),["Masamune-kun's Revenge R"]);
   assert.deepEqual(quizAnswerOptions(revenge,"revenge",1),["Masamune-kun's Revenge"]);
+  assert.deepEqual(quizAnswerOptions(["Kokoro","Oh My Kokoro","Kokoro!!"],"kororo"),["Kokoro","Kokoro!!","Oh My Kokoro"]);
+  assert.deepEqual(quizAnswerOptions(["One Piece!","One Piece!!"],"!!one"),["One Piece!!"]);
+  assert.deepEqual(quizAnswerOptions(["Kiss×sis","Kiss"],"kissx"),["Kiss×sis"]);
   const bank=["Iwami, Manaka Long Alias","Manaka Iwami"];
-  assert.deepEqual(quizAnswerOptions(bank,"iwami manaka"),["Manaka Iwami","Iwami, Manaka Long Alias"]);
+  assert.deepEqual(quizAnswerOptions(bank,"iwami manaka"),["Iwami, Manaka Long Alias","Manaka Iwami"]);
   bank.push("Iwami");assert.deepEqual(quizAnswerOptions(bank,"iwami",1),["Iwami"]);
   assert.deepEqual(quizAnswerOptions(bank,"no match"),[]);
   assert.deepEqual(quizAnswerOptions(bank,"iwami",0),[]);

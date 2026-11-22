@@ -16,7 +16,7 @@ to 80 messages on reconnect. Three emoji shortcuts start as 🔥, 🌋 and ❓ a
 can be customized for the account in that browser.
 
 Anime suggestions use AMQ-style contiguous matching and shortest-title order.
-Fuzzy Search switches to the previous matching method and is remembered in the
+Fuzzy Search uses AMQ Autocomplete Improvement 1.41 for anime titles. It prioritizes prefixes, then phrases and reordered word fragments, and uses typo matching when those return no suggestions. The setting is remembered in the
 browser for Play and Quiz. Both use the same accepted answers for scoring.
 
 Any player can request a match abort. The request counts as a yes vote. More

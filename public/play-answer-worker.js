@@ -1,7 +1,7 @@
 import {answerSearchIndex,searchAnswers} from './play-answer-search.js';
 import {amqAnimeOptions} from './amq-anime-search.js';
 import {percentDone} from './play-setup-progress.js';
-let index,animeTitles;
+let index;
 self.onmessage=async({data})=>{
   try{
     if(data.type==='load'){
@@ -22,11 +22,10 @@ self.onmessage=async({data})=>{
       const catalog=await body.json();
       self.postMessage({type:'progress',label:'Preparing answer search…'});
       index=answerSearchIndex(catalog);
-      animeTitles=index.anime.map(row=>row.value);
       self.postMessage({type:'ready',count:Object.fromEntries(Object.entries(index).map(([k,v])=>[k,v.length]))});
     }else if(data.type==='search'&&index){
       const standard=data.kind==='anime'&&!data.fuzzy;
-      const items=standard?amqAnimeOptions(animeTitles,data.query):searchAnswers(index,data.kind,data.query);
+      const items=standard?amqAnimeOptions(index.anime,data.query):searchAnswers(index,data.kind,data.query);
       self.postMessage({type:'results',id:data.id,items,standard});
     }
   }catch(error){self.postMessage({type:'error',message:error.message});}

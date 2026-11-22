@@ -65,8 +65,8 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
   assert.ok(library.names.includes('Éir Aoi')); // Individual group members remain selectable.
   assert.equal(searchAnswers(index,'song','song').length,20);
   const shana=answerSearchIndex({anime:['Shakugan no Shana','Burning-Eyed Shana','Shakugan no Shana S']});
-  assert.deepEqual(searchAnswers(shana,'anime','shana s'),['Shakugan no Shana S','Shakugan no Shana','Burning-Eyed Shana']);
-  assert.deepEqual(searchAnswers(shana,'anime','s shana',1),['Shakugan no Shana S']);
+  assert.deepEqual(searchAnswers(shana,'anime','shana s'),['Shakugan no Shana S','Shakugan no Shana']);
+  assert.deepEqual(searchAnswers(shana,'anime','s shana',1),['Shakugan no Shana']);
   assert.deepEqual(searchAnswers(shana,'anime','shana',0),[]);
   const bilingual=answerSearchIndex({anime:['Starmyu','Koukou Hoshi Kageki']});
   assert.deepEqual(searchAnswers(bilingual,'anime','starmuy'),['Starmyu']);
