@@ -1,10 +1,10 @@
 # Shared Status and Handoff
 
-## Play spectator presence and count preview
+## Play spectator presence and live match count
 
 Source `88482df` is live on Worker `eaa8a9ad-310d-4d36-bdb9-6fbda90e354f`. The Online Players status changes to Spectating after the public-match viewer connects. Leaving, disconnecting or reaching results clears it, and the original AFK priority is preserved. All 578 tests, syntax and the Worker dry run passed. A local browser joined and left a match as a spectator while another player viewed the online list at 390 px. The deployed route and new assets were verified.
 
-The Live Matches spectator count is held locally for design approval. Pending files are `public/play-overview.js`, `public/play-overview.css`, `src/play-match.js` and `tests/play-runtime.test.mjs`. The count uses distinct connected spectator accounts from the existing live score request, and the local runtime test verified counts on join and disconnect. Desktop and mobile snapshots are in `outputs/play-spectator-count-preview` outside the repository. The live Overview assets do not include the count.
+The Live Matches spectator count from source `b6d1840` is live on Worker `ff1c0e63-c9a6-43da-85be-cbe569d3394d`. The eye badge uses distinct connected spectator accounts from the existing public-match score request. All nine Play runtime tests passed, including count changes on join and disconnect. Local Chromium verified counts and layout on desktop and mobile. The Worker dry run passed, the deployment is at 100%, and the live Overview assets match source.
 
 ## Song/Artist credit spelling
 
