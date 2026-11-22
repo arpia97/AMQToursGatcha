@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play accepted anime title popups
+
+Source `045be05` is live at 100% on Worker `cbccdf96-69a4-421e-bfc4-a46f87f08cf3`. Play reveals and Song List show a popup with the original accepted title spellings after the answer is revealed. The Play and Quiz popup triggers have no underline. Matches sampled before the update can lack display metadata for alternate titles. Local Chromium verified mouse, keyboard, and touch, including inside the native Song List dialog. All 582 tests, syntax checks and the Worker dry run passed. The live Play routes and updated assets passed read-only verification.
+
 ## Public Song/Artist lobby guess types
 
 Source `6798bd2` is live at 100% on Worker `a8e99987-969e-4a81-94c4-96e70f8e5684`. Public Song/Artist Free-for-All and 1-Team tiles list enabled guess types beside Join. The multiplayer runtime tests covered live settings changes and password protection. Local Chromium verified guest listings on desktop and mobile. The live Play routes, public directory, and matching frontend assets passed read-only checks. No eligible public lobby was open during the live check.
