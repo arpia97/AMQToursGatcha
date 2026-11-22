@@ -7,6 +7,7 @@ import {liveProgressText,liveScoreHTML} from './play-live-score.js';
 
 const modes=new Map(PLAY_MODES.map(mode=>[mode.id,mode]));
 const icon=path=>'<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="'+path+'"/></svg>';
+const eye=icon('M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z');
 const chevron='<span aria-hidden="true" class="overview-chevron">›</span>';
 const groups=[
   [DUEL_FORMAT,[[DUEL_FORMAT,'']]],
@@ -140,6 +141,15 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       }
       const fixture=score.scores.length>1?' · Fixture 1':group.length>2?' · Leader':'';
       row.querySelector('.overview-song').textContent=liveProgressText(score)+fixture;
+      const spectators=row.querySelector('.overview-spectators');
+      const count=score.spectatorCount;
+      spectators.hidden=!Number.isSafeInteger(count)||count<0;
+      if(!spectators.hidden){
+        const label=count+' spectator'+(count===1?'':'s');
+        spectators.title=label;
+        spectators.setAttribute('aria-label',label);
+        spectators.lastElementChild.textContent=count;
+      }
       row.querySelector('.overview-live-score').innerHTML='<div class="overview-score-heading"><strong>'+esc(liveProgressText(score))+'</strong><span>'+esc(score.unit)+'</span></div>'+liveScoreHTML(score,esc);
       if(row===openMatch)positionDetails();
     }catch(error){
@@ -147,6 +157,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       if(error.status===404){
         row.querySelector('[data-watch-match]').disabled=true;
         row.querySelector('.overview-song').textContent='Match ended';
+        row.querySelector('.overview-spectators').hidden=true;
       }
       const detail=row.querySelector('.overview-live-score');
       if(!detail.querySelector('strong'))detail.textContent=error.status===404?'Match ended.':'Score temporarily unavailable.';
@@ -220,7 +231,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       const when=Number.isFinite(match.started)?' · '+new Date(match.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
       const button=roster?'button type="button" aria-expanded="false" aria-controls="overview-match-'+index+'"':'div';
       return '<li class="overview-match" data-match-id="'+esc(match.id??index)+'"><'+button+' class="overview-match-button">'+
-        '<span class="overview-card-meta"><b>● LIVE</b>'+poolLabel(match.pool)+'</span><span class="overview-match-mode"><strong>'+esc(title)+'</strong></span>'+
+        '<span class="overview-card-meta"><b>● LIVE</b><span class="overview-spectators" role="img" hidden>'+eye+
+        '<span aria-hidden="true"></span></span>'+poolLabel(match.pool)+'</span><span class="overview-match-mode"><strong>'+esc(title)+'</strong></span>'+
         '<span class="overview-versus"><span class="overview-stack"></span><b class="overview-card-score">'+(roster?'…':'—')+'</b><span class="overview-stack"></span></span>'+
         (roster?'</button>':'</div>')+'<div class="overview-card-foot"><small class="overview-song">'+esc(detail+when)+'</small>'+
         (roster?'<button type="button" class="overview-watch" data-watch-match="'+esc(match.id)+'">▷ Watch</button>':'')+'</div>'+roster+'</li>';

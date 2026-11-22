@@ -176,7 +176,13 @@ export class PlayMatch extends DurableObject {
     if(!state||gameEnded(state.phase))return null;
     const playerOrder=state.players.some(p=>Number.isFinite(p.elo))
       ? [...state.players].sort(comparePlayTier).map(p=>p.id) : undefined;
-    return {...liveMatchScore(state),playerOrder};
+    const now=Date.now(),spectators=new Set();
+    for(const socket of this.ctx.getWebSockets(spectatorTag)){
+      if(socket.readyState!==1)continue;
+      const who=socket.deserializeAttachment();
+      if(who?.expires>now)spectators.add(who.id);
+    }
+    return {...liveMatchScore(state),playerOrder,spectatorCount:spectators.size};
   }
   async finish(state){
     if(!['finished','cancelled'].includes(state.phase))return;

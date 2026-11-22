@@ -331,8 +331,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(await observerStatus(),'browsing');
   assert.equal((await mf.dispatchFetch(watchPath(rankedId))).status,401);
   assert.equal((await mf.dispatchFetch(watchPath(rankedId),{headers:{...upgrade,Origin:'https://wrong.test',Cookie:observer}})).status,403);
-  const summaryScore=await (await mf.dispatchFetch(watchPath(rankedId),{headers:{Cookie:observer}})).json();
+  const fetchScore=async()=>await (await mf.dispatchFetch(watchPath(rankedId),{headers:{Cookie:observer}})).json();
+  const summaryScore=await fetchScore();
   assert.equal(summaryScore.song,1);assert.equal(summaryScore.total,35);assert.equal(summaryScore.unit,'Lives');
+  assert.equal(summaryScore.spectatorCount,0);
   assert.deepEqual(summaryScore.scores[0].map(side=>side.value),[5,5]);
   assert.deepEqual(summaryScore.playerOrder,['1','2','3','4','5','6','7','8']);
   const rankedPlayer=await connect(0,rankedId);
@@ -345,6 +347,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   watcher.accept();
   t.after(()=>{if(watcher.readyState===1)watcher.close();});
   await rankedPlayer.wait(m=>m.type==='chat-message'&&m.row.body==='Local Player 9 started spectating.');
+  assert.equal((await fetchScore()).spectatorCount,1);
   watcher.send(JSON.stringify({type:'chat-send',body:'Good luck!'}));
   const spectatorMessage=await rankedPlayer.wait(m=>m.type==='chat-message'&&m.row.body==='Good luck!');
   assert.equal(spectatorMessage.row.player,'play-spectators:9');
@@ -356,8 +359,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(retired.status,101);
   const readonly=retired.webSocket, closed=Promise.withResolvers();
   readonly.addEventListener('close',event=>closed.resolve(event.code),{once:true});
-  readonly.accept();readonly.send(JSON.stringify({type:'leave'}));
+  readonly.accept();
+  assert.equal((await fetchScore()).spectatorCount,2);
+  readonly.send(JSON.stringify({type:'leave'}));
   assert.equal(await Promise.race([closed.promise,sleep(1000).then(()=>null)]),1008);
+  assert.equal((await fetchScore()).spectatorCount,1);
   const rankedInfo=await(await mf.dispatchFetch(base+'/api/__fixture-info?match='+rankedId)).json();
   assert.equal(rankedInfo.animeIds.length,35);
   assert.equal(new Set(rankedInfo.animeIds).size,35);

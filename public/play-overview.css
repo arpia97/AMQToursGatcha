@@ -145,6 +145,9 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-match:nth-child(3n) {border-top-color:#9fbfda;background:linear-gradient(115deg,#1b3340,#222633)}
 .overview-match .overview-match-button,.overview-match .overview-match-button:hover {display:grid;gap:3px;background:transparent;border:0;border-radius:3px;padding:0;text-align:start}
 .overview-card-meta {width:100%;font:10px Consolas,monospace;color:#efa7b4}
+.overview-spectators {display:inline-flex;align-items:center;gap:4px;margin-inline-end:auto;color:#d5c5f5;font-variant-numeric:tabular-nums}
+.overview-spectators .play-icon {width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7}
+.overview-spectators[hidden] {display:none}
 .overview-match-mode strong {font-size:16px}
 .overview-versus {height:30px}
 .overview-card-score {font:700 22px/1 Consolas,monospace;color:var(--text)}
