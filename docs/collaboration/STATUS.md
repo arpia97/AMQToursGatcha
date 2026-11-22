@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Unanimous 1-Team Autoskip
+
+Source `25ee3f4` is live at 100% on Worker `a2998b52-05f7-4f40-b157-078bd52e54fe`. 1-Team Autoskip waits for a current catalog-valid answer, even when every player enables it. An eight-player local match confirmed guessing continues after unanimous Autoskip and an unknown proposal, then reveals after a catalog title. All 602 tests passed, and the Worker dry run, live 1-Team route and queue-count endpoint passed.
+
 ## Autolock shortcut tooltip
 
 Source `41a3a8e` deployed at 100% on Worker `891bb27b-118f-430d-ab30-15a4d8f2b55d`. The shared Autolock tooltip explains Enter, Ctrl+Enter and timeout selection. All 65 focused tests and the Worker dry run passed. A local 1-Team simulation confirmed that unanimous Autoskip immediately reveals the song and that five unanswered songs end the match. The live Play and Quiz shells and five release modules were verified.
