@@ -424,11 +424,13 @@ test('a long MP3 yields a playable sealed sample using bounded range requests',a
 test('Play shows the submitted language in guesses and translates the official answer separately', () => {
   const animeTitle = () => 'Romaji Title';
   const escape = value => String(value).replaceAll('&','&amp;').replaceAll('<','&lt;');
-  const row = {index:0,anime:'Japanese Title',song:'Example Song',artist:'Singer',points:[1,0],
+  const row = {index:0,anime:'Japanese Title',animeTitles:['Romaji Title','English & Title'],song:'Example Song',artist:'Singer',points:[1,0],
     results:[{id:'a',answers:{anime:'English & Title'},correct:{anime:true},earned:1}]};
   const match = {format:'1v1-ranked',phase:'reveal',index:0,me:'a',history:[row],teams:[1,0],
     players:[{id:'a',name:'Player A',team:0},{id:'b',name:'Player B',team:1}]};
-  assert.match(recapHTML(match,escape,animeTitle),/>Romaji Title</);
+  const reveal = recapHTML(match,escape,animeTitle);
+  assert.match(reveal,/>Romaji Title</);
+  assert.match(reveal,/data-detail-popup="Accepted Alternative Titles\nEnglish &amp; Title"/);
   const result = songResultsHTML(match,escape,animeTitle);
   assert.match(result,/Romaji Title/);
   assert.match(result,/>English &amp; Title</);

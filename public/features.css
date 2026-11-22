@@ -2977,8 +2977,8 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
 .quiz-favorite:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
 .quiz-favorite:disabled { opacity: .6; cursor: wait; }
 .quiz-favorites-filter { white-space: nowrap; margin: 0; }
-.quiz-working-titles { padding:0; min-height:0; background:none; border:0; color:inherit; font:inherit; text-align:left; cursor:help; text-decoration:underline dotted #ffffff40; text-underline-offset:3px; }
-.quiz-working-titles:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
+.quiz-working-titles,.play-anime-title { padding:0; min-height:0; background:none; border:0; color:inherit; font:inherit; text-align:left; cursor:help; overflow-wrap:anywhere; }
+.quiz-working-titles:focus-visible,.play-anime-title:focus-visible { outline: 1px solid var(--mint); outline-offset: 2px; }
 .detail-popover { position:fixed; z-index:200; max-width:min(460px,calc(100vw - 24px)); max-height:min(320px,calc(100dvh - 24px)); overflow:auto; padding:9px 12px; border:1px solid var(--border); border-radius:6px; background:#171922; color:var(--text); font-size:12px; line-height:1.6; white-space:pre-line; overflow-wrap:anywhere; box-shadow:0 3px 12px #0008; }
 @media (max-width: 600px) {
   .quiz-favorites-filter { min-height: 40px; }

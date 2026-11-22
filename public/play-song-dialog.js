@@ -1,4 +1,5 @@
 import {ONE_TEAM_FORMAT,matchGuessFields} from './play-mode-rules.js';
+import {animeTitlesHTML} from './play-round-ui.js';
 
 export function createSongListDialog(esc,animeTitle){
   let dialog=null,opener=null,rendered='';
@@ -26,7 +27,7 @@ export function createSongListDialog(esc,animeTitle){
       }else{
         score=spectator?'':'<td>'+(own?own.earned+' / '+(match.teamFields?1:matchGuessFields(match).length):'—')+'</td>';
       }
-      return '<tr><td>'+(song.index+1)+'</td><td>'+esc(animeTitle({anime:song.anime}))+'</td><td>'+esc(song.song)+'</td><td>'+esc(song.artist)+'</td>'+score+'</tr>';
+      return '<tr><td>'+(song.index+1)+'</td><td>'+animeTitlesHTML(song,esc,animeTitle)+'</td><td>'+esc(song.song)+'</td><td>'+esc(song.artist)+'</td>'+score+'</tr>';
     }).join('')+'</tbody></table>':'<p>Songs will appear here after they are revealed.</p>';
     if(html!==rendered){dialog.querySelector('.sa-song-list-body').innerHTML=html;rendered=html;}
   }

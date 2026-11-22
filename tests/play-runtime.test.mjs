@@ -48,7 +48,7 @@ test('spectators get only the sealed clip active within the guessing window',()=
 });
 test('spectator scores cover each Arena fixture and never expose an unrevealed answer',()=>{
   const state={id:'match',mode:'2v2-arena',format:'2v2-arena',phase:'guess',index:20,
-    songs:Array(60).fill({anime:'Hidden Series',audio:'private.mp3'}),
+    songs:Array(60).fill({anime:'Hidden Series',animeTitles:['Hidden Alternate'],audio:'private.mp3'}),
     teams:[99,99,99,99],players:[{id:'1',team:0,name:'A',answers:{anime:'Hidden Answer'}}],
     history:[{index:19,anime:'Previous Series'}],arena:{songsPerFixture:20,rounds:[
       [],[{home:2,away:0,scores:[1,2]},{home:3,away:1,scores:[3,4]}],[],
@@ -59,10 +59,11 @@ test('spectator scores cover each Arena fixture and never expose an unrevealed a
   assert.equal(spectatorView(state).reveal,null);
   assert.doesNotMatch(JSON.stringify(spectatorView(state)),/Hidden|private/);
   state.phase='reveal';
-  state.history.push({index:20,anime:'Now Visible',song:'Opening',artist:'Artist',
+  state.history.push({index:20,anime:'Now Visible',animeTitles:['Visible Alternate'],song:'Opening',artist:'Artist',
     results:[{id:'1',answers:{anime:'Now Visible'},correct:{anime:true},draft:'ignored'}]});
   const reveal=spectatorView(state).reveal;
   assert.equal(reveal.anime,'Now Visible');
+  assert.deepEqual(reveal.animeTitles,['Visible Alternate']);
   assert.deepEqual(reveal.results[0].correct,{anime:true});
   assert.equal(reveal.results[0].draft,undefined);
   const ffa=liveMatchScore({...state,arena:null,format:'lobby-ffa',teams:[7,9],
@@ -124,7 +125,7 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   base[0]=compactLibrarySong({...base[0],artists:[{names:['Group'],members:[
     {names:['Solo Name','Alias Name']},{members:[{names:['Nested Member']}]}
   ]}]},base[0].titles);
-  const sheet={version:'sheet',records:[[0,'Sheet 1'],[0,'Sheet 4']],keys:{'a:1':0,'f:4.mp3':1},
+  const sheet={version:'sheet',records:[[0,'Sheet 1','Sheet 1: Encore!'],[0,'Sheet 4']],keys:{'a:1':0,'f:4.mp3':1},
     recordings:[['Song 1','Artist',1,'OP','1.mp3'],['Song 4','Artist',4,'ED','4.mp3']],
     official:[[5,50,5,'OP','Song 5','Artist',['Official 5']],[6,60,6,'ED','Song 6','Artist',['Metadata only']]]};
   const rows=[1,2,5].map(id=>({sourceIds:{amqSongIds:[id]},audio:audio(id),title:'Song '+id,artist:'Artist',answers:['Quiz '+id]}));
@@ -140,6 +141,7 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   assert.ok(catalog.anime.includes('Metadata only'));
   const sample=await lib.sample('song-artist',5);
   assert.deepEqual(sample.songs.map(s=>s.anime).sort(),['Plus 3','Quiz 2','Quiz 5','Sheet 1','Sheet 4']);
+  assert.deepEqual(sample.songs.find(song=>song.anime==='Sheet 1').animeTitles,['Sheet 1','Sheet 1: Encore!']);
   assert.equal((await lib.load()).ngmcRows.length,5);
   version='v2';lib.nextCheck=0;
   const refreshed=await lib.catalog();
@@ -539,6 +541,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     assert.ok(!rooms[0].messages.some(m=>m.type==='playback'&&m.index===1));
     const {song:fixtureSong}=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+id)).json();
     const song=Number(fixtureSong.audio.match(/local-(\d+)/)[1]);
+    assert.doesNotMatch(JSON.stringify(started),/animeTitles/);
     if(format==='1v1'){
       const {slot,key}=started.playback,path=base+'/api/play-audio/';
       for(let i=0;i<50&&!viewFrames.some(frame=>frame.clip);i++)await sleep(20);
@@ -585,6 +588,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
 
     if(ngmc){await rooms[0].wait(m=>m.state?.phase==='counting'||m.state?.phase==='reveal');await mf.dispatchFetch(base+'/api/__expire?match='+id);}
     const reveal=(await rooms[0].wait(m=>m.state?.phase==='reveal')).state;
+    assert.deepEqual(reveal.history[0].animeTitles,fixtureSong.animeTitles);
     assert.ok(reveal.players.every(p=>p.score===(ngmc?Number(Number(p.id)<=4):teamFields?1:3)));if(!ngmc)assert.ok(reveal.teams.every(p=>p===3));assert.equal(reveal.history.length,1);
     let flaggedTracks;
     if(format==='1v1'){

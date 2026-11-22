@@ -64,7 +64,7 @@ export function gradeRound(state,now) {
   if(survival){if(!points[0])state.teams[0]=Math.max(0,state.teams[0]-1);}
   else for(let i=0;i<teamHits.length;i++)state.teams[i]+=points[i];
   if(state.arena)recordArenaSong(state.arena,state.index,teamHits.map(h=>h.size),state.players);
-  state.history.push({index:state.index,anime:song.anime,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results,points,...(survival?{lives:[...state.teams]}:{})});
+  state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results,points,...(survival?{lives:[...state.teams]}:{})});
   state.phase='reveal';state.until=now+PLAY_REVEAL_MS;
 }
 export function advanceMatch(state,now=Date.now()) {
@@ -269,6 +269,6 @@ export function matchView(state,id,now=Date.now(),compactHistory=false) {
     voteCounts:state.ballot?Object.fromEntries(Object.entries(state.ballot).flatMap(([field,options])=>
       options.map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[field]===o.id).length]))):undefined,
     myDraft:me.draft,teams:state.teams,me:id,history:compact?state.history.slice(historyFrom):state.history,...(compact?{historyFrom}:{}),teamFields:!!state.teamFields,
-    songList:ended&&!state.aborted&&state.format!==ONE_TEAM_FORMAT?state.songs.map((s,index)=>({index,anime:s.anime,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,song,artist,artistMembers})=>({index,anime,song,artist,artistMembers})),
+    songList:ended&&!state.aborted&&state.format!==ONE_TEAM_FORMAT?state.songs.map((s,index)=>({index,anime:s.anime,animeTitles:state.history[index]?.animeTitles,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,animeTitles,song,artist,artistMembers})=>({index,anime,animeTitles,song,artist,artistMembers})),
     players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p)&&(!state.preparingClip||p.clipReadyIndex===state.index),team:p.team,score:p.score,elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,acceptedReady:p.acceptedReady||p.ready,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.teamFields?(p.field?[p.field]:[]):p.locked?(matchGuessFields(state)):[],...((animeOnlyMode(state.mode)?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};
 }

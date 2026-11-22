@@ -32,7 +32,7 @@ export function spectatorClip(state,now){
 }
 
 function revealedRound(row){
-  return {index:row.index,anime:row.anime,song:row.song,artist:row.artist,artistMembers:row.artistMembers,
+  return {index:row.index,anime:row.anime,animeTitles:row.animeTitles,song:row.song,artist:row.artist,artistMembers:row.artistMembers,
     points:row.points,lives:row.lives,spent:row.spent,reset:row.reset,
     results:(row.results||[]).map(({id,answers,correct,earned})=>({id,answers,correct,earned}))};
 }

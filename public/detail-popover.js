@@ -55,7 +55,7 @@ export function installDetailPopovers(root) {
     }
     const rect = active.getBoundingClientRect();
     if (rect.bottom <= 0 || rect.top >= win.innerHeight) return dismiss();
-    const bounds = active.closest(".table-wrap")?.getBoundingClientRect();
+    const bounds = active.closest(".table-wrap, .sa-song-list-body")?.getBoundingClientRect();
     if (bounds && (rect.right <= bounds.left || rect.left >= bounds.right || rect.bottom <= bounds.top || rect.top >= bounds.bottom)) return dismiss();
     const box = tip.getBoundingClientRect();
     const center = rect.left + rect.width / 2;
@@ -80,8 +80,9 @@ export function installDetailPopovers(root) {
     tip.setAttribute("role", "tooltip");
     if (button.dataset.songProgress) fillSongPopover(tip, JSON.parse(button.dataset.songProgress));
     else tip.textContent = button.dataset.detailPopup;
-    root.body.append(tip);
-    if (button.dataset.songProgress) detach.observe(root.body, { childList: true, subtree: true });
+    const container = button.closest("dialog[open]") || root.body;
+    container.append(tip);
+    detach.observe(root.body, { childList: true, subtree: true });
     button.setAttribute("aria-expanded", "true");
     button.setAttribute("aria-describedby", tip.id);
     position();
@@ -116,7 +117,7 @@ export function installDetailPopovers(root) {
   });
   root.addEventListener("pointerdown", (event) => { if (active && !active.contains(event.target) && !tip.contains(event.target)) dismiss(); });
   root.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && active) { dismiss(); event.stopImmediatePropagation(); }
+    if (event.key === "Escape" && active) { dismiss(); event.preventDefault(); event.stopImmediatePropagation(); }
   });
   root.addEventListener("scroll", position, true);
   win.addEventListener("resize", () => {

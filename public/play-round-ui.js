@@ -38,6 +38,14 @@ export function updateRoundDial(dial,match,now){
   if(label.textContent!==unit)label.textContent=unit;
   dial.style.setProperty('--remaining',100*remaining/Math.max(duration,1)+'%');
 }
+export function animeTitlesHTML(row,esc,animeTitle) {
+  const displayed=animeTitle({anime:row.anime});
+  const alternatives=row.animeTitles?.filter(title=>title!==displayed) || [];
+  if (!alternatives.length) return esc(displayed);
+  const details=['Accepted Alternative Titles',...alternatives].join('\n');
+  return '<button type="button" class="play-anime-title" data-detail-popup="'+esc(details)+
+    '" aria-expanded="false">'+esc(displayed)+'</button>';
+}
 export function artistCreditsHTML(row,esc){
   const names=row.artistMembers?.length?row.artistMembers:[row.artist];
   return '<span class="sa-artist-info"><button type="button" data-sa-artist-info aria-expanded="false" aria-label="Artist credits for '+esc(row.artist)+'">'+esc(row.artist)+'</button><span class="sa-artist-tooltip" role="tooltip"><small>Artist Credits</small>'+names.map(name=>'<span>'+esc(name)+'</span>').join('')+'</span></span>';
@@ -54,7 +62,7 @@ export function recapHTML(match,esc,animeTitle){
   return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small'+
     (survival?' class="one-team-round-result" data-correct="'+!!row.points[0]+'"':'')+'>'+
     roundLabel+'</small></header><dl>'+
-    '<div><dt>Anime</dt><dd>'+esc(animeTitle({anime:row.anime}))+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
+    '<div><dt>Anime</dt><dd>'+animeTitlesHTML(row,esc,animeTitle)+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
     '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl>'+
     (survival?'<p class="one-team-picked"><span>Team Guess</span><strong>'+esc(teamGuess||'No guess submitted')+'</strong></p>':'')+'</section>';
 }

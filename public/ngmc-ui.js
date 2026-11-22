@@ -1,7 +1,7 @@
 import {comparePlayTier as byTier} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {songProgressTrigger} from './detail-popover.js';
-import {artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js';
+import {animeTitlesHTML,artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function createCounterDialog(send) {
@@ -80,9 +80,9 @@ export function ngmcArena(match,form){
     '<div class="sa-download-status ngmc-download"></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){
-  const title=row?esc(animeTitle({anime:row.anime})):'Unrevealed';
+  const title=row?animeTitlesHTML(row,esc,animeTitle):'Unrevealed';
   const name=row?esc(row.song):'—';
-  return '<small>Anime</small><h2 title="'+title+'">'+title+'</h2>'+
+  return '<small>Anime</small><h2>'+title+'</h2>'+
     '<div class="ngmc-track-credits"><span><small>Song</small><span class="ngmc-song-name" title="'+name+'">'+name+'</span></span>'+
     '<span><small>Artist</small>'+(row?artistCreditsHTML(row,esc):'—')+'</span></div>';
 }
