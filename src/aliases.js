@@ -136,31 +136,49 @@ export class AliasSync {
     } catch (err) {
       error = err;
     }
-    const s = this.read();
-    s.lease = 0;
     try {
       if (error) throw error;
-      const result = this.tx(() => this.import(players));
-      Object.assign(s, {
-        status: "synced",
-        lastAt: this.e.now(),
-        nextAt: this.e.now() + 6 * 3600000,
-        error: null,
-        players: players.length,
-        aliases: players.reduce((n, p) => n + p.aliases.length, 0),
-        migrated: result,
+      this.tx(() => {
+        const s = this.read();
+        if (s.lease !== claimed.lease) return;
+        const result = this.import(players);
+        const now = this.e.now();
+        this.save({
+          ...s, ...result, lease: 0, status: "synced", lastAt: now, error: null,
+          nextAt: now + 6 * 3600000,
+          players: players.length,
+          aliases: players.reduce((n, p) => n + p.aliases.length, 0),
+        });
       });
     } catch (err) {
-      Object.assign(s, {
-        status: "retrying",
-        error: String(err.message).slice(0, 300),
-        nextAt: this.e.now() + 15 * 60000,
+      this.tx(() => {
+        const s = this.read();
+        if (s.lease !== claimed.lease) return;
+        this.save({
+          ...s, lease: 0, status: "retrying",
+          error: String(err.message).slice(0, 300),
+          nextAt: this.e.now() + 15 * 60000,
+        });
       });
     }
-    this.save(s);
     return this.status();
   }
   import(players) {
+    const desired = new Map();
+    for (const p of players)
+      for (const name of [p.name, ...p.aliases]) desired.set(name.toLowerCase(), p.id);
+    const previous = this.e.all(
+      "SELECT a.alias,a.player FROM alias_provenance p JOIN aliases a ON a.alias=p.alias AND a.player=p.player WHERE p.source='sheet'",
+    );
+    let removed = 0, moved = 0;
+    for (const {alias, player} of previous) {
+      const next = desired.get(alias);
+      if (next === player) continue;
+      this.e.run("DELETE FROM aliases WHERE alias=? AND player=?", alias, player);
+      this.e.run("DELETE FROM alias_provenance WHERE alias=?", alias);
+      if (next === undefined) removed++;
+      else moved++;
+    }
     const migrated = [];
     for (const p of players) {
       const owners = new Set(
@@ -189,12 +207,13 @@ export class AliasSync {
         migrated.push({ from: old, to: p.id });
       }
     }
-    this.e.host("players", { players, reserveIds: false });
-    return migrated;
+    this.e.importPlayers({ players, reserveIds: false }, "sheet");
+    return { removed, moved, migrated };
   }
   renamePlayer(old, id) {
     for (const table of [
       "aliases",
+      "alias_provenance",
       "usernames",
       "tour_events",
       "sessions",

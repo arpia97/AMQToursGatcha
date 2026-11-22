@@ -46,6 +46,8 @@ async function fixture(status = "synced") {
         status,
         players: 2,
         aliases: 3,
+        removed: 1,
+        moved: 2,
         error: status === "synced" ? null : "Source sheet unavailable",
       };
       return {
@@ -124,7 +126,7 @@ test("host alias scan uses the source sheet endpoint without a file upload and r
   assert.equal(f.requests[0].options.body, "{}");
   assert.match(
     f.node("#result").textContent,
-    /Alias Scan Complete · 2 players · 3 aliases/,
+    /Alias Scan Complete · 2 players · 3 sheet aliases · 1 removed · 2 moved/,
   );
   assert.equal(f.submit.disabled, false);
 });

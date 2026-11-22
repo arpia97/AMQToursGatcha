@@ -1147,6 +1147,50 @@ test("sheet aliases group IDs, reject ambiguity and migrate legacy admin identit
   assert.equal(e.resolvePlayer("two_squirds"), "368");
 });
 
+test("alias refresh reconciles sheet deletions and moves while keeping account and manual mappings", async () => {
+  const { e } = fixture();
+  let csv = "Player Name,Player ID\nSource,101\nDiscard,101\nMove,101\nTarget,202\nRetire,303";
+  const sync = new AliasSync(e, async () => new Response(csv));
+  e.tx(() => {
+    e.host("players", { players: [{id:"101", name:"Manual", aliases:["Both"]}] });
+    e.run("INSERT INTO aliases VALUES('unclassified','101')");
+  });
+  csv += "\nBoth,101";
+  assert.equal((await sync.step(true)).status, "synced");
+  e.run("UPDATE players SET password='test-hash',balance=123 WHERE id='101'");
+  e.run("INSERT INTO sessions VALUES('alias-test','101',9999999999999)");
+  e.run("INSERT INTO usernames VALUES('move','101','Move',0)");
+
+  csv = "Player Name,Player ID\nSource,101\nTarget,202\nMove,202";
+  assert.equal((await sync.step(true)).status, "retrying");
+  assert.equal(e.resolvePlayer("Discard"), "101");
+  assert.equal(e.resolvePlayer("Move"), "101");
+  assert.equal(e.resolvePlayer("Retire"), "303");
+
+  e.run("DELETE FROM usernames WHERE username='move'");
+  const status = await sync.step(true);
+  assert.equal(status.status, "synced");
+  assert.equal(status.removed, 2);
+  assert.equal(status.moved, 1);
+  assert.equal(e.resolvePlayer("Move"), "202");
+  assert.equal(e.one("SELECT player FROM aliases WHERE alias='discard'"), undefined);
+  assert.equal(e.one("SELECT player FROM aliases WHERE alias='retire'"), undefined);
+  assert.equal(e.resolvePlayer("Manual"), "101");
+  assert.equal(e.resolvePlayer("Both"), "101");
+  assert.equal(e.resolvePlayer("Unclassified"), "101");
+  assert.equal(e.player("303").id, "303");
+  assert.equal(e.player("101").balance, 123);
+  assert.equal(e.one("SELECT password FROM players WHERE id='101'").password, "test-hash");
+  assert.equal(e.one("SELECT player FROM sessions WHERE token='alias-test'").player, "101");
+
+  const repeated = await sync.step(true);
+  assert.equal(repeated.removed, 0);
+  assert.equal(repeated.moved, 0);
+  csv += "\nManual,202";
+  assert.equal((await sync.step(true)).status, "retrying");
+  assert.equal(e.resolvePlayer("Manual"), "101");
+});
+
 test("auction state and seller myListings include bidder and seller usernames instead of user IDs", () => {
   const f = fixture(),
     { e } = f;

@@ -799,6 +799,48 @@ export class Engine {
     }
     fail("Unknown action.", 404);
   }
+  importPlayers({ players, reserveIds }, source = "manual") {
+    if (!Array.isArray(players) || players.length > 5000)
+      fail("Import up to 5,000 player rows.");
+    for (const p of players) {
+      const id = text(p.id, 100),
+        name = text(p.name, 100);
+      const existing = this.one("SELECT id,name FROM players WHERE id=?", id);
+      if (!existing)
+        this.run("INSERT INTO players(id,name) VALUES(?,?)", id, name);
+      else if (existing.name !== name)
+        this.run("UPDATE players SET name=? WHERE id=?", name, id);
+      if (p.aliases !== undefined && !Array.isArray(p.aliases))
+        fail("Aliases must be a list.");
+      const aliases = [
+        ...(reserveIds === false ? [] : [id]),
+        name,
+        ...(p.aliases || []),
+      ].map((a) => text(a, 100).toLowerCase());
+      for (const alias of new Set(aliases)) {
+        const owner = this.one(
+          "SELECT a.player,p.source FROM aliases a LEFT JOIN alias_provenance p ON p.alias=a.alias AND p.player=a.player WHERE a.alias=?",
+          alias,
+        );
+        if (owner && owner.player !== id)
+          fail(
+            `Alias “${alias}” belongs to another player. Import rolled back.`,
+          );
+        const username = this.one(
+          "SELECT player FROM usernames WHERE username=?",
+          alias,
+        );
+        if (username && username.player !== id)
+          fail(
+            `Alias “${alias}” conflicts with another player’s username history. Resolve this identity conflict before importing.`,
+          );
+        if (!owner) this.run("INSERT INTO aliases VALUES(?,?)", alias, id);
+        if (!owner?.source || source === "manual" && owner.source === "sheet")
+          this.run("INSERT OR REPLACE INTO alias_provenance VALUES(?,?,?)", alias, id, source);
+      }
+    }
+    return { message: `Imported ${players.length} players.` };
+  }
   host(action, b) {
     if(action === "account-lock") return setAccountLock(this,b);
     if (action === "participation-batch") return this.participation.grant(b);
@@ -815,47 +857,7 @@ export class Engine {
       return this.economy.refreshWeekly();
     }
     if (action === "mahjong-revert") return this.economy.mahjong.reverse(b);
-    if (action === "players") {
-      if (!Array.isArray(b.players) || b.players.length > 5000)
-        fail("Import up to 5,000 player rows.");
-      for (const p of b.players) {
-        const id = text(p.id, 100),
-          name = text(p.name, 100);
-        const existing = this.one("SELECT id,name FROM players WHERE id=?", id);
-        if (!existing)
-          this.run("INSERT INTO players(id,name) VALUES(?,?)", id, name);
-        else if (existing.name !== name)
-          this.run("UPDATE players SET name=? WHERE id=?", name, id);
-        if (p.aliases !== undefined && !Array.isArray(p.aliases))
-          fail("Aliases must be a list.");
-        const aliases = [
-          ...(b.reserveIds === false ? [] : [id]),
-          name,
-          ...(p.aliases || []),
-        ].map((a) => text(a, 100).toLowerCase());
-        // Old aliases are deliberately retained: imports must not strand existing logins.
-        for (const alias of new Set(aliases)) {
-          const owner = this.one(
-            "SELECT player FROM aliases WHERE alias=?",
-            alias,
-          );
-          if (owner && owner.player !== id)
-            fail(
-              `Alias “${alias}” belongs to another player. Import rolled back.`,
-            );
-          const username = this.one(
-            "SELECT player FROM usernames WHERE username=?",
-            alias,
-          );
-          if (username && username.player !== id)
-            fail(
-              `Alias “${alias}” conflicts with another player’s username history. Resolve this identity conflict before importing.`,
-            );
-          if (!owner) this.run("INSERT INTO aliases VALUES(?,?)", alias, id);
-        }
-      }
-      return { message: `Imported ${b.players.length} players.` };
-    }
+    if (action === "players") return this.importPlayers(b);
     if (action === "deduct") {
       const quote = this.deductionQuote(b);
       if (b.expectedBalance !== quote.expectedBalance)
@@ -1206,6 +1208,7 @@ export class Engine {
         for (const table of [
           "players",
           "aliases",
+          "alias_provenance",
           "usernames",
           "receipts",
           "throttle",
@@ -1533,6 +1536,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS players(id TEXT PRIMARY KEY,name TEXT NOT NULL,balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0),earned INTEGER NOT NULL DEFAULT 0,daily TEXT,password TEXT,invite TEXT,invite_expires INTEGER);
 CREATE TABLE IF NOT EXISTS account_lock_log(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,locked INTEGER NOT NULL,at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS aliases(alias TEXT PRIMARY KEY,player TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS alias_provenance(alias TEXT PRIMARY KEY,player TEXT NOT NULL,source TEXT NOT NULL CHECK(source IN ('sheet','manual')));
 CREATE TABLE IF NOT EXISTS usernames(username TEXT PRIMARY KEY,player TEXT NOT NULL,label TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS usernames_player ON usernames(player);
 CREATE TABLE IF NOT EXISTS tour_events(player TEXT NOT NULL,category TEXT NOT NULL,event TEXT NOT NULL,PRIMARY KEY(player,category,event));
