@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Flash Shop top-of-hour and Play Dub exclusion
+
+Source `a6d5e64` is live at 100% on Worker `63dda6d0-a9d6-4f20-b974-456fcd3c1c24`. Live state confirmed the existing Flash Shop closes at 03:26 KST on November 23 and the first aligned opening is 07:00 KST. The persistent schedule remains three hours open and three hours closed, and manual restocks preserve the window. Play filters out Dub recordings before selecting Random and Watched songs, replacements and decoys. The live library served the new catalog, and the bundled catalog audit found no matching Dub occurrence or source eligible. All 596 tests and the Worker build passed.
+
 ## Alias sheet refresh and Quiz module loading
 
 Alias source `2af1c5d` is live on Worker `15436d78-930c-4488-a6f2-760f5a41a7e0`. Scans track the verified IDs worksheet mappings and reconcile sheet-managed removals and moves transactionally. Player IDs and accounts remain registered, and manual and previously unclassified aliases are preserved. The first successful scan establishes the baseline. The host console reports removal and move counts. The 594-test suite, syntax checks and the Worker dry run passed. Verified the host and Quiz routes, health and changed assets read-only. No manual production scan was triggered for QA.
