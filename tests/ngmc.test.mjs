@@ -70,9 +70,11 @@ test('NGMC gates 12 downloads and counter signup, counts once, excludes exhauste
  const controls=now=>ngmcControls(matchView(s,opponent.id,now),String);
  assert.match(controls(19_999),/Be Counter/);
  matchMove(s,volunteer.id,{type:'volunteer'},19_999);
- assert.throws(()=>matchMove(s,opponent.id,{type:'volunteer'},20_000),/signup period has ended/);
- assert.match(controls(20_000),/Counter Signup Closed/);
- assert.doesNotMatch(controls(20_000),/Be Counter/);
+ assert.match(controls(20_000),/Be Counter/);
+ const lateSignup=structuredClone(s);
+ matchMove(lateSignup,opponent.id,{type:'volunteer'},39_999);
+ assert.equal(lateSignup.counters[opponent.team],opponent.id);
+ assert.equal(lateSignup.autoCounting[opponent.team],false);
  for(const p of s.players)p.loaded.push(11);
  advanceMatch(s,39_999);assert.equal(s.phase,'loading');
  advanceMatch(s,40_000);assert.equal(s.phase,'guess');assert.equal(s.until-s.startsAt,20_000);

@@ -1,16 +1,18 @@
-import {comparePlayTier as byTier} from './play-mode-rules.js';
+import {comparePlayTier as byTier, NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, ngmcCounterSignupOpen} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {songProgressTrigger} from './detail-popover.js';
 import {animeTitlesHTML,artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function createCounterDialog(send) {
-  let dialog, timer, progress, actions, shownMatch;
+  let dialog, timer, progress, actions, status, shownMatch;
+  let pendingUntil = 0;
 
   function close() {
     dialog?.close();
     dialog?.remove();
-    dialog = timer = progress = actions = null;
+    dialog = timer = progress = actions = status = null;
+    pendingUntil = 0;
   }
 
   function open() {
@@ -28,46 +30,67 @@ export function createCounterDialog(send) {
         <p id="ngmc-counter-description">The counter chooses which teammate spends a guess after each song.</p>
       </div>
       <div class="ngmc-counter-dialog-time">
-        <p>Time to volunteer <strong></strong></p>
-        <progress max="20" value="20" aria-label="Volunteer time remaining"></progress>
+        <p>Auto-Count starts in <strong></strong></p>
+        <progress max="${NGMC_COUNTER_SIGNUP_MS/1000}" aria-label="Volunteer time remaining"></progress>
       </div>
       <div class="ngmc-counter-dialog-actions">
         <button type="button" class="button mint" data-counter-action="volunteer">Be Counter</button>
         <button type="button" class="button secondary" data-counter-action="auto-count">Use Auto-Count</button>
       </div>
-      <p class="ngmc-counter-dialog-note">A teammate can take over from Auto-Count at any time.</p>`;
+      <p class="ngmc-counter-dialog-note">A teammate can take over from Auto-Count at any time.</p>
+      <p class="ngmc-counter-dialog-note" data-counter-status role="status" hidden></p>`;
     timer = dialog.querySelector('.ngmc-counter-dialog-time strong');
     progress = dialog.querySelector('progress');
     actions = dialog.querySelectorAll('[data-counter-action]');
+    status = dialog.querySelector('[data-counter-status]');
     dialog.querySelector('.ngmc-counter-dialog-close').onclick = close;
     dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
     for (const button of actions)
-      button.onclick = ()=>{if(send({type:button.dataset.counterAction}))close();};
+      button.onclick = ()=>{
+        if (send({type:button.dataset.counterAction})) {
+          pendingUntil = performance.now()+4000;
+          for (const action of actions) action.disabled = true;
+          showStatus('Waiting for confirmation…');
+        } else showStatus('Reconnecting. Try again once connected.');
+      };
     document.body.append(dialog);
     dialog.showModal();
     dialog.querySelector('h2').focus({preventScroll:true});
   }
 
-  function update(match, me, now, connected) {
-    if (match?.mode !== 'ngmc-ranked' || match.phase !== 'loading' || !me || me.left ||
-        match.counters[me.team] || match.autoCounting?.[me.team] || !(now < match.counterDeadline)) {
+  function showStatus(message) {
+    status.textContent = message;
+    status.hidden = !message;
+  }
+
+  function retry(message) {
+    if (!pendingUntil) return;
+    pendingUntil = 0;
+    showStatus(message);
+  }
+
+  function update(match, me, now, connected, reopen = false) {
+    if (!ngmcCounterSignupOpen(match,me,now)) {
       if (dialog) close();
       return;
     }
     if (!dialog) {
-      if (shownMatch === match.id || !connected || document.querySelector('dialog[open]')) return;
+      if ((!reopen && shownMatch === match.id) || !connected || document.querySelector('dialog[open]')) return;
       shownMatch = match.id;
       open();
     }
-    const seconds = Math.ceil((match.counterDeadline-now)/1000);
+    const seconds = Math.ceil((ngmcCounterDeadline(match)-now)/1000);
     if (progress.value !== seconds || !timer.textContent) {
       timer.textContent = seconds+'s';
       progress.value = seconds;
     }
-    for (const button of actions) button.disabled = !connected;
+    if (pendingUntil && (!connected || performance.now() >= pendingUntil)) {
+      retry(connected ? 'No confirmation yet. Try again.' : 'Reconnecting…');
+    }
+    for (const button of actions) button.disabled = !connected || !!pendingUntil;
   }
 
-  return {update,close};
+  return {update,close,retry};
 }
 
 export function ngmcArena(match,form){
@@ -103,16 +126,14 @@ export function ngmcTeams(match,esc) {
 export function ngmcControls(match,esc) {
   const me=match.players.find(p=>p.id===match.me),counter=match.players.find(p=>p.id===match.counters[me.team]);
   let html='';
-  const autoCountAt=match.autoCountAt??match.counterDeadline;
+  const autoCountAt=ngmcCounterDeadline(match);
   if(match.phase==='loading'&&match.counters.some((id,team)=>!id&&!match.autoCounting?.[team])&&match.now<autoCountAt){
-    const signupOpen=match.now<match.counterDeadline;
     let action='<strong>Waiting for Opponent Counter</strong>';
     if(!counter&&!match.autoCounting?.[me.team]){
-      action=signupOpen?'<button type="button" class="button secondary" data-sa-action="volunteer" title="Choose which teammate spends a guess">Be Counter</button>':'<strong>Counter Signup Closed</strong>';
+      action='<button type="button" class="button secondary" data-sa-action="volunteer" title="Choose which teammate spends a guess">Be Counter</button>';
       action+='<button type="button" class="button secondary" data-sa-action="auto-count" title="Use automatic counting until a teammate takes over">Auto-Count</button>';
     }
-    const deadline=signupOpen?match.counterDeadline:autoCountAt;
-    html+='<div class="ngmc-counter">'+action+'<small>'+(signupOpen?'Signup closes in ':'Automatic counting in ')+'<b data-counter-timer="'+deadline+'"></b></small></div>';
+    html+='<div class="ngmc-counter">'+action+'<small>Automatic counting in <b data-counter-timer="'+autoCountAt+'"></b></small></div>';
   }
   if(match.phase==='counting'){
     const row=match.history.at(-1);

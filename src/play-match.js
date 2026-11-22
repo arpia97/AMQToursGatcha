@@ -1,4 +1,4 @@
-import {DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
+import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {gameEnded,liveMatchScore,spectatorTag,spectatorView,spectatorClip} from './play-spectator.js';
@@ -85,6 +85,7 @@ export class PlayMatch extends DurableObject {
       if(opening.setupError)return opening;
       if(Date.now()>=deadline)return expired;
       const {state,watched}=opening;
+      if(state.mode==='ngmc-ranked')state.autoCountAt=Date.now()+NGMC_COUNTER_SIGNUP_MS;
       if(watched)this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state(id,data) VALUES(2,?)',JSON.stringify(watched));
       this.reviewLog.initialize(state);this.reviewLog.add(state,'','created');this.write(state);
       await this.schedule();
@@ -134,8 +135,7 @@ export class PlayMatch extends DurableObject {
     let next = this.pendingRankedLeaves(state).length?Math.min(now+1000,state.until):state.until;
     if(state.phase==='loading'&&state.readyDeadline&&state.players.some(p=>!p.left&&!p.acceptedReady&&!p.ready))next=Math.min(next,state.readyDeadline);
     if (state.mode === 'ngmc-ranked' && state.phase === 'loading' && state.counters.some((id,team) => !id && !state.autoCounting?.[team])) {
-      const deadline = now < state.counterDeadline ? state.counterDeadline : state.autoCountAt??state.counterDeadline;
-      next = Math.min(next, Math.max(now+1, deadline));
+      next = Math.min(next, Math.max(now+1, ngmcCounterDeadline(state)));
     }
     if (state.audioSealed && state.phase === 'guess' && state.startsAt > now)
       next = Math.min(next,state.startsAt);

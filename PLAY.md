@@ -120,9 +120,10 @@ quizzes, one per player and quiz.
   After an NGMC match, use cumulative NGMC hits/songs exclusively. A temporary
   Tour lookup failure prevents joining instead of silently inventing a seed.
 - The counter selection pop-up opens during each team's 20-second signup window.
-  Players can volunteer, choose Auto-Count, or dismiss it and continue setup. If
-  both counters volunteer, play can start as soon as everyone is ready. At 40 seconds
-  from setup, teams without a volunteer use automatic counting. A team can also
+  Players can volunteer, choose Auto-Count, or dismiss the prompt and reopen it
+  with Choose Counter in the match header. If both counters volunteer, play can
+  start as soon as everyone is ready. Signup stays open for 40 seconds after
+  match preparation finishes, then teams without a volunteer use Auto-Count. A team can also
   choose automatic counting early. While it is active, any teammate can take
   over as counter. A choice already made for the current song stays in effect.
   A counter has eight seconds after reveal to choose an eligible teammate.

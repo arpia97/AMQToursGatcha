@@ -1,4 +1,4 @@
-import {matchGuessFields, songArtistFields, animeOnlyMode, DUEL_FORMAT, duelRules, DUEL_LOBBY_FORMAT, ONE_TEAM_MODE, ONE_TEAM_FORMAT, oneTeamRules, PLAY_REVEAL_MS, queueMode, usesTeamBallot} from '../public/play-mode-rules.js';
+import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, matchGuessFields, songArtistFields, animeOnlyMode, DUEL_FORMAT, duelRules, DUEL_LOBBY_FORMAT, ONE_TEAM_MODE, ONE_TEAM_FORMAT, oneTeamRules, PLAY_REVEAL_MS, queueMode, usesTeamBallot} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, selectArenaTitles} from './play-arena.js';
@@ -33,7 +33,7 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   if(arena)roster=pairPlayers(roster);
   const samples=new Uint32Array(songs.length);crypto.getRandomValues(samples);
   const mode=ngmc?'ngmc-ranked':survival?ONE_TEAM_MODE:queueMode(format)===ONE_TEAM_MODE?'song-artist':queueMode(format);
-  return {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],counterDeadline:now+20_000,autoCountAt:now+40_000}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(custom?{}:{answeredMatch:false}),answers:{},locked:false}))};
+  return {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(custom?{}:{answeredMatch:false}),answers:{},locked:false}))};
 }
 function recordRoundParticipation(state) {
   for (const player of state.players) {
@@ -104,7 +104,7 @@ export function advanceMatch(state,now=Date.now()) {
   if(ngmc&&state.history.length&&state.teams.some((_,team)=>!active.some(p=>p.team===team))){if(state.phase==='counting')finishNgmcCount(state,Infinity);for(let team=0;team<2;team++)if(!active.some(p=>p.team===team))state.teams[team]=0;state.phase='finished';state.reason='A team left the match.';state.until=now+86400000;return;}
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
-    if(ngmc && state.phase==='loading' && now>=(state.autoCountAt??state.counterDeadline)){
+    if(ngmc && state.phase==='loading' && now>=ngmcCounterDeadline(state)){
       state.autoCounting=state.counters.map(id=>!id);
     }
     if((!ngmc||state.phase==='buffering'||state.counters.every((id,team)=>id||state.autoCounting?.[team]))&&active.every(p=>playerAudioReady(state,p))) {
@@ -186,7 +186,7 @@ export function matchMove(state,id,message,now=Date.now()) {
     const team=player.team;
     if(state.counters[team]===id)return;
     if(state.counters[team])fail('Your team already has a counter.',409);
-    if(!state.autoCounting?.[team]&&(state.phase!=='loading'||now>=state.counterDeadline))
+    if(!state.autoCounting?.[team]&&(state.phase!=='loading'||now>=ngmcCounterDeadline(state)))
       fail('The counter signup period has ended.',409);
     state.counters[team]=id;
     if(state.autoCounting)state.autoCounting[team]=false;
@@ -261,7 +261,7 @@ export function matchView(state,id,now=Date.now(),compactHistory=false) {
   const compact=compactHistory&&!ended;
   // NGMC counting can revise the latest revealed round's lives and spent guesses.
   const historyFrom=compact?Math.max(0,state.history.length-1):0;
-  return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,autoCounting:state.autoCounting,counterDeadline:state.counterDeadline,autoCountAt:state.autoCountAt??state.counterDeadline,readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
+  return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,autoCounting:state.autoCounting,counterDeadline:ngmcCounterDeadline(state),autoCountAt:ngmcCounterDeadline(state),readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,
     ...(ended?{settlementPending:!state.rankingsSettled,ratingsPending:!state.ratingsDone&&!state.rankingsSettled,
       creditsPending:!!(state.format!==ONE_TEAM_FORMAT&&state.completed&&!state.lobby&&!me.left&&me.disconnectedAt==null&&me.rankedLeftAt==null&&!state.creditsDone&&!state.rankingsSettled)}:{}),
     preparingClip:!!state.preparingClip,...playbackView(state,me,now),skipRequired:skipMajority(state),skipVotes:state.players.filter(p=>!p.left&&p.skip).map(p=>p.id),

@@ -2,7 +2,7 @@ import {answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
-import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js';
+import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, ngmcCounterSignupOpen, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js';
@@ -87,7 +87,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   const player=()=>match?.players.find(p=>p.id===match.me);
   const send=(socket,value)=>{if(socket?.readyState===1){socket.send(JSON.stringify(['answer','artists','draft'].includes(value.type)?{...value,clientAt:Date.now()}:value));return true;}return false;};
   const counterDialog=createCounterDialog(message=>send(room,message));
-  const updateCounterDialog=now=>counterDialog.update(match,player(),now,room?.readyState===1);
+  function updateCounterDialog(now,reopen=false) {
+    const me=player(), connected=room?.readyState===1&&room.hasState;
+    const signup=root.querySelector('[data-sa-action="choose-counter"]');
+    if(signup){
+      signup.hidden=!ngmcCounterSignupOpen(match,me,now);
+      signup.disabled=!connected;
+    }
+    counterDialog.update(match,me,now,connected,reopen);
+  }
   const activity=createPlayActivity(message=>{if(active&&match&&!['finished','cancelled'].includes(match.phase))send(room,message);});
   const error=message=>{onError(Error(message));};
   function socketURL(id){const url=new URL('play-connect',apiBase);url.protocol=url.protocol==='https:'?'wss:':'ws:';url.searchParams.set('protocol',String(PLAY_AUDIO_PROTOCOL));if(id)url.searchParams.set('match',id);return url;}
@@ -293,7 +301,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         return;
       }
       if(msg.type==='chat-message'){chat?.receive(msg.row);return;}
-      if(msg.type==='error'){if(replacingAudio){replacingAudio=false;downloadError='Replacement audio is unavailable. Retry the missing downloads.';}pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
+      if(msg.type==='error'){counterDialog.retry(msg.message);if(replacingAudio){replacingAudio=false;downloadError='Replacement audio is unavailable. Retry the missing downloads.';}pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
       if(msg.type==='pong'&&msg.sentAt){
         const received=Date.now(),rtt=received-msg.sentAt;
         if(msg.sentAt===ws.probeAt)ws.probeAt=null;
@@ -691,7 +699,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       match.format===ONE_TEAM_FORMAT?'1-Team':(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]|| (match.format==='1-team'?'1-Team':formats[match.format]));
     const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
-    const takeOver=!done&&ranked()?'<button type="button" class="button secondary" data-sa-action="volunteer" data-ngmc-takeover hidden>Take Over Counting</button>':'';
+    const takeOver=!done&&ranked()?'<button type="button" class="button secondary" data-sa-action="choose-counter" hidden>Choose Counter</button>'+
+      '<button type="button" class="button secondary" data-sa-action="volunteer" data-ngmc-takeover hidden>Take Over Counting</button>':'';
     const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
       :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:match.format===ONE_TEAM_FORMAT?'1-Team':'Song/Artist';
     const titleRow=modeTitleHTML(title,match.format);
@@ -922,6 +931,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
     if(player()?.acceptedReady){root.querySelector('.sa-ready-reminder')?.remove();return;}
     if(!match.readyDeadline||now<match.readyDeadline-60000||now>=match.readyDeadline||readyReminder===match.id)return;
+    if(document.querySelector('.ngmc-counter-dialog[open]'))return;
     readyReminder=match.id;
     const dialog=document.createElement('dialog');
     dialog.className='lobby-poll sa-ready-reminder';dialog.setAttribute('aria-label','Ready up');
@@ -1069,6 +1079,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         joinQueue(selectedQueueFormat(),preferredPool());
       }
     }
+    else if(action==='choose-counter')updateCounterDialog(Date.now()+offset,true);
     else if(action==='volunteer'||action==='auto-count')send(room,{type:action});
     else if(action==='search-retry'){startWorker();render();}
     else if(action==='retry-download')preload();

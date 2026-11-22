@@ -1,4 +1,4 @@
-import {DUEL_FORMAT,ONE_TEAM_FORMAT,PLAY_REVEAL_MS,matchGuessFields,oneTeamRules,soloVersus} from './play-mode-rules.js';
+import {DUEL_FORMAT,ONE_TEAM_FORMAT,PLAY_REVEAL_MS,matchGuessFields,ngmcCounterDeadline,oneTeamRules,soloVersus} from './play-mode-rules.js';
 import {ARENA_FORMAT} from './play-arena-config.js';
 import {percentDone} from './play-setup-progress.js';
 import {playPlayerAvatar} from './play-avatar.js';
@@ -123,5 +123,5 @@ export function songResultsHTML(match,esc,animeTitle){
 }
 export function readyHTML(match,canReady,ready,esc,autoReadyControl=''){
   const active=match.players.filter(p=>!p.left),count=active.filter(p=>p.acceptedReady||p.ready).length;
-  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready'+(active.length?' · '+percentDone(count,active.length):'')+'</span><h2>'+(ready?(count===active.length?(active.every(p=>p.audioReady)&&match.counters?.some((id,team)=>!id&&!match.autoCounting?.[team])&&match.now<(match.autoCountAt??match.counterDeadline)?(match.now<match.counterDeadline?'Choosing Counters':'Waiting for Auto-Counting'):'Preparing Audio'):'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
+  return '<section class="sa-ready-panel"><span class="sa-eyebrow">'+count+' / '+active.length+' Players Ready'+(active.length?' · '+percentDone(count,active.length):'')+'</span><h2>'+(ready?(count===active.length?(active.every(p=>p.audioReady)&&match.counters?.some((id,team)=>!id&&!match.autoCounting?.[team])&&match.now<ngmcCounterDeadline(match)?'Choosing Counters':'Preparing Audio'):'Waiting for Everyone'):'Ready to Play?')+'</h2><button type="button" class="button mint sa-ready-button" data-sa-action="ready" '+(!canReady||ready?'disabled':'')+'>'+(ready?'✓ Ready':canReady?'Ready · Enable Audio':'Preparing Audio…')+'</button><p>'+esc(active.filter(p=>!p.acceptedReady&&!p.ready).map(p=>p.name).join(' · ')||'Everyone Is Ready')+'</p>'+autoReadyControl+'</section>';
 }
