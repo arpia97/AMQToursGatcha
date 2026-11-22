@@ -25,6 +25,7 @@ test('Quiz ranking sorts across pages, retains overall ranks and places untimed 
 import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from '../src/play-arena.js';
+import {ballotCatalogIndex} from '../src/play-lobby-votes.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
@@ -350,7 +351,7 @@ test('Autoskip combines with submitted answers without casting a Skip Song vote'
   auto(lobby,'0',true);
   matchMove(lobby,'1',{type:'propose',index:0,field:'anime',answer:'Anime'},now+300);
   assert.equal(lobby.phase,'guess');
-  matchMove(lobby,'1',{type:'vote',index:0,field:'anime',choice:lobby.ballot.anime[0].id},now+400);
+  matchMove(lobby,'1',{type:'vote',index:0,field:'anime',choice:lobby.ballot.anime[0].id},now+400,ballotCatalogIndex({anime:['Anime']}));
   assert.equal(lobby.phase,'reveal');
   assert.equal(lobby.history[0].results.find(result=>result.id==='1').earned,1);
 });
@@ -400,7 +401,8 @@ test('custom team ballots turn duplicate proposals into votes, settle early and 
   const song={anime:'Alpha',title:'First',artist:'Singer',answers:{anime:['alpha'],song:['first'],artist:['Singer']}};
   const state=makeMatch('room','lobby-team',players,[song],0,{songs:1,seconds:0});
   state.phase='guess';state.startsAt=1;state.until=8.64e15;
-  const move=(id,type,field,extra)=>matchMove(state,id,{type,index:0,field,...extra},100);
+  const catalog=ballotCatalogIndex({anime:['Alpha','Beta'],song:['First'],artist:['Singer','Another Singer']});
+  const move=(id,type,field,extra)=>matchMove(state,id,{type,index:0,field,...extra},100,catalog);
   move('a','propose','anime',{answer:'Alpha'});
   move('b','propose','anime',{answer:'AL-PHA'});
   assert.equal(state.ballot.anime.length,1);
@@ -445,7 +447,7 @@ test('custom Song/Artist lobbies grade only the enabled categories in every comb
       const lobby={...settings,guessFields:enabled};
       const state=makeMatch('custom',format,players,[song],0,lobby);
       state.phase='guess';state.startsAt=1;state.until=30_001;
-      const move=message=>matchMove(state,'a',{index:0,...message},100);
+      const move=message=>matchMove(state,'a',{index:0,...message},100,ballotCatalogIndex(song.answers));
       if(format==='lobby-team'){
         for(const field of Object.keys(answers).filter(x=>!enabled.includes(x)))
           assert.throws(()=>move({type:'propose',field,answer:answers[field]}),/category/);

@@ -28,7 +28,7 @@ export class PlayMatch extends DurableObject {
     if(!sql.exec('PRAGMA table_info(room_chat)').toArray().some(col=>col.name==='name'))
       sql.exec('ALTER TABLE room_chat ADD COLUMN name TEXT');
     const saved=sql.exec("SELECT json_extract(data,'$.format') AS format,json_extract(data,'$.phase') AS phase FROM match_state WHERE id=1").toArray()[0];
-    if(saved&&usesTeamBallot(saved.format)&&!gameEnded(saved.phase))
+    if(saved&&(usesTeamBallot(saved.format)||saved.format==='1-team')&&!gameEnded(saved.phase))
       ctx.blockConcurrencyWhile(()=>this.loadBallotCatalog(this.read()));
   }
   async loadBallotCatalog(state){
@@ -132,7 +132,7 @@ export class PlayMatch extends DurableObject {
     }
     if(!library)fail('The song library is unavailable.',503);
     const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
-    if(usesTeamBallot(format))await this.loadBallotCatalog(state);
+    if(usesTeamBallot(format)||format==='1-team')await this.loadBallotCatalog(state);
     state.pool=pool;state.syncPlayback=true;
     prepareAudioPool(state,library.decoys,true);
     await sealPlayAudio(state,this.env.HOST_TOKEN);
@@ -174,7 +174,7 @@ export class PlayMatch extends DurableObject {
     for(const ws of this.#playerSockets()){
       const who=ws.deserializeAttachment();
       if(who.expires<=now)ws.close(4003,'Session expired.');
-      else send(ws,{type:'state',state:matchView(state,who.id,now,who.compactHistory)});
+      else send(ws,{type:'state',state:matchView(state,who.id,now,who.compactHistory,this.ballotCatalog)});
     }
     this.broadcastSpectators(state,now);
   }
@@ -313,7 +313,7 @@ export class PlayMatch extends DurableObject {
       ? {...state,audioPool:state.audioPool.map(entry=>({...entry}))} : state;
     if(mediaState!==state)await sealPlayAudio(mediaState,this.env.HOST_TOKEN,Date.now());
     send(server,audioManifest(mediaState));
-      send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id)});
+      send(server,{type:'state',canCompactHistory:true,state:matchView(state,who.id,Date.now(),false,this.ballotCatalog)});
       if(!player.left&&!player.chatLeft)send(server,{type:'chat-history',rows:this.chatHistory()});
       await this.schedule();
       return response;
@@ -385,7 +385,7 @@ export class PlayMatch extends DurableObject {
       }
       if(input.message.type==='sync'){
         const now=Date.now();
-        send(ws,{type:'state',state:matchView(state,input.who.id,now)});
+        send(ws,{type:'state',state:matchView(state,input.who.id,now,false,this.ballotCatalog)});
         if(state.until<=now||(['finished','cancelled'].includes(state.phase)&&!state.rankingsSettled)){
           const alarm=await this.ctx.storage.getAlarm();
           if(alarm===null||alarm>now+5000)await this.ctx.storage.setAlarm(now+1);

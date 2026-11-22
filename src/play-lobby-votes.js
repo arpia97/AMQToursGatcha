@@ -12,7 +12,9 @@ export function proposeOrVote(state,player,message){
     const key=field==='artist'?artistKey(answer):titleKey(answer);
     if(!key||answer.length>300)reject('Enter an answer within 300 characters.');
     const existing=options.find(option=>option.key===key&&state.players.some(p=>p.id===option.owner&&!p.left));
+    player.lastBallotChoice??={};
     if(existing){
+      player.lastBallotChoice[field]=existing.id;
       if(existing.owner!==player.id){
         player.votes??={};
         player.votes[field]=existing.id;
@@ -21,7 +23,9 @@ export function proposeOrVote(state,player,message){
       return;
     }
     if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
-    options.push({id:crypto.randomUUID(),owner:player.id,answer,key});
+    const id=crypto.randomUUID();
+    options.push({id,owner:player.id,answer,key});
+    player.lastBallotChoice[field]=id;
     if(player.answeredMatch===false)player.answeredMatch=true;
   }else if(message.type==='withdraw'){
     const index=options.findIndex(option=>option.id===message.choice&&option.owner===player.id);
@@ -30,6 +34,8 @@ export function proposeOrVote(state,player,message){
     for(const voter of state.players)if(voter.votes?.[field]===message.choice)delete voter.votes[field];
   }else{
     if(message.choice!==null&&!options.some(o=>o.id===message.choice&&state.players.some(p=>p.id===o.owner&&!p.left)))reject('Choose an available answer.');
+    player.lastBallotChoice??={};
+    player.lastBallotChoice[field]=message.choice;
     player.votes??={};
     if(message.choice===null)delete player.votes[field];
     else {
@@ -38,14 +44,27 @@ export function proposeOrVote(state,player,message){
     }
   }
 }
-export function ballotsComplete(state){
+export function catalogAnswer(catalog,field,answer,key){
+  const entries=catalog?.[field];
+  if(!entries||!answer)return false;
+  const normalized=key??(field==='artist'?artistKey(answer):titleKey(answer));
+  return entries.has(normalized)||field==='artist'&&answer.split(',').every(name=>entries.has(artistKey(name)));
+}
+export function ballotReadiness(state,catalog){
   const active=state.players.filter(p=>!p.left),ids=new Set(active.map(p=>p.id));
-  return matchGuessFields(state).every(field=>{
-    const choices=new Set((state.ballot?.[field]||[]).filter(o=>ids.has(o.owner)).map(o=>o.id));
-    const submitted=new Set(state.format===ONE_TEAM_FORMAT
-      ? (state.ballot?.[field]||[]).map(option=>option.owner) : []);
-    return active.every(p=>p.autoSkip||choices.has(p.votes?.[field])||submitted.has(p.id));
-  });
+  const ready=new Set(ids);
+  for(const field of matchGuessFields(state)){
+    const options=(state.ballot?.[field]||[]).filter(o=>ids.has(o.owner));
+    const valid=new Set(options.filter(o=>catalogAnswer(catalog,field,o.answer,o.key)).map(o=>o.id));
+    for(const player of active){
+      const vote=player.votes?.[field];
+      // Rounds already running at deployment have no stored last action.
+      const latest=Object.hasOwn(player.lastBallotChoice||{},field)?player.lastBallotChoice[field]:
+        vote??options.findLast(o=>o.owner===player.id)?.id;
+      if(!valid.has(latest)||(state.format!==ONE_TEAM_FORMAT&&!valid.has(vote)))ready.delete(player.id);
+    }
+  }
+  return ready;
 }
 export function ballotCatalogIndex(catalog){
   return Object.fromEntries(Object.entries(catalog).map(([field,names])=>{
@@ -63,8 +82,7 @@ export function selectWinners(state,catalog){
     const max=Math.max(...counts),leaders=options.filter((_,i)=>counts[i]===max);
     let eligible=leaders;
     if(leaders.length>1&&catalog){
-      eligible=leaders.filter(option=>catalog[field].has(option.key)||
-        field==='artist'&&option.answer.split(',').every(name=>catalog.artist.has(artistKey(name))));
+      eligible=leaders.filter(option=>catalogAnswer(catalog,field,option.answer,option.key));
       if(!eligible.length)continue;
     }
     const chosen=eligible.length===1?eligible[0]:eligible[Math.floor(Math.random()*eligible.length)];

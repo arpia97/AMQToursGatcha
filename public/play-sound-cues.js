@@ -143,7 +143,9 @@ export function roundSoundCues(previous, next) {
   const round = next.history.at(-1);
   const own = round?.index === next.index && round.results.find(result => result.id === next.me);
   const sounds = [];
-  if (grading && own) {
+  if (grading && round?.index===next.index && [ONE_TEAM_FORMAT,'lobby-team','1-team'].includes(next.format)) {
+    sounds.push(round.points[player.team]>0?'correct':'incorrect');
+  } else if (grading && own) {
     if (next.mode === 'ngmc-ranked' && own.correct.anime && round.results.filter(result => result.correct.anime).length === 1)
       sounds.push('erig');
     else if (Object.values(own.correct).some(Boolean)) sounds.push('correct');

@@ -5,6 +5,7 @@ import {ONE_TEAM_FORMAT,ONE_TEAM_MODE,oneTeamRules,queueMode} from '../public/pl
 import {defaultPlayGuessSeconds,PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 import {advanceMatch,gradeRound,makeMatch,matchMove,matchView} from '../src/play-match-rules.js';
 import {ballotCatalogIndex,proposeOrVote,selectWinners,rematchView,voteToRestart} from '../src/play-lobby-votes.js';
+import {roundSoundCues} from '../public/play-sound-cues.js';
 import {matchCreditPlan} from '../src/play-rewards.js';
 import {liveMatchScore} from '../src/play-spectator.js';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
@@ -30,6 +31,52 @@ test('team ballots filter only tied leaders against the full field catalog',()=>
   assert.equal(winner('anime',['unknown','Known Title'],[0,0]),'unknown');
   assert.ok(['Known Title','Another Title'].includes(winner('anime',['Known Title','Another Title','unknown'],[])));
   assert.equal(winner('artist',['artist one, Two Artist','Known Title'],[]),'artist one, Two Artist');
+});
+
+test('only a current catalog guess or vote makes a player ready for early reveal',()=>{
+  const catalog=ballotCatalogIndex({anime:['Other Anime','Anime 0']});
+  const state=Object.assign(makeMatch('test',ONE_TEAM_FORMAT,players.slice(0,3),songs.slice(0,1),0),
+    {phase:'guess',startsAt:0,until:20000});
+  const move=(id,msg)=>matchMove(state,id,{index:0,field:'anime',...msg},1000,catalog);
+  const propose=(id,answer)=>move(id,{type:'propose',answer});
+  const ready=id=>matchView(state,id,1000,false,catalog).players.find(p=>p.id===id).answerReady;
+  propose('1','Other Anime');
+  const valid=state.ballot.anime[0].id;
+  assert.equal(ready('1'),true);
+  propose('1','gibberish');
+  const invalid=state.ballot.anime[1].id;
+  assert.equal(ready('1'),false);
+  propose('2','OTHER ANIME');
+  assert.equal(ready('2'),true);
+  move('2',{type:'vote',choice:invalid});
+  assert.equal(ready('2'),false);
+  move('2',{type:'vote',choice:valid});
+  propose('1','Other Anime');
+  move('1',{type:'withdraw',choice:valid});
+  assert.equal(ready('1'),false);
+  assert.equal(ready('2'),false);
+  propose('2','Anime 0');
+  propose('3','Anime 0');
+  assert.equal(state.phase,'guess');
+  propose('1','Anime 0');
+  assert.equal(state.phase,'reveal');
+  assert.deepEqual(state.history[0].points,[1]);
+});
+
+test('every active teammate hears the shared reveal result exactly once',()=>{
+  for(const format of [ONE_TEAM_FORMAT,'1-team','lobby-team']){
+    const members=players.slice(0,3).map(p=>({...p,team:0}));
+    for(const hit of [true,false]){
+      const guess={id:'test',format,index:0,phase:'guess',players:members,teams:[5]};
+      const results=members.map((p,i)=>({id:p.id,correct:{anime:hit&&i===0},answers:i===0?{anime:'Guess'}:{}}));
+      const reveal={...guess,teams:[format===ONE_TEAM_FORMAT&&!hit?4:5],phase:'reveal',history:[{index:0,points:[Number(hit)],results}]};
+      for(const p of members){
+        const view={...reveal,me:p.id};
+        assert.deepEqual(roundSoundCues(guess,view),hit?['correct']:format===ONE_TEAM_FORMAT?['incorrect','lose-life']:['incorrect']);
+        assert.deepEqual(roundSoundCues(view,view),[]);
+      }
+    }
+  }
 });
 
 test('only the selected guess scores and five team misses finish after the reveal',()=>{
@@ -94,7 +141,7 @@ test('one-team completes a playable set with lives remaining and preserves legac
   assert.equal(state.phase,'guess');
   assert.equal(state.players.find(player=>player.id==='2').answeredMatch,true);
   assert.deepEqual(matchView(state,'2',1200).players.find(player=>player.id==='2').submittedFields,['anime']);
-  matchMove(state,'3',{type:'vote',index:1,field:'anime',choice},1201);
+  matchMove(state,'3',{type:'vote',index:1,field:'anime',choice},1201,ballotCatalogIndex({anime:['Anime 1']}));
   assert.equal(state.phase,'reveal');
   advanceMatch(state,state.until);
   assert.deepEqual(state.teams,[5]);
