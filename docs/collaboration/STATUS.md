@@ -1,8 +1,12 @@
 # Shared Status and Handoff
 
+## Vanilla anime dropdown comparison
+
+Source `f30e23b` is live on Worker `6914ac5a-98a2-4a6a-bf5e-275ec372730c`. Normal search preserves leading and trailing separators. The matcher reproduced all 21 provided dropdowns in order using the combined 182 captured titles. With the full 13,871-title Play catalog, 19 lists matched exactly and two contained additional matching titles within the 25-row limit. All 583 tests, syntax checks and the Worker dry run passed. Both Play routes and the deployed matcher were verified.
+
 ## Fuzzy anime title search
 
-Source `794e55f` is live on Worker `40821d8a-d05c-4901-92f4-cbddca35f0c8`. The optional anime matcher in Play multiplayer and Quiz follows Juvian’s AMQ Autocomplete Improvement 1.41. Twenty reference queries matched the attachment on the same title banks. Local Chromium verified the multiplayer worker with both search settings at 390 and 1280 px. All 582 tests, syntax checks, and the Worker dry run passed. Both Play routes, health, and the five deployed JavaScript assets passed read-only verification. A standard AMQ capture is still pending for the separate normal-search comparison.
+Source `794e55f` is live on Worker `40821d8a-d05c-4901-92f4-cbddca35f0c8`. The optional anime matcher in Play multiplayer and Quiz follows Juvian’s AMQ Autocomplete Improvement 1.41. Twenty reference queries matched the attachment on the same title banks. Local Chromium verified the multiplayer worker with both search settings at 390 and 1280 px. All 582 tests, syntax checks, and the Worker dry run passed. Both Play routes, health, and the five deployed JavaScript assets passed read-only verification.
 
 ## NGMC counter signup
 
