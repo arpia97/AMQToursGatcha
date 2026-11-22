@@ -60,15 +60,20 @@ quizzes, one per player and quiz.
 
 - The dedicated tab has separate Random and Watched survival queues and keeps
   the existing three-player Song/Artist 1-Team queue and its custom lobbies.
-- Survival starts with eight players, or with at least three after the oldest
-  eligible player has waited 90 seconds. Watched uses the combined list pool.
+- Survival queues start at least three and up to eight players 20 seconds
+  after the newest eligible player joins. Watched uses the combined list pool.
 - Up to 100 verified songs, 20 seconds per song, and five shared lives. Players
-  submit anime titles and vote on the team guess. The leading guess is graded at
-  timeout or when all active players vote. Tied choices are picked randomly.
-  An incorrect or missing team guess costs one life. The match ends after the
-  reveal of the last song or the fifth miss.
-- Survival records personal correct answers and match history without ratings
-  or credit awards. The existing Song/Artist queue retains its rewards.
+  submit titles or vote for submitted titles to mark themselves ready for the
+  reveal. The leading guess is graded at timeout or when everyone has responded,
+  and tied choices are picked randomly. An incorrect or missing team guess costs
+  one life. The match ends after the final reveal or the fifth miss.
+- Players who finish a match earn 5 credits per song played in Random or 2 in
+  Watched, including completed rematches. Survival is unranked.
+  The existing Song/Artist queue retains its rewards.
+- When a completed match ends, the remaining players have 90 seconds to vote
+  on a restart. A majority opens a two-minute invitation to the same 1-Team
+  format and pool for the players and current spectators. Invitees opt in and
+  ready up in the shared lobby before the host starts.
 
 ## Song / Artist
 

@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## 1-Team survival rematches, queue timer and credits
+
+Source `e3e0d9b` is live at 100% on Worker `f0d1f152-8784-4da0-949d-94c87cee7fb4`. The survival queues start 20 seconds after their latest eligible join, with three to eight players. An anime proposal or vote counts toward early reveal. Finished matches award 5 credits per played song in Random or 2 in Watched. A majority restart vote invites current players and spectators to an opt-in rematch lobby. The eight-player local browser verified stable answer controls during progress and voting at desktop and mobile widths and confirmed the restart prompt, payout and lobby transition. The local Worker tests exercised a Watched rematch with a spectator and verified credit settlement for both pools. All 596 tests, syntax checks and the Worker dry run passed. The live 1-Team route, health and seven changed JS/CSS assets were verified read-only.
+
 ## Flash Shop top-of-hour and Play Dub exclusion
 
 Source `a6d5e64` is live at 100% on Worker `63dda6d0-a9d6-4f20-b974-456fcd3c1c24`. Live state confirmed the existing Flash Shop closes at 03:26 KST on November 23 and the first aligned opening is 07:00 KST. The persistent schedule remains three hours open and three hours closed, and manual restocks preserve the window. Play filters out Dub recordings before selecting Random and Watched songs, replacements and decoys. The live library served the new catalog, and the bundled catalog audit found no matching Dub occurrence or source eligible. All 596 tests and the Worker build passed.
