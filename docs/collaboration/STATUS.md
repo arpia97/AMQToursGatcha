@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Alias sheet refresh and Quiz module loading
+
+Alias source `2af1c5d` is live on Worker `15436d78-930c-4488-a6f2-760f5a41a7e0`. Scans track the verified IDs worksheet mappings and reconcile sheet-managed removals and moves transactionally. Player IDs and accounts remain registered, and manual and previously unclassified aliases are preserved. The first successful scan establishes the baseline. The host console reports removal and move counts. The 594-test suite, syntax checks and the Worker dry run passed. Verified the host and Quiz routes, health and changed assets read-only. No manual production scan was triggered for QA.
+
+Hotfix `3052a2a` shipped first on Worker `8509879a-1c6b-4501-a558-3665d63a61b7` and is included in the current deployment. Versioned entrypoint and Autolock module URLs avoid a previously cached search module missing the new export. Live Chromium loaded the versioned imports from Play Quiz and Gacha, and all 38 focused Quiz tests passed.
+
 ## NGMC counter prompt through Auto-Count
 
 Source `38aa9aa` is live on Worker `7f47a3d4-073b-4172-9340-dd4bbc0c9135`. The browser waits for server assignment even when the displayed countdown expires. If Auto-Count starts before a volunteer, the modal becomes a compact takeover prompt that allows gameplay interaction. A confirmed volunteer or dismissal closes it. Local eight-player Chromium matches at 390 and 1280 px verified clock drift, a teammate choosing Auto-Count, readying up, reaching the first guess, and taking over. The 592-test suite and the added focused NGMC regression passed. The live NGMC route, health endpoint and four frontend assets were verified.
