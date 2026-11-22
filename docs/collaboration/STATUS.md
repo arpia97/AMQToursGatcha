@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Fuzzy anime title search
+
+Source `794e55f` is live on Worker `40821d8a-d05c-4901-92f4-cbddca35f0c8`. The optional anime matcher in Play multiplayer and Quiz follows Juvian’s AMQ Autocomplete Improvement 1.41. Twenty reference queries matched the attachment on the same title banks. Local Chromium verified the multiplayer worker with both search settings at 390 and 1280 px. All 582 tests, syntax checks, and the Worker dry run passed. Both Play routes, health, and the five deployed JavaScript assets passed read-only verification. A standard AMQ capture is still pending for the separate normal-search comparison.
+
 ## NGMC counter signup
 
 Source `2a73c22` is live at 100% on Worker `8538af43-ddcb-48be-93e8-93b75f5d618d`. Signup remains available for 40 seconds after match preparation, through the Auto-Count fallback. Players can reopen the prompt from the match header. An action keeps the prompt open until confirmed, and the Ready reminder waits until the counter prompt closes. Local Chromium verified this in an eight-player mobile match after 30 seconds with a delayed confirmation. All 582 tests, syntax checks, and the Worker dry run passed. The live NGMC route, health endpoint, and updated assets passed read-only verification.
