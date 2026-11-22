@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Autoskip round readiness
+
+Source `f83eb42` is live on Worker `34566290-aff3-4b91-9c13-c9563a5e8198`. Autoskip counts toward all-player readiness with submitted answers or completed voting. The Skip Song button retains its separate majority tally. Toggle-off withdraws the current readiness. Local Chromium at 390 and 1280 px verified the flow and independent skip count. All 592 tests, syntax checks and the Worker dry run passed. The live Play routes, health endpoint and frontend asset were verified.
+
 ## Autolock at timeout
 
 Source `bea72ab` is live on Worker `e5955c8c-61f2-4269-bf94-c10f7c588f8e`. Play and Quiz apply the highlighted suggestion or the first result with Autolock on when the timer expires. Play sends private choices before expiry. Voting formats add valid choices for unanswered proposal fields at expiry. Tests cover both search modes in Quiz, Play timer grading and early skips, and voting and manual submissions. Local Chromium verified first vanilla and highlighted fuzzy results in separate 1v1 matches at 1280 and 390 px. All 591 tests, syntax checks and the Worker dry run passed. The live routes, health endpoint and three frontend assets were verified.
