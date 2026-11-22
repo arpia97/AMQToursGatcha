@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## 1-Team reveal sounds and skip readiness
+
+Source `88d8ef6` is live at 100% on Worker `dd7d71e0-f08b-4df7-bd39-df4e30f8be66`. Cooperative reveal sounds follow the shared round score. Answer-based readiness uses the current proposal or vote and catalog membership, with withdrawal or an unknown replacement revoking readiness. All 599 tests, syntax checks, the eight-player browser check and the Worker dry run passed. The live 1-Team route and six release modules were verified read-only.
+
 ## 1-Team submitted guesses and catalog tie-breaks
 
 Source `ce7adc7` deployed to 100% on Worker `aa3d6e16-ae70-43e8-9785-1176ce535211`. Tied ballot leaders are filtered against the integrated catalog for their category. If every tied leader is absent the team submits no answer for that category. All 597 tests passed. The live 1-Team shell and eight release assets were verified read-only. The survival ballot uses two compact columns on desktop and one on phones. Matching a teammate's unlocked proposal votes for its original owner. Single-team rosters sort by current score. Reveals and newly recorded song history retain the catalog song type when available. An eight-player local browser match exercised duplicate voting, stable input placement, mobile layout, reveal, and history persistence. Snapshots are in the workspace under outputs/one-team-guess-preview.
