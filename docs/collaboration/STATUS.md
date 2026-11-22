@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## 1-Team guess placement
+
+Source `fbdfdad` deployed at 100% on Worker `739016af-95ad-4624-b49f-ffcab7d26dc9`. The scrollable guesses area sits above the answer input. An eight-player browser check verified the order and stable input position on desktop and mobile. All 25 focused tests passed. The live shell, stylesheet and five modules matched the release.
+
 ## 1-Team reveal sounds and skip readiness
 
 Source `88d8ef6` is live at 100% on Worker `dd7d71e0-f08b-4df7-bd39-df4e30f8be66`. Cooperative reveal sounds follow the shared round score. Answer-based readiness uses the current proposal or vote and catalog membership, with withdrawal or an unknown replacement revoking readiness. All 599 tests, syntax checks, the eight-player browser check and the Worker dry run passed. The live 1-Team route and six release modules were verified read-only.
