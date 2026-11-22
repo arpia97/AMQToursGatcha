@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Play spectator presence and count preview
+
+Source `88482df` is live on Worker `eaa8a9ad-310d-4d36-bdb9-6fbda90e354f`. The Online Players status changes to Spectating after the public-match viewer connects. Leaving, disconnecting or reaching results clears it, and the original AFK priority is preserved. All 578 tests, syntax and the Worker dry run passed. A local browser joined and left a match as a spectator while another player viewed the online list at 390 px. The deployed route and new assets were verified.
+
+The Live Matches spectator count is held locally for design approval. Pending files are `public/play-overview.js`, `public/play-overview.css`, `src/play-match.js` and `tests/play-runtime.test.mjs`. The count uses distinct connected spectator accounts from the existing live score request, and the local runtime test verified counts on join and disconnect. Desktop and mobile snapshots are in `outputs/play-spectator-count-preview` outside the repository. The live Overview assets do not include the count.
+
 ## Song/Artist credit spelling
 
 Source `9114106` is deployed on Worker `fd611418-85d8-4085-8505-56a3982e966a`. Nagi Yanagi, Yanagi Nagi, and yanaginagi share an artist key for gameplay. The live Play catalog offers Nagi Yanagi and yanaginagi. All 16 focused tests, fixture checks against the artist data, syntax checks, and the Worker dry run passed.
