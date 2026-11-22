@@ -1,5 +1,6 @@
 import {arenaStandings} from './play-arena.js';
 import {matchRecords} from './play-records.js';
+import {ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
 const HISTORY_META_ID = 6;
 const PAGE_SIZE = 6;
@@ -19,6 +20,7 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   const placements = state.arena ? arenaStandings(state.arena).map(row => row.team) : null;
   const players = state.players.map(({id, team, score, left}) => {
     let outcome = left ? 'Left' : outcomes.get(id);
+    if (!outcome && state.format === ONE_TEAM_FORMAT) outcome = state.teams[0] > 0 ? 'Survived' : 'OutOfLives';
     if (!outcome && state.teams.length === 2 && !placements && state.format !== 'lobby-ffa') {
       const other = state.teams[1 - team];
       outcome = scoreOutcome(state.teams[team], other);

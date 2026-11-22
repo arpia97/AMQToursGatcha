@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
+export async function playRuntimeFixture({groups=false,media,beforeAudio,songCount=40}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -12,12 +12,15 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
     import {QuizLibrary as OriginalLibrary} from './src/quiz-library-actor.js';
     export class QuizLibrary extends OriginalLibrary {}
     import {PlayQueue as OriginalQueue} from './src/play-queue.js';
-    export class PlayQueue extends OriginalQueue{async ageReview(id){this.ctx.storage.sql.exec('UPDATE match_reviews SET created=? WHERE id=?',Date.now()-60*86400000,id);await this.alarm();}}
+    export class PlayQueue extends OriginalQueue{
+      async ageReview(id){this.ctx.storage.sql.exec('UPDATE match_reviews SET created=? WHERE id=?',Date.now()-60*86400000,id);await this.alarm();}
+      async ageQueue(format,pool,ms){this.ctx.storage.sql.exec('UPDATE queue SET joined=joined-? WHERE match IS NULL AND format=? AND pool=?',ms,format,pool);await this.alarm();}
+    }
     export class Game extends OriginalGame{
       async handle(request){
         if(new URL(request.url).pathname==='/api/__test-session'){
-          const e=this.engine,id=new URL(request.url).searchParams.get('id');
-          e.run('INSERT OR IGNORE INTO players(id,name) VALUES(?,?)',id,'Local Player '+id);
+          const e=this.engine,params=new URL(request.url).searchParams,id=params.get('id');
+          e.run('INSERT OR IGNORE INTO players(id,name) VALUES(?,?)',id,params.get('name')||'Local Player '+id);
           if(id!=='8'){
             e.run('INSERT OR IGNORE INTO catalog(id,kind,name,image) VALUES(?,?,?,?)','local-avatar','character','Local Avatar','/amq-tours-logo.png');
             e.run('INSERT OR IGNORE INTO inventory(player,card,copies,level) VALUES(?,?,1,2)',id,'local-avatar');
@@ -57,6 +60,7 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
     }
     export default {async fetch(request,env,ctx){
       const url=new URL(request.url);
+      if(url.pathname==='/api/__age-queue'){await env.PLAY_QUEUE.getByName('play-queues-v1').ageQueue(url.searchParams.get('format'),url.searchParams.get('pool'),Number(url.searchParams.get('ms')));return Response.json({ok:true});}
       if(url.pathname==='/api/__slow-setup')return Response.json(await env.PLAY_MATCHES.getByName('slow-test').fixtureSetupTimeout());
       if(url.pathname==='/api/__stall-last-reveal'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).stallLastReveal();return Response.json({ok:true});}
       if(url.pathname==='/api/__advance'){await env.PLAY_MATCHES.getByName(url.searchParams.get('match')).forcePhase(url.searchParams.has('timeout'));return Response.json({ok:true});}
@@ -72,8 +76,8 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio}={}){
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});
-  const songs=Object.fromEntries(Array.from({length:40},(_,i)=>{const id=i+1;return [id,{linkedIds:{myanimelist:id+1000,anilist:id+2000},annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
-  const manifest={schema:1,version:'play-fixture',count:40,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
+  const songs=Object.fromEntries(Array.from({length:songCount},(_,i)=>{const id=i+1;return [id,{linkedIds:{myanimelist:id+1000,anilist:id+2000},annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
+  const manifest={schema:1,version:'play-fixture',count:songCount,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
   const asset=async request=>{
     const path=new URL(request.url).pathname;
     if(path==='/quiz-library/master-answers.json')return Response.json({version:'fixture-master',records:[[1,'Sheet Anime 1','Alternative 1']],keys:{'a:1001':0}});

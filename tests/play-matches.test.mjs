@@ -348,6 +348,39 @@ test('custom team ballots reject duplicate proposals, settle early and credit th
   assert.ok(state.players.every(p=>p.score===1));
 });
 
+test('custom Song/Artist lobbies grade only the enabled categories in every combination',()=>{
+  const players=[{id:'a',name:'A'}];
+  const song={anime:'Alpha',title:'First',artist:'Singer',answers:{anime:['Alpha'],song:['First'],artist:['Singer']}};
+  const answers={anime:'Alpha',song:'First',artist:'Singer'};
+  for(const format of ['lobby-team','lobby-ffa']){
+    const settings={format,songs:1,seconds:30};
+    for(let mask=1;mask<8;mask++){
+      const enabled=Object.keys(answers).filter((_,index)=>mask&(1<<index));
+      const lobby={...settings,guessFields:enabled};
+      const state=makeMatch('custom',format,players,[song],0,lobby);
+      state.phase='guess';state.startsAt=1;state.until=30_001;
+      const move=message=>matchMove(state,'a',{index:0,...message},100);
+      if(format==='lobby-team'){
+        for(const field of Object.keys(answers).filter(x=>!enabled.includes(x)))
+          assert.throws(()=>move({type:'propose',field,answer:answers[field]}),/category/);
+        for(const field of enabled){
+          move({type:'propose',field,answer:answers[field]});
+          move({type:'vote',field,choice:state.ballot[field][0].id});
+        }
+      }else{
+        if(!enabled.includes('artist'))assert.throws(()=>move({type:'artists',artists:['Singer']}),/cannot be changed/);
+        const submitted=Object.fromEntries(enabled.map(field=>[field,answers[field]]));
+        move({type:'draft',field:enabled[0],answers:submitted,...(enabled.includes('artist')?{artists:['Singer']}:{})});
+        if(mask%2)move({type:'answer',answers:submitted,lock:true});
+        else advanceMatch(state,30_002);
+      }
+      assert.equal(state.phase,'reveal');
+      assert.deepEqual(Object.keys(state.history[0].results[0].correct),enabled);
+      assert.equal(state.teams[0],enabled.length);
+    }
+  }
+});
+
 test('historical W-L-T uses distinct scored fields per team and skips incomplete reviews',()=>{
   const db=new DatabaseSync(':memory:'),sql={exec:(query,...args)=>db.prepare(query).all(...args)};
   try{

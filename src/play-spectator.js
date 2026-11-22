@@ -1,5 +1,6 @@
 import {arenaStandings} from './play-arena.js';
 import {playerAudioReady} from './play-integrity.js';
+import {ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
 export const spectatorTag='play-spectators';
 export const gameEnded=phase=>phase==='finished'||phase==='cancelled';
@@ -18,7 +19,7 @@ export function liveMatchScore(state){
     : [teams.map((value,team)=>({team,label:teamName(team),value}))];
   return {
     phase:state.phase,song:Math.min(index+1,state.songs.length),total:state.songs.length,
-    unit:state.mode==='ngmc-ranked'?'Lives':'Points',scores,
+    unit:state.mode==='ngmc-ranked'||format===ONE_TEAM_FORMAT?'Lives':'Points',scores,
     ...(arena?{round:round+1,rounds:arena.rounds.length}:{}),
   };
 }
@@ -49,7 +50,7 @@ export function spectatorView(state,compact=false){
     until:Number.isFinite(state.until)?state.until:null,reveal,
     history:(compact?state.history.slice(-1):state.history).map(revealedRound),compact,
     teams:state.teams,teamFields:!!state.teamFields,
-    ...(state.lobby?{lobby:{seconds:state.lobby.seconds}}:{}),
+    ...(state.lobby?{lobby:{seconds:state.lobby.seconds,...(state.lobby.guessFields?{guessFields:state.lobby.guessFields}:{})}}:{}),
     counters:state.counters,autoCounting:state.autoCounting,
     ...(state.arena?{arena:{rounds:state.arena.rounds,songsPerFixture:state.arena.songsPerFixture,standings:arenaStandings(state.arena)}}:{}),
     players:state.players.map(p=>({

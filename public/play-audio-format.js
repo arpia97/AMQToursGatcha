@@ -1,9 +1,10 @@
-import {DUEL_FORMAT, duelRules} from './play-mode-rules.js';
+import {DUEL_FORMAT, ONE_TEAM_MODE, duelRules, oneTeamRules} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 
 export function defaultPlayGuessSeconds(mode) {
   if (mode === DUEL_FORMAT) return duelRules.guessSeconds;
   if (mode === ARENA_FORMAT) return arenaRules.guessSeconds;
+  if (mode === ONE_TEAM_MODE) return oneTeamRules.guessSeconds;
   return mode === 'ngmc-ranked' ? 20 : 30;
 }
 

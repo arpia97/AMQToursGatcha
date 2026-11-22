@@ -1,12 +1,14 @@
 import {loadQuizTitleDisplay, quizAnimeTitle} from './quiz-title-display.js';
+import {ONE_TEAM_FORMAT} from './play-mode-rules.js';
 
 const formats = {
   'ngmc-ranked': 'NGMC 4v4 Ranked', 'ngmc-3v3': 'NGMC 3v3', 'lobby-ngmc': 'NGMC Lobby',
   '1v1-ranked': '1v1 Ranked', 'lobby-duel': '1v1 Lobby', '2v2-arena': '2v2 Arena',
   'lobby-arena': '2v2 Arena Lobby', '1v1': 'Song/Artist 1v1', '3v3': 'Song/Artist 3v3',
   '1-team': 'Song/Artist 1-Team', 'lobby-team': 'Song/Artist 1-Team Lobby', 'lobby-ffa': 'Song/Artist FFA Lobby',
+  [ONE_TEAM_FORMAT]: '1-Team',
 };
-const outcomes = {W: 'Win', L: 'Loss', T: 'Draw', Left: 'Left'};
+const outcomes = {W: 'Win', L: 'Loss', T: 'Draw', Left: 'Left', Survived:'Survived', OutOfLives:'Out of lives'};
 const dateFormat = new Intl.DateTimeFormat(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
 const dateOf = row => dateFormat.format(row.ended ?? row.date);
 const formatOf = row => formats[row.format] ?? row.format;

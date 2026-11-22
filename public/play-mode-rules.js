@@ -7,16 +7,23 @@ export const DUEL_FORMAT = '1v1-ranked';
 export const DUEL_LOBBY_FORMAT = 'lobby-duel';
 export const isDuelFormat = format => format === DUEL_FORMAT || format === DUEL_LOBBY_FORMAT;
 export const duelRules = Object.freeze({songs:20, guessSeconds:20});
+export const ONE_TEAM_MODE = 'one-team';
+export const ONE_TEAM_FORMAT = 'one-team-survival';
+export const oneTeamRules = Object.freeze({minPlayers:3,maxPlayers:8,songs:100,lives:5,guessSeconds:20,waitMs:90_000});
+export const usesTeamBallot = format => format === 'lobby-team' || format === ONE_TEAM_FORMAT;
 
 export function queueMode(format) {
   if (isDuelFormat(format)) return DUEL_FORMAT;
   if (format === ARENA_FORMAT) return ARENA_FORMAT;
+  if (format.startsWith('lobby-')) return lobbyGameMode(format);
+  if (format===ONE_TEAM_FORMAT||format==='1-team') return ONE_TEAM_MODE;
   return format.startsWith('ngmc-') ? 'ngmc-ranked' : 'song-artist';
 }
 
 export function lobbyGameMode(format) {
   if (format === ARENA_LOBBY_FORMAT) return ARENA_FORMAT;
   if (format === DUEL_LOBBY_FORMAT) return DUEL_FORMAT;
+  if (format === 'lobby-team') return ONE_TEAM_MODE;
   return format === 'lobby-ngmc' ? 'ngmc-ranked' : 'song-artist';
 }
 
@@ -25,5 +32,11 @@ export function lobbyCapacity(format) {
   return format === ARENA_LOBBY_FORMAT ? arenaRules.maxPlayers : 8;
 }
 
-export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked'].includes(mode);
+export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked',ONE_TEAM_MODE].includes(mode);
+export const songArtistFields = Object.freeze(['anime','song','artist']);
+export const isSongArtistLobby = format => format === 'lobby-team' || format === 'lobby-ffa';
+export function matchGuessFields(match) {
+  if (isSongArtistLobby(match.format)) return match.lobby?.guessFields ?? songArtistFields;
+  return animeOnlyMode(match.mode) || isDuelFormat(match.format) || match.format === ONE_TEAM_FORMAT ? ['anime'] : songArtistFields;
+}
 export const soloVersus = format => format === '1v1' || isDuelFormat(format);

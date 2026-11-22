@@ -1,7 +1,7 @@
 # AMQ Tours Play
 
-Play uses the existing Gacha login. 1v1 Ranked, 2v2 Arena, Song/Artist, and
-NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
+Play uses the existing Gacha login. 1v1 Ranked, 2v2 Arena, Song/Artist, 1-Team,
+and NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 1v1 custom lobbies are unranked and support Random and Watched. Arena plays
 20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
@@ -48,9 +48,24 @@ Each column sorts the full leaderboard. Rank preserves a player's position in
 the default standings. Quiz average time uses timed personal bests on published
 quizzes, one per player and quiz.
 
+## 1-Team
+
+- The dedicated tab has separate Random and Watched survival queues and keeps
+  the existing three-player Song/Artist 1-Team queue and its custom lobbies.
+- Survival starts with eight players, or with at least three after the oldest
+  eligible player has waited 90 seconds. Watched uses the combined list pool.
+- Up to 100 verified songs, 20 seconds per song, and five shared lives. Players
+  submit anime titles and vote on the team guess. The leading guess is graded at
+  timeout or when all active players vote. Tied choices are picked randomly.
+  An incorrect or missing team guess costs one life. The match ends after the
+  reveal of the last song or the fifth miss.
+- Survival records personal correct answers and match history without ratings
+  or credit awards. The existing Song/Artist queue retains its rewards.
+
 ## Song / Artist
 
-- Separate queues: 1v1 (2 people), 3v3 (6 people), 1-Team (3 people).
+- Separate queues: 1v1 (2 people), 3v3 (6 people), and cooperative Song/Artist
+  1-Team (3 people, in its own tab).
   Cooperative 1-Team shows individual contributions and grants no Rating or
   ranked ready-timeout penalties.
 - Queues match in arrival order; teams are randomly assigned. One active match

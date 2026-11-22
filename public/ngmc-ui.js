@@ -1,8 +1,7 @@
 import {comparePlayTier as byTier} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {songProgressTrigger} from './detail-popover.js';
-import {artistCreditsHTML,roundDialHTML} from './play-round-ui.js';
-const heart='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/></svg>';
+import {artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function createCounterDialog(send) {
@@ -93,7 +92,7 @@ export function ngmcTeams(match,esc) {
   const left=me?.team??0;
   return '<div class="sa-team-list ngmc-teams">'+[left,1-left].map(team=>{
     const players=match.players.filter(p=>p.team===team).sort(byTier);
-    return '<section class="sa-team ngmc-team '+(team===left?'allies':'rivals')+'"><header><div><span>'+(me?(team===left?'Your Team':'Opponents'):'Team '+(team+1))+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating'+(match.autoCounting?.[team]?' · Auto-Count':'')+'</small></div><div class="ngmc-lives" aria-label="'+match.teams[team]+' lives remaining">'+Array.from({length:5},(_,i)=>'<i class="'+(i<match.teams[team]?'alive':'lost')+'">'+heart+'</i>').join('')+'</div></header>'+players.map(p=>{
+    return '<section class="sa-team ngmc-team '+(team===left?'allies':'rivals')+'"><header><div><span>'+(me?(team===left?'Your Team':'Opponents'):'Team '+(team+1))+'</span><small>'+num(players.reduce((n,p)=>n+p.elo,0)/players.length)+' Avg Rating'+(match.autoCounting?.[team]?' · Auto-Count':'')+'</small></div>'+teamLivesHTML(match.teams[team])+'</header>'+players.map(p=>{
       const result=revealed?last.results.find(r=>r.id===p.id):null,rating=match.ratings?.find(r=>r.id===p.id);
       const answer=result?(result.answers.anime||'No Answer'):p.left?'Left':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':'Loading Audio…':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):'Listening…';
       const badge=match.counters?.[team]===p.id?'<span class="ngmc-counter-badge" title="Team Counter" aria-label="Team Counter">'+counterIcon+'</span>':'';

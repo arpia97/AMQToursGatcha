@@ -1,3 +1,5 @@
+import {ONE_TEAM_FORMAT} from './play-mode-rules.js';
+
 // Each note specifies frequency in Hz, offset and length in seconds, gain, and an optional waveform.
 const cues = {
   correct: [1174.66,1479.98,1760].flatMap((frequency, beat) => {
@@ -148,6 +150,8 @@ export function roundSoundCues(previous, next) {
     else if (Object.values(own.answers).some(Boolean)) sounds.push('incorrect');
   }
   if (next.phase === 'counting') sounds.push('counting');
+  if (next.phase === 'reveal' && next.format === ONE_TEAM_FORMAT && next.teams[0] < previous.teams[0])
+    sounds.push('lose-life');
   if (next.phase === 'reveal' && next.mode === 'ngmc-ranked' && own) {
     const {team} = player;
     if (next.teams?.[team] < previous.teams?.[team]) sounds.push('lose-life');

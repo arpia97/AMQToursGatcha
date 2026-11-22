@@ -1,4 +1,4 @@
-import {animeOnlyMode} from '../public/play-mode-rules.js';
+import {matchGuessFields} from '../public/play-mode-rules.js';
 import {titleMatches,artistMatches} from './play-artists.js';
 
 const MAX_EVENTS=36000,MAX_PLAYER_EVENTS=4000;
@@ -39,7 +39,7 @@ export function prepareAudioPool(state,decoys=[],sealed=false){
 }
 export function audioManifest(state){
   const window=state.audioSealed?audioWindow(state):null;
-  return {type:'manifest',revision:state.audioRevision||0,id:state.id,mode:state.mode||'song-artist',total:state.songs.length,
+  return {type:'manifest',revision:state.audioRevision||0,id:state.id,mode:state.mode||'song-artist',format:state.format,total:state.songs.length,
     preload:state.audioPreload||firstRounds(state),
     ...(state.audioSealed ? { sealed: true, downloadStart: window.start, downloadEnd: window.end } : {}),
     audio:(state.audioPool||state.songs).map(s=>state.audioSealed ? s.ticket : s.audio)};
@@ -88,7 +88,7 @@ function matches(song,field,value){
 export function decoyHits(state,answers,artists,round=state.index){
   const current = state.songs[round];
   const played = current ? {anime:current.anime,song:current.title,artist:current.artist} : undefined;
-  const fields=animeOnlyMode(state.mode)?['anime']:['anime','song','artist'];
+  const fields=matchGuessFields(state);
   return (state.decoys||[]).flatMap(song=>fields.flatMap(field=>{
     const value=field==='artist'?(artists??answers[field]):answers[field];
     // Shared anime titles/artists are not useful evidence. Suppress anything

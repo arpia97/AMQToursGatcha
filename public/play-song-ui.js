@@ -2,13 +2,13 @@ import {answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
-import {DUEL_FORMAT, duelRules, animeOnlyMode, soloVersus, queueMode, lobbyGameMode} from './play-mode-rules.js';
+import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
-import {autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js';
+import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
-import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,updateRoundDial} from './play-round-ui.js';
+import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js';
 import {roundAudio} from './play-round-audio.js';
 import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
@@ -23,7 +23,7 @@ import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {PLAY_AUDIO_PROTOCOL, defaultPlayGuessSeconds} from './play-audio-format.js';
 const labels={anime:'Anime',song:'Song Title',artist:'Artist'};
-const formats={'1v1':'1v1','3v3':'3v3','1-team':'1-Team'};
+const formats={'1v1':'1v1','3v3':'3v3'};
 const renderedMarkup=new WeakMap();
 function updateMarkup(element,html){
   if(renderedMarkup.get(element)===html)return false;
@@ -33,8 +33,9 @@ function updateMarkup(element,html){
 }
 
 export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle,prepareTitles=async()=>{},onError,onMatchMode=()=>{},onMatchExit=()=>{},onQueueChange=()=>{},onQueueCounts=()=>{},onCreditReward=()=>{}}) {
-  let mode='song-artist',fields=['anime','song','artist'],totalSongs=20;
-  const arena=()=>mode===ARENA_FORMAT, duel=()=>mode===DUEL_FORMAT, ranked=()=>mode==='ngmc-ranked', animeOnly=()=>animeOnlyMode(mode),teamFields=()=>!!match?.teamFields;
+  let mode='song-artist',gameMode=null,fields=['anime','song','artist'],totalSongs=20;
+  const arena=()=>mode===ARENA_FORMAT, duel=()=>mode===DUEL_FORMAT, ranked=()=>mode==='ngmc-ranked',oneTeam=()=>mode===ONE_TEAM_MODE;
+  const animeOnly=()=>animeOnlyMode(gameMode||mode),teamFields=()=>!!match?.teamFields;
   const songDialog=createSongListDialog(esc,animeTitle);
   let chat=null, lobbyChat=null, personalRatings=null;
   function closeChat(){chat?.close();chat=null;}
@@ -57,7 +58,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       send(ws,{type:'lobby-chat-history',code});
     }
   }
-  let ngmcFormat='ngmc-ranked',dismissedMatch=null,announcedMatch=null;
+  let ngmcFormat='ngmc-ranked',oneTeamFormat=ONE_TEAM_FORMAT,dismissedMatch=null,announcedMatch=null;
+  const selectedQueueFormat=()=>arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ranked()?ngmcFormat:oneTeam()?oneTeamFormat:format;
   let active=false,format='1v1',server='EU',queue=null,room=null,match=null,queueStatus={type:'idle'},worker=null,searchReady=false,searchError='',searchId=0,searchItems=[],searchKind='',selected=-1;
   let pendingSearch=null;
   let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
@@ -184,6 +186,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function selectQueueFormat(id){
     if(id?.startsWith('ngmc-'))ngmcFormat=id;
+    else if(id===ONE_TEAM_FORMAT||id==='1-team')oneTeamFormat=id;
     else if(Object.hasOwn(formats,id))format=id;
   }
   function connectQueue(){
@@ -260,7 +263,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function resetLobbyMatch(){
     closeChat();sounds.stop();
-    dismissedMatch=match?.id;const old=room;room=null;old?.close();match=null;ready=false;clearTimeout(raf);clearAudio();songDialog.close();
+    dismissedMatch=match?.id;const old=room;room=null;old?.close();match=null;gameMode=null;ready=false;clearTimeout(raf);clearAudio();songDialog.close();
     send(queue,{type:'ping',includeRatings:true});render();
   }
   function exitQueueMatch(){
@@ -316,13 +319,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         downloadEnd=msg.downloadEnd??msg.preload??msg.audio.length;
         const changedRevision=manifestRevision!==(msg.revision||0);
         manifestRevision=msg.revision||0;
-        mode=msg.mode||'song-artist';onMatchMode(mode,msg.id);fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
+        gameMode=msg.mode||'song-artist';
+        mode=msg.format?queueMode(msg.format):queueStatus.format?queueMode(queueStatus.format):gameMode;
+        onMatchMode(mode,msg.id);fields=match?.id===msg.id?matchGuessFields(match):animeOnly()?['anime']:['anime','song','artist'];totalSongs=msg.total||msg.audio.length;
         if(manifestId===msg.id&&sealedCache&&msg.sealed){
           if(changedRevision||sources.some((source,i)=>source!==msg.audio[i])){
             downloads?.abort();downloads=null;replacingAudio=false;
             sources.forEach((source,i)=>{if(source!==msg.audio[i])sealedCache.discard(source,server);});sources=msg.audio;
           }
-        }else if(manifestId!==msg.id||changedRevision||sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,mode):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
+        }else if(manifestId!==msg.id||changedRevision||sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,gameMode):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
           prepareTitles().then(()=>{if(active&&manifestId===msg.id)render();}).catch(()=>{});
         }
         lastLoaded=loaded().join(',');send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});if(ready){send(room,{type:'ready'});if(preparedIndex>=0&&audio.readyState>=3)send(room,{type:'clip-ready',index:preparedIndex,revision:manifestRevision});}preload();return;
@@ -340,13 +345,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
           ws.hasState=true;roomDelay=1000;
           pendingLock=false;pendingArtistKey=null;
         }
-        const previous=match;match=msg.state;if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
+        const previous=match;match=msg.state;fields=matchGuessFields(match);if(queuedFormat){queuedFormat=null;notifyQueue();}if(!previous||previous.id!==match.id)activity.snapshot();if(!clockReady)offset=match.now-Date.now();
         if(previous?.id!==match.id)autoSkip=false;
         if(previous?.id!==match.id||previous?.index!==match.index)skipIntent=null;
         else if(skipIntent?.socket===room&&skipIntent.vote===!!match.skipVotes?.includes(match.me))skipIntent=null;
         sounds.play(...roundSoundCues(previous,match));
         if(player()?.left)closeChat();
-        if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():'anime');const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
+        if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():fields[0]);const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
         if(match.phase!=='guess'&&!unlocking){audio.pause();songAudio.reset();}
@@ -446,7 +451,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   const songAudio=roundAudio(audio,reportAudioIssue,index=>{
     if(match?.phase!=='guess'||match.index!==index||tabbedThisRound||document.querySelector('dialog[open]')||
        document.activeElement?.matches('input,textarea,select,.play-match-chat'))return;
-    root.querySelector('#sa-'+(teamFields()?selectedField:'anime'))?.focus({preventScroll:true});
+    root.querySelector('#sa-'+(teamFields()?selectedField:fields[0]))?.focus({preventScroll:true});
   });
   function playRoundAudio(now,manual=false){
     if(!ready||preparedIndex!==match.index||audio.readyState<1||match.phase!=='guess'||now<match.startsAt||now>=match.until)return;
@@ -541,7 +546,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const field=input.dataset.saField;
     if(searchKind===field&&searchItems.length&&(selected>=0||answerAutolock())&&input.getAttribute('aria-expanded')==='true'){
       pickSuggestion(Math.max(0,selected));
-    }else if(teamFields()||match.format==='lobby-team'||field===fields.at(-1)){
+    }else if(teamFields()||usesTeamBallot(match.format)||field===fields.at(-1)){
       submit(true,field);
     }else root.querySelector('#sa-'+fields[fields.indexOf(field)+1])?.focus();
   }
@@ -560,7 +565,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     hideSuggestions();
     input.focus({preventScroll:true});
     scheduleDraft();
-    if(animeOnly()||teamFields()||match.format==='lobby-team'||field==='artist')submit(true,field);
+    if(animeOnly()||teamFields()||usesTeamBallot(match.format)||field==='artist')submit(true,field);
   }
   function currentArtists(){
     const list=[...(player()?.artists||[])],name=String(chosen.artist||draft.artist||'').trim();
@@ -571,11 +576,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     clearTimeout(draftTimer);
     if(!draftDirty||!match||match.phase!=='guess'||player()?.locked||pendingLock||pendingArtistKey!==null||Date.now()+offset<match.startsAt||Date.now()+offset>=match.until)return;
     const field=teamFields()?selectedField:document.activeElement?.dataset.saField||selectedField;
-    const payload={type:'draft',index:match.index,field,answers:Object.fromEntries(fields.map(f=>[f,chosen[f]||draft[f]||''])),...(animeOnly()?{}:{artists:currentArtists()})};
+    const payload={type:'draft',index:match.index,field,answers:Object.fromEntries(fields.map(f=>[f,chosen[f]||draft[f]||''])),...(fields.includes('artist')?{artists:currentArtists()}:{})};
     const key=JSON.stringify(payload);if(key===lastDraft){draftDirty=false;return;}
     if(send(room,payload)){lastDraft=key;lastDraftAt=Date.now();draftDirty=false;}
   }
-  function scheduleDraft(){if(arena()||match?.format==='lobby-team')return;draftDirty=true;clearTimeout(draftTimer);draftTimer=setTimeout(saveCurrentDraft,Math.max(0,250-(Date.now()-lastDraftAt)));}
+  function scheduleDraft(){if(arena()||usesTeamBallot(match?.format))return;draftDirty=true;clearTimeout(draftTimer);draftTimer=setTimeout(saveCurrentDraft,Math.max(0,250-(Date.now()-lastDraftAt)));}
 
   function artistList(list){
     if(!match||match.phase!=='guess'||pendingArtistKey!==null||Date.now()+offset<match.startsAt)return;
@@ -593,8 +598,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       else error('Reconnect to submit your title.');
       return;
     }
-    if(match?.format==='lobby-team'){
-      field??=document.activeElement?.dataset.saField;
+    if(usesTeamBallot(match?.format)){
+      if(match.phase!=='guess'||Date.now()+offset<match.startsAt||Date.now()+offset>=match.until)return;
+      field??=animeOnly()?'anime':document.activeElement?.dataset.saField;
       const answer=chosen[field]||draft[field];
       if(answer&&send(room,{type:'propose',index:match.index,field,answer})){
         delete chosen[field];draft[field]='';root.querySelector('#sa-'+field).value='';hideSuggestions();
@@ -610,13 +616,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       return;
     }
     const answers=Object.fromEntries(fields.map(field=>[field,field==='artist'?currentArtists().join(', '):chosen[field]||draft[field]||'']));
-    if(send(room,{type:'answer',index:match.index,answers,...(animeOnly()?{}:{artists:currentArtists()}),lock})){clearTimeout(draftTimer);draftDirty=false;lastDraft='';if(lock){pendingLock=true;hideSuggestions();render();}}
+    if(send(room,{type:'answer',index:match.index,answers,...(fields.includes('artist')?{artists:currentArtists()}:{}),lock})){clearTimeout(draftTimer);draftDirty=false;lastDraft='';if(lock){pendingLock=true;hideSuggestions();render();}}
     else error('Reconnecting… Your answers are kept. Retry submitting once connected.');
   }
   function teamHTML(){if(ranked())return ngmcTeams(match,esc);return match.lobby&&!duel()?pointsBoard(match,esc):songTeamsHTML(match,esc);}
-  function sharedHTML(){if(arena())return '';if(match.format==='lobby-team')return ballotHTML(match,esc);if(ranked())return match.phase==='loading'?'':ngmcControls(match,esc);if(match.lobby||teamFields()||soloVersus(match.format))return '';const me=player();return '<section class="sa-shared"><h3>Team Answers</h3><div class="sa-shared-head"><span>Player</span>'+fields.map(f=>'<span>'+labels[f]+'</span>').join('')+'</div>'+match.players.filter(p=>p.team===me.team).map(p=>'<div class="sa-shared-row"><strong>'+esc(p.name)+'</strong>'+fields.map(f=>'<span>'+esc(p.answers?.[f]||'—')+'</span>').join('')+'</div>').join('')+'</section>';}
+  function sharedHTML(){if(arena())return '';if(usesTeamBallot(match.format))return ballotHTML(match,esc);if(ranked())return match.phase==='loading'?'':ngmcControls(match,esc);if(match.lobby||teamFields()||soloVersus(match.format))return '';const me=player();return '<section class="sa-shared"><h3>Team Answers</h3><div class="sa-shared-head"><span>Player</span>'+fields.map(f=>'<span>'+labels[f]+'</span>').join('')+'</div>'+match.players.filter(p=>p.team===me.team).map(p=>'<div class="sa-shared-row"><strong>'+esc(p.name)+'</strong>'+fields.map(f=>'<span>'+esc(p.answers?.[f]||'—')+'</span>').join('')+'</div>').join('')+'</section>';}
   function customSettings(){
-    return {pool:root.querySelector('#sa-lobby-pool')?.value||'random',format:root.querySelector('#sa-lobby-format')?.value||queueStatus.format||'lobby-team',
+    const choices=root.querySelector('.room-guess-types');
+    return {...(choices?{guessFields:readGuessFields(choices)}:{}),pool:root.querySelector('#sa-lobby-pool')?.value||'random',format:root.querySelector('#sa-lobby-format')?.value||queueStatus.format||'lobby-team',
       songs:Number(root.querySelector('#sa-lobby-songs')?.value||(duel()?duelRules.songs:20)),
       seconds:Number(root.querySelector('#sa-lobby-time')?.value??(duel()?duelRules.guessSeconds:30))};
   }
@@ -647,22 +654,23 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(queueStatus.type==='lobby')return roomLobby(queueStatus,getPlayer()?.id,esc,autoReady,lobbyDraft);
     const otherQueue=waiting()&&mode!==queueMode(overviewJoin?.format??queuedFormat);
     const pool=waiting()&&!otherQueue?queueStatus.pool||preferredPool():preferredPool();
-    const ngmc=ranked(),idle=queueStatus.type==='idle',selectedFormat=arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ngmc?ngmcFormat:format;
-    const choices=arena()?[[ARENA_FORMAT,'2v2 Round Robin']]:duel()?[[DUEL_FORMAT,'Ranked 1v1']]:ngmc?[['ngmc-ranked','4v4 Ranked'],['ngmc-3v3','3v3 Unranked']]:Object.entries(formats);
+    const ngmc=ranked(),idle=queueStatus.type==='idle',selectedFormat=selectedQueueFormat();
+    const choices=arena()?[[ARENA_FORMAT,'2v2 Round Robin']]:duel()?[[DUEL_FORMAT,'Ranked 1v1']]:ngmc?[['ngmc-ranked','4v4 Ranked'],['ngmc-3v3','3v3 Unranked']]:
+      oneTeam()?[[ONE_TEAM_FORMAT,'1-Team '+poolName(pool)],['1-team','Song/Artist 1-Team']]:Object.entries(formats);
     const formatButtons=choices.map(([id,name])=>{
       const selected=id===selectedFormat;
       if(arena()||duel())return '<div class="arena-format"><strong>'+name+'</strong>'+queueBadge(id,pool)+'</div>';
       return '<button type="button" data-'+(ngmc?'ngmc':'sa')+'-format="'+id+'" aria-pressed="'+selected+'" '+(idle?'':'disabled')+'><strong>'+name+'</strong>'+
-        (!ngmc&&id==='1-team'?'<small>Unranked</small>':'')+queueBadge(id,pool)+'</button>';
+        (id===ONE_TEAM_FORMAT?'<small>'+oneTeamRules.minPlayers+'–'+oneTeamRules.maxPlayers+' players · '+oneTeamRules.lives+' lives</small>':id==='1-team'?'<small>3 players · 20 songs</small>':'')+queueBadge(id,pool)+'</button>';
     }).join('');
     const queueLabel=(otherQueue?'Queued in Another Mode':overviewJoin||queueStatus.type==='joining'?'Cancel Matchmaking':queueStatus.type==='queued'?'Leave Queue':['preparing','matched'].includes(queueStatus.type)?'Preparing Match…':'Find Match');
     const status=(!getPlayer()?'Sign in above to join a queue.':queueStatus.type==='preparing'&&!otherQueue?preparationLabel(queueStatus.progress):searchError?esc(searchError):!searchReady?esc(answerListStatus):connecting?'Connecting…':otherQueue?'':queueStatus.type==='joining'?'Joining matchmaking…':queueStatus.type==='queued'?'Finding Players · '+queueStatus.waiting+(arena()?' in queue':' / '+queueStatus.needed+' · '+percentDone(queueStatus.waiting,queueStatus.needed)):queueStatus.type==='matched'?'Selecting songs for your match…':'');
     const disabled=otherQueue||!overviewJoin&&(['preparing','matched'].includes(queueStatus.type)||!searchReady||connecting||!getPlayer()||queue?.readyState!==1);
-    const modeIcon=duel()?'<span class="arena-emblem duel-emblem"><span><i></i></span><b></b><span><i></i></span></span>':arena()?'<span class="arena-emblem"><span><i></i><i></i></span><b></b><span><i></i><i></i></span></span>':ngmc?'<span class="score-formation">'+ '<i></i>'.repeat(8)+'</span>':'<span class="score-note">♪</span>';
-    const title=modeTitleHTML(duel()?'1v1 Ranked':arena()?'2v2 Arena':ngmc?'NGMC Ranked':'Song/Artist',selectedFormat);
+    const modeIcon=duel()?'<span class="arena-emblem duel-emblem"><span><i></i></span><b></b><span><i></i></span></span>':arena()?'<span class="arena-emblem"><span><i></i><i></i></span><b></b><span><i></i><i></i></span></span>':ngmc?'<span class="score-formation">'+ '<i></i>'.repeat(8)+'</span>':'<span class="score-note">'+(oneTeam()?'♥':'♪')+'</span>';
+    const title=modeTitleHTML(duel()?'1v1 Ranked':arena()?'2v2 Arena':ngmc?'NGMC Ranked':oneTeam()?'1-Team':'Song/Artist',selectedFormat);
     return '<div class="play-lobby-browser '+(duel()?'':ngmc?'ngmc-queue':'song-queue')+'">'+
       '<header class="play-queue-banner"><div><span class="sa-eyebrow">Matchmaking</span>'+title+
-      '<p>'+(duel()?duelRules.songs+' songs · '+duelRules.guessSeconds+'s guesses · 1 point per correct anime':arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture · '+arenaRules.guessSeconds+'s guesses':ngmc?'35 songs · 20s guesses · 5 lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div class="play-queue-emblem" aria-hidden="true">'+modeIcon+'</div></header>'+
+      '<p>'+(duel()?duelRules.songs+' songs · '+duelRules.guessSeconds+'s guesses · 1 point per correct anime':arena()?'Two-player teams · '+arenaRules.songsPerFixture+' songs per fixture · '+arenaRules.guessSeconds+'s guesses':ngmc?'35 songs · 20s guesses · 5 lives':selectedFormat===ONE_TEAM_FORMAT?'Up to '+oneTeamRules.songs+' songs · '+oneTeamRules.guessSeconds+'s guesses · '+oneTeamRules.lives+' shared lives':'20 songs · 30s guesses · 3 points per song')+'</p></div><div class="play-queue-emblem" aria-hidden="true">'+modeIcon+'</div></header>'+
       '<section class="sa-lobby play-queue-card"><div class="play-queue-heading"><h2>Find Match</h2>'+poolToggle(pool,'data-queue-pool',!idle)+'</div><div class="score-formats" role="group" aria-label="Match format">'+formatButtons+'</div>'+
       '<div class="score-settings"><label>Audio Server<select id="sa-server" '+(idle?'':'disabled')+'>'+
       ['EU','NAE','NAW'].map(s=>'<option '+(s===server?'selected':'')+'>'+s+'</option>').join('')+'</select></label>'+autoReadyHTML(autoReady)+'</div>'+
@@ -679,12 +687,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const ngmcName=match.format==='lobby-ngmc'?'NGMC Custom':match.format==='ngmc-3v3'?'NGMC Unranked':'NGMC Ranked';
     const teamSize=match.players.length/2;
     const duelLabel=match.lobby?'1v1 Unranked':'1v1 Ranked';
-    const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]||formats[match.format]);
+    const modeLabel=duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:
+      match.format===ONE_TEAM_FORMAT?'1-Team':(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]|| (match.format==='1-team'?'1-Team':formats[match.format]));
     const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
     const takeOver=!done&&ranked()?'<button type="button" class="button secondary" data-sa-action="volunteer" data-ngmc-takeover hidden>Take Over Counting</button>':'';
     const title=done?match.phase==='finished'?'Match Complete':match.aborted?'Match Aborted':'Match Ended'
-      :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:'Song/Artist';
+      :duel()?duelLabel:arena()?'2v2 Arena':ranked()?ngmcName:match.format===ONE_TEAM_FORMAT?'1-Team':'Song/Artist';
     const titleRow=modeTitleHTML(title,match.format);
     const autoskip=!done&&match.skipRequired?'<label class="fuzzy-anime-search"><input type="checkbox" data-auto-skip'+(autoSkip?' checked':'')+'> Autoskip</label>':'';
     const preferences=autoskip?'<div class="sa-game-preferences">'+volumeHTML()+autoskip+'</div>':volumeHTML();
@@ -693,7 +702,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
     if(done)return heading+reward+broadcastResults(match,esc,animeTitle,winnerText);
-    const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
+    const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields" data-guess-count="'+fields.length+'">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
       '<small class="sa-locked-answer" aria-live="polite" hidden></small>'+answerSearchControls()+'</form>';
     const skipButton=match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'';
     if(ranked())return heading+ngmcArena(match,answerForm+skipButton);
@@ -701,6 +710,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     return heading+songBroadcastLayout(match,{tiles,answerForm,skipButton});
   }
   function winnerText(){
+    if(match.format===ONE_TEAM_FORMAT)return match.teams[0]?'Your team survived':'Your team ran out of lives';
     if(duel()&&match.players.some(p=>p.left&&p.id!==match.me)&&match.history.length<match.total)return 'You won by forfeit';
     if(duel()&&player().left&&match.history.length<match.total)return 'You forfeited';if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=soloVersus(match.format)?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
@@ -747,10 +757,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const open=scoreboard.querySelector('details')?.open;
       updateMarkup(scoreboard,arenaBoard(match,esc));
       if(open)scoreboard.querySelector('details').open=true;
-    }else updateMarkup(scoreboard,match.phase==='finished'?(match.lobby||match.format==='1-team'||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML());
+    }else updateMarkup(scoreboard,match.phase==='finished'?(match.lobby||oneTeam()||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML());
     const progress=ranked()&&root.querySelector('.ngmc-progress');
     if(progress)updateMarkup(progress,ngmcProgress(match,esc,animeTitle));
     const status=root.querySelector('.sa-round-status');if(!status)return;
+    if(match.format===ONE_TEAM_FORMAT)updateMarkup(root.querySelector('.one-team-mobile-lives'),teamLivesHTML(match.teams[0],oneTeamRules.lives));
     const me=player(),indices=loaded();
     const takeOver=root.querySelector('[data-ngmc-takeover]');
     if(takeOver){
@@ -776,7 +787,15 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const canVote=ready&&room?.readyState===1&&!me.left;
       updateMarkup(shared,match.phase==='guess'?arenaBallot(match,esc,canVote):'');
       if(focusedChoice)shared.querySelector('[data-choice="'+CSS.escape(focusedChoice)+'"]')?.focus({preventScroll:true});
-    }else updateMarkup(shared,sharedHTML());
+    }else{
+      const focused=shared.contains(document.activeElement)?document.activeElement:null;
+      const scroll=shared.querySelector('.one-team-ballot-options')?.scrollTop;
+      if(updateMarkup(shared,sharedHTML())){
+        const choices=shared.querySelector('.one-team-ballot-options');
+        if(scroll&&choices)choices.scrollTop=scroll;
+        if(focused?.dataset.ballot)shared.querySelector('[data-ballot][data-choice="'+CSS.escape(focused.dataset.choice)+'"]')?.focus({preventScroll:true});
+      }
+    }
     const waiting=['loading','buffering'].includes(match.phase)||!ready;
     const showReady=waiting&&(!ranked()||!ready||match.phase==='loading');
     const readyWrap=root.querySelector('.sa-ready-wrap');readyWrap.hidden=!showReady;
@@ -796,6 +815,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const proposed=match.arena.ballot.some(option=>option.owner===match.me&&option.choice);
       lockButton.textContent=proposed?'Update Title':'Submit Title';
     }
+    if(match.format===ONE_TEAM_FORMAT)lockButton.textContent='Submit Guess';
     if(match.format==='lobby-team'){
       lockButton.hidden=true;
       for(const input of form.querySelectorAll('[data-sa-field]')){
@@ -820,7 +840,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(ranked()){
       updateMarkup(root.querySelector('.ngmc-track'),ngmcTrack(revealed?last:null,esc,animeTitle));
     }else{
-      const recap=revealed?recapHTML(match,esc,animeTitle)+(arena()?arenaReveal(match,last,esc):teamFields()?'':versusHTML(match,last,esc)):'';
+      const recap=revealed?recapHTML(match,esc,animeTitle)+(arena()?arenaReveal(match,last,esc):teamFields()||match.format===ONE_TEAM_FORMAT?'':versusHTML(match,last,esc)):'';
       updateMarkup(root.querySelector('.sa-reveal-wrap'),recap);
     }
     const skip=root.querySelector('[data-sa-action=skip]');
@@ -855,7 +875,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     for(const box of root.querySelectorAll('[data-auto-ready]'))box.checked=value;
   }
   function primeAudio(){
-    sounds.unlock(ranked());
+    sounds.unlock(ranked()||oneTeam());
     if(match)return;
     const url=URL.createObjectURL(silentPlayAudio());audio.src=url;
     audio.play().then(()=>{if(audio.src===url)audio.pause();}).catch(()=>{}).finally(()=>URL.revokeObjectURL(url));
@@ -889,7 +909,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function acceptReady(){
     if(!match||player()?.left)return;
-    sounds.unlock(ranked());
+    sounds.unlock(ranked()||oneTeam());
     if(match.phase==='loading'&&!player()?.acceptedReady)send(room,{type:'accept-ready'});
     root.querySelector('.sa-ready-reminder')?.remove();
     autoAttempt=match.id;
@@ -925,7 +945,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(draftDirty&&now>=match.until-1000)saveCurrentDraft();
       const skip=root.querySelector('[data-sa-action=skip]');if(skip)skip.disabled=!canVoteToSkip(now);
       syncSkipVote(now);
-      const input=root.querySelector('#sa-'+(teamFields()?selectedField:'anime'));
+      const input=root.querySelector('#sa-'+(teamFields()?selectedField:fields[0]));
       if(input?.disabled&&!pendingLock&&pendingArtistKey===null&&ready&&room?.readyState===1){render();}
       playRoundAudio(now);
     }else if(!unlocking&&(match.phase!=='guess'||now>=match.until))audio.pause();
@@ -934,7 +954,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     raf=setTimeout(tick,100);
   }
   root.addEventListener('input',event=>{
-    if(['sa-lobby-pool','sa-lobby-format','sa-lobby-songs','sa-lobby-time'].includes(event.target.id)){
+    if(event.target.name==='guessFields'||['sa-lobby-pool','sa-lobby-format','sa-lobby-songs','sa-lobby-time'].includes(event.target.id)){
+      if(event.target.name==='guessFields')readGuessFields(root,true);
       lobbyDraft={...customSettings(),songs:root.querySelector('#sa-lobby-songs')?.value??35};
       root.querySelector('[data-lobby-action=settings]').disabled=false;
       root.querySelector('[data-lobby-action=start]').disabled=true;
@@ -1031,7 +1052,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(button.dataset.saReact){send(room,{type:'reaction',index:match.index,field:button.dataset.saReact,value:button.dataset.reaction});return;}
     if(button.dataset.saCount){send(room,{type:'count',index:match.index,player:button.dataset.saCount});return;}
     if(button.dataset.saOption!=null){pickSuggestion(Number(button.dataset.saOption));return;}
-    if(button.dataset.saFormat){format=button.dataset.saFormat;render();return;}
+    if(button.dataset.saFormat){selectQueueFormat(button.dataset.saFormat);render();return;}
     const action=button.dataset.saAction;
     if(action==='resume-audio'){sounds.unlock(ranked());playRoundAudio(Date.now()+offset,true);tick();return;}
     if(action==='skip'){
@@ -1045,7 +1066,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(waiting())cancelQueue();
       else if(queueStatus.type==='idle'){
         primeAudio();
-        joinQueue(arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ranked()?ngmcFormat:format,preferredPool());
+        joinQueue(selectedQueueFormat(),preferredPool());
       }
     }
     else if(action==='volunteer'||action==='auto-count')send(room,{type:action});
@@ -1078,6 +1099,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function enter(nextMode='song-artist',restore=null){
       if(active&&waiting()){mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];render();return;}
       const restoreFormat=restore?.format??null;
+      gameMode=null;
       queuedFromOverview=!!restore?.fromOverview;
       lastCounts=null;lobbies=null;autoReady=readAutoReady();savedServer();savedVolume();pendingArtistKey=null;mode=nextMode;fields=animeOnly()?['anime']:['anime','song','artist'];totalSongs=duel()?duelRules.songs:ranked()?35:20;active=true;activity.start();match=null;structure='';clockReady=false;queuedFormat=restoreFormat;selectQueueFormat(restoreFormat);queueStatus=restoreFormat?{type:'joining',format:restoreFormat}:{type:'idle'};notifyQueue();render();if(!getPlayer()){clearInterval(heartbeat);void refreshGuestCounts();heartbeat=setInterval(refreshGuestCounts,30000);return;}if(!worker)startWorker();connectQueue();clearInterval(heartbeat);lastQueueCheck=lastCheck=Date.now();heartbeat=setInterval(checkConnections,1000);
       document.addEventListener('visibilitychange',wakeConnection);window.addEventListener('online',wakeConnection);window.addEventListener('pageshow',wakeConnection);
@@ -1093,6 +1115,6 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(cancelQueue)send(queue,{type:'cancel'});
       overviewJoin=null;
       if(!preserveQueue){queuedFormat=null;notifyQueue();}
-      queue?.close();room?.close();queue=null;room=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},
+      queue?.close();room?.close();queue=null;room=null;gameMode=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},
   };
 }

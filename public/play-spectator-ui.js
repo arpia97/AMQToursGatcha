@@ -1,7 +1,7 @@
 import {openMatchChat} from './play-match-chat.js';
 import {poolName} from './play-pool.js';
 import {createSongListDialog} from './play-song-dialog.js';
-import {songBroadcastLayout,songTeamsHTML,recapHTML,updateRoundDial,versusHTML} from './play-round-ui.js';
+import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js';
 import {ngmcArena,ngmcTeams,ngmcTrack,ngmcProgress} from './ngmc-ui.js';
 import {pointsBoard} from './play-lobby-ui.js';
 import {broadcastResults} from './play-match-results.js';
@@ -9,6 +9,7 @@ import {arenaBoard} from './play-arena-ui.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {roundAudio} from './play-round-audio.js';
 import {liveProgressText,liveScoreHTML} from './play-live-score.js';
+import {ONE_TEAM_FORMAT,oneTeamRules} from './play-mode-rules.js';
 
 const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',guess:'Listen & Answer',
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
@@ -130,6 +131,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   },{signal:controller.signal});
 
   function winnerLabel(){
+    if(state.format===ONE_TEAM_FORMAT)return state.teams[0]?'Team survived':'Team ran out of lives';
     if(state.teams.length===1)return 'Team score · '+state.teams[0]+' points';
     const high=Math.max(...state.teams),leaders=state.teams.flatMap((score,team)=>score===high?[team]:[]);
     const remaining=state.players.filter(p=>!p.left);
@@ -178,6 +180,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
 
     const phaseNode=board.querySelector('.sa-round-status');
     if(phaseNode)phaseNode.textContent=phases[state.phase]||'Live';
+    if(state.format===ONE_TEAM_FORMAT)setMarkup('.one-team-mobile-lives',teamLivesHTML(state.teams[0],oneTeamRules.lives));
     const latest=state.history.at(-1);
     const revealed=latest&&(finished||latest.index===state.index&&['reveal','counting'].includes(state.phase))?latest:null;
     setMarkup('.sa-scoreboard',state.arena?arenaBoard(state,esc):
@@ -187,7 +190,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
       setMarkup('.ngmc-track',ngmcTrack(revealed,esc,animeTitle));
       setMarkup('.ngmc-progress',ngmcProgress(state,esc,animeTitle));
     }else{
-      setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+versusHTML(state,revealed,esc):'');
+      setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+(state.format===ONE_TEAM_FORMAT?'':versusHTML(state,revealed,esc)):'');
     }
     songList.update(state);audioNotice();tick();
   }

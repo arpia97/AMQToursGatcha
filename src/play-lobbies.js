@@ -1,5 +1,5 @@
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
-import {DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
+import {DUEL_LOBBY_FORMAT, duelRules, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
 import {send} from './play-sockets.js';
@@ -21,6 +21,13 @@ export function lobbySettings(data){
   const seconds=data.seconds??(duel?duelRules.guessSeconds:undefined);
   if(![DUEL_LOBBY_FORMAT,'lobby-team','lobby-ffa'].includes(format)||!Number.isInteger(songs)||songs<1||songs>100||
     !Number.isSafeInteger(seconds)||seconds<0||seconds>8e12)fail('Choose 1–100 songs and a positive guess time, or unlimited.');
+  if (!duel && data.guessFields !== undefined) {
+    const fields = data.guessFields;
+    if (!Array.isArray(fields) || !fields.length || fields.some(field => !songArtistFields.includes(field)))
+      fail('Select at least one of Anime, Song or Artist.');
+    const guessFields = songArtistFields.filter(field => fields.includes(field));
+    if (guessFields.length < songArtistFields.length) return {format,songs,seconds,...selection,guessFields};
+  }
   return {format,songs,seconds,...selection};
 }
 

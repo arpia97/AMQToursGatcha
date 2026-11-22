@@ -2,7 +2,7 @@ import {watchedListStatuses} from "../play-list-statuses.js";
 import { installPlayAccountMenu } from "../play-account-menu.js";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
-import {DUEL_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
+import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
 import {ARENA_FORMAT} from '../play-arena-config.js';
 import { PLAY_MODES, playRoute, playHref } from "../play-navigation.js";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
@@ -141,7 +141,7 @@ async function refreshAccount(expectedPlayer) {
   header();
 }
 const multiplayerRoot = document.createElement('div');
-const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team'};
+const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team',[ONE_TEAM_FORMAT]:'1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
 let currentQueue, overview, currentActivity,watchView,watchOpener,watchRequest;
 function stopWatching(){
@@ -205,7 +205,7 @@ function showQueue(status){
     });
     return;
   }
-  $('#play-queue-mode').textContent=queueLabels[format]+(status.pool==='watched'?' · Watched':'');
+  $('#play-queue-mode').textContent=queueLabels[format]+(format===ONE_TEAM_FORMAT?(status.pool==='watched'?' Watched':' Random'):status.pool==='watched'?' · Watched':'');
   const text=!status.connected?'Reconnecting…':status.type==='preparing'?preparationLabel(status.progress):status.type==='matched'?'Match found':status.type==='queued'?
     'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed+' · '+percentDone(status.waiting,status.needed)):'Joining queue…';
   if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;

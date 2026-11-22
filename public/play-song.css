@@ -78,6 +78,40 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .ngmc-lives i { display:block; width:21px; height:21px; color:var(--team-accent); }
 .ngmc-lives svg { width:100%; height:100%; fill:currentColor; stroke:currentColor; stroke-width:1.4; }
 .ngmc-lives .lost { color:#414653; }.ngmc-lives .lost svg { fill:transparent; }
+.sa-song-team .ngmc-lives {--team-accent:var(--mint);gap:3px}
+.sa-song-team .ngmc-lives i {width:14px;height:14px}
+.one-team-guess,.one-team-result-guesses span {display:flex;align-items:baseline;gap:4px}
+.one-team-guess[data-correct=true],.one-team-round-result[data-correct=true],.one-team-result-guesses [data-correct=true] {color:var(--mint)}
+.one-team-guess[data-correct=false],.one-team-round-result[data-correct=false],.one-team-result-guesses [data-correct=false] {color:#f38fa6}
+.one-team-result-guesses {list-style:none;margin:10px 0 12px;padding:0;display:grid;gap:6px}
+.one-team-result-guesses li {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px;overflow-wrap:anywhere}
+.one-team-guess .sa-guess-mark,.one-team-result-guesses .sa-guess-mark {position:static;transform:none;font-size:inherit;color:inherit}
+.one-team-mobile-lives {display:none}
+.one-team-survival #sa-answer-form:not([hidden]) {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px;max-width:670px;margin:14px auto 0}
+.one-team-survival .sa-song-panel .sa-answer-fields {grid-template-columns:minmax(0,1fr)}
+.one-team-survival .sa-song-panel .sa-answer-row {padding:0;border:0;background:none;gap:0}
+.one-team-survival .sa-lock {width:auto;min-height:43px;margin:0}
+.one-team-survival .answer-search-controls,.one-team-survival .sa-locked-answer {grid-column:1/-1}
+.one-team-ballot {max-width:670px;margin:14px auto;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--bg)}
+.one-team-ballot small {color:var(--muted);font-size:11px}
+.one-team-ballot-options {max-height:210px;overflow-y:auto;padding:2px 2px 3px;scrollbar-width:thin}
+.one-team-ballot .ballot-option:first-child {margin-top:0}
+.one-team-ballot [data-ballot] {display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left}
+.one-team-ballot [data-ballot] small {display:block;margin-top:2px;font-weight:400}
+.one-team-ballot [data-ballot][aria-pressed=true] {border-color:var(--mint);background:#253b34}
+.one-team-votes {white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums;color:var(--mint)}
+.one-team-picked {display:flex;flex-wrap:wrap;gap:6px 10px;margin:10px 0 0;font-size:12px}
+.one-team-picked span {color:var(--muted)}
+@media(max-width:600px){
+  .one-team-ballot {margin-block:8px;padding:8px}
+  .one-team-ballot-options {max-height:155px}
+  .one-team-ballot [data-ballot] {min-height:0;padding:5px 9px}
+  .one-team-survival .answer-search-controls,.one-team-survival .sa-skip-row {justify-content:flex-start}
+}
+@container (max-width:850px){
+  .one-team-survival .sa-song-team header .ngmc-lives {display:none}
+  .one-team-mobile-lives {display:block;margin-top:8px;--team-accent:var(--mint)}
+}
 .ngmc-team.rivals header { flex-direction:row-reverse; }.ngmc-team.rivals header>div:first-child { text-align:right; }
 .ngmc-player { display:grid; grid-template-columns:38px minmax(0,1fr) 50px; grid-template-areas:"avatar name guesses" "answer answer answer"; gap:6px 10px; align-content:center; align-items:center; height:86px; border-bottom:1px solid #ffffff09; padding:8px 12px; }
 .ngmc-player:last-child { border:0; }.ngmc-player.self { background:#b6e2c509; border-radius:6px; }
@@ -474,6 +508,8 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .sa-answer-key { padding:0 0 14px; margin:0 0 14px; border-bottom:1px solid var(--border); }
 .sa-answer-key header { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:10px; }
 .sa-answer-key header strong { font-size:13px; }.sa-answer-key header small { color:var(--muted); font-size:11px; }
+.sa-answer-key .one-team-round-result[data-correct=true] {color:var(--mint)}
+.sa-answer-key .one-team-round-result[data-correct=false] {color:#f38fa6}
 .sa-answer-key dl { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:0; background:#20302d; border:1px solid #39514a; border-radius:4px; }
 .sa-answer-key dl>div { min-width:0; padding:10px 12px; }.sa-answer-key dl>div+div { border-left:1px solid #39514a; }
 .sa-answer-key dt { color:var(--mint); font:10px/1.5 Consolas,monospace; letter-spacing:.1em; text-transform:uppercase; }
@@ -534,6 +570,17 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .room-controls { padding:10px 14px; margin:0; font-size:13px; }
 .room-controls>div { margin-left:auto; }
 .room-controls [aria-pressed=true] { color:var(--mint); border-color:var(--mint); }
+#sa-answer-form:not(:has(#sa-anime)) label:has([data-fuzzy-anime]) {display:none}
+.room-guess-types {margin:0;padding:0;border:0;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.room-guess-types legend {padding:0;margin-bottom:6px;color:var(--muted);font-size:12px}
+.room-options .room-guess-types label,.play-lobby-dialog .room-guess-types label {display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer}
+.room-guess-types label:has(:checked) {background:color-mix(in srgb,var(--mint) 9%,var(--bg));border-color:color-mix(in srgb,var(--mint) 45%,var(--border));color:var(--mint)}
+.room-guess-types input[type=checkbox] {width:14px;height:14px;margin:0;accent-color:var(--mint)}
+.room-guess-types label:has(:disabled) {cursor:default}
+@media(min-width:701px){
+  .sa-song-panel .sa-answer-fields[data-guess-count="2"],.lobby-ballot[data-guess-count="2"] {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sa-song-panel .sa-answer-fields[data-guess-count="1"],.lobby-ballot[data-guess-count="1"] {grid-template-columns:minmax(0,1fr)}
+}
 dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); }
 .play-lobby-dialog h2 { margin:0; padding-bottom:12px; border-bottom:1px solid var(--border); }
 .play-lobby-dialog footer { border-top:1px solid var(--border); padding:12px 0 0; margin:0; }

@@ -1,5 +1,5 @@
 import {playPools, poolFormat} from '../public/play-pool.js';
-import {DUEL_FORMAT, queueMode} from '../public/play-mode-rules.js';
+import {DUEL_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, queueMode} from '../public/play-mode-rules.js';
 import {duelRatings} from './play-duel-ratings.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaBatch} from './play-arena.js';
@@ -409,10 +409,16 @@ export class PlayQueue extends DurableObject {
         ORDER BY abs(p.elo-?),q.joined,q.player LIMIT ?`,format,pool,now,anchor.elo,spread,anchor.elo,size);
     }else{
       rows=this.rows('SELECT * FROM queue WHERE format=? AND pool=? AND match IS NULL AND expires>? ORDER BY joined,player LIMIT ?',format,pool,now,size);
+      if(format===ONE_TEAM_FORMAT&&rows.length<size){
+        if(rows.length<oneTeamRules.minPlayers)return;
+        const deadline=rows[0].joined+oneTeamRules.waitMs;
+        if(now<deadline){await this.scheduleQueue(deadline);return;}
+        size=rows.length;
+      }
     }
     if(rows.length!==size)return;
     const id=crypto.randomUUID(),players=rows.map(row=>{const rating=format.startsWith('ngmc-')?this.rows('SELECT * FROM '+rankingTable+' WHERE player=?',row.player)[0]:null;return {id:row.player,name:row.name,...(format===ARENA_FORMAT?{elo:row.rating}:{}),avatar:row.avatar?JSON.parse(row.avatar):null,...(rating?{elo:rating.elo,guessRate:rating.seen?100*rating.correct/rating.seen:rating.seed_rate}:{})};});
-    const matchLeaseMs=format==='ngmc-ranked'||format===ARENA_FORMAT?7200000:3600000;
+    const matchLeaseMs=format==='ngmc-ranked'||format===ARENA_FORMAT||format===ONE_TEAM_FORMAT?7200000:3600000;
     this.ctx.storage.transactionSync(()=>{for(const row of rows){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO play_names VALUES(?,?)',row.player,row.name);this.ctx.storage.sql.exec('UPDATE queue SET match=?,expires=? WHERE player=?',id,Date.now()+matchLeaseMs,row.player);this.ctx.storage.sql.exec('INSERT INTO recent VALUES(?,?,?)',row.player,id,Date.now()+86400000);}this.ctx.storage.sql.exec('INSERT INTO preparing(id,format,players,started,pool) VALUES(?,?,?,?,?)',id,format,JSON.stringify(players),Date.now(),pool);});
     this.ctx.storage.sql.exec('INSERT OR IGNORE INTO match_reviews VALUES(?,?,?,?,?)',id,Date.now(),format,JSON.stringify(players.map(({id,name})=>({id,name}))),'active');
     await this.prepare({id,format,pool,players:JSON.stringify(players),started:Date.now()});
@@ -431,7 +437,8 @@ export class PlayQueue extends DurableObject {
     }else if(message.type==='join'){
       if(this.lobbies.forPlayer(who.id))fail('Leave your lobby first.');
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to load the updated match player.',409);
-      if(!Object.hasOwn(PLAY_FORMATS,message.format)||message.mode!==queueMode(message.format))fail('Choose a valid match format.');
+      if(!Object.hasOwn(PLAY_FORMATS,message.format)||(message.mode!==queueMode(message.format)&&
+        !(message.format==='1-team'&&message.mode==='song-artist')))fail('Choose a valid match format.');
       const pool=message.pool??'random';
       if(!playPools.includes(pool))fail('Choose Random or Watched.');
       this.assertActiveQueueAccess(ws,who.id);

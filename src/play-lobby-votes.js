@@ -1,11 +1,11 @@
 import {titleKey,artistKey} from './play-artists.js';
+import {matchGuessFields} from '../public/play-mode-rules.js';
 
-const fields=['anime','song','artist'];
 const reject=message=>{throw Object.assign(Error(message),{status:409});};
 export function proposeOrVote(state,player,message){
   const field=message.field;
-  if(!fields.includes(field))reject('Choose an answer category.');
-  state.ballot??={anime:[],song:[],artist:[]};
+  if(!matchGuessFields(state).includes(field))reject('Choose an answer category.');
+  state.ballot??=Object.fromEntries(matchGuessFields(state).map(field=>[field,[]]));
   const options=state.ballot[field];
   if(message.type==='propose'){
     const answer=typeof message.answer==='string'?message.answer.trim():'';
@@ -14,25 +14,30 @@ export function proposeOrVote(state,player,message){
     if(options.some(option=>option.key===key))reject('That answer has already been submitted.');
     if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
     options.push({id:crypto.randomUUID(),owner:player.id,answer,key});
+    if(player.answeredMatch===false)player.answeredMatch=true;
   }else if(message.type==='withdraw'){
     const index=options.findIndex(option=>option.id===message.choice&&option.owner===player.id);
     if(index<0)reject('Choose one of your own guesses.');
     options.splice(index,1);
     for(const voter of state.players)if(voter.votes?.[field]===message.choice)delete voter.votes[field];
   }else{
-    if(message.choice!==null&&!options.some(o=>o.id===message.choice))reject('Choose an available answer.');
+    if(message.choice!==null&&!options.some(o=>o.id===message.choice&&state.players.some(p=>p.id===o.owner&&!p.left)))reject('Choose an available answer.');
     player.votes??={};
     if(message.choice===null)delete player.votes[field];
     else player.votes[field]=message.choice;
   }
 }
 export function ballotsComplete(state){
-  return state.players.filter(p=>!p.left).every(p=>fields.every(field=>p.votes?.[field]!=null));
+  const active=state.players.filter(p=>!p.left),ids=new Set(active.map(p=>p.id));
+  return matchGuessFields(state).every(field=>{
+    const choices=new Set((state.ballot?.[field]||[]).filter(o=>ids.has(o.owner)).map(o=>o.id));
+    return active.every(p=>choices.has(p.votes?.[field]));
+  });
 }
 export function selectWinners(state){
   const active=state.players.filter(p=>!p.left);
   for(const p of state.players){p.answers={};delete p.artists;delete p.draft;}
-  for(const field of fields){
+  for(const field of matchGuessFields(state)){
     const options=(state.ballot?.[field]||[]).filter(o=>active.some(p=>p.id===o.owner));
     if(!options.length)continue;
     const counts=options.map(o=>active.filter(p=>p.votes?.[field]===o.id).length);

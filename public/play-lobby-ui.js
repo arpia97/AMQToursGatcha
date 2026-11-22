@@ -1,10 +1,23 @@
 import {percentDone} from './play-setup-progress.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from './play-arena-config.js';
-import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, duelRules, lobbyCapacity, lobbyGameMode} from './play-mode-rules.js';
+import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, duelRules, matchGuessFields, songArtistFields, lobbyCapacity, lobbyGameMode} from './play-mode-rules.js';
 import {poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena',[DUEL_LOBBY_FORMAT]:'1v1 Unranked'};
+function guessFieldPicker(selected=songArtistFields, readOnly=false) {
+  return '<fieldset class="room-guess-types"><legend>Guess Types</legend>'+songArtistFields.map(field=>{
+    const checked=selected.includes(field);
+    return '<label><input type="checkbox" name="guessFields" id="guess-type-'+field+'" value="'+field+'"'+
+      (checked?' checked':'')+(readOnly||checked&&selected.length===1?' disabled':'')+'>'+({anime:'Anime',song:'Song',artist:'Artist'})[field]+'</label>';
+  }).join('')+'</fieldset>';
+}
+export function readGuessFields(container, update=false) {
+  const inputs=Array.from(container.querySelectorAll('[name=guessFields]'));
+  const selected=inputs.filter(input=>input.checked).map(input=>input.value);
+  if(update)for(const input of inputs)input.disabled=input.checked&&selected.length===1;
+  return selected;
+}
 function poolPicker(value='random',disabled=false,id=''){
   return '<label>Song Pool<select name="pool" '+(id?'id="'+id+'" ':'')+(disabled?'disabled':'')+'><option value="random">Random</option><option value="watched" '+(value==='watched'?'selected':'')+'>Watched</option></select></label>';
 }
@@ -15,6 +28,7 @@ export function lobbyDirectoryHTML(lobbies,mode,enabled,esc){
 }
 export function lobbyDialog(action,mode,room,send,pool='random'){
   const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT,duel=mode===DUEL_FORMAT;
+  const cooperative=mode===ONE_TEAM_MODE;
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
   const dialog=document.createElement('dialog');
   dialog.className='sa-song-dialog play-lobby-dialog';
@@ -24,19 +38,21 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
     (create&&duel?'<p>1v1 Unranked</p><div class="lobby-settings">'+
       '<label>Songs<input name="songs" type="number" min="1" max="100" placeholder="'+duelRules.songs+'"></label>'+
       '<label>Guess Time (Seconds)<input name="seconds" type="number" min="1" placeholder="Unlimited" value="'+duelRules.guessSeconds+'"></label></div>':'')+
-    (create&&!ngmc&&!arena&&!duel?'<label>Format<select name="format"><option value="lobby-team">1-Team</option><option value="lobby-ffa">Free-for-All</option></select></label><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
-    (create?poolPicker(pool):'')+
+    (create&&!ngmc&&!arena&&!duel?'<p>'+(cooperative?'Song/Artist 1-Team':'Song/Artist Free-for-All')+'</p><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
+    (create?poolPicker(pool):'')+(create&&!ngmc&&!arena&&!duel?guessFieldPicker():'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
     (edit?'<small>Leave blank to make this lobby public.</small>':'')+
     '<p role="alert" hidden></p><footer><button type="button" class="button secondary">Cancel</button><button class="button mint">'+(edit?'Save':title)+'</button></footer></form>';
   dialog.querySelector('button[type=button]').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>{dialog.querySelector('form').reset();dialog.remove();},{once:true});
+  dialog.addEventListener('input',event=>{if(event.target.name==='guessFields')readGuessFields(dialog,true);});
   dialog.querySelector('form').onsubmit=event=>{
     event.preventDefault();
     const values=new FormData(event.currentTarget);
     const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':values.get('format'),songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
+    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':cooperative?'lobby-team':'lobby-ffa',songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
+    if(create&&!ngmc&&!arena&&!duel)payload.guessFields=readGuessFields(dialog);
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
@@ -54,13 +70,13 @@ function lobbySettings(lobby, settings, host, draft, esc) {
   }
   const disabled = host ? '' : ' disabled';
   const duel=lobby.format===DUEL_LOBBY_FORMAT;
-  const options = ['lobby-team','lobby-ffa'].map(id =>
+  const options=['lobby-team','lobby-ffa'].map(id =>
     '<option value="'+id+'" '+(settings.format===id?'selected':'')+'>'+lobbyModeNames[id]+'</option>'
   ).join('');
   return pool+(duel?'':'<label>Mode<select id="sa-lobby-format"'+disabled+'>'+options+'</select></label>')+
     '<div class="lobby-settings"><label>Songs<input type="number" min="1" max="100" id="sa-lobby-songs" placeholder="20" value="'+esc(settings.songs===20?'':settings.songs)+'"'+disabled+'></label>'+
     '<label>Guess Time (Seconds)<input type="number" min="1" id="sa-lobby-time" placeholder="Unlimited" value="'+esc(settings.seconds||'')+'"'+disabled+'></label></div>'+
-    save;
+    (duel?'':guessFieldPicker(settings.guessFields,!host))+save;
 }
 
 function watchedPoolStatus(lobby, host, short) {
@@ -71,7 +87,7 @@ function watchedPoolStatus(lobby, host, short) {
     ? count.toLocaleString()+' eligible anime'+(lobby.songs?' · '+lobby.songs+' needed':'')
     : pool?.unavailable?'Couldn’t check the Watched pool.':'Checking the Watched pool…';
   const warning=host&&short
-    ? '<small>Add more watched entries or switch to Random.'+((lobby.format===DUEL_LOBBY_FORMAT||lobbyGameMode(lobby.format)==='song-artist')?' You can also choose fewer songs.':'')+'</small>'
+    ? '<small>Add more watched entries or switch to Random.'+((lobby.format===DUEL_LOBBY_FORMAT||['lobby-team','lobby-ffa'].includes(lobby.format))?' You can also choose fewer songs.':'')+'</small>'
     : '';
   return '<div class="room-watched-pool" data-short="'+short+'" role="status"><strong>'+status+'</strong>'+warning+'</div>';
 }
@@ -111,7 +127,23 @@ export function pointsBoard(match,esc){
 }
 export function ballotHTML(match,esc){
   if(match.phase!=='guess')return '';
-  return '<div class="lobby-ballot">'+Object.entries(names).map(([field,label])=>{
+  if(match.format===ONE_TEAM_FORMAT){
+    const active=new Map(match.players.filter(player=>!player.left).map(player=>[player.id,player.name]));
+    const choices=(match.ballot?.anime||[]).filter(choice=>active.has(choice.owner));
+    return '<section class="one-team-ballot" aria-label="Team guesses">'+
+      (choices.length?'<div class="one-team-ballot-options">'+choices.map(choice=>{
+        const selected=match.myVotes?.anime===choice.id;
+        const count=match.voteCounts?.[choice.id]||0;
+        const id=esc(choice.id);
+        return '<div class="ballot-option"><button type="button" class="button secondary" data-ballot="anime" data-choice="'+id+'" aria-pressed="'+selected+'">'+
+          '<span><strong>'+esc(choice.answer)+'</strong><small>'+esc(active.get(choice.owner))+'</small></span>'+
+          '<span class="one-team-votes">'+count+' '+(count===1?'vote':'votes')+'</span></button>'+
+          (choice.owner===match.me?'<button type="button" class="ballot-withdraw" data-withdraw="anime" data-choice="'+id+
+            '" aria-label="Withdraw guess: '+esc(choice.answer)+'" title="Withdraw your guess">×</button>':'')+'</div>';
+      }).join('')+'</div>':'<small class="muted">Submitted guesses appear here.</small>')+'</section>';
+  }
+  return '<div class="lobby-ballot" data-guess-count="'+matchGuessFields(match).length+'">'+matchGuessFields(match).map(field=>{
+    const label=names[field];
     const options=match.ballot?.[field]||[];
     return '<section><h3>'+label+'</h3>'+options.map(o=>{
       const selected=match.myVotes?.[field]===o.id;

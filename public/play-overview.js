@@ -1,6 +1,6 @@
 import {PLAY_MODES,playHref} from './play-navigation.js';
 import {ARENA_FORMAT} from './play-arena-config.js';
-import {DUEL_FORMAT} from './play-mode-rules.js';
+import {DUEL_FORMAT,ONE_TEAM_FORMAT,ONE_TEAM_MODE} from './play-mode-rules.js';
 import {playPools,poolFormat,poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {liveProgressText,liveScoreHTML} from './play-live-score.js';
@@ -13,7 +13,8 @@ const groups=[
   [DUEL_FORMAT,[[DUEL_FORMAT,'']]],
   ['ngmc-ranked',[['ngmc-ranked','4v4 Ranked'],['ngmc-3v3','3v3 Unranked']]],
   [ARENA_FORMAT,[[ARENA_FORMAT,'Round Robin']]],
-  ['song-artist',[['1v1','1v1'],['3v3','3v3'],['1-team','1-Team']]],
+  ['song-artist',[['1v1','1v1'],['3v3','3v3']]],
+  [ONE_TEAM_MODE,[[ONE_TEAM_FORMAT,'Survival'],['1-team','Song/Artist']]],
 ];
 const queueNames=new Map(groups.flatMap(([mode,formats])=>formats.map(([format,label])=>
   [format,[modes.get(mode).name,label].filter(Boolean).join(' · ')])));
@@ -22,7 +23,8 @@ const matchModes={
   'ngmc-ranked':['ngmc-ranked','NGMC 4v4'],'ngmc-3v3':['ngmc-ranked','NGMC 3v3'],'lobby-ngmc':['ngmc-ranked','NGMC Custom'],
   [ARENA_FORMAT]:[ARENA_FORMAT,'2v2 Arena'],'lobby-arena':[ARENA_FORMAT,'2v2 Arena'],
   '1v1':['song-artist','Song/Artist 1v1'],'3v3':['song-artist','Song/Artist 3v3'],
-  '1-team':['song-artist','Song/Artist 1-Team'],'lobby-team':['song-artist','Song/Artist 1-Team'],
+  [ONE_TEAM_FORMAT]:[ONE_TEAM_MODE,'1-Team'],
+  '1-team':[ONE_TEAM_MODE,'Song/Artist 1-Team'],'lobby-team':[ONE_TEAM_MODE,'Song/Artist 1-Team'],
   'lobby-ffa':['song-artist','Song/Artist Free-for-All'],
 };
 const poolLabel=pool=>'<span class="overview-pool-label '+(pool==='watched'?'watched':'random')+'">'+poolName(pool)+'</span>';

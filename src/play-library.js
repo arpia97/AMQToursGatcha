@@ -1,4 +1,5 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
+import {ONE_TEAM_MODE} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
 import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
@@ -134,9 +135,11 @@ export class PlayLibrary {
     const catalogReady=Date.now();
     const maxSongs=mode===ARENA_FORMAT?arenaSongCount(arenaRules.maxPlayers):100;
     if(!Number.isInteger(count)||count<1||count>maxSongs)throw Error('Invalid song count.');
-    if(data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
+    const allowShort=mode===ONE_TEAM_MODE&&!exclude;
+    if(!allowShort&&data.groups.length<count)throw Object.assign(Error('The song pool is too small for this match.'),{status:503});
     const selected=new Set(),verifiedAudio=new Map(),random=new Uint32Array(1);
-    const ranked=mode==='ngmc-ranked',target=exclude?1:ranked?35:count;
+    const ranked=mode==='ngmc-ranked';
+    let target=exclude?1:ranked?35:allowShort?Math.min(count,data.groups.length):count;
     if(progress)Object.assign(progress,{stage:'songs',done:0,total:target});
     const excludedPaths=new Set((exclude||[]).map(audioFilename));
     const lists=Array.isArray(watched)?watched:watched&&Object.entries(watched).map(([provider,ids])=>({provider,ids}));
@@ -166,10 +169,14 @@ export class PlayLibrary {
     const tried=new Set(),pool=ranked?[]:[...available];
     if(weights){
       const candidates=watchedCandidates(data,weights,ranked,{groupById,excluded,excludedPaths});
-      if(candidates.size<target)throw shortPool();
+      if(allowShort){
+        target=Math.min(target,candidates.size);
+        if(progress)progress.total=target;
+      }
+      if(!target||candidates.size<target)throw shortPool();
       for(const anime of weights.keys())if(!candidates.has(anime))weights.delete(anime);
       const recordings=await watchedRecordings(weightedAnimeOrder(weights),new Map([...candidates].map(([anime,options])=>[anime,[...options.values()]])),target,verify,randomIndex,audioFilename);
-      if(recordings.length!==target)throw shortPool();
+      if(!recordings.length||!allowShort&&recordings.length!==target)throw shortPool();
       for(const {anime,group,url} of recordings){
         selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);
       }
@@ -191,7 +198,7 @@ export class PlayLibrary {
         if(urls[i]){verifiedAudio.set(group,urls[i]);selected.add(group);}
       });
     }
-    if(selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
+    if(!selected.size||!allowShort&&selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     if(progress)progress.stage='finalizing';
     // Small, real, unused audio sample for host integrity review. Never part of
     // the scored song list. Check these links even in Song/Artist mode.

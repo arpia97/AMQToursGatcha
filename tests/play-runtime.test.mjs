@@ -176,8 +176,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const listUpdate=(body,cookie)=>mf.dispatchFetch(base+'/api/play-anime-list',{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)});
   const listBody={provider:'myanimelist',username:'https://myanimelist.net/animelist/Local'};
   assert.equal((await listUpdate(listBody)).status,401);
-  host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,pool:'watched'});
+  host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,guessFields:[]});
+  await host.wait(m=>m.type==='error'&&m.message.includes('at least one'));
+  host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,pool:'watched',guessFields:['artist','song']});
   const watchedLobby=await host.wait(m=>m.type==='lobby'&&m.pool==='watched'&&m.watchedPool?.eligible===0);
+  assert.deepEqual(watchedLobby.guessFields,['song','artist']);
   host.send({type:'lobby-start'});
   await host.wait(m=>m.type==='error'&&m.message.includes('Import'));
   const linked=await listUpdate(listBody,cookies[0]);assert.equal(linked.status,200,await linked.clone().text());
