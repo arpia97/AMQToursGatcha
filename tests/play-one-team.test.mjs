@@ -63,6 +63,36 @@ test('only a current catalog guess or vote makes a player ready for early reveal
   assert.deepEqual(state.history[0].points,[1]);
 });
 
+test('unanimous 1-Team Autoskip waits for a catalog answer',()=>{
+  const catalog=ballotCatalogIndex({anime:['Anime 0']});
+  for(const format of [ONE_TEAM_FORMAT,'lobby-team','1-team']){
+    const legacy=format==='1-team';
+    const songsForMatch=legacy?songs.slice(0,20):songs.slice(0,2);
+    const lobby=format==='lobby-team'?{songs:2,seconds:20}:null;
+    const state=Object.assign(makeMatch('autoskip',format,players.slice(0,3),songsForMatch,0,lobby),
+      {phase:'guess',startsAt:1,until:20000});
+    const move=(id,msg)=>matchMove(state,id,{index:0,field:'anime',...msg},1000,catalog);
+    for(const player of state.players)move(player.id,{type:'auto-skip',vote:true});
+    assert.equal(state.phase,'guess',format);
+
+    const timeout=structuredClone(state);
+    advanceMatch(timeout,timeout.until,catalog);
+    assert.equal(timeout.phase,'reveal',format);
+    assert.deepEqual(timeout.history[0].points,[0],format);
+
+    const manual=structuredClone(state);
+    for(const id of ['1','2'])matchMove(manual,id,{type:'skip',index:0,vote:true},1000,catalog);
+    assert.equal(manual.phase,'reveal',format);
+    assert.deepEqual(manual.history[0].points,[0],format);
+
+    move('1',{type:legacy?'answer':'propose',answer:'Gibberish'});
+    assert.equal(state.phase,'guess',format);
+    move(legacy?'1':'2',{type:legacy?'answer':'propose',answer:'Anime 0'});
+    assert.equal(state.phase,'reveal',format);
+    assert.deepEqual(state.history[0].points,[1],format);
+  }
+});
+
 test('every active teammate hears the shared reveal result exactly once',()=>{
   for(const format of [ONE_TEAM_FORMAT,'1-team','lobby-team']){
     const members=players.slice(0,3).map(p=>({...p,team:0}));

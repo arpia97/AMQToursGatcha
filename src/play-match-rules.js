@@ -3,7 +3,7 @@ import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {arenaSongCount, pairPlayers, arenaSchedule, arenaStandings, recordArenaSong, arenaVoteAction, arenaBallotView, arenaVotesComplete, selectArenaTitles} from './play-arena.js';
 import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leave-policy.js';
-import {proposeOrVote,ballotReadiness,catalogAnswer,selectWinners,rematchView,returnVote,checkReturn,voteToAbort,checkAbort} from './play-lobby-votes.js';
+import {proposeOrVote,ballotStatus,catalogAnswer,selectWinners,rematchView,returnVote,checkReturn,voteToAbort,checkAbort} from './play-lobby-votes.js';
 import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
@@ -15,14 +15,18 @@ function skipMajority(state){
 }
 function allPlayersReadyToReveal(state,active,catalog) {
   if(usesTeamBallot(state.format)){
-    const ready=ballotReadiness(state,catalog);
-    return active.every(p=>p.autoSkip||ready.has(p.id));
+    const {ready,hasValidAnswer}=ballotStatus(state,catalog);
+    return hasValidAnswer&&active.every(p=>p.autoSkip||ready.has(p.id));
   }
   const hasAutoskip = active.some(player => player.autoSkip);
   if (state.arena) return hasAutoskip && arenaVotesComplete(active);
+  if (state.format==='1-team' && hasAutoskip) {
+    const fields=matchGuessFields(state);
+    const hasAnswer=p=>fields.some(field=>catalogAnswer(catalog,field,p.answers[field]));
+    return active.some(hasAnswer)&&active.every(p=>p.autoSkip||((state.teamFields||p.locked)&&hasAnswer(p)));
+  }
   if (state.teamFields && hasAutoskip) {
-    return active.every(p=>p.autoSkip||(state.format==='1-team'
-      ? catalogAnswer(catalog,p.field,p.answers[p.field]) : !!p.answers[p.field]));
+    return active.every(p=>p.autoSkip||!!p.answers[p.field]);
   }
   return active.every(player => player.locked || player.autoSkip);
 }
@@ -282,7 +286,7 @@ export function matchView(state,id,now=Date.now(),compactHistory=false,catalog) 
   const me=state.players.find(p=>p.id===id);if(!me)fail('You are not in this match.',403);
   const ended=['finished','cancelled'].includes(state.phase);
   const compact=compactHistory&&!ended;
-  const ballotReady=state.format===ONE_TEAM_FORMAT&&state.phase==='guess'?ballotReadiness(state,catalog):null;
+  const ballotReady=state.format===ONE_TEAM_FORMAT&&state.phase==='guess'?ballotStatus(state,catalog).ready:null;
   // NGMC counting can revise the latest revealed round's lives and spent guesses.
   const historyFrom=compact?Math.max(0,state.history.length-1):0;
   return {id:state.id,mode:state.mode||'song-artist',pool:state.pool||state.lobby?.pool||'random',total:state.songs.length,preload:state.openingSongs??(state.mode==='ngmc-ranked'?12:10),audioWindow:state.audioSealed?audioWindow(state):undefined,counters:state.counters,autoCounting:state.autoCounting,counterDeadline:ngmcCounterDeadline(state),autoCountAt:ngmcCounterDeadline(state),readyDeadline:state.readyDeadline,counts:state.counts,ratings:state.ratings,format:state.format,phase:state.phase,index:state.index,now,startsAt:state.startsAt||null,until:state.until,reason:state.reason,

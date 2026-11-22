@@ -50,9 +50,10 @@ export function catalogAnswer(catalog,field,answer,key){
   const normalized=key??(field==='artist'?artistKey(answer):titleKey(answer));
   return entries.has(normalized)||field==='artist'&&answer.split(',').every(name=>entries.has(artistKey(name)));
 }
-export function ballotReadiness(state,catalog){
+export function ballotStatus(state,catalog){
   const active=state.players.filter(p=>!p.left),ids=new Set(active.map(p=>p.id));
   const ready=new Set(ids);
+  let hasValidAnswer=false;
   for(const field of matchGuessFields(state)){
     const options=(state.ballot?.[field]||[]).filter(o=>ids.has(o.owner));
     const valid=new Set(options.filter(o=>catalogAnswer(catalog,field,o.answer,o.key)).map(o=>o.id));
@@ -61,10 +62,12 @@ export function ballotReadiness(state,catalog){
       // Rounds already running at deployment have no stored last action.
       const latest=Object.hasOwn(player.lastBallotChoice||{},field)?player.lastBallotChoice[field]:
         vote??options.findLast(o=>o.owner===player.id)?.id;
-      if(!valid.has(latest)||(state.format!==ONE_TEAM_FORMAT&&!valid.has(vote)))ready.delete(player.id);
+      const hasValidChoice=valid.has(latest);
+      hasValidAnswer ||= hasValidChoice;
+      if(!hasValidChoice||(state.format!==ONE_TEAM_FORMAT&&!valid.has(vote)))ready.delete(player.id);
     }
   }
-  return ready;
+  return {ready,hasValidAnswer};
 }
 export function ballotCatalogIndex(catalog){
   return Object.fromEntries(Object.entries(catalog).map(([field,names])=>{
