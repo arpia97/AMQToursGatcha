@@ -35,7 +35,7 @@ export function songHistoryHTML(data, escape, titleMode) {
     const correct = fields.length > 0 && song.earned === fields.length;
     const result = fields.length <= 1 ? (correct ? 'Correct' : 'Missed') : song.earned + '/' + fields.length;
     const indicator = correct ? '✓' : song.earned ? '•' : '×';
-    const credit = [song.song, song.artist].filter(Boolean).join(' · ');
+    const credit = [song.songType, song.song, song.artist].filter(Boolean).join(' · ');
     const score = song.lobbyScore;
     const lobbyScore = score
       ? '<span class="ph-lobby-score" aria-label="Lobby score: ' + escape(score.correct) + ' of ' +

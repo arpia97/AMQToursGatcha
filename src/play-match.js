@@ -1,10 +1,10 @@
-import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
+import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, matchGuessFields, usesTeamBallot, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
 import {gameEnded,liveMatchScore,spectatorTag,spectatorView,spectatorClip} from './play-spectator.js';
 import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
-import {checkRestart,rematchView,voteToRestart} from './play-lobby-votes.js';
+import {ballotCatalogIndex,checkRestart,rematchView,voteToRestart} from './play-lobby-votes.js';
 import {matchCreditPlan} from './play-rewards.js';
 import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
 import {matchRecords,archivedRecords} from './play-records.js';
@@ -27,6 +27,14 @@ export class PlayMatch extends DurableObject {
     sql.exec('CREATE TABLE IF NOT EXISTS room_chat(seq INTEGER PRIMARY KEY, player TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)');
     if(!sql.exec('PRAGMA table_info(room_chat)').toArray().some(col=>col.name==='name'))
       sql.exec('ALTER TABLE room_chat ADD COLUMN name TEXT');
+    const saved=sql.exec("SELECT json_extract(data,'$.format') AS format,json_extract(data,'$.phase') AS phase FROM match_state WHERE id=1").toArray()[0];
+    if(saved&&usesTeamBallot(saved.format)&&!gameEnded(saved.phase))
+      ctx.blockConcurrencyWhile(()=>this.loadBallotCatalog(this.read()));
+  }
+  async loadBallotCatalog(state){
+    const fields=matchGuessFields(state);
+    const catalog=await quizLibraryRequest(this.env,'/play-ballot-catalog',{fields});
+    this.ballotCatalog=ballotCatalogIndex(catalog);
   }
   #playerSockets(){
     return this.ctx.getWebSockets().filter(socket=>!socket.deserializeAttachment()?.spectator);
@@ -124,6 +132,7 @@ export class PlayMatch extends DurableObject {
     }
     if(!library)fail('The song library is unavailable.',503);
     const state=makeMatch(id,format,players,library.songs,Date.now(),lobby);
+    if(usesTeamBallot(format))await this.loadBallotCatalog(state);
     state.pool=pool;state.syncPlayback=true;
     prepareAudioPool(state,library.decoys,true);
     await sealPlayAudio(state,this.env.HOST_TOKEN);
@@ -265,7 +274,7 @@ export class PlayMatch extends DurableObject {
     const player=state.players.find(p=>p.id===id);
     if(!player||player.chatLeft)return;
     const playing=!gameEnded(state.phase)&&!player.left;
-    if(playing)matchMove(state,id,{type:'leave'});
+    if(playing)matchMove(state,id,{type:'leave'},Date.now(),this.ballotCatalog);
     this.recordChatExit(state,player);
     if(playing){this.broadcast(state);await this.schedule();await this.finish(state);}
   }
@@ -294,7 +303,7 @@ export class PlayMatch extends DurableObject {
       }
       const supported = state.syncPlayback ? [PLAY_AUDIO_PROTOCOL] : state.audioSealed ? [4,PLAY_AUDIO_PROTOCOL] : state.samplePositions ? [3,4,PLAY_AUDIO_PROTOCOL] : [2,3,4,PLAY_AUDIO_PROTOCOL];
       if((state.audioPool || state.samplePositions) && !supported.includes(who.protocol))fail('Refresh Play to load the updated match player.',409);
-      const historyLength=state.history.length;advanceMatch(state);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
+      const historyLength=state.history.length;advanceMatch(state,Date.now(),this.ballotCatalog);if(state.history.length>historyLength)this.reviewLog.round(state);this.write(state);
       this.broadcastSpectators(state);
       const {server,response}=accept(this.ctx,who);
       this.reviewLog.initialize(state);this.reviewLog.add(state,who.id,'connected');
@@ -420,7 +429,7 @@ export class PlayMatch extends DurableObject {
       let message=input.message;
       if(message.type==='loaded'){const indices=loadedRounds(state,message.indices);if(!indices)fail('Invalid download progress.');message={...message,indices};}
       let failure;
-      try{matchMove(state,input.who.id,message,at);}catch(error){failure=error;}
+      try{matchMove(state,input.who.id,message,at,this.ballotCatalog);}catch(error){failure=error;}
       this.reviewLog.submission(state,input.who.id,input.message,before,failure,at);
       if(['propose','vote','withdraw','return-vote','return-request','abort-request','abort-vote'].includes(message.type)){
         const proposal=message.type==='propose'&&!failure;
@@ -569,7 +578,7 @@ export class PlayMatch extends DurableObject {
       this.ctx.storage.sql.exec('DELETE FROM room_chat');
       return;
     }
-    const phase=state.phase,index=state.index,historyLength=state.history.length;advanceMatch(state);
+    const phase=state.phase,index=state.index,historyLength=state.history.length;advanceMatch(state,Date.now(),this.ballotCatalog);
     if(state.history.length>historyLength)this.reviewLog.round(state);
     if(phase!==state.phase||index!==state.index)this.reviewLog.add(state,'','phase',{startsAt:state.startsAt,until:state.until});
     this.write(state);this.broadcast(state);try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();

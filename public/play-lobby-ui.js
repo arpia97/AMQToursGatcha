@@ -153,7 +153,7 @@ export function ballotHTML(match,esc){
         const count=match.voteCounts?.[choice.id]||0;
         const id=esc(choice.id);
         return '<div class="ballot-option"><button type="button" class="button secondary" data-ballot="anime" data-choice="'+id+'" aria-pressed="'+selected+'">'+
-          '<span><strong>'+esc(choice.answer)+'</strong><small>'+esc(active.get(choice.owner))+'</small></span>'+
+          '<span class="one-team-choice"><strong title="'+esc(choice.answer)+'">'+esc(choice.answer)+'</strong><small>'+esc(active.get(choice.owner))+'</small></span>'+
           '<span class="one-team-votes">'+count+' '+(count===1?'vote':'votes')+'</span></button>'+
           (choice.owner===match.me?'<button type="button" class="ballot-withdraw" data-withdraw="anime" data-choice="'+id+
             '" aria-label="Withdraw guess: '+esc(choice.answer)+'" title="Withdraw your guess">×</button>':'')+'</div>';

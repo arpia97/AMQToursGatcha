@@ -244,7 +244,7 @@ export class PlayLibrary {
       const animeTitles=[...new Set(titles.filter(title=>titleKey(title)))];
       const title=sheet?.title||quiz?.title||song.title||amq?.title,performer=sheet?.artist||quiz?.artist||song.artist||amq?.artist;
       const artists=[...new Set([performer,amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
-      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:titles[0],animeTitles,title,artist:performer,
+      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:titles[0],animeTitles,title,songType:(sheet?.annId===song.annId&&sheet?.type)||song.type||quiz?.type||sheet?.type,artist:performer,
         artistMembers:data.artist.rules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(animeTitles.map(titleKey))],song:[...new Set([title,amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};

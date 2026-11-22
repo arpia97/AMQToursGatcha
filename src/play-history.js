@@ -7,9 +7,9 @@ const PAGE_SIZE = 6;
 const scoreOutcome = (score, opponent) => score === opponent ? 'T' : score > opponent ? 'W' : 'L';
 
 function songResult(round, result) {
-  const {index, anime, song, artist} = round;
+  const {index, anime, song, songType, artist} = round;
   const {earned, correct, answers} = result;
-  return {index, anime, song, artist, earned, correct, answers};
+  return {index, anime, song, songType, artist, earned, correct, answers};
 }
 
 export function preservePlayHistory(storage, state, ended = Date.now()) {
@@ -32,8 +32,8 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   const summary = {pool: state.pool ?? state.lobby?.pool, ended, players, rounds: state.history.length};
   storage.transactionSync(() => {
     sql.exec('CREATE TABLE IF NOT EXISTS play_history_rounds(idx INTEGER PRIMARY KEY,data TEXT NOT NULL)');
-    for (const {index, anime, song, artist, results} of state.history) {
-      const row = {index, anime, song, artist,
+    for (const {index, anime, song, songType, artist, results} of state.history) {
+      const row = {index, anime, song, songType, artist,
         results: results.map(({id, earned, correct, answers}) => ({id, earned, correct, answers}))};
       sql.exec('INSERT OR REPLACE INTO play_history_rounds VALUES(?,?)', index, JSON.stringify(row));
     }

@@ -30,7 +30,7 @@ export function gradeNgmc(state,now) {
     p.score+=Number(hit);
     return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit),autoSubmitted:!!p.autoSubmitted};
   });
-  state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
+  state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,songType:song.songType,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
   state.counts=[null,null];state.phase='counting';state.until=now+8000;
   const candidates=[eligibleNgmc(state,0),eligibleNgmc(state,1)];
   for(let team=0;team<2;team++) {

@@ -784,7 +784,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.equal(response.status,200);
       assert.equal(response.headers.get('Cache-Control'),'no-store');
       const archived=await response.json();
-      assert.deepEqual(archived.songs[0],{index:0,anime:song.anime,song:song.title,artist:song.artist,
+      assert.deepEqual(archived.songs[0],{index:0,anime:song.anime,song:song.title,songType:'Opening 1',artist:song.artist,
         earned:1,correct:{anime:true},answers:{anime:song.anime},lobbyScore:{correct:1,total:2}});
       assert.equal(archived.pool,'random');
     }

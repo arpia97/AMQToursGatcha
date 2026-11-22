@@ -4,7 +4,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {ONE_TEAM_FORMAT,ONE_TEAM_MODE,oneTeamRules,queueMode} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds,PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 import {advanceMatch,gradeRound,makeMatch,matchMove,matchView} from '../src/play-match-rules.js';
-import {rematchView,voteToRestart} from '../src/play-lobby-votes.js';
+import {ballotCatalogIndex,proposeOrVote,selectWinners,rematchView,voteToRestart} from '../src/play-lobby-votes.js';
 import {matchCreditPlan} from '../src/play-rewards.js';
 import {liveMatchScore} from '../src/play-spectator.js';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
@@ -15,6 +15,23 @@ const songs=Array.from({length:100},(_,i)=>({
   answers:{anime:['Anime '+i],song:['Song '+i],artist:['Artist '+i]},
 }));
 
+test('team ballots filter only tied leaders against the full field catalog',()=>{
+  const catalog=ballotCatalogIndex({anime:['Known Title','Another Title'],artist:['Artist One','Artist Two']});
+  function winner(field,entries,votes){
+    const state={format:'lobby-team',lobby:{guessFields:[field]},players:entries.map((_,i)=>({id:String(i)}))};
+    for(const [i,answer] of entries.entries())proposeOrVote(state,state.players[i],{type:'propose',field,answer});
+    for(const [i,choice] of votes.entries())proposeOrVote(state,state.players[i],{type:'vote',field,choice:state.ballot[field][choice].id});
+    selectWinners(state,catalog);
+    return state.players.find(p=>p.answers[field])?.answers[field];
+  }
+  assert.equal(winner('anime',['unknown','Known-Title'],[0,1]),'Known-Title');
+  assert.equal(winner('anime',['unknown','Known Title'],[]),'Known Title');
+  assert.equal(winner('anime',['unknown','other unknown','Known Title'],[0,1]),undefined);
+  assert.equal(winner('anime',['unknown','Known Title'],[0,0]),'unknown');
+  assert.ok(['Known Title','Another Title'].includes(winner('anime',['Known Title','Another Title','unknown'],[])));
+  assert.equal(winner('artist',['artist one, Two Artist','Known Title'],[]),'artist one, Two Artist');
+});
+
 test('only the selected guess scores and five team misses finish after the reveal',()=>{
   const state=makeMatch('local',ONE_TEAM_FORMAT,players,songs,1000);
   assert.deepEqual(state.teams,[5]);
@@ -24,7 +41,9 @@ test('only the selected guess scores and five team misses finish after the revea
   propose('1','Wrong Title',1400);
   propose('2','Anime 0',1500);
   assert.equal(state.players.find(player=>player.id==='1').answeredMatch,true);
-  assert.throws(()=>propose('3','anime 0',1550),/already been submitted/);
+  propose('3','anime 0',1550);
+  assert.equal(state.ballot.anime.length,2);
+  assert.equal(state.players.find(p=>p.id==='3').votes.anime,state.ballot.anime[1].id);
   assert.throws(()=>matchMove(state,'3',{type:'propose',index:0,field:'artist',answer:'Artist 0'},1550),/category/);
   assert.equal(matchView(state,'2',1500).players.find(player=>player.id==='1').answers,undefined);
   const [wrong,right]=state.ballot.anime;
@@ -120,6 +139,7 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
     ws.accept();allSockets.push(ws);
     const send=message=>ws.send(JSON.stringify(message));
     return {send,join:pool=>send({type:'join',mode:ONE_TEAM_MODE,format:ONE_TEAM_FORMAT,pool}),
+      clearMessages:()=>{messages.length=0;},
       async wait(predicate){
         for(let turn=0;turn<250;turn++){
           const message=messages.find(predicate);
@@ -139,6 +159,7 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   newcomer.join('watched');
   const reset=await clients[0].wait(message=>message.type==='queued'&&message.waiting===4);
   assert.ok(reset.startsAt>queued.startsAt);
+  newcomer.clearMessages();
   newcomer.send({type:'cancel'});
   await newcomer.wait(message=>message.type==='idle'&&message.counts?.[ONE_TEAM_FORMAT+'-watched']===3);
   await fetch('/api/__age-queue?format='+ONE_TEAM_FORMAT+'&pool=watched&ms=20000');

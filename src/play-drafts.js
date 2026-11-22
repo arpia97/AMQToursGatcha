@@ -51,13 +51,13 @@ export function applyTimeoutProposals(state){
     if (player.left || !player.draft?.timeoutChoices) continue;
     for (const [field, answer] of Object.entries(player.draft.timeoutChoices)){
       // Keep manually proposed answers and the votes already cast for them.
-      if (state.arena ? player.arenaTitle : state.ballot?.[field]?.some(option => option.owner === player.id)) continue;
+      if (state.arena ? player.arenaTitle : player.votes?.[field] || state.ballot?.[field]?.some(option => option.owner === player.id)) continue;
       try {
         const propose = state.arena ? arenaVoteAction : proposeOrVote;
         propose(state, player, {type:'propose', field, answer});
         player.autoSubmitted = true;
       } catch (error) {
-        // Duplicate titles and invalid ballot choices are ignored at timeout.
+        // Ignore stale or invalid choices at timeout.
         if (error.status !== 409) throw error;
       }
     }

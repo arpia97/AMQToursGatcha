@@ -65,7 +65,7 @@ export function recapHTML(match,esc,animeTitle){
   return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small'+
     (survival?' class="one-team-round-result" data-correct="'+!!row.points[0]+'"':'')+'>'+
     roundLabel+'</small></header><dl>'+
-    '<div><dt>Anime</dt><dd>'+animeTitlesHTML(row,esc,animeTitle)+'</dd></div><div><dt>Song</dt><dd>'+esc(row.song)+'</dd></div>'+
+    '<div><dt>Anime</dt><dd>'+animeTitlesHTML(row,esc,animeTitle)+'</dd></div><div><dt>Song'+(row.songType?' · '+esc(row.songType):'')+'</dt><dd>'+esc(row.song)+'</dd></div>'+
     '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl>'+
     (survival?'<p class="one-team-picked"><span>Team Guess</span><strong>'+esc(teamGuess||'No guess submitted')+'</strong></p>':'')+'</section>';
 }
@@ -75,6 +75,7 @@ export function songTeamsHTML(match,esc){
   const submitted=survival?new Set((match.ballot?.anime||[]).map(choice=>choice.owner)):null;
   return '<div class="sa-team-list">'+(me?(match.teams.length===1?[me.team]:[me.team,1-me.team]):match.teams.map((_,i)=>i)).map(team=>{
     const roster=match.players.filter(p=>p.team===team);
+    if(match.teams.length===1)roster.sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
     const title=solo?esc(roster[0].name)+(me?(team===me.team?' <small>You</small>':' <small>Opponent</small>'):''):
       me?(team===me.team?'Your Team':'Opponents'):match.teams.length===1?'Players':'Team '+(team+1);
     const total=survival?teamLivesHTML(match.teams[team],oneTeamRules.lives):'<strong>'+match.teams[team]+'</strong>';

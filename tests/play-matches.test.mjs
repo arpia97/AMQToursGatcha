@@ -395,14 +395,16 @@ test('Play scores private dropdown choices on expiry and preserves earlier manua
   assert.equal(arena.history[0].results.find(r=>r.id==='0').answers.anime,'Anime');
 });
 
-test('custom team ballots reject duplicate proposals, settle early and credit the selected owner',()=>{
+test('custom team ballots turn duplicate proposals into votes, settle early and credit the selected owner',()=>{
   const players=['a','b'].map(id=>({id,name:id}));
   const song={anime:'Alpha',title:'First',artist:'Singer',answers:{anime:['alpha'],song:['first'],artist:['Singer']}};
   const state=makeMatch('room','lobby-team',players,[song],0,{songs:1,seconds:0});
   state.phase='guess';state.startsAt=1;state.until=8.64e15;
   const move=(id,type,field,extra)=>matchMove(state,id,{type,index:0,field,...extra},100);
   move('a','propose','anime',{answer:'Alpha'});
-  assert.throws(()=>move('b','propose','anime',{answer:'AL-PHA'}),/already/);
+  move('b','propose','anime',{answer:'AL-PHA'});
+  assert.equal(state.ballot.anime.length,1);
+  assert.equal(matchView(state,'b').myVotes.anime,state.ballot.anime[0].id);
   move('b','propose','anime',{answer:'Beta'});
   move('b','propose','song',{answer:'First'});
   const beta=state.ballot.anime[1].id;

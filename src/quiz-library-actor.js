@@ -63,6 +63,11 @@ export class QuizLibrary extends DurableObject {
       if (raw.length > 1000000)
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
+      if(path==='/play-ballot-catalog'){
+        const catalog=await this.play.catalog();
+        const fields=['anime','song','artist'].filter(field=>body.fields?.includes(field));
+        return Response.json(Object.fromEntries(fields.map(field=>[field,catalog[field]])));
+      }
       if(path==='/play-watched-count')
         return Response.json({eligible:await this.play.watchedAnimeCount(body.lists,body.ranked)});
       if(path==='/play-sample'){

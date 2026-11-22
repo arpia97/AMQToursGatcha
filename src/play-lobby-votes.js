@@ -11,7 +11,15 @@ export function proposeOrVote(state,player,message){
     const answer=typeof message.answer==='string'?message.answer.trim():'';
     const key=field==='artist'?artistKey(answer):titleKey(answer);
     if(!key||answer.length>300)reject('Enter an answer within 300 characters.');
-    if(options.some(option=>option.key===key))reject('That answer has already been submitted.');
+    const existing=options.find(option=>option.key===key&&state.players.some(p=>p.id===option.owner&&!p.left));
+    if(existing){
+      if(existing.owner!==player.id){
+        player.votes??={};
+        player.votes[field]=existing.id;
+        if(player.answeredMatch===false)player.answeredMatch=true;
+      }
+      return;
+    }
     if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
     options.push({id:crypto.randomUUID(),owner:player.id,answer,key});
     if(player.answeredMatch===false)player.answeredMatch=true;
@@ -39,7 +47,13 @@ export function ballotsComplete(state){
     return active.every(p=>p.autoSkip||choices.has(p.votes?.[field])||submitted.has(p.id));
   });
 }
-export function selectWinners(state){
+export function ballotCatalogIndex(catalog){
+  return Object.fromEntries(Object.entries(catalog).map(([field,names])=>{
+    const normalize=field==='artist'?artistKey:titleKey;
+    return [field,new Set(names.map(normalize).filter(Boolean))];
+  }));
+}
+export function selectWinners(state,catalog){
   const active=state.players.filter(p=>!p.left);
   for(const p of state.players){p.answers={};delete p.artists;delete p.draft;}
   for(const field of matchGuessFields(state)){
@@ -47,7 +61,13 @@ export function selectWinners(state){
     if(!options.length)continue;
     const counts=options.map(o=>active.filter(p=>p.votes?.[field]===o.id).length);
     const max=Math.max(...counts),leaders=options.filter((_,i)=>counts[i]===max);
-    const chosen=leaders[Math.floor(Math.random()*leaders.length)];
+    let eligible=leaders;
+    if(leaders.length>1&&catalog){
+      eligible=leaders.filter(option=>catalog[field].has(option.key)||
+        field==='artist'&&option.answer.split(',').every(name=>catalog.artist.has(artistKey(name))));
+      if(!eligible.length)continue;
+    }
+    const chosen=eligible.length===1?eligible[0]:eligible[Math.floor(Math.random()*eligible.length)];
     active.find(p=>p.id===chosen.owner).answers[field]=chosen.answer;
   }
 }
