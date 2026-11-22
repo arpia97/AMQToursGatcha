@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Fuzzy dropdown capture comparison
+
+Source `6c884d4` is live on Worker `91c2ccc3-360e-449a-895a-293c8b3c2a8b`. Play and Quiz fuzzy anime searches recheck previous suggestions while typing and show up to 25. Multiplayer anime suggestions start without a highlighted row. Chromium replay of the search worker at 390 and 1280 px matched all 16 exports on the combined 167 captured titles. On the full Play catalog 15 matched exactly, with four additional Nanoha spellings for the remaining query. All 584 tests, syntax checks and the Worker dry run passed. The live Play routes, health and five changed assets were verified.
+
 ## Vanilla anime dropdown comparison
 
 Source `f30e23b` is live on Worker `6914ac5a-98a2-4a6a-bf5e-275ec372730c`. Normal search preserves leading and trailing separators. The matcher reproduced all 21 provided dropdowns in order using the combined 182 captured titles. With the full 13,871-title Play catalog, 19 lists matched exactly and two contained additional matching titles within the 25-row limit. All 583 tests, syntax checks and the Worker dry run passed. Both Play routes and the deployed matcher were verified.
