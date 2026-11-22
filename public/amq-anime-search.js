@@ -7,6 +7,7 @@ const alternatives={
   3:[...'3³'],x:[...'x×'],b:[...'bß'],
 };
 const separators=new Set('★☆/*=+·♥∽・〜†×♪→␣:;~?,.!@_#∞°-');
+const leadingSeparators=[' ',...separators];
 const indexed=new WeakMap();
 
 function matches(title,spellings,rest){
@@ -43,8 +44,8 @@ function matches(title,spellings,rest){
 }
 
 export function amqAnimeOptions(titles,query,limit=25){
-  const text=String(query??'').trim().slice(0,120);
-  if(!text||limit<=0)return [];
+  const text=String(query??'').slice(0,120);
+  if(!text.trim()||limit<=0)return [];
   let entry=indexed.get(titles);
   if(!entry||entry.count!==titles.length){
     const values=titles.map(value=>{
@@ -56,7 +57,7 @@ export function amqAnimeOptions(titles,query,limit=25){
     indexed.set(titles,entry);
   }
   const [first,...rest]=text.toLowerCase().match(/ou|oo|[\s\S]/g);
-  const spellings=alternatives[first]||[first],found=[];
+  const spellings=first===' '?leadingSeparators:(alternatives[first]||[first]),found=[];
   for(const {value,lower,withoutApostrophes} of entry.values){
     if(matches(lower,spellings,rest)||(withoutApostrophes&&matches(withoutApostrophes,spellings,rest)))found.push(value);
     if(found.length===limit)break;

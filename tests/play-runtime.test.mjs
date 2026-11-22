@@ -35,6 +35,16 @@ test('AMQ anime suggestions support contiguous text, sound marks, punctuation an
   assert.deepEqual(amqAnimeOptions(titles,'m',1),['Tokyo Mew Mew']);
   assert.deepEqual(amqAnimeOptions(Array.from({length:30},(_,i)=>'AB '+i),'a').length,25);
 });
+test('vanilla anime search preserves typed spaces at either edge of a query',()=>{
+  const titles=['Hen Semi','The Eminence in Shadow','Yu☆Gi☆Oh!','Yu-Gi-Oh!',
+    'W: Wish','Re:␣Hamatora','D.C.: Da Capo','A:B','Emi'];
+  assert.deepEqual(amqAnimeOptions(titles,' emi'),['The Eminence in Shadow']);
+  assert.deepEqual(amqAnimeOptions(titles,'emi'),['Emi','Hen Semi','The Eminence in Shadow']);
+  assert.deepEqual(amqAnimeOptions(titles,' gi oh'),['Yu-Gi-Oh!','Yu☆Gi☆Oh!']);
+  assert.deepEqual(amqAnimeOptions(titles,': '),['W: Wish','Re:␣Hamatora','D.C.: Da Capo']);
+  assert.deepEqual(amqAnimeOptions(titles,' :'),['D.C.: Da Capo']);
+  assert.deepEqual(amqAnimeOptions(titles,'  '),[]);
+});
 test('spectators get only the sealed clip active within the guessing window',()=>{
   const state={audioSealed:true,phase:'guess',index:1,startsAt:1000,until:1200,audioPool:[
     {round:2,ticket:'upcoming',key:'future key'},{round:null,ticket:'decoy',key:'decoy key'},
