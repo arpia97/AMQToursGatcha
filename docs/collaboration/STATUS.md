@@ -1,5 +1,15 @@
 # Shared Status and Handoff
 
+## Custom Song/Artist guess types release
+
+Source `b861967` is deployed at 100% on Worker `45f29161-6eaa-491b-8563-5f6292e713e5`. The live 1-Team and Song/Artist routes and health endpoint returned 200, and the lobby, navigation, rules and gameplay assets matched the release source. Both custom Song/Artist formats support any nonempty subset of Anime, Song and Artist. The host controls the selection at creation or in Match Settings. Ballots, drafts, inputs, keyboard navigation, grading, reveal and results follow the selection. The full suite passed (582 tests), including every combination in both formats. Local Chromium exercised lobby creation, editing, member updates, a three-player match and mobile width. Screenshots are in `outputs/song-artist-guess-types` outside the repository.
+
+## 1-Team tab and survival release
+
+Released with the custom guess settings above. The 1-Team tab keeps the existing Song/Artist 1-Team queue and custom rooms, and adds unranked Random and Watched survival queues with up to 100 songs, 20-second guesses, and five shared lives. Teammates submit anime guesses and vote for one team answer. The leading guess is graded when voting finishes or the timer expires. An incorrect or missing team answer costs one life. The queue fills to eight immediately or can start with at least three after 90 seconds. Survival uses the existing match history and does not award credits. The existing Song/Artist queue keeps its rewards.
+
+All 581 tests, syntax checks, diff checks, and the Worker dry run passed. Local Chromium ran an eight-player Random match with 100 sealed clips, verified the 20-second timer, shared proposals, live votes, team grading, and the mobile Submit control. The ballot shows individual vote counts without a visible heading or overall tally. Updated `voting.png` and `voting-mobile.png` are in `outputs/one-team-preview` outside the repository.
+
 ## Play spectator presence and live match count
 
 Source `88482df` is live on Worker `eaa8a9ad-310d-4d36-bdb9-6fbda90e354f`. The Online Players status changes to Spectating after the public-match viewer connects. Leaving, disconnecting or reaching results clears it, and the original AFK priority is preserved. All 578 tests, syntax and the Worker dry run passed. A local browser joined and left a match as a spectator while another player viewed the online list at 390 px. The deployed route and new assets were verified.
