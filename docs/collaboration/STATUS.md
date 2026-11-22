@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Public Song/Artist lobby guess types
+
+Source `6798bd2` is live at 100% on Worker `a8e99987-969e-4a81-94c4-96e70f8e5684`. Public Song/Artist Free-for-All and 1-Team tiles list enabled guess types beside Join. The multiplayer runtime tests covered live settings changes and password protection. Local Chromium verified guest listings on desktop and mobile. The live Play routes, public directory, and matching frontend assets passed read-only checks. No eligible public lobby was open during the live check.
+
 ## Custom Song/Artist guess types release
 
 Source `b861967` is deployed at 100% on Worker `45f29161-6eaa-491b-8563-5f6292e713e5`. The live 1-Team and Song/Artist routes and health endpoint returned 200, and the lobby, navigation, rules and gameplay assets matched the release source. Both custom Song/Artist formats support any nonempty subset of Anime, Song and Artist. The host controls the selection at creation or in Match Settings. Ballots, drafts, inputs, keyboard navigation, grading, reveal and results follow the selection. The full suite passed (582 tests), including every combination in both formats. Local Chromium exercised lobby creation, editing, member updates, a three-player match and mobile width. Screenshots are in `outputs/song-artist-guess-types` outside the repository.
