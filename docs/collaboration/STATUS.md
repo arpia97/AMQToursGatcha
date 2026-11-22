@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Autolock at timeout
+
+Source `bea72ab` is live on Worker `e5955c8c-61f2-4269-bf94-c10f7c588f8e`. Play and Quiz apply the highlighted suggestion or the first result with Autolock on when the timer expires. Play sends private choices before expiry. Voting formats add valid choices for unanswered proposal fields at expiry. Tests cover both search modes in Quiz, Play timer grading and early skips, and voting and manual submissions. Local Chromium verified first vanilla and highlighted fuzzy results in separate 1v1 matches at 1280 and 390 px. All 591 tests, syntax checks and the Worker dry run passed. The live routes, health endpoint and three frontend assets were verified.
+
 ## Fuzzy dropdown capture comparison
 
 Source `6c884d4` is live on Worker `91c2ccc3-360e-449a-895a-293c8b3c2a8b`. Play and Quiz fuzzy anime searches recheck previous suggestions while typing and show up to 25. Multiplayer anime suggestions start without a highlighted row. Chromium replay of the search worker at 390 and 1280 px matched all 16 exports on the combined 167 captured titles. On the full Play catalog 15 matched exactly, with four additional Nanoha spellings for the remaining query. All 584 tests, syntax checks and the Worker dry run passed. The live Play routes, health and five changed assets were verified.
