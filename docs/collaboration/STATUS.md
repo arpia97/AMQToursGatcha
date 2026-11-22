@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## NGMC counter prompt through Auto-Count
+
+Source `38aa9aa` is live on Worker `7f47a3d4-073b-4172-9340-dd4bbc0c9135`. The browser waits for server assignment even when the displayed countdown expires. If Auto-Count starts before a volunteer, the modal becomes a compact takeover prompt that allows gameplay interaction. A confirmed volunteer or dismissal closes it. Local eight-player Chromium matches at 390 and 1280 px verified clock drift, a teammate choosing Auto-Count, readying up, reaching the first guess, and taking over. The 592-test suite and the added focused NGMC regression passed. The live NGMC route, health endpoint and four frontend assets were verified.
+
 ## Autoskip round readiness
 
 Source `f83eb42` is live on Worker `34566290-aff3-4b91-9c13-c9563a5e8198`. Autoskip counts toward all-player readiness with submitted answers or completed voting. The Skip Song button retains its separate majority tally. Toggle-off withdraws the current readiness. Local Chromium at 390 and 1280 px verified the flow and independent skip count. All 592 tests, syntax checks and the Worker dry run passed. The live Play routes, health endpoint and frontend asset were verified.
