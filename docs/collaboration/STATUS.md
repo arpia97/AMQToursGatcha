@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Ctrl+Enter answer submission
+
+Source `8bb0307` deployed at 100% on Worker `d6f34d29-cb1b-4c42-9277-b92ce9281f9a`. Ctrl+Enter submits the text in the focused answer field in multiplayer Play and shared Quiz. Quiz tests cover vanilla and fuzzy search. Local NGMC browser checks covered a pending search and a highlighted suggestion. All 40 focused tests, syntax checks and the Worker dry run passed. The live Gatcha Quiz, Play Quiz and NGMC routes served the release.
+
 ## 1-Team guess placement
 
 Source `fbdfdad` deployed at 100% on Worker `739016af-95ad-4624-b49f-ffcab7d26dc9`. The scrollable guesses area sits above the answer input. An eight-player browser check verified the order and stable input position on desktop and mobile. All 25 focused tests passed. The live shell, stylesheet and five modules matched the release.
