@@ -1084,7 +1084,13 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     else if(event.key==='Enter'){
       event.preventDefault();
       if(event.repeat||event.isComposing)return;
-      if(answerAutolock()&&pendingSearch?.kind===field){
+      if(event.ctrlKey&&!event.altKey&&!event.metaKey&&!event.shiftKey){
+        draft[field]=event.target.value;
+        delete chosen[field];
+        timeoutSuggestions.delete(field);
+        hideSuggestions();
+        submit(true,field);
+      }else if(answerAutolock()&&pendingSearch?.kind===field){
         pendingSearch.enter=true;
         requestSuggestions();
       }else submitFromInput(event.target);

@@ -1821,7 +1821,9 @@ export function createQuizUI({
           "button,a,input,select,textarea,[contenteditable=true]",
         ),
       );
-      const hotkeyAction = !event.repeat
+      const submitTyped = event.target?.id === "quiz-answer" && event.key === "Enter" &&
+        event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey;
+      const hotkeyAction = !event.repeat && !submitTyped
         ? hotkeyActionForEvent(event, hotkeys(), { isEditable })
         : null;
       if (
@@ -1946,9 +1948,11 @@ export function createQuizUI({
         drawSuggestions(event.target);
       }
       if (event.key === "Escape") closeSuggestions();
-      if (event.key === "Enter" && suggestionsOpen && options.length) {
+      if (submitTyped || (event.key === "Enter" && suggestionsOpen && options.length)) {
         event.preventDefault();
-        draft = autolockAnswer(event.target.value, options, highlight, answerAutolock(storage));
+        draft = submitTyped
+          ? event.target.value
+          : autolockAnswer(event.target.value, options, highlight, answerAutolock(storage));
         event.target.value = draft;
         closeSuggestions();
         mutate("quiz-answer", draft).catch(showError);

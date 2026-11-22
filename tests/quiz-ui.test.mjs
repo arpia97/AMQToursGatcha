@@ -599,6 +599,22 @@ test("standard search Enter submits the first suggestion or the arrow-highlighte
 });
 
 for (const fuzzy of [false,true]) {
+  test("Ctrl+Enter submits typed text with Autolock enabled and fuzzy search "+fuzzy,async t=>{
+    const f=fixture(t);
+    await f.start();
+    await f.advance(2000);
+    f.ui.setFuzzyAnime(fuzzy);
+    const input=f.node("quiz-answer");
+    input.value="bo";
+    await f.ui.input(input);
+    assert.match(f.node("quiz-suggestions").innerHTML,/Bocchi the Rock!/);
+    let handled=false;
+    f.ui.key({key:"Enter",ctrlKey:true,target:input,preventDefault(){handled=true;}});
+    await flush();
+    assert.equal(handled,true);
+    assert.deepEqual(f.calls.filter(c=>c.path==="quiz-answer").map(c=>c.b.answer),["bo"]);
+  });
+
   test("Autolock off preserves typed text and explicit selections with fuzzy search "+fuzzy,async t=>{
     const f=fixture(t);
     await f.start();

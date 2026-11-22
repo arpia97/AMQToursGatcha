@@ -225,11 +225,11 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js'),loadStylesheet(new URL('../play-overview.css',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=timeout-autolock"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=ctrl-enter-answer"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=guesses-above-input", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=guesses-above-input"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=ctrl-enter-answer"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
