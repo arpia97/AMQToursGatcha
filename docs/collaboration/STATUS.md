@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## 1-Team submitted guesses and catalog tie-breaks
+
+Source `ce7adc7` deployed to 100% on Worker `aa3d6e16-ae70-43e8-9785-1176ce535211`. Tied ballot leaders are filtered against the integrated catalog for their category. If every tied leader is absent the team submits no answer for that category. All 597 tests passed. The live 1-Team shell and eight release assets were verified read-only. The survival ballot uses two compact columns on desktop and one on phones. Matching a teammate's unlocked proposal votes for its original owner. Single-team rosters sort by current score. Reveals and newly recorded song history retain the catalog song type when available. An eight-player local browser match exercised duplicate voting, stable input placement, mobile layout, reveal, and history persistence. Snapshots are in the workspace under outputs/one-team-guess-preview.
+
 ## 1-Team survival rematches, queue timer and credits
 
 Source `e3e0d9b` is live at 100% on Worker `f0d1f152-8784-4da0-949d-94c87cee7fb4`. The survival queues start 20 seconds after their latest eligible join, with three to eight players. An anime proposal or vote counts toward early reveal. Finished matches award 5 credits per played song in Random or 2 in Watched. A majority restart vote invites current players and spectators to an opt-in rematch lobby. The eight-player local browser verified stable answer controls during progress and voting at desktop and mobile widths and confirmed the restart prompt, payout and lobby transition. The local Worker tests exercised a Watched rematch with a spectator and verified credit settlement for both pools. All 596 tests, syntax checks and the Worker dry run passed. The live 1-Team route, health and seven changed JS/CSS assets were verified read-only.
