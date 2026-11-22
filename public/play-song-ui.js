@@ -1,4 +1,4 @@
-import {answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
+import {autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
@@ -76,6 +76,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   let manifestRevision=0,downloadStart=0,downloadEnd=0,replacingAudio=false;
   let sealedCache=null, playbackUrl=null, preparingRound=-1, keyRequestedAt=0,clipAckAt=0;
   let draftDirty=false,lastDraft='',lastDraftAt=0;
+  const timeoutSuggestions=new Map();
   const savedField=()=>{try{return ['anime','song','artist'].includes(localStorage.getItem('amqtours-1team-field'))?localStorage.getItem('amqtours-1team-field'):'anime';}catch{return 'anime';}};
   let tabbedThisRound=false;
   function selectField(field){selectedField=field;if(match?.format==='1-team')try{localStorage.setItem('amqtours-1team-field',field);}catch{}}
@@ -359,7 +360,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         else if(skipIntent?.socket===room&&skipIntent.vote===!!match.skipVotes?.includes(match.me))skipIntent=null;
         sounds.play(...roundSoundCues(previous,match));
         if(player()?.left)closeChat();
-        if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():fields[0]);const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
+        if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);timeoutSuggestions.clear();draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():fields[0]);const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}
         if(match.phase!=='guess'&&!unlocking){audio.pause();songAudio.reset();}
@@ -531,7 +532,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     searchKind=field;
     if(!searchReady||!value.trim())return;
     pendingSearch={id:searchId,kind:field,query:value,fuzzy:fuzzyAnimeSearch(),sent:false,enter:false};
-    searchTimer=setTimeout(requestSuggestions,70);
+    if (match?.phase==='guess' && Date.now()+offset>=match.until-1000) requestSuggestions();
+    else searchTimer=setTimeout(requestSuggestions,70);
   }
   function requestSuggestions(){
     clearTimeout(searchTimer);
@@ -542,9 +544,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function finishSearch(items){
     if(!pendingSearch)return;
-    const {enter}=pendingSearch;
+    const {enter,kind,query}=pendingSearch;
     pendingSearch=null;
     searchItems=items;
+    timeoutSuggestions.set(kind,{query,items,highlighted:-1});
+    if(items.length)scheduleDraft();
     selected=items.length&&searchKind!=='anime'&&answerAutolock()?0:-1;
     showSuggestions();
     const input=document.activeElement;
@@ -585,11 +589,32 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     clearTimeout(draftTimer);
     if(!draftDirty||!match||match.phase!=='guess'||player()?.locked||pendingLock||pendingArtistKey!==null||Date.now()+offset<match.startsAt||Date.now()+offset>=match.until)return;
     const field=teamFields()?selectedField:document.activeElement?.dataset.saField||selectedField;
-    const payload={type:'draft',index:match.index,field,answers:Object.fromEntries(fields.map(f=>[f,chosen[f]||draft[f]||''])),...(fields.includes('artist')?{artists:currentArtists()}:{})};
+    const answers=Object.fromEntries(fields.map(f=>[f,chosen[f]||draft[f]||'']));
+    const enabled=answerAutolock();
+    const timeoutChoices={};
+    for(const [name,value] of Object.entries(answers)){
+      const result=timeoutSuggestions.get(name);
+      if(chosen[name]||result?.query!==value)continue;
+      const answer=autolockAnswer(value,result.items,result.highlighted,enabled);
+      if(answer && (result.highlighted>=0 || enabled && result.items.length))timeoutChoices[name]=answer;
+    }
+    if((arena()||usesTeamBallot(match.format))&&!Object.keys(timeoutChoices).length&&!lastDraft){
+      draftDirty=false;
+      return;
+    }
+    const payload={type:'draft',index:match.index,field,answers,timeoutChoices,
+      ...(fields.includes('artist')?{artists:currentArtists()}:{})};
     const key=JSON.stringify(payload);if(key===lastDraft){draftDirty=false;return;}
     if(send(room,payload)){lastDraft=key;lastDraftAt=Date.now();draftDirty=false;}
   }
-  function scheduleDraft(){if(arena()||usesTeamBallot(match?.format))return;draftDirty=true;clearTimeout(draftTimer);draftTimer=setTimeout(saveCurrentDraft,Math.max(0,250-(Date.now()-lastDraftAt)));}
+  function scheduleDraft(){
+    draftDirty=true;
+    clearTimeout(draftTimer);
+    const now=Date.now();
+    const delay=match?.phase==='guess'&&now+offset>=match.until-500
+      ? 0 : Math.max(0,250-(now-lastDraftAt));
+    draftTimer=setTimeout(saveCurrentDraft,delay);
+  }
 
   function artistList(list){
     if(!match||match.phase!=='guess'||pendingArtistKey!==null||Date.now()+offset<match.startsAt)return;
@@ -971,7 +996,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       root.querySelector('[data-lobby-action=settings]').disabled=false;
       root.querySelector('[data-lobby-action=start]').disabled=true;
     }
-    if(event.target.id==='sa-volume'){volume=Math.min(100,Math.max(0,Number(event.target.value)||0));audio.volume=volume/100;root.querySelector('#sa-volume-value').textContent=volume+'%';try{localStorage.setItem('amqtours-quiz-volume',String(volume));}catch{}return;}const field=event.target.dataset.saField;if(!field)return;draft[field]=event.target.value;delete chosen[field];findSuggestions(field,draft[field]);scheduleDraft();});
+    if(event.target.id==='sa-volume'){volume=Math.min(100,Math.max(0,Number(event.target.value)||0));audio.volume=volume/100;root.querySelector('#sa-volume-value').textContent=volume+'%';try{localStorage.setItem('amqtours-quiz-volume',String(volume));}catch{}return;}const field=event.target.dataset.saField;if(!field)return;draft[field]=event.target.value;delete chosen[field];timeoutSuggestions.delete(field);findSuggestions(field,draft[field]);scheduleDraft();});
   root.addEventListener('focusin',event=>{
     const field=event.target.dataset.saField;
     if(field&&field!==searchKind){hideSuggestions();searchKind=field;}
@@ -979,7 +1004,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(field==='anime'&&checkbox)checkbox.checked=fuzzyAnimeSearch();
   });
   root.addEventListener('keydown',event=>{const field=event.target.dataset.saField;if(!field)return;
-    if(searchItems.length&&searchKind===field&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();selected=selected<0?(event.key==='ArrowDown'?0:searchItems.length-1):(selected+(event.key==='ArrowDown'?1:-1)+searchItems.length)%searchItems.length;showSuggestions();root.querySelector('#sa-option-'+selected)?.scrollIntoView({block:'nearest'});}
+    if(searchItems.length&&searchKind===field&&['ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();selected=selected<0?(event.key==='ArrowDown'?0:searchItems.length-1):(selected+(event.key==='ArrowDown'?1:-1)+searchItems.length)%searchItems.length;
+      const result=timeoutSuggestions.get(field);
+      if(result){result.highlighted=selected;scheduleDraft();}
+      showSuggestions();root.querySelector('#sa-option-'+selected)?.scrollIntoView({block:'nearest'});}
     else if(event.key==='Tab'&&fields.length>1&&!event.ctrlKey&&!event.metaKey&&!event.altKey){
       tabbedThisRound=true;
       hideSuggestions();
@@ -1099,10 +1127,12 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   root.addEventListener('change',event=>{
     if(event.target.matches('[data-auto-skip]')){setAutoSkip(event.target.checked);return;}
     if(event.target.matches('[data-answer-autolock]')){
-      saveAnswerAutolock(event.target.checked);hideSuggestions();return;
+      saveAnswerAutolock(event.target.checked);hideSuggestions();scheduleDraft();return;
     }
     if(event.target.matches('[data-fuzzy-anime]')){
       searchSession++;
+      timeoutSuggestions.delete('anime');
+      scheduleDraft();
       saveFuzzyAnimeSearch(event.target.checked);
       const input=root.querySelector('#sa-anime');
       if(input?.value){input.focus({preventScroll:true});findSuggestions('anime',input.value);}

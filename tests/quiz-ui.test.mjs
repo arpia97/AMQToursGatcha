@@ -637,6 +637,28 @@ test("fuzzy anime suggestions recheck the visible titles as the player types", (
   assert.equal(quizAnswerOptions(Array.from({length: 30}, (_, i) => "Anime " + i), "anime").length, 25);
 });
 
+for (const fuzzy of [false, true]) {
+  for (const choice of ["first", "highlighted", "typed"]) {
+    test(`quiz timeout uses the ${choice} answer with fuzzy search ${fuzzy}`, async t => {
+      const f = fixture(t);
+      await f.start();
+      await f.advance(2000);
+      f.ui.setFuzzyAnime(fuzzy);
+      f.ui.setAutolock(choice !== "typed");
+      const input = f.node("quiz-answer");
+      input.value = "bo";
+      await f.ui.input(input);
+      if (choice === "highlighted") {
+        for (let i = 0; i < 2; i++) f.ui.key({key:"ArrowDown", target:input, preventDefault(){}});
+      }
+      await f.advance(20000);
+      await f.advance(1000);
+      const expected = {first:"Bocchi the Rock!", highlighted:"Boku no Hero Academia", typed:"bo"};
+      assert.deepEqual(f.calls.filter(c => c.path === "quiz-answer").map(c => c.b.answer), [expected[choice]]);
+    });
+  }
+}
+
 test("Fuzzy Search and Autolock submit the first suggestion on Enter",async t=>{
   const f=fixture(t);
   await f.start();

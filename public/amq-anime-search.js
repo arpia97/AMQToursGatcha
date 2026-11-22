@@ -79,9 +79,13 @@ export function answerAutolock(storage){
 export function saveAnswerAutolock(enabled,storage){
   try{(storage??localStorage).setItem(autolockPreference,enabled?'1':'0');}catch{}
 }
+export function autolockAnswer(value, suggestions, highlighted, enabled){
+  return suggestions[highlighted] ?? (enabled ? suggestions[0] : undefined) ?? value;
+}
+
 export function answerSearchControls(storage){
   return '<div class="answer-search-controls"><label class="fuzzy-anime-search"><input type="checkbox" data-fuzzy-anime'+
     (fuzzyAnimeSearch(storage)?' checked':'')+'> Fuzzy Search</label>'+
-    '<label class="fuzzy-anime-search" title="Enter chooses the first suggestion"><input type="checkbox" data-answer-autolock'+
+    '<label class="fuzzy-anime-search" title="Choose the first suggestion on Enter or when time runs out"><input type="checkbox" data-answer-autolock'+
     (answerAutolock(storage)?' checked':'')+'> Autolock</label></div>';
 }

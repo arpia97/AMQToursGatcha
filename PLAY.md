@@ -18,6 +18,10 @@ can be customized for the account in that browser.
 Anime suggestions use AMQ-style contiguous matching and shortest-title order.
 Fuzzy Search uses AMQ Autocomplete Improvement 1.41 for anime titles. It shows up to 25 suggestions. As you type, it rechecks previous matches and orders matching phrases ahead of reordered word fragments. Fresh searches also prioritize prefixes. Typo matching runs when these searches find no titles. The setting is remembered in the
 browser for Play and Quiz. Both use the same accepted answers for scoring.
+Autolock uses the first anime suggestion on Enter and at timeout. A highlighted
+suggestion takes priority. Multiplayer saves timeout choices privately before
+the deadline. In voting modes, those choices become proposals at timeout for
+fields the player has not already submitted, and existing votes still count.
 
 Any player can request a match abort. The request counts as a yes vote. More
 than half the starting roster must vote yes to void the result immediately.

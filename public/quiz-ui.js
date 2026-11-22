@@ -1,4 +1,4 @@
-import {amqAnimeOptions,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
+import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
 import { routeHref } from "./site-navigation.js";
@@ -1384,7 +1384,11 @@ export function createQuizUI({
       audio?.pause();
       if (!answerPending() && !timeoutAttempted) {
         timeoutAttempted = true;
-        mutate("quiz-answer", input?.value ?? draft).catch(showError);
+        const typed = input?.value ?? draft;
+        const answer = typed === draft && suggestionsOpen
+          ? autolockAnswer(typed, options, highlight, answerAutolock(storage))
+          : typed;
+        mutate("quiz-answer", answer).catch(showError);
       }
       return;
     }
@@ -1944,7 +1948,7 @@ export function createQuizUI({
       if (event.key === "Escape") closeSuggestions();
       if (event.key === "Enter" && suggestionsOpen && options.length) {
         event.preventDefault();
-        draft = highlight >= 0 ? options[highlight] : answerAutolock(storage) ? options[0] : event.target.value;
+        draft = autolockAnswer(event.target.value, options, highlight, answerAutolock(storage));
         event.target.value = draft;
         closeSuggestions();
         mutate("quiz-answer", draft).catch(showError);

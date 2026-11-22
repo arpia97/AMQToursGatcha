@@ -23,6 +23,8 @@ test('Quiz ranking sorts across pages, retains overall ranks and places untimed 
   } finally {db.close();}
 });
 import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
+import {ARENA_FORMAT} from '../public/play-arena-config.js';
+import {arenaSongCount} from '../src/play-arena.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
@@ -309,6 +311,46 @@ test('private current answers score at timeout; team skip needs two distinct vot
   assert.equal(solo.players.find(p=>p.id==='0').draft.answers.anime,'Anime');
   matchMove(solo,'1',{type:'skip',index:0,vote:true},now+2);
   assert.equal(solo.phase,'reveal');assert.equal(solo.players.find(p=>p.id==='0').score,3);
+});
+
+test('Play scores private dropdown choices on expiry and preserves earlier manual actions',()=>{
+  const now=1000;
+  const duel=makeMatch('timeout-choice','1v1',players.slice(0,2),songs,now);
+  const start=state=>Object.assign(state,{phase:'guess',startsAt:now,until:now+20000});
+  start(duel);
+  const save=(state,id,answers,timeoutChoices,artists)=>matchMove(state,id,{
+    type:'draft',index:0,field:'anime',answers,timeoutChoices,artists
+  },now+100);
+  save(duel,'0',{anime:'alt',song:'Son',artist:'Art'},{anime:'Alternate',song:'Song',artist:'Artist'},['Art']);
+  save(duel,'1',{anime:'An',song:'',artist:''},{anime:'Anime'});
+  assert.equal(matchView(duel,'1').players.find(p=>p.id==='0').draft,undefined);
+  matchMove(duel,'1',{type:'answer',index:0,answers:{anime:'My locked title',song:'',artist:''},lock:true},now+101);
+  advanceMatch(duel,duel.until);
+  assert.deepEqual(duel.history[0].results.find(r=>r.id==='0').answers,{anime:'Alternate',song:'Song',artist:'Artist'});
+  assert.equal(duel.history[0].results.find(r=>r.id==='1').answers.anime,'My locked title');
+
+  const skipped=start(makeMatch('early-skip','1v1',players.slice(0,2),songs,now));
+  save(skipped,'0',{anime:'An',song:'',artist:''},{anime:'Anime'});
+  for(const player of skipped.players)matchMove(skipped,player.id,{type:'skip',index:0,vote:true},now+101);
+  assert.equal(skipped.history[0].results.find(r=>r.id==='0').answers.anime,'An');
+
+  const lobby=start(makeMatch('timeout-proposal','lobby-team',players.slice(0,2),songs.slice(0,1),now,
+    {songs:1,seconds:20,guessFields:['anime','song']}));
+  matchMove(lobby,'0',{type:'propose',index:0,field:'anime',answer:'Manual anime'},now+1);
+  save(lobby,'0',{anime:'An',song:''},{anime:'Anime'});
+  save(lobby,'1',{anime:'',song:'Son'},{song:'Song'});
+  assert.deepEqual(lobby.ballot.song,[]);
+  advanceMatch(lobby,lobby.until);
+  assert.equal(lobby.history[0].results.find(r=>r.id==='0').answers.anime,'Manual anime');
+  assert.equal(lobby.history[0].results.find(r=>r.id==='1').answers.song,'Song');
+
+  const arenaPlayers=players.slice(0,4).map(p=>({...p,elo:1000}));
+  const arena=start(makeMatch('arena-timeout-choice',ARENA_FORMAT,arenaPlayers,
+    Array.from({length:arenaSongCount(4)},()=>songs[0]),now));
+  save(arena,'0',{anime:'An'},{anime:'Anime'});
+  assert.equal(arena.players.find(p=>p.id==='0').arenaTitle,undefined);
+  advanceMatch(arena,arena.until);
+  assert.equal(arena.history[0].results.find(r=>r.id==='0').answers.anime,'Anime');
 });
 
 test('custom team ballots reject duplicate proposals, settle early and credit the selected owner',()=>{

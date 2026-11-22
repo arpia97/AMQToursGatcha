@@ -66,7 +66,7 @@ Completion time for both normal and isolated-session play starts at the first se
 
 ## Playback
 
-Each song uses a 20-second MP3 sample and a server-persisted 20-second answer deadline. The first question has a two-second countdown after audio loads; subsequent songs start immediately when ready. Refreshing retains the same sample and deadline. The browser submits the current answer at zero. The server allows one second for network transit, then rejects late correct answers as timed out. Failed media can be retried or skipped.
+Each song uses a 20-second MP3 sample and a server-persisted 20-second answer deadline. The first question has a two-second countdown after audio loads; subsequent songs start immediately when ready. Refreshing retains the same sample and deadline. At zero, the browser submits the highlighted suggestion, the first suggestion if Autolock is on, or the typed answer if neither applies. The server allows one second for network transit, then rejects late correct answers as timed out. Failed media can be retried or skipped.
 
 Audio autoplays, with an Enable Audio fallback if the browser requires a gesture. Volume starts at 30% and remembers changes, including mute. The current score remains visible. The title bank is cached per quiz/version and searched locally without per-keystroke requests. Mouse selection or arrow keys and Enter fill the answer; Lock Answer submits it.
 

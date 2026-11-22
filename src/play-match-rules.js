@@ -7,7 +7,7 @@ import {proposeOrVote,ballotsComplete,selectWinners,returnVote,checkReturn,voteT
 import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
-import {saveDraft,applyTimeoutDrafts} from './play-drafts.js';
+import {saveDraft,applyTimeoutDrafts,applyTimeoutProposals} from './play-drafts.js';
 export const PLAY_FORMATS=Object.freeze({[DUEL_FORMAT]:{size:2,teams:2},[ARENA_FORMAT]:{size:arenaRules.preferredPlayers},'ngmc-3v3':{size:6,teams:2},'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1},[ONE_TEAM_FORMAT]:{size:oneTeamRules.maxPlayers,teams:1}});
 export const FIELDS=songArtistFields;
 function skipMajority(state){
@@ -36,18 +36,21 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   return {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(custom?{}:{answeredMatch:false}),answers:{},locked:false}))};
 }
 function recordRoundParticipation(state) {
+  const usesProposals = state.arena || usesTeamBallot(state.format);
   for (const player of state.players) {
     if (player.left || player.answeredMatch !== false) continue;
-    player.answeredMatch = Object.values(player.answers).some(Boolean) ||
-      Object.values(player.draft?.answers || {}).some(Boolean) || !!player.draft?.artists?.length;
+    player.answeredMatch = Object.values(player.answers).some(Boolean) || !usesProposals &&
+      (Object.values(player.draft?.answers || {}).some(Boolean) || !!player.draft?.artists?.length);
   }
 }
 
 export function gradeRound(state,now) {
   if(state.phase!=='guess')return;
+  const expired = now >= state.until;
+  if (expired && (state.arena || usesTeamBallot(state.format))) applyTimeoutProposals(state);
   if (state.arena) selectArenaTitles(state);
   else if (usesTeamBallot(state.format)) selectWinners(state);
-  else applyTimeoutDrafts(state);
+  else applyTimeoutDrafts(state, expired);
   recordRoundParticipation(state);
   if(state.mode==='ngmc-ranked'){gradeNgmc(state,now);return;}
   const song=state.songs[state.index],teamHits=state.teams.map(()=>new Set());
@@ -165,14 +168,14 @@ export function matchMove(state,id,message,now=Date.now()) {
   if(state.lobby&&['return-request','return-vote'].includes(message.type)){
     returnVote(state,player,message);checkReturn(state,now);return;
   }
-  if (state.arena && !['loaded','ready','skip'].includes(message.type)) {
+  if (state.arena && !['loaded','ready','skip','draft'].includes(message.type)) {
     if (!['propose','vote'].includes(message.type) || message.field !== 'anime' ||
         state.phase !== 'guess' || message.index !== state.index || now < state.startsAt || now >= state.until)
       fail('This song is no longer accepting titles or votes.',409);
     arenaVoteAction(state,player,message);
     return;
   }
-  if(usesTeamBallot(state.format)&&!['loaded','ready','skip'].includes(message.type)){
+  if(usesTeamBallot(state.format)&&!['loaded','ready','skip','draft'].includes(message.type)){
     if(!['propose','vote','withdraw'].includes(message.type)||state.phase!=='guess'||state.index!==message.index||now<state.startsAt||now>=state.until)fail('Voting is unavailable.',409);
     proposeOrVote(state,player,message);advanceMatch(state,now);return;
   }
@@ -210,6 +213,7 @@ export function matchMove(state,id,message,now=Date.now()) {
   else if(message.type==='draft'){
     if(state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('This song is no longer accepting answers.',409);
     saveDraft(state,player,message,now);
+    return;
   } else if(message.type==='skip'){
     if(!skipMajority(state)||state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('Skip voting is unavailable.',409);
     if(typeof message.vote!=='boolean')fail('Choose a valid skip vote.');
@@ -224,7 +228,7 @@ export function matchMove(state,id,message,now=Date.now()) {
   } else if(message.type==='artists') {
     if(!matchGuessFields(state).includes('artist')||state.teamFields||state.phase!=='guess'||message.index!==state.index||now<state.startsAt||now>=state.until)fail('Artist entries cannot be changed now.',409);
     player.artists=submittedArtists(message.artists);player.answers.artist=player.artists.join(', ');
-    if(player.draft){player.draft.artists=player.artists;player.draft.answers.artist='';}
+    if(player.draft){player.draft.artists=player.artists;player.draft.answers.artist='';if(player.draft.timeoutChoices)delete player.draft.timeoutChoices.artist;}
   } else if(message.type==='reaction') {
     if(state.format!=='1-team'||!state.teamFields||message.index!==state.index||!['guess','reveal'].includes(state.phase)||!FIELDS.includes(message.field)||!['O','X','△','?'].includes(message.value))fail('Choose a valid answer reaction.',409);
     if(!state.players.some(p=>p.team===player.team&&p.id!==id&&p.field===message.field))fail('React to a teammate’s submitted answer.');
