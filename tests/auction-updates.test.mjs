@@ -399,6 +399,62 @@ test("flash stock is S-or-higher, shared, refilled once per paid purchase, and a
 });
 
 
+test("flash shop rolls an off-hour schedule forward without changing live offers", (t) => {
+  const { e, advance } = fixture(t);
+  const hour = 3600000;
+  const boundary = e.economy.community.activation();
+  const legacyStart = boundary + 29 * 60000;
+  const legacyEnd = legacyStart + 3 * hour;
+  const opening = boundary + 7 * hour;
+  advance(legacyStart - e.now());
+  const shop = e.economy.community;
+  e.run("INSERT INTO settings VALUES('flash_shop_cycle_anchor',?)", legacyStart);
+  e.run("INSERT INTO weekly_shop(card,kind,price,starts,ends,base_price,discount_percent) VALUES('character0','character',400,?,?,800,50)", legacyStart, legacyEnd);
+  e.host("catalog", {
+    cards: Array.from({length: 10}, (_, i) => ({
+      id: "community-flash-alignment-"+i, name: "Flash alignment "+i, kind:"character", fixedRarity:"S",
+    })),
+  });
+
+  const offers = e.state().shop;
+  assert.equal(offers.length, 1);
+  e.ensureAuctions();
+  assert.deepEqual(e.state().shop, offers);
+  assert.equal(shop.info().flashEnds, legacyEnd);
+  assert.equal(shop.info().flashNext, opening);
+
+  advance(legacyEnd - e.now());
+  e.ensureAuctions();
+  e.tx(() => e.host("refresh-weekly", {confirmation:"REFRESH WEEKLY SELECTIONS"}));
+  assert.deepEqual(e.state().shop, []);
+  assert.equal(shop.info().flashOpen, false);
+  assert.equal(shop.info().flashNext, opening);
+
+  advance(opening - e.now() - 1);
+  const restarted = new Engine(e.db, e.transaction, e.now, e.rand);
+  restarted.ensureAuctions();
+  assert.deepEqual(restarted.state().shop, []);
+  advance(1);
+  restarted.ensureAuctions();
+  const newOffers = restarted.state().shop;
+  assert.equal(newOffers.length, 10);
+  assert.ok(newOffers.every(slot => slot.starts === opening && slot.ends === opening + 3 * hour));
+
+  advance(29 * 60000);
+  restarted.tx(() => restarted.host("refresh-weekly", {confirmation:"REFRESH WEEKLY SELECTIONS"}));
+  const refreshed = restarted.state().shop;
+  assert.equal(refreshed.length, 10);
+  assert.ok(refreshed.every(slot => slot.starts === opening && slot.ends === opening + 3 * hour));
+  assert.equal(restarted.economy.community.info().flashNext, opening + 6 * hour);
+
+  const closed = fixture(t);
+  closed.advance(legacyEnd + 60000 - closed.e.now());
+  closed.e.run("INSERT INTO settings VALUES('flash_shop_cycle_anchor',?)", legacyStart);
+  closed.e.ensureAuctions();
+  assert.deepEqual(closed.e.state().shop, []);
+  assert.equal(closed.e.economy.community.info().flashNext, opening);
+});
+
 test("every flash discount from 0 through 50 has strictly decreasing probability",()=>{
  const counts=Array(51).fill(0);
  for(let roll=0;roll<1326;roll++)counts[flashDiscount(()=>roll)]++;

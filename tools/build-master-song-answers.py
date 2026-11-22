@@ -44,6 +44,7 @@ def build(records):
     files, metadata, occurrences = catalogue()
     parents, winners, descriptions = {}, {}, defaultdict(set)
     song_rows = []
+    dubbed_rows = set()
 
     def root(key):
         parents.setdefault(key, key)
@@ -74,6 +75,10 @@ def build(records):
         keys = {key for link in [links.get("primary"), links.get("playedSrc"), *links.get("allLinks", [])]
                 if (key := media_key(link))}
         ids = info.get("siteIds") or {}
+        if any(meta.get("isDub") in (True, 1) or meta.get("dub") in (True, 1) or
+               str(meta.get("songCategory", "")).strip().lower() in ("dub", "dubbed")
+               for meta in (export, info)):
+            dubbed_rows.add(total)
         song_rows.append([info.get("songName"), info.get("artist"), ids.get("annId"), info.get("type")])
         for field, prefix in (("amqSongId", "a:"), ("annSongId", "n:")):
             value = export.get(field) or info.get(field) or ids.get(field)
@@ -144,8 +149,11 @@ def build(records):
             exact[f"m:{ann}\t{song}\t{artist}"] = index[winners[matches.pop()]]
     recordings = [[*song_rows[row], None] for _, row, _ in chosen]
     for key, idx in sorted(exact.items()):
-        if key.startswith("f:") and key.lower().endswith(".mp3") and not recordings[idx][-1]:
-            recordings[idx][-1] = key[2:]
+        if key.startswith("f:") and key.lower().endswith(".mp3") and not recordings[idx][4]:
+            recordings[idx][4] = key[2:]
+    for idx, (_, row, _) in enumerate(chosen):
+        if row in dubbed_rows:
+            recordings[idx].append(True)
 
     # Official AMQ song links provide occurrence IDs and categories, but no audio.
     # Bind unambiguous links to sheet recordings and retain missing AMQ+ entries

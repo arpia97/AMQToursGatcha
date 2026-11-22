@@ -21,7 +21,7 @@ const compact = {
         songLinks: Object.fromEntries(
           Object.entries(a.songLinks || {}).map(([kind, links]) => [
             kind,
-            links.map((s) => ({ songId: s.songId, annSongId: s.annSongId })),
+            links.map((s) => ({ songId: s.songId, annSongId: s.annSongId, ...(s.dub ? {dub:s.dub} : {}) })),
           ]),
         ),
       },

@@ -6,6 +6,8 @@ and NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
 20 songs against each opposing pair in its round robin.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
+Multiplayer song selection excludes recordings marked as Dub in both Random and Watched pools.
+
 Players share a movable Match Chat window. Signed-in spectators of public matches
 see the regular match layout, hear the active song, and can use chat through the
 results screen. Chat uses the sender's display name in the spectator view. The

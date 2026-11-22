@@ -1,4 +1,4 @@
-import { resolveQuizAudio } from "./quiz-rules.js";
+import { resolveQuizAudio, songIsDub } from "./quiz-rules.js";
 export const LIBRARY_BUCKET_SIZE = 512;
 export const libraryBucket = (id) =>
   Math.floor(Number(id) / LIBRARY_BUCKET_SIZE);
@@ -43,6 +43,7 @@ export function compactLibrarySong(row, working = []) {
     artist: String(row.songArtist || row.artist || "").slice(0, 200),
     ...(artistNames.length ? {artistNames} : {}),
     audio: resolveQuizAudio(row.audio),
+    ...(songIsDub(row) ? {isDub:true} : {}),
     titles: libraryTitles([
       working,
       row.titles || [],

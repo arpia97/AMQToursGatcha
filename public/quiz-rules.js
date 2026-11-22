@@ -51,6 +51,12 @@ export function quizRarity(score = 0) {
     ].find(([n]) => score >= n)?.[1] || "D"
   );
 }
+export function songIsDub(song) {
+  return [song, song?.songInfo].some(meta => meta &&
+    ([meta.isDub, meta.dub].some(flag => flag === true || flag === 1) ||
+      /^dub(?:bed)?$/i.test(String(meta.songCategory ?? '').trim())));
+}
+
 export function validQuizAudio(value) {
   try {
     const u = new URL(value);
@@ -141,6 +147,7 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
     const answers = resolved.answers;
     const previous = seen.get(audio);
     if (previous) {
+      if (songIsDub(row)) previous.isDub = true;
       const trusted=[...new Set([...(trustedByAudio.get(audio)||[]),...resolved.trustedAnswers])];trustedByAudio.set(audio,trusted);
       const authoritative=previous.answerSource==='amq-export'||resolved.answerSource==='amq-export';
       previous.answers = authoritative?trusted:[...new Set([...previous.answers, ...answers])];
@@ -178,6 +185,7 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
       ),
       artist: String(row.songArtist || row.artist || "").slice(0, 200),
       type: String(row.songType||row.songInfo?.type||'').slice(0,80),
+      ...(songIsDub(row) ? {isDub:true} : {}),
     });
     seen.set(audio, songs.at(-1));
     trustedByAudio.set(audio,resolved.trustedAnswers);

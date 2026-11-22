@@ -248,8 +248,8 @@ export class Game extends DurableObject {
     const rows=[];
     for(const quiz of quizzes){
       for(const entry of this.engine.all('SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id',quiz.id)){
-        const {audio,title,artist,type,answers,sourceIds}=JSON.parse(entry.data);
-        rows.push({audio,title,artist,type,answers,sourceIds});
+        const {audio,title,artist,type,answers,sourceIds,isDub}=JSON.parse(entry.data);
+        rows.push({audio,title,artist,type,answers,sourceIds,isDub});
       }
     }
     return {version,rows};

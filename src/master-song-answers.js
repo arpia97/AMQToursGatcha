@@ -55,8 +55,8 @@ export function bestMasterRecord(snapshot,rows){
 export function sheetRecording(master, id) {
   const meta = master.recordings?.[id];
   if (!meta) return null;
-  const [title, artist, annId, type, file] = meta;
-  return {title, artist, annId, type, audio:file && 'https://naedist.animemusicquiz.com/'+file, titles:master.records[id].slice(1)};
+  const [title, artist, annId, type, file, isDub] = meta;
+  return {title, artist, annId, type, ...(isDub===true?{isDub}:{}), audio:file && 'https://naedist.animemusicquiz.com/'+file, titles:master.records[id].slice(1)};
 }
 
 // Published song pools are the only player-facing data used here. Rows are in

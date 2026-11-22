@@ -430,6 +430,7 @@ export class Quiz {
           title: text(s.title || "Unknown Song", 200),
           artist: String(s.artist || "").slice(0, 200),
           ...(s.type?{type:String(s.type).slice(0,80)}:{}),
+          ...(s.isDub===true?{isDub:true}:{}),
         });
       }
       e.run("DELETE FROM quiz_songs WHERE quiz=?", id);

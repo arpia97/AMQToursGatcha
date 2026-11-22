@@ -529,11 +529,11 @@ export class Economy {
       e = this.e,
       now = e.now();
     const start = MONDAY + Math.floor((now - MONDAY) / WEEK) * WEEK;
-    e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
-    if (this.community.active()) {
-      this.community.refill(now, now + 3 * 3600000);
-      this.community.scheduleFlash(now + 3 * 3600000);
-    } else this.seedShop(start, start + WEEK);
+    if (this.community.active()) this.community.refreshFlashStock(now);
+    else {
+      e.run("UPDATE weekly_shop SET ends=? WHERE ends>?", now, now);
+      this.seedShop(start, start + WEEK);
+    }
     return {
       ...result,
       message:

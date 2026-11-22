@@ -8,6 +8,8 @@ import {
   flashDiscount,
 } from "../public/community-market-rules.js";
 const MONDAY = Date.UTC(2026, 0, 5);
+const HOUR = 3_600_000;
+const hourAtOrAfter = time => Math.ceil(time / HOUR) * HOUR;
 export class CommunityMarket {
   constructor(e) {
     this.e = e;
@@ -61,8 +63,8 @@ export class CommunityMarket {
       active,
       activatesAt: this.activation(),
       auctionHours: 12,
-      flashOpen: window ? now < window.ends : !!shopEnds,
-      flashEnds: window && now < window.ends ? window.ends : shopEnds || null,
+      flashOpen: !!(window?.open || shopEnds),
+      flashEnds: window?.open ? window.ends : shopEnds || null,
       flashNext: window ? window.next : null,
     };
   }
@@ -91,22 +93,48 @@ export class CommunityMarket {
       }
     }
   }
-  scheduleFlash(from) {
-    const at = from + FLASH_SHOP_MS;
-    this.e.run(
-      "INSERT INTO settings VALUES('flash_shop_next',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-      at,
-    );
-    this.e.run(
-      "INSERT INTO settings VALUES('flash_shop_cycle_anchor',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-      from - FLASH_SHOP_MS,
+  flashAnchor() {
+    return this.e.one("SELECT value FROM settings WHERE key='flash_shop_cycle_anchor'")?.value;
+  }
+  flashWindow(now, anchor = this.flashAnchor()) {
+    if (anchor === undefined) return null;
+    if (now < anchor) return { open: false, next: anchor };
+    const cycle = 2 * FLASH_SHOP_MS;
+    const start = anchor + Math.floor((now - anchor) / cycle) * cycle;
+    const ends = start + FLASH_SHOP_MS;
+    return { start, ends, next: start + cycle, open: now < ends };
+  }
+  activeFlashStock(now) {
+    return this.e.one(
+      "SELECT starts AS start,ends FROM weekly_shop WHERE starts<=? AND ends>? AND ends-starts=? ORDER BY ends DESC LIMIT 1",
+      now, now, FLASH_SHOP_MS,
     );
   }
-  flashWindow(now = this.e.now()) {
-    const anchor = this.e.one("SELECT value FROM settings WHERE key='flash_shop_cycle_anchor'")?.value;
-    if (anchor === undefined) return null;
-    const start = Number(anchor) + Math.floor((now - Number(anchor)) / (2 * FLASH_SHOP_MS)) * 2 * FLASH_SHOP_MS;
-    return { start, ends: start + FLASH_SHOP_MS, next: start + 2 * FLASH_SHOP_MS };
+  ensureFlashSchedule(now) {
+    let anchor = this.flashAnchor();
+    if (anchor === undefined || anchor % HOUR !== 0) {
+      const stock = this.activeFlashStock(now);
+      if (stock) {
+        // Preserve offers that are already live and align their next opening.
+        anchor = stock.start % HOUR === 0 ? stock.start : hourAtOrAfter(stock.ends + FLASH_SHOP_MS);
+      } else {
+        const previous = this.flashWindow(now, anchor);
+        const opening = hourAtOrAfter(previous?.open ? previous.start : previous?.next ?? now);
+        anchor = opening >= now ? opening : hourAtOrAfter(previous.next);
+      }
+      this.e.run(
+        "INSERT INTO settings VALUES('flash_shop_cycle_anchor',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        anchor,
+      );
+    }
+    return this.flashWindow(now, anchor);
+  }
+  refreshFlashStock(now) {
+    const window = this.ensureFlashSchedule(now);
+    const current = window.open ? window : this.activeFlashStock(now);
+    if (!current) return;
+    this.e.run("UPDATE weekly_shop SET ends=? WHERE starts=? AND ends=?", now, current.start, current.ends);
+    this.refill(current.start, current.ends);
   }
   refill(start, ends, avoid = null) {
     const e = this.e;
@@ -156,27 +184,16 @@ export class CommunityMarket {
     const e = this.e,
       now = e.now();
     this.auctions();
-    let window = this.flashWindow(now);
-    if (!window) {
-      const recent = e.one(
-        "SELECT starts,ends FROM weekly_shop WHERE starts<=? AND ends>? AND ends-starts=? ORDER BY ends DESC LIMIT 1",
-        now, now - FLASH_SHOP_MS, FLASH_SHOP_MS,
-      );
-      const start = recent ? recent.ends - FLASH_SHOP_MS : now;
-      this.scheduleFlash(start + FLASH_SHOP_MS);
-      window = this.flashWindow(now);
-    }
-    const isOpen = now < window.ends;
-    if (isOpen && !e.one("SELECT id FROM weekly_shop WHERE starts=? AND ends=? LIMIT 1", window.start, window.ends))
+    const window = this.ensureFlashSchedule(now);
+    if (window.open && !e.one("SELECT id FROM weekly_shop WHERE starts=? AND ends=? LIMIT 1", window.start, window.ends))
       this.refill(window.start, window.ends);
     const scheduled = e.one("SELECT value FROM settings WHERE key='flash_shop_next'")?.value;
     if (Number(scheduled) !== window.next)
       e.run("INSERT INTO settings VALUES('flash_shop_next',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",window.next);
     return Math.min(
-      isOpen ? window.ends : window.next,
+      window.open ? window.ends : window.next,
       e.one("SELECT min(ends) AS ends FROM weekly_shop WHERE ends>?", now)
         ?.ends || Infinity,
-      window.next,
       e.one(
         "SELECT min(ends) AS ends FROM auctions WHERE seller IS NULL AND closed=0 AND ends>?",
         now,

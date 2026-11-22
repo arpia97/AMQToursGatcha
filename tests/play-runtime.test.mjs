@@ -159,6 +159,34 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   assert.equal(refreshed.coverage.playableRecordings,4);
   assert.ok(refreshed.anime.includes('Plus 2')&&!refreshed.anime.includes('Quiz 2'));
 });
+test('Play sampling excludes Dubs before counting Watched anime, choosing tracks and checking replacement audio',async()=>{
+  const audio=name=>'https://naedist.animemusicquiz.com/'+name+'.mp3';
+  const base=[
+    {annSongId:390001,amqSongId:390001,annId:1,type:'OP',audio:audio('normal'),title:'Normal',artist:'Artist',titles:['Normal']},
+    compactLibrarySong({annSongId:390002,annId:2,songType:'OP',audio:'dub-only.mp3',songName:'Dub Only',songArtist:'Artist',titles:['Dub Only'],songCategory:'Dub'}),
+    {annSongId:186,annId:3,type:'OP',audio:audio('7bmfnw'),title:'Legacy Dub',artist:'Artist',titles:['Legacy Dub']},
+  ];
+  const sheet={version:'sheet',records:[[0,'Sheet Dub']],keys:{'f:sheet-dub.mp3':0},
+    recordings:[['Sheet Dub','Artist',4,'OP','sheet-dub.mp3',true]],
+    animeLinks:{1:[1001,2001],2:[1002,2002],3:[1003,2003],4:[1004,2004]}};
+  const quizzes=[{type:'OP',audio:audio('quiz-dub'),title:'Quiz Dub',artist:'Artist',answers:['Quiz Dub'],isDub:true}];
+  const core={active:async()=>({version:'base',shards:[0]}),shard:async()=>base,
+    lookup:async({annSongIds})=>({songs:base.filter(row=>annSongIds.includes(row.annSongId))}),
+    assets:{fetch:async req=>Response.json(req.url.endsWith('artist-names.json')?[]:{names:[],songs:{},rules:{}})}};
+  const lib=new PlayLibrary(core,undefined,previous=>previous?null:{version:'quiz',rows:quizzes},()=>sheet);
+  const checked=[];
+  lib.verifiedSource=async url=>{checked.push(url);return url;};
+  const lists=[{provider:'myanimelist',ids:[1001,1002,1003,1004]}];
+  assert.equal(base[1].isDub,true);
+  assert.equal((await lib.load()).ngmcRows.length,1);
+  assert.equal(await lib.watchedAnimeCount(lists,true),1);
+  for(const picked of [await lib.sample('song-artist',1),await lib.sample('song-artist',1,null,lists),await lib.sample('song-artist',1,[])]){
+    assert.deepEqual(picked.songs.map(song=>song.audio),[audio('normal')]);
+    assert.deepEqual(picked.decoys,[]);
+  }
+  assert.ok(checked.every(url=>url===audio('normal')));
+});
+
 test('multiplayer Workers authenticate sockets, form all formats, preload, score and survive reconnect through the proxy',async t=>{
   const gate=Promise.withResolvers();
   t.after(()=>gate.resolve());
