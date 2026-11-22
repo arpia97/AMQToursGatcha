@@ -263,7 +263,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
     if(playerSnapshot!==key){
       playerSnapshot=key;
       const top=playerList.scrollTop;
-      const labels={playing:'In Match',queued:'In Queue',quiz:'Playing Quiz',afk:'AFK',browsing:'Browsing'};
+      const labels={playing:'In Match',queued:'In Queue',quiz:'Playing Quiz',spectating:'Spectating',afk:'AFK',browsing:'Browsing'};
       playerList.innerHTML=players.map(player=>
         '<li data-name="'+esc(player.name.toLowerCase())+'">'+avatar(player,esc)+'<strong title="'+esc(player.name)+'">'+esc(player.name)+'</strong>'+
           '<span class="overview-player-status" data-status="'+esc(player.status)+'">'+(labels[player.status]||labels.browsing)+'</span></li>'

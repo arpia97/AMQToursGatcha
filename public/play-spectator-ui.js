@@ -14,7 +14,7 @@ const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',gue
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
 const ended=phase=>phase==='finished'||phase==='cancelled';
 
-export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave}){
+export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave,onActivity=()=>{}}){
   root.innerHTML='<section class="sa-match-layout"><div class="sa-game-heading"><div><span class="sa-eyebrow" data-watch-pool>Spectating</span>'+
     '<div class="play-mode-title"><h1>'+esc(title)+'</h1></div></div><div class="sa-game-actions">'+
     '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
@@ -30,6 +30,12 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   url.protocol=url.protocol==='https:'?'wss:':'ws:';
 
   let socket,state,chat,offset=0,reconnect,attempts=0,layout,history=new Map();
+  let active=false;
+  function setActive(value){
+    if(active===value)return;
+    active=value;
+    onActivity();
+  }
   let request,clip,source,loadingAudio=false,loadingFailed=false,wantsAudio=false;
   const values=new Map();
   const audio=new Audio();
@@ -215,6 +221,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
       if(message.type==='chat-error'){showStatus(message.message);return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
       attempts=0;offset=message.now-Date.now();state=message.state;
+      setActive(!ended(state.phase));
       if(state.teams){
         if(!state.compact)history.clear();
         for(const row of state.history||[])history.set(row.index,row);
@@ -228,6 +235,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     };
     socket.onclose=event=>{
       if(controller.signal.aborted)return;
+      setActive(false);
       clearAudio();
       if(ended(state?.phase)){showStatus('Match Complete · Chat disconnected');return;}
       if(event.code===4001){showStatus('Spectator view opened in another tab.');return;}
@@ -237,7 +245,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   }
   connect();
   void enableAudio();
-  return {close(){
+  return {active:()=>active,close(){
     controller.abort();clearTimeout(reconnect);clearInterval(interval);
     socket?.close();chat?.close();songList.close();clearAudio();root.replaceChildren();
   },refresh(){if(state)render();}};

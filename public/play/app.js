@@ -153,6 +153,7 @@ function stopWatching(){
   $('.play-live').hidden=mode==='overview';
   if(watchOpener?.isConnected)watchOpener.focus({preventScroll:true});
   watchOpener=null;
+  void refreshLive(true);
 }
 const playTab=crypto.randomUUID();
 let inactiveSince=document.hidden||!document.hasFocus()?Date.now():null;
@@ -172,6 +173,7 @@ async function watchMatch(id,title){
   watchOpener=opener;
   watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,esc:escape,
     animeTitle:song=>quizAnimeTitle(song,titleMode),onLeave:stopWatching,
+    onActivity:()=>void refreshLive(true),
   });
   root.focus({preventScroll:true});
   void loadQuizTitleDisplay().then(()=>watchView?.refresh()).catch(()=>{});
@@ -390,6 +392,7 @@ async function refreshLive(force=false){
     params.set('idle',String(inactiveSince===null?0:Math.max(0,Date.now()-inactiveSince)));
     reportedQuiz=mode==='quiz'&&!!quiz?.active();
     if(reportedQuiz)params.set('quiz','1');
+    if(watchView?.active())params.set('spectating','1');
     if(hidden){params.set('hidden','1');params.set('presence','1');}
   }
   try{

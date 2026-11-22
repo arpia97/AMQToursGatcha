@@ -311,8 +311,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(publicOverview.onlinePlayers,undefined);
   assert.ok(publicOverview.matches.every(match=>match.id===undefined&&match.roster===undefined));
   const observer=(await (await mf.dispatchFetch(base+'/api/__test-session?id=9')).json()).cookie;
-  const presence=async(tab,idle,quiz=false,hidden=false)=>mf.dispatchFetch(base+'/api/play-live?'+new URLSearchParams({
-    tab,idle:String(idle),quiz:quiz?'1':'0',hidden:hidden?'1':'0',presence:'1',
+  const presence=async(tab,idle,quiz=false,hidden=false,spectating=false)=>mf.dispatchFetch(base+'/api/play-live?'+new URLSearchParams({
+    tab,idle:String(idle),quiz:quiz?'1':'0',hidden:hidden?'1':'0',spectating:spectating?'1':'0',presence:'1',
   }),{headers:{Cookie:observer}});
   const observerStatus=async()=>(await liveOverview(cookies[0])).onlinePlayers.find(p=>p.id==='9')?.status;
   const background=crypto.randomUUID(),foreground=crypto.randomUUID();
@@ -323,6 +323,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   await presence(foreground,0,true);
   await presence(background,180_500,false,true);
   assert.equal(await observerStatus(),'quiz');
+  await presence(foreground,0,false,false,true);
+  assert.equal(await observerStatus(),'spectating');
+  await presence(foreground,180_500,false,true,true);
+  assert.equal(await observerStatus(),'afk');
+  await presence(foreground,0);
+  assert.equal(await observerStatus(),'browsing');
   assert.equal((await mf.dispatchFetch(watchPath(rankedId))).status,401);
   assert.equal((await mf.dispatchFetch(watchPath(rankedId),{headers:{...upgrade,Origin:'https://wrong.test',Cookie:observer}})).status,403);
   const summaryScore=await (await mf.dispatchFetch(watchPath(rankedId),{headers:{Cookie:observer}})).json();

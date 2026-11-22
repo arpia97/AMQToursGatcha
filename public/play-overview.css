@@ -98,6 +98,7 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-player-status[data-status="queued"] {color:#f1ca72;}
 .overview-player-status[data-status="playing"] {color:#b6e2c5;}
 .overview-player-status[data-status="quiz"] {color:#c0ccff;}
+.overview-player-status[data-status="spectating"] {color:#cbb8ef;}
 .overview-player-status[data-status="afk"] {color:#e4be8d;}
 .overview-no-players {padding:14px 0 2px;color:var(--muted);font-size:12px;}
 .overview-columns section {scroll-margin-top:14px;}

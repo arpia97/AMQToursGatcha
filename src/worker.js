@@ -1379,7 +1379,7 @@ export class Game extends DurableObject {
         const tab=url.searchParams.get('tab');
         const details=tab&&/^[a-f0-9-]{36}$/.test(tab)?{
           tab,idle:Number(url.searchParams.get('idle')),hidden:url.searchParams.get('hidden')==='1',
-          quiz:url.searchParams.get('quiz')==='1',
+          quiz:url.searchParams.get('quiz')==='1',spectating:url.searchParams.get('spectating')==='1',
         }:null;
         const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1')
           .liveActivity(session?.player||null,overview,details,url.searchParams.get('presence')==='1');
