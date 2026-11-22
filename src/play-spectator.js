@@ -1,4 +1,5 @@
 import {arenaStandings} from './play-arena.js';
+import {rematchView} from './play-lobby-votes.js';
 import {playerAudioReady} from './play-integrity.js';
 import {ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
@@ -59,6 +60,6 @@ export function spectatorView(state,compact=false){
       audioReady:Array.isArray(p.loaded)&&playerAudioReady(state,p),locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,
       submittedFields:state.teamFields&&p.field?[p.field]:[],
     })),
-    ...(gameEnded(state.phase)?{reason:state.reason,aborted:!!state.aborted}:{}),
+    ...(gameEnded(state.phase)?{reason:state.reason,aborted:!!state.aborted,rematch:rematchView(state)}:{}),
   };
 }

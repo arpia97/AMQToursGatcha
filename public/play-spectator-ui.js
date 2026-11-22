@@ -1,9 +1,9 @@
 import {openMatchChat} from './play-match-chat.js';
 import {poolName} from './play-pool.js';
 import {createSongListDialog} from './play-song-dialog.js';
-import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js';
+import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js?v=one-team-rematch';
 import {ngmcArena,ngmcTeams,ngmcTrack,ngmcProgress} from './ngmc-ui.js';
-import {pointsBoard} from './play-lobby-ui.js';
+import {pointsBoard} from './play-lobby-ui.js?v=one-team-rematch';
 import {broadcastResults} from './play-match-results.js';
 import {arenaBoard} from './play-arena-ui.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
@@ -15,16 +15,18 @@ const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',gue
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
 const ended=phase=>phase==='finished'||phase==='cancelled';
 
-export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave,onActivity=()=>{}}){
+export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave,onJoinLobby,onActivity=()=>{}}){
   root.innerHTML='<section class="sa-match-layout"><div class="sa-game-heading"><div><span class="sa-eyebrow" data-watch-pool>Spectating</span>'+
     '<div class="play-mode-title"><h1>'+esc(title)+'</h1></div></div><div class="sa-game-actions">'+
     '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
     '<div class="sa-match-buttons"><button type="button" class="button mint" data-watch-action="audio">Enable Audio</button>'+
     '<button type="button" class="button secondary" data-watch-action="songs">Song List</button>'+
+    '<button type="button" class="button mint" data-watch-action="rematch" hidden>Match Ended. Join Lobby?</button>'+
     '<button type="button" class="button secondary" data-watch-action="leave">Leave Spectating</button></div></div></div>'+
     '<p class="sa-status watch-status" role="status">Connecting to match…</p><div class="watch-board"></div></section>';
   const board=root.querySelector('.watch-board'),status=root.querySelector('.watch-status');
   const enable=root.querySelector('[data-watch-action="audio"]');
+  const join=root.querySelector('[data-watch-action="rematch"]');
   const slider=root.querySelector('#watch-volume'),volumeLabel=slider.nextElementSibling;
   const controller=new AbortController(),songList=createSongListDialog(esc,animeTitle);
   const path='play-watch?match='+encodeURIComponent(id),url=new URL(path,apiBase);
@@ -59,6 +61,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   function tick(){
     if(!state)return;
     const now=Date.now()+offset;
+    join.hidden=!(state.rematch?.joinUntil>now);
     const dial=board.querySelector('.ngmc-dial');
     if(dial)updateRoundDial(dial,state,now);
     if(clip&&now>=state.until){audio.pause();return;}
@@ -121,6 +124,10 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   root.addEventListener('click',event=>{
     const action=event.target.closest('[data-watch-action]')?.dataset.watchAction;
     if(action==='leave')onLeave();
+    if(action==='rematch'&&socket?.readyState===1){
+      join.disabled=true;
+      socket.send(JSON.stringify({type:'rematch-join'}));
+    }
     if(action==='songs'&&state)songList.open(state);
     if(action==='audio'){
       if(loadingFailed&&clip)void loadClip(clip);
@@ -221,7 +228,8 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
         return;
       }
       if(message.type==='chat-message'){chat?.receive(message.row);return;}
-      if(message.type==='chat-error'){showStatus(message.message);return;}
+      if(message.type==='chat-error'||message.type==='error'){join.disabled=false;showStatus(message.message);return;}
+      if(message.type==='rematch-joined'){onJoinLobby();return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
       attempts=0;offset=message.now-Date.now();state=message.state;
       setActive(!ended(state.phase));
@@ -239,6 +247,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     socket.onclose=event=>{
       if(controller.signal.aborted)return;
       setActive(false);
+      join.disabled=true;
       clearAudio();
       if(ended(state?.phase)){showStatus('Match Complete · Chat disconnected');return;}
       if(event.code===4001){showStatus('Spectator view opened in another tab.');return;}

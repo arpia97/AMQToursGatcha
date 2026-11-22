@@ -8,7 +8,7 @@ import {playerHistory} from './play-history.js';
 import {PlayRecords} from './play-records.js';
 import {RankedLeaves, ngmcTable} from './ngmc-leaves.js';
 import {inactivityBanMessage,INACTIVITY_BAN_MS,RANKED_LEAVE_COST,songRatingPools} from '../public/ngmc-leave-policy.js';
-import {PlayLobbies} from './play-lobbies.js';
+import {PlayLobbies,ONE_TEAM_REMATCH_FORMAT} from './play-lobbies.js';
 import { PLAY_AUDIO_PROTOCOL } from '../public/play-audio-format.js';
 import {loadTourRate} from './play-tour-rate.js';
 import { balancedNgmcRatings,ngmcRatings } from './ngmc-ratings.js';
@@ -55,6 +55,21 @@ export class PlayQueue extends DurableObject {
     return Object.fromEntries(rows.map(row=>[poolFormat(row.format,row.pool),row.waiting]));
   }
   lobbyDirectory(){return this.lobbies.directory();}
+  async joinRematch(match,pool,who,until,previousCode){
+    const now=Date.now();
+    if(until<=now)return {error:'This lobby invitation has ended.'};
+    if(this.rows('SELECT 1 FROM play_match_inactivity WHERE player=? AND until>?',who.id,now).length)
+      return {error:'You can rejoin after your matchmaking ban expires.'};
+    if(this.joinRequests.has(who.id)||this.rows('SELECT 1 FROM queue WHERE player=? AND expires>? AND COALESCE(match,?)<>?',who.id,now,'',match).length)
+      return {error:'Leave your current queue or match first.'};
+    const result=this.lobbies.joinRematch(match,pool,who,previousCode);
+    if(!result.error){
+      this.broadcast();
+      this.ctx.waitUntil(this.lobbies.refreshWatchedPool(match));
+      await this.scheduleQueue();
+    }
+    return result;
+  }
   canWatch(id){
     return !!this.rows(`SELECT 1 FROM match_reviews m WHERE m.id=? AND m.status='active'
       AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id)
@@ -115,7 +130,11 @@ export class PlayQueue extends DurableObject {
     counts??=this.queueCounts();
     const pending=this.joinRequests.get(player);
     if(!row&&pending)return {type:'joining',format:pending.format,pool:pending.pool,counts};
-    return row?{type:'queued',format:row.format,pool:row.pool,waiting:counts[poolFormat(row.format,row.pool)]||0,needed:PLAY_FORMATS[row.format].size,counts}:{type:'idle',counts};
+    if(!row)return {type:'idle',counts};
+    const waiting=counts[poolFormat(row.format,row.pool)]||0;
+    const startsAt=row.format===ONE_TEAM_FORMAT&&waiting>=oneTeamRules.minPlayers
+      ? this.oneTeamStart(this.waitingPlayers(row.format,row.pool,Date.now())) : undefined;
+    return {type:'queued',format:row.format,pool:row.pool,waiting,needed:PLAY_FORMATS[row.format].size,counts,startsAt};
   }
   withPreparation(status){
     if(status.type!=='matched')return status;
@@ -195,7 +214,7 @@ export class PlayQueue extends DurableObject {
   assertActiveQueueAccess(ws,player){
     const ban=this.rows('SELECT until FROM play_match_inactivity WHERE player=? AND until>?',player,Date.now())[0];
     if(!ban)return;
-    send(ws,this.status(player));
+    if(ws)send(ws,this.status(player));
     fail(inactivityBanMessage(ban.until),403);
   }
   recordRankedLeave(match,player,at,pool){
@@ -343,7 +362,8 @@ export class PlayQueue extends DurableObject {
       const settings=lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null;
       const pool=settings?.pool||row.pool||'random';
       if(row.format==='lobby-ngmc')await Promise.all(players.map(async player=>Object.assign(player,await this.rating(player.id,pool))));
-      const format=row.format===ARENA_LOBBY_FORMAT?ARENA_FORMAT:row.format;
+      const format=row.format===ARENA_LOBBY_FORMAT?ARENA_FORMAT:
+        row.format===ONE_TEAM_REMATCH_FORMAT?ONE_TEAM_FORMAT:row.format;
       if(row.format===ARENA_LOBBY_FORMAT){
         const table=ngmcTable(pool);
         for(const player of players){
@@ -354,6 +374,7 @@ export class PlayQueue extends DurableObject {
       if(result?.setupError){
         this.ctx.storage.transactionSync(()=>{
           this.ctx.storage.sql.exec('UPDATE lobby_members SET last_match=NULL WHERE last_match=?',row.id);
+          this.ctx.storage.sql.exec("UPDATE play_lobbies SET settings=json_remove(settings,'$.rematchStarted') WHERE match=?",row.id);
           this.ctx.storage.sql.exec('DELETE FROM recent WHERE match=?',row.id);
         });
         await this.complete(row.id);
@@ -383,6 +404,13 @@ export class PlayQueue extends DurableObject {
     const current = await this.ctx.storage.getAlarm();
     if (current == null || current > at) await this.ctx.storage.setAlarm(at);
   }
+  waitingPlayers(format,pool,now){
+    return this.rows('SELECT * FROM queue WHERE format=? AND pool=? AND match IS NULL AND expires>? ORDER BY joined,player LIMIT ?',
+      format,pool,now,PLAY_FORMATS[format].size);
+  }
+  oneTeamStart(rows){
+    return rows.length>=oneTeamRules.minPlayers?rows.at(-1).joined+oneTeamRules.waitMs:undefined;
+  }
   async match(format,pool='random'){
     const now=Date.now(), rankingTable=ngmcTable(pool);
     let size=PLAY_FORMATS[format].size;
@@ -408,10 +436,10 @@ export class PlayQueue extends DurableObject {
         WHERE q.format=? AND q.pool=? AND q.match IS NULL AND q.expires>? AND abs(p.elo-?)<=?
         ORDER BY abs(p.elo-?),q.joined,q.player LIMIT ?`,format,pool,now,anchor.elo,spread,anchor.elo,size);
     }else{
-      rows=this.rows('SELECT * FROM queue WHERE format=? AND pool=? AND match IS NULL AND expires>? ORDER BY joined,player LIMIT ?',format,pool,now,size);
-      if(format===ONE_TEAM_FORMAT&&rows.length<size){
-        if(rows.length<oneTeamRules.minPlayers)return;
-        const deadline=rows[0].joined+oneTeamRules.waitMs;
+      rows=this.waitingPlayers(format,pool,now);
+      if(format===ONE_TEAM_FORMAT){
+        const deadline=this.oneTeamStart(rows);
+        if(deadline===undefined)return;
         if(now<deadline){await this.scheduleQueue(deadline);return;}
         size=rows.length;
       }

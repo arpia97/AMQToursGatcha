@@ -12,17 +12,20 @@ export function teamLivesHTML(lives,max=5){
   return '<div class="ngmc-lives" role="img" aria-label="'+lives+' of '+max+' lives remaining">'+
     Array.from({length:max},(_,i)=>'<i class="'+(i<lives?'alive':'lost')+'">'+heart+'</i>').join('')+'</div>';
 }
-export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton=''}={}){
+export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton='',resumeAudio=''}={}){
   const arena=match.mode===ARENA_FORMAT,duel=match.mode===DUEL_FORMAT;
   const versus=!arena&&!match.lobby&&match.teams.length===2;
   const survival=match.format===ONE_TEAM_FORMAT;
   const scoreboard='<div class="sa-scoreboard"></div>';
-  return '<div class="sa-ready-wrap"></div><div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+'">'+
+  const ready='<div class="sa-ready-wrap"></div>';
+  const download='<div class="sa-download-status'+(survival?' one-team-download':'')+'"></div>';
+  return (survival?'':ready)+'<div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+'">'+
     (arena?'':scoreboard)+
     '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+match.total+'</small></h2>'+
     (survival?'<div class="one-team-mobile-lives"></div>':'')+'</div>'+roundDialHTML+'</header>'+
-    '<div class="song-broadcast-body"><div class="sa-reveal-wrap"></div><div class="sa-download-status"></div><div class="sa-shared-wrap"></div>'+tiles+answerForm+
-    skipButton+'</div></section>'+(arena?scoreboard:'')+'</div>';
+    '<div class="song-broadcast-body">'+(survival?ready:'')+'<div class="sa-reveal-wrap"></div>'+
+    (survival?answerForm+skipButton+'<div class="sa-shared-wrap"></div>':download+'<div class="sa-shared-wrap"></div>'+tiles+answerForm+skipButton)+
+    '</div></section>'+(arena?scoreboard:'')+'</div>'+(survival?'<div class="one-team-audio-footer">'+download+resumeAudio+'</div>':'');
 }
 export function updateRoundDial(dial,match,now){
   const guessing=match.phase==='guess',counting=match.phase==='counting';
@@ -77,7 +80,7 @@ export function songTeamsHTML(match,esc){
     const total=survival?teamLivesHTML(match.teams[team],oneTeamRules.lives):'<strong>'+match.teams[team]+'</strong>';
     return '<section class="sa-team sa-song-team '+(team===(me?.team??0)?'allies':'rivals')+(solo?' sa-solo':'')+'"><header><span>'+title+(match.teamFields&&revealed(match,last)?' '+scoreBadge(last.points[team]):'')+'</span>'+total+'</header>'+roster.map(p=>{
       const result=revealed(match,last)?last.results.find(r=>r.id===p.id):null;
-      const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':submitted?.has(p.id)?'Guess Submitted':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
+      const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':survival&&p.submittedFields?.length?'Submitted':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
       const answer=survival&&result?result.answers.anime?'<small class="one-team-guess" data-correct="'+!!result.correct.anime+'">'+answerMark(result.correct.anime)+esc(result.answers.anime)+'</small>':
         '<small>'+ (p.left?'Left':submitted?.has(p.id)?'Guess not picked':'—') +'</small>':'<small>'+esc(status)+'</small>';
       return '<div class="sa-song-player '+(p.id===me?.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me?.id?' <small>You</small>':'')+'</strong>')+answer+'</div><strong class="sa-player-points">'+(result&&!match.teamFields&&!survival?scoreBadge(result.earned,matchGuessFields(match).length):'')+'<small>'+p.score+(survival?' Correct':' Points')+'</small></strong></div>';

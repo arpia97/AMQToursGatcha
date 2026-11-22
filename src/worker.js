@@ -233,8 +233,8 @@ export class Game extends DurableObject {
       catch{this.quizMaster={at:Date.now()-86400000+60000,data:{masterListId:'export-or-song-cache',animeMap:{}},mode:'export-or-song-cache'};}
     }return this.quizMaster;
   }
-  awardPlayOutcomeCredits(match, format, players, completedRounds) {
-    return awardMatchCredits(this.engine, match, format, players, completedRounds);
+  awardPlayOutcomeCredits(match, format, players, completedRounds, survivalResult) {
+    return awardMatchCredits(this.engine, match, format, players, completedRounds, survivalResult);
   }
   watchedAnimeLists(players) {
     if (!Array.isArray(players) || players.length < 1 || players.length > 16) fail("Invalid lobby roster.");
@@ -1365,8 +1365,9 @@ export class Game extends DurableObject {
         if(!await queue.canWatch(id))fail('This public match is no longer available.',404);
         const room=this.env.PLAY_MATCHES.getByName(id);
         if(upgrade){
+          const player=e.player(session.player);
           const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({
-            id:session.player,name:e.player(session.player).name,expires:Math.min(session.expires,Date.now()+30*60_000),
+            id:session.player,name:player.name,avatar:playAvatar(e,player),expires:Math.min(session.expires,Date.now()+30*60_000),
           })});
           return room.fetch(new Request('https://play.internal/spectator',{headers}));
         }

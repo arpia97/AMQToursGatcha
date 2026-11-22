@@ -1,5 +1,5 @@
 import {titleKey,artistKey} from './play-artists.js';
-import {matchGuessFields} from '../public/play-mode-rules.js';
+import {matchGuessFields,ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
 const reject=message=>{throw Object.assign(Error(message),{status:409});};
 export function proposeOrVote(state,player,message){
@@ -24,14 +24,19 @@ export function proposeOrVote(state,player,message){
     if(message.choice!==null&&!options.some(o=>o.id===message.choice&&state.players.some(p=>p.id===o.owner&&!p.left)))reject('Choose an available answer.');
     player.votes??={};
     if(message.choice===null)delete player.votes[field];
-    else player.votes[field]=message.choice;
+    else {
+      player.votes[field]=message.choice;
+      if(state.format===ONE_TEAM_FORMAT && player.answeredMatch===false)player.answeredMatch=true;
+    }
   }
 }
 export function ballotsComplete(state){
   const active=state.players.filter(p=>!p.left),ids=new Set(active.map(p=>p.id));
   return matchGuessFields(state).every(field=>{
     const choices=new Set((state.ballot?.[field]||[]).filter(o=>ids.has(o.owner)).map(o=>o.id));
-    return active.every(p=>p.autoSkip||choices.has(p.votes?.[field]));
+    const submitted=new Set(state.format===ONE_TEAM_FORMAT
+      ? (state.ballot?.[field]||[]).map(option=>option.owner) : []);
+    return active.every(p=>p.autoSkip||choices.has(p.votes?.[field])||submitted.has(p.id));
   });
 }
 export function selectWinners(state){
@@ -46,6 +51,33 @@ export function selectWinners(state){
     active.find(p=>p.id===chosen.owner).answers[field]=chosen.answer;
   }
 }
+const rematchPlayers=state=>state.players.filter(p=>!p.left&&!p.chatLeft&&p.disconnectedAt==null);
+export function rematchView(state,now=Date.now(),player=null){
+  const poll=state.rematch;
+  if(!poll)return undefined;
+  if(poll.joinUntil>now)return {joinUntil:poll.joinUntil};
+  if(poll.until<=now||poll.joinUntil||!player)return undefined;
+  const eligible=rematchPlayers(state);
+  if(eligible.length<2||!eligible.some(p=>p.id===player))return undefined;
+  const required=Math.floor(eligible.length/2)+1;
+  const yes=eligible.filter(p=>poll.votes[p.id]===true).length;
+  const undecided=eligible.filter(p=>!Object.hasOwn(poll.votes,p.id)).length;
+  return {until:poll.until,required,yes,myVote:poll.votes[player],closed:yes+undecided<required};
+}
+
+export function voteToRestart(state,id,yes,now){
+  const view=rematchView(state,now,id);
+  if(!view?.until||view.closed||typeof yes!=='boolean')reject('The restart vote has ended.');
+  state.rematch.votes[id]=yes;
+  checkRestart(state,now,id);
+}
+
+export function checkRestart(state,now,id){
+  const eligible=rematchPlayers(state);
+  const view=rematchView(state,now,id??eligible[0]?.id);
+  if(view?.until&&view.yes>=view.required)state.rematch.joinUntil=now+120_000;
+}
+
 export function voteToAbort(state,player,message){
   if(['finished','cancelled'].includes(state.phase))reject('Match has ended.');
   if(message.type==='abort-request'){

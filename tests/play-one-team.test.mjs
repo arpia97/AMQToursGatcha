@@ -4,6 +4,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {ONE_TEAM_FORMAT,ONE_TEAM_MODE,oneTeamRules,queueMode} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds,PLAY_AUDIO_PROTOCOL} from '../public/play-audio-format.js';
 import {advanceMatch,gradeRound,makeMatch,matchMove,matchView} from '../src/play-match-rules.js';
+import {rematchView,voteToRestart} from '../src/play-lobby-votes.js';
 import {matchCreditPlan} from '../src/play-rewards.js';
 import {liveMatchScore} from '../src/play-spectator.js';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
@@ -56,8 +57,8 @@ test('only the selected guess scores and five team misses finish after the revea
   const final=matchView(state,'1');
   assert.equal(final.total,100);
   assert.equal(final.songList.length,6);
-  assert.equal(final.creditsPending,false);
-  assert.equal(matchCreditPlan(state),null);
+  assert.equal(final.creditsPending,true);
+  assert.deepEqual(matchCreditPlan(state).map(row=>row.outcome),Array(8).fill('cooperative'));
 });
 
 test('one-team completes a playable set with lives remaining and preserves legacy formats',()=>{
@@ -70,11 +71,22 @@ test('one-team completes a playable set with lives remaining and preserves legac
   state.index=1;
   matchMove(state,'1',{type:'propose',index:1,field:'anime',answer:'Anime 1'},1100);
   const choice=state.ballot.anime[0].id;
-  for(const player of state.players)matchMove(state,player.id,{type:'vote',index:1,field:'anime',choice},1200);
+  matchMove(state,'2',{type:'vote',index:1,field:'anime',choice},1200);
+  assert.equal(state.phase,'guess');
+  assert.equal(state.players.find(player=>player.id==='2').answeredMatch,true);
+  assert.deepEqual(matchView(state,'2',1200).players.find(player=>player.id==='2').submittedFields,['anime']);
+  matchMove(state,'3',{type:'vote',index:1,field:'anime',choice},1201);
   assert.equal(state.phase,'reveal');
   advanceMatch(state,state.until);
   assert.deepEqual(state.teams,[5]);
   assert.equal(state.completed,true);
+  const endedAt=state.until-86400000;
+  assert.equal(rematchView(state,endedAt,'1').required,2);
+  voteToRestart(state,'1',true,endedAt);
+  assert.equal(rematchView(state,endedAt),undefined);
+  voteToRestart(state,'2',true,endedAt);
+  assert.deepEqual(rematchView(state,endedAt),{joinUntil:endedAt+120_000});
+  assert.equal(rematchView(state,endedAt+120_000),undefined);
   assert.throws(()=>makeMatch('invalid',ONE_TEAM_FORMAT,players.slice(0,2),songs));
   const legacy=makeMatch('legacy','1-team',players.slice(0,3),songs.slice(0,20));
   assert.equal(queueMode(legacy.format),ONE_TEAM_MODE);
@@ -88,7 +100,7 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   t.after(()=>worker.dispose());
   const base='http://game',cookies=[];
   const fetch=(path,options)=>worker.dispatchFetch(base+path,options);
-  for(let id=1;id<=4;id++){
+  for(let id=1;id<=5;id++){
     cookies[id]=(await (await fetch('/api/__test-session?id='+id)).json()).cookie;
   }
   const watchedList=await fetch('/api/play-anime-list',{method:'POST',headers:{Cookie:cookies[1],'Content-Type':'application/json'},
@@ -96,15 +108,18 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   assert.equal(watchedList.status,200);
   const allSockets=[];
   t.after(()=>allSockets.forEach(ws=>ws.close()));
-  async function connect(id,match){
-    const response=await fetch('/api/play-connect?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:''),{
+  async function connect(id,match,watch=false){
+    const path=watch?'/api/play-watch?match='+match:
+      '/api/play-connect?protocol='+PLAY_AUDIO_PROTOCOL+(match?'&match='+match:'');
+    const response=await fetch(path,{
       headers:{Upgrade:'websocket',Origin:base,Cookie:cookies[id]},
     });
     assert.equal(response.status,101,response.status===101?'':await response.text());
     const ws=response.webSocket,messages=[];
     ws.addEventListener('message',event=>messages.push(JSON.parse(event.data)));
     ws.accept();allSockets.push(ws);
-    return {join:pool=>ws.send(JSON.stringify({type:'join',mode:ONE_TEAM_MODE,format:ONE_TEAM_FORMAT,pool})),
+    const send=message=>ws.send(JSON.stringify(message));
+    return {send,join:pool=>send({type:'join',mode:ONE_TEAM_MODE,format:ONE_TEAM_FORMAT,pool}),
       async wait(predicate){
         for(let turn=0;turn<250;turn++){
           const message=messages.find(predicate);
@@ -117,8 +132,16 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   const clients=await Promise.all([1,2,3,4].map(id=>connect(id)));
   clients[3].join('random');
   for(const client of clients.slice(0,3))client.join('watched');
-  await clients[0].wait(message=>message.type==='queued'&&message.waiting===3&&message.needed===8);
-  await fetch('/api/__age-queue?format='+ONE_TEAM_FORMAT+'&pool=watched&ms=90000');
+  const queued=await clients[0].wait(message=>message.type==='queued'&&message.waiting===3&&message.needed===8);
+  assert.ok(queued.startsAt>Date.now()+18_000 && queued.startsAt<=Date.now()+20_000);
+  const newcomer=await connect(5);
+  await delay(60);
+  newcomer.join('watched');
+  const reset=await clients[0].wait(message=>message.type==='queued'&&message.waiting===4);
+  assert.ok(reset.startsAt>queued.startsAt);
+  newcomer.send({type:'cancel'});
+  await newcomer.wait(message=>message.type==='idle'&&message.counts?.[ONE_TEAM_FORMAT+'-watched']===3);
+  await fetch('/api/__age-queue?format='+ONE_TEAM_FORMAT+'&pool=watched&ms=20000');
   const {match}=await clients[0].wait(message=>message.type==='matched'&&message.pool==='watched');
   const room=await connect(1,match);
   const manifest=await room.wait(message=>message.type==='manifest');
@@ -134,4 +157,46 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   const counts=await (await fetch('/api/play-queue-counts')).json();
   assert.equal(counts[ONE_TEAM_FORMAT],1);
   assert.equal(counts[ONE_TEAM_FORMAT+'-watched'],undefined);
+
+  const spectator=await connect(5,match,true);
+  const second=await connect(2,match);
+  const third=await connect(3,match);
+  await Promise.all([second,third].map(ws=>ws.wait(message=>message.type==='manifest')));
+  const fixtureResult=await fetch('/api/__fixture-final-song?match='+match);
+  assert.equal(fixtureResult.status,200);
+  assert.equal((await fetch('/api/__advance?match='+match)).status,200);
+  const finished=await room.wait(message=>message.state?.phase==='finished'&&message.state.creditReward);
+  assert.equal(finished.state.creditReward.amount,2);
+  assert.equal(finished.state.rematch.required,2);
+
+  spectator.send({type:'rematch-join'});
+  await spectator.wait(message=>message.type==='error'&&message.message.includes('invitation'));
+  room.send({type:'rematch-vote',yes:true});
+  await room.wait(message=>message.state?.rematch?.yes===1);
+  second.send({type:'rematch-vote',yes:true});
+  const invitation=await spectator.wait(message=>message.state?.rematch?.joinUntil);
+  assert.deepEqual(Object.keys(invitation.state.rematch),['joinUntil']);
+  for(const ws of [room,second,spectator]){
+    ws.send({type:'rematch-join'});
+    await ws.wait(message=>message.type==='rematch-joined');
+  }
+  const host=await clients[0].wait(message=>message.type==='lobby'&&message.players.length===3);
+  assert.equal(host.pool,'watched');
+  assert.deepEqual(host.players.map(player=>player.id),['1','2','5']);
+  assert.ok(host.players[2].avatar);
+  const directory=await newcomer.wait(message=>message.type==='lobby'&&message.players.length===3);
+  assert.equal(directory.rematchOf,match);
+  third.send({type:'rematch-join'});
+  await third.wait(message=>message.type==='rematch-joined');
+  await clients[0].wait(message=>message.type==='lobby'&&message.players.length===4);
+  for(const client of [clients[1],clients[2],newcomer])client.send({type:'lobby-ready',ready:true});
+  await clients[0].wait(message=>message.type==='lobby'&&message.players.filter(p=>p.ready).length===3);
+  clients[0].send({type:'lobby-start'});
+  const restarted=await clients[0].wait(message=>message.type==='matched'&&message.match!==match);
+  const restartedRoom=await connect(1,restarted.match);
+  const restartedState=(await restartedRoom.wait(message=>message.type==='state')).state;
+  assert.equal(restartedState.pool,'watched');
+  assert.equal(restartedState.players.length,4);
+  assert.equal(restartedState.format,ONE_TEAM_FORMAT);
+  assert.deepEqual(restartedState.teams,[5]);
 });

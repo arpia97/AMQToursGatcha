@@ -4,6 +4,7 @@ import {arenaSongCount} from './play-arena.js';
 import {gameEnded,liveMatchScore,spectatorTag,spectatorView,spectatorClip} from './play-spectator.js';
 import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
+import {checkRestart,rematchView,voteToRestart} from './play-lobby-votes.js';
 import {matchCreditPlan} from './play-rewards.js';
 import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
 import {matchRecords,archivedRecords} from './play-records.js';
@@ -62,11 +63,23 @@ export class PlayMatch extends DurableObject {
   recordChatExit(state,player){
     if(!player||player.chatLeft)return;
     player.chatLeft=true;
+    checkRestart(state,Date.now());
     const row=this.ctx.storage.transactionSync(()=>{
       this.write(state);
       return this.storeChat('',player.name+' left the lobby.');
     });
     this.broadcastChat(state,row);
+    if(state.rematch)this.broadcast(state);
+  }
+  async joinRematch(ws,who){
+    const state=this.read();
+    const member=state?.players.find(player=>player.id===who.id);
+    if(!state||!rematchView(state)?.joinUntil||(!who.spectator&&(!member||member.left||member.chatLeft)))
+      fail('This lobby invitation has ended.',409);
+    const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+    const result=await queue.joinRematch(state.id,state.pool||'random',who,state.rematch.joinUntil,state.lobby?.code);
+    if(result.error)fail(result.error,409);
+    send(ws,{type:'rematch-joined'});
   }
   read(){const row=[...this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=1')][0];return row?JSON.parse(row.data):null;}
   write(state){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO match_state VALUES(1,?)',JSON.stringify(state));}
@@ -219,7 +232,7 @@ export class PlayMatch extends DurableObject {
       await this.env.PLAY_QUEUE.getByName('play-queues-v1').complete(state.id,null,'cancelled');
       return {};
     }
-    const participation=state.completed&&!state.lobby
+    const participation=state.completed&&(!state.lobby||state.format===ONE_TEAM_FORMAT)
       ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean')
         .map(({id,answeredMatch})=>({id,answered:answeredMatch}))
       : [];
@@ -238,8 +251,10 @@ export class PlayMatch extends DurableObject {
     const creditPlan=matchCreditPlan(state);
     if(creditPlan?.length){
       const completedRounds=state.arena?.rounds.filter(round=>round.every(fixture=>fixture.complete)).length;
+      const survivalResult=state.format===ONE_TEAM_FORMAT
+        ? {pool:state.pool||'random',songs:state.history.length} : undefined;
       const creditRewards=await this.env.GAME.getByName('amqtours-economy-v1')
-        .awardPlayOutcomeCredits(state.id,state.format,creditPlan,completedRounds);
+        .awardPlayOutcomeCredits(state.id,state.format,creditPlan,completedRounds,survivalResult);
       return {creditRewards};
     }
     return {};
@@ -345,6 +360,7 @@ export class PlayMatch extends DurableObject {
   }
   async webSocketMessage(ws,raw) {
     try{const input=receive(ws,raw);if(!input)return;
+      if(input.message.type==='rematch-join'){await this.joinRematch(ws,input.who);return;}
       if(input.who.spectator){
         if(input.message.type!=='chat-send'){closeSocket(ws,1008,'Spectators can only use chat.');return;}
         const state=this.read();if(state)this.chatMessage(ws,state,input.who,input.message.body);
@@ -354,6 +370,10 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='compact-history'){ws.serializeAttachment({...input.who,compactHistory:true});return;}
       const state=this.read();if(!state)fail('Match expired.',410);
       if(input.message.type==='chat-send'){this.chatMessage(ws,state,input.who,input.message.body);return;}
+      if(input.message.type==='rematch-vote'){
+        voteToRestart(state,input.who.id,input.message.yes,Date.now());
+        this.write(state);this.broadcast(state);return;
+      }
       if(input.message.type==='sync'){
         const now=Date.now();
         send(ws,{type:'state',state:matchView(state,input.who.id,now)});
@@ -508,7 +528,7 @@ export class PlayMatch extends DurableObject {
       closeSocket(ws,code,reason);return;
     }
     const id=who?.id;
-    if(state&&!state.lobby&&gameEnded(state.phase)&&
+    if(state&&(!state.lobby||state.format===ONE_TEAM_FORMAT)&&gameEnded(state.phase)&&
       !this.ctx.getWebSockets(id).some(other=>other!==ws&&other.readyState===1)){
       this.recordChatExit(state,state.players.find(p=>p.id===id&&!p.left));
     }

@@ -60,6 +60,18 @@ test('matchmaking pays by outcome once, using final scores and Arena standings',
     assert.equal(matchCreditPlan({...tied,completed:false,reason:'Player left the match.'}),null);
     assert.equal(matchCreditPlan({...tied,phase:'cancelled'}),null);
     assert.equal(matchCreditPlan({...tied,lobby:{code:'custom'}}),null);
+
+    const survival={...match,format:'one-team-survival',teams:[0],lobby:{rematchOf:'previous'},
+      players:[players[0],{...players[1],left:true},players[2],{...players[3],disconnectedAt:1}]};
+    const survivors=matchCreditPlan(survival);
+    assert.deepEqual(survivors.map(row=>row.id),['a','locked']);
+    for(const [pool,amount] of [['random',25],['watched',10]]){
+      const settle=()=>awardMatchCredits(engine,'survival-'+pool,survival.format,survivors,undefined,{pool,songs:5});
+      assert.deepEqual(settle(),[{id:'a',amount,bonus:0}]);
+      assert.deepEqual(settle(),[{id:'a',amount,bonus:0}]);
+    }
+    const survivalLedger=engine.all("SELECT delta FROM ledger WHERE reason LIKE 'Play match: 1-Team %' ORDER BY delta");
+    assert.deepEqual(survivalLedger.map(row=>row.delta),[10,25]);
   } finally {
     db.close();
   }

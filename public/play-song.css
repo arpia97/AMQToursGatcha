@@ -88,6 +88,19 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .one-team-result-guesses li {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:8px;overflow-wrap:anywhere}
 .one-team-guess .sa-guess-mark,.one-team-result-guesses .sa-guess-mark {position:static;transform:none;font-size:inherit;color:inherit}
 .one-team-mobile-lives {display:none}
+.one-team-survival .ngmc-dial[hidden] {display:grid;visibility:hidden}
+.one-team-survival .sa-ready-wrap {margin:0}
+.one-team-survival .sa-shared-wrap:empty,.one-team-download:empty {display:none}
+.one-team-download {margin:0}
+.one-team-audio-footer {display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.one-team-audio-footer:has(.one-team-download:empty):has(> .button[hidden]) {display:none}
+.one-team-survival .answer-search-controls {margin-block:2px 0}
+.one-team-survival .sa-skip-row {margin-top:6px}
+.play-rematch-actions,.play-rematch-votes {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.play-rematch-actions[hidden],.play-rematch-actions .button[hidden] {display:none}
+.play-rematch-votes .button[aria-pressed=true] {outline:2px solid var(--mint)}
+.play-rematch-dialog p {color:var(--muted)}
+.play-rematch-votes {justify-content:flex-end}
 .one-team-survival #sa-answer-form:not([hidden]) {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px;max-width:670px;margin:14px auto 0}
 .one-team-survival .sa-song-panel .sa-answer-fields {grid-template-columns:minmax(0,1fr)}
 .one-team-survival .sa-song-panel .sa-answer-row {padding:0;border:0;background:none;gap:0}

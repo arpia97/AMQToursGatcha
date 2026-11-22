@@ -143,7 +143,7 @@ async function refreshAccount(expectedPlayer) {
 const multiplayerRoot = document.createElement('div');
 const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team',[ONE_TEAM_FORMAT]:'1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
-let currentQueue, overview, currentActivity,watchView,watchOpener,watchRequest;
+let currentQueue, overview, currentActivity,watchView,watchOpener,watchRequest,queueTimer;
 function stopWatching(){
   watchRequest=null;
   if(!watchView)return;
@@ -163,7 +163,7 @@ async function watchMatch(id,title){
   if(!state.me){account();return;}
   if(songArtist?.inMatch()||(mode==='quiz'&&quiz?.active())){toast('Finish your current game before spectating.');return;}
   const viewer=state.me.id,version=viewVersion,request=watchRequest={},opener=document.activeElement;
-  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js'),loadMultiplayerStyles()]);
+  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=one-team-rematch'),loadMultiplayerStyles()]);
   if(watchRequest!==request||version!==viewVersion||state.me?.id!==viewer||songArtist?.inMatch())return;
   stopWatching();
   const root=$('#play-watch');
@@ -173,6 +173,7 @@ async function watchMatch(id,title){
   watchOpener=opener;
   watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,esc:escape,
     animeTitle:song=>quizAnimeTitle(song,titleMode),onLeave:stopWatching,
+    onJoinLobby:()=>void openMode('one-team'),
     onActivity:()=>void refreshLive(true),
   });
   root.focus({preventScroll:true});
@@ -199,6 +200,7 @@ function showQueue(status){
   currentQueue=status;
   overview?.updateQueue(status);
   box.hidden=!format;
+  clearInterval(queueTimer);
   if(!format){
     if(wasQueued&&!multiplayerRoot.isConnected)queueMicrotask(()=>{
       if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'))songArtist?.leave();
@@ -208,7 +210,15 @@ function showQueue(status){
   $('#play-queue-mode').textContent=queueLabels[format]+(format===ONE_TEAM_FORMAT?(status.pool==='watched'?' Watched':' Random'):status.pool==='watched'?' · Watched':'');
   const text=!status.connected?'Reconnecting…':status.type==='preparing'?preparationLabel(status.progress):status.type==='matched'?'Match found':status.type==='queued'?
     'In queue · '+status.waiting+(format===ARENA_FORMAT?' players':' / '+status.needed+' · '+percentDone(status.waiting,status.needed)):'Joining queue…';
-  if($('#play-queue-status').textContent!==text)$('#play-queue-status').textContent=text;
+  const label=$('#play-queue-status');
+  const update=()=>{
+    const seconds=Math.ceil((status.startsAt-Date.now())/1000);
+    const displayed=status.connected&&status.startsAt?text+' · '+(seconds>0?'Starts in '+seconds+'s':'Starting…'):text;
+    if(label.textContent!==displayed)label.textContent=displayed;
+    if(seconds<=0)clearInterval(queueTimer);
+  };
+  update();
+  if(status.connected&&status.startsAt>Date.now())queueTimer=setInterval(update,250);
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadOverview=loadOnce(async()=>{
@@ -216,10 +226,10 @@ const loadOverview=loadOnce(async()=>{
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=timeout-autolock"));
-const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css", import.meta.url)));
+const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=one-team-rematch", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=timeout-autolock"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=one-team-rematch"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,

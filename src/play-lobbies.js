@@ -1,11 +1,12 @@
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
-import {DUEL_LOBBY_FORMAT, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
+import {DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
 import {send} from './play-sockets.js';
 import {retryDurableOperation} from './durable-recovery.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
+export const ONE_TEAM_REMATCH_FORMAT='lobby-one-team-survival';
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
 
 
@@ -74,6 +75,7 @@ export class PlayLobbies {
       CASE WHEN l.password_hash IS NULL THEN json_extract(l.settings,'$.guessFields') END AS guessFields,
       (SELECT h.name FROM lobby_members h WHERE h.code=l.code AND h.last_match IS NULL ORDER BY h.rowid LIMIT 1) AS host
       FROM play_lobbies l JOIN lobby_members m ON l.code=m.code WHERE l.match IS NULL
+      AND json_extract(l.settings,'$.rematchOf') IS NULL
       GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`).map(({guessFields, ...room}) => {
       if (!room.locked && isSongArtistLobby(room.format)) {
         return {...room, guessFields: guessFields ? JSON.parse(guessFields) : songArtistFields};
@@ -169,6 +171,29 @@ export class PlayLobbies {
     this.queue.release(id,row.match||'');
     await this.refreshWatchedPool(row.code);
   }
+  joinRematch(match,pool,who,previousCode){
+    const current=this.forPlayer(who.id);
+    if(current?.code===match && !current.match && !current.last_match)return {};
+    if(current && (current.code!==previousCode||current.last_match!==match||current.match))
+      return {error:'Leave your current lobby first.'};
+    const source=this.queue.rows('SELECT status FROM match_reviews WHERE id=? AND format=?',match,ONE_TEAM_FORMAT)[0];
+    if(source?.status!=='finished')return {error:'Match results are still saving. Try again in a moment.'};
+    const lobby=this.queue.rows('SELECT * FROM play_lobbies WHERE code=?',match)[0];
+    if(lobby&&(lobby.match||JSON.parse(lobby.settings).rematchStarted)||this.roster(match).length>=oneTeamRules.maxPlayers)
+      return {error:'The lobby is full or has already started.'};
+    const settings={format:ONE_TEAM_FORMAT,pool,songs:oneTeamRules.songs,seconds:oneTeamRules.guessSeconds,rematchOf:match};
+    this.queue.ctx.storage.transactionSync(()=>{
+      if(!lobby)this.sql.exec('INSERT INTO play_lobbies(code,settings) VALUES(?,?)',match,JSON.stringify(settings));
+      if(current){
+        this.sql.exec('DELETE FROM lobby_members WHERE player=?',who.id);
+        if(this.sql.exec('DELETE FROM play_lobbies WHERE code=? AND NOT EXISTS(SELECT 1 FROM lobby_members WHERE code=?) RETURNING code',current.code,current.code).toArray().length)
+          this.sql.exec('DELETE FROM lobby_chat WHERE code=?',current.code);
+      }
+      this.sql.exec('INSERT INTO lobby_members(player,code,name,avatar,expires) VALUES(?,?,?,?,?)',who.id,match,who.name,
+        JSON.stringify(who.avatar||null),Date.now()+90000);
+    });
+    return {};
+  }
   async action(who,message){
     const row=this.forPlayer(who.id);
     if(message.type==='lobby-return'){
@@ -187,7 +212,7 @@ export class PlayLobbies {
       }else{
         code=String(message.code).trim().toUpperCase();
         const room=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
-        if(!room||room.match||this.roster(code).length>=lobbyCapacity(JSON.parse(room.settings).format))fail('Lobby is unavailable or full.');
+        if(!room||room.match||JSON.parse(room.settings).rematchOf||this.roster(code).length>=lobbyCapacity(JSON.parse(room.settings).format))fail('Lobby is unavailable or full.');
         hash=room.password_hash;
         if(hash&&await passwordDigest(message.password??'',hash.split(':')[0])!==hash)fail('Incorrect lobby password.',403);
       }
@@ -210,6 +235,8 @@ export class PlayLobbies {
       return;
     }
     if(players[0].id!==who.id)fail('Only the lobby host can do that.',403);
+    const settings=JSON.parse(row.settings);
+    if(settings.rematchOf&&message.type!=='lobby-start')fail('This rematch uses the same settings.');
     if(message.type==='lobby-password'){
       const hash=await passwordDigest(message.password);
       const current=this.forPlayer(who.id);
@@ -228,15 +255,19 @@ export class PlayLobbies {
       return;
     }
     if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
-    const settings=JSON.parse(row.settings);
+    if(settings.format===ONE_TEAM_FORMAT){
+      if(players.length<oneTeamRules.minPlayers)fail('1-Team needs at least '+oneTeamRules.minPlayers+' players.');
+      for(const player of players)this.queue.assertActiveQueueAccess(null,player.id);
+    }
     if(settings.format==='lobby-ngmc'&&![6,8].includes(players.length))fail('NGMC needs 6 players for 3v3 or 8 for 4v4.');
     if(settings.format===DUEL_LOBBY_FORMAT&&players.length!==2)fail('1v1 needs two players.');
     if(settings.format===ARENA_LOBBY_FORMAT&&!arenaPlayerCounts.includes(players.length))
       fail('Arena needs 4, 8, 12 or 16 players.');
     const match=crypto.randomUUID(),now=Date.now(),roster=players.map(p=>({...p,avatar:JSON.parse(p.avatar)}));
-    const pending={id:match,format:settings.format,players:JSON.stringify(roster),started:now};
+    const pending={id:match,format:settings.rematchOf?ONE_TEAM_REMATCH_FORMAT:settings.format,players:JSON.stringify(roster),started:now};
     this.queue.ctx.storage.transactionSync(()=>{
       this.sql.exec('UPDATE play_lobbies SET match=? WHERE code=?',match,row.code);
+      if(settings.rematchOf)this.sql.exec("UPDATE play_lobbies SET settings=json_set(settings,'$.rematchStarted',1) WHERE code=?",row.code);
       this.sql.exec('UPDATE lobby_members SET last_match=? WHERE code=? AND last_match IS NULL',match,row.code);
       this.sql.exec('INSERT INTO preparing(id,format,players,started) VALUES(?,?,?,?)',match,pending.format,pending.players,now);
       for(const p of roster)this.sql.exec('INSERT INTO recent VALUES(?,?,?)',p.id,match,now+86400000);

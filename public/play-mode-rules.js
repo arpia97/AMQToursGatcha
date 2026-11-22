@@ -19,7 +19,7 @@ export const isDuelFormat = format => format === DUEL_FORMAT || format === DUEL_
 export const duelRules = Object.freeze({songs:20, guessSeconds:20});
 export const ONE_TEAM_MODE = 'one-team';
 export const ONE_TEAM_FORMAT = 'one-team-survival';
-export const oneTeamRules = Object.freeze({minPlayers:3,maxPlayers:8,songs:100,lives:5,guessSeconds:20,waitMs:90_000});
+export const oneTeamRules = Object.freeze({minPlayers:3,maxPlayers:8,songs:100,lives:5,guessSeconds:20,waitMs:20_000});
 export const usesTeamBallot = format => format === 'lobby-team' || format === ONE_TEAM_FORMAT;
 
 export function queueMode(format) {
@@ -33,7 +33,7 @@ export function queueMode(format) {
 export function lobbyGameMode(format) {
   if (format === ARENA_LOBBY_FORMAT) return ARENA_FORMAT;
   if (format === DUEL_LOBBY_FORMAT) return DUEL_FORMAT;
-  if (format === 'lobby-team') return ONE_TEAM_MODE;
+  if (format === 'lobby-team' || format === ONE_TEAM_FORMAT) return ONE_TEAM_MODE;
   return format === 'lobby-ngmc' ? 'ngmc-ranked' : 'song-artist';
 }
 
