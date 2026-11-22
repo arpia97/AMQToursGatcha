@@ -43,6 +43,7 @@ export function createQuizUI({
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
+  let fuzzySession = {};
   const hotkeys = () =>
     normalizeQuizHotkeys(
       getHotkeys
@@ -226,6 +227,7 @@ export function createQuizUI({
     const key = run ? run.id + ":" + run.index : "";
     if (key !== draftKey) {
       draftKey = key;
+      fuzzySession = {};
       draft = "";
       options = [];
       highlight = -1;
@@ -1035,6 +1037,7 @@ export function createQuizUI({
   }
   function closeSuggestions() {
     suggestionsOpen = false;
+    fuzzySession = {};
     highlight = -1;
     const list = document.getElementById("quiz-suggestions"),
       input = document.getElementById("quiz-answer");
@@ -1083,7 +1086,7 @@ export function createQuizUI({
     draft = input.value;
     suggestionsOpen = true;
     const titles=bank?.answers||[];
-    options = fuzzyAnimeSearch(storage)?quizAnswerOptions(titles,draft):amqAnimeOptions(titles,draft);
+    options = fuzzyAnimeSearch(storage)?quizAnswerOptions(titles,draft,undefined,fuzzySession):amqAnimeOptions(titles,draft);
     highlight = -1;
     drawSuggestions(input);
   }
@@ -1562,6 +1565,7 @@ export function createQuizUI({
     setVolume,
     setAutolock(value){saveAnswerAutolock(value,storage);},
     setFuzzyAnime(value){
+      fuzzySession = {};
       saveFuzzyAnimeSearch(value,storage);
       const answer=document.getElementById('quiz-answer');
       if(answer?.value){answer.focus({preventScroll:true});updateInput(answer);}

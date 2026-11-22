@@ -61,7 +61,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   let ngmcFormat='ngmc-ranked',oneTeamFormat=ONE_TEAM_FORMAT,dismissedMatch=null,announcedMatch=null;
   const selectedQueueFormat=()=>arena()?ARENA_FORMAT:duel()?DUEL_FORMAT:ranked()?ngmcFormat:oneTeam()?oneTeamFormat:format;
   let active=false,format='1v1',server='EU',queue=null,room=null,match=null,queueStatus={type:'idle'},worker=null,searchReady=false,searchError='',searchId=0,searchItems=[],searchKind='',selected=-1;
-  let pendingSearch=null;
+  let pendingSearch=null, searchSession=0;
   let audio=new Audio(),cache=createQuizAudioCache(),downloads=null,downloadError='',sources=[],manifestId='',ready=false,preparedIndex=-1,offset=0,clockReady=false,raf=null,heartbeat=null,searchTimer=null,draftTimer=null,queueRetry=null,roomRetry=null,queueDelay=1000,roomDelay=1000;
   let selectedField='anime',draft={anime:'',song:'',artist:''},chosen={},pendingLock=false,volume=30,structure='',loadGeneration=0,connecting=false,unlocking=false,lastLoaded='',progressTimer=null,pendingArtistKey=null;
   let seekIndex=-1,autoReady=false,autoAttempt='',readyReminder='',lobbyDraft=null,lobbyModal=null,lobbies=null;
@@ -108,9 +108,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       const status=root.querySelector('.sa-status');
       if(!match&&!searchReady&&!searchError&&getPlayer()&&queueStatus.type!=='preparing'&&status)status.textContent=answerListStatus;
     }else if(data.type==='ready'){searchReady=true;joinFromOverview();render();}
-    else if(data.type==='error'){finishSearch([],true);searchFailed(data.message);}
-    else if(data.type==='results'&&data.id===searchId)finishSearch(data.items,data.standard);};
-    worker.onerror=()=>{finishSearch([],true);searchFailed('Answer search could not start. Retry to load it.');};
+    else if(data.type==='error'){finishSearch([]);searchFailed(data.message);}
+    else if(data.type==='results'&&data.id===searchId)finishSearch(data.items);};
+    worker.onerror=()=>{finishSearch([]);searchFailed('Answer search could not start. Retry to load it.');};
     worker.postMessage({type:'load'});
   }
   function searchFailed(message){
@@ -520,13 +520,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       audio.load();
     }).catch(cannotPlay).finally(()=>{if(generation===loadGeneration&&preparingRound===index)preparingRound=-1;});
   }
-  function hideSuggestions(){
+  function hideSuggestions(continueTyping=false){
+    if(!continueTyping)searchSession++;
     clearTimeout(searchTimer);pendingSearch=null;searchId++;searchItems=[];selected=-1;
     for(const el of root.querySelectorAll('.sa-suggestions'))el.replaceChildren();
     for(const el of root.querySelectorAll('[data-sa-field]')){el.setAttribute('aria-expanded','false');el.removeAttribute('aria-activedescendant');}
   }
   function findSuggestions(field,value){
-    hideSuggestions();
+    hideSuggestions(field===searchKind && !!value.trim());
     searchKind=field;
     if(!searchReady||!value.trim())return;
     pendingSearch={id:searchId,kind:field,query:value,fuzzy:fuzzyAnimeSearch(),sent:false,enter:false};
@@ -537,14 +538,14 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(!pendingSearch||pendingSearch.sent)return;
     const {id,kind,query,fuzzy}=pendingSearch;
     pendingSearch.sent=true;
-    worker?.postMessage({type:'search',id,kind,query,fuzzy});
+    worker?.postMessage({type:'search',id,kind,query,fuzzy,session:searchSession});
   }
-  function finishSearch(items,standard){
+  function finishSearch(items){
     if(!pendingSearch)return;
     const {enter}=pendingSearch;
     pendingSearch=null;
     searchItems=items;
-    selected=items.length&&!standard&&answerAutolock()?0:-1;
+    selected=items.length&&searchKind!=='anime'&&answerAutolock()?0:-1;
     showSuggestions();
     const input=document.activeElement;
     if(enter&&input?.matches('[data-sa-field]:enabled')&&input.dataset.saField===searchKind&&
@@ -1101,6 +1102,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       saveAnswerAutolock(event.target.checked);hideSuggestions();return;
     }
     if(event.target.matches('[data-fuzzy-anime]')){
+      searchSession++;
       saveFuzzyAnimeSearch(event.target.checked);
       const input=root.querySelector('#sa-anime');
       if(input?.value){input.focus({preventScroll:true});findSuggestions('anime',input.value);}

@@ -1,7 +1,7 @@
 import {answerSearchIndex,searchAnswers} from './play-answer-search.js';
 import {amqAnimeOptions} from './amq-anime-search.js';
 import {percentDone} from './play-setup-progress.js';
-let index;
+let index, sessionId, fuzzySession;
 self.onmessage=async({data})=>{
   try{
     if(data.type==='load'){
@@ -24,9 +24,13 @@ self.onmessage=async({data})=>{
       index=answerSearchIndex(catalog);
       self.postMessage({type:'ready',count:Object.fromEntries(Object.entries(index).map(([k,v])=>[k,v.length]))});
     }else if(data.type==='search'&&index){
+      if (data.session !== sessionId || !fuzzySession) {
+        sessionId = data.session;
+        fuzzySession = {};
+      }
       const standard=data.kind==='anime'&&!data.fuzzy;
-      const items=standard?amqAnimeOptions(index.anime,data.query):searchAnswers(index,data.kind,data.query);
-      self.postMessage({type:'results',id:data.id,items,standard});
+      const items=standard?amqAnimeOptions(index.anime,data.query):searchAnswers(index,data.kind,data.query,undefined,fuzzySession);
+      self.postMessage({type:'results',id:data.id,items});
     }
   }catch(error){self.postMessage({type:'error',message:error.message});}
 };

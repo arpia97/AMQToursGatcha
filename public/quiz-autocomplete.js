@@ -74,16 +74,34 @@ function containsPhrase(title, query) {
   return ends.size > 0;
 }
 
-export function quizAnswerOptions(titles, query, limit = 20) {
+export function quizAnswerOptions(titles, query, limit = 25, session) {
   const raw = String(query ?? '').trim().slice(0, 120);
-  if (!raw || limit <= 0) return [];
+  if (!raw || limit <= 0) {
+    if (session) delete session.last;
+    return [];
+  }
   const bank = indexFor(titles);
   const key = cleanAnimeTitle(raw);
   const symbols = animeSymbols(raw);
   const fragments = key.split(' ').filter(Boolean);
-  const found = [];
+  const last = session?.last;
+  if (last?.bank === bank && last.raw === raw && last.limit === limit) return last.items;
+  const found = [], phrases = [], partial = [];
+  const retained = new Set();
+  // On a narrowing query, 1.41 rechecks previously displayed matches before
+  // searching for new prefixes. They retain a slot, with phrase or partial priority.
+  if (last?.bank === bank && last.limit === limit && key.startsWith(last.key) && includesSymbols(symbols, last.symbols)) {
+    for (const row of last.rows) {
+      if (!includesSymbols(row.symbols, symbols) || !distinctWords(row.words, fragments)) continue;
+      if (!key || containsPhrase(row.key, key)) phrases.push(row);
+      else if (fragments.length > 1) partial.push(row);
+      else continue;
+      retained.add(row);
+    }
+  }
+  const newSlots = limit - retained.size;
   const prefix = new Set();
-  if (key) {
+  if (key && newSlots > 0) {
     // In 1.41 the prefix pass fills the dropdown from the alphabetized index.
     let lo = 0, hi = bank.alphabetical.length;
     while (lo < hi) {
@@ -94,26 +112,29 @@ export function quizAnswerOptions(titles, query, limit = 20) {
     for (let i = lo; i < bank.alphabetical.length; i++) {
       const row = bank.alphabetical[i];
       if (!row.key.startsWith(key)) break;
-      if (!includesSymbols(row.symbols, symbols)) continue;
+      if (retained.has(row) || !includesSymbols(row.symbols, symbols)) continue;
       prefix.add(row);
-      if (prefix.size >= limit) break;
+      if (prefix.size >= newSlots) break;
     }
     found.push(...[...prefix].sort((a, b) => a.order - b.order));
   }
-  const partial = [];
+  const newPartial = [];
   for (const row of bank.rows) {
-    if (found.length >= limit) break;
-    if (prefix.has(row) || !includesSymbols(row.symbols, symbols)) continue;
+    if (found.length + phrases.length + partial.length >= limit) break;
+    if (retained.has(row) || prefix.has(row) || !includesSymbols(row.symbols, symbols)) continue;
     if (!key) {
-      if (symbols) found.push(row);
+      if (symbols) phrases.push(row);
       continue;
     }
     if (!fragments.every(word => row.key.includes(word))) continue;
     if (fragments.length > 1 && !distinctWords(row.words, fragments)) continue;
-    if (containsPhrase(row.key, key)) found.push(row);
-    else if (fragments.length > 1 && partial.length < limit) partial.push(row);
+    if (containsPhrase(row.key, key)) phrases.push(row);
+    else if (fragments.length > 1 && newPartial.length < limit) newPartial.push(row);
   }
-  found.push(...partial.slice(0, limit - found.length));
+  partial.push(...newPartial.slice(0, limit - found.length - phrases.length - partial.length));
+  const byDisplayOrder = (a, b) => a.order - b.order;
+  found.push(...phrases.sort(byDisplayOrder), ...partial.sort(byDisplayOrder));
+  const rows = session ? found.slice() : undefined;
   if (!found.length && key) {
     for (const match of similarTitles(bank, key)) {
       for (const row of bank.byKey.get(match)) {
@@ -125,5 +146,7 @@ export function quizAnswerOptions(titles, query, limit = 20) {
     // 1.41 displays shortlisted typo matches in the original catalog order.
     found.sort((a, b) => a.order - b.order);
   }
-  return found.map(row => row.title);
+  const items = found.map(row => row.title);
+  if (session) session.last = {bank, raw, key, symbols, limit, rows, items};
+  return items;
 }

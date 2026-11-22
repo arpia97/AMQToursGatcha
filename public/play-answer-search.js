@@ -21,8 +21,9 @@ function nearWord(a,b){
   return a.slice(i+1)===b.slice(i+1)||
     (a[i]===b[i+1]&&a[i+1]===b[i]&&a.slice(i+2)===b.slice(i+2));
 }
-export function searchAnswers(index,kind,query,limit=20){
-  if(kind==='anime')return quizAnswerOptions(index.anime,query,limit);
+export function searchAnswers(index,kind,query,limit,session){
+  if(kind==='anime')return quizAnswerOptions(index.anime,query,limit,session);
+  limit ??= 20;
   const rows=index[kind]||[],raw=String(query||'').trim().slice(0,120);
   if(!raw||limit<=0)return [];
   const key=searchKey(raw);

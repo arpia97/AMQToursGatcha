@@ -626,6 +626,17 @@ for (const fuzzy of [false,true]) {
   });
 }
 
+test("fuzzy anime suggestions recheck the visible titles as the player types", () => {
+  const titles = ["Forest of Piano", "Piano", "Piano no Mori", "Piano: The Melody of a Young Girl's Heart"];
+  const session = {};
+  const search = query => quizAnswerOptions(titles, query, undefined, session);
+  for (const query of ["p", "pi", "pia", "pian"]) search(query);
+  assert.deepEqual(search("piano"), ["Piano", "Piano no Mori", "Forest of Piano", titles[3]]);
+  assert.deepEqual(search(""), []);
+  assert.deepEqual(search("piano"), ["Piano", "Piano no Mori", titles[3], "Forest of Piano"]);
+  assert.equal(quizAnswerOptions(Array.from({length: 30}, (_, i) => "Anime " + i), "anime").length, 25);
+});
+
 test("Fuzzy Search and Autolock submit the first suggestion on Enter",async t=>{
   const f=fixture(t);
   await f.start();
