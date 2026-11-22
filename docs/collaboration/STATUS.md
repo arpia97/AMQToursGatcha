@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Autolock shortcut tooltip
+
+Source `41a3a8e` deployed at 100% on Worker `891bb27b-118f-430d-ab30-15a4d8f2b55d`. The shared Autolock tooltip explains Enter, Ctrl+Enter and timeout selection. All 65 focused tests and the Worker dry run passed. A local 1-Team simulation confirmed that unanimous Autoskip immediately reveals the song and that five unanswered songs end the match. The live Play and Quiz shells and five release modules were verified.
+
 ## Ctrl+Enter answer submission
 
 Source `8bb0307` deployed at 100% on Worker `d6f34d29-cb1b-4c42-9277-b92ce9281f9a`. Ctrl+Enter submits the text in the focused answer field in multiplayer Play and shared Quiz. Quiz tests cover vanilla and fuzzy search. Local NGMC browser checks covered a pending search and a highlighted suggestion. All 40 focused tests, syntax checks and the Worker dry run passed. The live Gatcha Quiz, Play Quiz and NGMC routes served the release.
