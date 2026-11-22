@@ -4,12 +4,13 @@ import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, duelRule
 import {poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
+const guessTypeLabels={anime:'Anime',song:'Song',artist:'Artist'};
 export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena',[DUEL_LOBBY_FORMAT]:'1v1 Unranked'};
 function guessFieldPicker(selected=songArtistFields, readOnly=false) {
   return '<fieldset class="room-guess-types"><legend>Guess Types</legend>'+songArtistFields.map(field=>{
     const checked=selected.includes(field);
     return '<label><input type="checkbox" name="guessFields" id="guess-type-'+field+'" value="'+field+'"'+
-      (checked?' checked':'')+(readOnly||checked&&selected.length===1?' disabled':'')+'>'+({anime:'Anime',song:'Song',artist:'Artist'})[field]+'</label>';
+      (checked?' checked':'')+(readOnly||checked&&selected.length===1?' disabled':'')+'>'+guessTypeLabels[field]+'</label>';
   }).join('')+'</fieldset>';
 }
 export function readGuessFields(container, update=false) {
@@ -24,7 +25,18 @@ function poolPicker(value='random',disabled=false,id=''){
 export function lobbyDirectoryHTML(lobbies,mode,enabled,esc){
   const rooms=lobbies?.filter(room=>lobbyGameMode(room.format)===mode),disabled=enabled?'':' disabled';
   return '<aside class="play-lobby-directory"><header class="play-directory-header"><h2>Lobbies</h2><div class="play-directory-actions"><button class="button mint" data-lobby-action="create"'+disabled+'>Create Lobby</button><button class="button secondary" data-lobby-action="join"'+disabled+'>Join by Code</button></div></header>'+
-    (rooms?.length?rooms.map(room=>'<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong><span class="lobby-pool-label" data-song-pool="'+(room.pool==='watched'?'watched':'random')+'">'+poolName(room.pool)+'</span><small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/'+lobbyCapacity(room.format)+' · '+(room.locked?'Password required':'Public')+'</small></div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(room.players>=lobbyCapacity(room.format)?'disabled':disabled)+'>'+(room.players>=lobbyCapacity(room.format)?'Full':'Join')+'</button></div>').join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
+    (rooms?.length?rooms.map(room=>{
+      const guessTypes = room.locked ? [] : songArtistFields.filter(field => room.guessFields?.includes(field));
+      const guesses = guessTypes.length
+        ? '<small class="play-directory-guesses">Guess '+guessTypes.map(field => guessTypeLabels[field]).join(' · ')+'</small>'
+        : '';
+      const full = room.players>=lobbyCapacity(room.format);
+      return '<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong>'+
+        '<span class="lobby-pool-label" data-song-pool="'+(room.pool==='watched'?'watched':'random')+'">'+poolName(room.pool)+'</span>'+
+        '<small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/'+lobbyCapacity(room.format)+' · '+(room.locked?'Password required':'Public')+'</small>'+
+        guesses+'</div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(full?'disabled':disabled)+'>'+
+        (full?'Full':'Join')+'</button></div>';
+    }).join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
 export function lobbyDialog(action,mode,room,send,pool='random'){
   const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT,duel=mode===DUEL_FORMAT;

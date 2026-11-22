@@ -45,6 +45,7 @@
 .play-directory-room {display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
 .play-directory-room strong,.play-directory-room small {display:block;overflow-wrap:anywhere;}
 .play-directory-room small,.play-lobby-dialog label {color:var(--muted);font-size:12px;}
+.play-directory-room .play-directory-guesses {margin-top:4px;color:var(--mint);}
 dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .play-lobby-dialog form,.play-lobby-dialog label {display:grid;gap:8px;}
 .play-lobby-dialog form {gap:14px;}

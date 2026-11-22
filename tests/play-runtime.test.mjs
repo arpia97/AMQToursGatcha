@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {playRuntimeFixture} from './play-runtime-fixture.mjs';
+import {lobbyDirectoryHTML} from '../public/play-lobby-ui.js';
 import {importAnimeList,listAccount} from '../src/play-anime-list.js';
 import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
@@ -181,6 +182,20 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   host.send({type:'lobby-create',format:'lobby-team',seconds:30,songs:1,pool:'watched',guessFields:['artist','song']});
   const watchedLobby=await host.wait(m=>m.type==='lobby'&&m.pool==='watched'&&m.watchedPool?.eligible===0);
   assert.deepEqual(watchedLobby.guessFields,['song','artist']);
+  const directoryEntry=message=>message.lobbies?.find(room=>room.code===watchedLobby.code);
+  const listedWatched=await visitor.wait(message=>directoryEntry(message));
+  assert.deepEqual(directoryEntry(listedWatched).guessFields,['song','artist']);
+  assert.match(lobbyDirectoryHTML(listedWatched.lobbies,'one-team',true,String),/Guess Song · Artist</);
+
+  host.send({type:'lobby-settings',format:'lobby-team',seconds:30,songs:1,pool:'watched'});
+  const defaultListing=await visitor.wait(message=>directoryEntry(message)?.guessFields?.length===3);
+  assert.match(lobbyDirectoryHTML(defaultListing.lobbies,'one-team',true,String),/Guess Anime · Song · Artist</);
+  host.send({type:'lobby-password',password:'test-room'});
+  const lockedListing=await visitor.wait(message=>directoryEntry(message)?.locked);
+  assert.equal(directoryEntry(lockedListing).guessFields,undefined);
+  assert.doesNotMatch(lobbyDirectoryHTML(lockedListing.lobbies,'one-team',true,String),/play-directory-guesses/);
+  host.send({type:'lobby-password',password:''});
+  await visitor.wait(message=>visitor.messages.indexOf(message)>visitor.messages.indexOf(lockedListing)&&directoryEntry(message)?.guessFields?.length===3);
   host.send({type:'lobby-start'});
   await host.wait(m=>m.type==='error'&&m.message.includes('Import'));
   const linked=await listUpdate(listBody,cookies[0]);assert.equal(linked.status,200,await linked.clone().text());

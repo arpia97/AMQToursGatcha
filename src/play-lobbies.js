@@ -1,5 +1,5 @@
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
-import {DUEL_LOBBY_FORMAT, duelRules, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
+import {DUEL_LOBBY_FORMAT, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
 import {send} from './play-sockets.js';
@@ -71,9 +71,15 @@ export class PlayLobbies {
   directory(){
     return this.queue.rows(`SELECT l.code,json_extract(l.settings,'$.format') AS format,json_extract(l.settings,'$.pool') AS pool,
       l.password_hash IS NOT NULL AS locked,COUNT(*) AS players,
+      CASE WHEN l.password_hash IS NULL THEN json_extract(l.settings,'$.guessFields') END AS guessFields,
       (SELECT h.name FROM lobby_members h WHERE h.code=l.code AND h.last_match IS NULL ORDER BY h.rowid LIMIT 1) AS host
       FROM play_lobbies l JOIN lobby_members m ON l.code=m.code WHERE l.match IS NULL
-      GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`);
+      GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`).map(({guessFields, ...room}) => {
+      if (!room.locked && isSongArtistLobby(room.format)) {
+        return {...room, guessFields: guessFields ? JSON.parse(guessFields) : songArtistFields};
+      }
+      return room;
+    });
   }
   status(row){
     if(row.last_match)return {type:row.match===row.last_match?'matched':'lobby-ended',match:row.last_match,code:row.code};
