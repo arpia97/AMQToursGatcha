@@ -2,7 +2,7 @@ import {autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fu
 import {playPools, poolFormat, poolName} from './play-pool.js';
 import {poolToggle} from './play-pool-toggle.js';
 import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
-import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, ngmcCounterSignupOpen, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js';
+import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, ngmcCounterSignupOpen, ngmcCanTakeOverCounting, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js';
@@ -92,7 +92,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const me=player(), connected=room?.readyState===1&&room.hasState;
     const signup=root.querySelector('[data-sa-action="choose-counter"]');
     if(signup){
-      signup.hidden=!ngmcCounterSignupOpen(match,me,now);
+      signup.hidden=!ngmcCounterSignupOpen(match,me);
       signup.disabled=!connected;
     }
     counterDialog.update(match,me,now,connected,reopen);
@@ -805,7 +805,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const me=player(),indices=loaded();
     const takeOver=root.querySelector('[data-ngmc-takeover]');
     if(takeOver){
-      takeOver.hidden=me.left||!match.autoCounting?.[me.team];
+      takeOver.hidden=!ngmcCanTakeOverCounting(match,me);
       takeOver.disabled=room?.readyState!==1;
     }
     const waitingAudio=['loading','buffering'].includes(match.phase)&&match.audioWindow;
@@ -964,7 +964,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
     if(player()?.acceptedReady){root.querySelector('.sa-ready-reminder')?.remove();return;}
     if(!match.readyDeadline||now<match.readyDeadline-60000||now>=match.readyDeadline||readyReminder===match.id)return;
-    if(document.querySelector('.ngmc-counter-dialog[open]'))return;
+    if(document.querySelector('.ngmc-counter-dialog:modal'))return;
     readyReminder=match.id;
     const dialog=document.createElement('dialog');
     dialog.className='lobby-poll sa-ready-reminder';dialog.setAttribute('aria-label','Ready up');

@@ -1,5 +1,6 @@
 import {DatabaseSync} from 'node:sqlite';
 import {ngmcControls} from '../public/ngmc-ui.js';
+import {ngmcCounterSignupOpen,ngmcCanTakeOverCounting} from '../public/play-mode-rules.js';
 import {roundSoundCues} from '../public/play-sound-cues.js';
 import {RankedLeaves} from '../src/ngmc-leaves.js';
 import test from 'node:test';
@@ -64,6 +65,24 @@ test('NGMC uses exact thresholds, optimal balance and uniform anime/type/song dr
  const sizes=[],pool=ngmcSongPool(rows,3,n=>{sizes.push(n);return 0;});assert.deepEqual(sizes.slice(0,3),[2,2,1]);assert.equal(new Set(pool.map(r=>r.amqSongId)).size,3);
  assert.throws(()=>ngmcSongPool(rows,4),/Not enough/);
 });
+test('counter prompt follows the server assignment through Auto-Count and into the first guess',()=>{
+ const state=create(),player=state.players[0],opponent=state.players.find(p=>p.team!==player.team);
+ const afterDeadline=40_001;
+ const view=()=>matchView(state,player.id,afterDeadline);
+ // The UI can observe a deadline before the updated server state arrives.
+ assert.equal(ngmcCounterSignupOpen(view(),player),true);
+ assert.equal(ngmcCanTakeOverCounting(view(),player),false);
+ matchMove(state,opponent.id,{type:'volunteer'},39_999);
+ for(const p of state.players){p.ready=true;p.loaded=Array.from({length:12},(_,i)=>i);}
+ advanceMatch(state,afterDeadline);
+ assert.equal(state.phase,'guess');
+ assert.equal(ngmcCounterSignupOpen(view(),player),false);
+ assert.equal(ngmcCanTakeOverCounting(view(),player),true);
+ matchMove(state,player.id,{type:'volunteer'},afterDeadline+1);
+ assert.equal(ngmcCanTakeOverCounting(view(),player),false);
+ assert.equal(state.counters[player.team],player.id);
+});
+
 test('NGMC gates 12 downloads and counter signup, counts once, excludes exhausted players, refills and ends at 35',()=>{
  const s=create();for(const p of s.players){p.ready=true;p.loaded=Array.from({length:11},(_,i)=>i);}
  const volunteer=s.players[0],opponent=s.players.find(p=>p.team!==volunteer.team);

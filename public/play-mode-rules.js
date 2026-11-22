@@ -3,9 +3,13 @@ import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from './play-arena-config.
 export const PLAY_REVEAL_MS = 3_000;
 export const NGMC_COUNTER_SIGNUP_MS = 40_000;
 export const ngmcCounterDeadline = match => match.autoCountAt ?? match.counterDeadline;
-export function ngmcCounterSignupOpen(match, player, now) {
+export function ngmcCounterSignupOpen(match, player) {
   return match?.mode === 'ngmc-ranked' && match.phase === 'loading' && player && !player.left &&
-    !match.counters[player.team] && !match.autoCounting?.[player.team] && now < ngmcCounterDeadline(match);
+    !match.counters[player.team] && !match.autoCounting?.[player.team];
+}
+export function ngmcCanTakeOverCounting(match, player) {
+  return match?.mode === 'ngmc-ranked' && !['finished','cancelled'].includes(match.phase) &&
+    player && !player.left && !match.counters[player.team] && !!match.autoCounting?.[player.team];
 }
 export const comparePlayTier=(a,b)=>(b.elo??-Infinity)-(a.elo??-Infinity)||String(a.id).localeCompare(String(b.id));
 

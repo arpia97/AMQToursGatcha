@@ -125,13 +125,14 @@ quizzes, one per player and quiz.
   totals at the public Tour profile endpoint. No history means three guesses.
   After an NGMC match, use cumulative NGMC hits/songs exclusively. A temporary
   Tour lookup failure prevents joining instead of silently inventing a seed.
-- The counter selection pop-up opens during each team's 20-second signup window.
+- The counter selection pop-up opens during the 40-second signup window.
   Players can volunteer, choose Auto-Count, or dismiss the prompt and reopen it
   with Choose Counter in the match header. If both counters volunteer, play can
   start as soon as everyone is ready. Signup stays open for 40 seconds after
   match preparation finishes, then teams without a volunteer use Auto-Count. A team can also
-  choose automatic counting early. While it is active, any teammate can take
-  over as counter. A choice already made for the current song stays in effect.
+  choose automatic counting early. When the server activates Auto-Count, the
+  prompt becomes a compact takeover notice until a teammate volunteers or the
+  player dismisses it. The match header also offers Take Over Counting. A choice already made for the current song stays in effect.
   A counter has eight seconds after reveal to choose an eligible teammate.
   Choices follow the team's tier order, highest rating first. On timeout, the
   lowest starting Elo is used, then canonical ID as a tie-break.

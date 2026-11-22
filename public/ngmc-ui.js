@@ -1,21 +1,21 @@
-import {comparePlayTier as byTier, NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, ngmcCounterSignupOpen} from './play-mode-rules.js';
+import {comparePlayTier as byTier, NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, ngmcCounterSignupOpen, ngmcCanTakeOverCounting} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {songProgressTrigger} from './detail-popover.js';
 import {animeTitlesHTML,artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
 export function createCounterDialog(send) {
-  let dialog, timer, progress, actions, status, shownMatch;
-  let pendingUntil = 0;
+  let dialog, timer, progress, volunteer, automatic, status, shownMatch;
+  let pending = null;
 
   function close() {
     dialog?.close();
     dialog?.remove();
-    dialog = timer = progress = actions = status = null;
-    pendingUntil = 0;
+    dialog = timer = progress = volunteer = automatic = status = null;
+    pending = null;
   }
 
-  function open() {
+  function open(docked) {
     dialog = document.createElement('dialog');
     dialog.className = 'ngmc-counter-dialog';
     dialog.setAttribute('aria-labelledby','ngmc-counter-title');
@@ -30,7 +30,7 @@ export function createCounterDialog(send) {
         <p id="ngmc-counter-description">The counter chooses which teammate spends a guess after each song.</p>
       </div>
       <div class="ngmc-counter-dialog-time">
-        <p>Auto-Count starts in <strong></strong></p>
+        <p>Auto-Count <strong></strong></p>
         <progress max="${NGMC_COUNTER_SIGNUP_MS/1000}" aria-label="Volunteer time remaining"></progress>
       </div>
       <div class="ngmc-counter-dialog-actions">
@@ -41,21 +41,37 @@ export function createCounterDialog(send) {
       <p class="ngmc-counter-dialog-note" data-counter-status role="status" hidden></p>`;
     timer = dialog.querySelector('.ngmc-counter-dialog-time strong');
     progress = dialog.querySelector('progress');
-    actions = dialog.querySelectorAll('[data-counter-action]');
+    volunteer = dialog.querySelector('[data-counter-action="volunteer"]');
+    automatic = dialog.querySelector('[data-counter-action="auto-count"]');
     status = dialog.querySelector('[data-counter-status]');
     dialog.querySelector('.ngmc-counter-dialog-close').onclick = close;
     dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
-    for (const button of actions)
+    for (const button of [volunteer, automatic])
       button.onclick = ()=>{
-        if (send({type:button.dataset.counterAction})) {
-          pendingUntil = performance.now()+4000;
-          for (const action of actions) action.disabled = true;
+        const type = button.dataset.counterAction;
+        if (send({type})) {
+          pending = {type, until:performance.now()+4000};
+          volunteer.disabled = automatic.disabled = true;
           showStatus('Waiting for confirmation…');
         } else showStatus('Reconnecting. Try again once connected.');
       };
     document.body.append(dialog);
-    dialog.showModal();
-    dialog.querySelector('h2').focus({preventScroll:true});
+    if (docked) dock();
+    else {
+      dialog.showModal();
+      dialog.querySelector('h2').focus({preventScroll:true});
+    }
+  }
+
+  function dock() {
+    if (dialog.classList.contains('is-docked')) return;
+    dialog.classList.add('is-docked');
+    dialog.querySelector('h2').textContent = 'Auto-Count Is On';
+    dialog.querySelector('#ngmc-counter-description').textContent = 'You can still volunteer to count for your team.';
+    volunteer.textContent = 'Take Over Counting';
+    dialog.close();
+    // Keep the prompt visible without taking focus from Ready or the answer box.
+    dialog.setAttribute('open','');
   }
 
   function showStatus(message) {
@@ -64,30 +80,34 @@ export function createCounterDialog(send) {
   }
 
   function retry(message) {
-    if (!pendingUntil) return;
-    pendingUntil = 0;
+    if (!pending) return;
+    pending = null;
     showStatus(message);
   }
 
   function update(match, me, now, connected, reopen = false) {
-    if (!ngmcCounterSignupOpen(match,me,now)) {
+    const signup = ngmcCounterSignupOpen(match,me);
+    const takeover = ngmcCanTakeOverCounting(match,me);
+    if ((!signup && !takeover) || (takeover && pending?.type === 'auto-count')) {
       if (dialog) close();
       return;
     }
     if (!dialog) {
-      if ((!reopen && shownMatch === match.id) || !connected || document.querySelector('dialog[open]')) return;
+      if ((!reopen && (shownMatch === match.id || takeover && match.index > 0)) ||
+          !connected || document.querySelector('dialog:modal')) return;
       shownMatch = match.id;
-      open();
+      open(takeover);
+    } else if (takeover) dock();
+    if (signup) {
+      const seconds = Math.max(0, Math.ceil((ngmcCounterDeadline(match)-now)/1000));
+      const label = seconds ? 'in '+seconds+'s' : 'Starting…';
+      if (timer.textContent !== label) timer.textContent = label;
+      if (progress.value !== seconds) progress.value = seconds;
     }
-    const seconds = Math.ceil((ngmcCounterDeadline(match)-now)/1000);
-    if (progress.value !== seconds || !timer.textContent) {
-      timer.textContent = seconds+'s';
-      progress.value = seconds;
-    }
-    if (pendingUntil && (!connected || performance.now() >= pendingUntil)) {
+    if (pending && (!connected || performance.now() >= pending.until)) {
       retry(connected ? 'No confirmation yet. Try again.' : 'Reconnecting…');
     }
-    for (const button of actions) button.disabled = !connected || !!pendingUntil;
+    volunteer.disabled = automatic.disabled = !connected || !!pending;
   }
 
   return {update,close,retry};
