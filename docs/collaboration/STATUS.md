@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Friends Only in Play Rankings
+
+Runtime `2e9fa10` deployed as Worker `8ce9309e-da1f-4434-bc89-f8beb4934774`. The filter uses the signed-in viewer’s outgoing friend list for every Play ranking, including Quiz. Results preserve global rank and are filtered before pagination. All 609 tests, syntax checks, the dry run, and local desktop and mobile browser checks passed. The live Rankings page and guest sign-in flow were verified at 390px and 1200px. Both live filtered endpoints returned the expected sign-in response after the service update.
+
 ## Watched list source verification
 
 Verified in the local multiplayer Worker that switching from MyAnimeList to an AniList export replaces the prior pool contribution. Lobby counts and match sampling use only the selected statuses from that export. The running match keeps its starting snapshot for replacement audio.
