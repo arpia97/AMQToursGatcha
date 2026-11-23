@@ -191,7 +191,7 @@ test('Play sampling excludes Dubs before counting Watched anime, choosing tracks
 test('multiplayer Workers authenticate sockets, form all formats, preload, score and survive reconnect through the proxy',async t=>{
   const gate=Promise.withResolvers();
   t.after(()=>gate.resolve());
-  const mf=await playRuntimeFixture({beforeAudio:id=>id===3?gate.promise:undefined});t.after(()=>mf.dispose());
+  const mf=await playRuntimeFixture({beforeAudio:id=>id===4?gate.promise:undefined});t.after(()=>mf.dispose());
   const base='http://game',cookies=[];
   const watchPath=id=>base+'/api/play-watch?match='+id;
   const upgrade={Upgrade:'websocket',Origin:base};
@@ -258,7 +258,17 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   host.send({type:'lobby-start'});
   await host.wait(m=>m.type==='error'&&m.message.includes('Import'));
   const linked=await listUpdate(listBody,cookies[0]);assert.equal(linked.status,200,await linked.clone().text());
-  const summary=(await linked.json()).animeList;assert.equal(summary.count,1);assert.equal(summary.ids,undefined);
+  assert.equal((await linked.json()).animeList.count,1);
+  // Replace the host's MAL list (anime 3) with an AniList export. Only anime 4
+  // is selected because anime 5 is still Watching.
+  const switched=await listUpdate({...upload,statuses:['completed'],file:{
+    name:'Local',groups:{watching:[2005],completed:[2004],onHold:[],dropped:[]},
+  }},cookies[0]);
+  assert.equal(switched.status,200,await switched.clone().text());
+  const summary=(await switched.json()).animeList;
+  assert.equal(summary.source,'export');
+  assert.equal(summary.count,1);
+  assert.equal(summary.ids,undefined);
   assert.equal((await listUpdate({...listBody,username:'Wide'},cookies[1])).status,200);
   visitor.send({type:'lobby-join',code:watchedLobby.code});
   await host.wait(m=>m.type==='lobby'&&m.players.length===2&&m.watchedPool?.eligible===40);
@@ -275,10 +285,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(watchedScore.status,200);
   assert.equal((await watchedScore.json()).unit,'Points');
   const watchedInfo=await (await mf.dispatchFetch(base+'/api/__fixture-info?match='+watchedMatch.match)).json();
-  assert.equal(watchedInfo.song.title,'Song 3');
+  assert.deepEqual(watchedInfo.animeIds,[4]);
+  assert.equal(watchedInfo.song.title,'Song 4');
   const ownState=await (await mf.dispatchFetch(base+'/api/play-state',{headers:{Cookie:cookies[0]}})).json();
   assert.deepEqual(ownState.animeList,summary);
-  await listUpdate({remove:true},cookies[0]);
   host.send({type:'lobby-leave'});
   await host.wait(m=>m.type==='idle'&&host.messages.indexOf(m)>host.messages.indexOf(watchedMatch));
   host.messages.length=0;visitor.messages.length=0;

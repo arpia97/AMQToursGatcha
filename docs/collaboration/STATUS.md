@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Watched list source verification
+
+Verified in the local multiplayer Worker that switching from MyAnimeList to an AniList export replaces the prior pool contribution. Lobby counts and match sampling use only the selected statuses from that export. The running match keeps its starting snapshot for replacement audio.
+
 ## AniList JSON imports for Watched games
 
 Runtime `2c6599d` deployed as Worker `8fafa3ca-903e-4755-b806-3f7bbe364d65`. Play Settings reads an AniList export locally and saves its compact status groups on the signed-in account. Players can adjust included statuses without uploading again. Verified the supplied file locally, desktop and mobile import and refilter, persistence in the local Worker, all 609 tests, syntax checks, dry run, and live Play shell and assets.
