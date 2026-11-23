@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## 1-Team rematch transfer and online profiles
+
+Source `5790cc8` is live at 100% on Worker `ab143827-0778-4dcc-8307-b83cb58b48c0`. A passed rematch vote moves eligible yes voters as a group before spectators receive the join prompt. Online Players names link to Gacha player profiles. All 604 tests passed. Local Chromium verified transfer of five voters, spectator consent on desktop and mobile, and profile navigation. The live Play routes, queue endpoint and five frontend assets were verified read-only.
+
 ## Pick’em vote visibility and Play answer-source check
 
 Source `2ab4562` is live at 100% on Worker `c1f1127b-ff45-40a5-b0ec-20fcf12ec897`. Hosts can hide public totals and team vote breakdowns until voting closes. Publishing and editing were verified in the local host console, along with voting on mobile and revealing the count after closing. All 604 tests passed. The live routes, six frontend assets and public/host access boundaries were verified read-only.
