@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## AniList JSON imports for Watched games
+
+Runtime `2c6599d` deployed as Worker `8fafa3ca-903e-4755-b806-3f7bbe364d65`. Play Settings reads an AniList export locally and saves its compact status groups on the signed-in account. Players can adjust included statuses without uploading again. Verified the supplied file locally, desktop and mobile import and refilter, persistence in the local Worker, all 609 tests, syntax checks, dry run, and live Play shell and assets.
+
 ## Play Rankings profile links
 
 Runtime `0d950ec` deployed as Worker `48c78c20-431d-40bc-9584-d593ed1793a1`. Player names in multiplayer and Quiz Rankings link to the same Gacha profiles as Online Players. All 609 tests, syntax checks and the dry run passed. Browser checks covered desktop and mobile. After the production service update, both ranking APIs returned player IDs and linked profiles resolved.
