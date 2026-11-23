@@ -1445,10 +1445,12 @@ function collection() {
     intro(
       '<span class="desktop-collection-title">Your Collection. Your Favourites.</span><span class="mobile-collection-title">My Collection</span>',
       "Every card has a story.",
-      state.me &&
-      (state.inventory.length > 1 || (ui.animeData?.pinned?.length || 0) > 1)
-        ? btn("Arrange Collection", "collection-arrange", "", "secondary")
-        : "",
+      state.me ? '<div class="toolbar collection-actions">' +
+        (state.inventory.length > 1 || ui.animeData?.pinned?.length > 1
+          ? btn("Arrange Collection", "collection-arrange", "", "secondary") : "") +
+        btn("Unwish All", "unwish-all", state.wishlist?.length ? "" : "disabled", "secondary") +
+        btn("Unprotect All", "unprotect-all", state.inventory.some(item => item.protected) ? "" : "disabled", "secondary") +
+        '</div>' : "",
     ) +
     (state.me ? features.pinnedAnime() : "") +
     `<section class="collection-toolbar" aria-label="Collection controls"><div class="filters collection-toolbar-main">${tabs()}<input class="search" id="search" aria-label="Search your collection" placeholder="Search your collection…" value="${escape(search)}">${features.filters("collection")}</div>${state.me ? features.catalogPager(collectionData, ui.collectionPage, "collection-top") : ""}</section>` +
@@ -3694,6 +3696,20 @@ async function handleFeatureClick(a, t) {
       wishlistEditor.setPage(Number(t.dataset.page));
       ui.profileCardsPage = wishlistEditor.currentPage();
       render();
+      return true;
+    }
+    if (a === "unwish-all" || a === "unprotect-all") {
+      if (busy || !state.me) return true;
+      const unwish = a === "unwish-all";
+      const count = unwish ? state.wishlist.length : state.inventory.filter(item => item.protected).length;
+      const cards = number(count) + (count === 1 ? " card" : " cards");
+      const prompt = unwish
+        ? "Remove " + cards + " from your entire wishlist, including cards you don’t own?"
+        : "Remove protection from " + cards + " across your entire collection?";
+      if (count && window.confirm(prompt)) {
+        if (unwish) for (const id of state.wishlist) collectorCounts.delete(id);
+        await execute(a, {});
+      }
       return true;
     }
     if (a === "collection-arrange" || a === "collection-cancel") {

@@ -309,6 +309,8 @@ main {
   align-items: center;
   margin-bottom: 26px;
 }
+.page-intro:has(.collection-actions) { flex-wrap: wrap; gap: 12px; }
+.toolbar.collection-actions { gap: 6px; }
 .page-intro p {
   font-size: 12px;
   margin-top: 9px;

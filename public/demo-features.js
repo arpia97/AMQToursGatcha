@@ -145,6 +145,18 @@ export function demoFeatures(d, path, b) {
     if (b.favorite) s.cardFavorites.push(b.card);
     return {card: b.card, favorite: b.favorite, message: b.favorite ? "Card favorited." : "Card removed from favorites."};
   }
+  if (path === "unwish-all" || path === "unprotect-all") {
+    if (!me || !b) throw Error("Sign in to manage your collection.");
+    if (path === "unwish-all") {
+      const count = s.wishlist.length;
+      s.wishlist = [];
+      return {count, message: `Removed ${count} ${count === 1 ? "card" : "cards"} from your wishlist.`};
+    }
+    const protectedCards = s.inventory.filter(item => item.protected);
+    for (const item of protectedCards) item.protected = 0;
+    const count = protectedCards.length;
+    return {count, message: `Unprotected ${count} ${count === 1 ? "card" : "cards"}.`};
+  }
   if (path === "wishlist") {
     if (!d.cards.some((c) => c.id === b.card) || typeof b.wanted !== "boolean")
       throw Error("Choose a catalogue card.");

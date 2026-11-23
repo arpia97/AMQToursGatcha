@@ -61,6 +61,30 @@ function fixture(t) {
     );
   return { e, act, filters, quote, map, sql, tx };
 }
+test("bulk collection actions clear only the signed-in player's requested flags", t => {
+  const {e,act}=fixture(t);
+  e.addCard("q","v");
+  e.run("INSERT INTO card_wishlist(player,card,created) VALUES ('p','d',1),('p','s',2),('q','d',3)");
+  e.run("DELETE FROM inventory WHERE player='p' AND card='s'");
+  act("protect-card",{card:"d",protected:true});
+  act("protect-card",{card:"v",protected:true});
+  e.action("q","protect-card",{card:"v",protected:true});
+  act("card-favorite",{card:"d",favorite:true});
+  const inventory=()=>e.all("SELECT card,copies,level,protected FROM inventory WHERE player='p' ORDER BY card").map(row=>({...row}));
+  const before=inventory();
+  assert.equal(act("unwish-all",{}).count,2);
+  assert.deepEqual(e.economy.wishlist.read("p"),[]);
+  assert.deepEqual(e.economy.wishlist.read("q"),["d"]);
+  assert.deepEqual(inventory(),before);
+  act("wishlist",{card:"d",wanted:true});
+  assert.equal(act("unprotect-all",{}).count,2);
+  assert.deepEqual(inventory(),before.map(row=>({...row,protected:0})));
+  assert.deepEqual(e.economy.wishlist.read("p"),["d"]);
+  assert.deepEqual(e.economy.wishlist.favorites("p"),["d"]);
+  assert.equal(e.one("SELECT protected FROM inventory WHERE player='q' AND card='v'").protected,1);
+  assert.equal(act("unprotect-all",{}).count,0);
+});
+
 test("pack result sales spend only surviving pulled copies and honor current protection on retry", t => {
   const {e, act, map} = fixture(t);
   const {opening} = e.tx(() => e.grantPackPulls("p", ["d","d","s","v"].map(id => map.get(id))));

@@ -7,6 +7,15 @@ export class CardManagement {
   }
   action(player, action, b) {
     const e = this.e;
+    if (action === "unwish-all" || action === "unprotect-all") {
+      const unwish = action === "unwish-all";
+      const sql = unwish
+        ? "DELETE FROM card_wishlist WHERE player=? RETURNING card"
+        : "UPDATE inventory SET protected=0 WHERE player=? AND protected<>0 RETURNING card";
+      const count = e.all(sql, player).length;
+      const noun = count === 1 ? "card" : "cards";
+      return { count, message: unwish ? `Removed ${count} ${noun} from your wishlist.` : `Unprotected ${count} ${noun}.` };
+    }
     if (action === "protect-card") {
       const card = text(b.card, 100);
       if (typeof b.protected !== "boolean")
