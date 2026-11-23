@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Rankings profile links
+
+Runtime `0d950ec` deployed as Worker `48c78c20-431d-40bc-9584-d593ed1793a1`. Player names in multiplayer and Quiz Rankings link to the same Gacha profiles as Online Players. All 609 tests, syntax checks and the dry run passed. Browser checks covered desktop and mobile. After the production service update, both ranking APIs returned player IDs and linked profiles resolved.
+
 ## Quiz links to Play
 
 Runtime `c34a20c` deployed as Worker `78b125a9-b2b0-4ce5-ae4b-08c83cc97bdb` with Play router `61504f7b-fd2e-4aba-8738-c80661709dbf`. Inbox, quiz score notices and profile #1 records link to the specific Play quiz leaderboard. Old Gacha Quiz URLs redirect and preserve their query. All 609 tests, syntax checks and both dry runs passed. Desktop and mobile Chromium verified the notification-to-leaderboard flow. Public redirect responses, shells and updated assets were checked live.
