@@ -114,6 +114,17 @@ function json(data, status = 200, extra = {}) {
     },
   });
 }
+async function multiplayerRankings(env,params,friendIds=null) {
+  const format=params.get('format')||'ngmc-ranked';
+  const page=Number(params.get('page'));
+  const pool=params.get('pool')||'random';
+  const ranked=format==='ngmc-ranked'||Object.hasOwn(songRatingPools,format);
+  if(!['random','watched'].includes(pool)||!ranked||!Number.isSafeInteger(page)||page<0||page>100000)
+    return json({error:'Invalid rankings page.'},400);
+  const result=await env.PLAY_QUEUE.getByName('play-queues-v1')
+    .rankings(format,page,params.get('sort'),params.get('dir'),pool,friendIds);
+  return json(result);
+}
 const cookie = (value, secure, age = 2592000) =>
   `amq_session=${value}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure ? "; Secure" : ""}`;
 
@@ -349,17 +360,7 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
-    const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch"].includes(path) && !post;
-    if(path==='quiz-play-rankings'&&!post){
-      const page=Number(url.searchParams.get('page'));
-      if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
-      const source=`SELECT p.player,coalesce(u.display_name,u.name) AS name,sum(p.best) AS correct,
-        count(*)*20 AS seen,count(*) AS matches,AVG(p.best_duration_ms) AS avgTimeMs
-        FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz JOIN players u ON u.id=p.player
-        WHERE q.published=1 GROUP BY p.player`;
-      return json(playRankingPage(e.all.bind(e),source,[],{quiz:true,page,
-        sort:url.searchParams.get('sort'),dir:url.searchParams.get('dir')}));
-    }
+    const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
     if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
@@ -1291,6 +1292,24 @@ export class Game extends DurableObject {
           Date.now(),
         )
       : null;
+    if (!post && (path==='quiz-play-rankings'||path==='play-rankings')) {
+      let friendIds=null;
+      if (url.searchParams.get('friends')==='1') {
+        if (!session) fail('Sign in to filter by friends.',401);
+        friendIds=e.all('SELECT friend FROM player_friends WHERE player=?',session.player).map(row=>row.friend);
+      }
+      if(path==='quiz-play-rankings'){
+        const page=Number(url.searchParams.get('page'));
+        if(!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid page.'},400);
+        const source=`SELECT p.player,coalesce(u.display_name,u.name) AS name,sum(p.best) AS correct,
+          count(*)*20 AS seen,count(*) AS matches,AVG(p.best_duration_ms) AS avgTimeMs
+          FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz JOIN players u ON u.id=p.player
+          WHERE q.published=1 GROUP BY p.player`;
+        return json(playRankingPage(e.all.bind(e),source,[],{quiz:true,page,friendIds,
+          sort:url.searchParams.get('sort'),dir:url.searchParams.get('dir')}));
+      }
+      return multiplayerRankings(this.env,url.searchParams,friendIds);
+    }
     if (path === "logout" && post) {
       if (raw) e.run("DELETE FROM sessions WHERE token=?", await digest(raw));
       if (session) await this.cancelQuizSessions(this.quizSessionIds(session.player), sessionHash);
@@ -1957,14 +1976,8 @@ export default {
         if(url.pathname==='/api/play-lobbies'||url.pathname==='/api/play-queue-counts'||(guest&&url.pathname==='/api/play-live'))
           return publicPlaySnapshot(url,env.PLAY_QUEUE,globalThis.caches?.default,ctx);
       }
-      if(url.pathname==='/api/play-rankings'&&request.method==='GET'){
-        const format=url.searchParams.get('format')||'ngmc-ranked';
-        const page=Number(url.searchParams.get('page'));
-        const pool=url.searchParams.get('pool')||'random';
-        const ranked=format==='ngmc-ranked'||Object.hasOwn(songRatingPools,format);
-        if(!['random','watched'].includes(pool)||!ranked||!Number.isSafeInteger(page)||page<0||page>100000)return json({error:'Invalid rankings page.'},400);
-        return json(await env.PLAY_QUEUE.getByName('play-queues-v1').rankings(format,page,url.searchParams.get('sort'),url.searchParams.get('dir'),pool));
-      }
+      if(url.pathname==='/api/play-rankings'&&request.method==='GET'&&url.searchParams.get('friends')!=='1')
+        return multiplayerRankings(env,url.searchParams);
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
         const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v2');
         const saved=await cache?.match(key);if(saved)return saved;

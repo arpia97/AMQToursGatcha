@@ -42,13 +42,13 @@ export function matchLeaderboard(match, esc) {
     ])) + (duel?'':'<small>Performance is the rating change per song.</small>')+'</section>';
 }
 
-export function rankingPanel(root,format,pool='random') {
+export function rankingPanel(root,format,pool='random',friendsOnly=false) {
   let panel=root.querySelector('#ranking-results');
   if(!panel){
     const tabs=Object.entries(formats).map(([id,name])=>
       '<button type="button" role="tab" id="ranking-tab-'+id+'" data-rank-format="'+id+'" aria-controls="ranking-results">'+name+'</button>'
     ).join('');
-    root.innerHTML='<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1><div class="ranking-mode-tabs" role="tablist" aria-label="Ranking mode">'+tabs+'</div><div class="ranking-song-pool">'+poolToggle(pool,'data-rank-pool')+'</div></header><div id="ranking-results" role="tabpanel" tabindex="0"></div></section>';
+    root.innerHTML='<section class="ranking-board"><header class="ranking-masthead"><h1>Player Rankings</h1><div class="ranking-mode-tabs" role="tablist" aria-label="Ranking mode">'+tabs+'</div><div class="ranking-filters"><label class="ranking-friends-filter"><input id="ranking-friends-only" type="checkbox">Friends Only</label><div class="ranking-song-pool">'+poolToggle(pool,'data-rank-pool')+'</div></div></header><div id="ranking-results" role="tabpanel" tabindex="0"></div></section>';
     panel=root.querySelector('#ranking-results');
   }
   for(const tab of root.querySelectorAll('[data-rank-format]')){
@@ -56,6 +56,7 @@ export function rankingPanel(root,format,pool='random') {
     tab.setAttribute('aria-selected',String(selected));
     tab.tabIndex=selected?0:-1;
   }
+  root.querySelector('#ranking-friends-only').checked=friendsOnly;
   root.querySelector('.ranking-song-pool').hidden=format==='quiz';
   for(const button of root.querySelectorAll('[data-rank-pool]'))
     button.setAttribute('aria-pressed',String(button.dataset.rankPool===pool));
@@ -63,7 +64,7 @@ export function rankingPanel(root,format,pool='random') {
   return panel;
 }
 
-export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref) {
+export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,friendsOnly=false) {
   const quiz = format === 'quiz';
   const versus=[DUEL_FORMAT,'1v1','3v3','ngmc-ranked'].includes(format);
   function recordCell(row){
@@ -93,6 +94,6 @@ export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref) {
     ? '<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
       '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>'
     : '';
-  return (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">No ranked results yet for '+formats[format]+'.</p>')+
+  return (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">'+(friendsOnly?'No friends have ranked results for these settings.':'No ranked results yet for '+formats[format]+'.')+'</p>')+
     (rows.length||navigation?'<footer><small>Page '+(page+1)+'</small>'+navigation+'</footer>':'');
 }

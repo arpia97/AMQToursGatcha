@@ -47,7 +47,7 @@ const currentCardSize = installCardSize(document, storage);
 let state = { me: null, avatar: null }, mode = playRoute(location.pathname) || playRoute("/play");
 let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
 try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
-let rankingSort='rank',rankingDirection='asc';
+let rankingSort='rank',rankingDirection='asc',rankingFriendsOnly=false;
 let linkedQuiz = null;
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
@@ -381,12 +381,14 @@ async function openMode(id, push = true) {
       void refreshLive();
     } else if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage+"&pool="+rankingPool;
-      const {rankingPanel,rankingResultsHTML}=await import("../play-rankings.js?v=player-profile-links");
+      const [{rankingPanel,rankingResultsHTML}]=await Promise.all([import("../play-rankings.js?v=friends-only"),accountReady]);
       if(version!==viewVersion)return;
-      const panel=rankingPanel($("#main"),rankingFormat,rankingPool);
+      const friendsOnly=Boolean(state.me && rankingFriendsOnly);
+      const panel=rankingPanel($("#main"),rankingFormat,rankingPool,friendsOnly);
       panel.innerHTML='<p class="ranking-empty" role="status">Loading Rankings…</p>';
-      const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection);
-      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection,playerProfileHref);
+      const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection+(friendsOnly?'&friends=1':''));
+      if(friendsOnly && data.friendsOnly!==true)throw Error('The friends filter is updating. Try again shortly.');
+      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection,playerProfileHref,friendsOnly);
     } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
@@ -531,7 +533,7 @@ document.addEventListener("click", async (event) => {
     else if (action === "retry-mode") await openMode(mode, false);
     else if (action === "logout") {
       if(songArtist&&!songArtist.confirmNavigation())return;
-      await api("logout", {}); songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); currentActivity=null; await openMode(mode, false);
+      await api("logout", {}); rankingFriendsOnly=false; rankingPage=0; songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); currentActivity=null; await openMode(mode, false);
     } else if (mode === "quiz" && quiz && $("#main").contains(button)) {
       await quiz.click(button);
       if (linkedQuiz && mode === "quiz" &&
@@ -563,6 +565,17 @@ document.addEventListener("input", async (event) => {
 });
 document.addEventListener("change", async (event) => {
   const input = event.target;
+  if (mode==='rankings' && input.id==='ranking-friends-only') {
+    if (!state.me) {
+      input.checked=false;
+      account();
+      return;
+    }
+    rankingFriendsOnly=input.checked;
+    rankingPage=0;
+    await openMode(mode,false);
+    return;
+  }
   if (input.form?.id==='play-anime-list' && input.name==='provider') {
     input.form.querySelector('[data-list-fields]').innerHTML=listSourceFields(input.value,state.animeList);
     input.form.querySelector('[role=status]').textContent='';

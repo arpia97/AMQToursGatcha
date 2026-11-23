@@ -176,7 +176,10 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .play-pool-toggle [aria-pressed=true] { color:#15241d; background:var(--mint); font-weight:700; }
 .play-pool-toggle [aria-pressed=true]:hover { color:#15241d; }
 .play-pool-toggle button:disabled { cursor:default; }
-.ranking-song-pool { flex-basis:100%; display:flex; justify-content:flex-end; }
+.ranking-filters { flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:12px; }
+.ranking-friends-filter { display:inline-flex; min-height:32px; align-items:center; gap:7px; color:var(--text); font-size:12px; cursor:pointer; }
+.ranking-friends-filter input { width:1rem; height:1rem; margin:0; accent-color:var(--mint); }
+.ranking-song-pool { display:flex; }
 .ranking-song-pool[hidden] { display:none; }
 
 .play-header { z-index: 12; }

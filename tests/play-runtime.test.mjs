@@ -484,6 +484,21 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.deepEqual(watchedRankings.rows.map(row=>row.id).sort(),initial.players.map(player=>player.id).sort());
   assert.deepEqual(watchedRankings.rows[0].record,[0,0,1]);
   assert.equal(randomRankings.rows.length,0);
+  const friendsPath=rankingBase+'&pool=watched&friends=1';
+  assert.equal((await mf.dispatchFetch(friendsPath)).status,401);
+  const addFriend=(viewer,player)=>mf.dispatchFetch(base+'/api/friend-set',{
+    method:'POST',headers:{Cookie:cookies[viewer-1],'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},
+    body:JSON.stringify({player,added:true}),
+  });
+  for (const [viewer,player] of [[1,'2'],[3,'1']]) {
+    const result=await addFriend(viewer,player);
+    assert.equal(result.status,200,await result.clone().text());
+  }
+  const friendsResponse=await mf.dispatchFetch(friendsPath,{headers:{Cookie:cookies[0]}});
+  assert.equal(friendsResponse.status,200,await friendsResponse.clone().text());
+  const friendRankings=await friendsResponse.json();
+  assert.equal(friendRankings.friendsOnly,true);
+  assert.deepEqual(friendRankings.rows,watchedRankings.rows.filter(row=>row.id==='2'));
   assert.ok(!(await live()).matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'));
   const rankedHistory=await(await mf.dispatchFetch(base+'/api/play-history?match='+rankedId,{headers:{Cookie:cookies[0]}})).json();
   assert.deepEqual(rankedHistory.songs[0].lobbyScore,{correct:0,total:8});
