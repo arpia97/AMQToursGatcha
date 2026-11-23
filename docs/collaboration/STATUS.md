@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Your standing in Play Rankings
+
+Runtime `7cefc6a` deployed as Worker `c203696b-d11a-485d-8cfb-958ebc6987cd`. Signed-in players appear alongside their friends, see their own row highlighted, and have a sticky summary of their overall rank and mode-specific stats on every page. All 609 tests, syntax checks, dry run, desktop and mobile scroll checks passed. The live shell, changed assets, and updated multiplayer and Quiz ranking responses were verified.
+
 ## Friends Only in Play Rankings
 
 Runtime `2e9fa10` deployed as Worker `8ce9309e-da1f-4434-bc89-f8beb4934774`. The filter uses the signed-in viewer’s outgoing friend list for every Play ranking, including Quiz. Results preserve global rank and are filtered before pagination. All 609 tests, syntax checks, the dry run, and local desktop and mobile browser checks passed. The live Rankings page and guest sign-in flow were verified at 390px and 1200px. Both live filtered endpoints returned the expected sign-in response after the service update.
