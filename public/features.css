@@ -241,11 +241,6 @@
 .pack-panel.premium .eyebrow {
   color: #dfc38c;
 }
-.pack-panel.premium .pack-object {
-  color: #efcb83;
-  border-color: #b99e63;
-  box-shadow: 0 0 28px #dfba5b26;
-}
 .game-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4444,22 +4439,27 @@ html[data-pack-motion="reduced"] .pack-results .portrait::after {
   outline-offset: 5px;
   border-radius: 12px;
 }
-.alchemy-selection-mark {
+.alchemy-material-toggle .alchemy-selection-mark {
   position: absolute;
-  left: 8px;
-  bottom: 8px;
-  background: #121821e8;
-  color: #e9f5ef;
-  border: 1px solid #ffffff40;
-  border-radius: 7px;
-  padding: 4px 9px;
-  font-size: 11px;
   pointer-events: none;
+  font-size: 11px;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%,-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  background: #151a22ed;
+  border: 1px solid #c4d2df80;
+  box-shadow: 0 3px 10px #0008;
+  border-radius: 16px;
+  color: #fff;
+  padding: 6px 12px;
+  line-height: 1.1;
 }
-.is-selected .alchemy-selection-mark {
-  background: #b5e7cd;
-  color: #0d2920;
-}
+.alchemy-material-choice:not(.is-selected) .alchemy-selection-mark::before {content:"+";color:#bbf0d3;font:600 15px/1 system-ui}
+.alchemy-material-choice.is-selected .alchemy-selection-mark {color:#132c24;background:#b0e4c9;border-color:#cbf2da}
+
 .is-selected .alchemy-material-toggle {
   outline: 2px solid #b5e7cd;
   outline-offset: 4px;
@@ -5859,4 +5859,3 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
 
 .pack-panel.special-paid { border-color:#81c9bc66;background:radial-gradient(ellipse at top right,#63c8b81c,transparent 70%),#191e25; }
 .pack-panel.special-paid .eyebrow { color:#b6e2c5; }
-.pack-panel.special-paid .pack-object { color:#1d4e46;border-color:#89c8b7;box-shadow:0 0 24px #70d6bf20; }

@@ -685,52 +685,15 @@ main {
   position: relative;
   z-index: 2;
 }
-.pack-object {
+.pack-illustration {
   position: absolute;
-  right: 28px;
-  top: 32px;
-  width: 100px;
-  height: 145px;
-  background: #b6ddca;
-  border: 1px solid #d0f6df;
-  border-radius: 5px;
-  transform: rotate(12deg);
-  box-shadow: 8px 8px 0 #10121a55;
-  color: #244839;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 55px;
-}
-.pack-object::before,
-.pack-object::after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  height: 8px;
-  border-top: 1px dashed #416d5c;
-  border-bottom: 1px solid #416d5c;
-  top: 6px;
-}
-.pack-object::after {
-  top: auto;
-  bottom: 6px;
-}
-.seiyuu .pack-object {
-  background: #e9b6c4;
-  color: #4b2c3a;
-  border-color: #ffccd8;
-}
-.pack-caption {
-  position: absolute;
-  bottom: 20px;
-  text-align: center;
-  width: 100%;
-  font-size: 8px;
-  letter-spacing: 2px;
-  left: 0;
-  font-weight: 800;
+  top: 50%;
+  right: clamp(9px, 1.5vw, 26px);
+  width: clamp(90px, 9vw, 134px);
+  height: auto;
+  transform: translateY(-50%);
+  pointer-events: none;
+  filter: drop-shadow(2px 6px 5px #0c10172b);
 }
 .stat-grid {
   display: grid;
@@ -1432,10 +1395,6 @@ dialog.account-modal {
   .pack-panel {
     padding: 22px;
   }
-  .pack-object {
-    width: 78px;
-    right: 20px;
-  }
   .demo-banner {
     padding: 9px 28px;
   }
@@ -1493,12 +1452,6 @@ dialog.account-modal {
   }
   .pack-panel p {
     max-width: 65%;
-  }
-  .pack-object {
-    right: 0;
-    top: 45px;
-    width: 70px;
-    height: 125px;
   }
   .pack-panel h3 {
     font-size: 18px;
@@ -1663,12 +1616,6 @@ dialog.account-modal {
   }
   .pack-panel p {
     max-width: 65%;
-  }
-  .pack-object {
-    width: 95px;
-    height: 135px;
-    right: 25px;
-    top: 25px;
   }
   .stat-grid {
     gap: 8px;

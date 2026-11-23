@@ -1356,16 +1356,19 @@ function daily() {
   if (claimed) return "";
   return `<div class="daily-strip"><div class="daily-icon">✦</div><div><h3>A Little Something for Showing Up.</h3><p>Daily check-in · 300 credits</p></div>${btn("+ Claim 300", "daily", "", "mint")}</div>`;
 }
+function packIllustration(kind, tier) {
+  return `<img class="pack-illustration" src="pack-art/${kind}-${tier}.png" width="390" height="480" alt="">`;
+}
 function specialPackPanel(kind){
   const price=state.settings['special_'+kind+'_price'];if(!price)return '';
-  return `<article class="pack-panel ${kind} special-paid"><span class="eyebrow">${kind==='character'?'Characters':'Seiyuus'}</span><h3>Special Card Pack</h3><p>${SPECIAL_PACK_DESCRIPTION}</p>${btn('<span class="coin">✦</span> '+number(price)+' <span>· Open pack →</span>','pack',`data-kind="${kind}" data-special="true"`,'secondary')}<div class="pack-object" aria-hidden="true">✦<span class="pack-caption">${kind==='character'?'CHARACTER':'SEIYUU'} / 10</span></div></article>`;
+  return `<article class="pack-panel ${kind} special-paid"><span class="eyebrow">${kind==='character'?'Characters':'Seiyuus'}</span><h3>Special Card Pack</h3><p>${SPECIAL_PACK_DESCRIPTION}</p>${btn('<span class="coin">✦</span> '+number(price)+' <span>· Open pack →</span>','pack',`data-kind="${kind}" data-special="true"`,'secondary')}${packIllustration(kind, "special")}</article>`;
 }
 function packPanel(kind, premium = false) {
   const char = kind === "character",
     price =
       state.settings[(premium ? "premium_" : "") + kind + "_price"] ||
       (premium ? 1000 : 500);
-  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} Card Pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers, AG." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}<div class="pack-object" aria-hidden="true">${premium ? "✦" : char ? "✧" : "♬"}<span class="pack-caption">${premium ? "PREMIUM" : char ? "CHARACTER" : "SEIYUU"} / 05</span></div></article>`;
+  return `<article class="pack-panel ${kind} ${premium ? "premium" : ""}"><span class="eyebrow">${premium ? "A LITTLE MORE EXTRAORDINARY." : "FIVE CARDS. NEW POSSIBILITIES."}</span><h3>${premium ? "Premium " : ""}${char ? "Character" : "Seiyuu"} Card Pack</h3><p>${premium ? "Double the normal chance of S, SS, SSS, Ubers, AG." : char ? "Five completely random characters. Every card has an equal chance." : "Collect the voices behind your favourite stories. Every actor has an equal chance."}</p>${btn('<span class="coin">✦</span> ' + number(price) + " <span>· Open pack →</span>", "pack", `data-kind="${kind}" data-premium="${premium}"`, "secondary")}${packIllustration(kind, premium ? "premium" : "standard")}</article>`;
 }
 function home() {
   const hero = heroCards || [];
