@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Sell Cards wishlist sorting
+
+Runtime `a919124` deployed as Worker `60017aa7-def8-4900-a3c4-93dab53f1d2a`. Most and Least Wishlisted count distinct player wishlists across the full filtered inventory before pagination. Cards display the count when either sort is selected. All 15 focused tests, syntax checks and the dry run passed. Chromium verified both directions at 390px and 1200px. The live shop and three production modules were checked.
+
 ## Cooperative song results in Play History
 
 Runtime `90a7d01` deployed as Worker `feea40a2-52d8-49ed-893f-1690ea3e2935`. History and the in-match Song List use the selected team answers for survival and Song/Artist cooperative games. Saved rounds are reconstructed on read. Legacy logs require a full roster of results to classify a round. All 606 tests passed, along with syntax and build checks. Chromium verified the shared answer at 390px and 1200px. Play, Gacha and four production assets returned the updated release.
