@@ -72,7 +72,31 @@ export function demoFeatures(d, path, b) {
   for(const item of s.inventory || [])if(item.for_trade===undefined)item.for_trade=0;
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;
+  if (path === "play-history") return {matches:[], next:null};
+  if (path === "sell-favorite-counts") return {counts:Object.fromEntries((s.cardFavorites || []).map(id => [id,1]))};
   if (path === "special-pack-seen") return { ok: true };
+  if (path === "pack-result-sell") {
+    const result = s.packResult;
+    if (!result || result.opening !== b.opening) throw Error("This opening is no longer available.");
+    const sold = {};
+    let count = 0, price = 0;
+    for (const card of result.cards) {
+      if (card.autoSold && !s.packAutoSales?.[card.autoSoldId]?.cancelled) continue;
+      sold[card.id] = (sold[card.id] || 0) + 1;
+    }
+    for (const id of Object.keys(sold)) {
+      const item = s.inventory.find(i => i.card === id);
+      const available = item && !item.protected ? item.copies - Math.max(result.baseline[id] || 0, Number(item.level > 1)) : 0;
+      sold[id] = Math.max(0, Math.min(sold[id] - (result.sold[id] || 0), available));
+      for (let i = 0; i < sold[id]; i++) take(id, item.copies > 1 ? "extra" : "card");
+      result.sold[id] = (result.sold[id] || 0) + sold[id];
+      price += sold[id] * instantSalePrice(d.cards.find(c => c.id === id), 1);
+      count += sold[id];
+    }
+    if (!count) throw Error("No unprotected pack copies available.");
+    d.wallet(price, "Pack result sale");
+    return {sold,count,price,balance:me.balance,message:`Sold ${count} cards for ${price} credits.`};
+  }
   if (path === "pack-autosell-cancel") {
     const sale = s.packAutoSales?.[b.sale];
     if (!sale) throw Error("This pack auto-sale is unavailable.");

@@ -336,6 +336,7 @@ test("Hide Protected Cards filters material choices and Auto Refine respects pro
   assert.match(f.ui.renderPicker(), /Hide Protected Cards/);
   f.ui.filter("hideProtected", true);
   assert.doesNotMatch(f.ui.renderPicker(true), /data-id="a"/);
+  assert.equal(f.ui.autoLimit("AG"), 1);
   f.ui.autoSelect(1, "D");
   assert.equal(f.ui.request().card, "d");
   assert.match(f.ui.autoForm(), /Maximum Rarity/);

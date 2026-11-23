@@ -1,4 +1,5 @@
 import { collectorsButton } from "./card-collectors.js";
+import { cardQuickActions } from "./card-quick-actions.js";
 import { wishlistButton } from "./profile-cards-ui.js";
 import { marketSortControl } from "./market-sort.js";
 import { cardSurface } from "./card-surface.js";
@@ -8,19 +9,21 @@ import { collectionView, collectionPage, reverseCardSortOptions } from "./card-d
 import { RARITIES, SHOP_PRICES, instantSalePrice } from "./card-values.js";
 
 export function shopSellPage(inventory, cardBy, options, kind) {
-  return collectionPage(
-    collectionView(inventory, cardBy, {
+  const items = collectionView(inventory, cardBy, {
       kind,
       query: options.query,
       rarity: options.rarity,
-      sort: options.sort,
+      sort: options.sort?.startsWith("favorites") ? "name" : options.sort,
       role: options.role,
       upgradable: options.upgradable,
       hideProtected: options.hideProtected,
-    }),
-    options.page,
-    24,
-  );
+    });
+  if (options.sort?.startsWith("favorites")) {
+    const counts = options.favoriteCounts || {};
+    const direction = options.sort === "favorites-low" ? -1 : 1;
+    items.sort((a,b) => direction * ((counts[b.card] || 0) - (counts[a.card] || 0)));
+  }
+  return collectionPage(items, options.page, 24);
 }
 
 export function createShopUI(h, ui) {
@@ -91,6 +94,8 @@ export function createShopUI(h, ui) {
       ["name", "Alphabetical · A–Z"],
       ["level", "Enhancement · Highest First"],
       ["copies", "Most copies"],
+      ["favorites", "Most Favorited"],
+      ["favorites-low", "Least Favorited"],
     ])
       .map(
         ([value, label]) =>
@@ -113,7 +118,7 @@ export function createShopUI(h, ui) {
                   level: item.level,
                   showLevel: true,
                   meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}`,
-                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}${wishlistButton(c, s.wishlist || [], e, s)}`,
+                  actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}${cardQuickActions(c, {wishlist: s.wishlist?.includes(c.id) ?? false, protect: !!item.protected, trade: !!item.for_trade, favorite: s.cardFavorites?.includes(c.id) ?? false}, e)}`,
                 },
                 h,
               );

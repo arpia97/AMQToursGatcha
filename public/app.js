@@ -648,7 +648,7 @@ function showSpecialPack() {
   const pack = state.specialPack;
   delete state.specialPack;
   rememberCards(pack.cards);
-  packReveal.show({ cards: pack.cards }, { special: true });
+  packReveal.show(pack, { special: true });
   api("special-pack-seen", {})
     .catch(() => {})
     .finally(() => {
@@ -770,6 +770,10 @@ const alchemyUI = createAlchemyUI({
 const arcadeStyles = ["mahjong.css", "pachinko.css", "adventure.css", "horse-racing.css"].map(name =>
   loadOnce(() => loadStylesheet(new URL(name, import.meta.url), document.querySelector('link[href="card-frames.css"]'))),
 );
+const loadGachaPlayHistory = loadOnce(async () => {
+  const [history] = await Promise.all([import("./play-history.js"), loadStylesheet(new URL("play-history.css", import.meta.url))]);
+  return history;
+});
 const loadArcadePage = loadOnce(async () => {
   const [{ createArcadePage }] = await Promise.all([
     import("./arcade-page.js"),
@@ -1334,6 +1338,7 @@ async function saveCardAction(path, body, t) {
   } finally {
     buttons.forEach(({ button, disabled }) => { button.disabled = disabled; });
     syncPackCardActions(root, state);
+    packReveal.syncSaleButton(root);
     syncCardFlags(root, cardFlags);
   }
 }
@@ -1671,6 +1676,11 @@ async function loadDynamic() {
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
   }
   if(current==="notifications" && state.me) data=await api(inbox.query(state.me.id));
+  if (current === "shop" && ui.shopSection === "sell" && state.me && ui.shopSell.sort.startsWith("favorites")) {
+    const result = await api("sell-favorite-counts");
+    if (version !== loadVersion) return;
+    ui.shopSell.favoriteCounts = result.counts;
+  }
   if (current === "home") await loadFeatured();
   if (current === "quiz") {
     await loadQuizUI();
@@ -3099,6 +3109,16 @@ function setAnimeTitleMode(value) {
 
 let friendListView = "added", friendListPage = 1, collectorLoad = 0, friendsLoad = 0;
 const friendSaving = new Set();
+const favoriteSaving = new Set();
+function paintFavorite(id, value) {
+  const cards = new Set(state.cardFavorites || []);
+  if (value) cards.add(id);
+  else cards.delete(id);
+  state.cardFavorites = [...cards];
+  for (const button of document.querySelectorAll('[data-action="favorite-toggle"]')) {
+    if (button.dataset.id === id) button.setAttribute("aria-pressed", String(value));
+  }
+}
 async function openFriends(view = "added", page = 1) {
   if (!state.me) { auth(); return; }
   const player = state.me.id, version=++friendsLoad, route=currentRoute(), origin=$("#modal-body").firstElementChild, wasOpen=$("#modal").open;
@@ -3110,6 +3130,17 @@ async function openFriends(view = "added", page = 1) {
 }
 async function handleFeatureClick(a, t) {
   try {
+    if (a === "account-history") {
+      if (!state.me) { auth(); return true; }
+      modal('<h2>Game History</h2><div class="toolbar"><button class="button secondary" data-action="gambling-history" data-game="all">Pachinko Games</button><button class="button secondary" data-action="account-play-history">Play Matches &amp; Songs</button></div>');
+      return true;
+    }
+    if (a === "account-play-history") {
+      const {openPlayHistory} = await loadGachaPlayHistory();
+      openPlayHistory({modal:(html, cls) => modal(html, true, cls), api, escape, titleMode});
+      return true;
+    }
+    if (a === "gambling-history" && !arcadePage) await loadArcadePage();
     if (a === "friends-open") {
       await openFriends(t.dataset.view || "added",Number(t.dataset.page || 1));
       return true;
@@ -3347,6 +3378,14 @@ async function handleFeatureClick(a, t) {
         await openFusionPicker("material");
         return true;
       }
+      if (a === "alchemy-auto-max") {
+        const form = t.closest("form");
+        const limit = alchemyUI.autoLimit(form.elements.maxRarity.value);
+        form.elements.count.value = String(limit);
+        form.elements.count.dispatchEvent(new Event("input", {bubbles:true}));
+        form.querySelector(".form-error").textContent = limit ? "" : "No unprotected cards within this rarity limit.";
+        return true;
+      }
       if (a === "alchemy-auto") {
         openFusionReview(null, alchemyUI.autoForm());
         return true;
@@ -3487,14 +3526,25 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "favorite-toggle") {
       if (!state.me) { auth(); return true; }
+      const id = t.dataset.id, owner = state.me.id;
+      if (favoriteSaving.has(id)) return true;
+      const previous = state.cardFavorites?.includes(id) ?? false;
+      favoriteSaving.add(id);
+      paintFavorite(id, !previous);
+      try {
+        const result = await api("card-favorite", {card:id, favorite:!previous}, crypto.randomUUID());
+        if (state.me?.id !== owner) return true;
+        paintFavorite(id, result.favorite);
+      } catch (err) {
+        if (state.me?.id === owner) paintFavorite(id, previous);
+        throw err;
+      } finally { favoriteSaving.delete(id); }
       const scope = $("#main [data-filter-scope]")?.dataset.filterScope;
-      if (favoritesOnly(scope) || scope === "profile-favorites-search") resetCardFilterPage(scope);
-      await execute("card-favorite", {card: t.dataset.id, favorite: t.getAttribute("aria-pressed") !== "true"}, result => {
-        document.querySelectorAll('[data-action="favorite-toggle"]').forEach(button => {
-          if (button.dataset.id === result.card) button.setAttribute("aria-pressed", String(result.favorite));
-        });
-        toast(result.message);
-      });
+      if ((page() === "shop" && ui.shopSection === "sell" && ui.shopSell.sort.startsWith("favorites")) || favoritesOnly(scope) || scope === "profile-favorites-search" || (["profile","player"].includes(page()) && ui.profileView === "favorites")) {
+        resetCardFilterPage(scope);
+        await loadDynamic();
+        render();
+      }
       return true;
     }
     if (a === "wishlist-toggle") {
@@ -3796,6 +3846,7 @@ async function handleFeatureClick(a, t) {
       ![
         "pack",
         "pack-reveal-page",
+        "pack-result-sell",
         "pack-autosell-cancel",
         "showcase-toggle",
         "showcase-buy-slots",
@@ -3819,6 +3870,16 @@ async function handleFeatureClick(a, t) {
       return false;
     if (!state.me) {
       auth();
+      return true;
+    }
+    if (a === "pack-result-sell") {
+      const opening = packReveal.opening();
+      if (opening && window.confirm("Sell all available cards from this opening? Protected cards will be kept.")) {
+        await execute("pack-result-sell", {opening}, result => {
+          packReveal.sold(opening, result);
+          toast(result.message);
+        });
+      }
       return true;
     }
     if (a === "pack-reveal-page") {
@@ -4231,7 +4292,7 @@ document.addEventListener("input", (ev) => {
   $("#shop-search")?.focus();
   $("#shop-search")?.setSelectionRange(position, position);
 });
-document.addEventListener("change", (ev) => {
+document.addEventListener("change", async (ev) => {
   const fields = {
     "shop-rarity": "rarity",
     "shop-sort": "sort",
@@ -4255,6 +4316,9 @@ document.addEventListener("change", (ev) => {
       ? ev.target.checked
       : ev.target.value;
     ui.shopSell.page = 1;
+  }
+  if (key === "sort" && ui.shopSell.sort.startsWith("favorites")) {
+    try { await loadDynamic(); } catch (err) { toast(err.message,true); return; }
   }
   render();
 });

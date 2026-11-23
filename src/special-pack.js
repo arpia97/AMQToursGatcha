@@ -1,3 +1,5 @@
+import { rememberPackResult } from "./pack-result-sale.js";
+
 export const S_AND_UP_RARITIES = ["S", "SS", "SSS", "Ubers", "AG"];
 
 export class SpecialPack {
@@ -89,6 +91,7 @@ export class SpecialPack {
     for (const card of pulls) {
       this.e.addCard(player, card.id);
     }
+    rememberPackResult(this.e, player, pulls, "gift");
     const record = {
       player,
       granted_at: this.e.now(),
@@ -113,7 +116,8 @@ export class SpecialPack {
     if (!row) return null;
     try {
       const cards = JSON.parse(row.cards);
-      return { cards };
+      const result = this.e.one("SELECT opening FROM pack_result_items WHERE player=? AND slot=\'gift\' LIMIT 1", player);
+      return { cards, opening:result?.opening };
     } catch {
       return null;
     }

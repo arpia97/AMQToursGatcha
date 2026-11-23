@@ -215,6 +215,7 @@ export class Economy {
       balance: outcome.balance,
       kind,
       cards: outcome.cards,
+      opening: outcome.opening,
     };
   }
   buyout(player, id) {

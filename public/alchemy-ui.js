@@ -8,6 +8,7 @@ import {
   refinementQuote,
   refinementQueue,
   autoRefinementPlan,
+  autoRefinementLimit,
 } from "./alchemy-rules.js";
 import { rarityClass, cardComparator } from "./card-display.js";
 export function createAlchemyUI(h) {
@@ -719,6 +720,7 @@ export function createAlchemyUI(h) {
         )
       );
     },
+    autoLimit: rarity => autoRefinementLimit(getState().inventory, card, rarity),
     autoSelect: (count, maxRarity) => {
       selected = autoRefinementPlan(
         getState().inventory,
@@ -738,7 +740,7 @@ export function createAlchemyUI(h) {
         max: 100,
         value: 10,
       }) +
-      '<label>Maximum Rarity<select name="maxRarity">' +
+      '<button type="button" class="button secondary" data-action="alchemy-auto-max">Max</button><label>Maximum Rarity<select name="maxRarity">' +
       ALCHEMY_TIERS.map(
         (t) =>
           "<option" +

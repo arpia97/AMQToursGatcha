@@ -7,6 +7,7 @@ export class Wishlist {
   constructor(e) {
     this.e = e;
     e.run("CREATE TABLE IF NOT EXISTS card_favorites(player TEXT NOT NULL,card TEXT NOT NULL,PRIMARY KEY(player,card))");
+    e.run("CREATE INDEX IF NOT EXISTS card_favorites_card ON card_favorites(card)");
     e.run(
       "CREATE TABLE IF NOT EXISTS card_wishlist(player TEXT NOT NULL,card TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(player,card))",
     );

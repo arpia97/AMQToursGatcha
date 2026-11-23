@@ -1,4 +1,4 @@
-.play-site #modal.play-history-modal {
+#modal.play-history-modal {
   width: min(820px, calc(100vw - 28px));
   max-width: calc(100vw - 28px);
   padding: 0;

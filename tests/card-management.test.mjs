@@ -61,6 +61,23 @@ function fixture(t) {
     );
   return { e, act, filters, quote, map, sql, tx };
 }
+test("pack result sales spend only surviving pulled copies and honor current protection on retry", t => {
+  const {e, act, map} = fixture(t);
+  const {opening} = e.tx(() => e.grantPackPulls("p", ["d","d","s","v"].map(id => map.get(id))));
+  act("protect-card", {card:"s", protected:true});
+  e.economy.take("p","v","extra");
+  e.addCard("p","v");
+  assert.throws(() => e.action("q","pack-result-sell",{opening}), /expired/);
+  const sale = () => e.mutate("p:pack-result-sell", "request-one", {opening}, () => e.action("p","pack-result-sell",{opening}));
+  assert.deepEqual(sale().sold,{d:2});
+  assert.equal(sale().price,50);
+  assert.deepEqual(e.one("SELECT copies,level FROM inventory WHERE player='p' AND card='d'").copies,4);
+  assert.equal(e.one("SELECT level FROM inventory WHERE player='p' AND card='d'").level,3);
+  assert.throws(() => act("pack-result-sell",{opening}), /no unprotected/i);
+  act("protect-card", {card:"s",protected:false});
+  assert.deepEqual(act("pack-result-sell",{opening}).sold,{s:1});
+});
+
 test("protection persists across pulls and restart and blocks sales and listings for all copies", (t) => {
   const { e, act, sql, tx } = fixture(t);
   act("protect-card", { card: "d", protected: true });

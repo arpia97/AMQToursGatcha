@@ -159,6 +159,8 @@ export class Demo {
   }
   grantPackPulls(cards, source = "Pack") {
     const sales = this.s.packAutoSales ||= {};
+    const opening = crypto.randomUUID();
+    const baseline = Object.fromEntries(this.s.inventory.map(i => [i.card,i.copies]));
     let autoSoldCount = 0, autoSoldCredits = 0;
     cards = cards.map((card) => {
       if (!shouldAutosellRarity(card.rarity, this.s.me.autosell_below)) {
@@ -172,7 +174,8 @@ export class Demo {
       return { ...card, autoSold: true, autoSoldPrice: price, autoSoldId: id };
     });
     if (autoSoldCredits) this.wallet(autoSoldCredits, `${source} auto-sell (${autoSoldCount} cards)`);
-    return { cards, autoSoldCount, autoSoldCredits, balance: this.s.me.balance };
+    this.s.packResult = {opening, cards, baseline, sold:{}};
+    return { opening, cards, autoSoldCount, autoSoldCredits, balance: this.s.me.balance };
   }
   async request(path, b) {
     const s = this.s;

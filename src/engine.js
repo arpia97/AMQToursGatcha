@@ -27,6 +27,7 @@ import {
 } from "../public/site-defaults.js";
 import { Catalog } from "./catalog.js";
 import { Economy, PREMIUM_RULE } from "./economy.js";
+import {installPackResultSales, rememberPackResult, sellPackResult} from "./pack-result-sale.js";
 import {SPECIAL_PACK_RULE} from "../public/pack-odds.js";
 import { drawAuction, drawFeatured } from "../public/auction-odds.js";
 import { PickemEvents } from "./pickem-events.js";
@@ -145,6 +146,7 @@ export class Engine {
     this.cardTitles = new CardTitles(this);
     migrateEnhancements(this);
     installFavoriteOwnership(this);
+    installPackResultSales(this);
     this.cardTitles.backfill();
     migrateTradeDefaults(this);
     installInbox(this);
@@ -261,6 +263,7 @@ export class Engine {
         `${sourceLabel} auto-sell (${autoSoldCount} card${autoSoldCount === 1 ? "" : "s"})`,
       );
     return {
+      opening: rememberPackResult(this, player, resultCards),
       cards: resultCards,
       autoSoldCount,
       autoSoldCredits,
@@ -278,6 +281,8 @@ export class Engine {
       if (!this.catalogStore.card(sale.card)) fail("This card is unavailable.", 404);
       this.wallet(player, -sale.price, `Cancel pack auto-sell: ${sale.card}`);
       this.addCard(player, sale.card);
+      this.run(`UPDATE pack_result_items SET remaining=remaining+1 WHERE player=? AND card=?
+        AND EXISTS (SELECT 1 FROM json_each(restores) WHERE value=?)`, player, sale.card, id);
       this.run("UPDATE pack_auto_sales SET cancelled=1 WHERE id=?", id);
     }
     return {
@@ -496,6 +501,7 @@ export class Engine {
     if (action === "equip-titles") return this.quiz.equipTitles(player, b);
     if (action === "friend-set") return this.friends.set(player, b);
     if (action === "quiz-favorite") return this.quiz.favorite(player, b);
+    if (action === "pack-result-sell") return sellPackResult(this, player, b);
     if (action === "pack-autosell-cancel") return this.cancelPackAutoSale(player, b);
     if (["quiz-start", "quiz-restart", "quiz-stop"].includes(action))
       return this.quiz.action(player, action, b);
@@ -548,6 +554,7 @@ export class Engine {
       return {
         message,
         cards: outcome.cards,
+        opening: outcome.opening,
         packCount: count,
         packType:special?'special':premium?'premium':'normal',
         ...(special ? { specialPackRevision: SPECIAL_PACK_RULE.revision } : {}),
@@ -1129,6 +1136,7 @@ export class Engine {
         "tour_events",
         "sessions",
         "special_packs",
+        "pack_result_items",
         "pack_auto_sales",
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
@@ -1155,6 +1163,7 @@ export class Engine {
       for (const table of [
         "inventory",
         "host_credit_issues",
+        "pack_result_items",
         "pack_auto_sales",
         "ledger",
         "predictions",

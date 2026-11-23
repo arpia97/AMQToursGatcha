@@ -107,6 +107,17 @@ export function drawAlchemyCard(pool, target, rand) {
   if (index < 0) throw Error("Choose a valid target card.");
   return pool[choice >= index ? choice + 1 : choice];
 }
+function allowedMaterial(item, cardBy, cap) {
+  const rarity = RARITIES.indexOf(cardBy(item.card)?.rarity);
+  return !item.protected && item.copies > 0 && rarity >= 0 && rarity <= cap;
+}
+
+export function autoRefinementLimit(inventory, cardBy, maxRarity) {
+  const cap = RARITIES.indexOf(maxRarity);
+  return Math.min(100, inventory.reduce((sum, item) =>
+    sum + (allowedMaterial(item, cardBy, cap) ? item.copies : 0), 0));
+}
+
 export function autoRefinementPlan(
   inventory,
   cardBy,
@@ -119,14 +130,8 @@ export function autoRefinementPlan(
   const cap = RARITIES.indexOf(maxRarity);
   if (cap < 0) throw Error("Choose a maximum rarity.");
   const pool = inventory
-    .filter((i) => !i.protected)
-    .map((i) => ({ ...i, c: cardBy(i.card), base: true, extras: i.copies - 1 }))
-    .filter(
-      (i) =>
-        i.c &&
-        RARITIES.indexOf(i.c.rarity) >= 0 &&
-        RARITIES.indexOf(i.c.rarity) <= cap,
-    );
+    .filter((i) => allowedMaterial(i, cardBy, cap))
+    .map((i) => ({ ...i, c: cardBy(i.card), base: true, extras: i.copies - 1 }));
   if (pool.reduce((n, i) => n + i.copies, 0) < count)
     throw Error("Not enough unprotected cards within that rarity limit.");
   const plan = [];
