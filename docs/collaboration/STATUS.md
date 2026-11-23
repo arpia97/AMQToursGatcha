@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Gacha pack results, card controls and game history
+
+Runtime `5af8dfa` deployed as Worker `45c0c61e-f4fe-4c42-88a2-b90fa4840ca0`. Pack results support a server-validated sale of the current opening's unprotected copies. Sell Cards includes the four inventory controls and sorts by player favorite counts. Favorites give immediate feedback. Auto Refine has a rarity-aware Max. The Gacha account menu opens both Pachinko and Play history. All 605 tests passed. Desktop and 390px browser flows covered the refinement filters and Max, Sell Cards controls, both history paths and selling a newly opened pack. Five live assets/routes and two signed-out access checks passed.
+
+Local-only pack artwork and centered Alchemy selection previews are under `../card-pack-review/`. Confirm the exact legacy hostname before changing routes. The adjacent Host Platform checkout references the legacy play proxy for account requests.
+
 ## 1-Team rematch transfer and online profiles
 
 Source `5790cc8` is live at 100% on Worker `ab143827-0778-4dcc-8307-b83cb58b48c0`. A passed rematch vote moves eligible yes voters as a group before spectators receive the join prompt. Online Players names link to Gacha player profiles. All 604 tests passed. Local Chromium verified transfer of five voters, spectator consent on desktop and mobile, and profile navigation. The live Play routes, queue endpoint and five frontend assets were verified read-only.
