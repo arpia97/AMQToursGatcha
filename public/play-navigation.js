@@ -17,3 +17,6 @@ export function playRoute(pathname) {
   return pathname.startsWith("/play/") && PLAY_MODES.some((mode) => mode.id === id) ? id : null;
 }
 export const playHref = (id) => "/play/" + id;
+export function playQuizHref(quiz) {
+  return playHref("quiz") + (quiz ? "?" + new URLSearchParams({quiz}) : "");
+}

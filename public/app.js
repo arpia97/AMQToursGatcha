@@ -41,7 +41,7 @@ import {
   profileCardPanel,
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
-import {profileQuizPanel} from './profile-quiz-ui.js';
+import {profileQuizPanel} from './profile-quiz-ui.js?v=play-quiz-links';
 import {friendButton,friendsPanel} from './friends-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
 import { loadOnce, loadStylesheet } from "./route-resources.js";
@@ -65,7 +65,7 @@ import {
   navigate,
   installNavigation,
   navigationSection,
-} from "./site-navigation.js";
+} from "./site-navigation.js?v=play-quiz-links";
 import { playHref } from "./play-navigation.js";
 import { pickemTeams } from "./tour-winner.js";
 import {
@@ -94,8 +94,8 @@ import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
 import { createFeatures } from "./features.js?v=sell-wishlists";
 import { installInboxDropdown } from "./inbox-dropdown.js";
-import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js";
-import { noticePanel } from "./player-notices.js";
+import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js?v=play-quiz-links";
+import { noticePanel } from "./player-notices.js?v=play-quiz-links";
 import { applyGameState } from "./game-state.js";
 import { auctionRefreshIds, applyAuctionRefresh, syncBidForm } from "./auction-live.js";
 import { readRouletteMotion, saveRouletteMotion } from "./roulette-motion.js";
@@ -3189,16 +3189,6 @@ async function handleFeatureClick(a, t) {
       ui.marketPage = 1;
       await loadDynamic();
       render();
-      return true;
-    }
-    if (a === "quiz-notice-open") {
-      $("#modal").close();
-      (await loadQuizUI()).openLeaderboard(t.dataset.quiz);
-      if (page() !== "quiz") navigate("quiz");
-      else {
-        await loadDynamic();
-        render();
-      }
       return true;
     }
     if (a?.startsWith("trade-") && a !== "trade-toggle") {

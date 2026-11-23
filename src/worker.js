@@ -11,7 +11,7 @@ export { QuizSession } from "./quiz-session.js";
 import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
-import { playRoute } from "../public/play-navigation.js";
+import { playRoute, playQuizHref } from "../public/play-navigation.js";
 import { importAnimeList, listSummary } from "./play-anime-list.js";
 import { awardMatchCredits } from './play-rewards.js';
 import { publicPlaySnapshot } from "./play-public-snapshot.js";
@@ -2038,6 +2038,8 @@ export default {
       return Response.redirect(url.origin + "/play/" + url.search, 308);
     if (url.pathname.startsWith("/play/") && !["/play/app.js", "/play/play.css"].includes(url.pathname))
       return new Response("Not Found", { status: 404 });
+    if (["GET", "HEAD"].includes(request.method) && route === "quiz")
+      return Response.redirect(url.origin + playQuizHref() + url.search, 308);
     if (["GET", "HEAD"].includes(request.method) && isPlayerRoute(route)) {
       const shell = await env.ASSETS.fetch(new Request(new URL("/", url), request));
       // Relative to the requested document, including when served behind /gacha/.

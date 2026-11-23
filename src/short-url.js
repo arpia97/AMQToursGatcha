@@ -1,12 +1,15 @@
 // Keep the economy and its Durable Object in the original Worker.
 // The shorter public address forwards requests through a private service binding.
 import { publicTourHub } from './public-tour-hub.js';
+import { playQuizHref } from '../public/play-navigation.js';
 export default {
   async fetch(request, env) {
     const url=new URL(request.url);
     if(url.hostname==='amqtours.app'){
       if(url.pathname==='/gacha'||url.pathname==='/play')return Response.redirect(url.origin+url.pathname+'/'+url.search,308);
       const gacha=url.pathname.startsWith('/gacha/'),play=url.pathname.startsWith('/play/');
+      if(gacha && /^\/gacha\/quiz\/?$/.test(url.pathname) && ["GET","HEAD"].includes(request.method))
+        return Response.redirect(url.origin + playQuizHref() + url.search, 308);
       if(!gacha&&!play)return new Response('Not Found',{status:404});
       if(gacha)url.pathname=url.pathname.slice('/gacha'.length);
       const upstream=new Request(url,request);

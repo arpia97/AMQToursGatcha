@@ -1,3 +1,5 @@
+import {playQuizHref} from "./play-navigation.js?v=play-quiz-links";
+
 export const SITE_ROUTES = [
   ["home", "Overview"],
   ["profile", "My Profile"],
@@ -40,7 +42,12 @@ export function installNavigation(onChange) {
   document.head.prepend(base);
   const legacy = () => {
     const route = location.hash.slice(1);
-    if (!staticDemo() && isPlayerRoute(route))
+    if (staticDemo()) return;
+    if (route === "quiz") {
+      location.replace(playQuizHref() + location.search);
+      return;
+    }
+    if (isPlayerRoute(route))
       history.replaceState(history.state, "", routeHref(route) + location.search);
   };
   legacy();

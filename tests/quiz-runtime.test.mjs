@@ -186,6 +186,9 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   const localPlay=await mf.dispatchFetch('http://game/play/quiz');assert.match(await localPlay.text(),/<base href="\/">/);
   assert.equal((await mf.dispatchFetch('http://game/play/unknown')).status,404);
   assert.equal((await mf.dispatchFetch('http://game/play/index.html',{redirect:'manual'})).status,308);
+  const legacyQuiz=await mf.dispatchFetch('http://game/quiz?quiz=op-quiz',{redirect:'manual'});
+  assert.equal(legacyQuiz.status,308);
+  assert.equal(legacyQuiz.headers.get('location'),'http://game/play/quiz?quiz=op-quiz');
   const guestPlay=await mf.dispatchFetch('http://game/api/play-state');assert.equal((await guestPlay.json()).me,null);
   const post = (path, body, headers = {}) =>
       mf.dispatchFetch("http://game/api/" + path, {

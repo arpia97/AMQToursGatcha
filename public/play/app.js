@@ -4,7 +4,7 @@ import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
 import {ARENA_FORMAT} from '../play-arena-config.js';
-import { PLAY_MODES, playRoute, playHref } from "../play-navigation.js";
+import { PLAY_MODES, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=play-quiz-links";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "../quiz-title-display.js";
 import { readApiResponse } from "../api-response.js";
@@ -47,6 +47,7 @@ let state = { me: null, avatar: null }, mode = playRoute(location.pathname) || p
 let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
 try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
 let rankingSort='rank',rankingDirection='asc';
+let linkedQuiz = null;
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
 
@@ -270,6 +271,7 @@ const loadMultiplayer = loadOnce(async () => {
 function resetQuiz() {
   quiz?.leave();
   quiz = null;
+  linkedQuiz = null;
 }
 function createQuizController(createQuizUI) {
   return createQuizUI({ gachaLayout: true, api, escape, getState: () => state, onRender: renderQuiz,
@@ -370,6 +372,9 @@ async function openMode(id, push = true) {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
       quiz ??= createQuizController(createQuizUI);
+      const quizId = new URLSearchParams(location.search).get("quiz");
+      if (quizId && quizId !== linkedQuiz) quiz.openLeaderboard(quizId);
+      linkedQuiz = quizId;
       await quiz.load();
       if (version === viewVersion) renderQuiz();
     } else {
@@ -508,7 +513,14 @@ document.addEventListener("click", async (event) => {
     else if (action === "logout") {
       if(songArtist&&!songArtist.confirmNavigation())return;
       await api("logout", {}); songArtist?.leave({cancelQueue:true}); state = { me: null, avatar: null, titles: [] }; header(); resetQuiz(); await refreshAccount(); $("#modal").close(); currentActivity=null; await openMode(mode, false);
-    } else if (mode === "quiz" && quiz && $("#main").contains(button)) await quiz.click(button);
+    } else if (mode === "quiz" && quiz && $("#main").contains(button)) {
+      await quiz.click(button);
+      if (linkedQuiz && mode === "quiz" &&
+          (button.hasAttribute("data-quiz-back") || button.dataset.quizAction === "quiz-stop")) {
+        linkedQuiz = null;
+        history.replaceState(history.state, "", playQuizHref());
+      }
+    }
   } catch (error) { fail(error); }
 });
 document.addEventListener("submit", async (event) => {

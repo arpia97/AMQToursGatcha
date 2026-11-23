@@ -1,5 +1,6 @@
 import { NOTICE_TYPES, NOTICE_GROUPS, noticeGroup, noticeDefault } from "./notification-types.js";
-import { noticeCopy } from "./player-notices.js";
+import { noticeCopy } from "./player-notices.js?v=play-quiz-links";
+import { playQuizHref } from "./play-navigation.js?v=play-quiz-links";
 
 const glyph = { market:"⇄", wishlist:"♡", quiz:"♫", social:"✦", tour:"⚑" };
 const color = { market:"#aadbbf", wishlist:"#ec9da9", quiz:"#c6b7ec", social:"#edcb89", tour:"#9bc9df" };
@@ -102,7 +103,7 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     const [title,body]=copy(row),m=row.metadata||{};
     const target=row.kind==="friend-add"&&m.byId?"player/"+encodeURIComponent(m.byId):noticeGroup(row.kind)==="quiz"?"quiz":row.kind==="pickem-new"?"pickems/"+m.pickem:row.kind==="credit-reward"?"profile":row.kind.includes("auction")||row.kind==="outbid"?"auctions":"shop";
     let action='<a class="button" data-inbox-link href="'+e(routeHref(target))+'">Open '+(target.startsWith("player/")?"profile":target.split("/")[0])+' ↗</a>';
-    if(m.quiz)action='<button class="button" data-action="quiz-notice-open" data-quiz="'+e(m.quiz)+'">Open quiz ↗</button>';
+    if(target==="quiz")action='<a class="button" data-inbox-link href="'+e(playQuizHref(m.quiz))+'">Open quiz ↗</a>';
     if(row.kind==="trade-request")action='<button class="button" data-action="trade-notice-open" data-card="'+e(row.card)+'">View trade offers ↗</button>';
     if(row.kind==="flash-open" || row.kind==="wish-shop" || row.kind==="wish-trade"){
       const section=row.kind==="wish-trade"?"trades":row.kind==="flash-open"||m.venue?"buy":"market";

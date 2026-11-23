@@ -1,6 +1,7 @@
 import { cardFrameClass, cardAura, enhancementBadge } from "./card-frames.js";
 import { quizDuration } from "./quiz-time.js";
 import { quizRarity } from "./quiz-rules.js";
+import { playQuizHref } from "./play-navigation.js?v=play-quiz-links";
 function formatQuizAttempt(score, durationMs) {
   if (!Number.isInteger(score)) return "";
   const time =
@@ -107,7 +108,7 @@ export function noticePanel(
           cover = notice.metadata?.cover
             ? `<img src="${e(notice.metadata.cover)}" alt="${e(quizName)}" loading="lazy">`
             : `<div class="fallback-img" aria-label="Quiz">♪</div>`;
-        return `<article class="trade-notice tier-${tier}"><div class="trade-notice-portrait tier-${tier}">${cover}</div><div><h3>${e(copy.title)}</h3><strong>${e(quizName)}</strong><p>${e(copy.detail)}</p><button type="button" class="button secondary" data-action="quiz-notice-open" data-quiz="${e(notice.metadata?.quiz || "")}">View Quiz Leaderboard →</button></div></article>`;
+        return `<article class="trade-notice tier-${tier}"><div class="trade-notice-portrait tier-${tier}">${cover}</div><div><h3>${e(copy.title)}</h3><strong>${e(quizName)}</strong><p>${e(copy.detail)}</p><a class="button secondary" href="${e(playQuizHref(notice.metadata?.quiz))}">View Quiz Leaderboard →</a></div></article>`;
       }
       const card = cardBy(notice.card);
       return `<article class="trade-notice tier-${rarityClass(card.rarity)}"><div class="trade-notice-portrait tier-${rarityClass(card.rarity)} ${cardFrameClass(notice.level)}">${cardAura(notice.level)}${image(card)}</div><div><h3>${e(copy.title)}</h3><strong>${e(card.name)} ${enhancementBadge(notice.level)}</strong><p>${e(copy.detail)}</p>${notice.kind === "trade-request" ? `<button type="button" class="button secondary" data-action="trade-notice-open" data-card="${e(notice.card)}">Review Trade Offers →</button>${Number(notice.credits) > 0 ? `<span class="money">+✦ ${n(notice.credits)} · Offered</span>` : ""}` : `<span class="money">${copy.sign}✦ ${n(notice.credits)} · ${e(copy.credit)}</span>`}</div></article>`;

@@ -304,8 +304,16 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
   );
   assert.match(
     quizHtml,
-    /data-action="quiz-notice-open" data-quiz="op-quiz">View Quiz Leaderboard →/,
+    /href="\/play\/quiz\?quiz=op-quiz">View Quiz Leaderboard →/,
   );
+});
+
+test("quiz notifications link to the specific quiz in Play", async () => {
+  const {createInbox} = await import("../public/inbox-ui.js");
+  const inbox = createInbox({escape:String,cardBy:()=>null,routeHref:route=>"/gacha/"+route});
+  const row={id:1,created:0,kind:"quiz-new",metadata:{quiz:"openings & endings",quizName:"Openings and Endings"}};
+  assert.match(inbox.detail(1,[row]),/href="\/play\/quiz\?quiz=openings\+%26\+endings"/);
+  assert.match(inbox.detail(1,[{...row,metadata:{}}]),/href="\/play\/quiz"/);
 });
 
 test("inbox uses account preferences, delivers once per opening, and scopes read receipts to the recipient", async t => {
