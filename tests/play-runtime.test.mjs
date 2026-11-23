@@ -688,6 +688,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       const timeline=(await (await mf.dispatchFetch(timelineUrl,{headers:auditHeaders})).json()).timeline;
       assert.equal(timeline.round,2);
       assert.equal(timeline.flags[2].decoy,1);
+      assert.deepEqual(Object.keys(timeline.playerFlags),['1']);
+      assert.equal(timeline.playerFlags['1'].decoy,true);
       assert.deepEqual(timeline.tracks.map(track=>track.player),['1']);
       assert.deepEqual(timeline.tracks[0].answers.map(entry=>entry.fields.anime),[decoyAnime]);
       const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});

@@ -117,6 +117,12 @@ export class ReviewHighlights {
       WHERE kind IN ('return','decoy')`+(player?' AND player=?':'')+' GROUP BY round',...(player?[String(player)]:[]));
     return Object.fromEntries([...rows].map(({round,refocus,decoy})=>[round,{refocus,decoy}]));
   }
+  playerFlags(round,player='') {
+    const rows=this.sql.exec(`SELECT player,MAX(kind='return') AS refocus,MAX(kind='decoy') AS decoy
+      FROM match_highlights WHERE round=? AND kind IN ('return','decoy')`+
+      (player?' AND player=?':'')+' GROUP BY player',round,...(player?[String(player)]:[]));
+    return Object.fromEntries([...rows].map(({player,refocus,decoy})=>[player,{refocus:!!refocus,decoy:!!decoy}]));
+  }
   list(player='', offset=0) {
     const skip = Number.isSafeInteger(Number(offset)) ? Math.max(0,Number(offset)) : 0;
     const rows = [...this.sql.exec('SELECT * FROM match_highlights '+(player?'WHERE player=? ':'')+'ORDER BY seq DESC,kind LIMIT 51 OFFSET ?',...(player?[String(player)]:[]),skip)];

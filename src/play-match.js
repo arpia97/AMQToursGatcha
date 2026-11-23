@@ -529,10 +529,14 @@ export class PlayMatch extends DurableObject {
     if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
     if(detail && options.view==='timeline'){
       const pending=await this.indexHighlights(detail.id);
-      detail.timeline=pending?{pending,rounds:[],duration:null,tracks:[]}:{
-        ...reviewTimeline(this.ctx.storage.sql,detail.players,options),
-        flags:this.highlights.songFlags(options.player)
-      };
+      if(pending){
+        detail.timeline={pending,rounds:[],duration:null,tracks:[]};
+      }else{
+        const timeline=reviewTimeline(this.ctx.storage.sql,detail.players,options);
+        timeline.flags=this.highlights.songFlags(options.player);
+        timeline.playerFlags=this.highlights.playerFlags(timeline.round,options.player);
+        detail.timeline=timeline;
+      }
       return detail;
     }
     if(detail && options.view==='highlights'){

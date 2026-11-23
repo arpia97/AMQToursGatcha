@@ -8,6 +8,14 @@ function answerText(answer) {
     ' · ' + fields.map(([field, value]) => field + ' · ' + value).join(' / ');
 }
 
+function playerHeading(name, flags, escape) {
+  const refocus=flags?.refocus, decoy=flags?.decoy;
+  const badges=(refocus?'<span class="review-refocus">Refocus</span>':'')+
+    (decoy?'<span class="review-decoy">Decoy hit</span>':'');
+  return '<div class="review-player-heading"><strong'+(badges?' class="review-'+(decoy?'decoy':'refocus')+'"':'')+'>'+
+    escape(name)+'</strong>'+badges+'</div>';
+}
+
 export function timelineHTML(data, names, escape) {
   if (!data?.rounds.length) return '<p>No song timelines were recorded for this match.</p>';
   const songs = data.rounds.map(round => {
@@ -24,8 +32,12 @@ export function timelineHTML(data, names, escape) {
     Object.entries(stateLabels).map(([state, label]) => '<span><i class="' + state + '"></i>' + label + '</span>').join('') +
     '<span><i class="answer"></i>Answer</span><span><i class="refocus"></i>Refocus</span><span><i class="decoy"></i>Link Match</span></div></div>' +
     '<div class="review-timeline-songs" role="group" aria-label="Songs">' + songs + '</div></header>';
-  if (data.duration === null) return '<section class="review-timeline">' + header +
-    '<p class="review-timeline-detail">Timing is unavailable for this song.</p></section>';
+  if (data.duration === null) {
+    const flagged=Object.entries(data.playerFlags??{}).map(([id,flags])=>
+      playerHeading(names.get(id)||id,flags,escape)).join('');
+    return '<section class="review-timeline">'+header+'<div class="review-timeline-detail">'+flagged+
+      '<p>Timing is unavailable for this song.</p></div></section>';
+  }
 
   const axis = '<div class="review-timeline-axis">' + [0, .25, .5, .75, 1].map(part =>
     '<span>' + seconds(data.duration * part, 1) + '</span>').join('') + '</div>';
@@ -38,8 +50,8 @@ export function timelineHTML(data, names, escape) {
       '%" aria-label="' + escape(answerText(answer)) + '" title="' + escape(answerText(answer)) +
       '" data-review-track="' + index + '" data-review-answer="' + marker + '"></button>').join('');
     const focused = track.segments.filter(segment => segment.state === 'focused').reduce((sum, segment) => sum + segment.to - segment.from, 0);
-    return '<div class="review-timeline-row"><div class="review-timeline-player"><strong>' +
-      escape(names.get(track.player) || track.player) + '</strong><small>' + seconds(focused,1) +
+    return '<div class="review-timeline-row"><div class="review-timeline-player">' +
+      playerHeading(names.get(track.player) || track.player,data.playerFlags?.[track.player],escape) + '<small>' + seconds(focused,1) +
       ' focused · ' + track.answers.length + (track.answers.length === 1 ? ' answer' : ' answers') +
       '</small></div><div class="review-timeline-line"><div class="review-timeline-band">' + states +
       '</div>' + markers + '</div></div>';

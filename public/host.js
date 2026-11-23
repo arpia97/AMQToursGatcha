@@ -1,5 +1,5 @@
 import { routeHref } from "./site-navigation.js";
-import {playReviewPanel,mountPlayReview} from './play-review-ui.js?v=signal-counts';
+import {playReviewPanel,mountPlayReview} from './play-review-ui.js?v=player-flags';
 import { readApiResponse } from "./api-response.js";
 import { creditAuditPanel } from "./host-audit-ui.js";
 import { formIdentifier } from "./form-actions.js";
