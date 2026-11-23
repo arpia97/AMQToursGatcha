@@ -7,14 +7,14 @@ const formats = {
   quiz: "Quiz"
 };
 
-function table(headers, rows,sort,dir) {
+function table(headers, rows,sort,dir,ownIndex=-1) {
   return '<div class="play-table-wrap"'+(sort?' role="region" aria-label="Sortable player rankings" tabindex="0"':'')+'><table class="play-rank-table"><thead><tr>' +
     headers.map(label => {
       if(!Array.isArray(label))return '<th scope="col">'+label+'</th>';
       const [key,title,hint]=label,active=key===sort;
       return '<th scope="col"'+(active?' aria-sort="'+(dir==='asc'?'ascending':'descending')+'"':'')+'><button class="play-sort" data-rank-sort="'+key+'"'+(hint?' title="'+hint+'"':'')+'>'+title+' <span aria-hidden="true">'+(active?(dir==='asc'?'↑':'↓'):'↕')+'</span></button></th>';
     }).join('') +
-    '</tr></thead><tbody>' + rows.map(cells => '<tr>' +
+    '</tr></thead><tbody>' + rows.map((cells,i) => (i===ownIndex?'<tr class="ranking-own-row">':'<tr>') +
       cells.map(cell => '<td>' + cell + '</td>').join('') + '</tr>').join('') +
     '</tbody></table></div>';
 }
@@ -64,7 +64,7 @@ export function rankingPanel(root,format,pool='random',friendsOnly=false) {
   return panel;
 }
 
-export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,friendsOnly=false) {
+export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,friendsOnly=false,viewer=null) {
   const quiz = format === 'quiz';
   const versus=[DUEL_FORMAT,'1v1','3v3','ngmc-ranked'].includes(format);
   function recordCell(row){
@@ -76,6 +76,22 @@ export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,fri
     ['matches',quiz?'Quizzes Played':'Matches'],...(versus?[['record','W-L-T','Wins, then fewer losses, then ties']]:[]),
     ['points',quiz?'Cumulative Points':'Points',quiz?'Sum of personal bests across published quizzes':null],
     ...(quiz?[['time','Average Time','Average duration of timed personal bests on published quizzes']]:[])];
+  const ownIndex=viewer ? data.rows.findIndex(row=>row.id===viewer.id) : -1;
+  const own=viewer ? (data.own ?? data.rows[ownIndex]) : null;
+  const accuracy=row=>row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—';
+  function pinnedStanding(){
+    if(!viewer)return '';
+    const stats=own ? [
+      ...(quiz?[]:[['Rating',Math.round(own.rating).toLocaleString('en-US')]]),
+      [quiz?'Accuracy':'Guess Rate',accuracy(own)],
+      [quiz?'Quizzes Played':'Matches',own.matches],
+      ...(quiz?[['Points',own.correct],['Average Time',own.avgTimeMs==null?'—':quizDuration(Math.round(own.avgTimeMs))]]:
+        [['W-L-T',own.record?.join('–')??'—'],['Points',own.correct]])
+    ] : [];
+    return '<section class="ranking-own-summary" aria-label="Your standing"><div><small>Your Rank</small><strong>'+
+      (own?'#'+own.rank:'Unranked')+'</strong><a href="'+esc(profileHref(viewer.id))+'">'+esc(own?.name??viewer.name)+'</a></div>'+
+      (stats.length?'<dl>'+stats.map(([label,value])=>'<div><dt>'+label+'</dt><dd>'+value+'</dd></div>').join('')+'</dl>':'')+'</section>';
+  }
   const rows = data.rows.map((row,i) => {
     const rank = row.rank ?? page*50+i+1;
     const name = esc(row.name);
@@ -84,8 +100,8 @@ export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,fri
       : name;
     return [
       '<span class="ranking-position" data-place="'+rank+'">'+rank+'</span>',
-      '<strong>'+player+'</strong>', ...(quiz?[]:[Math.round(row.rating).toLocaleString("en-US")]),
-      row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—', row.matches,
+      '<strong>'+player+'</strong>'+(i===ownIndex?' <small class="ranking-you">You</small>':''), ...(quiz?[]:[Math.round(row.rating).toLocaleString("en-US")]),
+      accuracy(row), row.matches,
       ...(versus?[recordCell(row)]:[]), row.correct,
       ...(quiz?[row.avgTimeMs==null?'—':quizDuration(Math.round(row.avgTimeMs))]:[])
     ];
@@ -94,6 +110,6 @@ export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref,fri
     ? '<div class="play-ranking-pages"><button class="button secondary" data-rank-page="'+(page-1)+'" '+(!page?'disabled':'')+'>Previous</button>'+
       '<button class="button secondary" data-rank-page="'+(page+1)+'" '+(!data.more?'disabled':'')+'>Next</button></div>'
     : '';
-  return (rows.length?table(columns,rows,sort,dir):'<p class="ranking-empty">'+(friendsOnly?'No friends have ranked results for these settings.':'No ranked results yet for '+formats[format]+'.')+'</p>')+
+  return pinnedStanding()+(rows.length?table(columns,rows,sort,dir,ownIndex):'<p class="ranking-empty">'+(friendsOnly?'No ranked results for you or your friends yet.':'No ranked results yet for '+formats[format]+'.')+'</p>')+
     (rows.length||navigation?'<footer><small>Page '+(page+1)+'</small>'+navigation+'</footer>':'');
 }

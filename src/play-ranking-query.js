@@ -1,5 +1,5 @@
 // Assign the mode's usual rank before applying the viewer's filter, sort and page.
-export function playRankingPage(read, source, args, {quiz=false, page=0, sort, dir, friendIds=null}={}) {
+export function playRankingPage(read, source, args, {quiz=false, page=0, sort, dir, friendIds=null, viewer=null}={}) {
   const defaultSort=quiz?'points':'rank';
   const columns={
     rank:'rank', name:'name COLLATE NOCASE', matches:'matches', points:'correct',
@@ -15,10 +15,19 @@ export function playRankingPage(read, source, args, {quiz=false, page=0, sort, d
   const defaultOrder=quiz?'correct DESC,matches DESC,player':'rating DESC,correct DESC,player';
   const scope=friendIds===null?'':'WHERE player IN (SELECT value FROM json_each(?))';
   const filterArgs=friendIds===null?[]:[JSON.stringify(friendIds)];
-  const rows=read(`WITH standings AS (${source}), ranked AS (
-    SELECT *,ROW_NUMBER() OVER (ORDER BY ${defaultOrder}) AS rank FROM standings)
-    SELECT * FROM ranked ${scope} ORDER BY ${ordering},rank LIMIT 51 OFFSET ?`,...args,...filterArgs,page*50);
-  return {rows:rows.slice(0,50).map(({player,wins,losses,ties,...row})=>({
+  const standings=`WITH standings AS (${source}), ranked AS (
+    SELECT *,ROW_NUMBER() OVER (ORDER BY ${defaultOrder}) AS rank FROM standings)`;
+  const pageQuery=`SELECT * FROM ranked ${scope} ORDER BY ${ordering},rank LIMIT 51 OFFSET ?`;
+  const params=[...args,...filterArgs,page*50];
+  const rows=viewer==null ? read(standings+' '+pageQuery,...params) : read(
+    `${standings}, page_rows AS (${pageQuery})
+     SELECT * FROM (
+       SELECT page_rows.*,0 AS pinned FROM page_rows
+       UNION ALL SELECT ranked.*,1 AS pinned FROM ranked WHERE player=?
+     ) ORDER BY pinned DESC,${ordering},rank`,...params,viewer);
+  const formatRow=({player,wins,losses,ties,pinned,...row})=>({
     id:player,...row,...(quiz?{}:{record:wins==null?null:[wins,losses,ties]})
-  })),more:rows.length>50,...(friendIds===null?{}:{friendsOnly:true})};
+  });
+  const own=rows[0]?.pinned===1?formatRow(rows.shift()):null;
+  return {rows:rows.slice(0,50).map(formatRow),own,more:rows.length>50,...(friendIds===null?{}:{friendsOnly:true})};
 }

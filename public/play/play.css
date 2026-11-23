@@ -122,7 +122,7 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 }
 .room-masthead h1,.ranking-masthead h1 { margin:0; font-size:clamp(26px,3.2vw,40px); letter-spacing:-.035em; line-height:1.1; }
 .ranking-board,.broadcast-room { max-width:1200px; min-width:0; margin:20px auto; }
-.ranking-board { overflow:hidden; background:var(--panel); border:1px solid var(--border); border-radius:6px; }
+.ranking-board { overflow:clip; background:var(--panel); border:1px solid var(--border); border-radius:6px; }
 .ranking-masthead { flex-wrap:wrap; align-items:flex-end; }
 .ranking-mode-tabs { display:flex; flex-wrap:wrap; gap:3px; margin-inline-start:auto; padding:3px; border:1px solid var(--border); border-radius:6px; background:var(--bg); }
 .ranking-mode-tabs button { padding:8px 11px; color:var(--muted); background:transparent; border:0; border-radius:3px; font:inherit; font-size:12px; }
@@ -137,6 +137,16 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .ranking-player-profile:is(:hover,:focus-visible) { color:var(--mint); text-decoration:underline; }
 .ranking-board tbody tr:nth-child(even) { background:#ffffff03; }
 .ranking-board tbody tr:hover { background:#b6e2c509; }
+.ranking-own-summary { position:sticky; top:0; z-index:2; display:flex; align-items:center; flex-wrap:wrap; gap:10px 28px; padding:10px 16px; background:#20342e; border-bottom:1px solid #496656; box-shadow:inset 3px 0 var(--mint); }
+.ranking-own-summary>div { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.ranking-own-summary strong,.ranking-you { color:var(--mint); }
+.ranking-own-summary strong { font-size:20px; }
+.ranking-own-summary small,.ranking-own-summary dt { color:#c2d2c9; font-size:11px; }
+.ranking-own-summary a { overflow-wrap:anywhere; color:var(--text); font-weight:700; }
+.ranking-own-summary dl { display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; }
+.ranking-own-summary dd { margin:2px 0 0; font-weight:700; font-variant-numeric:tabular-nums; }
+.ranking-board tbody .ranking-own-row td { background:#23342e; }
+.ranking-own-row td:first-child { box-shadow:inset 3px 0 var(--mint); }
 .ranking-position { display:inline-grid; place-items:center; min-width:3ch; min-height:24px; color:var(--muted); font-weight:700; }
 .ranking-position:is([data-place="1"],[data-place="2"],[data-place="3"]) { border-radius:4px; color:#f4d295; background:#efbb5620; }
 .ranking-position[data-place="2"] { color:#d4dce7; background:#abbfd420; }

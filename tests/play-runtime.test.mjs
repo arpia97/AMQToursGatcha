@@ -498,7 +498,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(friendsResponse.status,200,await friendsResponse.clone().text());
   const friendRankings=await friendsResponse.json();
   assert.equal(friendRankings.friendsOnly,true);
-  assert.deepEqual(friendRankings.rows,watchedRankings.rows.filter(row=>row.id==='2'));
+  assert.deepEqual(friendRankings.rows,watchedRankings.rows.filter(row=>['1','2'].includes(row.id)));
+  assert.deepEqual(friendRankings.own,watchedRankings.rows.find(row=>row.id==='1'));
+  const offPage=await(await mf.dispatchFetch(rankingBase+'&pool=watched&page=1',{headers:{Cookie:cookies[0]}})).json();
+  assert.deepEqual(offPage.rows,[]);
+  assert.deepEqual(offPage.own,friendRankings.own);
+  assert.equal(watchedRankings.own,null);
   assert.ok(!(await live()).matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'));
   const rankedHistory=await(await mf.dispatchFetch(base+'/api/play-history?match='+rankedId,{headers:{Cookie:cookies[0]}})).json();
   assert.deepEqual(rankedHistory.songs[0].lobbyScore,{correct:0,total:8});

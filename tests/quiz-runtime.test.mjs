@@ -788,7 +788,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal((await mf.dispatchFetch(quizFriendsPath)).status,401);
   const quizFriends = await mf.dispatchFetch(quizFriendsPath,{headers:auth});
   assert.equal(quizFriends.status,200,await quizFriends.clone().text());
-  assert.deepEqual(await quizFriends.json(),{rows:[],more:false,friendsOnly:true});
+  assert.deepEqual(await quizFriends.json(),{rows:[quizRankings.rows[0]],own:quizRankings.rows[0],more:false,friendsOnly:true});
   response = await post("host/quiz-scores-reset", {
     quiz: "test",
     confirmation: "RESET QUIZ SCORES AND TITLES",

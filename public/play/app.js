@@ -381,14 +381,14 @@ async function openMode(id, push = true) {
       void refreshLive();
     } else if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage+"&pool="+rankingPool;
-      const [{rankingPanel,rankingResultsHTML}]=await Promise.all([import("../play-rankings.js?v=friends-only"),accountReady]);
+      const [{rankingPanel,rankingResultsHTML}]=await Promise.all([import("../play-rankings.js?v=pinned-ranking"),accountReady]);
       if(version!==viewVersion)return;
       const friendsOnly=Boolean(state.me && rankingFriendsOnly);
       const panel=rankingPanel($("#main"),rankingFormat,rankingPool,friendsOnly);
       panel.innerHTML='<p class="ranking-empty" role="status">Loading Rankings…</p>';
       const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection+(friendsOnly?'&friends=1':''));
       if(friendsOnly && data.friendsOnly!==true)throw Error('The friends filter is updating. Try again shortly.');
-      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection,playerProfileHref,friendsOnly);
+      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection,playerProfileHref,friendsOnly,state.me);
     } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;

@@ -114,7 +114,7 @@ function json(data, status = 200, extra = {}) {
     },
   });
 }
-async function multiplayerRankings(env,params,friendIds=null) {
+async function multiplayerRankings(env,params,friendIds=null,viewer=null) {
   const format=params.get('format')||'ngmc-ranked';
   const page=Number(params.get('page'));
   const pool=params.get('pool')||'random';
@@ -122,7 +122,7 @@ async function multiplayerRankings(env,params,friendIds=null) {
   if(!['random','watched'].includes(pool)||!ranked||!Number.isSafeInteger(page)||page<0||page>100000)
     return json({error:'Invalid rankings page.'},400);
   const result=await env.PLAY_QUEUE.getByName('play-queues-v1')
-    .rankings(format,page,params.get('sort'),params.get('dir'),pool,friendIds);
+    .rankings(format,page,params.get('sort'),params.get('dir'),pool,friendIds,viewer);
   return json(result);
 }
 const cookie = (value, secure, age = 2592000) =>
@@ -1293,10 +1293,11 @@ export class Game extends DurableObject {
         )
       : null;
     if (!post && (path==='quiz-play-rankings'||path==='play-rankings')) {
+      const viewer=session?.player??null;
       let friendIds=null;
       if (url.searchParams.get('friends')==='1') {
         if (!session) fail('Sign in to filter by friends.',401);
-        friendIds=e.all('SELECT friend FROM player_friends WHERE player=?',session.player).map(row=>row.friend);
+        friendIds=[viewer,...e.all('SELECT friend FROM player_friends WHERE player=?',viewer).map(row=>row.friend)];
       }
       if(path==='quiz-play-rankings'){
         const page=Number(url.searchParams.get('page'));
@@ -1305,10 +1306,10 @@ export class Game extends DurableObject {
           count(*)*20 AS seen,count(*) AS matches,AVG(p.best_duration_ms) AS avgTimeMs
           FROM quiz_progress p JOIN quizzes q ON q.id=p.quiz JOIN players u ON u.id=p.player
           WHERE q.published=1 GROUP BY p.player`;
-        return json(playRankingPage(e.all.bind(e),source,[],{quiz:true,page,friendIds,
+        return json(playRankingPage(e.all.bind(e),source,[],{quiz:true,page,friendIds,viewer,
           sort:url.searchParams.get('sort'),dir:url.searchParams.get('dir')}));
       }
-      return multiplayerRankings(this.env,url.searchParams,friendIds);
+      return multiplayerRankings(this.env,url.searchParams,friendIds,viewer);
     }
     if (path === "logout" && post) {
       if (raw) e.run("DELETE FROM sessions WHERE token=?", await digest(raw));
@@ -1972,12 +1973,12 @@ export default {
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
       if(request.method==='GET'){
         const guest=!/(?:^|;\s*)amq_session=/.test(request.headers.get('Cookie')||'');
+        if(guest&&url.pathname==='/api/play-rankings'&&url.searchParams.get('friends')!=='1')
+          return multiplayerRankings(env,url.searchParams);
         if(guest&&url.pathname==='/api/play-state')return json(guestPlayState(Date.now()));
         if(url.pathname==='/api/play-lobbies'||url.pathname==='/api/play-queue-counts'||(guest&&url.pathname==='/api/play-live'))
           return publicPlaySnapshot(url,env.PLAY_QUEUE,globalThis.caches?.default,ctx);
       }
-      if(url.pathname==='/api/play-rankings'&&request.method==='GET'&&url.searchParams.get('friends')!=='1')
-        return multiplayerRankings(env,url.searchParams);
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
         const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v2');
         const saved=await cache?.match(key);if(saved)return saved;

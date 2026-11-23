@@ -297,7 +297,7 @@ export class PlayQueue extends DurableObject {
     });
     return ratings;
   }
-  async rankings(format,page,sort,dir,pool='random',friendIds=null){
+  async rankings(format,page,sort,dir,pool='random',friendIds=null,viewer=null){
     if(this.records.pending()){
       const alarm=await this.ctx.storage.getAlarm();
       if(alarm===null||alarm>Date.now()+30000)await this.ctx.storage.setAlarm(Date.now()+1000);
@@ -311,7 +311,7 @@ export class PlayQueue extends DurableObject {
     const source=`SELECT s.*,r.wins,r.losses,r.ties FROM (${stats}) s LEFT JOIN
       (SELECT player,SUM(outcome='W') AS wins,SUM(outcome='L') AS losses,SUM(outcome='T') AS ties
        FROM play_records WHERE format=? GROUP BY player) r ON r.player=s.player`;
-    return playRankingPage(this.rows.bind(this),source,ngmc?[bucket]:[bucket,bucket],{page,sort,dir,friendIds});
+    return playRankingPage(this.rows.bind(this),source,ngmc?[bucket]:[bucket,bucket],{page,sort,dir,friendIds,viewer});
   }
   async complete(id,result=null,status='cancelled'){
     let ratings=null;
