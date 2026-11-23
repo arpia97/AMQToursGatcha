@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
+import {timelineHTML} from '../public/play-review-timeline.js';
 import {reviewTimeline} from '../src/play-review-timeline.js';
 import {playedTrackLookup} from '../src/play-history.js';
 import {ReviewHighlights} from '../src/play-review-highlights.js';
@@ -44,6 +45,17 @@ test('host highlights correlate retained events across batches and count distinc
     assert.equal(resumed.advance(),false);
     assert.equal(resumed.advance(),false);
     assert.equal(resumed.count(),4);
+    assert.deepEqual({...resumed.counts()},{total:4,refocus:2,decoy:1,fast:1});
+    assert.deepEqual(resumed.songFlags('a'),{1:{refocus:1,decoy:0}});
+    assert.deepEqual(resumed.songFlags('b'),{3:{refocus:0,decoy:1}});
+    add('b',1,'submit',15000,{...answer,flags:[decoy]});
+    resumed.advance();
+    const flags=resumed.songFlags();
+    assert.deepEqual(flags[1],{refocus:1,decoy:1});
+    const html=timelineHTML({rounds:[1,2,3,4],round:1,flags,duration:null},new Map(),String);
+    assert.match(html,/aria-label="Song 1 · Refocus: 1 · Link Match: 1"/);
+    assert.match(html,/class="refocus"><\/i><i class="decoy">/);
+    assert.match(html,/title="Song 4" aria-pressed="false">4<\/button>/);
     assert.equal(resumed.list('f').rows[0].data.answer,'Example');
     const [fast,focus]=resumed.list('a').rows;
     assert.deepEqual(fast.data.rounds,[2,3,4]);

@@ -10,12 +10,19 @@ function answerText(answer) {
 
 export function timelineHTML(data, names, escape) {
   if (!data?.rounds.length) return '<p>No song timelines were recorded for this match.</p>';
-  const songs = data.rounds.map(round => '<button type="button" data-review-round="' + round +
-    '" aria-label="Song ' + round + '" aria-pressed="' + (round === data.round) + '">' + round + '</button>').join('');
+  const songs = data.rounds.map(round => {
+    const {refocus=0,decoy=0}=data.flags?.[round]??{};
+    const signals=[refocus && 'Refocus: '+refocus, decoy && 'Link Match: '+decoy].filter(Boolean);
+    const label=['Song '+round,...signals].join(' · ');
+    const markers=(refocus?'<i class="refocus"></i>':'')+(decoy?'<i class="decoy"></i>':'');
+    return '<button type="button" data-review-round="'+round+'" aria-label="'+label+'" title="'+label+
+      '" aria-pressed="'+(round===data.round)+'"'+(markers?' class="flagged '+(decoy?'decoy':'refocus')+'"':'')+'>'+round+
+      (markers?'<span class="review-song-flags" aria-hidden="true">'+markers+'</span>':'')+'</button>';
+  }).join('');
   const header = '<header class="review-timeline-head"><div class="review-timeline-toolbar"><strong>Songs</strong>' +
     '<div class="review-timeline-legend">' +
     Object.entries(stateLabels).map(([state, label]) => '<span><i class="' + state + '"></i>' + label + '</span>').join('') +
-    '<span><i class="answer"></i>Answer</span></div></div>' +
+    '<span><i class="answer"></i>Answer</span><span><i class="refocus"></i>Refocus</span><span><i class="decoy"></i>Link Match</span></div></div>' +
     '<div class="review-timeline-songs" role="group" aria-label="Songs">' + songs + '</div></header>';
   if (data.duration === null) return '<section class="review-timeline">' + header +
     '<p class="review-timeline-detail">Timing is unavailable for this song.</p></section>';

@@ -105,6 +105,18 @@ export class ReviewHighlights {
     });
   }
   count() {return [...this.sql.exec('SELECT count(*) AS n FROM match_highlights')][0].n;}
+  counts(player='') {
+    const [row]=this.sql.exec(`SELECT count(*) AS total, count(*) FILTER (WHERE kind='return') AS refocus,
+      count(*) FILTER (WHERE kind='decoy') AS decoy, count(*) FILTER (WHERE kind='fast') AS fast
+      FROM match_highlights`+(player?' WHERE player=?':''),...(player?[String(player)]:[]));
+    return row;
+  }
+  songFlags(player='') {
+    const rows=this.sql.exec(`SELECT round,count(*) FILTER (WHERE kind='return') AS refocus,
+      count(*) FILTER (WHERE kind='decoy') AS decoy FROM match_highlights
+      WHERE kind IN ('return','decoy')`+(player?' AND player=?':'')+' GROUP BY round',...(player?[String(player)]:[]));
+    return Object.fromEntries([...rows].map(({round,refocus,decoy})=>[round,{refocus,decoy}]));
+  }
   list(player='', offset=0) {
     const skip = Number.isSafeInteger(Number(offset)) ? Math.max(0,Number(offset)) : 0;
     const rows = [...this.sql.exec('SELECT * FROM match_highlights '+(player?'WHERE player=? ':'')+'ORDER BY seq DESC,kind LIMIT 51 OFFSET ?',...(player?[String(player)]:[]),skip)];

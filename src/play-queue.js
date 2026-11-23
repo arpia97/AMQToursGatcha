@@ -46,6 +46,8 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_reviews(id TEXT PRIMARY KEY,created INTEGER NOT NULL,format TEXT NOT NULL,players TEXT NOT NULL,status TEXT NOT NULL)');
     ctx.storage.sql.exec('CREATE INDEX IF NOT EXISTS match_reviews_created ON match_reviews(created)');
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_flag_counts(id TEXT PRIMARY KEY,total INTEGER NOT NULL)');
+    if(!this.rows('PRAGMA table_info(match_flag_counts)').some(c=>c.name==='breakdown'))
+      ctx.storage.sql.exec('ALTER TABLE match_flag_counts ADD COLUMN breakdown TEXT');
     this.records=new PlayRecords(this);
     this.presence=new PlayPresence(ctx.storage);
   }
@@ -161,13 +163,30 @@ export class PlayQueue extends DurableObject {
   canAccess(player,id){return this.lobbies.forPlayer(player)?.last_match===id||!!this.rows('SELECT 1 FROM recent WHERE player=? AND match=? AND expires>?',player,id,Date.now())[0];}
   playerHistory(player, options){return playerHistory(this,player,options);}
   hasReview(id){return !!this.rows('SELECT 1 FROM match_reviews WHERE id=?',id)[0];}
-  indexHighlights(id,count){
-    this.ctx.storage.sql.exec('INSERT INTO match_flag_counts VALUES(?,?) ON CONFLICT(id) DO UPDATE SET total=MAX(total,excluded.total)',id,count);
+  indexHighlights(id,count,counts=null){
+    this.ctx.storage.sql.exec(`INSERT INTO match_flag_counts(id,total,breakdown) VALUES(?,?,?)
+      ON CONFLICT(id) DO UPDATE SET total=excluded.total,
+      breakdown=CASE WHEN excluded.breakdown IS NULL AND excluded.total=total THEN breakdown ELSE excluded.breakdown END
+      WHERE excluded.total>=total`,id,count,counts?JSON.stringify(counts):null);
   }
-  reviews({before=Date.now()+1,search='',flagged=''}={}){
+  async reviews({before=Date.now()+1,search='',flagged=''}={}){
     const query=String(search).slice(0,100).replace(/[\\%_]/g,'\\$&');
-    const rows=this.rows("SELECT m.*,COALESCE(f.total,0) AS flags FROM match_reviews m "+(flagged==='1'?'JOIN':'LEFT JOIN')+" match_flag_counts f ON f.id=m.id WHERE created<? AND (players LIKE ? ESCAPE '\\' OR m.id=?) ORDER BY created DESC LIMIT 51",Number(before)||Date.now()+1,'%'+query+'%',search);
-    return {matches:rows.slice(0,50).map(r=>({...r,players:JSON.parse(r.players)})),next:rows.length>50?rows[49].created:null};
+    const rows=this.rows("SELECT m.*,COALESCE(f.total,0) AS flags,f.breakdown FROM match_reviews m "+(flagged==='1'?'JOIN':'LEFT JOIN')+" match_flag_counts f ON f.id=m.id WHERE created<? AND (players LIKE ? ESCAPE '\\' OR m.id=?) ORDER BY created DESC LIMIT 51",Number(before)||Date.now()+1,'%'+query+'%',search);
+    const matches=rows.slice(0,50).map(({breakdown,players,...r})=>({...r,players:JSON.parse(players),counts:breakdown?JSON.parse(breakdown):null}));
+    // Earlier index rows stored only a total. Read their already-indexed signals once.
+    const missing=matches.filter(m=>m.flags && !m.counts);
+    for(let i=0;i<missing.length;i+=5){
+      await Promise.all(missing.slice(i,i+5).map(async m=>{
+        // A temporarily unavailable older room can be retried on the next review request.
+        const counts=await this.env.PLAY_MATCHES.getByName(m.id).reviewFlagCounts().catch(()=>null);
+        if(counts && counts.total>=m.flags){
+          this.indexHighlights(m.id,counts.total,counts);
+          m.flags=counts.total;
+          m.counts=counts;
+        }
+      }));
+    }
+    return {matches,next:rows.length>50?rows[49].created:null};
   }
   release(player,id){this.ctx.storage.sql.exec('DELETE FROM queue WHERE player=? AND match=?',player,id);this.broadcast();}
   loadTourRate(player,pool){return loadTourRate(player,undefined,pool==='watched'?'watched':'usual');}

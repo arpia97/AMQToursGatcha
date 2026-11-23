@@ -1,4 +1,4 @@
-import {playReviewPanel,mountPlayReview} from './play-review-ui.js';
+import {playReviewPanel,mountPlayReview} from './play-review-ui.js?v=signal-counts';
 
 export async function openPlayConsole(modal,api,esc){
   const host=(path,body)=>api('host/'+path,body);

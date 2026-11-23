@@ -673,6 +673,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       await mf.dispatchFetch(base+'/api/__advance?match='+id);
       const indexed=await (await mf.dispatchFetch(base+'/api/host/play-review?flagged=1',{headers:auditHeaders})).json();
       assert.ok(indexed.matches.some(m=>m.id===id&&m.flags>0),'finished match indexed before a host opens it');
+      assert.ok(indexed.matches.find(m=>m.id===id).counts.decoy>0);
       let highlights;
       do {
         highlights=await (await mf.dispatchFetch(base+'/api/host/play-review?match='+id+'&view=highlights',{headers:auditHeaders})).json();
@@ -686,6 +687,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.equal((await mf.dispatchFetch(timelineUrl,{headers:{Cookie:cookies[0]}})).status,401);
       const timeline=(await (await mf.dispatchFetch(timelineUrl,{headers:auditHeaders})).json()).timeline;
       assert.equal(timeline.round,2);
+      assert.equal(timeline.flags[2].decoy,1);
       assert.deepEqual(timeline.tracks.map(track=>track.player),['1']);
       assert.deepEqual(timeline.tracks[0].answers.map(entry=>entry.fields.anime),[decoyAnime]);
       const update=headers=>mf.dispatchFetch(base+'/api/host/play-review',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({match:id,status:'reviewing',note:'Check round 1'})});

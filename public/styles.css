@@ -1273,6 +1273,18 @@ dialog.account-modal {
 .review-timeline-songs button { flex: 0 0 24px; height: 29px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: #242932; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .review-timeline-songs button:hover { border-color: var(--muted); color: var(--text); }
 .review-timeline-songs button[aria-pressed="true"] { background: var(--focused); border-color: var(--focused); color: #14241c; font-weight: 700; }
+.review-signal-summary { display:flex; flex-wrap:wrap; gap:6px 18px; margin:10px 0; }
+.review-count { font-variant-numeric:tabular-nums; color:var(--muted); }
+.review-refocus { color:#ffac61; }
+.review-decoy { color:#ff727f; }
+.review-timeline-songs button.flagged { position:relative; padding-bottom:4px; }
+.review-timeline-songs button.flagged.refocus { color:#ffac61; }
+.review-timeline-songs button.flagged.decoy { color:#ff727f; }
+.review-timeline-songs button.flagged[aria-pressed="true"] { background:#23342e; box-shadow:inset 0 0 0 1px var(--focused); }
+.review-song-flags { position:absolute; bottom:3px; left:0; right:0; display:flex; justify-content:center; gap:2px; }
+.review-song-flags i { width:6px; height:3px; border-radius:2px; }
+.review-song-flags .refocus,.review-timeline-legend i.refocus { background:#ffac61; }
+.review-song-flags .decoy,.review-timeline-legend i.decoy { background:#ff727f; }
 .review-timeline-songs button:focus-visible { outline-offset: -2px; }
 .review-timeline-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 11px; }
 .review-timeline-legend span { display: inline-flex; align-items: center; gap: 5px; }

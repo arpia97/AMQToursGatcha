@@ -499,7 +499,7 @@ document.addEventListener("click", async (event) => {
       await openMode(mode,false);
     } else if (button.classList.contains("dialog-close")) $("#modal").close();
     else if (action === "account") account();
-    else if(action==="play-console" && state.me?.is_admin)await (await import("../play-console.js")).openPlayConsole(modal,api,escape);
+    else if(action==="play-console" && state.me?.is_admin)await (await import("../play-console.js?v=signal-counts")).openPlayConsole(modal,api,escape);
     else if (action === "settings") settings();
     else if (action === "signin-form") auth();
     else if (action === "register-form") auth("register");

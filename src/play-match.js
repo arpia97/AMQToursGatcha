@@ -487,14 +487,17 @@ export class PlayMatch extends DurableObject {
     const state=this.read();
     return state?.phase==='finished'?matchRecords(state):archivedRecords(this.ctx.storage.sql,format,ratings);
   }
+  reviewFlagCounts(){return this.highlights.counts();}
   async indexHighlights(match){
     const pending=this.highlights.advance();
-    const count=this.highlights.count();
-    if(!pending && count){
+    if(pending)return true;
+    const counts=this.reviewFlagCounts();
+    if(counts.total){
       const published=this.ctx.storage.sql.exec('SELECT data FROM review_meta WHERE id=5').toArray()[0];
-      if(Number(published?.data)!==count){
-        await this.env.PLAY_QUEUE.getByName('play-queues-v1').indexHighlights(match,count);
-        this.ctx.storage.sql.exec('INSERT OR REPLACE INTO review_meta VALUES(5,?,0)',String(count));
+      const encoded=JSON.stringify(counts);
+      if(published?.data!==encoded){
+        await this.env.PLAY_QUEUE.getByName('play-queues-v1').indexHighlights(match,counts.total,counts);
+        this.ctx.storage.sql.exec('INSERT OR REPLACE INTO review_meta VALUES(5,?,0)',encoded);
       }
     }
     return pending;
@@ -525,12 +528,16 @@ export class PlayMatch extends DurableObject {
     const detail=this.reviewLog.page(options);
     if(detail)detail.assessment=this.ctx.storage.sql.exec("SELECT data FROM review_meta WHERE id=2").toArray().map(r=>JSON.parse(r.data))[0]||null;
     if(detail && options.view==='timeline'){
-      detail.timeline=reviewTimeline(this.ctx.storage.sql,detail.players,options);
+      const pending=await this.indexHighlights(detail.id);
+      detail.timeline=pending?{pending,rounds:[],duration:null,tracks:[]}:{
+        ...reviewTimeline(this.ctx.storage.sql,detail.players,options),
+        flags:this.highlights.songFlags(options.player)
+      };
       return detail;
     }
     if(detail && options.view==='highlights'){
       const pending=await this.indexHighlights(detail.id);
-      detail.highlights={pending,total:this.highlights.count(),...this.highlights.list(options.player,options.offset)};
+      detail.highlights={pending,total:this.highlights.count(),counts:this.highlights.counts(options.player),...this.highlights.list(options.player,options.offset)};
     }
     if(detail){
       const missing = detail.highlights
