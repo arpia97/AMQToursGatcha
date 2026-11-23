@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Cooperative song results in Play History
+
+Runtime `90a7d01` deployed as Worker `feea40a2-52d8-49ed-893f-1690ea3e2935`. History and the in-match Song List use the selected team answers for survival and Song/Artist cooperative games. Saved rounds are reconstructed on read. Legacy logs require a full roster of results to classify a round. All 606 tests passed, along with syntax and build checks. Chromium verified the shared answer at 390px and 1200px. Play, Gacha and four production assets returned the updated release.
+
 ## Approved Gacha tile artwork and Alchemy selector
 
 Runtime `742b6ec` deployed as Worker `1fab74f4-4f36-4d8b-b55c-c0ed80b9ac21`. All six shop sleeve illustrations match the approved preview. The refinement picker centers the Select Card and Selected pill. Desktop and 390px browser tests verified image sizing, button clearance, selection alignment and pack opening. All 17 focused tests and the Worker dry run passed. Both live routes and all nine changed script, style and image assets were verified. Legacy hostname retirement still awaits identification of the intended address.
