@@ -480,8 +480,8 @@ export class PlayMatch extends DurableObject {
       try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}await this.schedule();
     }catch(error){socketError(ws,error);}
   }
-  playerHistory(player, includeSongs){
-    return readPlayHistory(this.ctx.storage, this.read(), player, includeSongs);
+  playerHistory(player, includeSongs, format){
+    return readPlayHistory(this.ctx.storage, this.read(), player, includeSongs, format);
   }
   historicalRecords(format,ratings){
     const state=this.read();

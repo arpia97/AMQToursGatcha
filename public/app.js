@@ -771,7 +771,7 @@ const arcadeStyles = ["mahjong.css", "pachinko.css", "adventure.css", "horse-rac
   loadOnce(() => loadStylesheet(new URL(name, import.meta.url), document.querySelector('link[href="card-frames.css"]'))),
 );
 const loadGachaPlayHistory = loadOnce(async () => {
-  const [history] = await Promise.all([import("./play-history.js"), loadStylesheet(new URL("play-history.css", import.meta.url))]);
+  const [history] = await Promise.all([import("./play-history.js?v=team-song-result"), loadStylesheet(new URL("play-history.css?v=team-song-result", import.meta.url))]);
   return history;
 });
 const loadArcadePage = loadOnce(async () => {

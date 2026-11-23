@@ -1,4 +1,5 @@
-import {ONE_TEAM_FORMAT,matchGuessFields} from './play-mode-rules.js';
+import {sharedSongFormat,teamSongResult} from './play-team-song.js';
+import {matchGuessFields} from './play-mode-rules.js';
 import {animeTitlesHTML} from './play-round-ui.js';
 
 export function createSongListDialog(esc,animeTitle){
@@ -6,24 +7,28 @@ export function createSongListDialog(esc,animeTitle){
   function update(match){
     if(!dialog?.open)return;
     const songs=match.songList||match.history;
-    const ngmc=match.mode==='ngmc-ranked',survival=match.format===ONE_TEAM_FORMAT;
+    const ngmc=match.mode==='ngmc-ranked',cooperative=sharedSongFormat(match.format);
     const rounds=new Map(match.history.map(row=>[row.index,row.results]));
     const spectator=!match.me;
-    const shared=survival?'<th>Team Result</th>':ngmc?'<th>Lobby Score</th>':'';
-    const scoreHeaders=shared+(spectator?'':ngmc||survival?'<th>Your Result</th>':'<th>Your Score</th>');
+    const shared=cooperative?'<th>Team Result</th>':ngmc?'<th>Lobby Score</th>':'';
+    const scoreHeaders=shared+(spectator||cooperative?'':ngmc?'<th>Your Result</th>':'<th>Your Score</th>');
     const html=songs.length?'<table><thead><tr><th>#</th><th>Anime</th><th>Song</th><th>Artist</th>'+scoreHeaders+'</tr></thead><tbody>'+songs.map(song=>{
       const results=rounds.get(song.index);
       const own=results?.find(player=>player.id===match.me);
       let score;
-      if(ngmc||survival){
+      if(cooperative){
+        const team=results && teamSongResult(results);
+        const total=team && Object.keys(team.correct).length;
+        const label=!total?'—':total>1?team.earned+' / '+total:team.earned?'✓ Hit':'× Missed';
+        score='<td class="sa-lobby-score">'+label+'</td>';
+      }else if(ngmc){
         const lobbyScore=results?results.filter(player=>player.correct?.anime).length+'/'+match.players.length:'—';
         const result=own
           ? own.correct?.anime
             ? '<span class="sa-song-result is-correct"><span aria-hidden="true">✓</span> Correct</span>'
             : '<span class="sa-song-result is-incorrect"><span aria-hidden="true">×</span> Incorrect</span>'
           : '—';
-        const teamResult=results?results.some(player=>player.correct?.anime)?'Correct':'Life lost':'—';
-        score='<td class="sa-lobby-score">'+(survival?teamResult:lobbyScore)+'</td>'+(spectator?'':'<td>'+result+'</td>');
+        score='<td class="sa-lobby-score">'+lobbyScore+'</td>'+(spectator?'':'<td>'+result+'</td>');
       }else{
         score=spectator?'':'<td>'+(own?own.earned+' / '+(match.teamFields?1:matchGuessFields(match).length):'—')+'</td>';
       }

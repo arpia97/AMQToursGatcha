@@ -87,7 +87,7 @@ function account() {
 }
 const loadPlayHistory = loadOnce(async () => {
   const [history] = await Promise.all([
-    import("../play-history.js?v=compact-team-guesses"), loadStylesheet(new URL("play-history.css", assets)),
+    import("../play-history.js?v=team-song-result"), loadStylesheet(new URL("play-history.css?v=team-song-result", assets)),
   ]);
   return history;
 });

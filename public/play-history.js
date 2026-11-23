@@ -1,6 +1,8 @@
 import {loadQuizTitleDisplay, quizAnimeTitle} from './quiz-title-display.js';
 import {ONE_TEAM_FORMAT} from './play-mode-rules.js';
 
+import {sharedSongFormat} from './play-team-song.js';
+
 const formats = {
   'ngmc-ranked': 'NGMC 4v4 Ranked', 'ngmc-3v3': 'NGMC 3v3', 'lobby-ngmc': 'NGMC Lobby',
   '1v1-ranked': '1v1 Ranked', 'lobby-duel': '1v1 Lobby', '2v2-arena': '2v2 Arena',
@@ -30,14 +32,17 @@ export function matchHistoryHTML(matches, escape) {
 
 export function songHistoryHTML(data, escape, titleMode) {
   if (!data.songs?.length) return '<p class="ph-empty">No song results were recorded for this match.</p>';
-  const rows = data.songs.map(song => {
+  const shared = sharedSongFormat(data.format);
+  const rows = data.songs.map(personal => {
+    const known = !shared || !!personal.teamResult;
+    const song = shared ? {...personal, earned: 0, correct: {}, answers: {}, ...personal.teamResult} : personal;
     const fields = Object.keys(labels).filter(field => Object.hasOwn(song.correct ?? {}, field));
     const correct = fields.length > 0 && song.earned === fields.length;
-    const result = fields.length <= 1 ? (correct ? 'Correct' : 'Missed') : song.earned + '/' + fields.length;
-    const indicator = correct ? '✓' : song.earned ? '•' : '×';
+    const result = !known ? 'Unavailable' : fields.length <= 1 ? (correct ? (shared ? 'Hit' : 'Correct') : 'Missed') : song.earned + '/' + fields.length;
+    const indicator = !known ? '—' : correct ? '✓' : song.earned ? '•' : '×';
     const credit = [song.songType, song.song, song.artist].filter(Boolean).join(' · ');
     const score = song.lobbyScore;
-    const lobbyScore = score
+    const lobbyScore = shared ? '' : score
       ? '<span class="ph-lobby-score" aria-label="Lobby score: ' + escape(score.correct) + ' of ' +
         escape(score.total) + ' players answered the anime correctly">' + escape(score.correct + '/' + score.total) + '</span>'
       : '<span class="ph-lobby-score" aria-label="Lobby score unavailable">—</span>';
@@ -48,13 +53,13 @@ export function songHistoryHTML(data, escape, titleMode) {
       '</span><span class="ph-track"><strong>' +
       escape(song.anime ? quizAnimeTitle(song, titleMode) : song.answers?.anime || 'Round ' + (song.index + 1)) +
       '</strong>' + (credit ? '<small>' + escape(credit) + '</small>' : '') + '</span>' + lobbyScore + '<span class="ph-badge ' +
-      (correct ? 'correct' : song.earned ? 'partial' : 'miss') + '"><span aria-hidden="true">' +
+      (!known ? '' : correct ? 'correct' : song.earned ? 'partial' : 'miss') + '"><span aria-hidden="true">' +
       indicator + '</span> ' + escape(result) + '</span><span class="ph-chevron" aria-hidden="true">›</span></summary>' +
-      '<div class="ph-song-answers"><strong>Your Answers</strong>' + answer + '</div></details>';
+      '<div class="ph-song-answers"><strong>' + (shared ? 'Team Answers' : 'Your Answers') + '</strong>' + (known ? answer : ' —') + '</div></details>';
   });
-  return (data.roundsOnly ? '<p class="ph-archive">Only your answers and results were retained for this older match.</p>' : '') +
-    '<div class="ph-song-labels" aria-hidden="true"><span>#</span><span>Anime / Track</span><span title="Players who answered the anime correctly">Lobby Score</span><span>Your Result</span></div>' +
-    '<div class="ph-songs">' + rows.join('') + '</div>';
+  return (data.roundsOnly ? '<p class="ph-archive">Track details are unavailable for this older match.</p>' : '') +
+    '<div' + (shared ? ' class="ph-team-songs"' : '') + '><div class="ph-song-labels" aria-hidden="true"><span>#</span><span>Anime / Track</span>' + (shared ? '<span>Team Result</span>' : '<span title="Players who answered the anime correctly">Lobby Score</span><span>Your Result</span>') + '</div>' +
+    '<div class="ph-songs">' + rows.join('') + '</div></div>';
 }
 
 export function openPlayHistory({modal, api, escape, titleMode}) {

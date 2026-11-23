@@ -57,6 +57,8 @@
   gap: 9px;
   padding: 6px 10px;
 }
+.ph-team-songs .ph-song-labels,.ph-team-songs .ph-song summary { grid-template-columns: 24px minmax(0,1fr) 82px 12px; }
+.ph-team-songs .ph-song-labels > :nth-child(3) { justify-self: start; }
 .ph-song-labels { color: var(--muted); font-size: 11px; }
 .ph-song-labels > :nth-child(3),.ph-lobby-score { justify-self: center; white-space: nowrap; }
 .ph-lobby-score { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }

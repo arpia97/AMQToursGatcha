@@ -2,6 +2,8 @@ import {arenaStandings} from './play-arena.js';
 import {matchRecords} from './play-records.js';
 import {ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
+import {sharedSongFormat, teamSongResult} from '../public/play-team-song.js';
+
 const HISTORY_META_ID = 6;
 const PAGE_SIZE = 6;
 const scoreOutcome = (score, opponent) => score === opponent ? 'T' : score > opponent ? 'W' : 'L';
@@ -41,7 +43,7 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   });
 }
 
-export function readPlayHistory(storage, state, player, includeSongs) {
+export function readPlayHistory(storage, state, player, includeSongs, format = state?.format) {
   if (state && state.phase !== 'finished') return null;
   const {sql} = storage;
   const load = () => sql.exec('SELECT data FROM review_meta WHERE id=?', HISTORY_META_ID).toArray()[0];
@@ -59,6 +61,7 @@ export function readPlayHistory(storage, state, player, includeSongs) {
       const round = JSON.parse(data);
       const result = round.results.find(row => row.id === player);
       if (!result) return [];
+      if (sharedSongFormat(format)) return [{...songResult(round, result), teamResult: teamSongResult(round.results)}];
       const lobbyScore = {
         correct: round.results.filter(row => row.correct?.anime === true).length,
         total: players.length,
@@ -76,6 +79,22 @@ export function readPlayHistory(storage, state, player, includeSongs) {
     return songResult({index: result.round - 1}, {...result,
       earned: result.earned ?? Object.values(result.correct ?? {}).filter(Boolean).length});
   });
+  if (includeSongs && sharedSongFormat(format)) {
+    const meta = sql.exec('SELECT data FROM review_meta WHERE id=1').toArray()[0];
+    const roster = state?.players ?? (meta && JSON.parse(meta.data).players);
+    const byRound = new Map();
+    for (const row of sql.exec("SELECT player,data FROM review_events WHERE kind='round-result' ORDER BY seq")) {
+      const result = JSON.parse(row.data);
+      if (!byRound.has(result.round)) byRound.set(result.round, new Map());
+      byRound.get(result.round).set(row.player, result);
+    }
+    for (const song of songs) {
+      const results = byRound.get(song.index + 1);
+      if (roster?.length && roster.every(p => results?.has(String(p.id)))) {
+        song.teamResult = teamSongResult([...results.values()]);
+      }
+    }
+  }
   return {ended, rounds: songs.length, score: songs.reduce((sum, song) => sum + song.earned, 0),
     ...(includeSongs ? {songs, roundsOnly: true} : {})};
 }
@@ -100,7 +119,7 @@ export async function playerHistory(queue, player, {before, match} = {}) {
   const records = `SELECT m.id,m.created,m.format,r.outcome FROM match_reviews m
     LEFT JOIN play_records r ON r.match=m.id AND r.player=? WHERE ${participant}`;
   const detail = async (row, songs) => {
-    const saved = await queue.env.PLAY_MATCHES.getByName(row.id).playerHistory(player, songs);
+    const saved = await queue.env.PLAY_MATCHES.getByName(row.id).playerHistory(player, songs, row.format);
     if (!saved) return null;
     return {id: row.id, format: row.format, date: row.created, ...saved,
       outcome: saved.outcome ?? row.outcome};

@@ -308,3 +308,35 @@ test('survival queues separate song pools and move rematch voters before spectat
   assert.equal(restartedState.format,ONE_TEAM_FORMAT);
   assert.deepEqual(restartedState.teams,[5]);
 });
+
+test('archived one-team songs show the same graded answer for the owner and every teammate', async () => {
+  const {readPlayHistory} = await import('../src/play-history.js');
+  const {songHistoryHTML} = await import('../public/play-history.js');
+  const roster = [{id:'owner', score:1}, {id:'voter', score:0}];
+  const rounds = [true, false].map((hit, index) => ({
+    index, anime:'Anime', results:[
+      {id:'owner', earned:Number(hit), correct:{anime:hit}, answers:{anime:hit?'Anime':'Wrong'}},
+      {id:'voter', earned:0, correct:{anime:false}, answers:{}},
+    ],
+  }));
+  const storage = {sql:{exec(query) {
+    const records = query.includes('review_meta') ? [{players:roster, rounds:2}] : rounds;
+    return {toArray:() => records.map(row => ({data:JSON.stringify(row)}))};
+  }}};
+  for (const format of [ONE_TEAM_FORMAT, '1-team', 'lobby-team']) {
+    for (const player of roster) {
+      const data = readPlayHistory(storage, null, player.id, true, format);
+      assert.equal(data.score, player.score);
+      assert.deepEqual(data.songs.map(song => song.teamResult.correct.anime), [true,false]);
+      const html = songHistoryHTML({...data,format}, String);
+      assert.match(html, /Team Result/);
+      assert.match(html, /Hit<\/span>/);
+      assert.match(html, /Missed<\/span>/);
+      assert.match(html, /Wrong/);
+      assert.doesNotMatch(html, /Lobby Score|Your Result/);
+    }
+  }
+  const individual = readPlayHistory(storage, null, 'voter', true, 'ngmc-ranked');
+  assert.deepEqual(individual.songs[0].lobbyScore, {correct:1,total:2});
+  assert.equal(individual.songs[0].earned, 0);
+});
