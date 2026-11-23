@@ -1,8 +1,8 @@
 import { routeHref } from "./site-navigation.js";
-import { pickemVoteChart, pickemParticipationTag, pickemShare } from "./pickem-votes.js";
+import { pickemVoteChart, pickemParticipationTag, pickemShare } from "./pickem-votes.js?v=pickem-vote-visibility";
 import { pickemOutcome } from "./pickem-formats.js";
 import { winnerPredictionBody } from "./tour-winner.js";
-import { winnerCard } from "./tour-winner-ui.js";
+import { winnerCard } from "./tour-winner-ui.js?v=pickem-vote-visibility";
 import { countdownMarkup } from "./countdown.js";
 export function tourSummaries(matches, now) {
   const groups = new Map();
@@ -204,12 +204,15 @@ export function pickemBoard(
           (p.round || 1) +
           '</td><th scope="row" class="match-name">' +
           '<a href="' + routeHref("pickems/" + p.id) + '">' + label + "</a>" +
-          '<details class="pickem-vote-details"><summary>' +
-          n(p.voteSummary?.total || 0) +
-          (p.voteSummary?.total === 1 ? " voter" : " voters") +
-          " · View Votes</summary>" +
-          pickemVoteChart(p, { escape: e, number: n }) +
-          "</details></th>" +
+          (p.voteSummary === null
+            ? '<small class="form-hint">Vote counts appear when voting closes.</small>'
+            : '<details class="pickem-vote-details"><summary>' +
+              n(p.voteSummary?.total || 0) +
+              (p.voteSummary?.total === 1 ? " voter" : " voters") +
+              " · View Votes</summary>" +
+              pickemVoteChart(p, { escape: e, number: n }) +
+              "</details>") +
+          "</th>" +
           predictionCells(p, draft, form, e, open, label) +
           '<td class="pickem-state" title="' +
           e(deadline(p)) +

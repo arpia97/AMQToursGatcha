@@ -26,6 +26,7 @@ export class PickemEvents {
       ["mode", "TEXT NOT NULL DEFAULT 'match'"],
       ["teams", "TEXT"],
       ["result_winner", "TEXT"],
+      ["hide_votes", "INTEGER NOT NULL DEFAULT 0"],
     ])
       if (!columns.some((c) => c.name === name))
         e.run(`ALTER TABLE pickems ADD COLUMN ${name} ${type}`);
@@ -56,7 +57,7 @@ export class PickemEvents {
     rounds.forEach((pairs, i) =>
       pairs.forEach(([a, c]) => {
         e.run(
-          "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode,hide_votes) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
           `${event.name} · ${event.format === "double-4" ? "Group" : "Round"} ${startRound + i} · ${a} vs ${c}`,
           event.name,
           a,
@@ -67,6 +68,7 @@ export class PickemEvents {
           event.id,
           startRound + i,
           event.format === "double-4" ? "pair" : "match",
+          Number(b.hideVotes === true),
         );
         count++;
       }),
@@ -144,6 +146,7 @@ export class PickemEvents {
   page(page = 1, player = null) {
     const e = this.e;
     integer(page, 1, 10000);
+    const now = e.now();
     const rows = e.all(
       `SELECT CASE WHEN p.event_id IS NULL THEN -p.id ELSE p.event_id END AS key,
       COALESCE(ev.name,p.tour) AS name,ev.format,COUNT(*) AS matches,SUM(CASE WHEN p.mode='pair' THEN 1 ELSE 0 END) AS pairs,
@@ -151,12 +154,14 @@ export class PickemEvents {
       SUM(CASE WHEN p.settled=0 AND p.ends>? THEN 1 ELSE 0 END) AS open,
       MIN(CASE WHEN p.settled=0 AND p.ends>? THEN p.ends END) AS nextEnds,
       MAX(p.id) AS newest,MAX(CASE WHEN viewer.player IS NOT NULL THEN 1 ELSE 0 END) AS participated,
-      CASE WHEN ev.format='winner' THEN (SELECT count(*) FROM predictions v WHERE v.pickem=p.id) ELSE NULL END AS voters FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
+      CASE WHEN ev.format='winner' AND (p.hide_votes=0 OR p.settled=1 OR p.ends<=?)
+        THEN (SELECT count(*) FROM predictions v WHERE v.pickem=p.id) END AS voters FROM pickems p LEFT JOIN pickem_events ev ON ev.id=p.event_id
       LEFT JOIN predictions viewer ON viewer.pickem=p.id AND viewer.player=?
       GROUP BY CASE WHEN p.event_id IS NULL THEN -p.id ELSE p.event_id END
       ORDER BY newest DESC LIMIT 21 OFFSET ?`,
-      e.now(),
-      e.now(),
+      now,
+      now,
+      now,
       player || "",
       (page - 1) * 20,
     );
@@ -185,11 +190,13 @@ export class PickemEvents {
       Math.abs(key),
     );
     if (!matches.length) fail("Pick’em tour not found.", 404);
+    const now = e.now();
     const tallies = e.all(
       "SELECT v.pickem,v.winner,count(*) AS votes FROM predictions v JOIN pickems p ON p.id=v.pickem WHERE " +
         where +
-        " GROUP BY v.pickem,v.winner",
+        " AND (p.hide_votes=0 OR p.settled=1 OR p.ends<=?) GROUP BY v.pickem,v.winner",
       Math.abs(key),
+      now,
     );
     const grouped = new Map();
     for (const row of tallies) {
@@ -207,7 +214,9 @@ export class PickemEvents {
       format: event?.format || null,
       matches: matches.map((p) => ({
         ...p,
-        voteSummary: pickemVoteSummary(p, grouped.get(p.id) || []),
+        voteSummary: p.hide_votes && !p.settled && p.ends > now
+          ? null
+          : pickemVoteSummary(p, grouped.get(p.id) || []),
       })),
       byes:
         !single && key > 0
@@ -240,7 +249,8 @@ export class PickemEvents {
       "votes",
       "mode",
     ];
-    if (!expected || fields.some((k) => p[k] !== expected[k]))
+    if (!expected || fields.some((k) => p[k] !== expected[k]) ||
+        (Object.hasOwn(expected, "hide_votes") && p.hide_votes !== expected.hide_votes))
       fail("This pick’em changed. Reload it and review again.", 409);
     if (p.mode === "tour" && p.teams !== expected.teams)
       fail("The team list changed. Reload it and review again.", 409);
@@ -312,7 +322,7 @@ export class PickemEvents {
       );
       const event = e.one("SELECT last_insert_rowid() AS id").id;
       e.run(
-        "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode,teams) VALUES(?,?,?,?,?,?,0,?,1,'tour',?)",
+        "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,event_id,round,mode,teams,hide_votes) VALUES(?,?,?,?,?,?,0,?,1,'tour',?,?)",
         name,
         name,
         teams[0],
@@ -321,6 +331,7 @@ export class PickemEvents {
         reward,
         event,
         JSON.stringify(teams),
+        Number(b.hideVotes === true),
       );
       return { message: "Tour winner pick’em published.", event, pickem: e.one("SELECT last_insert_rowid() AS id").id };
     }
@@ -345,7 +356,7 @@ export class PickemEvents {
         );
       if (changed) e.run("DELETE FROM predictions WHERE pickem=?", p.id);
       e.run(
-        "UPDATE pickems SET title=?,tour=?,team_a=?,team_b=?,ends=?,winner_reward=?,score_reward=0,teams=? WHERE id=?",
+        "UPDATE pickems SET title=?,tour=?,team_a=?,team_b=?,ends=?,winner_reward=?,score_reward=0,teams=?,hide_votes=? WHERE id=?",
         name,
         name,
         teams[0],
@@ -353,6 +364,7 @@ export class PickemEvents {
         ends,
         reward,
         JSON.stringify(teams),
+        b.hideVotes === undefined ? p.hide_votes : Number(b.hideVotes === true),
         p.id,
       );
       e.run(
@@ -432,9 +444,10 @@ export class PickemEvents {
       );
       for (const [a, c] of groups.values()) {
         e.run(
-          "UPDATE pickems SET mode='pair',ends=?,title=? WHERE id=?",
+          "UPDATE pickems SET mode='pair',ends=?,title=?,hide_votes=? WHERE id=?",
           Math.min(a.ends, c.ends),
           `${event.name} · Group ${a.round} · ${a.team_a} vs ${a.team_b}`,
+          Math.max(a.hide_votes, c.hide_votes),
           a.id,
         );
         e.run("DELETE FROM pickems WHERE id=?", c.id);
@@ -502,13 +515,14 @@ export class PickemEvents {
         );
       if (changedTeams) e.run("DELETE FROM predictions WHERE pickem=?", p.id);
       e.run(
-        "UPDATE pickems SET title=?,team_a=?,team_b=?,ends=?,winner_reward=?,score_reward=? WHERE id=?",
+        "UPDATE pickems SET title=?,team_a=?,team_b=?,ends=?,winner_reward=?,score_reward=?,hide_votes=? WHERE id=?",
         title,
         teamA,
         teamB,
         ends,
         winner,
         score,
+        b.hideVotes === undefined ? p.hide_votes : Number(b.hideVotes === true),
         p.id,
       );
       return { message: "Pick’em updated." };
@@ -588,6 +602,7 @@ export class PickemEvents {
       fail("Swiss results or pairings changed. Review this round again.", 409);
     if (bye)
       e.run("INSERT INTO pickem_byes VALUES(?,?,?)", event.id, round, bye);
-    return this.publish(event, [pairs], b.deadlines, b, round);
+    const hideVotes = b.hideVotes ?? matches.some(p => p.round === round - 1 && p.hide_votes);
+    return this.publish(event, [pairs], b.deadlines, { ...b, hideVotes }, round);
   }
 }

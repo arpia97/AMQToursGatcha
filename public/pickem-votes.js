@@ -33,10 +33,16 @@ export function pickemVoteSummary(p, tallies = []) {
   };
 }
 
+export function pickemVoteVisibilityField(p){
+  return '<label class="check-label"><input type="checkbox" name="hideVotes"'+
+    (p?.hide_votes ? ' checked' : '')+'> Hide public vote counts until voting closes</label>';
+}
+
 export function pickemVoteChart(
   p,
   { escape: e, number: n, selectable = false, selected = p.prediction || "" },
 ) {
+  const hidden = p.voteSummary === null;
   const summary = p.voteSummary || pickemVoteSummary(p);
   const max = Math.max(0, ...summary.choices.map((choice) => choice.votes));
   const percentage = (votes) =>
@@ -45,7 +51,10 @@ export function pickemVoteChart(
           maximumFractionDigits: 1,
         })
       : "0";
-  return `<section class="pickem-vote-chart" aria-label="Vote Distribution"><div class="pickem-vote-heading"><h4>Vote Distribution</h4><span>${n(summary.total)} ${summary.total === 1 ? "voter" : "voters"}</span></div>${!summary.total ? '<p class="form-hint">No votes yet.</p>' : ""}<div class="pickem-vote-bars">${summary.choices
+  const heading = hidden
+    ? '<p class="form-hint">Vote counts appear when voting closes.</p>'
+    : `<div class="pickem-vote-heading"><h4>Vote Distribution</h4><span>${n(summary.total)} ${summary.total === 1 ? "voter" : "voters"}</span></div>${!summary.total ? '<p class="form-hint">No votes yet.</p>' : ""}`;
+  return `<section class="pickem-vote-chart" aria-label="${hidden ? "Team Choices" : "Vote Distribution"}">${heading}<div class="pickem-vote-bars">${summary.choices
     .map((choice) => {
       const label =
         choice.team +
@@ -70,7 +79,9 @@ export function pickemVoteChart(
         (max > 0 && choice.votes === max ? "is-leading " : "") +
         (choice.key === selected ? "is-selected " : "") +
         (winner ? "is-winner" : "");
-      const contents = `<div class="pickem-vote-content"><div class="pickem-vote-label"><span>${e(choice.team)}${winner ? '<b class="pickem-winner-label">Winner</b>' : ""}</span><strong>${n(choice.votes)} ${choice.votes === 1 ? "vote" : "votes"} · ${percentage(choice.votes)}%</strong></div><progress max="${Math.max(1, summary.total)}" value="${choice.votes}" aria-label="${e(label)}" aria-valuetext="${e(label)}">${e(label)}</progress></div><span class="pickem-vote-check" aria-hidden="true">✓</span>`;
+      const count = hidden ? "" : `<strong>${n(choice.votes)} ${choice.votes === 1 ? "vote" : "votes"} · ${percentage(choice.votes)}%</strong>`;
+      const progress = hidden ? "" : `<progress max="${Math.max(1, summary.total)}" value="${choice.votes}" aria-label="${e(label)}" aria-valuetext="${e(label)}">${e(label)}</progress>`;
+      const contents = `<div class="pickem-vote-content"><div class="pickem-vote-label"><span>${e(choice.team)}${winner ? '<b class="pickem-winner-label">Winner</b>' : ""}</span>${count}</div>${progress}</div><span class="pickem-vote-check" aria-hidden="true">✓</span>`;
       return selectable
         ? `<label class="${classes} is-selectable"><input type="radio" name="winner" value="${e(choice.key)}" required ${selected === choice.key ? "checked" : ""} aria-label="Pick ${e(choice.team)}">${contents}</label>`
         : `<div class="${classes}">${contents}</div>`;

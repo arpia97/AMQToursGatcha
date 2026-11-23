@@ -8,6 +8,7 @@ import { DatabaseSync } from "node:sqlite";
 import { Engine } from "../src/engine.js";
 import { pickemVoteSummary, pickemVoteChart } from "../public/pickem-votes.js";
 import { pickemBoard } from "../public/pickem-board.js";
+import { winnerCreatePanel, winnerEditor } from "../public/tour-winner-ui.js";
 function fixture(t) {
   const db = new DatabaseSync(":memory:");
   t.after(() => db.close());
@@ -44,10 +45,11 @@ function fixture(t) {
         ...extra,
       }),
     );
-  const create = (name = "Tour") => {
+  const create = (name = "Tour", options = {}) => {
     const { event } = host("pickem-winner", {
       name,
       teams: ["Alpha", "Beta", "Gamma", "Delta"],
+      ...options,
     });
     return e.pickemEvents.read(event).matches[0];
   };
@@ -132,6 +134,64 @@ test("team totals include zero-vote teams, update instead of duplicating voters,
     3,
   );
 });
+test("hidden vote counts stay private while open and return when voting closes", (t) => {
+  const f = fixture(t), p = f.create("Private Voting", { hideVotes: true });
+  f.vote(0, p, "Alpha");
+  f.vote(1, p, "Beta");
+  const publicView = (player) => f.e.pickemEvents.detail(p.event_id, player);
+  const renderOptions = { escape: String, number: String, now: f.e.now() };
+  assert.match(winnerCreatePanel(), /name="hideVotes"/);
+  assert.match(winnerEditor(p, String, f.e.now()), /name="hideVotes" checked/);
+  assert.equal(publicView().matches[0].voteSummary, null);
+  assert.equal(f.e.pickemEvents.detail(p.id, undefined, true).matches[0].voteSummary, null);
+  const mine = publicView("private-player-0");
+  assert.equal(mine.matches[0].prediction, "Alpha");
+  assert.equal(mine.matches[0].voteSummary, null);
+  assert.equal(f.e.pickemEvents.match(p.id).votes, 2);
+  const tours = f.e.pickemEvents.page().tours;
+  assert.equal(tours[0].voters, null);
+  const board = pickemBoard(tours, mine, renderOptions);
+  assert.match(board, /name="winner" value="Alpha" required checked/);
+  assert.match(board, /Vote counts appear when voting closes/);
+  assert.doesNotMatch(board, /<progress|\d+ voters?/);
+
+  f.advance(p.ends - f.e.now());
+  assert.equal(publicView().matches[0].voteSummary.total, 2);
+  assert.equal(f.e.pickemEvents.page().tours[0].voters, 2);
+  f.host("pickem-reopen", { pickem: p.id, expected: f.e.pickemEvents.match(p.id), minutes: 10 });
+  assert.equal(publicView().matches[0].voteSummary, null);
+  const reopened = f.e.pickemEvents.match(p.id);
+  f.host("pickem-winner-edit", {
+    pickem: p.id, expected: reopened, name: p.tour, teams: ["Alpha", "Beta", "Gamma", "Delta"],
+    ends: reopened.ends, hideVotes: false
+  });
+  assert.equal(publicView().matches[0].voteSummary.total, 2);
+});
+
+test("match editors can hide votes separately and publish them when the host closes voting", (t) => {
+  const f = fixture(t);
+  const { event } = f.host("pickem-event", {
+    name: "Pairs", format: "double-4", teams: ["Alpha", "Beta", "Gamma", "Delta"]
+  });
+  const [p, other] = f.e.pickemEvents.read(event).matches;
+  f.vote(0, p, "draw", { scoreA: 1, scoreB: 1 });
+  f.vote(1, other, "a", { scoreA: 2, scoreB: 0 });
+  f.host("pickem-edit", {
+    pickem: p.id, expected: f.e.pickemEvents.match(p.id), title: p.title,
+    teamA: p.team_a, teamB: p.team_b, ends: p.ends, winnerReward: p.winner_reward,
+    scoreReward: p.score_reward, hideVotes: true
+  });
+  const detail = f.e.pickemEvents.detail(event);
+  assert.equal(detail.matches[0].voteSummary, null);
+  assert.equal(detail.matches[1].voteSummary.total, 1);
+  const html = pickemBoard(f.e.pickemEvents.page().tours, detail, {
+    escape: String, number: String, now: f.e.now(),
+  });
+  assert.match(html, /Vote counts appear when voting closes/);
+  f.host("pickem-close", { pickem: p.id, expected: f.e.pickemEvents.match(p.id) });
+  assert.equal(f.e.pickemEvents.detail(event).matches[0].voteSummary.total, 1);
+});
+
 test("older combined matchups aggregate draw and both teams independently, with standalone matches scoped by negative keys", (t) => {
   const f = fixture(t),
     { event } = f.host("pickem-event", {

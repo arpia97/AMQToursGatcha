@@ -78,7 +78,7 @@ import {
   tourSummaries,
   predictionDraft,
   predictionBody,
-} from "./pickem-board.js";
+} from "./pickem-board.js?v=pickem-vote-visibility";
 import { MAX_SPOTLIGHTS } from "./site-defaults.js";
 import { roleBadge } from "./role-label.js";
 import { formIdentifier } from "./form-actions.js";
@@ -1709,7 +1709,7 @@ async function loadDynamic() {
         if (err.status !== 404) throw err;
       }
       const tours = tourSummaries(pickemDetail?.matches || [], state.now);
-      if (tours.length) tours[0].voters = pickemDetail.matches[0].voteSummary.total;
+      if (tours.length) tours[0].voters = pickemDetail.matches[0].voteSummary?.total ?? null;
       data = { tours, focused: true };
     } else data = await api("pickem-tours?page=" + ui.pickemPage);
     if (!id &&

@@ -925,13 +925,14 @@ export class Engine {
         integer(b.scoreReward ?? 500, 0, 100000),
       ];
       this.run(
-        "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward) VALUES(?,?,?,?,?,?,?)",
+        "INSERT INTO pickems(title,tour,team_a,team_b,ends,winner_reward,score_reward,hide_votes) VALUES(?,?,?,?,?,?,?,?)",
         text(b.title),
         text(b.tour),
         text(b.teamA, 100),
         text(b.teamB, 100),
         end,
         ...rewards,
+        Number(b.hideVotes === true),
       );
       return { message: "Pick’em published." };
     }

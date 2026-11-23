@@ -23,7 +23,7 @@ import {
   deductionPanel,
   deductionReview,
 } from "./host-credit-ui.js";
-import { winnerCreatePanel, syncWinnerRewardDefault } from "./tour-winner-ui.js";
+import { winnerCreatePanel, syncWinnerRewardDefault } from "./tour-winner-ui.js?v=pickem-vote-visibility";
 import {
   settlementPanel,
   settlementDraft,
@@ -34,7 +34,7 @@ import {
   tourManager,
   matchEditor,
   localDeadline,
-} from "./pickem-management.js";
+} from "./pickem-management.js?v=pickem-vote-visibility";
 import { updateRewardDefaults } from "./host-defaults.js";
 import { accessPanel, participationPanel, rewardWorkspace, organizeHostTools } from "./host-panels.js";
 let deductionDraft = null,
@@ -432,6 +432,7 @@ document.addEventListener("submit", async (ev) => {
           teams: b.teams,
           winnerReward: Number(b.winnerReward),
           ...(b.endsAutomatic ? {} : { ends: new Date(b.ends).getTime() }),
+          hideVotes: !!b.hideVotes,
         },
         key,
       );
@@ -460,6 +461,7 @@ document.addEventListener("submit", async (ev) => {
           name: b.name,
           teams: b.teams,
           winnerReward: Number(b.winnerReward),
+          hideVotes: !!b.hideVotes,
           ends:
             b.ends === localDeadline(matchDraft.ends)
               ? matchDraft.ends
@@ -523,6 +525,7 @@ document.addEventListener("submit", async (ev) => {
             : new Date(b.ends).getTime();
         body.winnerReward = Number(b.winnerReward);
         body.scoreReward = Number(b.scoreReward);
+        body.hideVotes = !!b.hideVotes;
         body.clearPredictions = !!b.clearPredictions;
       }
       result = await api(
