@@ -53,6 +53,7 @@ try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "eng
 
 const icon = (path) => '<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="' + path + '"/></svg>';
 const gachaHref = (path = "") => new URL(path, assets).pathname;
+const playerProfileHref = id => gachaHref("player/" + encodeURIComponent(id));
 async function api(path, body, key, { signal, headers = {} } = {}) {
   const response = await fetch(new URL(path, apiBase), {
     method: body ? "POST" : "GET", credentials: "same-origin", signal: signal || AbortSignal.timeout(12000),
@@ -351,7 +352,7 @@ async function openMode(id, push = true) {
         }).catch(fail);
       };
       overview=mount($('#main'),{esc:escape,join,leave:()=>songArtist?.cancelQueue(),viewer:state.me,
-        profileHref:id=>gachaHref('player/'+encodeURIComponent(id)),
+        profileHref:playerProfileHref,
         viewQueue:()=>currentQueue&&openMode(modeForQueue(currentQueue.format)),
         watch:(id,title)=>watchMatch(id,title).catch(fail),
         loadScore:(id,signal)=>api(watchingPath(id),undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),
@@ -362,12 +363,12 @@ async function openMode(id, push = true) {
       void refreshLive();
     } else if (id === "rankings") {
       const path = rankingFormat==="quiz"?"quiz-play-rankings?page="+rankingPage:"play-rankings?format="+rankingFormat+"&page="+rankingPage+"&pool="+rankingPool;
-      const {rankingPanel,rankingResultsHTML}=await import("../play-rankings.js");
+      const {rankingPanel,rankingResultsHTML}=await import("../play-rankings.js?v=player-profile-links");
       if(version!==viewVersion)return;
       const panel=rankingPanel($("#main"),rankingFormat,rankingPool);
       panel.innerHTML='<p class="ranking-empty" role="status">Loading Rankings…</p>';
       const data=await api(path+'&sort='+rankingSort+'&dir='+rankingDirection);
-      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection);
+      if(version===viewVersion)panel.innerHTML=rankingResultsHTML(rankingFormat,rankingPage,data,escape,rankingSort,rankingDirection,playerProfileHref);
     } else if (id === "quiz") {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;

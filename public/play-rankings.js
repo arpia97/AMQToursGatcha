@@ -63,7 +63,7 @@ export function rankingPanel(root,format,pool='random') {
   return panel;
 }
 
-export function rankingResultsHTML(format,page,data,esc,sort,dir) {
+export function rankingResultsHTML(format,page,data,esc,sort,dir,profileHref) {
   const quiz = format === 'quiz';
   const versus=[DUEL_FORMAT,'1v1','3v3','ngmc-ranked'].includes(format);
   function recordCell(row){
@@ -77,9 +77,13 @@ export function rankingResultsHTML(format,page,data,esc,sort,dir) {
     ...(quiz?[['time','Average Time','Average duration of timed personal bests on published quizzes']]:[])];
   const rows = data.rows.map((row,i) => {
     const rank = row.rank ?? page*50+i+1;
+    const name = esc(row.name);
+    const player = row.id != null
+      ? '<a class="ranking-player-profile" href="'+esc(profileHref(row.id))+'">'+name+'</a>'
+      : name;
     return [
       '<span class="ranking-position" data-place="'+rank+'">'+rank+'</span>',
-      '<strong>'+esc(row.name)+'</strong>', ...(quiz?[]:[Math.round(row.rating).toLocaleString("en-US")]),
+      '<strong>'+player+'</strong>', ...(quiz?[]:[Math.round(row.rating).toLocaleString("en-US")]),
       row.seen?(100*row.correct/row.seen).toFixed(1)+'%':'—', row.matches,
       ...(versus?[recordCell(row)]:[]), row.correct,
       ...(quiz?[row.avgTimeMs==null?'—':quizDuration(Math.round(row.avgTimeMs))]:[])

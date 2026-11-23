@@ -16,7 +16,7 @@ export function playRankingPage(read, source, args, {quiz=false, page=0, sort, d
   const rows=read(`WITH standings AS (${source}), ranked AS (
     SELECT *,ROW_NUMBER() OVER (ORDER BY ${defaultOrder}) AS rank FROM standings)
     SELECT * FROM ranked ORDER BY ${ordering},rank LIMIT 51 OFFSET ?`,...args,page*50);
-  return {rows:rows.slice(0,50).map(({player,wins,losses,ties,...row})=>quiz?row:{
-    ...row,record:wins==null?null:[wins,losses,ties]
-  }),more:rows.length>50};
+  return {rows:rows.slice(0,50).map(({player,wins,losses,ties,...row})=>({
+    id:player,...row,...(quiz?{}:{record:wins==null?null:[wins,losses,ties]})
+  })),more:rows.length>50};
 }

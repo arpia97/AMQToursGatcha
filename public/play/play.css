@@ -133,6 +133,8 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .ranking-board th { background:#20262d; color:var(--muted); font-size:12px; }
 .ranking-board :is(th,td) { padding:10px clamp(9px,1.4vw,18px); }
 .ranking-board :is(th,td):nth-child(2) { text-align:left; }
+.ranking-player-profile { color:inherit; }
+.ranking-player-profile:is(:hover,:focus-visible) { color:var(--mint); text-decoration:underline; }
 .ranking-board tbody tr:nth-child(even) { background:#ffffff03; }
 .ranking-board tbody tr:hover { background:#b6e2c509; }
 .ranking-position { display:inline-grid; place-items:center; min-width:3ch; min-height:24px; color:var(--muted); font-weight:700; }

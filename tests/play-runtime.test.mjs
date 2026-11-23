@@ -452,6 +452,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   const watchedRankings=await(await mf.dispatchFetch(rankingBase+'&pool=watched')).json();
   const randomRankings=await(await mf.dispatchFetch(rankingBase+'&pool=random')).json();
   assert.equal(watchedRankings.rows.length,8);
+  assert.deepEqual(watchedRankings.rows.map(row=>row.id).sort(),initial.players.map(player=>player.id).sort());
   assert.deepEqual(watchedRankings.rows[0].record,[0,0,1]);
   assert.equal(randomRankings.rows.length,0);
   assert.ok(!(await live()).matches.some(m=>m.format==='ngmc-ranked'&&m.pool==='watched'));
