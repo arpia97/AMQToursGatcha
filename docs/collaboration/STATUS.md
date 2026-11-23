@@ -1,5 +1,13 @@
 # Shared Status and Handoff
 
+## Gacha query row reads
+
+Compared the working tree with `398da1a` using two isolated Workers SQLite databases seeded with identical synthetic records sized from production aggregates. Run `node tools/query-reads/benchmark.mjs 398da1a` for the baseline and `node tools/query-reads/benchmark.mjs` for the working tree. The output includes row counters and an ordered result digest for each case.
+
+Combined catalog search fell from 228,413 reads to 8,947. A player alias search fell from 1,331,343 to 2,671, and a broad search on page two fell from 363,705 to 3,105. Collection progress for a 210-card fixture fell from 28,601 to 19,404 on first access and 3,769 on repeat. For 2,374 cards it fell from 262,621 to 205,690 and 33,241 respectively. Profile Pick'em aggregation fell from 10,680 to 37. The tested responses matched and all measured requests wrote zero rows. Initial index creation on a populated fixture added 328,211 reads and 162,107 writes. Ownership and pins are read per request. The bounded in-memory series totals are cleared on membership changes, rollback, or actor restart.
+
+All 611 tests passed, including cache invalidation, rollback and catalog overrides. Syntax checks and the Worker dry run passed. Runtime commit `995f043` is on main and deployed to the shared Gacha Worker as `70dfc3d4-978e-425f-9a7e-ea2896e08e88` at 100% traffic. After the Durable Object switched versions, all four new indexes were present in production. Live combined catalog search, player search, and the public profile with pinned anime and Pick'em statistics returned valid responses. The private anime collection endpoint returned the expected guest 401.
+
 ## Your standing in Play Rankings
 
 Runtime `7cefc6a` deployed as Worker `c203696b-d11a-485d-8cfb-958ebc6987cd`. Signed-in players appear alongside their friends, see their own row highlighted, and have a sticky summary of their overall rank and mode-specific stats on every page. All 609 tests, syntax checks, dry run, desktop and mobile scroll checks passed. The live shell, changed assets, and updated multiplayer and Quiz ranking responses were verified.
