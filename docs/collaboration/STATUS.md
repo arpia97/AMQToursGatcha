@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Flagged players in the match timeline
+
+Runtime `8152bd0` deployed as Worker `b7f0cccb-933c-434e-84fc-eef18aafbafd`. Selected-song player names show orange Refocus and red Decoy hit badges from retained highlights, including overlapping signals and rounds without timing data. All 607 tests, syntax checks and the dry run passed. Local Chromium verified four flag combinations at 390px and 1200px. The live Play shell, timeline script, stylesheet and signed-out rejection were verified.
+
 ## Match review signal counts and song flags
 
 Runtime `96c53b8` deployed as Worker `4d8786bd-7999-4403-936b-4ed72da378c0`. Match rows separate refocus, decoy and fast-answer signals. Archived index totals gain their breakdown on read. Timeline markers respect player selection and show overlapping signals. All 607 tests, syntax checks and dry run passed. Browser checks covered 390px and 1200px. Verified live Play, three assets and signed-out rejection.
