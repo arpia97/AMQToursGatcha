@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Approved Gacha tile artwork and Alchemy selector
+
+Runtime `742b6ec` deployed as Worker `1fab74f4-4f36-4d8b-b55c-c0ed80b9ac21`. All six shop sleeve illustrations match the approved preview. The refinement picker centers the Select Card and Selected pill. Desktop and 390px browser tests verified image sizing, button clearance, selection alignment and pack opening. All 17 focused tests and the Worker dry run passed. Both live routes and all nine changed script, style and image assets were verified. Legacy hostname retirement still awaits identification of the intended address.
+
 ## Gacha pack results, card controls and game history
 
 Runtime `5af8dfa` deployed as Worker `45c0c61e-f4fe-4c42-88a2-b90fa4840ca0`. Pack results support a server-validated sale of the current opening's unprotected copies. Sell Cards includes the four inventory controls and sorts by player favorite counts. Favorites give immediate feedback. Auto Refine has a rarity-aware Max. The Gacha account menu opens both Pachinko and Play history. All 605 tests passed. Desktop and 390px browser flows covered the refinement filters and Max, Sell Cards controls, both history paths and selling a newly opened pack. Five live assets/routes and two signed-out access checks passed.
