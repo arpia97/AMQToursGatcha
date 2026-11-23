@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Pick’em vote visibility and Play answer-source check
+
+Source `2ab4562` is live at 100% on Worker `c1f1127b-ff45-40a5-b0ec-20fcf12ec897`. Hosts can hide public totals and team vote breakdowns until voting closes. Publishing and editing were verified in the local host console, along with voting on mobile and revealing the count after closing. All 604 tests passed. The live routes, six frontend assets and public/host access boundaries were verified read-only.
+
+The live Play catalog serves a refreshed master-sheet version. New Play matches and Quiz imports prioritize the matching sheet entry. The weekly and manual refresh paths update the shared snapshot. Published quiz answers stay in their saved pools.
+
 ## Unanimous 1-Team Autoskip
 
 Source `25ee3f4` is live at 100% on Worker `a2998b52-05f7-4f40-b157-078bd52e54fe`. 1-Team Autoskip waits for a current catalog-valid answer, even when every player enables it. An eight-player local match confirmed guessing continues after unanimous Autoskip and an unknown proposal, then reveals after a catalog title. All 602 tests passed, and the Worker dry run, live 1-Team route and queue-count endpoint passed.
