@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz links to Play
+
+Runtime `c34a20c` deployed as Worker `78b125a9-b2b0-4ce5-ae4b-08c83cc97bdb` with Play router `61504f7b-fd2e-4aba-8738-c80661709dbf`. Inbox, quiz score notices and profile #1 records link to the specific Play quiz leaderboard. Old Gacha Quiz URLs redirect and preserve their query. All 609 tests, syntax checks and both dry runs passed. Desktop and mobile Chromium verified the notification-to-leaderboard flow. Public redirect responses, shells and updated assets were checked live.
+
 ## My Collection bulk actions
 
 Runtime `3d6fb51` deployed as Worker `898a6fc8-7ac5-4b1d-a29e-1a4d20cc7722`. Players can clear their entire wishlist or remove protection from all inventory cards after a counted confirmation. All 608 tests, syntax checks and the dry run passed. Browser checks covered confirm, cancel and disabled states at 390px and 1200px. Production verification was read-only on the collection route, script and stylesheet.
