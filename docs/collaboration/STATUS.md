@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## My Collection bulk actions
+
+Runtime `3d6fb51` deployed as Worker `898a6fc8-7ac5-4b1d-a29e-1a4d20cc7722`. Players can clear their entire wishlist or remove protection from all inventory cards after a counted confirmation. All 608 tests, syntax checks and the dry run passed. Browser checks covered confirm, cancel and disabled states at 390px and 1200px. Production verification was read-only on the collection route, script and stylesheet.
+
 ## Flagged players in the match timeline
 
 Runtime `8152bd0` deployed as Worker `b7f0cccb-933c-434e-84fc-eef18aafbafd`. Selected-song player names show orange Refocus and red Decoy hit badges from retained highlights, including overlapping signals and rounds without timing data. All 607 tests, syntax checks and the dry run passed. Local Chromium verified four flag combinations at 390px and 1200px. The live Play shell, timeline script, stylesheet and signed-out rejection were verified.
