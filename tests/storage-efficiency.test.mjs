@@ -103,6 +103,45 @@ test("batch card lookup shares packed rows and favorites, preserves order/overri
   c.card("mal-character-1");
   assert.ok(queries.length > 0);
 });
+test("series totals refresh after membership changes and rollback while ownership stays per viewer", (t) => {
+  const { e, queries } = fixture(t);
+  const anime = e.economy.anime;
+  const add = (id, series) => e.host("catalog", {cards:[{...card(id),series,series_romaji:series}]});
+  e.host("players", {players:[{id:"a",name:"A"},{id:"b",name:"B"}]});
+  add(1, "Series");
+  add(2, "Series");
+  e.addCard("a","mal-character-1");
+  e.addCard("b","mal-character-2");
+  const progress = player => anime.page(player).series.map(({owned,total}) => [owned,total]);
+  assert.deepEqual(progress("a"), [[1,2]]);
+  queries.length = 0;
+  assert.deepEqual(progress("b"), [[1,2]]);
+  assert.ok(!queries.some(q => q.sql.includes("AS total FROM json_each")));
+  e.addCard("a","mal-character-2");
+  assert.deepEqual(progress("a"), [[2,2]]);
+  assert.deepEqual(progress("b"), [[1,2]]);
+  assert.throws(() => e.tx(() => {
+    anime.index([{...card(2),series_romaji:"Moved"}]);
+    assert.deepEqual(progress("b"), [[1,1]]);
+    throw Error("rollback");
+  }), /rollback/);
+  assert.deepEqual(progress("b"), [[1,2]]);
+  add(3, "Series");
+  assert.deepEqual(progress("a"), [[2,3]]);
+});
+
+test("sorted catalog search keeps inactive and nonmatching local overrides out of packed results", (t) => {
+  const { e } = fixture(t);
+  const catalog = e.catalogStore;
+  catalog.tenrai.upsert([card(1),card(2),card(3)]);
+  e.host("catalog", {cards:[card(1),{...card(2),name:"Replacement"}]});
+  e.run("UPDATE catalog SET active=0 WHERE id='mal-character-1'");
+  for (const kind of ["character","both"]) {
+    const result = catalog.page(kind,"card",1,40,{sort:"name"});
+    assert.deepEqual(result.cards.map(c => c.id), ["mal-character-3"]);
+  }
+});
+
 test("unchanged casts and aliases write nothing; main promotion still updates metadata and anime progress", (t) => {
   const { e, queries, advance } = fixture(t),
     c = e.catalogStore;

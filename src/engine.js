@@ -180,6 +180,8 @@ export class Engine {
   }
   run(sql, ...args) {
     this.db(sql, ...args);
+    if (this.economy?.anime.seriesTotals.size && /\b(character_series|character_appearances)\b/i.test(sql))
+      this.economy.anime.seriesTotals.clear();
     const metaOnly =
       /\bcatalog_meta\b/i.test(sql) &&
       !/\b(catalog|catalog_popularity|tenrai_characters|catalog_bulk)\b/i.test(
@@ -204,6 +206,7 @@ export class Engine {
     try {
       return this.transaction(fn);
     } catch (err) {
+      this.economy?.anime.seriesTotals.clear();
       if ((this.catalogStore?.revision || 0) !== catalogRevision)
         this.catalogStore?.invalidate();
       throw err;
@@ -1439,11 +1442,11 @@ export class Engine {
   }
   profilesPage(query, page = 1, viewer = null) {
     const rows = this.searchProfiles(query, page, 51);
-    const search = profileSearchSql(query);
-    const total = this.one(
-      `SELECT count(*) AS n FROM players p WHERE ${search.where}`,
-      ...search.args,
-    ).n;
+    let total = (page - 1) * 50 + rows.length;
+    if (rows.length > 50 || (page > 1 && !rows.length)) {
+      const search = profileSearchSql(query);
+      total = this.one(`SELECT count(*) AS n FROM players p WHERE ${search.where}`, ...search.args).n;
+    }
     return {
       profiles: this.friends.decorate(rows.slice(0, 50), viewer),
       page,
@@ -1546,6 +1549,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS players(id TEXT PRIMARY KEY,name TEXT NOT NULL,balance INTEGER NOT NULL DEFAULT 0 CHECK(balance>=0),earned INTEGER NOT NULL DEFAULT 0,daily TEXT,password TEXT,invite TEXT,invite_expires INTEGER);
 CREATE TABLE IF NOT EXISTS account_lock_log(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,locked INTEGER NOT NULL,at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS aliases(alias TEXT PRIMARY KEY,player TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS aliases_player_alias ON aliases(player,alias);
 CREATE TABLE IF NOT EXISTS alias_provenance(alias TEXT PRIMARY KEY,player TEXT NOT NULL,source TEXT NOT NULL CHECK(source IN ('sheet','manual')));
 CREATE TABLE IF NOT EXISTS usernames(username TEXT PRIMARY KEY,player TEXT NOT NULL,label TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS usernames_player ON usernames(player);
@@ -1564,5 +1568,6 @@ CREATE INDEX IF NOT EXISTS auction_week ON auctions(starts,kind);
 CREATE INDEX IF NOT EXISTS auction_winner ON auctions(winner,ends);
 CREATE TABLE IF NOT EXISTS pickems(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,tour TEXT NOT NULL,team_a TEXT NOT NULL,team_b TEXT NOT NULL,ends INTEGER NOT NULL,winner_reward INTEGER NOT NULL,score_reward INTEGER NOT NULL,settled INTEGER NOT NULL DEFAULT 0,result_a INTEGER,result_b INTEGER);
 CREATE TABLE IF NOT EXISTS predictions(pickem INTEGER NOT NULL,player TEXT NOT NULL,winner TEXT NOT NULL,score_a INTEGER NOT NULL,score_b INTEGER NOT NULL,PRIMARY KEY(pickem,player));
+CREATE INDEX IF NOT EXISTS predictions_player_pickem ON predictions(player,pickem);
 CREATE TABLE IF NOT EXISTS receipts(scope TEXT NOT NULL,key TEXT NOT NULL,input TEXT NOT NULL,result TEXT NOT NULL,at INTEGER NOT NULL,PRIMARY KEY(scope,key));
 `;

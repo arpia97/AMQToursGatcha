@@ -455,28 +455,28 @@ export class Catalog {
   // resident for the entire catalogue at once. Keep only draw/sort/search fields.
   *batches(kind, query = "") {
     const kinds = kind === "both" ? ["character", "seiyuu"] : [kind];
-    const local = this.e.all(
-      "SELECT id FROM catalog WHERE kind IN (" +
-        kinds.map(() => "?").join(",") +
-        ")",
-      ...kinds,
-    );
-    const overrides = new Set(local.map((c) => c.id));
+    const overrides = kinds.includes("character") ? new Set() : null;
     const matches = searchMatcher(query);
     for (const selected of kinds) {
       let cursor = "";
       for (;;) {
         const rows = this.e.all(
-          "SELECT * FROM catalog WHERE kind=? AND id>? ORDER BY id LIMIT 500",
+          "SELECT * FROM catalog WHERE kind=? AND active=1 AND id>? ORDER BY id LIMIT 500",
           selected,
           cursor,
         );
         if (!rows.length) break;
-        yield rows.filter((c) => c.active && matches(characterSearch(c)));
+        if (overrides) for (const row of rows) overrides.add(row.id);
+        yield rows.filter((c) => matches(characterSearch(c)));
+        if (rows.length < 500) break;
         cursor = rows.at(-1).id;
       }
     }
-    if (!kinds.includes("character")) return;
+    if (!overrides) return;
+    // Hidden local cards still shadow the packed versions of those cards.
+    for (const selected of kinds)
+      for (const row of this.e.all("SELECT id FROM catalog WHERE kind=? AND active=0", selected))
+        overrides.add(row.id);
     const search = searchSql("search", /[^\x00-\x7F]/.test(query) ? "" : query);
     if (this.tenrai.manifest()) {
       const rows = this.e.all(

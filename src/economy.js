@@ -114,6 +114,7 @@ export class Economy {
     this.trades = new Trades(e);
     for (const sql of [
       "CREATE INDEX IF NOT EXISTS listings_card_open ON market_listings(card,seller) WHERE status='open'",
+      "CREATE INDEX IF NOT EXISTS auction_seller_open_cards ON auctions(seller,card) WHERE paid=0 AND seller IS NOT NULL",
       "CREATE INDEX IF NOT EXISTS auction_card_seller ON auctions(card,seller) WHERE seller IS NOT NULL AND paid=0",
       "CREATE INDEX IF NOT EXISTS auction_card_unclaimed ON auctions(card,winner) WHERE winner IS NOT NULL AND claimed=0",
       "CREATE INDEX IF NOT EXISTS trade_card_open ON trade_listings(card,seller) WHERE status='open'",

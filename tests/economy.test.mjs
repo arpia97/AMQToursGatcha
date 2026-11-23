@@ -66,6 +66,9 @@ test("collectors paginate without omission and alias searches retain a matching 
   assert.ok(pages.every((p) => p.total === 123));
   assert.equal(e.profilesPage("alias-120").profiles[0].id, "p120");
   assert.equal(e.profilesPage("alias-120").total, 1);
+  const beyondLast = e.profilesPage("alias-120", 2);
+  assert.equal(beyondLast.profiles.length, 0);
+  assert.equal(beyondLast.total, 1);
   assert.throws(() => e.profilesPage("", 0), /whole number/);
 });
 test("global sorted catalogue pages include bulk cards, preserve filters, and invalidate on source changes", () => {

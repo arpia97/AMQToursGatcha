@@ -3,6 +3,8 @@ import { MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { integer, text, fail } from "./engine.js";
 import { animeProgressComparator } from "../public/card-display.js";
 
+const MAX_CACHED_SERIES = 16384;
+
 // Primary titles remain compatible with old cards; explicit cast links add every appearance.
 export class AnimeCollection {
   constructor(e) {
@@ -23,14 +25,16 @@ export class AnimeCollection {
       "CREATE TABLE IF NOT EXISTS character_series(card TEXT PRIMARY KEY,series_key TEXT NOT NULL,romaji TEXT NOT NULL,english TEXT NOT NULL)",
     );
     e.run(
-      "CREATE INDEX IF NOT EXISTS character_series_key ON character_series(series_key)",
+      "CREATE INDEX IF NOT EXISTS character_series_key_card ON character_series(series_key,card)",
     );
+    e.run("DROP INDEX IF EXISTS character_series_key");
     e.run(
       "CREATE TABLE IF NOT EXISTS character_appearances(card TEXT NOT NULL,series_key TEXT NOT NULL,romaji TEXT NOT NULL,english TEXT NOT NULL,anime_id INTEGER NOT NULL,role TEXT NOT NULL,members INTEGER NOT NULL,PRIMARY KEY(card,series_key))",
     );
     e.run(
       "CREATE INDEX IF NOT EXISTS character_appearances_series ON character_appearances(series_key,card)",
     );
+    this.seriesTotals = new Map();
     if (!e.one("SELECT key FROM catalog_meta WHERE key='series-backfill'"))
       this.save({ bucket: -1, local: 0, phase: "buckets" });
   }
@@ -252,9 +256,19 @@ export class AnimeCollection {
       player,
     );
     const hasCustomOrder = rows.some((r) => r.position != null);
-    const list = rows
-      .map(({ series_key }) => this.progress(player, series_key, { hideOwnership }))
-      .filter(Boolean);
+    if (!rows.length) return [];
+    const associated = animeLinks("s.series_key IN (SELECT value FROM json_each(?))");
+    const keys = JSON.stringify(rows.map(row => row.series_key));
+    const owned = hideOwnership ? "NULL AS owned,1 AS ownershipHidden"
+      : "sum(card IN (SELECT card FROM owned)) AS owned";
+    const totals = this.e.all(
+      `WITH associated AS (${associated})${hideOwnership ? "" : ", owned AS (" + ownedCards + ")"}
+       SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS total,${owned}
+       FROM associated GROUP BY series_key`,
+      keys, keys, ...(hideOwnership ? [] : Array(5).fill(player)),
+    );
+    const byKey = new Map(totals.map(row => [row.series_key, row]));
+    const list = rows.map(row => byKey.get(row.series_key)).filter(Boolean);
     if (!hasCustomOrder) {
       return list.sort(hideOwnership
         ? (a, b) => a.series_romaji.localeCompare(b.series_romaji)
@@ -309,18 +323,49 @@ export class AnimeCollection {
         .map((c) => ({ ...c, owned: states.get(c.id) })),
     };
   }
+  // Only the catalog denominator is shared. Owned cards, escrow and pins are read for each request.
+  fillSeriesTotals(rows) {
+    const missing = [];
+    for (const row of rows) {
+      row.total = this.seriesTotals.get(row.series_key);
+      if (row.total === undefined) missing.push(row);
+    }
+    for (let i = 0; i < missing.length; i += 200) {
+      const batch = missing.slice(i, i + 200);
+      const counts = this.e.all(
+        `SELECT k.value AS series_key,(SELECT count(*) FROM (
+           SELECT card FROM character_appearances WHERE series_key=k.value
+           UNION SELECT card FROM character_series WHERE series_key=k.value
+         )) AS total FROM json_each(?) k`,
+        JSON.stringify(batch.map(row => row.series_key)),
+      );
+      const byKey = new Map(counts.map(row => [row.series_key, row.total]));
+      for (const row of batch) {
+        row.total = byKey.get(row.series_key);
+        if (this.seriesTotals.size >= MAX_CACHED_SERIES)
+          this.seriesTotals.delete(this.seriesTotals.keys().next().value);
+        this.seriesTotals.set(row.series_key, row.total);
+      }
+    }
+  }
   page(player, page = 1) {
     integer(page, 1, 10000);
+    // The SQL order supplies the original binary title/key tie-break for the stable sort below.
     const rows = this.e.all(
-      `WITH owned AS (${ownedCards}), associated AS (${animeLinks("s.card IN(SELECT card FROM owned)")}), progress AS (SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS owned FROM associated GROUP BY series_key), totals AS (SELECT p.*,(SELECT count(*) FROM character_appearances a WHERE a.series_key=p.series_key)+(SELECT count(*) FROM character_series s WHERE s.series_key=p.series_key AND NOT EXISTS(SELECT 1 FROM character_appearances a WHERE a.card=s.card AND a.series_key=s.series_key)) AS total,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned FROM progress p) SELECT * FROM totals ORDER BY pinned DESC,1.0*owned/total DESC,series_romaji,series_key LIMIT 25 OFFSET ?`,
-      ...Array(5).fill(player),
-      player,
-      (page - 1) * 24,
+      `WITH owned AS MATERIALIZED (${ownedCards}), associated AS (${animeLinks("s.card IN(SELECT card FROM owned)")}),
+       progress AS (SELECT series_key,min(romaji) AS series_romaji,max(english) AS series_english,count(*) AS owned
+         FROM associated GROUP BY series_key)
+       SELECT p.*,EXISTS(SELECT 1 FROM profile_anime f WHERE f.player=? AND f.series_key=p.series_key) AS pinned
+       FROM progress p ORDER BY series_romaji,series_key`,
+      ...Array(5).fill(player), player,
     );
+    this.fillSeriesTotals(rows);
+    rows.sort((a, b) => b.pinned - a.pinned || b.owned / b.total - a.owned / a.total);
+    const offset = (page - 1) * 24;
     return {
-      series: rows.slice(0, 24),
+      series: rows.slice(offset, offset + 24),
       page,
-      hasMore: rows.length > 24,
+      hasMore: rows.length > offset + 24,
       indexing: this.read().phase !== "done",
       pinned: this.pinned(player),
     };
