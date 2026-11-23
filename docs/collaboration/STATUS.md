@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Match review signal counts and song flags
+
+Runtime `96c53b8` deployed as Worker `4d8786bd-7999-4403-936b-4ed72da378c0`. Match rows separate refocus, decoy and fast-answer signals. Archived index totals gain their breakdown on read. Timeline markers respect player selection and show overlapping signals. All 607 tests, syntax checks and dry run passed. Browser checks covered 390px and 1200px. Verified live Play, three assets and signed-out rejection.
+
 ## Sell Cards wishlist sorting
 
 Runtime `a919124` deployed as Worker `60017aa7-def8-4900-a3c4-93dab53f1d2a`. Most and Least Wishlisted count distinct player wishlists across the full filtered inventory before pagination. Cards display the count when either sort is selected. All 15 focused tests, syntax checks and the dry run passed. Chromium verified both directions at 390px and 1200px. The live shop and three production modules were checked.
