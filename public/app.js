@@ -92,7 +92,7 @@ import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
-import { createFeatures } from "./features.js";
+import { createFeatures } from "./features.js?v=sell-wishlists";
 import { installInboxDropdown } from "./inbox-dropdown.js";
 import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js";
 import { noticePanel } from "./player-notices.js";
@@ -1679,10 +1679,10 @@ async function loadDynamic() {
     if (ui.marketSort === "wishlist") ui.marketSort = "newest";
   }
   if(current==="notifications" && state.me) data=await api(inbox.query(state.me.id));
-  if (current === "shop" && ui.shopSection === "sell" && state.me && ui.shopSell.sort.startsWith("favorites")) {
-    const result = await api("sell-favorite-counts");
+  if (current === "shop" && ui.shopSection === "sell" && state.me && ui.shopSell.sort.startsWith("wishlisted")) {
+    const result = await api("sell-wishlist-counts");
     if (version !== loadVersion) return;
-    ui.shopSell.favoriteCounts = result.counts;
+    ui.shopSell.wishlistCounts = result.counts;
   }
   if (current === "home") await loadFeatured();
   if (current === "quiz") {
@@ -3543,7 +3543,7 @@ async function handleFeatureClick(a, t) {
         throw err;
       } finally { favoriteSaving.delete(id); }
       const scope = $("#main [data-filter-scope]")?.dataset.filterScope;
-      if ((page() === "shop" && ui.shopSection === "sell" && ui.shopSell.sort.startsWith("favorites")) || favoritesOnly(scope) || scope === "profile-favorites-search" || (["profile","player"].includes(page()) && ui.profileView === "favorites")) {
+      if ((page() === "shop" && ui.shopSection === "sell" && ui.shopSell.sort.startsWith("wishlisted")) || favoritesOnly(scope) || scope === "profile-favorites-search" || (["profile","player"].includes(page()) && ui.profileView === "favorites")) {
         resetCardFilterPage(scope);
         await loadDynamic();
         render();
@@ -4320,7 +4320,7 @@ document.addEventListener("change", async (ev) => {
       : ev.target.value;
     ui.shopSell.page = 1;
   }
-  if (key === "sort" && ui.shopSell.sort.startsWith("favorites")) {
+  if (key === "sort" && ui.shopSell.sort.startsWith("wishlisted")) {
     try { await loadDynamic(); } catch (err) { toast(err.message,true); return; }
   }
   render();

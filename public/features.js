@@ -6,7 +6,7 @@ import { cardSurface } from "./card-surface.js";
 import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 
 import { roleBadge } from "./role-label.js";
-import { createShopUI } from "./shop-ui.js";
+import { createShopUI } from "./shop-ui.js?v=sell-wishlists";
 export function createFeatures(h, ui) {
   const {
     escape: e,

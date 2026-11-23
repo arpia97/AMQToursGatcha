@@ -1872,6 +1872,8 @@ export class Game extends DurableObject {
       const wishlist = e.economy.wishlist.read(session.player);
       return json({ wishlist, cards: e.catalogStore.cards(wishlist) });
     }
+    if (path === "sell-wishlist-counts" && !post)
+      return json({ counts: e.economy.wishlist.sellWishlistCounts(session.player) });
     if (path === "sell-favorite-counts" && !post) {
       const rows = e.all(`SELECT i.card,COUNT(f.player) AS n FROM inventory i
         JOIN card_favorites f ON f.card=i.card WHERE i.player=? GROUP BY i.card`,session.player);

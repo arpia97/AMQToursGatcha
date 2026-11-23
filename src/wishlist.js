@@ -35,6 +35,12 @@ export class Wishlist {
       )
       .map((r) => r.card);
   }
+  sellWishlistCounts(player) {
+    const rows = this.e.all(`SELECT i.card,COUNT(*) AS wanted FROM inventory i
+      JOIN card_wishlist w ON w.card=i.card
+      WHERE i.player=? AND i.copies>0 GROUP BY i.card`, player);
+    return Object.fromEntries(rows.map(row => [row.card, row.wanted]));
+  }
   favorites(player) {
     return activeFavorites(this.e,player);
   }

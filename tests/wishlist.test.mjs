@@ -287,6 +287,19 @@ test("wishlist follows canonical identity migration and player reset clears only
   assert.deepEqual(e.economy.wishlist.read("q"), ["c1"]);
 });
 
+test("Sell Cards counts each player wishlist once per owned card", (t) => {
+  const {e, act} = fixture(t);
+  e.addCard("p", "c0");
+  e.addCard("p", "c0");
+  e.addCard("p", "c1");
+  e.economy.wishlist.setFavorite("p", {card:"c1",favorite:true});
+  for (const player of ["p","q"]) act(player,"wishlist",{card:"c0",wanted:true});
+  act("q","wishlist",{card:"c2",wanted:true});
+  assert.deepEqual(e.economy.wishlist.sellWishlistCounts("p"), {c0:2});
+  act("q","wishlist",{card:"c0",wanted:false});
+  assert.deepEqual(e.economy.wishlist.sellWishlistCounts("p"), {c0:1});
+});
+
 test("public profile and wishlist card flags belong to that profile's player", (t) => {
   const { e, act } = fixture(t);
   e.addCard("p", "c0");

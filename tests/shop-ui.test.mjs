@@ -86,7 +86,10 @@ test("shop seller inventory combines type/search/rarity/sort and clamps pages af
     lookup = (id) => cards[Number(id)];
   const options = { query: "Story", rarity: "", sort: "copies", page: 2 };
   let data = shopSellPage(inventory, lookup, options, "character");
-  assert.equal(shopSellPage(inventory, lookup, {...options,sort:"favorites",page:1,favoriteCounts:{"28":9}}, "character").items[0].card,"28");
+  cards[0].favorites = 100000;
+  const wishlistSort = {...options, sort:"wishlisted", page:1, wishlistCounts:{"28":9,"29":2}};
+  assert.deepEqual(shopSellPage(inventory, lookup, wishlistSort, "character").items.slice(0,2).map(row=>row.card), ["28","29"]);
+  assert.deepEqual(shopSellPage(inventory, lookup, {...wishlistSort, sort:"wishlisted-low", page:2}, "character").items.slice(-2).map(row=>row.card), ["29","28"]);
   assert.equal(data.total, 30);
   assert.equal(data.items.length, 6);
   assert.equal(data.items[0].card, "5");

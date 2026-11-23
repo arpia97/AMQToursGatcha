@@ -73,6 +73,7 @@ export function demoFeatures(d, path, b) {
   if (me && me.showcase_slots === undefined)
     me.showcase_slots = FREE_SPOTLIGHTS;
   if (path === "play-history") return {matches:[], next:null};
+  if (path === "sell-wishlist-counts") return {counts:Object.fromEntries(s.wishlist.map(id => [id,1]))};
   if (path === "sell-favorite-counts") return {counts:Object.fromEntries((s.cardFavorites || []).map(id => [id,1]))};
   if (path === "special-pack-seen") return { ok: true };
   if (path === "pack-result-sell") {

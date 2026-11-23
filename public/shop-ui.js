@@ -13,14 +13,14 @@ export function shopSellPage(inventory, cardBy, options, kind) {
       kind,
       query: options.query,
       rarity: options.rarity,
-      sort: options.sort?.startsWith("favorites") ? "name" : options.sort,
+      sort: options.sort?.startsWith("wishlisted") ? "name" : options.sort,
       role: options.role,
       upgradable: options.upgradable,
       hideProtected: options.hideProtected,
     });
-  if (options.sort?.startsWith("favorites")) {
-    const counts = options.favoriteCounts || {};
-    const direction = options.sort === "favorites-low" ? -1 : 1;
+  if (options.sort?.startsWith("wishlisted")) {
+    const counts = options.wishlistCounts || {};
+    const direction = options.sort === "wishlisted-low" ? -1 : 1;
     items.sort((a,b) => direction * ((counts[b.card] || 0) - (counts[a.card] || 0)));
   }
   return collectionPage(items, options.page, 24);
@@ -94,8 +94,8 @@ export function createShopUI(h, ui) {
       ["name", "Alphabetical · A–Z"],
       ["level", "Enhancement · Highest First"],
       ["copies", "Most copies"],
-      ["favorites", "Most Favorited"],
-      ["favorites-low", "Least Favorited"],
+      ["wishlisted", "Most Wishlisted"],
+      ["wishlisted-low", "Least Wishlisted"],
     ])
       .map(
         ([value, label]) =>
@@ -112,12 +112,14 @@ export function createShopUI(h, ui) {
               const c = item.c,
                 extra = item.copies > 1,
                 level = extra ? 1 : item.level;
+              const wanted = f.sort?.startsWith("wishlisted") && f.wishlistCounts
+                ? f.wishlistCounts[item.card] || 0 : null;
               return cardSurface(
                 c,
                 {
                   level: item.level,
                   showLevel: true,
-                  meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}`,
+                  meta: `${n(item.copies)} ${item.copies === 1 ? "Copy" : "Copies"}${item.protected ? " · Protected" : ""}${wanted == null ? "" : " · " + n(wanted) + (wanted === 1 ? " wishlist" : " wishlists")}`,
                   actions: `<p class="form-hint">${item.protected ? "🔒 Protected · " : ""}${n(item.copies)} ${item.copies === 1 ? "copy" : "copies"} · ${extra ? "extra Lv. 1 copy selected" : "your " + levelLabel(item.level) + " card"}</p>${btn("Sell now · ✦ " + n(instantSalePrice(c, level)), "instant-sell", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "secondary")}${btn("List for sale", "sell-card", `data-id="${e(c.id)}" ${item.protected ? "disabled" : ""}`, "mint")}${collectorsButton(c,e)}${cardQuickActions(c, {wishlist: s.wishlist?.includes(c.id) ?? false, protect: !!item.protected, trade: !!item.for_trade, favorite: s.cardFavorites?.includes(c.id) ?? false}, e)}`,
                 },
                 h,
