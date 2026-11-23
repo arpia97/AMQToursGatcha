@@ -4,7 +4,7 @@ import {arenaSongCount} from './play-arena.js';
 import {gameEnded,liveMatchScore,spectatorTag,spectatorView,spectatorClip} from './play-spectator.js';
 import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
-import {ballotCatalogIndex,checkRestart,rematchView,voteToRestart} from './play-lobby-votes.js';
+import {ballotCatalogIndex,checkRestart,rematchPlayers,rematchView,voteToRestart} from './play-lobby-votes.js';
 import {matchCreditPlan} from './play-rewards.js';
 import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
 import {matchRecords,archivedRecords} from './play-records.js';
@@ -77,7 +77,27 @@ export class PlayMatch extends DurableObject {
       return this.storeChat('',player.name+' left the lobby.');
     });
     this.broadcastChat(state,row);
-    if(state.rematch)this.broadcast(state);
+    if(state.rematch){
+      this.broadcast(state);
+      if(state.rematch.joinUntil&&!state.rematch.transferred)this.ctx.waitUntil(this.schedule());
+    }
+  }
+  async transferRematchPlayers(state){
+    const poll=state?.rematch;
+    if(!poll||!state.ratingsDone||poll.transferred||!(poll.joinUntil>Date.now()))return;
+    const players=rematchPlayers(state).filter(player=>poll.votes[player.id]===true)
+      .map(({id,name,avatar})=>({id,name,avatar}));
+    const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
+    const results=await queue.joinRematchPlayers(state.id,state.pool||'random',players,poll.joinUntil,state.lobby?.code);
+    const live=this.read();
+    if(!live)return;
+    live.rematch.transferred=true;
+    this.write(live);
+    this.broadcast(live);
+    for(const [index,result] of results.entries()){
+      if(!result.error)continue;
+      for(const ws of this.ctx.getWebSockets(players[index].id))send(ws,{type:'error',message:result.error});
+    }
   }
   async joinRematch(ws,who){
     const state=this.read();
@@ -166,6 +186,7 @@ export class PlayMatch extends DurableObject {
     }
     if (['finished','cancelled'].includes(state.phase) && (!state.rankingsSettled || !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length))
       next=Math.min(next,now+2000);
+    if(state.rematch?.joinUntil>now&&!state.rematch.transferred)next=Math.min(next,now+250);
     await this.ctx.storage.setAlarm(Math.min(next,now+86400000));
   }
   broadcast(state=this.read()){
@@ -381,7 +402,9 @@ export class PlayMatch extends DurableObject {
       if(input.message.type==='chat-send'){this.chatMessage(ws,state,input.who,input.message.body);return;}
       if(input.message.type==='rematch-vote'){
         voteToRestart(state,input.who.id,input.message.yes,Date.now());
-        this.write(state);this.broadcast(state);return;
+        this.write(state);this.broadcast(state);
+        if(state.rematch.joinUntil)await this.schedule();
+        return;
       }
       if(input.message.type==='sync'){
         const now=Date.now();
@@ -565,7 +588,11 @@ export class PlayMatch extends DurableObject {
       state=this.read();
     }
     if(['finished','cancelled'].includes(state.phase)){
-      try{await this.finish(state);}catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
+      try{
+        await this.transferRematchPlayers(state);
+        await this.finish(state);
+        await this.transferRematchPlayers(this.read());
+      }catch{await this.ctx.storage.setAlarm(Date.now()+5000);return;}
       if(!this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length){
         if(await this.indexHighlights(state.id)){await this.ctx.storage.setAlarm(Date.now()+1000);return;}
         this.ctx.storage.sql.exec("INSERT OR REPLACE INTO review_meta VALUES(4,'true',0)");

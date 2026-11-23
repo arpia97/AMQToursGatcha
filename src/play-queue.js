@@ -56,19 +56,25 @@ export class PlayQueue extends DurableObject {
   }
   lobbyDirectory(){return this.lobbies.directory();}
   async joinRematch(match,pool,who,until,previousCode){
+    const [result]=await this.joinRematchPlayers(match,pool,[who],until,previousCode);
+    return result;
+  }
+  async joinRematchPlayers(match,pool,players,until,previousCode){
     const now=Date.now();
-    if(until<=now)return {error:'This lobby invitation has ended.'};
-    if(this.rows('SELECT 1 FROM play_match_inactivity WHERE player=? AND until>?',who.id,now).length)
-      return {error:'You can rejoin after your matchmaking ban expires.'};
-    if(this.joinRequests.has(who.id)||this.rows('SELECT 1 FROM queue WHERE player=? AND expires>? AND COALESCE(match,?)<>?',who.id,now,'',match).length)
-      return {error:'Leave your current queue or match first.'};
-    const result=this.lobbies.joinRematch(match,pool,who,previousCode);
-    if(!result.error){
+    const results=players.map(who=>{
+      if(until<=now)return {error:'This lobby invitation has ended.'};
+      if(this.rows('SELECT 1 FROM play_match_inactivity WHERE player=? AND until>?',who.id,now).length)
+        return {error:'You can rejoin after your matchmaking ban expires.'};
+      if(this.joinRequests.has(who.id)||this.rows('SELECT 1 FROM queue WHERE player=? AND expires>? AND COALESCE(match,?)<>?',who.id,now,'',match).length)
+        return {error:'Leave your current queue or match first.'};
+      return this.lobbies.joinRematch(match,pool,who,previousCode);
+    });
+    if(results.some(result=>!result.error)){
       this.broadcast();
       this.ctx.waitUntil(this.lobbies.refreshWatchedPool(match));
       await this.scheduleQueue();
     }
-    return result;
+    return results;
   }
   canWatch(id){
     return !!this.rows(`SELECT 1 FROM match_reviews m WHERE m.id=? AND m.status='active'

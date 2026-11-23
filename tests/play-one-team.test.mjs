@@ -181,6 +181,8 @@ test('one-team completes a playable set with lives remaining and preserves legac
   voteToRestart(state,'1',true,endedAt);
   assert.equal(rematchView(state,endedAt),undefined);
   voteToRestart(state,'2',true,endedAt);
+  assert.equal(rematchView(state,endedAt),undefined);
+  state.rematch.transferred=true;
   assert.deepEqual(rematchView(state,endedAt),{joinUntil:endedAt+120_000});
   assert.equal(rematchView(state,endedAt+120_000),undefined);
   assert.throws(()=>makeMatch('invalid',ONE_TEAM_FORMAT,players.slice(0,2),songs));
@@ -191,7 +193,7 @@ test('one-team completes a playable set with lives remaining and preserves legac
   assert.deepEqual(legacy.teams,[0]);
 });
 
-test('survival queues keep Random and Watched separate and allow smaller Watched sets',async t=>{
+test('survival queues separate song pools and move rematch voters before spectators join',async t=>{
   const worker=await playRuntimeFixture();
   t.after(()=>worker.dispose());
   const base='http://game',cookies=[];
@@ -271,25 +273,33 @@ test('survival queues keep Random and Watched separate and allow smaller Watched
   await spectator.wait(message=>message.type==='error'&&message.message.includes('invitation'));
   room.send({type:'rematch-vote',yes:true});
   await room.wait(message=>message.state?.rematch?.yes===1);
+  third.send({type:'rematch-vote',yes:false});
+  await third.wait(message=>message.state?.rematch?.myVote===false);
   second.send({type:'rematch-vote',yes:true});
   const invitation=await spectator.wait(message=>message.state?.rematch?.joinUntil);
   assert.deepEqual(Object.keys(invitation.state.rematch),['joinUntil']);
-  for(const ws of [room,second,spectator]){
-    ws.send({type:'rematch-join'});
-    await ws.wait(message=>message.type==='rematch-joined');
+  for(const client of clients.slice(0,2)){
+    const ready=await client.wait(message=>message.type==='lobby'&&message.rematchOf===match);
+    assert.deepEqual(ready.players.map(p=>p.id).sort(),['1','2']);
   }
-  const host=await clients[0].wait(message=>message.type==='lobby'&&message.players.length===3);
-  assert.equal(host.pool,'watched');
-  assert.deepEqual(host.players.map(player=>player.id),['1','2','5']);
-  assert.ok(host.players[2].avatar);
-  const directory=await newcomer.wait(message=>message.type==='lobby'&&message.players.length===3);
-  assert.equal(directory.rematchOf,match);
+  clients[2].clearMessages();
+  clients[2].send({type:'ping'});
+  await clients[2].wait(message=>message.type==='idle');
+  spectator.send({type:'rematch-join'});
+  await spectator.wait(message=>message.type==='rematch-joined');
+  const lobby=await newcomer.wait(message=>message.type==='lobby'&&message.players.length===3);
+  assert.equal(lobby.pool,'watched');
+  assert.equal(lobby.rematchOf,match);
+  assert.deepEqual(lobby.players.map(player=>player.id).sort(),['1','2','5']);
+  assert.ok(lobby.players.find(player=>player.id==='5').avatar);
+
   third.send({type:'rematch-join'});
   await third.wait(message=>message.type==='rematch-joined');
   await clients[0].wait(message=>message.type==='lobby'&&message.players.length===4);
-  for(const client of [clients[1],clients[2],newcomer])client.send({type:'lobby-ready',ready:true});
+  const participantClients={'1':clients[0],'2':clients[1],'3':clients[2],'5':newcomer};
+  for(const [id,client] of Object.entries(participantClients))if(id!==lobby.host)client.send({type:'lobby-ready',ready:true});
   await clients[0].wait(message=>message.type==='lobby'&&message.players.filter(p=>p.ready).length===3);
-  clients[0].send({type:'lobby-start'});
+  participantClients[lobby.host].send({type:'lobby-start'});
   const restarted=await clients[0].wait(message=>message.type==='matched'&&message.match!==match);
   const restartedRoom=await connect(1,restarted.match);
   const restartedState=(await restartedRoom.wait(message=>message.type==='state')).state;

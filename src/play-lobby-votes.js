@@ -92,12 +92,12 @@ export function selectWinners(state,catalog){
     active.find(p=>p.id===chosen.owner).answers[field]=chosen.answer;
   }
 }
-const rematchPlayers=state=>state.players.filter(p=>!p.left&&!p.chatLeft&&p.disconnectedAt==null);
+export const rematchPlayers=state=>state.players.filter(p=>!p.left&&!p.chatLeft&&p.disconnectedAt==null);
 export function rematchView(state,now=Date.now(),player=null){
   const poll=state.rematch;
   if(!poll)return undefined;
-  if(poll.joinUntil>now)return {joinUntil:poll.joinUntil};
-  if(poll.until<=now||poll.joinUntil||!player)return undefined;
+  if(poll.joinUntil)return poll.joinUntil>now&&poll.transferred ? {joinUntil:poll.joinUntil} : undefined;
+  if(poll.until<=now||!player)return undefined;
   const eligible=rematchPlayers(state);
   if(eligible.length<2||!eligible.some(p=>p.id===player))return undefined;
   const required=Math.floor(eligible.length/2)+1;

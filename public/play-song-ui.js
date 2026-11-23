@@ -758,7 +758,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
     if(done)return heading+reward+(match.format===ONE_TEAM_FORMAT?'<div class="play-rematch-actions" hidden>'+
       '<button type="button" class="button secondary" data-sa-action="restart-vote">Restart With Same Members</button>'+
-      '<button type="button" class="button mint" data-sa-action="rematch-join" hidden>Match Ended. Join Lobby?</button></div>':'')+
+      '<button type="button" class="button mint" data-sa-action="rematch-join" hidden>Join Rematch Lobby</button></div>':'')+
       broadcastResults(match,esc,animeTitle,winnerText);
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields" data-guess-count="'+fields.length+'">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
       '<small class="sa-locked-answer" aria-live="polite" hidden></small>'+answerSearchControls()+'</form>';
@@ -784,7 +784,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       dialog.className='lobby-poll play-rematch-dialog';
       dialog.setAttribute('aria-labelledby','restart-vote-title');
       dialog.innerHTML='<h2 id="restart-vote-title">Restart with the same members?</h2>'+
-        '<p>If the vote passes, players and spectators can join a new lobby together.</p>'+
+        '<p>If the vote passes, players who vote Yes enter the rematch lobby. Spectators can choose to join.</p>'+
         '<p data-restart-count role="status"></p><div class="play-rematch-votes">'+
         '<button class="button secondary" type="button" data-restart-vote="no">No</button>'+
         '<button class="button mint" type="button" data-restart-vote="yes">Yes</button></div>';

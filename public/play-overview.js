@@ -34,7 +34,7 @@ const defaultPool=()=>{
   catch{return 'random';}
 };
 
-export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore,viewer}) {
+export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore,viewer,profileHref}) {
   let pool=defaultPool(),counts,currentQueue,players=[],signedIn=!!viewer,openMatch=null,pinned=false;
   let matchSnapshot,playerSnapshot;
   const lifetime=new AbortController();
@@ -279,7 +279,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       const top=playerList.scrollTop;
       const labels={playing:'In Match',queued:'In Queue',quiz:'Playing Quiz',spectating:'Spectating',afk:'AFK',browsing:'Browsing'};
       playerList.innerHTML=players.map(player=>
-        '<li data-name="'+esc(player.name.toLowerCase())+'">'+avatar(player,esc)+'<strong title="'+esc(player.name)+'">'+esc(player.name)+'</strong>'+
+        '<li data-name="'+esc(player.name.toLowerCase())+'">'+avatar(player,esc)+'<a class="overview-player-profile" href="'+esc(profileHref(player.id))+'" title="'+esc(player.name)+'">'+esc(player.name)+'</a>'+
           '<span class="overview-player-status" data-status="'+esc(player.status)+'">'+(labels[player.status]||labels.browsing)+'</span></li>'
       ).join('');
       playerList.scrollTop=top;

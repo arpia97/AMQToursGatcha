@@ -163,7 +163,7 @@ async function watchMatch(id,title){
   if(!state.me){account();return;}
   if(songArtist?.inMatch()||(mode==='quiz'&&quiz?.active())){toast('Finish your current game before spectating.');return;}
   const viewer=state.me.id,version=viewVersion,request=watchRequest={},opener=document.activeElement;
-  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=guesses-above-input'),loadMultiplayerStyles()]);
+  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=rematch-transfer'),loadMultiplayerStyles()]);
   if(watchRequest!==request||version!==viewVersion||state.me?.id!==viewer||songArtist?.inMatch())return;
   stopWatching();
   const root=$('#play-watch');
@@ -222,14 +222,14 @@ function showQueue(status){
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadOverview=loadOnce(async()=>{
-  const [module]=await Promise.all([import('../play-overview.js'),loadStylesheet(new URL('../play-overview.css',import.meta.url))]);
+  const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=autolock-shortcut-help"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=guesses-above-input", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=autolock-shortcut-help"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=rematch-transfer"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
@@ -349,6 +349,7 @@ async function openMode(id, push = true) {
         }).catch(fail);
       };
       overview=mount($('#main'),{esc:escape,join,leave:()=>songArtist?.cancelQueue(),viewer:state.me,
+        profileHref:id=>gachaHref('player/'+encodeURIComponent(id)),
         viewQueue:()=>currentQueue&&openMode(modeForQueue(currentQueue.format)),
         watch:(id,title)=>watchMatch(id,title).catch(fail),
         loadScore:(id,signal)=>api(watchingPath(id),undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),

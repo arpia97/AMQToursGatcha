@@ -83,7 +83,8 @@ button.overview-match-button:hover,.overview-match-button[aria-expanded=true] {b
   border-bottom:1px solid var(--border);
 }
 .overview-player-list>li[hidden] {display:none;}
-.overview-player-list strong {font-size:12px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.overview-player-profile {color:inherit;font-size:12px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.overview-player-profile:is(:hover,:focus-visible) {color:var(--mint);text-decoration:underline;}
 .overview-avatar {display:block;flex:none;width:26px;height:26px;border-radius:50%;}
 .overview-avatar .play-player-avatar {width:100%;height:100%;margin:0;font-size:9px;}
 .overview-avatar .profile-avatar img {width:100%;height:100%;object-fit:cover;}

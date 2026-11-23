@@ -21,12 +21,18 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
     '<div class="sa-match-buttons"><button type="button" class="button mint" data-watch-action="audio">Enable Audio</button>'+
     '<button type="button" class="button secondary" data-watch-action="songs">Song List</button>'+
-    '<button type="button" class="button mint" data-watch-action="rematch" hidden>Match Ended. Join Lobby?</button>'+
+    '<button type="button" class="button mint" data-watch-action="rematch" hidden>Join Rematch Lobby</button>'+
     '<button type="button" class="button secondary" data-watch-action="leave">Leave Spectating</button></div></div></div>'+
-    '<p class="sa-status watch-status" role="status">Connecting to match…</p><div class="watch-board"></div></section>';
+    '<p class="sa-status watch-status" role="status">Connecting to match…</p><div class="watch-board"></div></section>'+
+    '<dialog class="lobby-poll play-rematch-dialog" aria-labelledby="watch-rematch-title">'+
+    '<h2 id="watch-rematch-title">Join the rematch lobby?</h2>'+
+    '<div class="play-rematch-votes"><button type="button" class="button secondary" data-watch-action="decline-rematch">No</button>'+
+    '<button type="button" class="button mint" data-watch-action="rematch">Yes</button></div></dialog>';
   const board=root.querySelector('.watch-board'),status=root.querySelector('.watch-status');
   const enable=root.querySelector('[data-watch-action="audio"]');
   const join=root.querySelector('[data-watch-action="rematch"]');
+  const rematchPrompt=root.querySelector('.play-rematch-dialog');
+  let rematchPrompted=false;
   const slider=root.querySelector('#watch-volume'),volumeLabel=slider.nextElementSibling;
   const controller=new AbortController(),songList=createSongListDialog(esc,animeTitle);
   const path='play-watch?match='+encodeURIComponent(id),url=new URL(path,apiBase);
@@ -61,7 +67,12 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   function tick(){
     if(!state)return;
     const now=Date.now()+offset;
-    join.hidden=!(state.rematch?.joinUntil>now);
+    const invite=state.rematch?.joinUntil>now&&socket?.readyState===1;
+    join.hidden=!invite;
+    if(invite&&!rematchPrompted){
+      rematchPrompted=true;
+      rematchPrompt.showModal();
+    }else if(!invite&&rematchPrompt.open)rematchPrompt.close();
     const dial=board.querySelector('.ngmc-dial');
     if(dial)updateRoundDial(dial,state,now);
     if(clip&&now>=state.until){audio.pause();return;}
@@ -124,8 +135,10 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   root.addEventListener('click',event=>{
     const action=event.target.closest('[data-watch-action]')?.dataset.watchAction;
     if(action==='leave')onLeave();
-    if(action==='rematch'&&socket?.readyState===1){
+    if(action==='decline-rematch')rematchPrompt.close();
+    if(action==='rematch'&&!join.disabled&&!join.hidden&&socket?.readyState===1){
       join.disabled=true;
+      rematchPrompt.close();
       socket.send(JSON.stringify({type:'rematch-join'}));
     }
     if(action==='songs'&&state)songList.open(state);
