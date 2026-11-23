@@ -12,7 +12,7 @@ import { stampQuizAnswer, QUIZ_ARRIVAL_HEADER } from "./quiz-ingress.js";
 import { AKINO_RETIREMENT_ID, AKINO_RETIREMENT_SCOPE, quizRetirementPreview, retireAkinoQuiz } from "./quiz-retirement.js";
 import { isPlayerRoute } from "../public/site-navigation.js";
 import { playRoute, playQuizHref } from "../public/play-navigation.js";
-import { importAnimeList, listSummary } from "./play-anime-list.js";
+import { importAnimeList, importedExportSnapshot, listSummary } from "./play-anime-list.js";
 import { awardMatchCredits } from './play-rewards.js';
 import { publicPlaySnapshot } from "./play-public-snapshot.js";
 import { guestPlayState, playState, playAvatar, playOverviewPlayers } from "./play-state.js";
@@ -1317,7 +1317,9 @@ export class Game extends DurableObject {
       const requestId=crypto.randomUUID();
       this.listImports.set(id,requestId);
       try{
-        const snapshot=await importAnimeList(b.provider,b.username,undefined,b.statuses??listSummary(e,id)?.statuses);
+        const snapshot=b.provider==='anilist-export'
+          ? importedExportSnapshot(e,id,b.file,b.statuses)
+          : await importAnimeList(b.provider,b.username,undefined,b.statuses??listSummary(e,id)?.statuses);
         if(this.listImports.get(id)!==requestId)fail("The import was cancelled.",409);
         if(!e.one("SELECT 1 FROM sessions WHERE player=? AND token=? AND expires>?",id,sessionHash,e.now()))fail("Sign in again to import your list.",401);
         e.run("UPDATE players SET play_anime_list=? WHERE id=?",JSON.stringify(snapshot),id);

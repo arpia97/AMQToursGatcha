@@ -1,10 +1,9 @@
 import { libraryJSON } from "./quiz-library.js";
 import { fail } from "./engine.js";
-
 import { watchedListStatuses } from "../public/play-list-statuses.js";
+import { aniStatuses } from "../public/play-anilist-export.js";
 
 const malStatuses = {1:"watching",2:"completed",3:"onHold",4:"dropped"};
-const aniStatuses = {CURRENT:"watching",REPEATING:"watching",COMPLETED:"completed",PAUSED:"onHold",DROPPED:"dropped"};
 
 const query = `query WatchedList($name:String!, $chunk:Int!) {
   MediaListCollection(userName:$name,type:ANIME,chunk:$chunk,perChunk:500) {
@@ -42,7 +41,7 @@ export async function importAnimeList(provider,input,fetcher=(...args)=>globalTh
     try {
       const res=await fetcher(url,{...init,signal,redirect:"manual"});
       if(res.status===429) fail("The list provider is rate limiting requests. Try refreshing later.",429);
-      if(!mal && res.status===403) fail("AniList is refusing imports from Play right now. Any saved list was kept.",503);
+      if(!mal && res.status===403) fail("AniList is refusing imports from Play right now. Choose AniList JSON Export to import a file instead.",503);
       if([400,403,404].includes(res.status))fail("The provider could not share this list. Check the username and list privacy.",422);
       data=await libraryJSON(res,6000000);
     } catch(error){
@@ -69,8 +68,34 @@ export async function importAnimeList(provider,input,fetcher=(...args)=>globalTh
   return {provider,name,statuses:[...selected],count:ids.size,updated:Date.now(),ids:[...ids]};
 }
 
+export function importedExportSnapshot(e, id, file, statuses) {
+  if (file === undefined) {
+    const row=e.one("SELECT play_anime_list FROM players WHERE id=?",id);
+    const saved=JSON.parse(row?.play_anime_list ?? 'null');
+    if (saved?.source !== 'export') fail('Choose an AniList JSON export.');
+    file=saved;
+  }
+  const keys=Object.keys(watchedListStatuses);
+  if (!Array.isArray(statuses) || !statuses.length || statuses.some(key=>!keys.includes(key)))
+    fail('Select at least one valid list status.');
+  const groups={};
+  let total=0;
+  for (const key of keys) {
+    const values=file?.groups?.[key];
+    if (!Array.isArray(values)) fail('Invalid AniList export.');
+    total+=values.length;
+    if (total>50000 || values.some(value=>!Number.isSafeInteger(value) || value<=0))
+      fail('Invalid or oversized AniList export.');
+    groups[key]=[...new Set(values)];
+  }
+  const selected=[...new Set(statuses)];
+  const ids=[...new Set(selected.flatMap(key=>groups[key]))];
+  return {provider:'anilist',source:'export',name:typeof file.name==='string'?file.name.slice(0,100):'',
+    statuses:selected,groups,ids,count:ids.length,updated:Date.now()};
+}
+
 export function listSummary(e,id){
-  const row=e.one("SELECT json_remove(play_anime_list,'$.ids') AS summary FROM players WHERE id=?",id);
+  const row=e.one("SELECT json_remove(play_anime_list,'$.ids','$.groups') AS summary FROM players WHERE id=?",id);
   return row?.summary ? JSON.parse(row.summary) : null;
 }
 

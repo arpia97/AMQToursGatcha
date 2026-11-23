@@ -1,3 +1,4 @@
+import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
 import { installPlayAccountMenu } from "../play-account-menu.js";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
@@ -99,28 +100,45 @@ function profile() {
   modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + hostBadge +
     '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a></div>');
 }
+function listSourceFields(provider, list) {
+  if (provider==='anilist-export') {
+    const saved=list?.source==='export';
+    return '<label>AniList JSON File<input type="file" name="exportFile" accept=".json,application/json" '+(saved?'':'required')+'></label>'+
+      (saved?'<small>Choose a new export to replace your list, or change the statuses below.</small>':'');
+  }
+  return '<label>Username or public list URL<input name="username" required maxlength="180" autocomplete="off" placeholder="Username or profile URL" value="'+escape(list?.provider===provider?list.name:'')+'"></label>';
+}
 function listForm(){
   const list=state.animeList;
+  const provider=list?.source==='export'?'anilist-export':list?.provider??'myanimelist';
   return '<form id="play-anime-list" class="stack"><h3>Watched Anime List</h3><p class="form-hint">Choose which entries to include in Watched games.</p>'+
-    '<label>List Provider<select name="provider"><option value="myanimelist">MyAnimeList</option><option value="anilist" '+(list?.provider==='anilist'?'selected':'')+'>AniList</option></select></label>'+
-    '<label>Username or public list URL<input name="username" required maxlength="180" autocomplete="off" placeholder="Username or profile URL" value="'+escape(list?.name)+'"></label>'+
+    '<label>List Source<select name="provider">'+Object.entries({myanimelist:'MyAnimeList',anilist:'AniList Username','anilist-export':'AniList JSON Export'}).map(([key,label])=>'<option value="'+key+'" '+(provider===key?'selected':'')+'>'+label+'</option>').join('')+'</select></label>'+
+    '<div data-list-fields>'+listSourceFields(provider,list)+'</div>'+
     '<fieldset class="play-list-statuses"><legend>Include in Watched</legend>'+Object.entries(watchedListStatuses).map(([key,label])=>
       '<label><input type="checkbox" name="statuses" value="'+key+'" '+(!list?.statuses||list.statuses.includes(key)?'checked':'')+'>'+label+'</label>').join('')+'</fieldset>'+
     (list?'<small>'+number(list.count)+' anime · Updated '+escape(new Date(list.updated).toLocaleDateString())+'</small>':'')+
-    '<p role="status" aria-live="polite"></p><div><button type="submit" class="button mint">'+(list?'Refresh List':'Import List')+'</button> '+(list?'<button type="button" class="button secondary" data-list-remove>Unlink</button>':'')+'</div></form>';
+    '<p role="status" aria-live="polite"></p><div><button type="submit" class="button mint">'+(list?'Update List':'Import List')+'</button> '+(list?'<button type="button" class="button secondary" data-list-remove>Unlink</button>':'')+'</div></form>';
 }
 async function saveAnimeList(form,remove=false){
   const status=form.querySelector('[role=status]'),player=state.me?.id;
   if(!player||form.dataset.busy)return;
-  const body=remove?{remove:true}:Object.fromEntries(new FormData(form));
+  const data=new FormData(form);
+  const body=remove?{remove:true}:{provider:data.get('provider')};
   if(!remove){
-    body.statuses=new FormData(form).getAll('statuses');
+    body.statuses=data.getAll('statuses');
     if(!body.statuses.length){status.textContent='Select at least one list status.';return;}
   }
   form.dataset.busy="1";
   for(const control of form.elements)control.disabled=true;
   status.textContent=remove?'Unlinking…':'Importing anime…';
   try{
+    if (!remove && body.provider==='anilist-export') {
+      const file=form.elements.exportFile.files[0];
+      if (file) {
+        if (file.size>64*1024*1024) throw Error('Choose an AniList export smaller than 64 MB.');
+        body.file=readAniListExport(await file.text());
+      }
+    } else if (!remove) body.username=data.get('username');
     const result=await api('play-anime-list',body,undefined,{signal:AbortSignal.timeout(100000)});
     if(state.me?.id!==player)return;
     state.animeList=result.animeList;
@@ -545,6 +563,11 @@ document.addEventListener("input", async (event) => {
 });
 document.addEventListener("change", async (event) => {
   const input = event.target;
+  if (input.form?.id==='play-anime-list' && input.name==='provider') {
+    input.form.querySelector('[data-list-fields]').innerHTML=listSourceFields(input.value,state.animeList);
+    input.form.querySelector('[role=status]').textContent='';
+    return;
+  }
   if (input.id === "play-settings-title-mode") {
     titleMode = input.value === "english" ? "english" : "romaji";
     try { storage.setItem("amqtours-title-mode", titleMode); } catch {}
