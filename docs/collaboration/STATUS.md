@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song and Artist result colors
+
+Event progress squares show Song on the left and Artist on the right. Each answer line shows its own result. The Christmas banner uses the site font on solid green. Browser checks covered all four combinations, and all 42 focused tests passed. Live banner styles and event module verified. Runtime `97d1c1f` deployed as `230f52de-23c2-4c9d-9e46-bf01f5faac9d`.
+
 ## Event quiz progress recaps
 
 Completed song squares open the shared Quiz popover with the track, artist, submitted answers and partial credit. Event quizzes support skipping during guessing and advancing with Enter on reveal. The Christmas lobby uses a plain evergreen sleeve. Browser checks covered hover, focus, mobile taps, results and the live mobile lobby. All 42 focused tests passed. Runtime `e7d49ef` deployed as `8679fa1f-5d46-4972-a7e8-7f65ceabbefe`.
