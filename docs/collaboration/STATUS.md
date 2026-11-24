@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Diagonal event quiz squares
+
+Song occupies the upper-left triangle and Artist the lower-right. Both split directions passed browser checks and the live Play stylesheet was verified. Runtime `3dd894a` deployed as `1071d8f4-e535-44f8-84c3-78ec63dc1b43`.
+
 ## Song and Artist result colors
 
 Event progress squares show Song on the left and Artist on the right. Each answer line shows its own result. The Christmas banner uses the site font on solid green. Browser checks covered all four combinations, and all 42 focused tests passed. Live banner styles and event module verified. Runtime `97d1c1f` deployed as `230f52de-23c2-4c9d-9e46-bf01f5faac9d`.
