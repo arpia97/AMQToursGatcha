@@ -101,19 +101,31 @@
 .quiz-question-heading .quiz-sudden-status {display:inline-flex;align-items:center;gap:7px;margin-top:5px;color:#f3aabf;font-size:12px;line-height:1.3;font-weight:600}
 .quiz-skull {object-fit:contain;vertical-align:middle;flex:none}
 
-.event-quiz {max-width:52rem; margin:1rem auto; min-width:0}
+.event-quiz.song-broadcast {display:block;max-width:52rem; margin:1rem auto; min-width:0}
 .event-answer-form {display:grid;gap:12px}
 .event-quiz .event-answer-form .sa-answer-fields {grid-template-columns:repeat(2,minmax(0,1fr))}
 .event-answer-form > .button {justify-self:center}
 .event-answer-form .sa-answer-row:focus-within {border-color:var(--mint)}
 @media(max-width:700px){.event-quiz .event-answer-form .sa-answer-fields {grid-template-columns:minmax(0,1fr)}}
 .event-next {display:flex;justify-content:center;margin-top:16px}
-.event-quiz .event-reveal {grid-template-columns:repeat(2,minmax(0,1fr))}
+.event-quiz.song-broadcast .event-reveal {grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:520px){.event-quiz.song-broadcast .event-reveal {grid-template-columns:minmax(0,1fr)}}
+.event-quiz .song-broadcast-header,.event-quiz .quiz-audio-footer,.event-quiz .finish-score {justify-content:center}
+.event-quiz .song-broadcast-header,.event-quiz .event-points,.event-quiz .quiz-lobby,.event-quiz .quiz-finish,.event-quiz .song-broadcast-body {text-align:center}
+.event-quiz .sa-suggestions,.event-quiz .sa-combobox input {text-align:left}
+.event-quiz .sa-artist-list,.event-quiz .quiz-sleeve {align-items:center}
+.event-quiz .sa-artist-list {justify-content:center}
+.event-quiz .quiz-lobby-stats div + div {padding-inline:0}
+.event-quiz .finish-line {flex-direction:column;justify-content:center;gap:12px}
+.event-quiz .finish-line dl {justify-content:center;flex:initial}
+.event-quiz .event-reveal > div {min-width:0;overflow-wrap:anywhere}
 .event-quiz .event-reveal .correct {color:var(--mint)}
 .event-quiz .event-reveal .incorrect {color:var(--pink)}
 .event-points {display:grid;gap:3px;text-align:right;font-family:Consolas,monospace}
 .event-points span,.event-points small {font-size:12px;color:var(--muted)}
 .event-points strong {font-size:22px}
-.event-quiz .quiz-song-progress-track {grid-template-columns:repeat(var(--event-columns),minmax(0,1fr))}
+.event-quiz .quiz-song-progress-track {--gap:clamp(2px,.65vw,5px);display:flex;flex-wrap:wrap;justify-content:center;gap:var(--gap)}
+.event-quiz .quiz-progress-square {flex:0 0 calc((100% + var(--gap)) / 20 - var(--gap));min-width:0}
+.event-quiz .finish-track .quiz-song-progress {max-width:520px;margin-inline:auto}
 .event-quiz .quiz-progress-square.is-partial {background:linear-gradient(90deg,#88d4a8 50%,#e97b8d 50%)}
 .event-quiz .quiz-progress-square.is-skipped {background:transparent;border-style:dashed}

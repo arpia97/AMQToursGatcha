@@ -1,4 +1,4 @@
-import {createEventQuiz} from './quiz-event-ui.js?v=play-answers';
+import {createEventQuiz} from './quiz-event-ui.js?v=center-volume';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
@@ -44,7 +44,6 @@ export function createQuizUI({
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
-  const eventQuiz = createEventQuiz({api,escape:e,sleeve:quizSleeve});
   const browseCategories = [...QUIZ_CATEGORIES,"event"];
   const categoryTabs = () => `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${browseCategories.map(c => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "event" ? "Event" : quizCategoryLabel(c)}</button>`).join("")}</div>`;
   let fuzzySession = {};
@@ -516,6 +515,7 @@ export function createQuizUI({
     '" aria-label="Quiz Volume"><output id="quiz-volume-value">' +
     volume +
     "%</output></label>";
+  const eventQuiz = createEventQuiz({api,escape:e,sleeve:quizSleeve,volumeControl,getVolume:()=>volume});
   const audioFooter = () => '<div class="quiz-audio-footer">' + serverControl() + volumeControl() + "</div>";
   const guide =
     '<details class="rarity-guide"><summary>Quiz Rewards</summary><h3>Personal-Best Payouts</h3><ul><li><strong>Per-Point Bonus:</strong> Earn 50 credits for every new personal-best point scored (capped at 1,000 credits per quiz).</li><li><strong>No Repeats:</strong> Reaching or repeating an existing high score awards 0 credits.</li></ul><h3>One-Time Milestones</h3><ul><li><strong>5 / 20:</strong> 100 credits</li><li><strong>10 / 20:</strong> 300 credits</li><li><strong>15 / 20:</strong> 500 credits</li><li><strong>20 / 20:</strong> 1,000 credits</li></ul><h3>Game Setup</h3><ul><li><strong>Format:</strong> Each quiz run consists of 20 random songs drawn from the pool, with 20 seconds per song.</li></ul></details>';
@@ -1105,6 +1105,7 @@ export function createQuizUI({
   }
   function setVolume(value) {
     volume = Math.min(100, Math.max(0, Math.round(Number(value) || 0)));
+    eventQuiz.setVolume(volume);
     if (audio) audio.volume = volume / 100;
     if (upcoming?.element) upcoming.element.volume = volume / 100;
     const label = document.getElementById("quiz-volume-value");
