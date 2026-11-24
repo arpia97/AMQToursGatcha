@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Shop and auction notification destinations
+
+Runtime `5a6b6d7` deployed as Worker `c19b3688-d626-4814-bb55-96a287b8d200`. Market notifications from Gacha and Play open the relevant shop, auction section or trade view with the card type selected. Older outbid notices resolve the venue from their auction when available. All 620 tests passed. Verified desktop and phone navigation with local accounts and checked live routes and seven assets.
+
 ## Gacha card purchase receipts
 
 Runtime `c9fd620` deployed as Worker `9949584e-7c79-4866-9f0b-7b409fde10f1`. Shop, marketplace and auction receipts expose Wishlist, Protect, For Trade, Showcase and Favorite. Verified all five writes in a local browser at 390px and 1280px, all 619 tests passed, and the live Gacha shell and three changed assets were verified.
