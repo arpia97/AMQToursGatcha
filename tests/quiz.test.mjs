@@ -642,6 +642,33 @@ test("title visibility survives restarts and canonical migration, newly earned t
   assert.equal(f.e.quiz.titleSettings("90001").titles.length, 0);
 });
 
+test("restarts minimize overlap with the immediately preceding draw, including back-to-back restarts", t => {
+  const f = fixture(t);
+  for (const size of [20, 21, 25, 39, 40, 65]) {
+    const quiz = "pool-" + size;
+    f.save({id:quiz,songs:Array.from({length:size}, (_, i) => ({
+      audio:"https://example.com/" + i + ".mp3", answers:["Anime " + i], title:"Song " + i,
+    }))});
+    let {run} = f.action("p","quiz-start",{quiz,suddenDeath:true});
+    for (let restart = 0; restart < 3; restart++) {
+      const previous = f.e.quiz.run("p",quiz).songs.map(s => s.audio);
+      const body = {quiz,run:run.id,index:0,suddenDeath:true};
+      const key = quiz + "-restart-" + restart;
+      const next = f.action("p","quiz-restart",body,key);
+      assert.deepEqual(f.action("p","quiz-restart",body,key),next);
+      run = next.run;
+      const songs = f.e.quiz.run("p",quiz).songs.map(s => s.audio);
+      assert.equal(new Set(songs).size,20);
+      assert.equal(songs.filter(song => previous.includes(song)).length,Math.max(0,40-size));
+      assert.notEqual(songs[0],previous[0]);
+      if (size > 20) {
+        assert.ok(!previous.includes(songs[0]));
+        assert.ok(!songs.includes(previous[0]));
+      }
+    }
+  }
+});
+
 test("Sudden Death cannot finish or pay for a final-song miss, and restarts with a clean score", t => {
   const f = fixture(t);
   const balance = f.e.player("p").balance;

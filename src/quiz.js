@@ -12,6 +12,38 @@ import {
   quizReward,
   validQuizAudio,
 } from "../public/quiz-rules.js";
+function shuffleQuizSongs(songs, rand, start = 0) {
+  for (let i = songs.length - 1; i > start; i--) {
+    const j = start + rand(i - start + 1);
+    [songs[i], songs[j]] = [songs[j], songs[i]];
+  }
+}
+
+function drawQuizSongs(pool, previous, rand) {
+  if (pool.length < QUIZ_LENGTH) fail("This quiz needs at least 20 songs.");
+  shuffleQuizSongs(pool, rand);
+  if (!previous) return pool.slice(0, QUIZ_LENGTH);
+
+  const prior = previous.songs.map(song => quizRecordingKey(song.audio));
+  const previousSet = new Set(prior);
+  const heard = new Set(prior.slice(0, previous.index + 1));
+  const fresh = [], unplayed = [], replay = [];
+  for (const song of pool) {
+    const key = quizRecordingKey(song.audio);
+    if (!previousSet.has(key)) fresh.push(song);
+    else if (!heard.has(key)) unplayed.push(song);
+    else replay.push(song);
+  }
+  const hand = [...fresh, ...unplayed, ...replay].slice(0, QUIZ_LENGTH);
+  // Keep a fresh opener when possible, even if the entire catalog fits in one hand.
+  if (quizRecordingKey(hand[0].audio) === prior[0]) {
+    const other = hand.findIndex(song => quizRecordingKey(song.audio) !== prior[0]);
+    if (other > 0) [hand[0], hand[other]] = [hand[other], hand[0]];
+  }
+  shuffleQuizSongs(hand, rand, 1);
+  return hand;
+}
+
 export class Quiz {
   constructor(e) {
     this.e = e;
@@ -649,20 +681,14 @@ export class Quiz {
       const pool = e
         .all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id", q.id)
         .map((r) => JSON.parse(r.data));
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = e.rand(i + 1);
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      if (pool.length < 20) fail("This quiz needs at least 20 songs.");
+      const songs = drawQuizSongs(pool, action === "quiz-restart" ? run : null, e.rand);
       run = {
         id: crypto.randomUUID(),
         startedAt: null,
         clockFromAudio: true,
         suddenDeath: b.suddenDeath === true,
         index: 0,
-        songs: pool
-          .slice(0, 20)
-          .map((s) => ({ ...s, sample: (10 + e.rand(61)) / 100 })),
+        songs: songs.map(s => ({ ...s, sample: (10 + e.rand(61)) / 100 })),
         answers: [],
         finished: false,
         preview: !q.published,
