@@ -1,7 +1,8 @@
 import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
-import { installPlayAccountMenu } from "../play-account-menu.js?v=notification-bell";
+import { installPlayAccountMenu } from "../play-account-menu.js?v=notification-mute";
+import { bindNotificationSoundControl, notificationSoundControl } from "../notification-sound.js?v=mute";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
@@ -151,7 +152,8 @@ async function saveAnimeList(form,remove=false){
   finally{delete form.dataset.busy;for(const c of form.elements)c.disabled=false;}
 }
 function settings() {
-  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+(state.me ? '<details class="settings-section"><summary>Quiz Hotkeys</summary><form id="play-quiz-hotkeys" class="stack"></form></details>' : '')+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
+  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+(state.me ? '<details class="settings-section"><summary>Quiz Hotkeys</summary><form id="play-quiz-hotkeys" class="stack"></form></details>' : '')+notificationSoundControl()+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
+  bindNotificationSoundControl($("#modal-body"));
   const form = $("#play-quiz-hotkeys"), player = state.me?.id;
   if (form) mountQuizHotkeys(form, state.me.quiz_hotkeys, async (quizHotkeys) => {
     await api("profile", {quizHotkeys});

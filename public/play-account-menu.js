@@ -1,6 +1,6 @@
 import { installInboxDropdown } from "./inbox-dropdown.js?v=notification-bell";
-import { installNotificationSound } from "./notification-sound.js";
-import { createInbox } from "./inbox-ui.js?v=market-notice-links";
+import { installNotificationSound } from "./notification-sound.js?v=mute";
+import { createInbox } from "./inbox-ui.js?v=notification-mute";
 import { recentActivityRows } from "./account-activity.js";
 import { friendsPanel } from "./friends-ui.js";
 import { titleBadges } from "./title-ui.js";

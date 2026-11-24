@@ -1,4 +1,5 @@
 import { marketNoticeHref } from "./market-notice-link.js";
+import { bindNotificationSoundControl, notificationSoundControl } from "./notification-sound.js?v=mute";
 import { NOTICE_TYPES, NOTICE_GROUPS, noticeGroup, noticeDefault } from "./notification-types.js";
 import { noticeCopy } from "./player-notices.js?v=market-notice-links";
 import { playQuizHref } from "./play-navigation.js?v=play-quiz-links";
@@ -50,7 +51,9 @@ export function settingTabs(form, player, start) {
     });
     return '<section><h3><span style="color:'+color[key]+'">'+glyph[key]+'</span> '+NOTICE_GROUPS[key]+'</h3>'+rows.join("")+'</section>';
   }
-  notices.innerHTML=[["market","wishlist"],["quiz","social","tour"]].map(col=>'<div>'+col.map(group).join("")+'</div>').join("");
+  notices.innerHTML='<section class="inbox-sound-setting">'+notificationSoundControl()+'</section>'+
+    [["market","wishlist"],["quiz","social","tour"]].map(col=>'<div>'+col.map(group).join("")+'</div>').join("");
+  bindNotificationSoundControl(notices);
   form.prepend(tabs,general,notices); show(start==="notifications"?1:0);
   general.addEventListener("invalid",()=>show(0),true);
 }

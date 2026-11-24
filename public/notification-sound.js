@@ -1,4 +1,24 @@
 const bellUrl = new URL("./notification-bell.mp3", import.meta.url);
+const preferenceKey = "amqtours-notification-sound";
+let localEnabled = true;
+
+function soundEnabled() {
+  try { return localStorage.getItem(preferenceKey) !== "off"; }
+  catch { return localEnabled; }
+}
+
+export function notificationSoundControl() {
+  return '<label class="inbox-pref">Notification Sound<input type="checkbox" role="switch" data-notification-sound'+
+    (soundEnabled()?' checked':'')+'></label>';
+}
+
+export function bindNotificationSoundControl(root) {
+  root.querySelector("[data-notification-sound]").addEventListener("change",event=>{
+    localEnabled = event.target.checked;
+    try { localStorage.setItem(preferenceKey,localEnabled?"on":"off"); }
+    catch { /* The choice still applies for the current page. */ }
+  });
+}
 
 export function installNotificationSound() {
   let player, latest;
@@ -27,9 +47,9 @@ export function installNotificationSound() {
     if (!owner || !Number.isSafeInteger(notificationId)) return;
     const isNew = latest !== undefined && notificationId > latest;
     latest = Math.max(latest ?? 0, notificationId);
-    if (!isNew || !sample || document.hidden || !document.hasFocus()) return;
+    if (!isNew || !sample || !soundEnabled() || document.hidden || !document.hasFocus()) return;
     void sample.then(buffer => {
-      if (!buffer || player !== owner || context.state !== "running" || document.hidden || !document.hasFocus()) return;
+      if (!buffer || player !== owner || !soundEnabled() || context.state !== "running" || document.hidden || !document.hasFocus()) return;
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.connect(context.destination);
