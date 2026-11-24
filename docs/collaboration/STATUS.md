@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play song inventory and source updates
+
+Runtime `c4bf0da` deployed to the original Worker as `a494d0db-80fd-4a0e-b06c-0b975637cd46`. The Play Host Console Song Library shows distinct recording counts for each source and the deduplicated total. Sheets gets credit for recordings missing from AMQ+, and Quiz gets credit for recordings missing from both. Each source has its own update control. All 628 tests passed, and local desktop and mobile browser checks exercised the three controls. Verified the live shell, four changed assets and the inventory endpoint's signed-out access rejection. Production source refreshes can be run from the console.
+
 ## Dedicated Play host console
 
 Runtime `20e4973` deployed to the original Worker as `e74e4e87-ca46-4991-9274-2c6b7775946d`. Hosts can open `/play/host` from Play navigation or the account menu. Match Review has a searchable index, a mobile list and full-width evidence. Song Library has its own refresh controls. All 620 release tests passed. Browser checks at 1360 and 390 pixels exercised host access, navigation, filtering, timeline, notes and refresh with local data. The production route and five assets were verified. Both host endpoints rejected signed-out access. The separate GitHub Pages demo job reported a missing artifact.
