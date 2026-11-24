@@ -1,3 +1,4 @@
+import {syncGameRecords} from './game-record-sync.js';
 import { inboxPage, readInbox, dismissInbox, inboxCount } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
@@ -252,6 +253,8 @@ export class Game extends DurableObject {
     return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
       .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
   }
+  quizRecordJobs() { return this.engine.quiz.recordJobs(); }
+  quizRecordDone(id) { this.engine.run('DELETE FROM quiz_record_outbox WHERE id=?',id); }
   publishedQuizSongs(previousVersion, includeExportTitles = false) {
     const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');
     const version=JSON.stringify(quizzes.map(q=>[q.id,q.updated]));
@@ -1969,7 +1972,10 @@ export class Game extends DurableObject {
 }
 
 export default {
-  async scheduled(event,env){await sheetActor(env).startSheetRefresh();},
+  async scheduled(event,env){
+    if(event.cron==='*/2 * * * *')return syncGameRecords(env);
+    await sheetActor(env).startSheetRefresh();
+  },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if(url.pathname==='/quiz-library/master-answers.json')return new Response(null,{status:404});

@@ -48,6 +48,12 @@ export class PlayQueue extends DurableObject {
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS match_flag_counts(id TEXT PRIMARY KEY,total INTEGER NOT NULL)');
     if(!this.rows('PRAGMA table_info(match_flag_counts)').some(c=>c.name==='breakdown'))
       ctx.storage.sql.exec('ALTER TABLE match_flag_counts ADD COLUMN breakdown TEXT');
+    if(!this.rows("SELECT 1 FROM sqlite_master WHERE name='stats_record_jobs'").length)
+      ctx.storage.transactionSync(()=>{
+        ctx.storage.sql.exec('CREATE TABLE stats_record_jobs(id TEXT PRIMARY KEY,retry_at INTEGER NOT NULL DEFAULT 0)');
+        ctx.storage.sql.exec('CREATE INDEX stats_records_due ON stats_record_jobs(retry_at)');
+        ctx.storage.sql.exec("INSERT INTO stats_record_jobs(id) SELECT id FROM match_reviews WHERE status='finished' ORDER BY created DESC");
+      });
     this.records=new PlayRecords(this);
     this.presence=new PlayPresence(ctx.storage);
   }
@@ -313,6 +319,17 @@ export class PlayQueue extends DurableObject {
        FROM play_records WHERE format=? GROUP BY player) r ON r.player=s.player`;
     return playRankingPage(this.rows.bind(this),source,ngmc?[bucket]:[bucket,bucket],{page,sort,dir,friendIds,viewer});
   }
+  enqueueStatsRecord(id){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO stats_record_jobs(id) VALUES(?)',id);}
+  gameRecordJobs(){
+    return this.rows('SELECT id FROM stats_record_jobs WHERE retry_at<=? ORDER BY retry_at,rowid LIMIT 10',Date.now()).map(({id})=>{
+      const receipt=this.rows('SELECT data FROM ngmc_results WHERE id=? UNION ALL SELECT data FROM song_results WHERE id=? LIMIT 1',id,id)[0];
+      return {id,ratings:receipt?JSON.parse(receipt.data):[]};
+    });
+  }
+  gameRecordDone(id,saved){
+    if(saved)this.ctx.storage.sql.exec('DELETE FROM stats_record_jobs WHERE id=?',id);
+    else this.ctx.storage.sql.exec('UPDATE stats_record_jobs SET retry_at=? WHERE id=?',Date.now()+3600000,id);
+  }
   async complete(id,result=null,status='cancelled'){
     let ratings=null;
     const sql=this.ctx.storage.sql;
@@ -342,6 +359,7 @@ export class PlayQueue extends DurableObject {
       if(result.records?.length)this.records.save(id,bucket,result.records);
       else this.ctx.storage.sql.exec('INSERT OR IGNORE INTO pending_play_records VALUES(?,?)',id,bucket);
     }
+    if(status==='finished')sql.exec('INSERT OR IGNORE INTO stats_record_jobs(id) VALUES(?)',id);
     return ratings;
   }
   async prepare(row){

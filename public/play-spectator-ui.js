@@ -1,7 +1,7 @@
 import {openMatchChat} from './play-match-chat.js';
 import {poolName} from './play-pool.js';
 import {createSongListDialog} from './play-song-dialog.js';
-import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js?v=guesses-above-input';
+import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js?v=stable-round-layout';
 import {ngmcArena,ngmcTeams,ngmcTrack,ngmcProgress} from './ngmc-ui.js?v=guesses-above-input';
 import {pointsBoard} from './play-lobby-ui.js?v=compact-team-guesses';
 import {broadcastResults} from './play-match-results.js';
@@ -19,11 +19,11 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   root.innerHTML='<section class="sa-match-layout"><div class="sa-game-heading"><div><span class="sa-eyebrow" data-watch-pool>Spectating</span>'+
     '<div class="play-mode-title"><h1>'+esc(title)+'</h1></div></div><div class="sa-game-actions">'+
     '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
-    '<div class="sa-match-buttons"><button type="button" class="button mint" data-watch-action="audio">Enable Audio</button>'+
+    '<div class="sa-match-buttons">'+
     '<button type="button" class="button secondary" data-watch-action="songs">Song List</button>'+
     '<button type="button" class="button mint" data-watch-action="rematch" hidden>Join Rematch Lobby</button>'+
     '<button type="button" class="button secondary" data-watch-action="leave">Leave Spectating</button></div></div></div>'+
-    '<p class="sa-status watch-status" role="status">Connecting to match…</p><div class="watch-board"></div></section>'+
+    '<div class="watch-board"></div><p class="sa-status watch-status" role="status">Connecting to match…</p><button type="button" class="button mint" data-watch-action="audio">Enable Audio</button></section>'+
     '<dialog class="lobby-poll play-rematch-dialog" aria-labelledby="watch-rematch-title">'+
     '<h2 id="watch-rematch-title">Join the rematch lobby?</h2>'+
     '<div class="play-rematch-votes"><button type="button" class="button secondary" data-watch-action="decline-rematch">No</button>'+

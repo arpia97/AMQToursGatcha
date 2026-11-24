@@ -140,7 +140,10 @@ export async function reconcileRankedIncident(q,apply,key=incident){
     if(apply){
       q.ctx.storage.transactionSync(()=>{
         if(saved()||JSON.stringify(readGames(q,from))!==JSON.stringify(rows)||(balanced&&JSON.stringify(readLeaves(q))!==JSON.stringify(leaves)))throw Error('Ranked matches changed. Preview and retry.');
-        for(const u of updates)sql.exec('UPDATE ngmc_results SET data=? WHERE id=?',JSON.stringify(u.ratings),u.id);
+        for(const u of updates){
+          sql.exec('UPDATE ngmc_results SET data=? WHERE id=?',JSON.stringify(u.ratings),u.id);
+          q.enqueueStatsRecord?.(u.id);
+        }
         for(const b of balances){
           if(!q.rows('UPDATE '+ngmcTable(b.pool)+' SET elo=elo+? WHERE player=? AND elo=? RETURNING player',b.delta,b.id,b.before).length)
             throw Error('Player rating changed. Preview and retry.');

@@ -4,7 +4,8 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "vars": { "BACKGROUND_IMPORT_MODE": "continuous" },
-  "triggers": { "crons": ["12 4 * * SUN"] },
+  "d1_databases": [{"binding":"GAME_RECORDS","database_name":"amqtours-game-records","database_id":"687446ba-799f-4512-9231-4faa775e18a3"}],
+  "triggers": { "crons": ["12 4 * * SUN","*/2 * * * *"] },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

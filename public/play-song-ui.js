@@ -8,7 +8,7 @@ import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,son
 import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=compact-team-guesses';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
-import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=guesses-above-input';
+import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=stable-round';
 import {roundAudio} from './play-round-audio.js';
 import {sampleStart} from './play-sample.js';
 import {createPlayActivity} from './play-activity.js';
@@ -751,8 +751,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const titleRow=modeTitleHTML(title,match.format);
     const autoskip=!done&&match.skipRequired?'<label class="fuzzy-anime-search" title="Ready for the next song once everyone else is ready"><input type="checkbox" data-auto-skip'+(autoSkip?' checked':'')+'> Autoskip</label>':'';
     const preferences=autoskip?'<div class="sa-game-preferences">'+volumeHTML()+autoskip+'</div>':volumeHTML();
-    const survival=match.format===ONE_TEAM_FORMAT;
-    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'<small data-match-reconnecting role="status" hidden>Reconnecting to match…</small></div><div class="sa-game-actions">'+preferences+'<div class="sa-match-buttons">'+(survival?'':resumeAudio)+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby&&match.format!==ONE_TEAM_FORMAT?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
+    const heading='<div class="sa-game-heading"><div><span class="sa-eyebrow">'+modeLabel+' · '+poolName(match.pool)+'</span>'+titleRow+'<small data-match-reconnecting role="status" hidden>Reconnecting to match…</small></div><div class="sa-game-actions">'+preferences+'<div class="sa-match-buttons">'+takeOver+abortButton+(match.lobby&&!done?'<button class="button secondary" data-return-request>Return to Lobby</button>':'')+'<button type="button" class="button secondary" data-sa-action="songs">Song List</button>'+(done&&match.lobby&&match.format!==ONE_TEAM_FORMAT?endLobbyActions():'<button type="button" class="button secondary" data-sa-action="'+(done?'again':'leave')+'">'+(done?'Back':'Leave Match')+'</button>')+'</div></div></div>';
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
@@ -763,7 +762,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const answerForm='<form id="sa-answer-form"><div class="sa-answer-fields" data-guess-count="'+fields.length+'">'+answerFieldsHTML(fields,teamFields())+'</div><button type="submit" class="button mint sa-lock">Submit</button>'+
       '<small class="sa-locked-answer" aria-live="polite" hidden></small>'+answerSearchControls()+'</form>';
     const skipButton=match.skipRequired?'<div class="sa-skip-row"><button class="button secondary" type="button" data-sa-action="skip" aria-pressed="false">Skip Song</button></div>':'';
-    if(ranked())return heading+ngmcArena(match,answerForm+skipButton);
+    if(ranked())return heading+ngmcArena(match,answerForm+skipButton)+resumeAudio;
     const tiles=teamFields()?'<div class="sa-live-answer-sides '+(match.teams.length>1?'is-versus':'')+'"><section><h3 class="sa-side-heading">Your Team</h3>'+teamAnswerTilesHTML()+'</section>'+(match.teams.length>1?'<section><h3 class="sa-side-heading">Opponents</h3><div class="sa-opponent-answers"></div></section>':'')+'</div>':'';
     return heading+songBroadcastLayout(match,{tiles,answerForm,skipButton,resumeAudio});
   }
@@ -889,7 +888,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       }
     }
     const waiting=['loading','buffering'].includes(match.phase)||!ready;
-    const showReady=waiting&&(!ranked()||!ready||match.phase==='loading');
+    const showReady=waiting&&(!ready||match.phase==='loading');
     const readyWrap=root.querySelector('.sa-ready-wrap');readyWrap.hidden=!showReady;
     const readyMarkup=showReady?readyHTML(match,true,ready,esc,autoReadyHTML(autoReady))+(ranked()&&match.phase==='loading'?ngmcControls(match,esc):''):'';
     updateMarkup(readyWrap,readyMarkup);

@@ -1,5 +1,10 @@
 # Shared Status and Handoff
 
+## Play layout and statistics archive
+
+The multiplayer board and Quiz input keep background downloads below the controls. Official tour fixtures, Play matches and published Quiz completions feed the dedicated game-records D1 database. See docs/game-records.md for version 1, recovery coverage and rating scopes.
+
+
 ## Quiz upload priority
 
 Runtime `6641e3c` deployed as Worker `161b7b4e-ccdd-410e-b1e1-2325802fadf3`. Quiz preview, save and append give direct AMQ working titles first priority. A recording with a previously published, identifiable AMQ export can reuse its uploaded titles ahead of sheet and catalog fallbacks. The full suite passed all 613 tests. Both live resolver assets matched the tested source and the public Yuri Kasahara pool returned both confirmed titles for the butterfly flutters.

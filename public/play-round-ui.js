@@ -19,13 +19,13 @@ export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton='',
   const scoreboard='<div class="sa-scoreboard"></div>';
   const ready='<div class="sa-ready-wrap"></div>';
   const download='<div class="sa-download-status'+(survival?' one-team-download':'')+'"></div>';
-  return (survival?'':ready)+'<div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+'">'+
+  return '<div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+'">'+
     (arena?'':scoreboard)+
     '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+match.total+'</small></h2>'+
     (survival?'<div class="one-team-mobile-lives"></div>':'')+'</div>'+roundDialHTML+'</header>'+
-    '<div class="song-broadcast-body">'+(survival?ready:'')+'<div class="sa-reveal-wrap"></div>'+
-    (survival?'':download)+'<div class="sa-shared-wrap"></div>'+(survival?'':tiles)+answerForm+skipButton+
-    '</div></section>'+(arena?scoreboard:'')+'</div>'+(survival?'<div class="one-team-audio-footer">'+download+resumeAudio+'</div>':'');
+    '<div class="song-broadcast-body">'+ready+'<div class="sa-reveal-wrap"></div>'+
+    '<div class="sa-shared-wrap"></div>'+(survival?'':tiles)+answerForm+skipButton+
+    '</div></section>'+(arena?scoreboard:'')+'</div>'+'<div class="sa-match-audio-footer">'+download+resumeAudio+'</div>';
 }
 export function updateRoundDial(dial,match,now){
   const guessing=match.phase==='guess',counting=match.phase==='counting';

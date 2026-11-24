@@ -20,7 +20,7 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   if (sql.exec('SELECT 1 FROM review_meta WHERE id=?', HISTORY_META_ID).toArray().length) return;
   const outcomes = new Map(matchRecords(state).map(row => [row.id, row.outcome]));
   const placements = state.arena ? arenaStandings(state.arena).map(row => row.team) : null;
-  const players = state.players.map(({id, team, score, left}) => {
+  const players = state.players.map(({id, team, score, left, elo}) => {
     let outcome = left ? 'Left' : outcomes.get(id);
     if (!outcome && state.format === ONE_TEAM_FORMAT) outcome = state.teams[0] > 0 ? 'Survived' : 'OutOfLives';
     if (!outcome && state.teams.length === 2 && !placements && state.format !== 'lobby-ffa') {
@@ -29,13 +29,14 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
     }
     const place = placements ? placements.indexOf(team) + 1 : state.format === 'lobby-ffa'
       ? 1 + state.teams.filter(total => total > state.teams[team]).length : undefined;
-    return {id, score, outcome, place};
+    return {id, score, outcome, place, ratingBefore:elo};
   });
-  const summary = {pool: state.pool ?? state.lobby?.pool, ended, players, rounds: state.history.length};
+  const summary = {teams:state.teams,arena:state.arena?{songsPerFixture:state.arena.songsPerFixture,
+    rounds:state.arena.rounds.map(fixtures=>fixtures.map(({home,away,scores,complete,forfeits})=>({home,away,scores,complete,forfeits})))}:null,pool: state.pool ?? state.lobby?.pool, ended, players, rounds: state.history.length};
   storage.transactionSync(() => {
     sql.exec('CREATE TABLE IF NOT EXISTS play_history_rounds(idx INTEGER PRIMARY KEY,data TEXT NOT NULL)');
-    for (const {index, anime, song, songType, artist, results} of state.history) {
-      const row = {index, anime, song, songType, artist,
+    for (const {index, anime, song, songType, artist, results, points, lives} of state.history) {
+      const row = {index, anime, song, songType, artist, points, lives,
         results: results.map(({id, earned, correct, answers}) => ({id, earned, correct, answers}))};
       sql.exec('INSERT OR REPLACE INTO play_history_rounds VALUES(?,?)', index, JSON.stringify(row));
     }

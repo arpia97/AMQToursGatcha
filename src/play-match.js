@@ -1,3 +1,4 @@
+import {playRecord} from './game-record-format.js';
 import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, matchGuessFields, usesTeamBallot, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from './play-arena.js';
@@ -482,6 +483,23 @@ export class PlayMatch extends DurableObject {
   }
   playerHistory(player, includeSongs, format){
     return readPlayHistory(this.ctx.storage, this.read(), player, includeSongs, format);
+  }
+  getStatsRecord(ratings){
+    const sql=this.ctx.storage.sql;
+    const readMeta=id=>JSON.parse(sql.exec('SELECT data FROM review_meta WHERE id=?',id).toArray()[0]?.data||'null');
+    const meta=readMeta(1);
+    if(!meta)return null;
+    const saved=readMeta(6);
+    if(saved)return playRecord(meta,saved,sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().map(r=>JSON.parse(r.data)),ratings);
+    const rounds=new Map();
+    for(const row of sql.exec("SELECT player,data FROM review_events WHERE kind='round-result' ORDER BY seq")){
+      const r=JSON.parse(row.data);
+      if(!Number.isInteger(r.round)||r.round<1)continue;
+      if(!rounds.has(r.round))rounds.set(r.round,{index:r.round-1,results:[]});
+      rounds.get(r.round).results.push({id:row.player,earned:r.earned,correct:r.correct});
+    }
+    const ended=sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at;
+    return playRecord(meta,{ended},[...rounds.values()].sort((a,b)=>a.index-b.index),ratings);
   }
   historicalRecords(format,ratings){
     const state=this.read();

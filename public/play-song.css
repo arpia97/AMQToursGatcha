@@ -92,8 +92,6 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .one-team-survival .sa-ready-wrap {margin:0}
 .one-team-survival .sa-shared-wrap:empty,.one-team-download:empty {display:none}
 .one-team-download {margin:0}
-.one-team-audio-footer {display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.one-team-audio-footer:has(.one-team-download:empty):has(> .button[hidden]) {display:none}
 .one-team-survival .answer-search-controls {margin-block:2px 0}
 .one-team-survival .sa-skip-row {margin-top:6px}
 .play-rematch-actions,.play-rematch-votes {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -690,3 +688,20 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 
 .duel-emblem span { min-height:32px; align-content:center; }
 .duel-match .sa-answer-fields { grid-template-columns:minmax(0,1fr); }
+
+/* Transient audio notices belong below the board. Keep the clock and
+   submission acknowledgement in their own slots even when empty. */
+.sa-match-layout {align-content:start;overflow-anchor:none}
+.sa-match-audio-footer {display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.sa-match-audio-footer .sa-download-status {margin:0}
+.sa-match-audio-footer:has(.sa-download-status:empty):not(:has(button:not([hidden]))) {display:none}
+.song-broadcast .ngmc-dial[hidden] {display:grid;visibility:hidden}
+.song-broadcast .sa-song-panel .sa-locked-answer {display:block;grid-column:1/-1;height:1.4em;line-height:1.4;margin:4px 0 0;white-space:nowrap;overflow:auto}
+.song-broadcast .sa-locked-answer[hidden] {visibility:hidden}
+.song-broadcast .song-broadcast-body {min-height:13rem}
+.song-broadcast .arena-option strong,.song-broadcast .sa-team-answer-value {display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.song-broadcast .arena-ballot[aria-label="Pair vote"] {block-size:12rem;overflow:auto;align-content:start}
+.song-broadcast .lobby-ballot {block-size:clamp(8rem,25vh,14rem);overflow:auto;align-content:start}
+.song-broadcast .sa-live-answer-sides:not([hidden]) {block-size:clamp(9rem,28vh,18rem);overflow:auto}
+.song-broadcast .arena-option {min-height:4rem}
+.sa-match-layout [data-match-reconnecting] {position:absolute;z-index:1;background:var(--panel)}

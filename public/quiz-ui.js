@@ -1014,15 +1014,15 @@ export function createQuizUI({
       (!run.answered
         ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
         : "") +
+      (run.answered ? result : answerForm+answerSearchControls(storage)) +
+      songProgressHTML() +
+      hotkeyHintBar() +
       (!run.answered ? '<div id="quiz-audio-loading" class="quiz-audio-loading"'+(run.endsAt?' hidden':'')+'>'+songLoadingBar({label:'Preparing Quiz Audio'})+'</div>' : '') +
       '<div class="quiz-audio-line">' +
       (!run.answered
         ? '<span class="form-hint" id="quiz-audio-status" hidden>Preparing Audio…</span><button type="button" class="button secondary" data-quiz-play hidden>Enable Audio</button>'
         : "") +
       "</div>" +
-      (run.answered ? result : answerForm+answerSearchControls(storage)) +
-      songProgressHTML() +
-      hotkeyHintBar() +
       '<p id="quiz-inline-error" class="form-error" role="alert">' +
       e(errorMessage) +
       "</p></section>"
