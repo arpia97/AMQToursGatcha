@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {tourRecord,playRecord,quizRecord} from '../src/game-record-format.js';
+import {tourRecord,playRecord} from '../src/game-record-format.js';
 import {storeGame} from '../src/game-record-sync.js';
 import {songBroadcastLayout} from '../public/play-round-ui.js';
 import {DUEL_FORMAT,ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
@@ -26,13 +26,12 @@ test('tour restarts link actual participants and tier order to each segment and 
   assert.equal(sql.prepare('select count(*) as n from game_players').get().n,3);
   assert.deepEqual(record.songs[1].teams.a,['3']);sql.close();
 });
-test('Play and Quiz export only stat fields and preserve unknown rating history',()=>{
+test('Multiplayer records export only stat fields and preserve unknown rating history',()=>{
   const p=playRecord({id:'m',format:'1v1',players:[{id:'27',name:'Alice',team:0}],decoy:'private'},
     {teams:[1],players:[{id:'27',score:1}]},[{index:0,anime:'Title',results:[{id:'27',correct:{anime:true},answers:{anime:'private'}}]}],[]);
   assert.equal(p.players[0].ratingAfter,null);assert.equal(p.teams[0].players[0],'27');
   assert.ok(!JSON.stringify(p).includes('private'));
-  const q=quizRecord({id:'q'},{id:'x',songs:[{answers:['Title'],audio:'private'}],answers:[{correct:true}]},'27','Alice');
-  assert.equal(q.songs[0].results[0].points,1);assert.ok(!JSON.stringify(q).includes('private'));
+
 });
 test('download notices and recovery actions follow the board for all shared match layouts',()=>{
   for(const mode of [DUEL_FORMAT,ARENA_FORMAT,'song-artist',ONE_TEAM_FORMAT]){

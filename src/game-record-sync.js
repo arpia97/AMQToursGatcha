@@ -82,14 +82,7 @@ async function play(env){
     } catch(err){await q.gameRecordDone(id,false);console.warn('Match archive retry',id,String(err));}
   }
 }
-async function quizzes(env){
-  const game=env.GAME.getByName('amqtours-economy-v1');
-  for(const r of await game.quizRecordJobs()){
-    await storeGame(env.GAME_RECORDS,r);
-    await game.quizRecordDone(r.id);
-  }
-}
 export async function syncGameRecords(env){
-  const outcomes=await Promise.allSettled([tours(env.GAME_RECORDS),play(env),quizzes(env)]);
+  const outcomes=await Promise.allSettled([tours(env.GAME_RECORDS),play(env)]);
   for(const r of outcomes)if(r.status==='rejected')console.error('Stats archive sync',String(r.reason));
 }

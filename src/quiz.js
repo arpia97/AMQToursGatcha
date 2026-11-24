@@ -1,4 +1,3 @@
-import {quizRecord} from './game-record-format.js';
 import { correctQuizClock, correctQuizReceipt } from "./quiz-countdown.js";
 import { quizRunView, advanceQuizRun } from "./quiz-run-state.js";
 import { titleOrderKey } from "../public/title-order.js";
@@ -22,8 +21,6 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS quiz_answers(quiz TEXT NOT NULL,answer TEXT NOT NULL,key TEXT NOT NULL,PRIMARY KEY(quiz,key))",
       "CREATE INDEX IF NOT EXISTS quiz_answer_prefix ON quiz_answers(key)",
       "CREATE TABLE IF NOT EXISTS quiz_progress(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL DEFAULT 0,at INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
-      "CREATE TABLE IF NOT EXISTS quiz_record_outbox(id TEXT PRIMARY KEY,data TEXT NOT NULL)",
-      "CREATE TABLE IF NOT EXISTS quiz_record_scan(id INTEGER PRIMARY KEY,position INTEGER NOT NULL,stop INTEGER NOT NULL)",
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_favorites(player TEXT NOT NULL,quiz TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE INDEX IF NOT EXISTS quiz_favorites_quiz ON quiz_favorites(quiz)",
@@ -566,26 +563,6 @@ export class Quiz {
         }),
     };
   }
-  queueRecord(q,run,player) {
-    const name=this.e.one('SELECT name FROM players WHERE id=?',player)?.name;
-    const record=quizRecord(q,run,player,name);
-    this.e.run('INSERT OR IGNORE INTO quiz_record_outbox VALUES(?,?)',record.id,JSON.stringify(record));
-  }
-  recordJobs() {
-    const e=this.e;
-    e.run('INSERT OR IGNORE INTO quiz_record_scan SELECT 1,0,coalesce(max(rowid),0) FROM quiz_runs');
-    const scan=e.one('SELECT position,stop FROM quiz_record_scan WHERE id=1');
-    if(scan.position<scan.stop){
-      const rows=e.all(`SELECT r.rowid AS n,r.player,r.data,q.id,q.name,q.category,q.published FROM quiz_runs r
-        LEFT JOIN quizzes q ON q.id=r.quiz WHERE r.rowid>? AND r.rowid<=? ORDER BY r.rowid LIMIT 8`,scan.position,scan.stop);
-      for(const row of rows){
-        const run=JSON.parse(row.data);
-        if(row.published && run.id && run.finished && !run.preview)this.queueRecord(row,run,row.player);
-      }
-      e.run('UPDATE quiz_record_scan SET position=? WHERE id=1',rows.at(-1)?.n??scan.stop);
-    }
-    return e.all('SELECT data FROM quiz_record_outbox ORDER BY rowid LIMIT 8').map(row=>JSON.parse(row.data));
-  }
   favorite(player, b) {
     const q = this.definition(b.quiz, player);
     if (typeof b.favorited !== "boolean") fail("Choose whether to favorite this quiz.");
@@ -723,7 +700,6 @@ export class Quiz {
           displayBest = Math.max(previous?.best || 0, score);
         const preview = !!run.preview || !q.published;
         if (!preview) {
-          this.queueRecord(q,run,player);
           if (reward.improvement + reward.milestones)
             e.wallet(
               player,

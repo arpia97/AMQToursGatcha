@@ -56,10 +56,3 @@ export function tourRecord(tour, match, report, changes) {
     players:[...members].map(([key,team])=>{const r=changes.find(p=>String(p.player)===key);
       return player(key,names.get(key)?.name,team,r?.before??names.get(key)?.elo,r?.after,null,null);}),songs};
 }
-export function quizRecord(q, run, pid, name) {
-  const p=player(pid,name,null,null,null,run.answers.filter(a=>a?.correct).length,null);
-  return {schemaVersion:1,id:'quiz:'+run.id,source:'quiz',sourceId:run.id,tourId:null,quizId:q.id,
-    quizName:q.name,format:q.category,pool:null,ratingScope:null,startedAt:run.startedAt??null,
-    endedAt:run.completedAt??null,players:[p],teams:[],songs:run.songs.map((s,i)=>song(i+1,s.answers?.[0],s.title,s.artist,s.type,
-      [result(pid,{anime:run.answers[i]?.correct},run.answers[i]?Number(run.answers[i].correct):null)]))};
-}

@@ -134,6 +134,12 @@ export class Game extends DurableObject {
     super(ctx, env);
     this.ctx = ctx;
     this.env = env;
+    // Remove the temporary solo-Quiz export staging from the initial archive rollout.
+    if(ctx.storage.sql.exec("SELECT 1 FROM sqlite_master WHERE name='quiz_record_outbox'").toArray().length)
+      ctx.storage.transactionSync(()=>{
+        ctx.storage.sql.exec('DROP TABLE IF EXISTS quiz_record_outbox');
+        ctx.storage.sql.exec('DROP TABLE IF EXISTS quiz_record_scan');
+      });
     this.bursts = new BurstLimits();
     const startup = { read: 0, written: 0 };
     this.engine = new Engine(
@@ -253,8 +259,6 @@ export class Game extends DurableObject {
     return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
       .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
   }
-  quizRecordJobs() { return this.engine.quiz.recordJobs(); }
-  quizRecordDone(id) { this.engine.run('DELETE FROM quiz_record_outbox WHERE id=?',id); }
   publishedQuizSongs(previousVersion, includeExportTitles = false) {
     const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');
     const version=JSON.stringify(quizzes.map(q=>[q.id,q.updated]));

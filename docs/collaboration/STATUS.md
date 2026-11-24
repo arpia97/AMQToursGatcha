@@ -2,7 +2,7 @@
 
 ## Play layout and statistics archive
 
-The multiplayer board and Quiz input keep background downloads below the controls. Official tour fixtures, Play matches and published Quiz completions feed the dedicated game-records D1 database. See docs/game-records.md for version 1, recovery coverage and rating scopes.
+The multiplayer board and Quiz input keep background downloads below the controls. Official tour fixtures and completed multiplayer matches feed the dedicated game-records D1 database. See docs/game-records.md for version 1, recovery coverage and rating scopes.
 
 
 ## Quiz upload priority

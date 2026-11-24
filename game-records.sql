@@ -23,3 +23,9 @@ CREATE TABLE IF NOT EXISTS record_cursors (source TEXT PRIMARY KEY, position TEX
 CREATE TABLE IF NOT EXISTS tours (
  id TEXT PRIMARY KEY, revision INTEGER NOT NULL, document TEXT NOT NULL CHECK(json_valid(document))
 );
+
+CREATE TRIGGER IF NOT EXISTS supported_game_source BEFORE INSERT ON games
+WHEN NEW.source NOT IN ('tour','play')
+BEGIN
+  SELECT RAISE(ABORT,'Only official tours and multiplayer matches are archived');
+END;
