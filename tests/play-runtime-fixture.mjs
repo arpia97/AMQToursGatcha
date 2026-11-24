@@ -93,6 +93,9 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio,songCou
   const tourSeedRequests=[],unavailableAudio=new Set();
   const outbound=async request=>{
     const url=new URL(request.url);
+    if(url.href==='https://animemusicquiz.com/libraryMasterList')
+      return Response.json({masterListId:'20990101000000-1',songMap:{1:{name:'Track',songArtistId:1}},artistMap:{1:{name:'Artist'}},groupMap:{},
+        animeMap:{1:{annId:1,songLinks:{OP:[{songId:1,annSongId:999999,uploaded:true}]}}}});
     if(url.hostname==='myanimelist.net' && ['/animelist/Local/load.json','/animelist/Wide/load.json'].includes(url.pathname)){
       const rows=url.searchParams.get('offset')==='0'?[{anime_id:1003,status:2,num_watched_episodes:0},{anime_id:1004,status:6,num_watched_episodes:0}]:[];
       if(url.pathname.includes('/Wide/')&&url.searchParams.get('offset')==='0')

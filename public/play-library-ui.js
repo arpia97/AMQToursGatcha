@@ -98,9 +98,11 @@ export function mountPlayLibrary(root, host) {
       if(source==='official'){
         status(source,'Checking the official AMQ export…');
         const checked=await host('play-library',{source:'official'});
+        if(!checked.checkedAt||!checked.version)throw Error('Official AMQ refresh is updating. Please try again shortly.');
         status(source,'Updating coverage counts…');
         const counts=await inventory(true);
-        if(counts && !counts.coverage)throw Error('Export checked. Coverage counts are temporarily unavailable.');
+        if(counts && (!counts.coverage || counts.coverage.checkedAt<checked.checkedAt || counts.coverage.officialVersion!==checked.version))
+          throw Error('Export checked. Reopen Song Library to reload the updated counts.');
         status(source,checked.changed?'Official AMQ export updated.':'Official AMQ export is up to date.');
       } else if(source==='sheets'){
         const job=await host('play-sheet',manual?{}:undefined);

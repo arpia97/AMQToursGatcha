@@ -235,6 +235,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(inventoryResponse.status,200);
   const inventory=await inventoryResponse.json();
   assert.ok(inventory.total>=inventory.amqPlus && inventory.amqPlus>0);
+  const refreshRequest={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'official'})};
+  assert.equal((await mf.dispatchFetch(inventoryURL,refreshRequest)).status,401);
+  refreshRequest.headers.Authorization='Bearer local-only-test-host-token-123456789';
+  const updated=await (await mf.dispatchFetch(inventoryURL,refreshRequest)).json();
+  assert.equal(updated.version,'20990101000000-1');
+  const refreshedInventory=await (await mf.dispatchFetch(inventoryURL,{headers:refreshRequest.headers})).json();
+  assert.equal(refreshedInventory.coverage.checkedAt,updated.checkedAt);
+  assert.equal(refreshedInventory.coverage.officialVersion,updated.version);
   const listUpdate=(body,cookie)=>mf.dispatchFetch(base+'/api/play-anime-list',{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)});
   const listBody={provider:'myanimelist',username:'https://myanimelist.net/animelist/Local'};
   assert.equal((await listUpdate(listBody)).status,401);
