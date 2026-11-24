@@ -635,6 +635,7 @@ export class Engine {
             a.card,
             a.level,
             a.bid,
+            {auctionSection: a.seller ? "user" : "community"},
           );
         }
       }

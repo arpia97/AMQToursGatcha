@@ -1,3 +1,4 @@
+import { applyMarketNotice } from "./market-notice-link.js";
 import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
 import { replacementPortrait } from "./mal-portraits.js";
@@ -86,10 +87,10 @@ import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions as syncAcquiredCardActions } from "./pack-reveal.js?v=acquired-cards";
-import { createFeatures } from "./features.js?v=sell-wishlists";
+import { createFeatures } from "./features.js?v=market-notice-links";
 import { installInboxDropdown } from "./inbox-dropdown.js";
-import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js?v=play-quiz-links";
-import { noticePanel } from "./player-notices.js?v=play-quiz-links";
+import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js?v=market-notice-links";
+import { noticePanel } from "./player-notices.js?v=market-notice-links";
 import { applyGameState } from "./game-state.js";
 import { auctionRefreshIds, applyAuctionRefresh, syncBidForm } from "./auction-live.js";
 import { readRouletteMotion, saveRouletteMotion } from "./roulette-motion.js";
@@ -1517,7 +1518,7 @@ function auctions() {
         : "A New Week. A New Lineup.",
       "Five characters. Five seiyuus. Higher tiers in the spotlight.",
     ) +
-    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.${state.communityMarket?.active ? " Each bid restarts that card’s 12-hour timer. The next bid must be at least 10% higher." : ""}</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to Join Your Deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head"><h2>${state.communityMarket?.active ? "Community Auctions" : "Weekly Community Auctions"}</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), state.communityMarket?.active ? "Next Auction Ends in " : "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No Auctions Just Yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
+    `<div class="notice">Bids hold credits immediately; outbid players are refunded. After the timer ends, the highest bidder can claim the card here.${state.communityMarket?.active ? " Each bid restarts that card’s 12-hour timer. The next bid must be at least 10% higher." : ""}</div>${tabs()}${won.length ? `<div class="section-head"><h2>Ready to Join Your Deck</h2></div><div class="card-grid">${won.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : ""}<div class="section-head" id="community-auctions"><h2>${state.communityMarket?.active ? "Community Auctions" : "Weekly Community Auctions"}</h2><span class="subtext">${countdown(active[0]?.ends || nextWeeklyReset(state.now), state.communityMarket?.active ? "Next Auction Ends in " : "Auction resets in ", true, "Refreshing auctions…")}</span></div>${active.length ? `<div class="card-grid">${active.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty("No Auctions Just Yet.", "The host needs at least five cards in each catalog to start weekly auctions.")}` +
     features.userAuctions()
   );
 }
@@ -1871,7 +1872,6 @@ document.addEventListener("change",event=>{
 document.addEventListener("click",event=>{
   const link=event.target.closest("[data-inbox-link]");
   if(!link)return;
-  if(link.dataset.inboxSection){ui.shopSection=link.dataset.inboxSection;ui.tradeView="browse";ui.marketPage=1;ui.tradePage=1;}
   $("#modal").close();
 },true);
 const loadingPage = () => '<p class="loading">Loading…</p>';
@@ -2378,7 +2378,7 @@ document.addEventListener("click", async (ev) => {
   if(a.startsWith("inbox-")) {
     const type=a.slice(6), id=Number(t.dataset.id), player=state.me.id;
     if(["item","peek","check","read","delete","delete-all"].includes(type)){
-      const html=type==="peek" ? inboxDropdown.detail(id) : type==="item" ? inbox.detail(id) : "";
+      const html = t.dataset.marketHref ? "" : type === "peek" ? inboxDropdown.detail(id) : type === "item" ? inbox.detail(id) : "";
       const deleting = type === "delete" || type === "delete-all";
       const all = type === "read" || type === "delete-all";
       let result;
@@ -2397,6 +2397,10 @@ document.addEventListener("click", async (ev) => {
       else inboxDropdown.markRead(id,all,result.unread);
       if(type==="peek" && !t.isConnected){updateInboxBadge();return;}
       if(type==="peek") inboxDropdown.close(true);
+      if ((type === "peek" || type === "item") && t.dataset.marketHref) {
+        location.assign(t.dataset.marketHref);
+        return;
+      }
       if(html)modal(html);
       if(page()!=="notifications"){updateInboxBadge();return;}
       if(type==="delete-all") inbox.view(type);
@@ -2998,9 +3002,18 @@ document.addEventListener("click", (e) => {
   if (e.target.closest("#view-pulls,[data-close-dialog]"))
     $("#modal").close();
 });
+function applyNoticeDestination() {
+  const destination = applyMarketNotice(page(), new URLSearchParams(location.search), ui);
+  if (destination) tab = destination.kind;
+  return destination?.auctionSection;
+}
+function scrollToAuctionSection(section) {
+  if (section) document.getElementById(section + "-auctions")?.scrollIntoView();
+}
 installNavigation(async () => {
   closeAccountMenu();
   const destination = currentRoute();
+  const auctionSection = applyNoticeDestination();
   titleDrag.cancel();
   titleEditor.close();
   wishlistDrag.cancel();
@@ -3035,7 +3048,10 @@ installNavigation(async () => {
     if (currentRoute() === destination)
       $("#main").innerHTML = pageErrorHTML(err, page(), escape);
   }
-  if (currentRoute() === destination) window.scrollTo(0, 0);
+  if (currentRoute() === destination) {
+    if (auctionSection) scrollToAuctionSection(auctionSection);
+    else window.scrollTo(0, 0);
+  }
 });
 let backgroundRefresh = null,
   lastBackgroundRefresh = 0,
@@ -3073,7 +3089,9 @@ try {
     demo = await Demo.create();
     $("#demo-banner").hidden = false;
   }
+  const auctionSection = applyNoticeDestination();
   await refresh();
+  scrollToAuctionSection(auctionSection);
 } catch (err) {
   $("#main").innerHTML =
     intro(

@@ -110,6 +110,9 @@ test("outbid events return held credits once, own raises/failed bids stay silent
   act("r", "bid", { auction: id, amount: 300 }, "bid");
   const notice = e.gameState("q").notices[0];
   assert.equal(notice.kind, "outbid");
+  assert.equal(notice.metadata.auctionSection, "community");
+  e.run("UPDATE player_notices SET metadata='{}' WHERE id=?", notice.id);
+  assert.equal(e.gameState("q").notices[0].metadata.auctionSection, "community");
   assert.equal(notice.credits, 200);
   assert.equal(e.player("q").balance, 10000);
   assert.equal(e.gameState("r").auctionWins.length, 0);
@@ -132,6 +135,7 @@ test('user auction 10% raises, seller rejection and bounded live snapshots prese
   act('q','bid',{auction:id,amount:101});
   assert.throws(()=>act('r','bid',{auction:id,amount:111}),/minimum bid is 112/);
   advance(1);act('r','bid',{auction:id,amount:112});
+  assert.equal(e.gameState("q").notices[0].metadata.auctionSection, "user");
   const live=e.economy.notices.auctionState('q',id+','+id);
   assert.equal(live.player,'q');assert.equal(live.balance,10000);assert.equal(live.lots.length,1);
   assert.equal(live.lots[0].bid,112);assert.equal(live.lots[0].winner_name,'Buyer');
@@ -306,6 +310,32 @@ test("no-event visits render no popup, and event copy clearly distinguishes rece
     quizHtml,
     /href="\/play\/quiz\?quiz=op-quiz">View Quiz Leaderboard →/,
   );
+});
+
+test("shop and auction notices open the venue, card type and trade sub-tab across sites", async () => {
+  const { marketNoticeHref, applyMarketNotice } = await import("../public/market-notice-link.js");
+  const card = {id:"actor",name:"An Actor & Singer",kind:"seiyuu"};
+  for (const [kind,metadata,page,section,view] of [
+    ["flash-open",{},"shop","buy"], ["wish-shop",{venue:"Community shop"},"shop","buy"],
+    ["wish-shop",{seller:"Collector"},"shop","market"], ["market-sale",{},"shop","listings"],
+    ["wish-trade",{},"shop","trades","browse"], ["trade-request",{},"shop","trades","listings"],
+    ["community-auction",{},"auctions","community"], ["wish-auction",{seller:null},"auctions","community"],
+    ["wish-auction",{seller:"Collector"},"auctions","user"], ["outbid",{auctionSection:"user"},"auctions","user"],
+    ["auction-sale",{},"auctions","user"], ["auction-buyout",{},"auctions","user"],
+  ]) {
+    const row = {kind,metadata,card:kind==="flash-open"?null:card.id};
+    for (const route of [p => "/gacha/"+p, p => "/?demo=1#"+p]) {
+      const url = new URL(marketNoticeHref(row, row.card ? card : null, route), "https://amqtours.app");
+      assert.equal(url.hash.slice(1) || url.pathname.split("/").pop(), page);
+      const ui = {};
+      const selection = applyMarketNotice(page, url.searchParams, ui);
+      assert.equal(selection.kind, row.card ? "seiyuu" : "both");
+      assert.equal(ui.shopSection || selection.auctionSection, section);
+      assert.equal(ui.tradeView, view);
+      if (section==="market") assert.equal(ui.marketQuery, card.name);
+      if (view) assert.equal(ui.tradeQuery, card.name);
+    }
+  }
 });
 
 test("quiz notifications link to the specific quiz in Play", async () => {

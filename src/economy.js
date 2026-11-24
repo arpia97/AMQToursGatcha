@@ -247,6 +247,7 @@ export class Economy {
         a.card,
         a.level,
         a.bid,
+        {auctionSection: "user"},
       );
     }
     e.wallet(

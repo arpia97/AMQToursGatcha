@@ -1,5 +1,6 @@
+import { marketNoticeHref } from "./market-notice-link.js";
 import { NOTICE_TYPES, NOTICE_GROUPS, noticeGroup, noticeDefault } from "./notification-types.js";
-import { noticeCopy } from "./player-notices.js?v=play-quiz-links";
+import { noticeCopy } from "./player-notices.js?v=market-notice-links";
 import { playQuizHref } from "./play-navigation.js?v=play-quiz-links";
 
 const glyph = { market:"⇄", wishlist:"♡", quiz:"♫", social:"✦", tour:"⚑" };
@@ -77,7 +78,9 @@ export function createInbox({escape:e,cardBy,routeHref}) {
   }
   function rowButton(r,action="item"){
     const [title,detail]=copy(r), d=new Date(r.created);
-    const open = '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'" data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
+    const href = marketNoticeHref(r, r.card ? cardBy(r.card) : null, routeHref);
+    const destination = href ? ' data-market-href="'+e(href)+'"' : "";
+    const open = '<button class="inbox-row" data-action="inbox-'+action+'" data-id="'+r.id+'"'+destination+' data-unread="'+!r.inbox_read+'"><span class="inbox-dot" aria-label="'+(r.inbox_read?"Read":"Unread")+'"></span>'+thumb(r)+'<span class="inbox-copy"><b>'+e(title)+'</b><small>'+e(detail||"")+'</small></span><time>'+e(d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"}))+'</time></button>';
     return '<div class="inbox-entry">' + open + rowControl(r, title) + '</div>';
   }
   function rowControl(r, title = copy(r)[0]) {
@@ -104,11 +107,8 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     const target=row.kind==="friend-add"&&m.byId?"player/"+encodeURIComponent(m.byId):noticeGroup(row.kind)==="quiz"?"quiz":row.kind==="pickem-new"?"pickems/"+m.pickem:row.kind==="credit-reward"?"profile":row.kind.includes("auction")||row.kind==="outbid"?"auctions":"shop";
     let action='<a class="button" data-inbox-link href="'+e(routeHref(target))+'">Open '+(target.startsWith("player/")?"profile":target.split("/")[0])+' ↗</a>';
     if(target==="quiz")action='<a class="button" data-inbox-link href="'+e(playQuizHref(m.quiz))+'">Open quiz ↗</a>';
-    if(row.kind==="trade-request")action='<button class="button" data-action="trade-notice-open" data-card="'+e(row.card)+'">View trade offers ↗</button>';
-    if(row.kind==="flash-open" || row.kind==="wish-shop" || row.kind==="wish-trade"){
-      const section=row.kind==="wish-trade"?"trades":row.kind==="flash-open"||m.venue?"buy":"market";
-      action='<a class="button" data-inbox-link data-inbox-section="'+section+'" href="'+e(routeHref("shop"))+'">View '+(section==="trades"?"trades":"shop")+' ↗</a>';
-    }
+    const marketHref = marketNoticeHref(row, row.card ? cardBy(row.card) : null, routeHref);
+    if (marketHref) action='<a class="button" data-inbox-link href="'+e(marketHref)+'">View '+(target==="auctions"?"auctions":row.kind==="trade-request"?"trade offers":row.kind==="wish-trade"?"trades":"shop")+' ↗</a>';
     return '<div class="inbox-detail">'+thumb(row)+'<h2>'+e(title)+'</h2><p>'+e(body||"")+'</p><small>'+e(new Date(row.created).toLocaleString())+'</small><p>'+action+'</p></div>';
   }
   return {query,render,detail,rowButton,rowControl,accept:v=>{data=v;},

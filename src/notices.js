@@ -37,6 +37,14 @@ export class PlayerNotices {
   }
   decode(player, {event_key, ...row}) {
     row.metadata = JSON.parse(row.metadata);
+    if (row.kind === "outbid" && !row.metadata.auctionSection) {
+      const match = /^(?:outbid:(\d+):\d+|buyout-refund:(\d+))$/.exec(event_key);
+      if (match?.[2]) row.metadata.auctionSection = "user";
+      else if (match) {
+        const auction = this.e.one("SELECT seller FROM auctions WHERE id=? AND card=?", Number(match[1]), row.card);
+        if (auction) row.metadata.auctionSection = auction.seller ? "user" : "community";
+      }
+    }
     // Older notices only stored the listing ID in the event key.
     if (!row.metadata.buyerName && (row.kind === "market-sale" || row.kind === "auction-sale")) {
       const id = Number(event_key.slice(row.kind.length + 1));

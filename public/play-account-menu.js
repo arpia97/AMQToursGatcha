@@ -1,5 +1,5 @@
 import { installInboxDropdown } from "./inbox-dropdown.js";
-import { createInbox } from "./inbox-ui.js";
+import { createInbox } from "./inbox-ui.js?v=market-notice-links";
 import { recentActivityRows } from "./account-activity.js";
 import { friendsPanel } from "./friends-ui.js";
 import { titleBadges } from "./title-ui.js";
@@ -103,7 +103,8 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
       const owner = player(), id = Number(button.dataset.id);
       const deleting = name === "inbox-delete" || name === "inbox-delete-all";
       const all = name === "inbox-read" || name === "inbox-delete-all";
-      const html = name === "inbox-peek" && dropdown.detail(id);
+      const opening = name === "inbox-peek";
+      const html = opening && !button.dataset.marketHref && dropdown.detail(id);
       const write = writes.then(() => player()===owner && api(deleting ? "inbox-delete" : "inbox-read",{id,all}));
       writes = write.catch(()=>{});
       const data = await write;
@@ -111,7 +112,11 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
         count(data.unread);
         if (deleting) dropdown.refresh();
         else dropdown.markRead(id,all,data.unread);
-        if (html && button.isConnected) { dropdown.close(true); modal(html); }
+        if (opening && button.isConnected) {
+          dropdown.close(true);
+          if (button.dataset.marketHref) location.assign(button.dataset.marketHref);
+          else if (html) modal(html);
+        }
       }
     } else return false;
     return true;
