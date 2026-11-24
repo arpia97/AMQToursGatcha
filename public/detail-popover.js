@@ -23,7 +23,17 @@ function fillSongPopover(tip, details) {
   artist.hidden = !details.artist;
   anime.textContent = details.anime || "";
   anime.hidden = !details.anime;
-  answer.textContent = details.answer?.trim() ? details.answer : "No Answer";
+  if (details.answerFields?.length) {
+    const rows = details.answerFields.map(field => {
+      const row = tip.ownerDocument.createElement("strong");
+      row.dataset.correct = String(Boolean(field.correct));
+      row.textContent = (field.correct ? "✓ " : "× ") + field.label + ": " + (field.value || "No answer");
+      return row;
+    });
+    answer.replaceWith(...rows);
+  } else {
+    answer.textContent = details.answer?.trim() ? details.answer : "No Answer";
+  }
 }
 
 // One page-lifetime controller. Float outside scrollable tables and game panels.

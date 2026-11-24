@@ -19,7 +19,7 @@ import { avatarCropStyle } from "../avatar-crop.js";
 import { roleBadge } from "../role-label.js";
 import {preparationLabel,percentDone} from "../play-setup-progress.js";
 import { installTitleMotion } from "../title-motion.js";
-import { installDetailPopovers } from "../detail-popover.js?v=event-song-recap";
+import { installDetailPopovers } from "../detail-popover.js?v=event-field-results";
 
 installTitleMotion();
 installDetailPopovers(document);
@@ -257,7 +257,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-song-recap"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-results"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([

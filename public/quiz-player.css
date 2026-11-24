@@ -130,20 +130,23 @@
 .event-round-score b {margin-inline-start:4px;color:var(--text);font-variant-numeric:tabular-nums}
 .song-progress-popover[data-result=partial] {--song-progress-color:#e9c180}
 .song-progress-answer strong {white-space:pre-line}
+.song-progress-answer strong[data-correct=true] {color:#88d4a8}
+.song-progress-answer strong[data-correct=false] {color:#e97b8d}
 .event-quiz .quiz-song-progress-track {--gap:clamp(2px,.65vw,5px);display:flex;flex-wrap:wrap;justify-content:center;gap:var(--gap)}
 .event-quiz .quiz-progress-square {flex:0 0 calc((100% + var(--gap)) / 20 - var(--gap));min-width:0}
 .event-quiz .finish-track .quiz-song-progress {max-width:520px;margin-inline:auto}
-.event-quiz .quiz-progress-square.is-partial {background:linear-gradient(90deg,#88d4a8 50%,#e97b8d 50%)}
+.event-quiz .quiz-progress-square.is-partial {background:linear-gradient(var(--split-direction,90deg),#88d4a8 50%,#e97b8d 50%)}
+.event-quiz .quiz-progress-square.artist-only {--split-direction:270deg}
 .event-quiz .quiz-progress-square.is-skipped {background:transparent;border-style:dashed}
 
 .event-quiz .quiz-sleeve.winter-sleeve {
   position:relative; justify-content:center; gap:clamp(10px,1.7vw,18px);
   min-height:178px; padding:20px 16%;
-  color:#fff4db; background:#122c25;
-  border-bottom:1px solid #ae925e;
+  color:#eef7f1; background:#17382c;
+  border-bottom:1px solid #406451;
 }
 .winter-sleeve .winter-caption {
-  display:flex;align-items:center;gap:10px;color:#f2d39f;
+  display:flex;align-items:center;gap:10px;color:#b5d8c3;
   font:600 10px/1.4 Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;
 }
 .winter-caption::before,.winter-caption::after {
@@ -151,11 +154,10 @@
 }
 .event-quiz .winter-sleeve h2 {
   display:grid;justify-items:center;gap:8px;max-width:100%;margin:0;
-  color:#fff4db;text-shadow:0 2px 4px #09251d;
+  color:inherit;text-shadow:none;
 }
-.winter-sleeve h2 em {
-  font:italic 500 clamp(40px,6.4vw,64px)/.98 Baskervville,Georgia,serif;
-  letter-spacing:-.055em;
+.winter-sleeve h2 strong {
+  font-family:inherit;font-size:clamp(40px,6.4vw,64px);line-height:1.05;letter-spacing:inherit;
 }
 .winter-sleeve h2 span {
   font-family:inherit;font-size:clamp(11px,1.5vw,16px);font-weight:600;line-height:1.3;

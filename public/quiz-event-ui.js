@@ -102,11 +102,15 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
       const current=i===position && points===null && phase!=='done';
       const state=r ? ['incorrect','partial','correct'][points] : current ? 'current' : i<position ? 'skipped' : 'upcoming';
       if(r){
-        const answer='Song: '+(r.submitted.song||'No answer')+'\nArtist: '+(r.submitted.artists.join(', ')||'No answer');
+        const answerFields=[
+          {label:'Song',value:r.submitted.song,correct:r.songCorrect},
+          {label:'Artist',value:r.submitted.artists.join(', '),correct:r.artistCorrect}
+        ];
         const trigger=songProgressTrigger('event-'+id,i,{
-          title:r.title,artist:r.artist,answer,result:points+'/2 points',correct:points===2,partial:points===1
+          title:r.title,artist:r.artist,answerFields,result:points+'/2 points',correct:points===2,partial:points===1
         },e);
-        return '<li class="quiz-progress-square is-'+state+'">'+trigger+'</li>';
+        const split=points===1 && r.artistCorrect ? ' artist-only' : '';
+        return '<li class="quiz-progress-square is-'+state+split+'">'+trigger+'</li>';
       }
       const label=e('Song '+(i+1)+' · '+state);
       return '<li class="quiz-progress-square is-'+state+'" aria-label="'+label+'" title="'+label+'"'+(current?' aria-current="step"':'')+'></li>';
@@ -127,7 +131,7 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
       const holiday=/^(Christmas)\s+(.+)$/i.exec(event.name);
       if(!holiday)return sleeve({category:'event',name:event.name},status);
       return '<header class="quiz-sleeve winter-sleeve"><span class="winter-caption">'+
-        (phase==='done'?'Quiz Complete':'Event Quiz')+'</span><h2><em>'+e(holiday[1])+'</em> <span>'+e(holiday[2])+'</span></h2></header>';
+        (phase==='done'?'Quiz Complete':'Event Quiz')+'</span><h2><strong>'+e(holiday[1])+'</strong> <span>'+e(holiday[2])+'</span></h2></header>';
     };
     if(phase==='lobby'){
       const start=answers.ready()?button('start','Start Quiz →','mint'):answers.error()
