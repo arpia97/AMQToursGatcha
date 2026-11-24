@@ -1,0 +1,33 @@
+name: Sync official AMQ reference
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: official-amq-reference
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/sync-official-reference.mjs "$RUNNER_TEMP/amq-reference"
+      - name: Publish checked recording index
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --heads origin official-amq-reference; then
+            git fetch --depth=1 origin refs/heads/official-amq-reference
+            git switch -c official-amq-reference FETCH_HEAD
+          else
+            git switch --orphan official-amq-reference
+          fi
+          cp "$RUNNER_TEMP/amq-reference/"{manifest,coverage}.json .
+          git add -- manifest.json coverage.json
+          git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -m "Refresh official AMQ recording reference"
+          git push origin HEAD:refs/heads/official-amq-reference
