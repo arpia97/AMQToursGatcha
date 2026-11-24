@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## AMQ JSON working titles in Play
+
+Play Host Console → Song Library → Register AMQ JSON accepts AMQ working-title exports. It resolves the recording by IDs or AMQ filenames, with unique anime-scoped metadata for rows without a strong identifier. Working titles combine with published quiz titles at the top answer priority. Existing audio and catalogue source counts retain their own rules. Duplicate uploads are safe and registrations persist in the existing QuizLibrary Durable Object. Runtime `d26bfac` deployed as `8d1683e8-e058-4240-90e3-9dfa441352d6`. All 631 tests passed, including storage, scoring, host access, and duplicate handling. The upload form was verified at desktop and mobile widths.
+
 ## Notification bell and sound setting
 
 Runtime `b6e9cc1` deployed as `d7953f39-591a-4444-b668-769a5522ac83`. Gacha and Play use the approved single bell for new unread notifications in the foreground. The sound switch defaults on and saves immediately in the browser. Play Settings and the Gacha Notifications settings share the preference. All 630 tests passed for the bell, syntax and packaging checks passed with the toggle, and Chrome verified playback, mute persistence, and settings sharing. Both live routes and the production MP3 were verified against the approved preview.
