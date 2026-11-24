@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Event quiz Song/Artist inputs
+
+Event gameplay uses the Play catalogue worker, solo Song/Artist answer tiles and removable artist chips. Event titles, alternative song names and artist options are merged only in the local event worker. Runtime `af8d0c9` deployed as `1f92de32-cccc-4a63-ae6b-42b08ab2e63d`. The 634-test suite passed. Browser fixtures exercised mixed suggestions, tapping, keyboard input, artist removal and scoring. Live signed-out verification found both Play and event-only suggestions.
+
 ## Event quiz presentation
 
 Event quizzes reuse the standard Quiz sleeve, lobby statistics, timer, score colors and finish card. The two-field reveal and progress markers distinguish partial credit. Runtime `8478473` deployed as `5c4837af-edef-4e52-ac51-4929cabd6400`. All 42 focused tests passed. A local browser run covered grading, completion and mobile replay. The signed-out production lobby was verified at 1360px and 390px.
