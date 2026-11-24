@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Centered event quiz and volume
+
+Event quizzes use the shared Quiz volume preference. Lobby, reveal, final results and incomplete progress rows are centered. A local 37-song browser run verified desktop and mobile alignment, changing the playing clip volume, mute and replay persistence. The live lobby slider persisted across reload. Runtime `8549ecd` deployed as `3249ca95-1caf-4387-8f6b-f5fa232f7ca2`. All 42 focused tests passed.
+
 ## Event quiz Song/Artist inputs
 
 Event gameplay uses the Play catalogue worker, solo Song/Artist answer tiles and removable artist chips. Event titles, alternative song names and artist options are merged only in the local event worker. Runtime `af8d0c9` deployed as `1f92de32-cccc-4a63-ae6b-42b08ab2e63d`. The 634-test suite passed. Browser fixtures exercised mixed suggestions, tapping, keyboard input, artist removal and scoring. Live signed-out verification found both Play and event-only suggestions.
