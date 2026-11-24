@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## AMQ Quiz alternatives and NGMC draw credits
+
+Runtime `42d9cf1` deployed as Worker `54563db8-9c07-42d9-8efe-14f7999dee21`. New NGMC matchmaking draws award 300 credits per eligible player in 4v4 and 150 in 3v3 for both pools. The full 612-test suite, syntax checks and Worker dry run passed. Live verification of the Kasahara, Yuri quiz returned both Spring Song and Presage Flower for the butterfly flutters. The active sheet snapshot had no matching recording. Quiz import and append now retain explicitly listed AMQ alternative titles when reusing sheet or published quiz answers.
+
 ## Quiz performance sorting and Play settings
 
 Runtime `e96aabb` deployed as Worker `8e0799b5-1b3e-489e-b445-5a3151598208`. In the Quiz browser, Performance · Highest First breaks tied personal-best scores by shortest recorded duration. The account's six Quiz Hotkeys are editable through Play's profile menu under Settings. All 611 tests, syntax checks, and the Worker dry run passed. A browser check with a local test account exercised saving, reload, clear and reset. The production Play shell and updated assets were verified, and all 213 published quiz rows included the new duration field after rollout.
