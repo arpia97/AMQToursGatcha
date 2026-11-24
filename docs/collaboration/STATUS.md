@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz upload priority
+
+Runtime `6641e3c` deployed as Worker `161b7b4e-ccdd-410e-b1e1-2325802fadf3`. Quiz preview, save and append give direct AMQ working titles first priority. A recording with a previously published, identifiable AMQ export can reuse its uploaded titles ahead of sheet and catalog fallbacks. The full suite passed all 613 tests. Both live resolver assets matched the tested source and the public Yuri Kasahara pool returned both confirmed titles for the butterfly flutters.
+
 ## AMQ Quiz alternatives and NGMC draw credits
 
 Runtime `42d9cf1` deployed as Worker `54563db8-9c07-42d9-8efe-14f7999dee21`. New NGMC matchmaking draws award 300 credits per eligible player in 4v4 and 150 in 3v3 for both pools. The full 612-test suite, syntax checks and Worker dry run passed. Live verification of the Kasahara, Yuri quiz returned both Spring Song and Presage Flower for the butterfly flutters. The active sheet snapshot had no matching recording. Quiz import and append now retain explicitly listed AMQ alternative titles when reusing sheet or published quiz answers.
