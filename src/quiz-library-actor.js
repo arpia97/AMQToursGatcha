@@ -1,6 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
 import { PlayLibrary } from './play-library.js';
+import {libraryCoverage} from './official-song-coverage.js';
+import reference from './official-coverage-version.json' with {type:'json'};
 import {SheetRefresh,currentSheet} from "./play-sheet.js";
 export class QuizLibrary extends DurableObject {
   constructor(ctx, env) {
@@ -56,8 +58,13 @@ export class QuizLibrary extends DurableObject {
       const path = new URL(request.url).pathname;
       if (request.method === "GET" && path === "/status")
         return Response.json(await this.core.status());
-      if(path==='/play-inventory'&&['GET','POST'].includes(request.method))
-        return Response.json(await this.play.inventory(request.method==='POST'));
+      if(path==='/play-inventory'&&['GET','POST'].includes(request.method)){
+        const inventory=await this.play.inventory(request.method==='POST');
+        let coverage;
+        try { coverage=await libraryCoverage(this.play,reference.version); }
+        catch(error){ console.warn('Official catalog comparison unavailable',error.message); }
+        return Response.json({...inventory,coverage});
+      }
       if(request.method==='GET' && path==='/play-catalog')return Response.json(await this.play.catalog());
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });

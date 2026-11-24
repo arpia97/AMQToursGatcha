@@ -382,7 +382,7 @@ async function openMode(id, push = true) {
           (state.me?'':'<button class="button mint" data-action="account">Sign In</button>')+'</section>';
         return;
       }
-      const {mountPlayConsole}=await import('../play-console.js?v=quiz-first');
+      const {mountPlayConsole}=await import('../play-console.js?v=official-coverage');
       if(version===viewVersion)closeConsole=mountPlayConsole($('#main'),api,escape,format=>labels[format]||format);
     } else if(id==='overview'){
       const [mount]=await Promise.all([loadOverview(),accountReady]);

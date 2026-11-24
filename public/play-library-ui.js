@@ -4,6 +4,14 @@ const sources = [
   ['amqPlus','AMQ+ DB','AMQ+','Refreshes the AMQ+ masterlist and song metadata.'],
 ];
 
+const coverageRows = [
+  ['missing','In official AMQ but missing from AMQ+'],
+  ['sheets','Of those, already covered by Google Sheets'],
+  ['remaining','Remaining after checking Sheets and published quizzes'],
+  ['eligible','Of the remaining, uploaded and non-dub for the gameplay plan'],
+  ['plusOnly','In AMQ+ but absent from the official export'],
+];
+
 export function libraryPanel() {
   return `<section class="host-panel console-library" data-console-panel="library" hidden>
     <header class="console-library-header"><div><h2>Song Library</h2>
@@ -19,6 +27,11 @@ export function libraryPanel() {
     </section>`).join('')}</div>
     <p data-inventory-status role="status"></p>
     <p class="form-hint">Published Quizzes take priority. Sheets fills gaps in Quiz, and AMQ+ fills gaps in both.</p>
+    <section class="console-library-coverage" aria-labelledby="official-coverage-heading">
+      <h3 id="official-coverage-heading">Official AMQ coverage</h3>
+      <small data-official-export></small>
+      <dl>${coverageRows.map(([key,label])=>`<div><dt>${label}</dt><dd data-coverage="${key}">—</dd></div>`).join('')}</dl>
+    </section>
   </section>`;
 }
 
@@ -48,6 +61,11 @@ export function mountPlayLibrary(root, host) {
       for(const field of root.querySelectorAll('[data-inventory]')){
         field.textContent=counts[field.dataset.inventory]?.toLocaleString()??'—';
       }
+      for(const field of root.querySelectorAll('[data-coverage]')){
+        field.textContent=counts.coverage?.[field.dataset.coverage]?.toLocaleString()??'—';
+      }
+      root.querySelector('[data-official-export]').textContent=counts.coverage
+        ? 'AMQ export '+counts.coverage.officialVersion : 'Comparison currently unavailable';
       message.textContent='';
     }catch(error){
       if(!active()||id!==generation)return;
