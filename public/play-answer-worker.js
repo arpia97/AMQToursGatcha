@@ -21,6 +21,19 @@ self.onmessage=async({data})=>{
       }
       const catalog=await body.json();
       self.postMessage({type:'progress',label:'Preparing answer search…'});
+      // Shared event links extend only their own worker's copy of the Play catalogue.
+      if (data.extra) {
+        for (const kind of ['song','artist']) {
+          const values=catalog[kind]||[];
+          const key=value=>value.normalize('NFKC').trim().toLowerCase();
+          const seen=new Set(values.map(key));
+          catalog[kind]=[...values];
+          for (const value of data.extra[kind]||[]) {
+            const normalized=key(value);
+            if(normalized && !seen.has(normalized)){catalog[kind].push(value);seen.add(normalized);}
+          }
+        }
+      }
       index=answerSearchIndex(catalog);
       self.postMessage({type:'ready',count:Object.fromEntries(Object.entries(index).map(([k,v])=>[k,v.length]))});
     }else if(data.type==='search'&&index){

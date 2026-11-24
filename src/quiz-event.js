@@ -33,7 +33,7 @@ export async function eventAction(storage, {id, action, revision, index, song, a
   if (action === 'info') {
     const options = values => [...new Set(values)].sort((a,b) => a.localeCompare(b));
     return {name:event.name, count:event.songs.length, revision:event.revision,
-      titles:options(event.songs.map(s => s.title)), artists:options(event.songs.flatMap(s => [s.artist,...s.suggestions]))};
+      titles:options(event.songs.flatMap(s => [s.title,...s.titles])), artists:options(event.songs.flatMap(s => [s.artist,...s.suggestions]))};
   }
   if (revision !== event.revision) fail('This event has been updated. Reopen the shared link.',409);
   if (action !== 'answer' || !Number.isInteger(index) || !event.songs[index] ||

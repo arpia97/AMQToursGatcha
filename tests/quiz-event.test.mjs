@@ -9,6 +9,8 @@ test('link-only events serve a blind pool and grade titles and full artist compo
   await registerEvent(storage,{id,name:'Event',songs});
   const info=await eventAction(storage,{id,action:'info'});
   assert.equal(info.count,1);
+  assert.deepEqual(info.titles,['Alt Title','Title']);
+  assert.deepEqual(info.artists,['Duo','One','Two']);
   assert.equal(info.songs,undefined);
   await assert.rejects(eventAction(storage,{id:crypto.randomUUID(),action:'info'}),{status:404});
   const answer=artists=>eventAction(storage,{id,revision:info.revision,action:'answer',index:0,song:'alt-title',artists});

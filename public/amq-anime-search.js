@@ -86,6 +86,9 @@ export function autolockAnswer(value, suggestions, highlighted, enabled){
 export function answerSearchControls(storage){
   return '<div class="answer-search-controls"><label class="fuzzy-anime-search"><input type="checkbox" data-fuzzy-anime'+
     (fuzzyAnimeSearch(storage)?' checked':'')+'> Fuzzy Search</label>'+
-    '<label class="fuzzy-anime-search" title="With Autolock on, Enter picks the highlighted suggestion or the first one. Ctrl+Enter submits what you typed. Autolock also picks a suggestion when time runs out."><input type="checkbox" data-answer-autolock'+
-    (answerAutolock(storage)?' checked':'')+'> Autolock</label></div>';
+    autolockControl(storage)+'</div>';
+}
+export function autolockControl(storage){
+  return '<label class="fuzzy-anime-search" title="With Autolock on, Enter picks the highlighted suggestion or the first one. Ctrl+Enter submits what you typed. Autolock also picks a suggestion when time runs out."><input type="checkbox" data-answer-autolock'+
+    (answerAutolock(storage)?' checked':'')+'> Autolock</label>';
 }

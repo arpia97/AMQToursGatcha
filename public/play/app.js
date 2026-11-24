@@ -257,7 +257,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-quiz-theme"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-play-answers"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
@@ -421,7 +421,7 @@ async function openMode(id, push = true) {
       quiz ??= createQuizController(createQuizUI);
       const eventKey = new URLSearchParams(location.hash.slice(1)).get("event");
       if(eventKey){
-        await quiz.openEvent(eventKey);
+        await Promise.all([quiz.openEvent(eventKey),loadMultiplayerStyles()]);
         if(version===viewVersion)renderQuiz();
         return;
       }

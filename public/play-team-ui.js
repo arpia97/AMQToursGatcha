@@ -52,6 +52,10 @@ export function updateArtistChips(root,match,disabled,esc){
   const me=match.players.find(p=>p.id===match.me),owner=match.teamFields?match.players.find(p=>p.team===me.team&&p.field==='artist'):me;
   const list=owner?.artists||[],last=match.history.at(-1),result=last?.index===match.index&&['reveal','finished'].includes(match.phase)?last.results.find(p=>p.id===owner?.id):null;
   box.dataset.answerState=result?result.correct.artist?'correct':'incorrect':'pending';
-  const html=list.map((name,i)=>'<span class="sa-artist-chip">'+esc(name)+(owner.id===me.id&&!disabled?'<button type="button" data-sa-remove-artist="'+i+'" aria-label="Remove '+esc(name)+'">×</button>':'')+'</span>').join('');
+  const html=artistChipsHTML(list,owner?.id===me.id&&!disabled,esc);
   if(box.innerHTML!==html)box.innerHTML=html;
+}
+
+export function artistChipsHTML(list,editable,esc){
+  return list.map((name,i)=>'<span class="sa-artist-chip">'+esc(name)+(editable?'<button type="button" data-sa-remove-artist="'+i+'" aria-label="Remove '+esc(name)+'">×</button>':'')+'</span>').join('');
 }
