@@ -69,6 +69,7 @@ export function mountPlayLibrary(root, host) {
       }
       root.querySelector('[data-official-export]').textContent=counts.coverage
         ? 'AMQ export '+counts.coverage.officialVersion+(counts.coverage.checkedAt?' · Last checked '+date(counts.coverage.checkedAt):'')
+          +(counts.coverage.source==='mirror'?' · Copy verified against AMQ '+date(counts.coverage.sourceCheckedAt):'')
         : 'Comparison currently unavailable';
       message.textContent='';
       return counts;
@@ -103,7 +104,8 @@ export function mountPlayLibrary(root, host) {
         const counts=await inventory(true);
         if(counts && (!counts.coverage || counts.coverage.checkedAt<checked.checkedAt || counts.coverage.officialVersion!==checked.version))
           throw Error('Export checked. Reopen Song Library to reload the updated counts.');
-        status(source,checked.changed?'Official AMQ export updated.':'Official AMQ export is up to date.');
+        status(source,checked.source==='mirror'?'Coverage checked against the latest synced AMQ export.':
+          checked.changed?'Official AMQ export updated.':'Official AMQ export is up to date.');
       } else if(source==='sheets'){
         const job=await host('play-sheet',manual?{}:undefined);
         running=job.status==='running';

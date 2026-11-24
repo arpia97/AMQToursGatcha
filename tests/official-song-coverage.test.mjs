@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
+import {createHash} from 'node:crypto';
 import {OfficialReferenceStore} from '../src/official-reference-store.js';
 import {QuizLibraryCore} from '../src/quiz-library.js';
 import {compareAmqPlus,compareLocalSources} from '../src/official-song-coverage.js';
@@ -43,5 +44,25 @@ test('host refresh publishes the new reference once and retains it after failed 
   await assert.rejects(store.refresh(async()=>Response.json({...source,animeMap:{}})),/incomplete/);
   assert.equal(store.status().revision,saved.revision);
   assert.equal(store.snapshot(saved.revision),snapshot);
+  const mirrored={...JSON.parse(snapshot),version:'20990102000000-2'};
+  const revision=createHash('sha256').update(JSON.stringify(mirrored)).digest('hex');
+  const manifest={version:mirrored.version,revision,sourceCheckedAt:1700000000000};
+  let mirrorDownloads=0;
+  const mirror=async url=>{
+    if(url.includes('animemusicquiz.com'))return new Response('forbidden',{status:403});
+    if(url.endsWith('manifest.json'))return Response.json(manifest);
+    mirrorDownloads++;
+    return Response.json(mirrored);
+  };
+  const recovered=await store.refresh(mirror);
+  assert.equal(recovered.source,'mirror');
+  assert.equal(recovered.sourceCheckedAt,manifest.sourceCheckedAt);
+  assert.equal(recovered.changed,true);
+  assert.deepEqual(JSON.parse(store.snapshot(revision)),mirrored);
+  assert.equal((await store.refresh(mirror)).changed,false);
+  assert.equal(mirrorDownloads,1);
+  manifest.revision='a'.repeat(64);
+  await assert.rejects(store.refresh(mirror),/checksum/);
+  assert.equal(store.status().revision,revision);
   sql.close();
 });

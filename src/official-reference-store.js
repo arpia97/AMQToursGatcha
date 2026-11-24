@@ -5,6 +5,7 @@ import {buildOfficialReference} from './official-reference.js';
 export const officialActorName='play-official-amq-coverage-v1';
 const stateKey='official-reference-state';
 const masterUrl='https://animemusicquiz.com/libraryMasterList';
+const mirrorUrl='https://raw.githubusercontent.com/arpia97/AMQToursGatcha/official-amq-reference/';
 
 export class OfficialReferenceStore {
   constructor(core) {
@@ -32,20 +33,36 @@ export class OfficialReferenceStore {
   async check(fetcher) {
     const previous=this.status();
     const headers=previous.etag?{'If-None-Match':previous.etag}:{};
-    const response=await fetcher(masterUrl,{headers,cache:'no-store',signal:AbortSignal.timeout(45000)});
-    if (response.status===304 && previous.etag) {
-      const current={...previous,checkedAt:Date.now()};
-      this.core.set(stateKey,current);
-      return {version:current.version,checkedAt:current.checkedAt,changed:false};
+    let response;
+    try {
+      response=await fetcher(masterUrl,{headers,cache:'no-store',signal:AbortSignal.timeout(20000)});
+    } catch { /* Check the project mirror when the upstream connection is unavailable. */ }
+    let ref, manifest, etag=null;
+    if (response?.status===304 && previous.etag) {
+      return this.confirm(previous,'direct',Date.now());
+    } else if (response?.ok) {
+      ref=buildOfficialReference(await libraryJSON(response,32000000));
+      etag=response.headers.get('etag');
+    } else {
+      await response?.body?.cancel();
+      const get=path=>fetcher(mirrorUrl+path,{cache:'no-store',signal:AbortSignal.timeout(20000)});
+      manifest=await libraryJSON(await get('manifest.json'),16000);
+      if (!/^[a-f0-9]{64}$/.test(manifest.revision) || typeof manifest.version!=='string' || !Number.isSafeInteger(manifest.sourceCheckedAt) || manifest.sourceCheckedAt<=0)
+        throw Error('Invalid AMQ reference manifest.');
+      if (previous.revision===manifest.revision && previous.version===manifest.version)
+        return this.confirm(previous,'mirror',manifest.sourceCheckedAt);
+      ref=await libraryJSON(await get('coverage.json?revision='+manifest.revision),16000000);
+      if (ref.version!==manifest.version || !Array.isArray(ref.ids) || !ref.ids.length)
+        throw Error('The verified AMQ reference is updating. Try again shortly.');
     }
-    const source=await libraryJSON(response,32000000);
-    const ref=buildOfficialReference(source);
     if (typeof ref.version!=='string' || ref.version.localeCompare(previous.version,'en',{numeric:true})<0)
-      throw Error('AMQ returned an older export. Try again later.');
+      throw Error('The available export is older than the active version.');
     const bytes=new TextEncoder().encode(JSON.stringify(ref));
     const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));
     const revision=Array.from(digest,byte=>byte.toString(16).padStart(2,'0')).join('');
-    const current={version:ref.version,revision,checkedAt:Date.now(),etag:response.headers.get('etag')};
+    if (manifest && manifest.revision!==revision) throw Error('AMQ reference checksum mismatch. Try again shortly.');
+    const checkedAt=Date.now();
+    const current={version:ref.version,revision,checkedAt,etag,source:manifest?'mirror':'direct',sourceCheckedAt:manifest?.sourceCheckedAt??checkedAt};
     const db=this.core.db;
     db.tx(()=>{
       if (revision!==previous.revision) {
@@ -56,6 +73,11 @@ export class OfficialReferenceStore {
       }
       this.core.set(stateKey,current);
     });
-    return {version:ref.version,checkedAt:current.checkedAt,changed:ref.version!==previous.version||Boolean(previous.revision && previous.revision!==revision)};
+    return {...current,changed:ref.version!==previous.version||Boolean(previous.revision && previous.revision!==revision)};
+  }
+  confirm(previous,source,sourceCheckedAt) {
+    const current={...previous,source,sourceCheckedAt,checkedAt:Date.now()};
+    this.core.set(stateKey,current);
+    return {...current,changed:false};
   }
 }

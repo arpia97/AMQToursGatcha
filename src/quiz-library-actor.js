@@ -72,7 +72,7 @@ export class QuizLibrary extends DurableObject {
         try {
           const source=this.officialSource(), state=await source.officialStatus();
           const counts=await libraryCoverage(this.play,state,()=>source.officialSnapshot(state.revision));
-          coverage={...counts,checkedAt:state.checkedAt};
+          coverage={...counts,checkedAt:state.checkedAt,source:state.source,sourceCheckedAt:state.sourceCheckedAt};
         }
         catch(error){ console.warn('Official catalog comparison unavailable',error.message); }
         return Response.json({...inventory,coverage});
