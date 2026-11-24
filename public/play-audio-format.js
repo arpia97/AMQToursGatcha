@@ -2,6 +2,7 @@ import {DUEL_FORMAT, ONE_TEAM_MODE, duelRules, oneTeamRules} from './play-mode-r
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 
 export function defaultPlayGuessSeconds(mode) {
+  if (mode === 'variety') return 20;
   if (mode === DUEL_FORMAT) return duelRules.guessSeconds;
   if (mode === ARENA_FORMAT) return arenaRules.guessSeconds;
   if (mode === ONE_TEAM_MODE) return oneTeamRules.guessSeconds;

@@ -4,7 +4,7 @@ import {ONE_TEAM_FORMAT} from './play-mode-rules.js';
 import {sharedSongFormat} from './play-team-song.js';
 
 const formats = {
-  'ngmc-ranked': 'NGMC 4v4 Ranked', 'ngmc-3v3': 'NGMC 3v3', 'lobby-ngmc': 'NGMC Lobby',
+  'hot-potato':'Hot Potato · Team VS','hot-potato-team':'Hot Potato · 1-Team','lobby-hot-potato':'Hot Potato · Team VS','lobby-hot-potato-team':'Hot Potato · 1-Team','ngmc-ranked': 'NGMC 4v4 Ranked', 'ngmc-3v3': 'NGMC 3v3', 'lobby-ngmc': 'NGMC Lobby',
   '1v1-ranked': '1v1 Ranked', 'lobby-duel': '1v1 Lobby', '2v2-arena': '2v2 Arena',
   'lobby-arena': '2v2 Arena Lobby', '1v1': 'Song/Artist 1v1', '3v3': 'Song/Artist 3v3',
   '1-team': 'Song/Artist 1-Team', 'lobby-team': 'Song/Artist 1-Team Lobby', 'lobby-ffa': 'Song/Artist FFA Lobby',

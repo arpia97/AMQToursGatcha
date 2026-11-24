@@ -171,7 +171,7 @@ async function refreshAccount(expectedPlayer) {
   header();
 }
 const multiplayerRoot = document.createElement('div');
-const queueLabels = {[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team',[ONE_TEAM_FORMAT]:'1-Team'};
+const queueLabels = {'hot-potato':'Hot Potato · Team VS','hot-potato-team':'Hot Potato · 1-Team','lobby-hot-potato':'Hot Potato · Team VS','lobby-hot-potato-team':'Hot Potato · 1-Team',[DUEL_FORMAT]:'1v1 Ranked','2v2-arena':'2v2 Arena','ngmc-ranked':'NGMC 4v4 Ranked','ngmc-3v3':'NGMC 3v3 Unranked','1v1':'Song/Artist 1v1','3v3':'Song/Artist 3v3','1-team':'Song/Artist 1-Team',[ONE_TEAM_FORMAT]:'1-Team'};
 const queueKey = () => 'amqtours-play-queue-' + state.me?.id;
 let currentQueue, overview, currentActivity,watchView,watchOpener,watchRequest,queueTimer;
 function stopWatching(){

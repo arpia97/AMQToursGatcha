@@ -1,3 +1,4 @@
+import {isPotato, validPotatoSize, POTATO_LOBBY, POTATO_COOP_LOBBY} from './hot-potato.js';
 import {percentDone} from './play-setup-progress.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from './play-arena-config.js';
 import {DUEL_FORMAT, DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, duelRules, matchGuessFields, songArtistFields, lobbyCapacity, lobbyGameMode} from './play-mode-rules.js?v=one-team-rematch';
@@ -5,7 +6,15 @@ import {poolName} from './play-pool.js';
 import {playPlayerAvatar} from './play-avatar.js';
 const names={anime:'Anime Name',song:'Song Title',artist:'Artist'};
 const guessTypeLabels={anime:'Anime',song:'Song',artist:'Artist'};
-export const lobbyModeNames={'lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena',[DUEL_LOBBY_FORMAT]:'1v1 Unranked'};
+export const lobbyModeNames={[POTATO_LOBBY]:'Hot Potato · Team VS',[POTATO_COOP_LOBBY]:'Hot Potato · 1-Team','lobby-team':'1-Team','lobby-ffa':'Free-for-All','lobby-ngmc':'NGMC Unranked',[ARENA_LOBBY_FORMAT]:'2v2 Arena',[DUEL_LOBBY_FORMAT]:'1v1 Unranked'};
+function potatoFormatPicker(value, disabled = false) {
+  return '<label>Hot Potato mode<select id="sa-lobby-format" name="format" '+(disabled?'disabled':'')+'>'+
+    [POTATO_LOBBY,POTATO_COOP_LOBBY].map(id=>'<option value="'+id+'" '+(value===id?'selected':'')+'>'+
+    (id===POTATO_LOBBY?'Team VS':'1-Team')+'</option>').join('')+'</select></label>';
+}
+function seatCount(count,format) {
+  return Number.isFinite(lobbyCapacity(format)) ? count+' / '+lobbyCapacity(format) : count+' players';
+}
 function guessFieldPicker(selected=songArtistFields, readOnly=false) {
   return '<fieldset class="room-guess-types"><legend>Guess Types</legend>'+songArtistFields.map(field=>{
     const checked=selected.includes(field);
@@ -33,25 +42,26 @@ export function lobbyDirectoryHTML(lobbies,mode,enabled,esc){
       const full = room.players>=lobbyCapacity(room.format);
       return '<div class="play-directory-room"><div><strong>'+esc(room.host)+'</strong>'+
         '<span class="lobby-pool-label" data-song-pool="'+(room.pool==='watched'?'watched':'random')+'">'+poolName(room.pool)+'</span>'+
-        '<small>'+esc(lobbyModeNames[room.format])+' · '+room.players+'/'+lobbyCapacity(room.format)+' · '+(room.locked?'Password required':'Public')+'</small>'+
+        '<small>'+esc(lobbyModeNames[room.format])+' · '+seatCount(room.players,room.format)+' · '+(room.locked?'Password required':'Public')+'</small>'+
         guesses+'</div><button class="button secondary" data-lobby-join="'+esc(room.code)+'" '+(full?'disabled':disabled)+'>'+
         (full?'Full':'Join')+'</button></div>';
     }).join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
 export function lobbyDialog(action,mode,room,send,pool='random'){
   const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT,duel=mode===DUEL_FORMAT;
-  const cooperative=mode===ONE_TEAM_MODE;
+  const cooperative=mode===ONE_TEAM_MODE, potato=mode==='variety';
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
   const dialog=document.createElement('dialog');
   dialog.className='sa-song-dialog play-lobby-dialog';
   dialog.setAttribute('aria-label',title);
   dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
+    (create&&potato?potatoFormatPicker(POTATO_LOBBY):'')+
     (create&&arena?'<p>2v2 Arena · 4, 8, 12 or 16 players</p>':'')+
     (create&&duel?'<p>1v1 Unranked</p><div class="lobby-settings">'+
       '<label>Songs<input name="songs" type="number" min="1" max="100" placeholder="'+duelRules.songs+'"></label>'+
       '<label>Guess Time (Seconds)<input name="seconds" type="number" min="1" placeholder="Unlimited" value="'+duelRules.guessSeconds+'"></label></div>':'')+
-    (create&&!ngmc&&!arena&&!duel?'<p>'+(cooperative?'Song/Artist 1-Team':'Song/Artist Free-for-All')+'</p><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
-    (create?poolPicker(pool):'')+(create&&!ngmc&&!arena&&!duel?guessFieldPicker():'')+
+    (create&&!potato&&!ngmc&&!arena&&!duel?'<p>'+(cooperative?'Song/Artist 1-Team':'Song/Artist Free-for-All')+'</p><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
+    (create?poolPicker(pool):'')+(create&&!potato&&!ngmc&&!arena&&!duel?guessFieldPicker():'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
     (edit?'<small>Leave blank to make this lobby public.</small>':'')+
@@ -63,8 +73,8 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
     event.preventDefault();
     const values=new FormData(event.currentTarget);
     const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{pool:values.get('pool'),format:duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':cooperative?'lobby-team':'lobby-ffa',songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
-    if(create&&!ngmc&&!arena&&!duel)payload.guessFields=readGuessFields(dialog);
+    if(create)Object.assign(payload,{pool:values.get('pool'),format:potato?values.get('format'):duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':cooperative?'lobby-team':'lobby-ffa',songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
+    if(create&&!potato&&!ngmc&&!arena&&!duel)payload.guessFields=readGuessFields(dialog);
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
@@ -77,6 +87,8 @@ function lobbySettings(lobby, settings, host, draft, esc) {
     ' seconds</dd></div><div><dt>Lives</dt><dd>'+oneTeamRules.lives+'</dd></div></dl>';
   const pool=poolPicker(settings.pool,!host,'sa-lobby-pool');
   const save=host?'<button class="button secondary" data-lobby-action="settings" '+(draft?'':'disabled')+'>Save Settings</button>':'';
+  if (isPotato(lobby.format)) return potatoFormatPicker(settings.format,!host)+pool+
+    '<dl class="room-rules"><div><dt>Songs</dt><dd>100</dd></div><div><dt>Guess time</dt><dd>20 seconds</dd></div><div><dt>Team lives</dt><dd>5</dd></div></dl>'+save;
   if (lobby.format === ARENA_LOBBY_FORMAT) {
     return '<dl class="room-rules"><div><dt>Players</dt><dd>4, 8, 12 or 16</dd></div><div><dt>Songs per Fixture</dt><dd>'+arenaRules.songsPerFixture+'</dd></div><div><dt>Guess Time</dt><dd>'+arenaRules.guessSeconds+' seconds</dd></div></dl>'+pool+save;
   }
@@ -112,7 +124,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const ngmc = lobby.format==='lobby-ngmc';
   const arena = lobby.format===ARENA_LOBBY_FORMAT;
   const duel = lobby.format===DUEL_LOBBY_FORMAT;
-  const canStart = lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
+  const canStart = isPotato(lobby.format) ? validPotatoSize(lobby.format,lobby.players.length,true) : lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
   const host = lobby.host===me && !lobby.busy;
   const ready = lobby.players.filter(p=>p.ready).length;
   const players = lobby.players.map(p=>{
@@ -124,12 +136,12 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
     lobby.watchedPool.eligible<(lobby.rematchOf?1:lobby.songs);
   const checkingPool = lobby.pool==='watched' && lobby.watchedPool===null;
   const startDisabled = !canStart || checkingPool || shortPool || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
-  const startLabel = ngmc && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
+  const startLabel = (ngmc || lobby.format===POTATO_LOBBY) && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
   return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
-    '<header class="room-masthead"><div><small>'+(lobby.rematchOf?'1-Team · '+poolName(lobby.pool):ngmc||arena||duel?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
+    '<header class="room-masthead"><div><small>'+(lobby.rematchOf?'1-Team · '+poolName(lobby.pool):ngmc||arena||duel||isPotato(lobby.format)?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
     '</small><h1>'+(lobby.rematchOf?'Rematch Lobby':'Custom Lobby')+'</h1></div>'+
     (lobby.rematchOf?'<div class="room-code"><span>Invite Only</span></div>':'<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div>')+'</header>'+
-    '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+lobby.players.length+' / '+lobbyCapacity(lobby.format)+' seats</span></header>'+
+    '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+seatCount(lobby.players.length,lobby.format)+'</span></header>'+
     '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
     '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host&&!lobby.rematchOf?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+

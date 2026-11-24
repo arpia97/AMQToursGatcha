@@ -20,7 +20,7 @@ export function liveMatchScore(state){
     : [teams.map((value,team)=>({team,label:teamName(team),value}))];
   return {
     phase:state.phase,song:Math.min(index+1,state.songs.length),total:state.songs.length,
-    unit:state.mode==='ngmc-ranked'||format===ONE_TEAM_FORMAT?'Lives':'Points',scores,
+    unit:state.mode==='ngmc-ranked'||state.potatoes||format===ONE_TEAM_FORMAT?'Lives':'Points',scores,
     ...(arena?{round:round+1,rounds:arena.rounds.length}:{}),
   };
 }
@@ -34,7 +34,7 @@ export function spectatorClip(state,now){
 
 function revealedRound(row){
   return {index:row.index,anime:row.anime,animeTitles:row.animeTitles,song:row.song,songType:row.songType,artist:row.artist,artistMembers:row.artistMembers,
-    points:row.points,lives:row.lives,spent:row.spent,reset:row.reset,
+    points:row.points,lives:row.lives,holders:row.holders,spent:row.spent,reset:row.reset,
     results:(row.results||[]).map(({id,answers,correct,earned})=>({id,answers,correct,earned}))};
 }
 
@@ -50,7 +50,7 @@ export function spectatorView(state,compact=false){
     ...liveMatchScore(state),index:state.index,startsAt:state.startsAt,
     until:Number.isFinite(state.until)?state.until:null,reveal,
     history:(compact?state.history.slice(-1):state.history).map(revealedRound),compact,
-    teams:state.teams,teamFields:!!state.teamFields,
+    ...(state.potatoes?{potatoes:state.potatoes}:{}),teams:state.teams,teamFields:!!state.teamFields,
     ...(state.lobby?{lobby:{seconds:state.lobby.seconds,...(state.lobby.guessFields?{guessFields:state.lobby.guessFields}:{})}}:{}),
     counters:state.counters,autoCounting:state.autoCounting,
     ...(state.arena?{arena:{rounds:state.arena.rounds,songsPerFixture:state.arena.songsPerFixture,standings:arenaStandings(state.arena)}}:{}),

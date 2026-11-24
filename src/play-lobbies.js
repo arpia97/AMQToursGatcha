@@ -1,3 +1,4 @@
+import {POTATO_LOBBY, POTATO_COOP_LOBBY, isPotato, validPotatoSize, potatoRules} from '../public/hot-potato.js';
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
 import {DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
@@ -17,6 +18,7 @@ export function lobbySettings(data){
   const selection=pool==='watched'?{pool}:{};
   if(format===ARENA_LOBBY_FORMAT)return {format,seconds:arenaRules.guessSeconds,...selection};
   if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
+  if ([POTATO_LOBBY,POTATO_COOP_LOBBY].includes(format)) return {format,songs:potatoRules.songs,seconds:potatoRules.seconds,...selection};
   const duel=format===DUEL_LOBBY_FORMAT;
   const songs=data.songs==null||data.songs===''?(duel?duelRules.songs:20):data.songs;
   const seconds=data.seconds??(duel?duelRules.guessSeconds:undefined);
@@ -247,6 +249,7 @@ export class PlayLobbies {
     if(!['lobby-settings','lobby-start'].includes(message.type))fail('Unknown lobby action.');
     if(message.type==='lobby-settings'){
       if(lobbyGameMode(JSON.parse(row.settings).format)!==lobbyGameMode(message.format))fail('Choose a format for this game mode.');
+      if(message.format===POTATO_COOP_LOBBY && players.length>8)fail("1-Team Hot Potato has eight seats.");
       const settings=JSON.stringify(lobbySettings(message));
       if(settings!==row.settings)this.queue.ctx.storage.transactionSync(()=>{
         this.sql.exec('UPDATE play_lobbies SET settings=? WHERE code=?',settings,row.code);
@@ -259,6 +262,7 @@ export class PlayLobbies {
       if(players.length<oneTeamRules.minPlayers)fail('1-Team needs at least '+oneTeamRules.minPlayers+' players.');
       for(const player of players)this.queue.assertActiveQueueAccess(null,player.id);
     }
+    if(isPotato(settings.format)&&!validPotatoSize(settings.format,players.length,true))fail('Team VS needs an even number of players. 1-Team allows one to eight.');
     if(settings.format==='lobby-ngmc'&&![6,8].includes(players.length))fail('NGMC needs 6 players for 3v3 or 8 for 4v4.');
     if(settings.format===DUEL_LOBBY_FORMAT&&players.length!==2)fail('1v1 needs two players.');
     if(settings.format===ARENA_LOBBY_FORMAT&&!arenaPlayerCounts.includes(players.length))

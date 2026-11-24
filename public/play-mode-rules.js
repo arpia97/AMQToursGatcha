@@ -1,5 +1,7 @@
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from './play-arena-config.js';
 
+import {isPotato, POTATO_LOBBY, VARIETY_MODE} from './hot-potato.js';
+
 export const PLAY_REVEAL_MS = 3_000;
 export const NGMC_COUNTER_SIGNUP_MS = 40_000;
 export const ngmcCounterDeadline = match => match.autoCountAt ?? match.counterDeadline;
@@ -23,6 +25,7 @@ export const oneTeamRules = Object.freeze({minPlayers:3,maxPlayers:8,songs:100,l
 export const usesTeamBallot = format => format === 'lobby-team' || format === ONE_TEAM_FORMAT;
 
 export function queueMode(format) {
+  if (isPotato(format)) return VARIETY_MODE;
   if (isDuelFormat(format)) return DUEL_FORMAT;
   if (format === ARENA_FORMAT) return ARENA_FORMAT;
   if (format.startsWith('lobby-')) return lobbyGameMode(format);
@@ -31,6 +34,7 @@ export function queueMode(format) {
 }
 
 export function lobbyGameMode(format) {
+  if (isPotato(format)) return VARIETY_MODE;
   if (format === ARENA_LOBBY_FORMAT) return ARENA_FORMAT;
   if (format === DUEL_LOBBY_FORMAT) return DUEL_FORMAT;
   if (format === 'lobby-team' || format === ONE_TEAM_FORMAT) return ONE_TEAM_MODE;
@@ -38,11 +42,12 @@ export function lobbyGameMode(format) {
 }
 
 export function lobbyCapacity(format) {
+  if (format === POTATO_LOBBY) return Infinity;
   if (format === DUEL_LOBBY_FORMAT) return 2;
   return format === ARENA_LOBBY_FORMAT ? arenaRules.maxPlayers : 8;
 }
 
-export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked',ONE_TEAM_MODE].includes(mode);
+export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked',ONE_TEAM_MODE,VARIETY_MODE].includes(mode);
 export const songArtistFields = Object.freeze(['anime','song','artist']);
 export const isSongArtistLobby = format => format === 'lobby-team' || format === 'lobby-ffa';
 export function matchGuessFields(match) {

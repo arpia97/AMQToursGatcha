@@ -14,12 +14,12 @@ export function teamLivesHTML(lives,max=5){
 }
 export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton='',resumeAudio=''}={}){
   const arena=match.mode===ARENA_FORMAT,duel=match.mode===DUEL_FORMAT;
-  const versus=!arena&&!match.lobby&&match.teams.length===2;
+  const versus=!arena&&(!match.lobby||match.potatoes)&&match.teams.length===2;
   const survival=match.format===ONE_TEAM_FORMAT;
   const scoreboard='<div class="sa-scoreboard"></div>';
   const ready='<div class="sa-ready-wrap"></div>';
   const download='<div class="sa-download-status'+(survival?' one-team-download':'')+'"></div>';
-  return '<div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+'">'+
+  return '<div class="song-broadcast '+(arena?'arena-match':duel?'versus duel-match':versus?'versus':'cooperative')+(survival?' one-team-survival':'')+(match.potatoes?' potato-game':'')+'">'+
     (arena?'':scoreboard)+
     '<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><strong class="sa-round-status"></strong><h2>Song '+(match.index+1)+' <small>/ '+match.total+'</small></h2>'+
     (survival?'<div class="one-team-mobile-lives"></div>':'')+'</div>'+roundDialHTML+'</header>'+
@@ -36,7 +36,7 @@ export function updateRoundDial(dial,match,now){
   const seconds=guessing&&match.lobby?.seconds===0?'∞':String(Math.ceil(remaining/1000)).padStart(2,'0');
   const timer=dial.firstElementChild,label=dial.lastElementChild;
   if(timer.textContent!==seconds)timer.textContent=seconds;
-  const final=match.index+1===match.total||match.format===ONE_TEAM_FORMAT&&match.teams[0]===0;
+  const final=match.index+1===match.total||(match.potatoes||match.format===ONE_TEAM_FORMAT)&&match.teams.includes(0);
   const unit=guessing?'Seconds':counting?'Counting':final?'Results':'Next song';
   if(label.textContent!==unit)label.textContent=unit;
   dial.style.setProperty('--remaining',100*remaining/Math.max(duration,1)+'%');
@@ -60,14 +60,19 @@ export function recapHTML(match,esc,animeTitle){
   const points=me?(match.arena?row.points[me.team]:mine?.earned||0):0;
   const survival=match.format===ONE_TEAM_FORMAT;
   const teamGuess=survival?row.results.find(result=>result.answers.anime)?.answers.anime:null;
-  const roundLabel=survival?row.points[0]?'Team Correct':'Team Lost a Life':
+  const holderGuesses=(row.holders||[]).map((id,team)=>{
+    const holder=match.players.find(p=>p.id===id);
+    const guess=row.results.find(p=>p.id===id)?.answers.anime;
+    return '<p class="one-team-picked"><span>'+esc(holder?.name||'Team '+(team+1))+'</span><strong>'+esc(guess||'No answer')+'</strong><b class="'+(row.points[team]?'correct':'incorrect')+'">'+(row.points[team]?'✓':'×')+'</b></p>';
+  }).join('');
+  const roundLabel=match.potatoes?(me?row.points[me.team]?'Team Correct':'Team Missed':''):survival?row.points[0]?'Team Correct':'Team Lost a Life':
     me?(match.teamFields?'Team '+row.points[me.team]+'/3 · ':'')+'+'+points+(points===1?' Point':' Points')+(match.arena?' for Your Pair':''):'';
   return '<section class="sa-answer-key" aria-label="Correct answers"><header><strong>Correct Answers</strong><small'+
     (survival?' class="one-team-round-result" data-correct="'+!!row.points[0]+'"':'')+'>'+
     roundLabel+'</small></header><dl>'+
     '<div><dt>Anime</dt><dd>'+animeTitlesHTML(row,esc,animeTitle)+'</dd></div><div><dt>Song'+(row.songType?' · '+esc(row.songType):'')+'</dt><dd>'+esc(row.song)+'</dd></div>'+
     '<div><dt>Artist</dt><dd>'+artistCreditsHTML(row,esc)+'</dd></div></dl>'+
-    (survival?'<p class="one-team-picked"><span>Team Guess</span><strong>'+esc(teamGuess||'No guess submitted')+'</strong></p>':'')+'</section>';
+    (survival?'<p class="one-team-picked"><span>Team Guess</span><strong>'+esc(teamGuess||'No guess submitted')+'</strong></p>':holderGuesses)+'</section>';
 }
 export function songTeamsHTML(match,esc){
   const me=match.players.find(p=>p.id===match.me),solo=soloVersus(match.format),last=match.history.at(-1);
@@ -111,7 +116,7 @@ export function versusHTML(match,row,esc){
   return '<div class="sa-answer-sides">'+teams.map(team=>'<section><h3 class="sa-side-heading">'+(solo||ffa?team===me?.team?'You':esc(match.players.find(p=>p.team===team).name):me?(team===me.team?'Your Team':'Opponents'):match.teams.length===1?'Team':'Team '+(team+1))+(row?scoreBadge(row.points?.[team]??0,matchGuessFields(match).length):'')+'</h3>'+answerSideHTML(match,row,team,esc)+'</section>').join('')+'</div>';
 }
 export function songResultsHTML(match,esc,animeTitle){
-  if(match.format===ONE_TEAM_FORMAT)return '<div class="sa-match-results single-score">'+match.history.map(row=>
+  if(match.format===ONE_TEAM_FORMAT||match.potatoes&&match.teams.length===1)return '<div class="sa-match-results single-score">'+match.history.map(row=>
     '<details><summary><span><small>'+String(row.index+1).padStart(2,'0')+'</small> '+esc(animeTitle({anime:row.anime}))+
     '</span><b class="one-team-round-result" data-correct="'+!!row.points[0]+'">'+(row.points[0]?'Correct':'Life lost')+
     ' · '+row.lives[0]+' / '+oneTeamRules.lives+'</b></summary><p class="sa-result-key">'+esc(row.song)+' · '+esc(row.artist)+'</p><ul class="one-team-result-guesses">'+

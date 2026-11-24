@@ -3,7 +3,7 @@ import {songResultsHTML} from './play-round-ui.js';
 
 function finalScores(match,me,escapeName){
   const scores=match.teams,freeForAll=match.format==='lobby-ffa';
-  const unit=match.mode==='ngmc-ranked'||match.format===ONE_TEAM_FORMAT?'lives':'pts';
+  const unit=match.mode==='ngmc-ranked'||match.potatoes||match.format===ONE_TEAM_FORMAT?'lives':'pts';
   const solo=freeForAll||soloVersus(match.format);
   const metric=(label,value)=>'<div><small>'+label+'</small><strong>'+value+' <span>'+unit+'</span></strong></div>';
   if(!me){

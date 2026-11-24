@@ -143,7 +143,7 @@ export function roundSoundCues(previous, next) {
   const round = next.history.at(-1);
   const own = round?.index === next.index && round.results.find(result => result.id === next.me);
   const sounds = [];
-  if (grading && round?.index===next.index && [ONE_TEAM_FORMAT,'lobby-team','1-team'].includes(next.format)) {
+  if (grading && round?.index===next.index && (next.potatoes || [ONE_TEAM_FORMAT,'lobby-team','1-team'].includes(next.format))) {
     sounds.push(round.points[player.team]>0?'correct':'incorrect');
   } else if (grading && own) {
     if (next.mode === 'ngmc-ranked' && own.correct.anime && round.results.filter(result => result.correct.anime).length === 1)
@@ -154,7 +154,7 @@ export function roundSoundCues(previous, next) {
   if (next.phase === 'counting') sounds.push('counting');
   if (next.phase === 'reveal' && next.format === ONE_TEAM_FORMAT && next.teams[0] < previous.teams[0])
     sounds.push('lose-life');
-  if (next.phase === 'reveal' && next.mode === 'ngmc-ranked' && own) {
+  if (next.phase === 'reveal' && (next.mode === 'ngmc-ranked'||next.potatoes) && own) {
     const {team} = player;
     if (next.teams?.[team] < previous.teams?.[team]) sounds.push('lose-life');
     else if (next.teams?.[1-team] < previous.teams?.[1-team]) sounds.push('take-life');

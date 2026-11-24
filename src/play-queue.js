@@ -1,3 +1,4 @@
+import {isPotato, isPotatoCoop, potatoRules} from '../public/hot-potato.js';
 import {playPools, poolFormat} from '../public/play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, queueMode} from '../public/play-mode-rules.js';
 import {duelRatings} from './play-duel-ratings.js';
@@ -147,7 +148,8 @@ export class PlayQueue extends DurableObject {
     if(!row)return {type:'idle',counts};
     const waiting=counts[poolFormat(row.format,row.pool)]||0;
     const startsAt=row.format===ONE_TEAM_FORMAT&&waiting>=oneTeamRules.minPlayers
-      ? this.oneTeamStart(this.waitingPlayers(row.format,row.pool,Date.now())) : undefined;
+      ? this.oneTeamStart(this.waitingPlayers(row.format,row.pool,Date.now()))
+      : isPotato(row.format) && waiting >= 2 ? this.potatoStart(row.format,row.pool) : undefined;
     return {type:'queued',format:row.format,pool:row.pool,waiting,needed:PLAY_FORMATS[row.format].size,counts,startsAt};
   }
   withPreparation(status){
@@ -447,9 +449,13 @@ export class PlayQueue extends DurableObject {
     const current = await this.ctx.storage.getAlarm();
     if (current == null || current > at) await this.ctx.storage.setAlarm(at);
   }
-  waitingPlayers(format,pool,now){
+  potatoStart(format,pool){
+    const second=this.waitingPlayers(format,pool,Date.now(),2)[1];
+    return second ? second.joined+potatoRules.waitMs : undefined;
+  }
+  waitingPlayers(format,pool,now,limit=isPotato(format) ? (isPotatoCoop(format) ? 8 : -1) : PLAY_FORMATS[format].size){
     return this.rows('SELECT * FROM queue WHERE format=? AND pool=? AND match IS NULL AND expires>? ORDER BY joined,player LIMIT ?',
-      format,pool,now,PLAY_FORMATS[format].size);
+      format,pool,now,limit);
   }
   oneTeamStart(rows){
     return rows.length>=oneTeamRules.minPlayers?rows.at(-1).joined+oneTeamRules.waitMs:undefined;
@@ -480,6 +486,13 @@ export class PlayQueue extends DurableObject {
         ORDER BY abs(p.elo-?),q.joined,q.player LIMIT ?`,format,pool,now,anchor.elo,spread,anchor.elo,size);
     }else{
       rows=this.waitingPlayers(format,pool,now);
+      if(isPotato(format)){
+        if(rows.length < 2)return;
+        const deadline = rows[1].joined + potatoRules.waitMs;
+        if(now < deadline){await this.scheduleQueue(deadline);return;}
+        size = isPotatoCoop(format) ? rows.length : rows.length - rows.length % 2;
+        rows = rows.slice(0,size);
+      }
       if(format===ONE_TEAM_FORMAT){
         const deadline=this.oneTeamStart(rows);
         if(deadline===undefined)return;
@@ -489,7 +502,7 @@ export class PlayQueue extends DurableObject {
     }
     if(rows.length!==size)return;
     const id=crypto.randomUUID(),players=rows.map(row=>{const rating=format.startsWith('ngmc-')?this.rows('SELECT * FROM '+rankingTable+' WHERE player=?',row.player)[0]:null;return {id:row.player,name:row.name,...(format===ARENA_FORMAT?{elo:row.rating}:{}),avatar:row.avatar?JSON.parse(row.avatar):null,...(rating?{elo:rating.elo,guessRate:rating.seen?100*rating.correct/rating.seen:rating.seed_rate}:{})};});
-    const matchLeaseMs=format==='ngmc-ranked'||format===ARENA_FORMAT||format===ONE_TEAM_FORMAT?7200000:3600000;
+    const matchLeaseMs=format==='ngmc-ranked'||format===ARENA_FORMAT||format===ONE_TEAM_FORMAT||isPotato(format)?7200000:3600000;
     this.ctx.storage.transactionSync(()=>{for(const row of rows){this.ctx.storage.sql.exec('INSERT OR REPLACE INTO play_names VALUES(?,?)',row.player,row.name);this.ctx.storage.sql.exec('UPDATE queue SET match=?,expires=? WHERE player=?',id,Date.now()+matchLeaseMs,row.player);this.ctx.storage.sql.exec('INSERT INTO recent VALUES(?,?,?)',row.player,id,Date.now()+86400000);}this.ctx.storage.sql.exec('INSERT INTO preparing(id,format,players,started,pool) VALUES(?,?,?,?,?)',id,format,JSON.stringify(players),Date.now(),pool);});
     this.ctx.storage.sql.exec('INSERT OR IGNORE INTO match_reviews VALUES(?,?,?,?,?)',id,Date.now(),format,JSON.stringify(players.map(({id,name})=>({id,name}))),'active');
     await this.prepare({id,format,pool,players:JSON.stringify(players),started:Date.now()});

@@ -65,7 +65,7 @@ async function openTicket(ticket, secret) {
     const length = new DataView(raw).getUint16(0);
     const [source, key, position, mode, expires, rangeSample] = JSON.parse(new TextDecoder().decode(raw.slice(2, 2 + length)));
     if (!playAudioSource(source) || !Number.isSafeInteger(expires) || expires <= Date.now() ||
-        ![DUEL_FORMAT, ONE_TEAM_MODE, "song-artist", "ngmc-ranked", "2v2-arena"].includes(mode) || !Number.isFinite(position) || position < 0 || position >= 1 ||
+        !["variety", DUEL_FORMAT, ONE_TEAM_MODE, "song-artist", "ngmc-ranked", "2v2-arena"].includes(mode) || !Number.isFinite(position) || position < 0 || position >= 1 ||
         typeof key !== "string" || audioBytes(key).byteLength !== 32) return null;
     return { source, key, position, mode, rangeSample };
   } catch { return null; }

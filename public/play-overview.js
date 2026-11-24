@@ -18,7 +18,11 @@ const groups=[
 ];
 const queueNames=new Map(groups.flatMap(([mode,formats])=>formats.map(([format,label])=>
   [format,[modes.get(mode).name,label].filter(Boolean).join(' · ')])));
+queueNames.set('hot-potato','Hot Potato · Team VS');
+queueNames.set('hot-potato-team','Hot Potato · 1-Team');
 const matchModes={
+  'hot-potato':['variety','Hot Potato · Team VS'],'hot-potato-team':['variety','Hot Potato · 1-Team'],
+  'lobby-hot-potato':['variety','Hot Potato · Team VS'],'lobby-hot-potato-team':['variety','Hot Potato · 1-Team'],
   [DUEL_FORMAT]:[DUEL_FORMAT,'1v1 Ranked'],'lobby-duel':[DUEL_FORMAT,'1v1 Unranked'],
   'ngmc-ranked':['ngmc-ranked','NGMC 4v4'],'ngmc-3v3':['ngmc-ranked','NGMC 3v3'],'lobby-ngmc':['ngmc-ranked','NGMC Custom'],
   [ARENA_FORMAT]:[ARENA_FORMAT,'2v2 Arena'],'lobby-arena':[ARENA_FORMAT,'2v2 Arena'],

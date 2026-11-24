@@ -705,3 +705,45 @@ dialog.play-lobby-dialog { border-radius:5px; border-top:3px solid var(--mint); 
 .song-broadcast .sa-live-answer-sides:not([hidden]) {block-size:clamp(9rem,28vh,18rem);overflow:auto}
 .song-broadcast .arena-option {min-height:4rem}
 .sa-match-layout [data-match-reconnecting] {position:absolute;z-index:1;background:var(--panel)}
+
+.potato-emblem {font-size:2.4rem}
+.potato-teams {display:grid;gap:12px}
+.potato-game.cooperative .potato-side {grid-area:auto}
+.potato-game.versus .potato-teams {display:contents}
+.potato-side {--team:#b5e1cb;grid-area:home;background:var(--panel);border:1px solid var(--border);border-top:2px solid var(--team);border-radius:9px;min-width:0}
+.potato-side:nth-child(2) {grid-area:away;--team:#f09aac}
+.potato-side header,.potato-side li,.potato-person {display:flex;align-items:center;gap:7px}
+.potato-side header,.potato-side li {justify-content:space-between;padding:12px 10px}
+.potato-side h3 {font-size:14px;margin:0}
+.potato-side header>span {color:var(--team);white-space:nowrap}
+.potato-side header i {opacity:.6;font-style:normal}
+.potato-side ul {list-style:none;margin:0;padding:0;max-height:55vh;overflow:auto}
+.potato-side li {border-top:1px solid var(--border);font-size:12px}
+.potato-person {min-width:0;flex-wrap:wrap}
+.potato-person b {overflow-wrap:anywhere}
+.potato-person small {color:var(--muted)}
+.potato-person .profile-avatar {width:26px;height:26px;flex:none}
+.potato-holder {background:#c99c4810}
+.potato-side {container-type:inline-size}
+.potato-person .potato-holder-label {color:#ffe0a3}
+.potato-budget {display:inline-block;min-height:1.2em;white-space:nowrap;line-height:1.2;font-size:13px}
+.potato-left {color:var(--muted)}
+@container (max-width:240px) {
+  .potato-side li {flex-direction:column;align-items:flex-start;gap:4px}
+  .potato-budget,.potato-left {margin-inline-start:33px}
+}
+.potato-turn {border:1px solid #8c7148;border-radius:8px;background:#302a22;padding:12px 14px;margin-bottom:14px}
+.potato-turn>div:first-child {display:flex;align-items:center;gap:12px}
+.potato-turn strong,.potato-turn small {display:block}
+.potato-turn strong {color:#ffe0a3;font-size:16px}
+.potato-turn small {color:#dacdb9;margin-top:3px}
+.potato-mark {font-size:26px}
+.potato-passes {display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.potato-passes .button {padding:6px 10px}
+.potato-game .sa-answer-fields {grid-template-columns:minmax(0,1fr)}
+.potato-game .sa-answer-row {padding:0;background:none;border:0}
+@media(max-width:800px) {
+  .song-broadcast.potato-game {grid-template-columns:minmax(0,1fr);grid-template-areas:"console" "roster"}
+  .potato-game.versus .sa-scoreboard,.potato-game.cooperative .sa-scoreboard {display:block;grid-area:roster}
+  .potato-game.versus .potato-teams {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"home away";gap:8px}
+}

@@ -1,3 +1,4 @@
+import {potatoTeams} from './hot-potato-ui.js';
 import {openMatchChat} from './play-match-chat.js';
 import {poolName} from './play-pool.js';
 import {createSongListDialog} from './play-song-dialog.js';
@@ -151,6 +152,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   },{signal:controller.signal});
 
   function winnerLabel(){
+    if(state.potatoes&&state.teams.length===1)return state.teams[0]?'Team survived':'Team ran out of lives';
     if(state.format===ONE_TEAM_FORMAT)return state.teams[0]?'Team survived':'Team ran out of lives';
     if(state.teams.length===1)return 'Team score · '+state.teams[0]+' points';
     const high=Math.max(...state.teams),leaders=state.teams.flatMap((score,team)=>score===high?[team]:[]);
@@ -205,12 +207,12 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     const revealed=latest&&(finished||latest.index===state.index&&['reveal','counting'].includes(state.phase))?latest:null;
     setMarkup('.sa-scoreboard',state.arena?arenaBoard(state,esc):
       finished||state.lobby&&['lobby-team','lobby-ffa'].includes(state.format)?pointsBoard(state,esc):
-      ngmc?ngmcTeams(state,esc):songTeamsHTML(state,esc));
+      state.potatoes?potatoTeams(state,esc):ngmc?ngmcTeams(state,esc):songTeamsHTML(state,esc));
     if(ngmc){
       setMarkup('.ngmc-track',ngmcTrack(revealed,esc,animeTitle));
       setMarkup('.ngmc-progress',ngmcProgress(state,esc,animeTitle));
     }else{
-      setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+(state.format===ONE_TEAM_FORMAT?'':versusHTML(state,revealed,esc)):'');
+      setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+(state.potatoes||state.format===ONE_TEAM_FORMAT?'':versusHTML(state,revealed,esc)):'');
     }
     songList.update(state);audioNotice();tick();
   }

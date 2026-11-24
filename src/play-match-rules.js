@@ -8,9 +8,12 @@ import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
 import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
 import {saveDraft,applyTimeoutDrafts,applyTimeoutProposals} from './play-drafts.js';
-export const PLAY_FORMATS=Object.freeze({[DUEL_FORMAT]:{size:2,teams:2},[ARENA_FORMAT]:{size:arenaRules.preferredPlayers},'ngmc-3v3':{size:6,teams:2},'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1},[ONE_TEAM_FORMAT]:{size:oneTeamRules.maxPlayers,teams:1}});
+import {POTATO_FORMAT, POTATO_COOP, isPotato, isPotatoCoop, validPotatoSize, potatoRules, passTargets, canAnswerPotato} from '../public/hot-potato.js';
+import {beginPotatoSong, passPotato, spendPotato, finishPotatoTurns, replaceDepartedHolders} from './hot-potato.js';
+export const PLAY_FORMATS=Object.freeze({[POTATO_FORMAT]:{size:2,teams:2},[POTATO_COOP]:{size:2,teams:1},[DUEL_FORMAT]:{size:2,teams:2},[ARENA_FORMAT]:{size:arenaRules.preferredPlayers},'ngmc-3v3':{size:6,teams:2},'ngmc-ranked':{size:8,teams:2},'1v1':{size:2,teams:2},'3v3':{size:6,teams:2},'1-team':{size:3,teams:1},[ONE_TEAM_FORMAT]:{size:oneTeamRules.maxPlayers,teams:1}});
 export const FIELDS=songArtistFields;
 function skipMajority(state){
+  if (isPotato(state.format)) return 0;
   return Math.floor(state.players.filter(p=>!p.left).length/2)+1;
 }
 function allPlayersReadyToReveal(state,active,catalog) {
@@ -18,6 +21,7 @@ function allPlayersReadyToReveal(state,active,catalog) {
     const {ready,hasValidAnswer}=ballotStatus(state,catalog);
     return hasValidAnswer&&active.every(p=>p.autoSkip||ready.has(p.id));
   }
+  if (isPotato(state.format)) return state.potatoes.every(turn => active.find(p => p.id === turn.holder)?.locked);
   const hasAutoskip = active.some(player => player.autoSkip);
   if (state.arena) return hasAutoskip && arenaVotesComplete(active);
   if (state.format==='1-team' && hasAutoskip) {
@@ -36,11 +40,13 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   const survival=format===ONE_TEAM_FORMAT;
   const arena=format===ARENA_FORMAT;
   const duelLobby=format===DUEL_LOBBY_FORMAT && players.length===2;
-  const custom=lobby&&(survival||arena||duelLobby||players.length>=1&&players.length<=8&&
+  const custom=lobby&&(isPotato(format)||survival||arena||duelLobby||players.length>=1&&players.length<=8&&
     (['lobby-team','lobby-ffa'].includes(format)||format==='lobby-ngmc'&&[6,8].includes(players.length)));
-  const rules=arena?{size:players.length,teams:players.length/2}:survival?{size:players.length,teams:1}:custom?{size:players.length,teams:ngmc||duelLobby?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
-  const validSongs=survival?songs.length>0&&songs.length<=oneTeamRules.songs:
+  const potato = isPotato(format);
+  const rules=potato?{size:players.length,teams:isPotatoCoop(format)?1:2}:arena?{size:players.length,teams:players.length/2}:survival?{size:players.length,teams:1}:custom?{size:players.length,teams:ngmc||duelLobby?2:format==='lobby-ffa'?players.length:1}:PLAY_FORMATS[format];
+  const validSongs=potato?songs.length===potatoRules.songs:survival?songs.length>0&&songs.length<=oneTeamRules.songs:
     songs.length===(arena?arenaSongCount(players.length):custom?lobby.songs:ngmc?35:format===DUEL_FORMAT?duelRules.songs:20);
+  if(potato && !validPotatoSize(format,players.length,custom)) fail(isPotatoCoop(format) ? "Invalid 1-Team Hot Potato player count." : "Team VS needs two equal teams.");
   if(!rules||players.length!==rules.size||new Set(players.map(p=>p.id)).size!==rules.size||!validSongs||
     survival&&(players.length<oneTeamRules.minPlayers||players.length>oneTeamRules.maxPlayers))fail('Invalid match setup.');
 
@@ -50,7 +56,9 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   if(arena)roster=pairPlayers(roster);
   const samples=new Uint32Array(songs.length);crypto.getRandomValues(samples);
   const mode=ngmc?'ngmc-ranked':survival?ONE_TEAM_MODE:queueMode(format)===ONE_TEAM_MODE?'song-artist':queueMode(format);
-  return {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(!custom||survival?{answeredMatch:false}:{}),answers:{},locked:false}))};
+  const state = {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(potato?potatoRules.lives:ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(potato?{guesses:potatoRules.guesses}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(!custom||survival?{answeredMatch:false}:{}),answers:{},locked:false}))};
+  if (potato) beginPotatoSong(state);
+  return state;
 }
 function recordRoundParticipation(state) {
   const usesProposals = state.arena || usesTeamBallot(state.format);
@@ -63,6 +71,7 @@ function recordRoundParticipation(state) {
 
 export function gradeRound(state,now,catalog) {
   if(state.phase!=='guess')return;
+  if (isPotato(state.format)) finishPotatoTurns(state);
   const expired = now >= state.until;
   if (expired && (state.arena || usesTeamBallot(state.format))) applyTimeoutProposals(state);
   if (state.arena) selectArenaTitles(state);
@@ -81,18 +90,20 @@ export function gradeRound(state,now,catalog) {
   });
   const points=teamHits.map(hits=>hits.size);
   const survival=state.format===ONE_TEAM_FORMAT;
-  if(survival){if(!points[0])state.teams[0]=Math.max(0,state.teams[0]-1);}
+  if (isPotato(state.format)) {
+    for (let team=0; team<points.length; team++) if (!points[team] && (points.length === 1 || points[1-team])) state.teams[team]--;
+  } else if(survival){if(!points[0])state.teams[0]=Math.max(0,state.teams[0]-1);}
   else for(let i=0;i<teamHits.length;i++)state.teams[i]+=points[i];
   if(state.arena)recordArenaSong(state.arena,state.index,teamHits.map(h=>h.size),state.players);
-  state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,songType:song.songType,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results,points,...(survival?{lives:[...state.teams]}:{})});
+  state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,songType:song.songType,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results,points,...(state.potatoes?{holders:state.potatoes.map(t=>t.holder)}:{}),...(survival||state.potatoes?{lives:[...state.teams]}:{})});
   state.phase='reveal';state.until=now+PLAY_REVEAL_MS;
 }
 export function advanceMatch(state,now=Date.now(),catalog) {
   if(['finished','cancelled'].includes(state.phase))return;
   const ngmc=state.mode==='ngmc-ranked';
   for(const p of state.players){
-    if(!p.left && p.disconnectedAt!=null && now>=p.disconnectedAt+RECONNECT_MS && (state.arena || state.format===ONE_TEAM_FORMAT || activeRankedGame(state,now))){
-      p.left=true;if(!state.arena&&state.format!==ONE_TEAM_FORMAT)p.rankedLeftAt=p.disconnectedAt+RECONNECT_MS;delete p.disconnectedAt;
+    if(!p.left && p.disconnectedAt!=null && now>=p.disconnectedAt+RECONNECT_MS && (state.arena || state.potatoes || state.format===ONE_TEAM_FORMAT || activeRankedGame(state,now))){
+      p.left=true;if(!state.arena&&!state.potatoes&&state.format!==ONE_TEAM_FORMAT)p.rankedLeftAt=p.disconnectedAt+RECONNECT_MS;delete p.disconnectedAt;
     }
   }
   const active=state.players.filter(p=>!p.left);
@@ -121,6 +132,12 @@ export function advanceMatch(state,now=Date.now(),catalog) {
     }
   }
   if(checkAbort(state,now)||checkReturn(state,now))return;
+  if(state.potatoes && state.teams.some((_,team)=>!active.some(p=>p.team===team))){
+    state.phase=state.history.length?'finished':'cancelled';
+    state.teams=state.teams.map((v,team)=>active.some(p=>p.team===team)?v:0);
+    state.reason='A team left the match.';state.until=now+86400000;return;
+  }
+  if(state.potatoes && ['loading','guess','buffering'].includes(state.phase)) replaceDepartedHolders(state);
   if(ngmc&&state.history.length&&state.teams.some((_,team)=>!active.some(p=>p.team===team))){if(state.phase==='counting')finishNgmcCount(state,Infinity);for(let team=0;team<2;team++)if(!active.some(p=>p.team===team))state.teams[team]=0;state.phase='finished';state.reason='A team left the match.';state.until=now+86400000;return;}
   if(!active.length){state.phase='cancelled';state.reason='All players left the match.';state.until=now+86400000;return;}
   if(state.phase==='loading'||state.phase==='buffering') {
@@ -141,7 +158,7 @@ export function advanceMatch(state,now=Date.now(),catalog) {
       if(state.index===0)for(const p of active)if(p.disconnectedAt!=null)p.disconnectedAt=state.startsAt;
       state.until=state.lobby?.seconds===0?8.64e15:state.startsAt+(state.lobby?.seconds??defaultPlayGuessSeconds(state.mode))*1000;
     } else if(now>=state.until){
-      if((state.arena||state.format===ONE_TEAM_FORMAT) && active.some(p=>p.disconnectedAt!=null)){
+      if((state.arena||state.potatoes||state.format===ONE_TEAM_FORMAT) && active.some(p=>p.disconnectedAt!=null)){
         state.until=Math.max(now+1,...active.filter(p=>p.disconnectedAt!=null).map(p=>p.disconnectedAt+RECONNECT_MS));
         return;
       }
@@ -153,12 +170,13 @@ export function advanceMatch(state,now=Date.now(),catalog) {
   }
   else if(state.phase==='counting')finishNgmcCount(state,now);
   else if(state.phase==='reveal'&&now>=state.until) {
-    if(state.index===state.songs.length-1||(ngmc||state.format===ONE_TEAM_FORMAT)&&state.teams.includes(0)){
+    if(state.index===state.songs.length-1||(ngmc||state.potatoes||state.format===ONE_TEAM_FORMAT)&&state.teams.includes(0)){
       state.completed=true;state.phase='finished';state.until=now+86400000;
       if(state.format===ONE_TEAM_FORMAT)state.rematch={until:now+90_000,votes:{}};
       return;
     }
     state.index++;state.phase='buffering';state.until=now+90000;delete state.audioWaitLimit;
+    if (state.potatoes) beginPotatoSong(state);
     delete state.ballot;
     for(const p of state.players){delete p.votes;delete p.lastBallotChoice;delete p.arenaTitle;delete p.arenaVote;delete p.draft;delete p.autoSubmitted;delete p.skip;delete p.autoSkip;p.answers={};delete p.artists;p.locked=false;delete p.lockedElapsedMs;p.field=null;p.reactions={};}
     advanceMatch(state,now,catalog);
@@ -188,6 +206,17 @@ export function matchMove(state,id,message,now=Date.now(),catalog) {
   if(state.lobby&&['return-request','return-vote'].includes(message.type)){
     returnVote(state,player,message);checkReturn(state,now);return;
   }
+  if (state.potatoes && message.type === 'pass-potato') {
+    const turn = state.potatoes[player.team];
+    if (state.phase !== 'guess' || now < state.startsAt || now >= state.until || message.index !== state.index || turn.holder !== id || turn.spent)
+      fail('You cannot pass the potato now.',409);
+    const target = passTargets(state, player.team).find(p => p.id === message.player);
+    if (!target) fail('Choose a teammate with guesses left.',409);
+    passPotato(state, player.team, target);
+    return;
+  }
+  if (state.potatoes && ['answer','draft','unlock'].includes(message.type) && !canAnswerPotato(state, player))
+    fail('Only the eligible potato holder can answer.',403);
   if (state.arena && !['loaded','ready','skip','auto-skip','draft'].includes(message.type)) {
     if (!['propose','vote'].includes(message.type) || message.field !== 'anime' ||
         state.phase !== 'guess' || message.index !== state.index || now < state.startsAt || now >= state.until)
@@ -276,6 +305,7 @@ export function matchMove(state,id,message,now=Date.now(),catalog) {
     else if(player.artists&&message.answers.artist!==player.artists.join(', '))delete player.artists;
     const answers=Object.fromEntries(fields.map(field=>[field,message.answers[field].trim()]));
     if(player.locked&&fields.every(field=>player.answers[field]===answers[field]))return;
+    if (state.potatoes) spendPotato(state, player);
     delete player.draft;player.answers=answers;
     if(player.answeredMatch===false && Object.values(answers).some(Boolean))player.answeredMatch=true;
     if(message.lock===true){player.locked=true;player.lockedElapsedMs=Math.max(0,now-state.startsAt);}
@@ -296,8 +326,8 @@ export function matchView(state,id,now=Date.now(),compactHistory=false,catalog) 
     ...(state.arena?{arena:{...state.arena,standings:arenaStandings(state.arena),ballot:arenaBallotView(state,me)}}:{}),lobby:state.lobby,creditReward:state.creditRewards?.find(row=>row.id===me.id),returnPoll:ended?undefined:state.returnPoll,abortPoll:ended?undefined:state.abortPoll,aborted:state.aborted,rematch:rematchView(state,now,id),ballot:state.ballot,myVotes:me.votes,
     voteCounts:state.ballot?Object.fromEntries(Object.entries(state.ballot).flatMap(([field,options])=>
       options.map(o=>[o.id,state.players.filter(p=>!p.left&&p.votes?.[field]===o.id).length]))):undefined,
-    myDraft:me.draft,teams:state.teams,me:id,history:compact?state.history.slice(historyFrom):state.history,...(compact?{historyFrom}:{}),teamFields:!!state.teamFields,
-    songList:ended&&!state.aborted&&state.format!==ONE_TEAM_FORMAT?state.songs.map((s,index)=>({index,anime:s.anime,animeTitles:state.history[index]?.animeTitles,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,animeTitles,song,artist,artistMembers})=>({index,anime,animeTitles,song,artist,artistMembers})),
+    myDraft:me.draft,...(state.potatoes?{potatoes:state.potatoes}:{}),teams:state.teams,me:id,history:compact?state.history.slice(historyFrom):state.history,...(compact?{historyFrom}:{}),teamFields:!!state.teamFields,
+    songList:ended&&!state.aborted&&!state.potatoes&&state.format!==ONE_TEAM_FORMAT?state.songs.map((s,index)=>({index,anime:s.anime,animeTitles:state.history[index]?.animeTitles,song:s.title,artist:s.artist,artistMembers:s.artistMembers||[s.artist]})):compact?undefined:state.history.map(({index,anime,animeTitles,song,artist,artistMembers})=>({index,anime,animeTitles,song,artist,artistMembers})),
     players:state.players.map(p=>({id:p.id,name:p.name,avatar:p.avatar||null,audioReady:playerAudioReady(state,p)&&(!state.preparingClip||p.clipReadyIndex===state.index),team:p.team,score:p.score,...(ballotReady?{answerReady:ballotReady.has(p.id)}:{}),elo:p.elo,guessRate:p.guessRate,guesses:p.guesses,initialGuesses:p.initialGuesses,loaded:p.loaded.length,ready:p.ready,left:p.left,acceptedReady:p.acceptedReady||p.ready,locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,submittedFields:state.format===ONE_TEAM_FORMAT
       ? (p.votes?.anime||(state.ballot?.anime||[]).some(option=>option.owner===p.id)?['anime']:[])
       : state.teamFields?(p.field?[p.field]:[]):p.locked?(matchGuessFields(state)):[],...((animeOnlyMode(state.mode)?p.id===me.id:p.team===me.team)?{answers:p.answers,artists:p.artists,field:p.field||null,reactions:p.reactions||{}}:{})}))};

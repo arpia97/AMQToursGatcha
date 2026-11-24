@@ -1,3 +1,4 @@
+import {isPotato, VARIETY_MODE, potatoRules} from '../public/hot-potato.js';
 import {playRecord} from './game-record-format.js';
 import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, DUEL_FORMAT, ONE_TEAM_FORMAT, ONE_TEAM_MODE, comparePlayTier, matchGuessFields, usesTeamBallot, duelRules, oneTeamRules} from '../public/play-mode-rules.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
@@ -142,11 +143,11 @@ export class PlayMatch extends DurableObject {
       if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
     }
     const survival=format===ONE_TEAM_FORMAT;
-    const sampleMode=format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
+    const sampleMode=isPotato(format)?VARIETY_MODE:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
       format===ARENA_FORMAT?ARENA_FORMAT:survival?ONE_TEAM_MODE:'song-artist';
     let library;
     try{
-      library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:survival?oneTeamRules.songs:lobby?.songs,watched});
+      library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:isPotato(format)?potatoRules.songs:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:survival?oneTeamRules.songs:lobby?.songs,watched});
     }catch(error){
       if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
       throw error;
@@ -182,7 +183,7 @@ export class PlayMatch extends DurableObject {
     }
     if (state.audioSealed && state.phase === 'guess' && state.startsAt > now)
       next = Math.min(next,state.startsAt);
-    if(!gameEnded(state.phase)&&(state.arena||state.format===ONE_TEAM_FORMAT||activeRankedGame(state,now)))for(const p of state.players){
+    if(!gameEnded(state.phase)&&(state.arena||state.potatoes||state.format===ONE_TEAM_FORMAT||activeRankedGame(state,now)))for(const p of state.players){
       if(!p.left&&p.disconnectedAt!=null)next=Math.min(next,p.disconnectedAt+RECONNECT_MS);
     }
     if (['finished','cancelled'].includes(state.phase) && (!state.rankingsSettled || !this.ctx.storage.sql.exec('SELECT 1 FROM review_meta WHERE id=4').toArray().length))
@@ -264,7 +265,7 @@ export class PlayMatch extends DurableObject {
       return {};
     }
     const participation=state.completed&&(!state.lobby||state.format===ONE_TEAM_FORMAT)
-      ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean')
+      ? state.players.filter(p=>!p.left&&p.rankedLeftAt==null&&typeof p.answeredMatch==='boolean'&&(!state.potatoes||state.history.some(round=>round.holders?.includes(p.id))))
         .map(({id,answeredMatch})=>({id,answered:answeredMatch}))
       : [];
     const result={
@@ -319,7 +320,7 @@ export class PlayMatch extends DurableObject {
       if(!player)fail('You are not in this match.',403);
       if(!gameEnded(state.phase)){
         const reconnectAt=Date.now();
-        const timeLimited=state.arena||state.format===ONE_TEAM_FORMAT||activeRankedGame(state,reconnectAt);
+        const timeLimited=state.arena||state.potatoes||state.format===ONE_TEAM_FORMAT||activeRankedGame(state,reconnectAt);
         if(player.disconnectedAt!=null&&(!timeLimited||reconnectAt-player.disconnectedAt<RECONNECT_MS))delete player.disconnectedAt;
         delete player.clipReadyIndex;player.loaded=[];player.ready=false;player.avatar=who.avatar||null;
       }
