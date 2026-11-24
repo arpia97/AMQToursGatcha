@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Fresh draws on Quiz restart
+
+Runtime `cf2a7da` deployed as Worker `c93a9040-6392-4168-8b4e-d277b6063729` at 100% traffic. Manual and Sudden Death restarts prefer tracks outside the previous draw, then tracks the player had not reached. All 618 tests passed, including three consecutive restarts at six catalog sizes. The production Quiz route returned HTTP 200.
+
 ## Sudden Death Quiz
 
 The Quiz lobby uses the GGius Tours skull_emoji artwork for Sudden Death. Competitive and Sudden Death now have independent highlighted toggle buttons. A graded miss in Sudden Death starts a fresh attempt. Runtime `a199e96` deployed as Worker `63895cf6-8b1b-4a1f-910c-1ba5e04b59e6`. All 617 tests passed. Desktop and mobile toggle behavior was checked locally, and both live shells, Quiz assets and the card artwork were verified against the release.
