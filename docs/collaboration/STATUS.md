@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Event quiz presentation
+
+Event quizzes reuse the standard Quiz sleeve, lobby statistics, timer, score colors and finish card. The two-field reveal and progress markers distinguish partial credit. Runtime `8478473` deployed as `5c4837af-edef-4e52-ac51-4929cabd6400`. All 42 focused tests passed. A local browser run covered grading, completion and mobile replay. The signed-out production lobby was verified at 1360px and 390px.
+
 ## Link-only Song/Artist event quizzes
 
 Play Quiz has an Event tab. Shared event links open an unlisted pool for signed-out or signed-in players. Artist grading reuses the multiplayer matcher. The first event has 37 verified audio samples served through the private EVENT_CLIPS binding. Host registration and source data stay outside the public catalog. Runtime commits `986272e` and `a168a43` deployed as `e18e7373-eb0a-490b-a877-ba1e94a9b83a`. All 634 tests passed. Browser checks verified the lobby and public tab in production and a full scored run locally. All 37 production clips matched their source sample headers.
