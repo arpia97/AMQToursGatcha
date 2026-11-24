@@ -2,7 +2,7 @@
 
 ## Sudden Death Quiz
 
-The Quiz lobby uses the GGius Tours skull_emoji artwork for Sudden Death. Competitive and Sudden Death now have independent highlighted toggle buttons. A graded miss in Sudden Death starts a fresh attempt. The approved design is shared by Play and Gacha Quiz.
+The Quiz lobby uses the GGius Tours skull_emoji artwork for Sudden Death. Competitive and Sudden Death now have independent highlighted toggle buttons. A graded miss in Sudden Death starts a fresh attempt. Runtime `a199e96` deployed as Worker `63895cf6-8b1b-4a1f-910c-1ba5e04b59e6`. All 617 tests passed. Desktop and mobile toggle behavior was checked locally, and both live shells, Quiz assets and the card artwork were verified against the release.
 
 
 ## Play layout and statistics archive
