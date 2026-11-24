@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Numeric rig totals on Match Complete
+
+The Rigs column displays numeric counts, including zero. Runtime `a1c0a96` deployed as `8c7cbedf-d3f1-4f3a-b1bb-2011692503ea`. The local NGMC fixture verified all eight results and the production asset matched the checked source.
+
 ## Watched rigs and Hot Potato rematches
 
 Runtime `1834ef9` deployed as `77116d60-438b-4071-9dfe-a0ec9c2250e8`. New Watched matches count each revealed song for everyone whose active imported list included the selected anime. Players and spectators see the totals on rosters and results. Hot Potato Team VS and 1-Team offer the restart vote after a finished match. Voters and invited spectators enter an invite-only lobby preserving the format and pool. All 632 tests passed. Local multiplayer verification completed a Team VS rematch with a spectator invitation and a solo custom cooperative rematch. Live UI assets were verified at 1360px and 390px.
