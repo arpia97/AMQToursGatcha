@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Event quiz progress recaps
+
+Completed song squares open the shared Quiz popover with the track, artist, submitted answers and partial credit. Event quizzes support skipping during guessing and advancing with Enter on reveal. The Christmas lobby uses a plain evergreen sleeve. Browser checks covered hover, focus, mobile taps, results and the live mobile lobby. All 42 focused tests passed. Runtime `e7d49ef` deployed as `8679fa1f-5d46-4972-a7e8-7f65ceabbefe`.
+
 ## Centered event quiz and volume
 
 Event quizzes use the shared Quiz volume preference. Lobby, reveal, final results and incomplete progress rows are centered. A local 37-song browser run verified desktop and mobile alignment, changing the playing clip volume, mute and replay persistence. The live lobby slider persisted across reload. Runtime `8549ecd` deployed as `3249ca95-1caf-4387-8f6b-f5fa232f7ca2`. All 42 focused tests passed.
