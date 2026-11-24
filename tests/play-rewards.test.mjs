@@ -53,6 +53,16 @@ test('matchmaking pays by outcome once, using final scores and Arena standings',
     assert.deepEqual(matchCreditPlan(tied),[{id:'a',winner:false,outcome:'T'}]);
     assert.deepEqual(matchCreditPlan({...tied,players:[{...players[0],answeredMatch:false}]}),[{id:'a',winner:false,outcome:'T'}]);
     assert.equal(awardMatchCredits(engine,'draw','3v3',matchCreditPlan(tied))[0].amount,200);
+    for (const [format, amount] of [['ngmc-ranked',300], ['ngmc-3v3',150]]) {
+      for (const pool of ['random','watched']) {
+        const plan = matchCreditPlan({...match, format, pool, teams:[1,1]});
+        const id = 'draw-'+format+'-'+pool;
+        const settle = () => awardMatchCredits(engine, id, format, plan);
+        const expected = ['a','b'].map(id => ({id, amount, bonus:0}));
+        assert.deepEqual(settle(), expected);
+        assert.deepEqual(settle(), expected);
+      }
+    }
     const oldAward=[{id:'a',amount:220,bonus:20}];
     engine.mutate('play:match-credits','already-paid',{format:'3v3',players:[{id:'a',winner:true}]},()=>oldAward);
     assert.deepEqual(awardMatchCredits(engine,'already-paid','3v3',[{id:'a',winner:true,outcome:'W'}]),oldAward);

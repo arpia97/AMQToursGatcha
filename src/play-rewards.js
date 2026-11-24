@@ -5,8 +5,8 @@ import {matchRecords} from './play-records.js';
 
 const rewards = Object.freeze({
   [DUEL_FORMAT]: [100, 'Ranked 1v1'],
-  'ngmc-ranked': [400, '4v4 Ranked'],
-  'ngmc-3v3': [200, '3v3 Unranked'],
+  'ngmc-ranked': [400, '4v4 Ranked', 300],
+  'ngmc-3v3': [200, '3v3 Unranked', 150],
   [ARENA_FORMAT]: [100, '2v2 Round Robin'],
   '1v1': [100, '1v1 Song/Artist'],
   '3v3': [200, '3v3 Song/Artist'],
@@ -37,7 +37,7 @@ export function matchCreditPlan(state) {
 export function awardMatchCredits(engine, match, format, players, completedRounds, survivalResult) {
   const survival=format===ONE_TEAM_FORMAT;
   if (!survival && !Object.hasOwn(rewards, format)) throw Error('Invalid matchmaking reward format.');
-  const [rate, label] = survival
+  const [rate, label, drawAward] = survival
     ? [survivalResult?.pool==='watched'?2:5, '1-Team '+(survivalResult?.pool==='watched'?'Watched':'Random')]
     : rewards[format];
   if (survival && (!['random','watched'].includes(survivalResult?.pool) || !Number.isInteger(survivalResult?.songs) ||
@@ -59,7 +59,7 @@ export function awardMatchCredits(engine, match, format, players, completedRound
     for (const {id,outcome} of players) {
       if (!['W','L','T','cooperative'].includes(outcome)) throw Error('Missing matchmaking reward outcome.');
       if (!engine.one('SELECT 1 FROM players WHERE id=?', id)) continue;
-      const amount = outcome === 'L' ? base / 2 : base;
+      const amount = {W:base, L:base / 2, T:drawAward ?? base, cooperative:base}[outcome];
       const resultLabel = {W:'Win',L:'Loss',T:'Draw',cooperative:'Completed'}[outcome];
       const awarded = engine.wallet(id, amount, 'Play match: ' + label + roundLabel + ' · ' + resultLabel, true);
       if (awarded !== false) awards.push({id, amount, bonus:0});

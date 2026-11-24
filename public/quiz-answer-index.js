@@ -14,6 +14,15 @@ const titles = (a) =>
   ].filter(Boolean);
 // Confirmed by the user's AMQ All Working Titles screenshot, scoped to this song.
 const workingAnimeOverrides = { 75802: [30555, 24085, 27193] };
+// Recording-specific working titles confirmed in addition to the catalog.
+export const butterflyPresageTitle = "Fate/stay night: Heaven's Feel I. Presage Flower";
+
+export function amqAlternativeTitles(info) {
+  return [...new Set(["allAlternativeAnswers","altAnimeNames","altAnimeNamesAnswers","animeNamesAnswers"]
+    .flatMap(field => list(info?.[field]))
+    .filter(title => typeof title === "string" && title.trim())
+    .map(title => title.trim()))];
+}
 export function mergeQuizAnswers(old,song){if(old.answerSource==='amq-export'&&song.answerSource!=='amq-export')return [...new Set([...old.answers,...(song.workingTitles||[])])];if(song.answerSource==='amq-export'&&old.answerSource!=='amq-export')return [...new Set([...song.answers,...(old.workingTitles||[])])];return [...new Set([...old.answers,...song.answers])];}
 export function quizAnswerIndex(master, fallbackSongs = []) {
   master ||= {animeMap:{}};
@@ -83,14 +92,15 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
         ...(workingAnimeOverrides[id] || []),
       ])
         anns.add(String(ann));
+    const confirmed = songs.has("82626") || annSongs.has("48740") ? [butterflyPresageTitle] : [];
+    const verifiedTitles = [...new Set([
+      ...list(row.verifiedTitles),
+      ...amqAlternativeTitles(row),
+      ...amqAlternativeTitles(info),
+    ])];
     const working = [
       ...list(row.workingTitles),
-      ...list(row.altAnimeNames),
-      ...list(row.altAnimeNamesAnswers),
-      ...list(info.altAnimeNames),
-      ...list(info.altAnimeNamesAnswers),
-      ...list(info.allAlternativeAnswers),
-      ...list(info.animeNamesAnswers),
+      ...verifiedTitles,
     ]
       .filter((n) => typeof n === "string" && n.trim())
       .map((n) => n.trim());
@@ -99,11 +109,12 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
     const exactFallback=[...annSongs].map(id=>fallbackAnn.get(id)).filter(Boolean),fallback=exactFallback.length?exactFallback:[...songs].flatMap(id=>fallbackAmq.get(id)||[]);
     const amqAnswers=[...anns].flatMap(id=>titles(master.animeMap?.[id]));
     const cachedAnswers=fallback.flatMap(s=>s.titles||[]);
-    const answers=[...new Set([...working,...exportNames,...(authoritative||!cachedAnswers.length?amqAnswers:cachedAnswers)])];
+    const answers=[...new Set([...working,...exportNames,...(authoritative||!cachedAnswers.length?amqAnswers:cachedAnswers),...confirmed])];
     return {
       answers,
-      trustedAnswers:[...new Set([...working,...exportNames,...amqAnswers])],
-      workingTitles: [...new Set([...working,...exportNames])],
+      verifiedTitles:[...new Set([...verifiedTitles,...confirmed])],
+      trustedAnswers:[...new Set([...working,...exportNames,...amqAnswers,...confirmed])],
+      workingTitles: [...new Set([...working,...exportNames,...confirmed])],
       answerSource:authoritative?'amq-export':cachedAnswers.length?'amq-plus':'amq',
       sourceIds: {
         amqSongIds: [...songs],

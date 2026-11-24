@@ -236,6 +236,7 @@ test("AMQ export titles and audio beat incomplete fallback data; metadata lookup
   const simple = {
     ...prepared.songs[0],
     answerSource: "amq",
+    verifiedTitles: [],
     workingTitles: [],
     answers: ["AMQ Known"],
   };

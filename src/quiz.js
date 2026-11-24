@@ -1,7 +1,7 @@
 import { correctQuizClock, correctQuizReceipt } from "./quiz-countdown.js";
 import { quizRunView, advanceQuizRun } from "./quiz-run-state.js";
 import { titleOrderKey } from "../public/title-order.js";
-import {mergeQuizAnswers} from '../public/quiz-answer-index.js';
+import {butterflyPresageTitle, mergeQuizAnswers} from '../public/quiz-answer-index.js';
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
@@ -56,6 +56,22 @@ export class Quiz {
     e.run(
       "CREATE INDEX IF NOT EXISTS quiz_leaderboard ON quiz_progress(quiz,best DESC,best_at,player)",
     );
+    this.repairButterflyTitles();
+  }
+  repairButterflyTitles() {
+    const e = this.e;
+    const quiz = 'ab87e0d6-c091-40c1-902b-3bab8efcb8ed';
+    const row = e.one("SELECT data FROM quiz_songs WHERE quiz=? AND id=33", quiz);
+    if (!row) return;
+    const song = JSON.parse(row.data);
+    if (!song.sourceIds?.amqSongIds?.includes('82626') || song.verifiedTitles?.includes(butterflyPresageTitle)) return;
+    e.tx(() => {
+      for (const field of ['answers','workingTitles','verifiedTitles'])
+        song[field] = [...new Set([...(song[field] || []),butterflyPresageTitle])];
+      e.run("UPDATE quiz_songs SET data=? WHERE quiz=? AND id=33", JSON.stringify(song), quiz);
+      e.run("INSERT OR IGNORE INTO quiz_answers VALUES(?,?,?)", quiz, butterflyPresageTitle, quizAnswerKey(butterflyPresageTitle));
+      e.run("UPDATE quizzes SET updated=MAX(updated+1,?) WHERE id=?", e.now(), quiz);
+    });
   }
   bestTime(player, quiz, best, fallback) {
     return (
@@ -377,15 +393,19 @@ export class Quiz {
         const old = combined.get(song.audio);
         const sheet=song.answerSource==='amq-master-sheet'?song:old?.answerSource==='amq-master-sheet'?old:null;
         const preferred=sheet||(song.answerSource==='published-quiz'?song:old?.answerSource==='published-quiz'?old:null);
+        // Older saved AMQ exports kept their confirmed names in workingTitles.
+        const oldVerified = old?.verifiedTitles ?? (old?.answerSource === 'amq-export' ? old.workingTitles : []);
+        const verifiedTitles = [...new Set([...(oldVerified || []), ...(song.verifiedTitles || [])])];
         combined.set(
           song.audio,
           old
             ? {
                 ...old,
                 ...song,
-                answers:preferred?.answers??mergeQuizAnswers(old,song),
+                verifiedTitles,
+                answers:preferred ? [...new Set([...preferred.answers,...verifiedTitles])] : mergeQuizAnswers(old,song),
                 answerSource:preferred?.answerSource??(old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource),
-                workingTitles: preferred?.workingTitles??[
+                workingTitles: preferred ? [...new Set([...(preferred.workingTitles || []),...verifiedTitles])] : [
                   ...new Set([
                     ...(old.workingTitles || []),
                     ...(song.workingTitles || []),
@@ -425,6 +445,7 @@ export class Quiz {
           audio,
           answers,
           ...(s.sourceIds ? { sourceIds: s.sourceIds } : {}),
+          ...(s.verifiedTitles?.length ? { verifiedTitles: s.verifiedTitles } : {}),
           ...(s.workingTitles ? { workingTitles: s.workingTitles } : {}),
           ...(s.answerSource?{answerSource:s.answerSource}:{}),
           title: text(s.title || "Unknown Song", 200),

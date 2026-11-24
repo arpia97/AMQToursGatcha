@@ -1,5 +1,7 @@
 import {bestMasterRecord,fileKey,loadMasterSongAnswers} from './master-song-answers.js';
 
+import {amqAlternativeTitles} from '../public/quiz-answer-index.js';
+
 const source='https://docs.google.com/spreadsheets/d/1jTGhznBd8UzLewk6LNpAdfn5mS7cQ5wS37uqTSxcews/export?format=csv&gid=0&range=';
 const PAGE=300;
 const norm=s=>String(s??'').normalize('NFKC').toLowerCase().trim().replace(/\s+/g,' ');
@@ -27,7 +29,7 @@ export function sheetEntry(raw){
   const {songInfo:s,songLinks,amqSongId,annSongId}=JSON.parse(raw), ids=s.siteIds||{};
   const canon=[s.animeNames.romaji,s.animeNames.english].filter(Boolean);
   const unique=new Map();
-  for(const t of [...canon,...(s.allAlternativeAnswers??[...(s.altAnimeNames||[]),...(s.altAnimeNamesAnswers||[])])]){
+  for(const t of [...canon,...amqAlternativeTitles(s)]){
     if(typeof t==='string'&&t.trim()&&!unique.has(norm(t)))unique.set(norm(t),t.trim());
   }
   if(!unique.size)throw Error('An export has no anime titles.');

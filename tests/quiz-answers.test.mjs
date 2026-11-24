@@ -49,6 +49,7 @@ function fixture(t) {
   });
   return e;
 }
+import { advanceQuizRun } from "../src/quiz-run-state.js";
 import { prepareQuizSongs } from "../public/quiz-rules.js";
 import { repairQuizAnswers } from "../src/quiz-answer-repair.js";
 const master = {
@@ -104,6 +105,12 @@ test("AMQ working-title fields and all exact occurrence identities survive dupli
   const stored = e.quiz.hostSongs("quiz").songs[0];
   assert.deepEqual(stored.sourceIds, s.sourceIds);
   assert.deepEqual(stored.workingTitles, s.workingTitles);
+  e.quiz.save({id:"quiz",name:"Quiz",expectedUpdated:e.quiz.hostSongs("quiz").updated,songMode:"append",songs:[{
+    ...s, answerSource:"amq-master-sheet", workingTitles:["Sheet Main"], answers:["Sheet Main"], verifiedTitles:[]
+  }]});
+  const appended = e.quiz.hostSongs("quiz").songs[0];
+  assert.deepEqual(appended.answers,["Sheet Main",...s.verifiedTitles]);
+  assert.deepEqual(appended.verifiedTitles,s.verifiedTitles);
 });
 test("repair adds confirmed working answers to saved pools and unfinished runs once without changing scores or rewards", (t) => {
   const e = fixture(t);
@@ -181,4 +188,28 @@ test("quiz count has no thirty-quiz cap, categories persist and existing quizzes
     e.one("SELECT category FROM quizzes WHERE id='legacy'").category,
     "singers",
   );
+});
+
+test("the butterfly flutters accepts Presage Flower in existing and newly imported Quiz pools", t => {
+  const e = fixture(t);
+  const quiz = "ab87e0d6-c091-40c1-902b-3bab8efcb8ed";
+  const audio = "https://nawdist.animemusicquiz.com/4choxc.mp3";
+  const spring = "Fate/stay night: Heaven's Feel III. Spring Song";
+  const presage = "Fate/stay night: Heaven's Feel I. Presage Flower";
+  e.quiz.save({id:quiz, name:"Kasahara, Yuri"});
+  e.run("INSERT INTO quiz_songs VALUES(?,?,?)",quiz,33,JSON.stringify({
+    audio, answers:[spring], sourceIds:{amqSongIds:["82626"]}, answerSource:"published-quiz"
+  }));
+  e.quiz.repairButterflyTitles();
+  const version = e.one("SELECT updated FROM quizzes WHERE id=?",quiz).updated;
+  e.quiz.repairButterflyTitles();
+  assert.equal(e.one("SELECT updated FROM quizzes WHERE id=?",quiz).updated,version);
+  assert.ok(e.one("SELECT 1 FROM quiz_answers WHERE quiz=? AND answer=?",quiz,presage));
+  const imported = prepareQuizSongs([{audio,annSongId:48740}],master,{},new Map(),new Map([[audio,[spring]]])).songs[0];
+  for (const song of [imported, e.quiz.hostSongs(quiz).songs[0]]) {
+    assert.deepEqual(song.answers,[spring,presage]);
+    const run = {id:"try",index:0,songs:[song],answers:[],timing:{index:0,startsAt:10,endsAt:20010}};
+    advanceQuizRun(run,"quiz-answer",{run:"try",index:0,answer:presage},1000);
+    assert.equal(run.answers[0].correct,true);
+  }
 });

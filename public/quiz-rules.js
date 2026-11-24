@@ -135,7 +135,8 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
     const resolved = indexer.resolve(row);
     const titles=sheetAnswers.get(audio)??quizAnswers.get(audio);
     if(titles){
-      Object.assign(resolved,{answers:titles,workingTitles:titles,trustedAnswers:titles,answerSource:sheetAnswers.has(audio)?'amq-master-sheet':'published-quiz'});
+      const accepted = [...new Set([...titles,...resolved.verifiedTitles])];
+      Object.assign(resolved,{answers:accepted,workingTitles:accepted,trustedAnswers:accepted,answerSource:sheetAnswers.has(audio)?'amq-master-sheet':'published-quiz'});
     }
     if (!audio || !resolved.answers.length) {
       rejected.push({
@@ -148,6 +149,8 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
     const previous = seen.get(audio);
     if (previous) {
       if (songIsDub(row)) previous.isDub = true;
+      if (resolved.verifiedTitles.length)
+        previous.verifiedTitles = [...new Set([...(previous.verifiedTitles || []),...resolved.verifiedTitles])];
       const trusted=[...new Set([...(trustedByAudio.get(audio)||[]),...resolved.trustedAnswers])];trustedByAudio.set(audio,trusted);
       const authoritative=previous.answerSource==='amq-export'||resolved.answerSource==='amq-export';
       previous.answers = authoritative?trusted:[...new Set([...previous.answers, ...answers])];
@@ -177,6 +180,7 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
         : {}),
       answers,
       sourceIds: resolved.sourceIds,
+      ...(resolved.verifiedTitles.length ? {verifiedTitles:resolved.verifiedTitles} : {}),
       workingTitles: resolved.workingTitles,
       answerSource:resolved.answerSource,
       title: String(row.songName || row.songTitle || "Unknown Song").slice(

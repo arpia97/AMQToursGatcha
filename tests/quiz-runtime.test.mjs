@@ -299,13 +299,13 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response = await post("host/quiz-preview", {}, host);
   assert.equal(response.status, 400);
   const primaryPreview=await post("host/quiz-preview",{input:[
-    {songLinks:{primary:'https://eudist.animemusicquiz.com/sheet-example.mp3'},songInfo:{songName:'Sheet Song',artist:'Artist',animeNames:{romaji:'Stale Title'}}},
+    {songLinks:{primary:'https://eudist.animemusicquiz.com/sheet-example.mp3'},songInfo:{songName:'Sheet Song',artist:'Artist',animeNames:{romaji:'Stale Title'},allAlternativeAnswers:['Explicit sheet addition']}},
     {audio:'https://eudist.animemusicquiz.com/sheet-example.mp3',annSongId:50001},
   ]},host);
   assert.equal(primaryPreview.status,200,await primaryPreview.clone().text());
   const primarySongs=(await primaryPreview.json()).songs;
   assert.equal(primarySongs.length,1);
-  assert.deepEqual(primarySongs[0].answers,['Export Title','Export Alias']);
+  assert.deepEqual(primarySongs[0].answers,['Export Title','Export Alias','Explicit sheet addition']);
   assert.equal(primarySongs[0].answerSource,'amq-master-sheet');
   response = await post(
     "host/quiz-save",
@@ -323,12 +323,12 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).songs, 20);
   const publishedPreview=await post('host/quiz-preview',{input:[{
-    audio:input[0].audio,annSongId:50001,songInfo:{animeNames:{romaji:'Conflicting upload'}}
+    audio:input[0].audio,annSongId:50001,songInfo:{animeNames:{romaji:'Conflicting upload'},altAnimeNamesAnswers:['Explicit merged title']}
   }]},host);
   assert.equal(publishedPreview.status,200,await publishedPreview.clone().text());
   const reused=(await publishedPreview.json()).songs[0];
   assert.equal(reused.answerSource,'published-quiz');
-  assert.ok(reused.answers.includes('Anime Test'));
+  assert.ok(reused.answers.includes('Anime Test') && reused.answers.includes('Explicit merged title'));
   assert.ok(!reused.answers.includes('Cached Alternative')&&!reused.answers.includes('Conflicting upload'));
   const tile = (
     await (await mf.dispatchFetch("http://game/api/quizzes")).json()
