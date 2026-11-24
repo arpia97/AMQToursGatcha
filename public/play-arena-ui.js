@@ -1,3 +1,4 @@
+import {rigCount} from './play-rig-count.js';
 import {arenaLeaders} from './play-arena-config.js';
 import {playPlayerAvatar} from './play-avatar.js';
 
@@ -20,8 +21,9 @@ export function arenaBoard(match, esc) {
   const headline=final?'<h2 class="arena-winners">'+leaders.map(row=>pair(row.team)).join('')+'</h2>':
     fixtures.length===1?'<h2 class="arena-fixture-headline">'+fixtureLabel(fixtures[0])+'</h2>':
       fixtures.map(fixture=>'<div class="arena-fixture-headline">'+fixtureLabel(fixture)+'</div>').join('');
+  const roster = team => match.players.filter(p => p.team === team).map(p => esc(p.name)+(p.rigs!=null?' ('+rigCount(p)+')':'')).join(' &amp; ');
   const table = '<div class="arena-table-scroll"><table><thead><tr><th>Pair</th><th>W–L–T</th><th>Diff</th><th>Pts</th></tr></thead><tbody>' +
-    standings.map(row => '<tr' + (row.team === mine ? ' class="arena-mine"' : '') + '><th scope="row">' + names(row.team) + '</th><td>' +
+    standings.map(row => '<tr' + (row.team === mine ? ' class="arena-mine"' : '') + '><th scope="row">' + roster(row.team) + '</th><td>' +
       [row.won,row.lost,row.drawn].join('–') + '</td><td>' + (row.difference > 0 ? '+' : '') + row.difference + '</td><td>' + row.points + '</td></tr>').join('') +
     '</tbody></table></div>';
   const schedule = rounds.map((fixtures, i) => '<section><h4>Round ' + (i + 1) + '</h4>' + fixtures.map(f =>

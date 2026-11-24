@@ -256,9 +256,9 @@ export class Game extends DurableObject {
     return awardMatchCredits(this.engine, match, format, players, completedRounds, survivalResult);
   }
   watchedAnimeLists(players) {
-    if (!Array.isArray(players) || players.length < 1 || players.length > 16) fail("Invalid lobby roster.");
-    return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
-      .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
+    if (!Array.isArray(players) || players.length < 1) fail("Invalid lobby roster.");
+    return this.engine.all("SELECT id,play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
+      .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {player:row.id,provider,ids};});
   }
   publishedQuizSongs(previousVersion, includeExportTitles = false) {
     const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');

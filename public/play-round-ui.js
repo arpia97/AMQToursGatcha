@@ -1,3 +1,4 @@
+import {rigCount} from './play-rig-count.js';
 import {DUEL_FORMAT,ONE_TEAM_FORMAT,PLAY_REVEAL_MS,matchGuessFields,ngmcCounterDeadline,oneTeamRules,soloVersus} from './play-mode-rules.js';
 import {ARENA_FORMAT} from './play-arena-config.js';
 import {percentDone} from './play-setup-progress.js';
@@ -89,7 +90,7 @@ export function songTeamsHTML(match,esc){
       const status=p.left?'Left':['finished','cancelled'].includes(match.phase)?'Match Complete':['loading','buffering'].includes(match.phase)?p.audioReady?'Ready':p.ready?'Loading Audio…':'Not Ready':survival&&p.answerReady?'Ready to Skip':survival&&p.submittedFields?.length?'Submitted':p.locked?'Submitted'+(Number.isFinite(p.lockedElapsedMs)?' ('+(p.lockedElapsedMs/1000).toFixed(3)+'s)':''):p.submittedFields?.length?'Submitted · '+p.submittedFields.map(f=>fields[f]).join(', '):'Answering…';
       const answer=survival&&result?result.answers.anime?'<small class="one-team-guess" data-correct="'+!!result.correct.anime+'">'+answerMark(result.correct.anime)+esc(result.answers.anime)+'</small>':
         '<small>'+ (p.left?'Left':submitted?.has(p.id)?'Guess not picked':'—') +'</small>':'<small>'+esc(status)+'</small>';
-      return '<div class="sa-song-player '+(p.id===me?.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me?.id?' <small>You</small>':'')+'</strong>')+answer+'</div><strong class="sa-player-points">'+(result&&!match.teamFields&&!survival?scoreBadge(result.earned,matchGuessFields(match).length):'')+'<small>'+p.score+(survival?' Correct':' Points')+'</small></strong></div>';
+      return '<div class="sa-song-player '+(p.id===me?.id?'self':'')+'">'+playPlayerAvatar(p,esc)+'<div class="sa-song-player-info">'+(solo?'':'<strong>'+esc(p.name)+(p.id===me?.id?' <small>You</small>':'')+'</strong>')+answer+'</div><strong class="sa-player-points">'+(result&&!match.teamFields&&!survival?scoreBadge(result.earned,matchGuessFields(match).length):'')+'<small>'+p.score+(survival?' Correct':' Points')+'</small>'+rigCount(p)+'</strong></div>';
     }).join('')+'</section>';
   }).join('')+'</div>';
 }

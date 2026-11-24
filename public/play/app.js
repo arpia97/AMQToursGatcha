@@ -205,7 +205,7 @@ async function watchMatch(id,title){
   watchOpener=opener;
   watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,esc:escape,
     animeTitle:song=>quizAnimeTitle(song,titleMode),onLeave:stopWatching,
-    onJoinLobby:()=>void openMode('one-team'),
+    onJoinLobby:mode=>void openMode(mode||'one-team'),
     onActivity:()=>void refreshLive(true),
   });
   root.focus({preventScroll:true});

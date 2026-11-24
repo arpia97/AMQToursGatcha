@@ -1,3 +1,4 @@
+import {rigCount} from './play-rig-count.js';
 import {passTargets, mustPass} from './hot-potato.js';
 import {playPlayerAvatar} from './play-avatar.js';
 
@@ -14,7 +15,7 @@ export function potatoTeams(match, esc) {
         '<span class="potato-budget" role="img" aria-label="'+label+'" title="'+label+'">'+
         '🥔'.repeat(p.guesses)+'</span>';
       return '<li class="'+(holder?'potato-holder':'')+'"><span class="potato-person">'+playPlayerAvatar(p,esc)+
-        '<b>'+esc(p.name)+'</b>'+(p.id===match.me?'<small>You</small>':'')+(holder&&!p.left?'<small class="potato-holder-label">Holder</small>':'')+'</span>'+budget+'</li>';
+        '<b>'+esc(p.name)+'</b>'+(p.id===match.me?'<small>You</small>':'')+rigCount(p)+(holder&&!p.left?'<small class="potato-holder-label">Holder</small>':'')+'</span>'+budget+'</li>';
     }).join('');
     return '<section class="potato-side '+(me&&!own?'opposing':'')+'"><header><h3>'+name+'</h3><span aria-label="'+lives+' lives">'+
       '♥'.repeat(lives)+'<i>'+'♡'.repeat(5-lives)+'</i></span></header><ul>'+rows+'</ul></section>';

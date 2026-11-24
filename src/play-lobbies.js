@@ -1,4 +1,4 @@
-import {POTATO_LOBBY, POTATO_COOP_LOBBY, isPotato, validPotatoSize, potatoRules} from '../public/hot-potato.js';
+import {POTATO_LOBBY, POTATO_COOP_LOBBY, isPotato, isPotatoCoop, validPotatoSize, potatoRules} from '../public/hot-potato.js';
 import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
 import {DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
@@ -178,12 +178,16 @@ export class PlayLobbies {
     if(current?.code===match && !current.match && !current.last_match)return {};
     if(current && (current.code!==previousCode||current.last_match!==match||current.match))
       return {error:'Leave your current lobby first.'};
-    const source=this.queue.rows('SELECT status FROM match_reviews WHERE id=? AND format=?',match,ONE_TEAM_FORMAT)[0];
-    if(source?.status!=='finished')return {error:'Match results are still saving. Try again in a moment.'};
+    const source=this.queue.rows('SELECT status,format FROM match_reviews WHERE id=?',match)[0];
+    if(source?.status!=='finished'||source.format!==ONE_TEAM_FORMAT&&!isPotato(source.format))return {error:'Match results are still saving. Try again in a moment.'};
     const lobby=this.queue.rows('SELECT * FROM play_lobbies WHERE code=?',match)[0];
-    if(lobby&&(lobby.match||JSON.parse(lobby.settings).rematchStarted)||this.roster(match).length>=oneTeamRules.maxPlayers)
+    const format=isPotato(source.format)?(isPotatoCoop(source.format)?POTATO_COOP_LOBBY:POTATO_LOBBY):ONE_TEAM_FORMAT;
+    if(lobby&&(lobby.match||JSON.parse(lobby.settings).rematchStarted)||this.roster(match).length>=lobbyCapacity(format))
       return {error:'The lobby is full or has already started.'};
-    const settings={format:ONE_TEAM_FORMAT,pool,songs:oneTeamRules.songs,seconds:oneTeamRules.guessSeconds,rematchOf:match};
+    const settings=format===ONE_TEAM_FORMAT
+      ? {format,pool,songs:oneTeamRules.songs,seconds:oneTeamRules.guessSeconds}
+      : {...lobbySettings({format,pool}),pool};
+    settings.rematchOf=match;
     this.queue.ctx.storage.transactionSync(()=>{
       if(!lobby)this.sql.exec('INSERT INTO play_lobbies(code,settings) VALUES(?,?)',match,JSON.stringify(settings));
       if(current){
@@ -268,7 +272,7 @@ export class PlayLobbies {
     if(settings.format===ARENA_LOBBY_FORMAT&&!arenaPlayerCounts.includes(players.length))
       fail('Arena needs 4, 8, 12 or 16 players.');
     const match=crypto.randomUUID(),now=Date.now(),roster=players.map(p=>({...p,avatar:JSON.parse(p.avatar)}));
-    const pending={id:match,format:settings.rematchOf?ONE_TEAM_REMATCH_FORMAT:settings.format,players:JSON.stringify(roster),started:now};
+    const pending={id:match,format:settings.format===ONE_TEAM_FORMAT?ONE_TEAM_REMATCH_FORMAT:settings.format,players:JSON.stringify(roster),started:now};
     this.queue.ctx.storage.transactionSync(()=>{
       this.sql.exec('UPDATE play_lobbies SET match=? WHERE code=?',match,row.code);
       if(settings.rematchOf)this.sql.exec("UPDATE play_lobbies SET settings=json_set(settings,'$.rematchStarted',1) WHERE code=?",row.code);

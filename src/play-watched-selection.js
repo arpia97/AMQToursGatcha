@@ -83,6 +83,20 @@ export function watchedWeights(lists, linkedAnime) {
   return weights;
 }
 
+// Attribute just the actual draws, using the same provider IDs as the selection.
+export function watchedRigOwners(lists, linkedAnime, selectedAnime) {
+  const owners = new Map(Array.from(selectedAnime, anime => [anime, []]));
+  for (const {player, provider, ids} of lists) {
+    if (player == null) continue;
+    const list = new Set(ids);
+    for (const [anime, players] of owners) {
+      const id = linkedAnime.get(anime)?.[provider];
+      if (id && list.has(id)) players.push(player);
+    }
+  }
+  return owners;
+}
+
 export function weightedAnimeOrder(weights, random = Math.random) {
   // Sorting log-scores is equivalent to sorting R ** (1 / weight).
   return Array.from(weights, ([anime,weight]) => [anime, Math.log(Math.max(Number.MIN_VALUE,random())) / weight])

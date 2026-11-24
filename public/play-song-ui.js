@@ -762,7 +762,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const reward='<p class="sa-credit-reward" role="status" hidden></p>';
     if(match.aborted)return heading+'<p role="status">A majority voted to abort. This match does not count toward ratings, records or credits.</p>';
     if(done&&arena())return heading+reward+(match.reason?'<p>'+esc(match.reason)+'</p>':'')+'<div class="sa-scoreboard"></div>';
-    if(done)return heading+reward+(match.format===ONE_TEAM_FORMAT?'<div class="play-rematch-actions" hidden>'+
+    if(done)return heading+reward+(match.format===ONE_TEAM_FORMAT||match.potatoes?'<div class="play-rematch-actions" hidden>'+
       '<button type="button" class="button secondary" data-sa-action="restart-vote">Restart With Same Members</button>'+
       '<button type="button" class="button mint" data-sa-action="rematch-join" hidden>Join Rematch Lobby</button></div>':'')+
       broadcastResults(match,esc,animeTitle,winnerText);

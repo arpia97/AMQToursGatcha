@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeMatch, matchMove, gradeRound, advanceMatch} from '../src/play-match-rules.js';
+import {rematchView, voteToRestart} from '../src/play-lobby-votes.js';
 import {beginPotatoSong} from '../src/hot-potato.js';
 import {canAnswerPotato, passTargets, mustPass, POTATO_FORMAT, POTATO_COOP, POTATO_COOP_LOBBY} from '../public/hot-potato.js';
 
@@ -81,4 +82,18 @@ test('equal hits and equal misses preserve both teams’ lives, one-sided hit en
   const draw=game();draw.index=99;
   gradeRound(draw,20000);advanceMatch(draw,draw.until);
   assert.deepEqual(draw.teams,[5,5]);assert.equal(draw.phase,'finished');
+});
+
+test('finished Team VS and solo cooperative Hot Potato offer a rematch to eligible members',()=>{
+  for (const [format,count,lobby] of [[POTATO_FORMAT,4,null],[POTATO_COOP_LOBBY,1,{seconds:20}]]) {
+    const state=game(format,count,lobby);
+    state.index=99;
+    gradeRound(state,state.until);
+    const now=state.until;
+    advanceMatch(state,now);
+    const required=Math.floor(count/2)+1;
+    assert.equal(rematchView(state,now,state.players[0].id).required,required);
+    for (const player of state.players.slice(0,required)) voteToRestart(state,player.id,true,now);
+    assert.equal(state.rematch.joinUntil,now+120000);
+  }
 });

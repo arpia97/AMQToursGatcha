@@ -244,7 +244,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
       }
       if(message.type==='chat-message'){chat?.receive(message.row);return;}
       if(message.type==='chat-error'||message.type==='error'){join.disabled=false;showStatus(message.message);return;}
-      if(message.type==='rematch-joined'){onJoinLobby();return;}
+      if(message.type==='rematch-joined'){onJoinLobby(state?.mode);return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
       attempts=0;offset=message.now-Date.now();state=message.state;
       setActive(!ended(state.phase));

@@ -1,3 +1,4 @@
+import {isPotatoCoop} from '../public/hot-potato.js';
 import {titleKey,artistKey} from './play-artists.js';
 import {matchGuessFields,ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
@@ -99,7 +100,7 @@ export function rematchView(state,now=Date.now(),player=null){
   if(poll.joinUntil)return poll.joinUntil>now&&poll.transferred ? {joinUntil:poll.joinUntil} : undefined;
   if(poll.until<=now||!player)return undefined;
   const eligible=rematchPlayers(state);
-  if(eligible.length<2||!eligible.some(p=>p.id===player))return undefined;
+  if(eligible.length<(isPotatoCoop(state.format)?1:2)||!eligible.some(p=>p.id===player))return undefined;
   const required=Math.floor(eligible.length/2)+1;
   const yes=eligible.filter(p=>poll.votes[p.id]===true).length;
   const undecided=eligible.filter(p=>!Object.hasOwn(poll.votes,p.id)).length;

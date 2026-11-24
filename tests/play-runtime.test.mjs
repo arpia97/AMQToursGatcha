@@ -8,7 +8,7 @@ import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
 import {amqAnimeOptions} from '../public/amq-anime-search.js';
 import {liveMatchScore,spectatorClip,spectatorView} from '../src/play-spectator.js';
-import {watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
+import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
   const linked=new Map([
@@ -20,6 +20,10 @@ test('Watched weights sum square-root budgets from distinct MAL and AniList show
     {provider:'anilist',ids:[201]},
     {provider:'anilist',ids:[]}
   ],linked);
+  assert.deepEqual([...watchedRigOwners([
+    {player:'one',provider:'myanimelist',ids:[101,101,104]},
+    {player:'two',provider:'anilist',ids:[201,202]},
+  ],linked,[1,2,3])],[[1,['one','two']],[2,['two']],[3,[]]]);
   assert.deepEqual([...weights],[[1,1.5],[2,.5],[3,.5],[4,.5]]);
   assert.deepEqual(weightedAnimeOrder(weights,()=>.5),[1,2,3,4]);
 });

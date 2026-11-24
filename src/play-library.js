@@ -4,7 +4,7 @@ import {mergedTitles,registeredGroupAnswers} from './play-answer-registry.js';
 import {ONE_TEAM_MODE} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
-import {watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
+import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON, libraryShards } from './quiz-library.js';
 import { titleKey, artistKey, artistAliasLabels } from './play-artists.js';
@@ -288,6 +288,8 @@ export class PlayLibrary {
     const songsChecked=Date.now();
     const result=await this.core.lookup({annSongIds:ids.filter(id=>id>0)});
     const byId=new Map(result.songs.map(song=>[song.annSongId,song]));
+    const rigOwners=lists?.some(list=>list.player!=null)
+      ? watchedRigOwners(lists,data.linkedAnime,pickedAnime.values()) : null;
     const buildSong=index=>{
       const variants=data.groups[index].map(id=>byId.get(id)||data.extras.get(id)).filter(Boolean),song=variants.find(s=>playAudioSource(s.audio))||variants[0], amq=data.artist.songs[song.amqSongId];
       const {quiz,sheet,titles,amqTitle,amqArtist}=data.preferred[index];
@@ -296,7 +298,7 @@ export class PlayLibrary {
       const performer=quiz?.artist||sheet?.artist||song.artist||amqArtist||amq?.artist;
       const artists=[...new Set((quiz?.artist||sheet?.artist?[performer]:[performer,amq?.artist,...variants.map(s=>s.artist)]).filter(Boolean))];
       const songNames=quiz?.title||sheet?.title?[title]:[title,amq?.title,...variants.map(s=>s.title)];
-      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:animeTitles[0],animeTitles,title,
+      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
         songType:quiz?.type||sheet?.type||song.type,artist:performer,
         artistMembers:data.artist.rules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(animeTitles.map(titleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},

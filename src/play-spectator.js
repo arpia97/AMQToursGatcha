@@ -55,7 +55,7 @@ export function spectatorView(state,compact=false){
     counters:state.counters,autoCounting:state.autoCounting,
     ...(state.arena?{arena:{rounds:state.arena.rounds,songsPerFixture:state.arena.songsPerFixture,standings:arenaStandings(state.arena)}}:{}),
     players:state.players.map(p=>({
-      id:p.id,name:p.name,team:p.team,score:p.score,avatar:p.avatar,left:p.left,elo:p.elo,
+      id:p.id,name:p.name,team:p.team,score:p.score,rigs:p.rigs,avatar:p.avatar,left:p.left,elo:p.elo,
       initialGuesses:p.initialGuesses,guesses:p.guesses,ready:p.ready,acceptedReady:p.acceptedReady,
       audioReady:Array.isArray(p.loaded)&&playerAudioReady(state,p),locked:p.locked,lockedElapsedMs:p.lockedElapsedMs,
       submittedFields:state.teamFields&&p.field?[p.field]:[],

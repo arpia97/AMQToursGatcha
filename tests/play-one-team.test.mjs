@@ -267,6 +267,8 @@ test('survival queues separate song pools and move rematch voters before spectat
   assert.equal((await fetch('/api/__advance?match='+match)).status,200);
   const finished=await room.wait(message=>message.state?.phase==='finished'&&message.state.creditReward);
   assert.equal(finished.state.creditReward.amount,2);
+  assert.ok(state.players.every(p=>p.rigs===0));
+  assert.ok(finished.state.players.every(p=>p.rigs===(p.id==='1'?1:0)));
   assert.equal(finished.state.rematch.required,2);
 
   spectator.send({type:'rematch-join'});

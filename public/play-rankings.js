@@ -1,3 +1,4 @@
+import {rigCount} from './play-rig-count.js';
 import {DUEL_FORMAT, soloVersus} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {poolToggle} from './play-pool-toggle.js';
@@ -28,6 +29,7 @@ export function matchLeaderboard(match, esc) {
     const performance = Number((result.delta / Math.max(1,result.seen)).toFixed(2));
     return {...result, player, performance};
   }).sort((a,b) => b.performance-a.performance || b.correct-a.correct || a.player.name.localeCompare(b.player.name));
+  const showRigs=match.players.some(p=>p.rigs!=null);
   const best = rows[0];
   const me=match.players.find(p=>p.id===match.me);
   const sides=match.teams.length>1;
@@ -35,10 +37,10 @@ export function matchLeaderboard(match, esc) {
   const isMvp = row => !duel&&row.performance === best.performance && row.correct === best.correct && row.correct > 0;
   const signed = n => (n>0?'+':'')+n.toFixed(2);
   return '<section class="play-leaderboard"><h2>Match Leaderboard</h2>' +
-    table(['Player',...(sides?['Side']:[]),'Points',duel?'Rating Change':'Performance','Rating'], rows.map(row => [
+    table(['Player',...(sides?['Side']:[]),'Points',...(showRigs?['Rigs']:[]),duel?'Rating Change':'Performance','Rating'], rows.map(row => [
       '<span class="play-player-identity">'+playPlayerAvatar(row.player,esc)+esc(row.player.name)+(isMvp(row)?'<b class="play-mvp">MVP</b>':'')+'</span>',
       ...(sides?[row.player.team===me.team?(soloVersus(match.format)?'You':'Your Team'):teamLabel]:[]),
-      row.correct, signed(duel?row.delta:row.performance), Math.round(row.after)
+      row.correct, ...(showRigs?[rigCount(row.player)]:[]), signed(duel?row.delta:row.performance), Math.round(row.after)
     ])) + (duel?'':'<small>Performance is the rating change per song.</small>')+'</section>';
 }
 

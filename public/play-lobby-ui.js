@@ -1,3 +1,4 @@
+import {rigCount} from './play-rig-count.js';
 import {isPotato, validPotatoSize, POTATO_LOBBY, POTATO_COOP_LOBBY} from './hot-potato.js';
 import {percentDone} from './play-setup-progress.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from './play-arena-config.js';
@@ -82,7 +83,7 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
 }
 export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="checkbox" data-auto-ready '+(checked?'checked':'')+'> Auto-ready</label>';
 function lobbySettings(lobby, settings, host, draft, esc) {
-  if(lobby.rematchOf)return '<dl class="room-rules"><div><dt>Song Pool</dt><dd>'+poolName(lobby.pool)+
+  if(lobby.rematchOf&&!isPotato(lobby.format))return '<dl class="room-rules"><div><dt>Song Pool</dt><dd>'+poolName(lobby.pool)+
     '</dd></div><div><dt>Songs</dt><dd>Up to '+oneTeamRules.songs+'</dd></div><div><dt>Guess Time</dt><dd>'+oneTeamRules.guessSeconds+
     ' seconds</dd></div><div><dt>Lives</dt><dd>'+oneTeamRules.lives+'</dd></div></dl>';
   const pool=poolPicker(settings.pool,!host,'sa-lobby-pool');
@@ -111,10 +112,10 @@ function watchedPoolStatus(lobby, host, short) {
   const pool=lobby.watchedPool;
   const count=pool?.eligible;
   const status=Number.isInteger(count)
-    ? count.toLocaleString()+' eligible anime'+(lobby.songs&&!lobby.rematchOf?' · '+lobby.songs+' needed':'')
+    ? count.toLocaleString()+' eligible anime'+(lobby.songs&&lobby.format!==ONE_TEAM_FORMAT?' · '+lobby.songs+' needed':'')
     : pool?.unavailable?'Couldn’t check the Watched pool.':'Checking the Watched pool…';
   const warning=host&&short
-    ? '<small>'+ (lobby.rematchOf?'Import a Watched list to start.':'Add more watched entries or switch to Random.')+((lobby.format===DUEL_LOBBY_FORMAT||['lobby-team','lobby-ffa'].includes(lobby.format))?' You can also choose fewer songs.':'')+'</small>'
+    ? '<small>'+ (lobby.format===ONE_TEAM_FORMAT?'Import a Watched list to start.':lobby.rematchOf?'Import more Watched entries to start.':'Add more watched entries or switch to Random.')+((lobby.format===DUEL_LOBBY_FORMAT||['lobby-team','lobby-ffa'].includes(lobby.format))?' You can also choose fewer songs.':'')+'</small>'
     : '';
   return '<div class="room-watched-pool" data-short="'+short+'" role="status"><strong>'+status+'</strong>'+warning+'</div>';
 }
@@ -133,26 +134,26 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
       '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
   }).join('');
   const shortPool = lobby.pool==='watched' && Number.isInteger(lobby.watchedPool?.eligible) &&
-    lobby.watchedPool.eligible<(lobby.rematchOf?1:lobby.songs);
+    lobby.watchedPool.eligible<(lobby.format===ONE_TEAM_FORMAT?1:lobby.songs);
   const checkingPool = lobby.pool==='watched' && lobby.watchedPool===null;
   const startDisabled = !canStart || checkingPool || shortPool || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
   const startLabel = (ngmc || lobby.format===POTATO_LOBBY) && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
   return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
-    '<header class="room-masthead"><div><small>'+(lobby.rematchOf?'1-Team · '+poolName(lobby.pool):ngmc||arena||duel||isPotato(lobby.format)?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
+    '<header class="room-masthead"><div><small>'+(lobby.rematchOf?(isPotato(lobby.format)?lobbyModeNames[lobby.format]:'1-Team')+' · '+poolName(lobby.pool):ngmc||arena||duel||isPotato(lobby.format)?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
     '</small><h1>'+(lobby.rematchOf?'Rematch Lobby':'Custom Lobby')+'</h1></div>'+
     (lobby.rematchOf?'<div class="room-code"><span>Invite Only</span></div>':'<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div>')+'</header>'+
     '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+seatCount(lobby.players.length,lobby.format)+'</span></header>'+
     '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
-    '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
+    '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host&&!lobby.rematchOf,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host&&!lobby.rematchOf?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
     '<footer class="room-controls"><button class="button secondary" data-lobby-action="leave">Leave Lobby</button><div>'+autoReadyHTML(autoReady)+
     (!lobby.busy?'<button class="button secondary" data-lobby-action="ready" aria-pressed="'+!!mine?.ready+'">'+(mine?.ready?'✓ Ready':'Ready')+'</button>':'')+
     (host?'<button class="button mint" data-lobby-action="start" '+(startDisabled?'disabled':'')+'>'+
-      (lobby.rematchOf&&!canStart?'Need '+oneTeamRules.minPlayers+' Players':startLabel)+'</button>':'<span>'+(lobby.busy?'Match in Progress':'Waiting for Host')+'</span>')+'</div></footer></section>';
+      (lobby.format===POTATO_LOBBY&&!canStart?'Need Even Teams':lobby.rematchOf&&!canStart?'Need '+oneTeamRules.minPlayers+' Players':startLabel)+'</button>':'<span>'+(lobby.busy?'Match in Progress':'Waiting for Host')+'</span>')+'</div></footer></section>';
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
-  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts</span></div>').join('')+'</section>';
+  return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts'+(p.rigs!=null?' · '+rigCount(p):'')+'</span></div>').join('')+'</section>';
 }
 export function ballotHTML(match,esc){
   if(match.phase!=='guess')return '';
