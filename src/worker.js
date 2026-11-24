@@ -1,4 +1,4 @@
-import {registerEvent,eventAction,eventAudio} from './quiz-event.js';
+import {registerEvent,eventAction,eventAudio,storedEventAudio} from './quiz-event.js';
 import {syncGameRecords} from './game-record-sync.js';
 import { inboxPage, readInbox, dismissInbox, inboxSummary } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
@@ -2003,6 +2003,10 @@ export default {
     const url = new URL(request.url);
     if(url.pathname==='/quiz-library/master-answers.json')return new Response(null,{status:404});
     if (url.pathname.startsWith("/api/")) {
+      if (url.pathname === "/api/quiz-event-audio" && request.method === "GET" && env.EVENT_CLIPS) {
+        const sample = await storedEventAudio(env.EVENT_CLIPS,url,request);
+        if (sample) return sample;
+      }
       if (url.pathname.startsWith("/api/play-audio/")) return playAudioResponse(request, env, ctx);
       if(request.method==='GET'){
         const guest=!/(?:^|;\s*)amq_session=/.test(request.headers.get('Cookie')||'');

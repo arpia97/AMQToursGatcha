@@ -49,7 +49,7 @@ export async function eventAudio(storage, url, request, fetchAudio = fetch) {
   const song = /^\d+$/.test(index) && event.songs[Number(index)];
   if (!song) fail('Song unavailable.',404);
   const range = request.headers.get('Range');
-  const response = await fetchAudio(song.url,{redirect:'error',headers:range ? {Range:range} : {}});
+  const response = await fetchAudio(song.url,{redirect:'manual',headers:range ? {Range:range} : {}});
   if (!response.ok) fail('The event audio is unavailable.',response.status===404 ? 404 : 502);
   const headers = new Headers({'Content-Type':song.url.endsWith('.flac')?'audio/flac':'audio/mpeg',
     'Cache-Control':'private, max-age=3600', 'X-Content-Type-Options':'nosniff'});
@@ -59,3 +59,27 @@ export async function eventAudio(storage, url, request, fetchAudio = fetch) {
   return new Response(response.body,{status:response.status,headers});
 }
 
+
+export async function storedEventAudio(store,url,request) {
+  const id=url.searchParams.get('event'), revision=url.searchParams.get('v'), index=url.searchParams.get('song');
+  if (!validId.test(id) || !validId.test(revision) || !/^\d{1,3}$/.test(index)) return null;
+  const buffer=await store.get([id,revision,index].join(':'),'arrayBuffer');
+  if (!buffer) return null;
+  const size=buffer.byteLength;
+  const headers=new Headers({'Content-Type':'audio/mpeg','Accept-Ranges':'bytes',
+    'Cache-Control':'private, max-age=86400','X-Content-Type-Options':'nosniff'});
+  const range=/^bytes=(\d*)-(\d*)$/.exec(request.headers.get('Range') || '');
+  if(range && (range[1] || range[2])) {
+    const start=range[1] ? Number(range[1]) : Math.max(0,size-Number(range[2]));
+    const end=range[1] && range[2] ? Math.min(size-1,Number(range[2])) : size-1;
+    if(start>end || start>=size){
+      headers.set('Content-Range','bytes */'+size);
+      return new Response(null,{status:416,headers});
+    }
+    headers.set('Content-Range','bytes '+start+'-'+end+'/'+size);
+    headers.set('Content-Length',String(end-start+1));
+    return new Response(buffer.slice(start,end+1),{status:206,headers});
+  }
+  headers.set('Content-Length',String(size));
+  return new Response(buffer,{headers});
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {eventAction,eventAudio,registerEvent} from '../src/quiz-event.js';
+import {eventAction,eventAudio,registerEvent,storedEventAudio} from '../src/quiz-event.js';
 
 test('link-only events serve a blind pool and grade titles and full artist compositions separately',async()=>{
   const data=new Map(), storage={get:k=>data.get(k),put:(k,v)=>data.set(k,v)};
@@ -27,3 +27,16 @@ test('link-only events serve a blind pool and grade titles and full artist compo
   await assert.rejects(registerEvent(storage,{id,name:'Duplicate',songs:[...songs,...songs]}));
 });
 
+
+test('stored event audio serves partial clips without going through the game actor',async()=>{
+  const url=new URL('https://example.test/api/quiz-event-audio');
+  const id=crypto.randomUUID(),revision=crypto.randomUUID();
+  url.search=new URLSearchParams({event:id,v:revision,song:0});
+  const store={get:key=>key===[id,revision,0].join(':')?Uint8Array.from([1,2,3,4]).buffer:null};
+  const request=new Request(url,{headers:{range:'bytes=1-2'}});
+  const clip=await storedEventAudio(store,url,request);
+  assert.equal(clip.status,206);
+  assert.deepEqual([...new Uint8Array(await clip.arrayBuffer())],[2,3]);
+  url.searchParams.set('v',crypto.randomUUID());
+  assert.equal(await storedEventAudio(store,url,request),null);
+});
