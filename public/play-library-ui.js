@@ -24,6 +24,10 @@ export function libraryPanel() {
 
 const date = value => new Date(value).toLocaleString();
 
+// A deployed page can reach the previous Durable Object version during rollout.
+const inventoryRetryMs=10_000;
+const inventoryMaxRetries=30;
+
 export function mountPlayLibrary(root, host) {
   let closed=false, generation=0;
   const timers=new Map(),busy=new Set();
@@ -31,7 +35,8 @@ export function mountPlayLibrary(root, host) {
   const button=source=>root.querySelector('[data-refresh="'+source+'"]');
   const status=(source,value)=>{root.querySelector('[data-source-status="'+source+'"]').textContent=value;};
   function active(){return !closed&&root.isConnected;}
-  async function inventory(refresh=false) {
+  async function inventory(refresh=false, attempt=0) {
+    clearTimeout(timers.get("inventory"));
     const id=++generation, message=root.querySelector('[data-inventory-status]');
     message.textContent='Loading song counts…';
     try {
@@ -42,7 +47,14 @@ export function mountPlayLibrary(root, host) {
       }
       message.textContent='';
     }catch(error){
-      if(active()&&id===generation)message.textContent='Song counts unavailable · '+error.message;
+      if(!active()||id!==generation)return;
+      const updating=!refresh&&error.status===405;
+      if(updating&&!root.hidden&&attempt<inventoryMaxRetries){
+        message.textContent='Song Library is updating. Retrying counts…';
+        timers.set('inventory',setTimeout(()=>void inventory(false,attempt+1).catch(()=>{}),inventoryRetryMs));
+        return;
+      }
+      message.textContent=updating?'Song Library is still updating. Reopen this tab to try again.':'Song counts unavailable · '+error.message;
       throw error;
     }
   }
