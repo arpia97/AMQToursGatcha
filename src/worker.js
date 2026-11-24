@@ -1,3 +1,4 @@
+import {registerEvent,eventAction,eventAudio} from './quiz-event.js';
 import {syncGameRecords} from './game-record-sync.js';
 import { inboxPage, readInbox, dismissInbox, inboxSummary } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
@@ -20,7 +21,7 @@ import { guestPlayState, playState, playAvatar, playOverviewPlayers } from "./pl
 import { playAudioResponse } from "./play-media.js";
 // Only the operations available in Content & Review > Quiz accept this role.
 const quizConsoleReads = new Set(["host/console-access", "host/quizzes", "host/quiz-songs", "host/quiz-master"]);
-const quizConsoleWrites = new Set(["host/quiz-save", "host/quiz-preview", "host/quiz-audio-check", "host/quiz-master-sync", "host/quiz-master-refresh", "host/quiz-scores-reset", "host/quiz-delete"]);
+const quizConsoleWrites = new Set(["host/quiz-event", "host/quiz-save", "host/quiz-preview", "host/quiz-audio-check", "host/quiz-master-sync", "host/quiz-master-refresh", "host/quiz-scores-reset", "host/quiz-delete"]);
 export { PlayQueue } from './play-queue.js';
 export { PlayMatch } from './play-match.js';
 import { cachedQuizCover } from "./quiz-cover-cache.js";
@@ -371,7 +372,7 @@ export class Game extends DurableObject {
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -425,6 +426,8 @@ export class Game extends DurableObject {
     const sessionHash = raw ? await digest(raw) : null;
     if (path === "health")
       return json({ ok: true, service: "AMQ Tours Gatcha" });
+    if (path === "quiz-event" && post) return json(await eventAction(this.ctx.storage,b));
+    if (path === "quiz-event-audio" && !post) return eventAudio(this.ctx.storage,url,request);
     if (path.startsWith("host/")) {
       const provided = request.headers.get("Authorization") || "";
       const hostTokenValid =
@@ -451,6 +454,7 @@ export class Game extends DurableObject {
         }
       };
       requireHost();
+      if (path === "host/quiz-event" && post) return json(await registerEvent(this.ctx.storage,b));
       const quizEditor = () => hostTokenValid ? "Host API" : e.one(
         "SELECT COALESCE(p.display_name,p.name) AS name FROM sessions s JOIN players p ON p.id=s.player WHERE s.token=?",
         sessionHash,

@@ -257,7 +257,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=sudden-death"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=link-only-events"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
@@ -419,6 +419,12 @@ async function openMode(id, push = true) {
       const [, { createQuizUI }] = await Promise.all([accountReady, loadQuizModule()]);
       if (version !== viewVersion) return;
       quiz ??= createQuizController(createQuizUI);
+      const eventKey = new URLSearchParams(location.hash.slice(1)).get("event");
+      if(eventKey){
+        await quiz.openEvent(eventKey);
+        if(version===viewVersion)renderQuiz();
+        return;
+      }
       const quizId = new URLSearchParams(location.search).get("quiz");
       if (quizId && quizId !== linkedQuiz) quiz.openLeaderboard(quizId);
       linkedQuiz = quizId;

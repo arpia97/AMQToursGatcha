@@ -1,3 +1,4 @@
+import {createEventQuiz} from './quiz-event-ui.js';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
@@ -43,6 +44,9 @@ export function createQuizUI({
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
+  const eventQuiz = createEventQuiz({api,escape:e});
+  const browseCategories = [...QUIZ_CATEGORIES,"event"];
+  const categoryTabs = () => `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${browseCategories.map(c => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "event" ? "Event" : quizCategoryLabel(c)}</button>`).join("")}</div>`;
   let fuzzySession = {};
   const hotkeys = () =>
     normalizeQuizHotkeys(
@@ -693,6 +697,8 @@ export function createQuizUI({
   function render() {
     if (!selected) {
       stop();
+      if(category === "event")return '<div class="page-intro quiz-list-header"><h1>Quiz</h1></div><div class="quiz-toolbar">'+categoryTabs()+'</div>'+
+        (eventQuiz.current()?'<div data-event-holder></div>':'<p class="notice">Open a shared event link to play an event quiz.</p>');
       const visibleQuizzes = quizzes.filter(
         (q) => (q.category || "singers") === category,
       );
@@ -752,7 +758,7 @@ export function createQuizUI({
         "</div>" +
         "</div>" +
         '<div class="quiz-toolbar">' +
-        `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${QUIZ_CATEGORIES.map((c) => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${quizCategoryLabel(c)}</button>`).join("")}</div>` +
+        categoryTabs() +
         '<div class="quiz-toolbar-filters">' +
         searchControl +
         '<div class="quiz-browse-toggles"><label class="check-label quiz-favorites-filter"><input type="checkbox" id="quiz-favorites-first" ' + (favoritesFirst ? 'checked' : '') + '> Favorites First</label>' +
@@ -1415,6 +1421,7 @@ export function createQuizUI({
       attemptPlay();
   }
   function mount({ direct = false } = {}) {
+    if (category === "event" && !selected) {eventQuiz.mount(document.querySelector("[data-event-holder]"));return;}
     const cover = (gachaLayout || run?.finished) && document.querySelector(".quiz-artist-cover");
     if (cover) {
       cover.onerror = () => { cover.hidden = true; };
@@ -1580,7 +1587,12 @@ export function createQuizUI({
     mount,
     updateQuestion,
     stop,
+    async openEvent(key) {
+      selected=null;closeSongList();useRun(null);stop();category="event";
+      if(eventQuiz.current()!==key)await eventQuiz.open(key);
+    },
     leave() {
+      eventQuiz.leave();
       preparing?.abort();
       closeSongList();
       stop();
@@ -1593,7 +1605,7 @@ export function createQuizUI({
       const answer=document.getElementById('quiz-answer');
       if(answer?.value){answer.focus({preventScroll:true});updateInput(answer);}
     },
-    active: () => !!preparing || !!(selected && run && !run.finished),
+    active: () => eventQuiz.active() || !!preparing || !!(selected && run && !run.finished),
     openLeaderboard(id) {
       if (!id || working || preparing) return;
       closeSongList();
@@ -1700,8 +1712,13 @@ export function createQuizUI({
       }
       if (button.hasAttribute("data-quiz-category")) {
         const next = button.dataset.quizCategory;
-        if (!QUIZ_CATEGORIES.includes(next)) return true;
+        if (!browseCategories.includes(next)) return true;
+        if(next!=="event" && eventQuiz.current()){
+          eventQuiz.leave();
+          const url=new URL(location.href);url.hash="";history.replaceState(history.state,"",url);
+        }
         category = next;
+        if(next !== "event" && !quizzes.length)await load();
         onRender();
         return true;
       }
