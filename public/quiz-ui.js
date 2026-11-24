@@ -1,4 +1,4 @@
-import {createEventQuiz} from './quiz-event-ui.js';
+import {createEventQuiz} from './quiz-event-ui.js?v=quiz-theme';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
@@ -44,7 +44,7 @@ export function createQuizUI({
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
-  const eventQuiz = createEventQuiz({api,escape:e});
+  const eventQuiz = createEventQuiz({api,escape:e,sleeve:quizSleeve});
   const browseCategories = [...QUIZ_CATEGORIES,"event"];
   const categoryTabs = () => `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${browseCategories.map(c => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "event" ? "Event" : quizCategoryLabel(c)}</button>`).join("")}</div>`;
   let fuzzySession = {};
@@ -689,7 +689,7 @@ export function createQuizUI({
     );
   }
   function quizSleeve(q, status = "") {
-    const category = { singers: "Artist", composers: "Composer", franchise: "Franchise" }[q.category] || "Artist";
+    const category = { singers: "Artist", composers: "Composer", franchise: "Franchise", event: "Event" }[q.category] || "Artist";
     return '<header class="quiz-sleeve"><span>' + category + ' Quiz' + status + '</span><h2>' +
       e(q.name) + '</h2><div class="quiz-disc" aria-hidden="true"></div>' +
       (q.cover ? '<img class="quiz-artist-cover" alt="" src="' + e(q.cover) + '">' : '') + '</header>';
