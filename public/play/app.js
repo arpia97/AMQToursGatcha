@@ -18,7 +18,7 @@ import { avatarCropStyle } from "../avatar-crop.js";
 import { roleBadge } from "../role-label.js";
 import {preparationLabel,percentDone} from "../play-setup-progress.js";
 import { installTitleMotion } from "../title-motion.js";
-import { installDetailPopovers } from "../detail-popover.js";
+import { installDetailPopovers } from "../detail-popover.js?v=quiz-mode-toggles";
 
 installTitleMotion();
 installDetailPopovers(document);
@@ -253,7 +253,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=stable-round-layout"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=sudden-death"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
@@ -599,7 +599,6 @@ document.addEventListener("change", async (event) => {
   try {
     if (input.id === "quiz-server") quiz.setServer(input.value);
     else if (input.id === "quiz-sort") quiz.setSort(input.value);
-    else if (input.id === "quiz-competitive") quiz.setCompetitive(input.checked);
     else if (input.id === "quiz-friends-only") await quiz.setFriendsOnly(input.checked);
     else if (input.matches('[data-answer-autolock]')) quiz.setAutolock(input.checked);
     else if (input.matches('[data-fuzzy-anime]')) quiz.setFuzzyAnime(input.checked);

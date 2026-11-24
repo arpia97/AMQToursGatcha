@@ -1,5 +1,10 @@
 # Shared Status and Handoff
 
+## Sudden Death Quiz
+
+The Quiz lobby uses the GGius Tours skull_emoji artwork for Sudden Death. Competitive and Sudden Death now have independent highlighted toggle buttons. A graded miss in Sudden Death starts a fresh attempt. The approved design is shared by Play and Gacha Quiz.
+
+
 ## Play layout and statistics archive
 
 The multiplayer board and Quiz input keep background downloads below the controls. Official tour fixtures and completed multiplayer matches feed the dedicated game-records D1 database. See docs/game-records.md for version 1, recovery coverage and rating scopes.

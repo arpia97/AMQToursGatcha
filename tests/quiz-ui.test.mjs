@@ -975,7 +975,7 @@ test("Competitive loading completes before starting the scored clock and cancell
       ([key, value]) => key === "amqtours-quiz-server" && value === "NAW",
     ),
   );
-  f.ui.setCompetitive(true);
+  await f.ui.click({...f.button("data-quiz-mode"),dataset:{quizMode:"competitive"},setAttribute(){}});
   const start = f.ui.click(f.button("data-quiz-action", "quiz-start"));
   await flush();
   assert.match(f.ui.render(), /Loading Quiz Audio/);

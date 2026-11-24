@@ -56,6 +56,7 @@ export function quizRunView(q, run, now, includeProgress = false) {
     now,
     run: {
       id: run.id,
+      ...(run.suddenDeath ? {suddenDeath:true} : {}),
       ...(run.fast ? { transport: "session" } : {}),
       index: run.index,
       score,
@@ -129,6 +130,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
   }
   if (action !== "quiz-next") reject("Unknown quiz action.", 404);
   if (!run.answers[run.index]) reject("Lock an answer first.");
+  if (run.suddenDeath && !run.answers[run.index].correct) reject("Restart this Sudden Death attempt.");
   if (run.index === 19) reject("Finish this quiz through the reward server.");
   run.index++;
   run.timing = b.ready === true

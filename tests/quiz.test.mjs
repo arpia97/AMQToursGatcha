@@ -642,6 +642,32 @@ test("title visibility survives restarts and canonical migration, newly earned t
   assert.equal(f.e.quiz.titleSettings("90001").titles.length, 0);
 });
 
+test("Sudden Death cannot finish or pay for a final-song miss, and restarts with a clean score", t => {
+  const f = fixture(t);
+  const balance = f.e.player("p").balance;
+  const first = f.action("p", "quiz-start", {quiz:"test", suddenDeath:true}).run;
+  for (let index = 0; index < 20; index++) {
+    const body = {quiz:"test", run:first.id, index};
+    const {run} = f.action("p", "quiz-ready", body);
+    f.advance(Math.max(0, run.startsAt - f.e.now()));
+    const answer = index === 19 ? "Wrong" : f.e.quiz.run("p","test").songs[index].answers[0];
+    const reveal = f.action("p","quiz-answer",{...body,answer}).run;
+    assert.equal(reveal.suddenDeath,true);
+    if (index < 19) f.action("p","quiz-next",body);
+    else {
+      assert.throws(()=>f.action("p","quiz-next",body),/Restart this Sudden Death/);
+      const restarted = f.action("p","quiz-restart",{...body,suddenDeath:true}).run;
+      assert.notEqual(restarted.id,first.id);
+      assert.equal(restarted.index,0);
+      assert.equal(restarted.score,0);
+      assert.equal(restarted.suddenDeath,true);
+    }
+  }
+  assert.equal(f.e.player("p").balance,balance);
+  assert.equal(f.e.one("SELECT count(*) AS n FROM quiz_progress").n,0);
+  play(f,20);
+});
+
 test("quiz restart returns to song1 with a fresh hand while preserving best scores, rewards and idempotency", (t) => {
   const f = fixture(t);
   play(f, 20);

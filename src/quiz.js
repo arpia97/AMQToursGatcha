@@ -618,7 +618,7 @@ export class Quiz {
       e = this.e;
     let run = this.run(player, q.id);
     if (action === "quiz-stop") {
-      if (run?.answers.length === 20 && !run.finished)
+      if (run?.answers.length === 20 && !run.finished && !(run.suddenDeath && !run.answers[19].correct))
         fail(
           "All songs are answered. Finish Quiz to collect your result.",
           409,
@@ -658,6 +658,7 @@ export class Quiz {
         id: crypto.randomUUID(),
         startedAt: null,
         clockFromAudio: true,
+        suddenDeath: b.suddenDeath === true,
         index: 0,
         songs: pool
           .slice(0, 20)
@@ -681,6 +682,7 @@ export class Quiz {
     }
     if (action === "quiz-next") {
       if (!run.answers[run.index]) fail("Lock an answer first.");
+      if (run.suddenDeath && !run.answers[run.index].correct) fail("Restart this Sudden Death attempt.", 409);
       if (run.index === 19) {
         const score = run.answers.filter((a) => a.correct).length;
         const previous = e.one(

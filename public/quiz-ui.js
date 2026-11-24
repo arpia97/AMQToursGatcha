@@ -77,6 +77,8 @@ export function createQuizUI({
   const cache = audioCache || createQuizAudioCache();
   let server = "EU",
     competitive = false,
+    suddenDeath = false,
+    restartedAfter = null,
     preparing = null,
     download = null;
   let quizzes = [],
@@ -398,6 +400,7 @@ export function createQuizUI({
             call("quiz-run?quiz=" + encodeURIComponent(selected)), prepareTitles(),
           ]);
           useRun(saved.run);
+          if (missedSuddenDeath()) await mutate("quiz-restart");
         }
         else useRun(null);
         await loadBank(quizzes.find((q) => q.id === selected));
@@ -420,14 +423,15 @@ export function createQuizUI({
         "<option " + (s === server ? "selected" : "") + ">" + s + "</option>",
     ).join("") +
     "</select></label>";
-  const competitiveControl = () =>
-    '<div class="quiz-competitive"><input id="quiz-competitive" type="checkbox" aria-label="Competitive" ' +
-    (competitive ? "checked" : "") +
-    " " +
-    (working || preparing ? "disabled" : "") +
-    '><button type="button" class="quiz-competitive-help" data-detail-popup="' +
-    e("Competitive preloads the entire song pool before starting. Audio stays in this tab until it is closed or reloaded.") +
-    '" aria-expanded="false">Competitive</button></div>';
+  const trophyIcon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a4 4 0 0 0 4 4m9-6h3v2a4 4 0 0 1-4 4m-4 2v4m-4 2h8"/></svg>';
+  const skullIcon = '<img class="quiz-skull" src="'+new URL('./community-cards/skull-emoji.webp',import.meta.url).href+'" width="20" height="20" alt="">';
+  const missedSuddenDeath = () => run?.suddenDeath && run.answered && run.correct === false;
+  const modeButton = (mode, label, icon, pressed, hint) =>
+    '<button type="button" id="quiz-'+mode+'" class="quiz-mode-toggle" data-quiz-mode="'+mode+'" aria-pressed="'+pressed+
+    '" data-detail-popup="'+e(hint)+'"'+(working || preparing ? ' disabled' : '')+'>'+icon+label+'</button>';
+  const modeControls = () => '<div class="quiz-mode-toggles" role="group" aria-label="Quiz modes">'+
+    modeButton('competitive','Competitive',trophyIcon,competitive,'Competitive preloads the entire song pool before starting. Audio stays in this tab until it is closed or reloaded.')+
+    modeButton('sudden-death','Sudden Death',skullIcon,suddenDeath,'Restart at Song 1 whenever you miss a song.')+'</div>';
   function downloadHTML() {
     return preparing
       ? '<section class="quiz-download" role="status"><strong>Loading Quiz Audio…</strong>' +
@@ -452,7 +456,7 @@ export function createQuizUI({
     ">" +
     label +
     "</button>" + secondary +
-    competitiveControl() +
+    modeControls() +
     '</div>' +
     downloadHTML() +
     '<p class="form-error" id="quiz-inline-error" role="alert">' +
@@ -992,15 +996,17 @@ export function createQuizUI({
       " · " +
       e(run.artist || "") +
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
-      (run.index === 19 ? "Finish Quiz" : "Next Song") +
+      (missedSuddenDeath() ? "Restart Quiz" : run.index === 19 ? "Finish Quiz" : "Next Song") +
       " (Enter)" +
       "</button>";
     return (
       '<section class="quiz-question' +
       (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
-      '"><div class="quiz-question-heading' + (gachaLayout ? ' tier-' + rarityClass(quizRarity(run.score)) : '') + '"><h2>Song ' +
+      '"><div class="quiz-question-heading' + (gachaLayout ? ' tier-' + rarityClass(quizRarity(run.score)) : '') + '"><div><h2>Song ' +
       (run.index + 1) +
-      (gachaLayout ? ' <small>/ 20</small>' : ' of 20') + '</h2><div class="quiz-score tier-' +
+      (gachaLayout ? ' <small>/ 20</small>' : ' of 20') + '</h2>' +
+      (run.suddenDeath ? '<small class="quiz-sudden-status">'+skullIcon+'Sudden Death'+(run.index===0 && restartedAfter?.id===run.id?' · Restarted after Song '+restartedAfter.song:'')+'</small>' : '') +
+      '</div><div class="quiz-score tier-' +
       rarityClass(quizRarity(run.score)) +
       '"><span>Score</span><strong>' +
       run.score +
@@ -1109,6 +1115,7 @@ export function createQuizUI({
   const nextPending = () => working && pendingAction === "quiz-next" && run?.transport === "session" && !run.answered && !run.finished;
   const answerPending = () => !!queuedAnswer || (working && !nextPending());
   async function mutate(action, answer, skip = false) {
+    if (action === "quiz-next" && missedSuddenDeath()) action = "quiz-restart";
     if (working) {
       if (action === "quiz-answer" && nextPending() && !queuedAnswer) {
         queuedAnswer = { answer, skip };
@@ -1123,6 +1130,7 @@ export function createQuizUI({
     errorMessage = "";
     const body = {
       quiz: selected,
+      ...(action === "quiz-start" ? {suddenDeath} : action === "quiz-restart" ? {suddenDeath: !!run?.suddenDeath} : {}),
       ...(["quiz-start", "quiz-restart"].includes(action) && competitive ? { competitive: true } : {}),
       ...(run ? { run: run.id, index: run.index } : {}),
       ...(["quiz-start", "quiz-restart"].includes(action) || run?.transport === "session" ? { fastSession: true } : {}),
@@ -1143,6 +1151,7 @@ export function createQuizUI({
       pendingMove = { signature, key: crypto.randomUUID(), body, action };
     const move = pendingMove;
     const previousRun = run;
+    let restartMissedRun = null;
     const instantNext = action === "quiz-next" && run?.transport === "session" && run.index < 19 && body.ready && prefetchReady();
     if (action === "quiz-answer") audio?.pause();
     if (action === "quiz-stop") {
@@ -1189,7 +1198,9 @@ export function createQuizUI({
       }
       if (pendingMove === move) pendingMove = null;
       if (selected !== body.quiz) return;
+      const missedSong = action === "quiz-restart" && missedSuddenDeath() ? run.index + 1 : null;
       useRun(result.run);
+      if (missedSong && run) restartedAfter = {id:run.id, song:missedSong};
       if (action === "quiz-stop") {
         selected = null;
         leaderboardOnly = false;
@@ -1223,6 +1234,7 @@ export function createQuizUI({
           })
           .catch(() => {});
       }
+      if (action === "quiz-answer" && missedSuddenDeath()) restartMissedRun = run.id;
       if (!instantNext || run?.answered || run?.finished || run?.index !== body.index + 1) onRender({
         questionOnly: action === "quiz-answer" || action === "quiz-next",
       });
@@ -1249,8 +1261,9 @@ export function createQuizUI({
       tick();
       const queued = queuedAnswer;
       queuedAnswer = null;
-      if (queued) mutate("quiz-answer", queued.answer, queued.skip).catch(showError);
+      if (queued && !restartMissedRun) mutate("quiz-answer", queued.answer, queued.skip).catch(showError);
     }
+    if (restartMissedRun && run?.id === restartMissedRun && selected === body.quiz) await mutate("quiz-restart");
   }
   function attemptPlay() {
     if (!audio || playAttempted) return;
@@ -1598,12 +1611,6 @@ export function createQuizUI({
       stop();
       onRender();
     },
-    setCompetitive(value) {
-      if (!preparing && !working) {
-        competitive = !!value;
-        onRender();
-      }
-    },
     async setFriendsOnly(value) {
       if (!selected || !getState().me) return;
       const previous = friendsOnly, version = ++leaderboardFilterVersion, quiz = selected, player = getState().me.id;
@@ -1663,6 +1670,14 @@ export function createQuizUI({
         return true;
       }
       if (preparing) return true;
+      if (button.hasAttribute("data-quiz-mode")) {
+        if (working) return true;
+        const isCompetitive = button.dataset.quizMode === "competitive";
+        if (isCompetitive) competitive = !competitive;
+        else suddenDeath = !suddenDeath;
+        button.setAttribute("aria-pressed", String(isCompetitive ? competitive : suddenDeath));
+        return true;
+      }
       if (button.hasAttribute("data-quiz-favorite")) {
         const id = button.dataset.quizFavorite, player = getState().me?.id;
         const quiz = quizzes.find((q) => q.id === id);

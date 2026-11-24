@@ -6,7 +6,7 @@ const titleMotion = installTitleMotion();
 import {installMobileNavigation} from "./mobile-navigation.js";
 import {installCardFilters, strictCards, favoriteCardFilter} from "./card-filters.js";
 import { recentActivityRows } from "./account-activity.js";
-import { installDetailPopovers } from "./detail-popover.js";
+import { installDetailPopovers } from "./detail-popover.js?v=quiz-mode-toggles";
 import { pickemShare } from "./pickem-votes.js";
 import { readApiResponse } from "./api-response.js";
 import { installCardOrderDrag } from "./card-order-drag.js";
@@ -732,7 +732,7 @@ const workingTitlePopovers = installDetailPopovers(document);
 let quizUI, arcadePage;
 const quizPlaying = () => page() === "quiz" && quizUI?.active();
 const loadQuizUI = loadOnce(async () => {
-  const { createQuizUI } = await import("./quiz-ui.js?v=stable-round-layout");
+  const { createQuizUI } = await import("./quiz-ui.js?v=sudden-death");
   return quizUI = createQuizUI({
     gachaLayout: true,
     api,
@@ -4616,8 +4616,6 @@ document.addEventListener("change", (ev) => {
       .catch((err) => toast(err.message, true));
   }
   if (ev.target.id === "quiz-server") quizUI.setServer(ev.target.value);
-  if (ev.target.id === "quiz-competitive")
-    quizUI.setCompetitive(ev.target.checked);
   if (ev.target.id === "quiz-sort") {
     quizUI.setSort(ev.target.value);
     $("#quiz-sort")?.focus();

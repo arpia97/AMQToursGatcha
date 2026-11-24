@@ -26,7 +26,8 @@
 .quiz-disc {position:absolute; z-index:-1; right:-8%; top:-34%; height:195%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle,#192020 0 2%,var(--tier-color) 2.4% 15%,transparent 15.5%),repeating-radial-gradient(circle,#333d3a 0 2px,#26312e 3px 4px); opacity:.8}
 .quiz-sleeve:has(.quiz-artist-cover:not([hidden])) .quiz-disc {display:none}
 .quiz-lobby-actions .quiz-start-controls {display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:0}
-.quiz-lobby-actions .quiz-competitive {margin-left:auto}
+.quiz-lobby-actions .quiz-mode-toggles {margin-inline-start:auto}
+@media(max-width:640px){.quiz-lobby-actions .quiz-mode-toggles {margin-inline-start:0}}
 .quiz-lobby-actions .form-error:empty {display:none}
 .quiz-scroll-leaderboard .table-wrap {max-height:calc(10 * 33px + 34px);overflow:auto;scrollbar-width:none}
 .quiz-scroll-leaderboard .table-wrap::-webkit-scrollbar {display:none}

@@ -104,7 +104,7 @@ export function installDetailPopovers(root) {
   root.addEventListener("focusout", (event) => { if (event.target === active && active.isConnected) dismiss(); });
   root.addEventListener("click", (event) => {
     const button = event.target.closest?.(detailTrigger);
-    if (!button) return;
+    if (!button || button.dataset.quizMode) return;
     if (button === active && pinned) dismiss();
     else {
       show(button);
