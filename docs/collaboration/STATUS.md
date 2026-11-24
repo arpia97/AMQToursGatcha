@@ -4,6 +4,10 @@
 
 Runtime `20e4973` deployed to the original Worker as `e74e4e87-ca46-4991-9274-2c6b7775946d`. Hosts can open `/play/host` from Play navigation or the account menu. Match Review has a searchable index, a mobile list and full-width evidence. Song Library has its own refresh controls. All 620 release tests passed. Browser checks at 1360 and 390 pixels exercised host access, navigation, filtering, timeline, notes and refresh with local data. The production route and five assets were verified. Both host endpoints rejected signed-out access. The separate GitHub Pages demo job reported a missing artifact.
 
+## Variety and Hot Potato release
+
+Runtime `05860a5` deployed to the original Worker as `cdee5611-5a49-4f00-a0b1-d0b68e91fdbe` at 100% traffic. Variety includes Team VS and 1-Team matchmaking, custom lobbies and Live Matches. The roster shows one 🥔 per remaining guess. All 626 tests passed. Local browser verification covered queue sizes and overflow, solo custom play, changing lobby formats, passing, grading and match completion. Verified the production Variety route, both format controls, lobby directory, Overview Quick Join, the host console route and seven deployed assets.
+
 ## Shop and auction notification destinations
 
 Runtime `5a6b6d7` deployed as Worker `c19b3688-d626-4814-bb55-96a287b8d200`. Market notifications from Gacha and Play open the relevant shop, auction section or trade view with the card type selected. Older outbid notices resolve the venue from their auction when available. All 620 tests passed. Verified desktop and phone navigation with local accounts and checked live routes and seven assets.
