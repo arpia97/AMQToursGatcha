@@ -86,6 +86,10 @@ export class Quiz {
     e.run(
       "CREATE INDEX IF NOT EXISTS quiz_leaderboard ON quiz_progress(quiz,best DESC,best_at,player)",
     );
+    if (!quizColumns.has("song_count")) e.tx(() => {
+      e.run("ALTER TABLE quizzes ADD COLUMN song_count INTEGER");
+      e.run("UPDATE quizzes SET song_count=(SELECT count(*) FROM quiz_songs WHERE quiz=quizzes.id)");
+    });
     this.repairButterflyTitles();
   }
   repairButterflyTitles() {
@@ -311,7 +315,7 @@ export class Quiz {
     host = host || this.isHost(player);
     const rows = this.e.all(
       "SELECT q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover" +
-        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,p.best_duration_ms AS bestDurationMs,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played,CASE WHEN f.player IS NOT NULL THEN 1 ELSE 0 END AS favorited FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? LEFT JOIN quiz_favorites f ON f.quiz=q.id AND f.player=? " +
+        ",COALESCE(q.song_count,(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id)) AS songs,COALESCE(p.best,0) AS best,p.best_duration_ms AS bestDurationMs,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played,CASE WHEN f.player IS NOT NULL THEN 1 ELSE 0 END AS favorited FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? LEFT JOIN quiz_favorites f ON f.quiz=q.id AND f.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
       player || "",
@@ -499,10 +503,10 @@ export class Quiz {
       fail("At least 20 matched MP3 songs are needed before publishing.");
     const updated = Math.max(e.now(), (existing?.updated || 0) + 1);
     e.run(
-      `INSERT INTO quizzes(id,name,cover,title,published,source,updated,category,uploaded_at,uploaded_by,updated_by)
-       VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO quizzes(id,name,cover,title,published,source,updated,category,uploaded_at,uploaded_by,updated_by,song_count)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET
        name=excluded.name,cover=excluded.cover,title=excluded.title,published=excluded.published,source=excluded.source,
-       updated=excluded.updated,category=excluded.category,updated_by=excluded.updated_by`,
+       updated=excluded.updated,category=excluded.category,updated_by=excluded.updated_by,song_count=excluded.song_count`,
       id,
       name,
       cover,
@@ -514,6 +518,7 @@ export class Quiz {
       updated,
       editor,
       editor,
+      count,
     );
     return {
       id,

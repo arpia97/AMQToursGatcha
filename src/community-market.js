@@ -13,6 +13,7 @@ const hourAtOrAfter = time => Math.ceil(time / HOUR) * HOUR;
 export class CommunityMarket {
   constructor(e) {
     this.e = e;
+    e.run("CREATE INDEX IF NOT EXISTS shop_end_time ON weekly_shop(ends,starts)");
     const shopColumns = e.all("PRAGMA table_info(weekly_shop)");
     if (!shopColumns.some(c => c.name === "base_price"))
       e.run("ALTER TABLE weekly_shop ADD COLUMN base_price INTEGER");

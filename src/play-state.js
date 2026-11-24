@@ -21,7 +21,7 @@ export function playOverviewPlayers(e,onlinePlayers) {
   if(!onlinePlayers.length)return [];
   const status=new Map(onlinePlayers.map(player=>[player.id,player.status]));
   const rows=e.all(`SELECT p.id,COALESCE(p.display_name,p.name) AS name,p.avatar_crop,p.avatar_card,i.level
-    FROM json_each(?) active JOIN players p ON p.id=active.value
+    FROM json_each(?) active CROSS JOIN players p ON p.id=active.value
     LEFT JOIN inventory i ON i.player=p.id AND i.card=p.avatar_card
     ORDER BY name COLLATE NOCASE,p.id`,JSON.stringify([...status.keys()]));
   const cards=new Map(e.catalogStore.cards(rows.filter(row=>row.level!=null).map(row=>row.avatar_card))

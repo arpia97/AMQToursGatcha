@@ -1,7 +1,7 @@
 import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
-import { installPlayAccountMenu } from "../play-account-menu.js?v=market-notice-links";
+import { installPlayAccountMenu } from "../play-account-menu.js?v=shared-heartbeat";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
@@ -440,10 +440,11 @@ const accountReady = refreshAccount();
 const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked',
   'lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
 let activityBusy=false,activityPending=false,drawerSnapshot;
+let lastHiddenPing=0, lastInboxCheck=0;
 async function refreshLive(force=false){
   if(activityBusy){activityPending||=force;return;}
   const hidden=document.hidden,viewer=state.me?.id;
-  if(hidden&&!viewer)return;
+  if(hidden && (!viewer || (!force && Date.now()-lastHiddenPing<180_000)))return;
   activityBusy=true;
   const detailed=!hidden&&mode==='overview';
   const params=new URLSearchParams();
@@ -456,8 +457,12 @@ async function refreshLive(force=false){
     if(watchView?.active())params.set('spectating','1');
     if(hidden){params.set('hidden','1');params.set('presence','1');}
   }
+  const updateUnread=viewer && !hidden && (force || Date.now()-lastInboxCheck>=60_000) ? accountMenu.unreadSnapshot() : null;
+  if(updateUnread)params.set('inbox','1');
   try{
     const data=await api('play-live?'+params);
+    if(hidden)lastHiddenPing=Date.now();
+    if(updateUnread && Number.isInteger(data.inboxUnread)){updateUnread(data.inboxUnread);lastInboxCheck=Date.now();}
     if(hidden||viewer!==state.me?.id||document.hidden)return;
     const {matches,online,waiting}=data;
     currentActivity=data;
@@ -481,17 +486,18 @@ async function refreshLive(force=false){
   }finally{
     activityBusy=false;
     if(activityPending||(!document.hidden&&((!detailed&&mode==='overview')||viewer!==state.me?.id))){
-      activityPending=false;void refreshLive();
+      const forced=activityPending;activityPending=false;void refreshLive(forced);
     }
   }
 }
-void refreshLive();
 void accountReady.then(()=>refreshLive(true));
 setInterval(refreshLive,30_000);
+let focusRefresh;
 function updatePlayFocus(){
   if(document.hidden||!document.hasFocus())inactiveSince??=Date.now();
   else inactiveSince=null;
-  void refreshLive(true);
+  clearTimeout(focusRefresh);
+  focusRefresh=setTimeout(()=>refreshLive(true),100);
 }
 document.addEventListener('visibilitychange',updatePlayFocus);
 window.addEventListener('focus',updatePlayFocus);

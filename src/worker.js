@@ -1422,6 +1422,7 @@ export class Game extends DurableObject {
         }:null;
         const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1')
           .liveActivity(session?.player||null,overview,details,url.searchParams.get('presence')==='1');
+        if(session && url.searchParams.get("inbox")==="1")data.inboxUnread=inboxCount(e,session.player);
         if(overview&&session&&data.onlinePlayers)data.onlinePlayers=playOverviewPlayers(e,data.onlinePlayers);
         return json(data);
       }

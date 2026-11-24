@@ -10,7 +10,7 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
   const cards = new Map();
   let friendView = "added", friendPage = 1, writes = Promise.resolve();
   const player = () => state().me?.id;
-  let countVersion = 0, checking = false;
+  let countVersion = 0;
   function count(value) {
     countVersion++;
     badge.hidden = !value;
@@ -18,18 +18,12 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
     bell.setAttribute("aria-label", value ? "Notifications, " + number(value) + " unread" : "Notifications");
     state().inboxUnread = value;
   }
-  async function refreshCount() {
+  function unreadSnapshot() {
     const owner = player(), version = countVersion;
-    if (!owner || document.hidden || checking) return;
-    checking = true;
-    try {
-      const result = await api("notices");
-      if (player() === owner && countVersion === version) count(result.inboxUnread);
-    } catch { /* The next refresh retries. */ }
-    finally { checking = false; }
+    return value => {
+      if (player() === owner && countVersion === version && Number.isInteger(value)) count(value);
+    };
   }
-  document.addEventListener("visibilitychange", refreshCount);
-  window.setInterval(refreshCount, 60000);
   const inbox = createInbox({ escape, cardBy: id => cards.get(id) || {}, routeHref: gachaHref });
   const dropdown = installInboxDropdown({
     anchor: $(".inbox-anchor"), href: gachaHref("notifications"), player, inbox,
@@ -121,5 +115,5 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
     } else return false;
     return true;
   }
-  return {sync, toggle, close, action};
+  return {sync, toggle, close, action, unreadSnapshot};
 }

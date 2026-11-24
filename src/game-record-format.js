@@ -37,22 +37,28 @@ export function tourRecord(tour, match, report, changes) {
   const register=(pid,team)=>{pid=String(pid);if(!members.has(pid))members.set(pid,team);
     else if(team!=null && members.get(pid)!==team) members.set(pid,null);};
   for(const team of teams) for(const p of team.players) register(p,team.id);
-  const songs=[];
+  const songs=[], segments=[];
   for(const [s,file] of (report?.files||[]).entries()){
     const lineup=Object.fromEntries(teams.map(t=>[t.id,(file.rosters?.[t.id]??t.players).map(String)]));
     for(const [team,ids] of Object.entries(lineup))for(const p of ids)register(p,team);
+    segments.push({number:s+1, fileName:file.name??null, hash:file.hash??null, reportId:report.id,
+      matchId:match.id, round:match.round??null});
+    const roster=[...new Set(Object.values(lineup).flat())];
     for(const event of file.events||[]){
       const info=event.info||{}, rows=[];
-      for(const [hit,ids] of [[true,event.correct],[false,event.incorrect]])
+      const correct=new Set((event.correct||[]).map(String));
+      const misses=event.incorrect??roster.filter(id=>!correct.has(id));
+      for(const [hit,ids] of [[true,correct],[false,misses]])
         for(const pid of ids||[]){if(!members.has(String(pid)))register(pid,null);rows.push(result(pid,{anime:hit},Number(hit)));}
       songs.push(song(songs.length+1,info.animeNames?.romaji||info.animeNames?.english,info.songName,info.artist,info.type,rows,
-        {segment:s+1,sourceNumber:event.number??null,teams:lineup,rosterSource:file.rosters?'report':'fixture',
+        {segment:s+1,sourceNumber:event.number??null,incorrectSource:event.incorrectSource??(Array.isArray(event.incorrect)?'reported':'roster-minus-correct'),
+         ...(event.correctSource?{correctSource:event.correctSource}:{}),teams:lineup,rosterSource:file.rosters?'report':'fixture',
          animeEnglish:info.animeNames?.english??null,annSongId:info.annSongId??null}));
     }
   }
   return {schemaVersion:1,id:'tour:'+tour.id+':'+match.id,source:'tour',sourceId:match.id,tourId:tour.id,
     tourName:tour.name,format:tour.format,pool:tour.mode,ratingScope:'tour',startedAt:null,endedAt:report?.at??null,
-    tourDate:tour.date??null,round:match.round??null,reportId:report?.id??null,score:match.score??null,scoreKind:match.scoreKind??null,teams,
+    tourDate:tour.date??null,round:match.round??null,reportId:report?.id??null,segments,score:match.score??null,scoreKind:match.scoreKind??null,teams,
     players:[...members].map(([key,team])=>{const r=changes.find(p=>String(p.player)===key);
       return player(key,names.get(key)?.name,team,r?.before??names.get(key)?.elo,r?.after,null,null);}),songs};
 }

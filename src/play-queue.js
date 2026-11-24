@@ -55,6 +55,8 @@ export class PlayQueue extends DurableObject {
         ctx.storage.sql.exec('CREATE INDEX stats_records_due ON stats_record_jobs(retry_at)');
         ctx.storage.sql.exec("INSERT INTO stats_record_jobs(id) SELECT id FROM match_reviews WHERE status='finished' ORDER BY created DESC");
       });
+    ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS queue_waiting_expiry ON queue(expires,format,pool,player) WHERE match IS NULL");
+    ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS active_reviews ON match_reviews(id) WHERE status='active'");
     this.records=new PlayRecords(this);
     this.presence=new PlayPresence(ctx.storage);
   }

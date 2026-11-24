@@ -402,6 +402,10 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   }
   const {match:rankedId}=await rankedQueues[0].wait(m=>m.type==='matched'&&m.pool==='watched'&&m.format==='ngmc-ranked');
   const live=async()=>await(await mf.dispatchFetch(base+'/api/play-live',{headers:{Cookie:cookies[0]}})).json();
+  const badge=await(await mf.dispatchFetch(base+'/api/play-live?inbox=1',{headers:{Cookie:cookies[0]}})).json();
+  assert.ok(Number.isInteger(badge.inboxUnread));
+  const guestBadge=await(await mf.dispatchFetch(base+'/api/play-live?inbox=1')).json();
+  assert.equal(guestBadge.inboxUnread,undefined);
   const playing=await live();
   assert.equal(playing.online,8);
   assert.equal(playing.waiting,0);

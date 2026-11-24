@@ -11,11 +11,14 @@ import {ARENA_FORMAT} from '../public/play-arena-config.js';
 test('tour restarts link actual participants and tier order to each segment and keep tour ratings scoped',async()=>{
   const tour={id:'t',revision:1,name:'Cup',format:'4v4',mode:'watched',teams:[{id:'a',players:['1']},{id:'b',players:['2']}],
     signupPlayers:[{id:'1',name:'Initial',elo:99},{id:'3',name:'Sub',elo:89}]};
-  const match={id:'m',a:'a',b:'b'}, report={id:'r',files:[
+  const match={id:'m',a:'a',b:'b',round:2}, report={id:'r',files:[
     {rosters:{a:['1'],b:['2']},events:[{number:1,correct:['1'],incorrect:['2']}]},
-    {rosters:{a:['3'],b:['2']},events:[{number:1,correct:['3'],incorrect:['2']}]}]};
+    {name:'restart.json',hash:'hash',rosters:{a:['3'],b:['2']},events:[{number:1,correct:['3'],incorrect:null}]}]};
   const record=tourRecord(tour,match,report,[{player:'3',before:89,after:91}]);
   assert.deepEqual(record.songs.map(s=>s.results[0].playerId),['1','3']);
+  assert.deepEqual(record.segments[1],{number:2,fileName:'restart.json',hash:'hash',reportId:'r',matchId:'m',round:2});
+  assert.deepEqual(record.songs[1].results.map(p=>[p.playerId,p.correct.anime]),[['3',true],['2',false]]);
+  assert.equal(record.songs[1].incorrectSource,'roster-minus-correct');
   assert.equal(record.players.find(p=>p.id==='3').ratingAfter,91);
   const sql=new DatabaseSync(':memory:');
   sql.exec(readFileSync(new URL('../game-records.sql',import.meta.url),'utf8'));
