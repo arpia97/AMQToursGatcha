@@ -1,4 +1,3 @@
-import {rigCount} from './play-rig-count.js';
 import {DUEL_FORMAT, soloVersus} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
 import {poolToggle} from './play-pool-toggle.js';
@@ -40,7 +39,7 @@ export function matchLeaderboard(match, esc) {
     table(['Player',...(sides?['Side']:[]),'Points',...(showRigs?['Rigs']:[]),duel?'Rating Change':'Performance','Rating'], rows.map(row => [
       '<span class="play-player-identity">'+playPlayerAvatar(row.player,esc)+esc(row.player.name)+(isMvp(row)?'<b class="play-mvp">MVP</b>':'')+'</span>',
       ...(sides?[row.player.team===me.team?(soloVersus(match.format)?'You':'Your Team'):teamLabel]:[]),
-      row.correct, ...(showRigs?[rigCount(row.player)]:[]), signed(duel?row.delta:row.performance), Math.round(row.after)
+      row.correct, ...(showRigs?[row.player.rigs ?? ""]:[]), signed(duel?row.delta:row.performance), Math.round(row.after)
     ])) + (duel?'':'<small>Performance is the rating change per song.</small>')+'</section>';
 }
 
