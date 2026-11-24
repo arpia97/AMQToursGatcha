@@ -2,7 +2,7 @@
 
 ## Fresh draws on Quiz restart
 
-Runtime `cf2a7da` deployed as Worker `c93a9040-6392-4168-8b4e-d277b6063729` at 100% traffic. Manual and Sudden Death restarts prefer tracks outside the previous draw, then tracks the player had not reached. All 618 tests passed, including three consecutive restarts at six catalog sizes. The production Quiz route returned HTTP 200.
+Runtime `78e8ded` deployed as Worker `275e1b70-b577-481f-9ef9-b54e858d5a7e` at 100% traffic. Manual and Sudden Death restarts draw from the full quiz catalog. Only an identical set triggers a redraw, or an identical order for a 20-song catalog. All 619 tests passed and the live Quiz route returned HTTP 200.
 
 ## Sudden Death Quiz
 
