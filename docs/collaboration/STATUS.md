@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz performance sorting and Play settings
+
+Runtime `e96aabb` deployed as Worker `8e0799b5-1b3e-489e-b445-5a3151598208`. In the Quiz browser, Performance · Highest First breaks tied personal-best scores by shortest recorded duration. The account's six Quiz Hotkeys are editable through Play's profile menu under Settings. All 611 tests, syntax checks, and the Worker dry run passed. A browser check with a local test account exercised saving, reload, clear and reset. The production Play shell and updated assets were verified, and all 213 published quiz rows included the new duration field after rollout.
+
 ## Gacha query row reads
 
 Compared the working tree with `398da1a` using two isolated Workers SQLite databases seeded with identical synthetic records sized from production aggregates. Run `node tools/query-reads/benchmark.mjs 398da1a` for the baseline and `node tools/query-reads/benchmark.mjs` for the working tree. The output includes row counters and an ordered result digest for each case.
