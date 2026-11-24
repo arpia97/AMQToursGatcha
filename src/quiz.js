@@ -1,13 +1,14 @@
 import { correctQuizClock, correctQuizReceipt } from "./quiz-countdown.js";
 import { quizRunView, advanceQuizRun } from "./quiz-run-state.js";
 import { titleOrderKey } from "../public/title-order.js";
-import {butterflyPresageTitle, mergeQuizAnswers} from '../public/quiz-answer-index.js';
+import {butterflyPresageTitle, mergeQuizAnswerFields} from '../public/quiz-answer-index.js';
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
   QUIZ_LENGTH,
   QUIZ_CATEGORIES,
   quizAnswerKey,
+  quizRecordingKey,
   quizReward,
   validQuizAudio,
 } from "../public/quiz-rules.js";
@@ -64,6 +65,7 @@ export class Quiz {
     const row = e.one("SELECT data FROM quiz_songs WHERE quiz=? AND id=33", quiz);
     if (!row) return;
     const song = JSON.parse(row.data);
+    if (['amq-export','saved-amq-export'].includes(song.answerSource)) return;
     if (!song.sourceIds?.amqSongIds?.includes('82626') || song.verifiedTitles?.includes(butterflyPresageTitle)) return;
     e.tx(() => {
       for (const field of ['answers','workingTitles','verifiedTitles'])
@@ -390,27 +392,15 @@ export class Quiz {
       if (!Array.isArray(incoming)) fail("Invalid quiz pool.");
       const combined = new Map();
       for (const song of incoming) {
-        const old = combined.get(song.audio);
-        const sheet=song.answerSource==='amq-master-sheet'?song:old?.answerSource==='amq-master-sheet'?old:null;
-        const preferred=sheet||(song.answerSource==='published-quiz'?song:old?.answerSource==='published-quiz'?old:null);
-        // Older saved AMQ exports kept their confirmed names in workingTitles.
-        const oldVerified = old?.verifiedTitles ?? (old?.answerSource === 'amq-export' ? old.workingTitles : []);
-        const verifiedTitles = [...new Set([...(oldVerified || []), ...(song.verifiedTitles || [])])];
+        const recording = quizRecordingKey(song.audio);
+        const old = combined.get(recording);
         combined.set(
-          song.audio,
+          recording,
           old
             ? {
                 ...old,
                 ...song,
-                verifiedTitles,
-                answers:preferred ? [...new Set([...preferred.answers,...verifiedTitles])] : mergeQuizAnswers(old,song),
-                answerSource:preferred?.answerSource??(old.answerSource==='amq-export'||song.answerSource==='amq-export'?'amq-export':song.answerSource||old.answerSource),
-                workingTitles: preferred ? [...new Set([...(preferred.workingTitles || []),...verifiedTitles])] : [
-                  ...new Set([
-                    ...(old.workingTitles || []),
-                    ...(song.workingTitles || []),
-                  ]),
-                ],
+                ...mergeQuizAnswerFields(old,song),
                 sourceIds: Object.fromEntries(
                   ["amqSongIds", "annSongIds", "annIds"].map((k) => [
                     k,

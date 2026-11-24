@@ -252,15 +252,15 @@ export class Game extends DurableObject {
     return this.engine.all("SELECT play_anime_list FROM players WHERE id IN (SELECT value FROM json_each(?)) AND play_anime_list IS NOT NULL",JSON.stringify(players))
       .map(row=>{const {provider,ids}=JSON.parse(row.play_anime_list);return {provider,ids};});
   }
-  publishedQuizSongs(previousVersion) {
+  publishedQuizSongs(previousVersion, includeExportTitles = false) {
     const quizzes=this.engine.all('SELECT id,updated FROM quizzes WHERE published=1 ORDER BY id');
     const version=JSON.stringify(quizzes.map(q=>[q.id,q.updated]));
     if(previousVersion===version)return null;
     const rows=[];
     for(const quiz of quizzes){
       for(const entry of this.engine.all('SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id',quiz.id)){
-        const {audio,title,artist,type,answers,sourceIds,isDub}=JSON.parse(entry.data);
-        rows.push({audio,title,artist,type,answers,sourceIds,isDub});
+        const {audio,title,artist,type,answers,sourceIds,isDub,answerSource,workingTitles}=JSON.parse(entry.data);
+        rows.push({audio,title,artist,type,answers,sourceIds,isDub,...(includeExportTitles && answerSource === "amq-export" ? {exportTitles:workingTitles?.length ? workingTitles : answers} : {})});
       }
     }
     return {version,rows};
@@ -880,8 +880,12 @@ export class Game extends DurableObject {
           let prepared;
           try {
             const sheet=await (this.sheetSource??=currentSheet(this.env))();
-            const published=this.publishedQuizSongs(this.importQuizIndex?.version);
-            if(published)this.importQuizIndex={...indexQuizRecordings(published.rows),version:published.version};
+            const published=this.publishedQuizSongs(this.importQuizIndex?.version,true);
+            if (published) {
+              const uploads = published.rows.filter(row => row.exportTitles?.length)
+                .map(row => ({...row,answers:row.exportTitles}));
+              this.importQuizIndex = {...indexQuizRecordings(published.rows),uploads:indexQuizRecordings(uploads),version:published.version};
+            }
             const quizzes=this.importQuizIndex;
             const official=new Map();
             for(const entry of sheet.official||[]){
@@ -895,9 +899,9 @@ export class Game extends DurableObject {
               const last=official.get('n:'+row.annSongId)||official.get('a:'+row.amqSongId);
               return {...row,audio:quizRowAudio(row)||top?.audio||saved?.audio,
                 annId:row.annId??top?.annId??saved?.sourceIds?.annIds?.[0]??last?.[2],
-                songName:top?.title||saved?.title||row.songName||row.songTitle||last?.[4],
-                songArtist:top?.artist||saved?.artist||row.songArtist||row.artist||last?.[5],
-                songType:top?.type||saved?.type||row.songType||last?.[3]};
+                songName:row.songInfo?.songName||top?.title||saved?.title||row.songName||row.songTitle||last?.[4],
+                songArtist:row.songInfo?.artist||top?.artist||saved?.artist||row.songArtist||row.artist||last?.[5],
+                songType:row.songInfo?.type||top?.type||saved?.type||row.songType||last?.[3]};
             });
             const query=libraryQuery(importedRows.filter(Boolean));
             const unknown=importedRows.filter(row=>row&&!row.annSongId&&!row.amqSongId&&
@@ -915,7 +919,7 @@ export class Game extends DurableObject {
               library.songs,
             );
             const matched=masterImportAnswers(sheet,rows);
-            prepared = prepareQuizSongs(rows, this.quizMaster.data,library,matched,masterImportAnswers(quizzes,rows));
+            prepared = prepareQuizSongs(rows, this.quizMaster.data,library,matched,masterImportAnswers(quizzes,rows),masterImportAnswers(quizzes.uploads,rows));
             if(matched.size)prepared.masterListId+=' + '+sheet.version;
           } catch (err) {
             fail(err.message, err.status || 400);

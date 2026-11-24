@@ -98,9 +98,9 @@ test("AMQ working-title fields and all exact occurrence identities survive dupli
   );
   assert.equal(prepared.songs.length, 1);
   const s = prepared.songs[0];
-  assert.ok(s.answers.includes("The Eminence in Shadow Season 2"));
+  assert.deepEqual(s.answers,["Working Extra","Another Accepted"]);
   assert.ok(s.answers.includes("Another Accepted"));
-  assert.ok(s.answers.includes("Second Row Title"));
+  assert.ok(!s.answers.includes("Second Row Title"));
   e.quiz.save({ id: "quiz", name: "Quiz", songs: prepared.songs });
   const stored = e.quiz.hostSongs("quiz").songs[0];
   assert.deepEqual(stored.sourceIds, s.sourceIds);
@@ -109,7 +109,8 @@ test("AMQ working-title fields and all exact occurrence identities survive dupli
     ...s, answerSource:"amq-master-sheet", workingTitles:["Sheet Main"], answers:["Sheet Main"], verifiedTitles:[]
   }]});
   const appended = e.quiz.hostSongs("quiz").songs[0];
-  assert.deepEqual(appended.answers,["Sheet Main",...s.verifiedTitles]);
+  assert.deepEqual(appended.answers,s.answers);
+  assert.equal(appended.answerSource,"amq-export");
   assert.deepEqual(appended.verifiedTitles,s.verifiedTitles);
 });
 test("repair adds confirmed working answers to saved pools and unfinished runs once without changing scores or rewards", (t) => {

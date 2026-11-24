@@ -23,7 +23,38 @@ export function amqAlternativeTitles(info) {
     .filter(title => typeof title === "string" && title.trim())
     .map(title => title.trim()))];
 }
-export function mergeQuizAnswers(old,song){if(old.answerSource==='amq-export'&&song.answerSource!=='amq-export')return [...new Set([...old.answers,...(song.workingTitles||[])])];if(song.answerSource==='amq-export'&&old.answerSource!=='amq-export')return [...new Set([...song.answers,...(old.workingTitles||[])])];return [...new Set([...old.answers,...song.answers])];}
+function distinctTitles(values) {
+  const seen = new Set();
+  return values.filter(title => {
+    if (typeof title !== "string" || !title.trim() || seen.has(key(title))) return false;
+    seen.add(key(title));
+    return true;
+  }).map(title => title.trim());
+}
+
+export function mergeQuizAnswerFields(old, song) {
+  for (const source of ["amq-export","saved-amq-export"]) {
+    const uploads = [old,song].filter(row => row.answerSource === source);
+    if (!uploads.length) continue;
+    // Older imports mixed catalog titles into answers but kept the export in workingTitles.
+    const candidates = uploads.map(row => ({
+      row, titles: distinctTitles(row.workingTitles?.length ? row.workingTitles : row.answers)
+    }));
+    const best = candidates.reduce((a,b) => b.titles.length > a.titles.length ? b : a);
+    return {answerSource:source, answers:best.titles, workingTitles:best.titles, verifiedTitles:best.row.verifiedTitles || []};
+  }
+  const preferred = [song,old].find(row => row.answerSource === "amq-master-sheet") ||
+    [song,old].find(row => row.answerSource === "published-quiz");
+  const verifiedTitles = distinctTitles([...(old.verifiedTitles || []),...(song.verifiedTitles || [])]);
+  return {
+    answerSource:preferred?.answerSource || song.answerSource || old.answerSource,
+    answers:distinctTitles(preferred ? [...preferred.answers,...verifiedTitles] : [...old.answers,...song.answers]),
+    workingTitles:distinctTitles(preferred ? [...(preferred.workingTitles || []),...verifiedTitles] :
+      [...(old.workingTitles || []),...(song.workingTitles || [])]),
+    verifiedTitles
+  };
+}
+
 export function quizAnswerIndex(master, fallbackSongs = []) {
   master ||= {animeMap:{}};
   const fallbackAnn=new Map(),fallbackAmq=new Map();
@@ -104,18 +135,20 @@ export function quizAnswerIndex(master, fallbackSongs = []) {
     ]
       .filter((n) => typeof n === "string" && n.trim())
       .map((n) => n.trim());
-    const exportNames=info.animeNames&&typeof info.animeNames==='object'?Object.values(info.animeNames).filter(v=>typeof v==='string'&&v.trim()):[];
-    const authoritative=row.answerSource==='amq-export'||!!row.songInfo&&(working.length>0||exportNames.length>0);
+    const names = info.animeNames ?? row.animeNames;
+    const exportNames = names && typeof names === "object" ? Object.values(names) : [];
+    const uploaded = distinctTitles([...exportNames,...amqAlternativeTitles(info),...amqAlternativeTitles(row)]);
+    const exportTitles = uploaded.length ? uploaded : row.answerSource === "amq-export"
+      ? distinctTitles(row.workingTitles?.length ? row.workingTitles : list(row.answers)) : [];
     const exactFallback=[...annSongs].map(id=>fallbackAnn.get(id)).filter(Boolean),fallback=exactFallback.length?exactFallback:[...songs].flatMap(id=>fallbackAmq.get(id)||[]);
     const amqAnswers=[...anns].flatMap(id=>titles(master.animeMap?.[id]));
     const cachedAnswers=fallback.flatMap(s=>s.titles||[]);
-    const answers=[...new Set([...working,...exportNames,...(authoritative||!cachedAnswers.length?amqAnswers:cachedAnswers),...confirmed])];
+    const answers = exportTitles.length ? exportTitles : distinctTitles([...working,...(cachedAnswers.length ? cachedAnswers : amqAnswers),...confirmed]);
     return {
       answers,
-      verifiedTitles:[...new Set([...verifiedTitles,...confirmed])],
-      trustedAnswers:[...new Set([...working,...exportNames,...amqAnswers,...confirmed])],
-      workingTitles: [...new Set([...working,...exportNames,...confirmed])],
-      answerSource:authoritative?'amq-export':cachedAnswers.length?'amq-plus':'amq',
+      verifiedTitles:exportTitles.length ? verifiedTitles : distinctTitles([...verifiedTitles,...confirmed]),
+      workingTitles:exportTitles.length ? exportTitles : distinctTitles([...working,...confirmed]),
+      answerSource:exportTitles.length?'amq-export':cachedAnswers.length?'amq-plus':'amq',
       sourceIds: {
         amqSongIds: [...songs],
         annSongIds: [...annSongs],

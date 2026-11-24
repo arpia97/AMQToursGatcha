@@ -239,6 +239,7 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
     audio: "fixture-song-" + i + ".mp3",
     songName: "Song " + i,
   }));
+  input[19].songInfo = {animeNames:{romaji:"Anime Test"},allAlternativeAnswers:["Recorded upload alias","Alternative Test"]};
   response = await post("host/quiz-save", {
     name: "Test",
     input,
@@ -299,14 +300,14 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   response = await post("host/quiz-preview", {}, host);
   assert.equal(response.status, 400);
   const primaryPreview=await post("host/quiz-preview",{input:[
-    {songLinks:{primary:'https://eudist.animemusicquiz.com/sheet-example.mp3'},songInfo:{songName:'Sheet Song',artist:'Artist',animeNames:{romaji:'Stale Title'},allAlternativeAnswers:['Explicit sheet addition']}},
+    {songLinks:{primary:'https://eudist.animemusicquiz.com/sheet-example.mp3'},songInfo:{songName:'Sheet Song',artist:'Artist',animeNames:{romaji:'Uploaded Title'},allAlternativeAnswers:['Explicit sheet addition']}},
     {audio:'https://eudist.animemusicquiz.com/sheet-example.mp3',annSongId:50001},
   ]},host);
   assert.equal(primaryPreview.status,200,await primaryPreview.clone().text());
   const primarySongs=(await primaryPreview.json()).songs;
   assert.equal(primarySongs.length,1);
-  assert.deepEqual(primarySongs[0].answers,['Export Title','Export Alias','Explicit sheet addition']);
-  assert.equal(primarySongs[0].answerSource,'amq-master-sheet');
+  assert.deepEqual(primarySongs[0].answers,['Uploaded Title','Explicit sheet addition']);
+  assert.equal(primarySongs[0].answerSource,'amq-export');
   response = await post(
     "host/quiz-save",
     {
@@ -327,9 +328,12 @@ test("Worker quiz endpoints protect imports and answers, match AMQ, hide answer 
   }]},host);
   assert.equal(publishedPreview.status,200,await publishedPreview.clone().text());
   const reused=(await publishedPreview.json()).songs[0];
-  assert.equal(reused.answerSource,'published-quiz');
-  assert.ok(reused.answers.includes('Anime Test') && reused.answers.includes('Explicit merged title'));
-  assert.ok(!reused.answers.includes('Cached Alternative')&&!reused.answers.includes('Conflicting upload'));
+  assert.equal(reused.answerSource,'amq-export');
+  assert.deepEqual(reused.answers,['Conflicting upload','Explicit merged title']);
+  const fromUpload=await post('host/quiz-preview',{input:[{audio:input[19].audio,annId:1}]},host);
+  const [remembered]=(await fromUpload.json()).songs;
+  assert.equal(remembered.answerSource,'saved-amq-export');
+  assert.deepEqual(remembered.answers,['Anime Test','Recorded upload alias','Alternative Test']);
   const tile = (
     await (await mf.dispatchFetch("http://game/api/quizzes")).json()
   ).quizzes.find((q) => q.id === "test");

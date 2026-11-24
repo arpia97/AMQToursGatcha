@@ -1,4 +1,4 @@
-import { quizAnswerIndex } from "./quiz-answer-index.js";
+import { mergeQuizAnswerFields, quizAnswerIndex } from "./quiz-answer-index.js";
 export const QUIZ_SONG_MS = 20000;
 export const QUIZ_LEAD_IN_MS = 2000;
 export const QUIZ_ANSWER_GRACE_MS = 1000;
@@ -80,6 +80,11 @@ export function resolveQuizAudio(value) {
       : link,
   );
 }
+// AMQ serves the same recording filename from several regional mirrors.
+export function quizRecordingKey(audio) {
+  const match = /^https:\/\/(?:eu|nae|naw)dist\.animemusicquiz\.com\/([a-z0-9_-]+\.mp3)(?:[?#].*)?$/i.exec(audio);
+  return match ? "amq:" + match[1] : audio;
+}
 export function quizRowAudio(row) {
   return [row.audio,row.audioUrl,row.audio_url,row.mp3,row.songLink,row.videoUrl]
     .map(resolveQuizAudio).find(Boolean)||null;
@@ -118,14 +123,14 @@ export function quizImportRows(input) {
     };
   });
 }
-export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new Map(), quizAnswers = new Map()) {
+export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new Map(), quizAnswers = new Map(), uploadedAnswers = new Map()) {
   const rows = quizImportRows(input);
   if (!master?.animeMap)
     throw Error("AMQ's answer database is unavailable. No pool was changed.");
   const indexer = quizAnswerIndex(master,library.songs||[]);
   const songs = [],
     rejected = [],
-    seen = new Map(),trustedByAudio=new Map();
+    seen = new Map();
   for (const [index, row] of rows.entries()) {
     if (!row || typeof row !== "object" || Array.isArray(row)) {
       rejected.push({ row: index + 1, reason: "Invalid song record" });
@@ -134,9 +139,14 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
     const audio = quizRowAudio(row);
     const resolved = indexer.resolve(row);
     const titles=sheetAnswers.get(audio)??quizAnswers.get(audio);
-    if(titles){
-      const accepted = [...new Set([...titles,...resolved.verifiedTitles])];
-      Object.assign(resolved,{answers:accepted,workingTitles:accepted,trustedAnswers:accepted,answerSource:sheetAnswers.has(audio)?'amq-master-sheet':'published-quiz'});
+    if (resolved.answerSource !== "amq-export") {
+      const uploaded = uploadedAnswers.get(audio);
+      if (uploaded?.length) {
+        Object.assign(resolved,{answers:uploaded,workingTitles:uploaded,verifiedTitles:[],answerSource:"saved-amq-export"});
+      } else if (titles) {
+        const accepted = [...new Set([...titles,...resolved.verifiedTitles])];
+        Object.assign(resolved,{answers:accepted,workingTitles:accepted,answerSource:sheetAnswers.has(audio)?"amq-master-sheet":"published-quiz"});
+      }
     }
     if (!audio || !resolved.answers.length) {
       rejected.push({
@@ -146,18 +156,11 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
       continue;
     }
     const answers = resolved.answers;
-    const previous = seen.get(audio);
+    const recording = quizRecordingKey(audio);
+    const previous = seen.get(recording);
     if (previous) {
       if (songIsDub(row)) previous.isDub = true;
-      if (resolved.verifiedTitles.length)
-        previous.verifiedTitles = [...new Set([...(previous.verifiedTitles || []),...resolved.verifiedTitles])];
-      const trusted=[...new Set([...(trustedByAudio.get(audio)||[]),...resolved.trustedAnswers])];trustedByAudio.set(audio,trusted);
-      const authoritative=previous.answerSource==='amq-export'||resolved.answerSource==='amq-export';
-      previous.answers = authoritative?trusted:[...new Set([...previous.answers, ...answers])];
-      if(authoritative)previous.answerSource='amq-export';
-      previous.workingTitles = [
-        ...new Set([...previous.workingTitles, ...resolved.workingTitles]),
-      ];
+      Object.assign(previous, mergeQuizAnswerFields(previous,resolved));
       for (const kind of Object.keys(previous.sourceIds))
         previous.sourceIds[kind] = [
           ...new Set([
@@ -191,8 +194,7 @@ export function prepareQuizSongs(input, master, library = {}, sheetAnswers = new
       type: String(row.songType||row.songInfo?.type||'').slice(0,80),
       ...(songIsDub(row) ? {isDub:true} : {}),
     });
-    seen.set(audio, songs.at(-1));
-    trustedByAudio.set(audio,resolved.trustedAnswers);
+    seen.set(recording, songs.at(-1));
   }
   return { songs, rejected, masterListId: String(master.masterListId || "")+(library.version?' + '+library.version:'') };
 }

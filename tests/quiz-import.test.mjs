@@ -48,8 +48,7 @@ test("AMQ songInfo exports resolve exact occurrence IDs in one batch and retain 
   assert.equal(ready.rejected.length, 0);
   assert.equal(ready.songs[0].title, "Song 1");
   assert.equal(ready.songs[0].artist, "Artist");
-  assert.ok(ready.songs[0].answers.includes("Shared Anime"));
-  assert.ok(ready.songs[0].answers.includes("Accepted Alias"));
+  assert.deepEqual(ready.songs[0].answers,["AMQ Export Title"]);
   assert.ok(!ready.songs[0].answers.includes("Wrong player answer"));
   assert.ok(ready.songs[0].answers.includes("AMQ Export Title"));
   assert.equal(ready.songs[0].answerSource,'amq-export');
@@ -173,4 +172,23 @@ test("AMQ videoUrl MP3s are used directly without metadata requests and remain a
   assert.deepEqual(ready.songs[1].alternatives, [
     "https://nawdist.animemusicquiz.com/new.mp3",
   ]);
+});
+
+test("a matching AMQ upload controls grading across mirrors and duplicate order", () => {
+  const eu = "https://eudist.animemusicquiz.com/one.mp3";
+  const na = "https://naedist.animemusicquiz.com/one.mp3";
+  const sheet = new Map([[eu,["Sheet only"]],[na,["Sheet only"]]]);
+  const saved = new Map([[eu,["Saved quiz only"]],[na,["Saved quiz only"]]]);
+  const pastUpload = new Map([[eu,["Older upload"]],[na,["Older upload"]]]);
+  const plain = {audio:eu,annId:1};
+  const narrow = {audio:eu,songInfo:{animeNames:{english:"Main"}}};
+  const rich = {audio:na,songInfo:{animeNames:{english:"Main"},allAlternativeAnswers:["Alias","alias"]}};
+  for (const input of [[plain,narrow,rich],[rich,plain,narrow]]) {
+    const {songs} = prepareQuizSongs(input,master,{},sheet,saved,pastUpload);
+    assert.equal(songs.length,1);
+    assert.equal(songs[0].answerSource,"amq-export");
+    assert.deepEqual(songs[0].answers,["Main","Alias"]);
+  }
+  assert.deepEqual(prepareQuizSongs([plain],master,{},sheet,saved,pastUpload).songs[0].answers,["Older upload"]);
+  assert.deepEqual(prepareQuizSongs([plain],master,{},sheet,saved).songs[0].answers,["Sheet only"]);
 });
