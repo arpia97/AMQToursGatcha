@@ -12,36 +12,33 @@ import {
   quizReward,
   validQuizAudio,
 } from "../public/quiz-rules.js";
-function shuffleQuizSongs(songs, rand, start = 0) {
-  for (let i = songs.length - 1; i > start; i--) {
-    const j = start + rand(i - start + 1);
-    [songs[i], songs[j]] = [songs[j], songs[i]];
-  }
-}
 
 function drawQuizSongs(pool, previous, rand) {
   if (pool.length < QUIZ_LENGTH) fail("This quiz needs at least 20 songs.");
-  shuffleQuizSongs(pool, rand);
-  if (!previous) return pool.slice(0, QUIZ_LENGTH);
+  const prior = previous?.songs.map(song => quizRecordingKey(song.audio));
+  const priorSet = new Set(prior);
+  const hasSpare = pool.length > QUIZ_LENGTH;
 
-  const prior = previous.songs.map(song => quizRecordingKey(song.audio));
-  const previousSet = new Set(prior);
-  const heard = new Set(prior.slice(0, previous.index + 1));
-  const fresh = [], unplayed = [], replay = [];
-  for (const song of pool) {
-    const key = quizRecordingKey(song.audio);
-    if (!previousSet.has(key)) fresh.push(song);
-    else if (!heard.has(key)) unplayed.push(song);
-    else replay.push(song);
+  // Draw uniformly from the entire catalog; reject only the exact previous selection.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = rand(i + 1);
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const songs = pool.slice(0, QUIZ_LENGTH);
+    if (!prior) return songs;
+    const repeated = hasSpare
+      ? songs.every(song => priorSet.has(quizRecordingKey(song.audio)))
+      : songs.every((song, i) => quizRecordingKey(song.audio) === prior[i]);
+    if (!repeated) return songs;
   }
-  const hand = [...fresh, ...unplayed, ...replay].slice(0, QUIZ_LENGTH);
-  // Keep a fresh opener when possible, even if the entire catalog fits in one hand.
-  if (quizRecordingKey(hand[0].audio) === prior[0]) {
-    const other = hand.findIndex(song => quizRecordingKey(song.audio) !== prior[0]);
-    if (other > 0) [hand[0], hand[other]] = [hand[other], hand[0]];
-  }
-  shuffleQuizSongs(hand, rand, 1);
-  return hand;
+
+  // Bound repeated collisions, including a generator that returns the same shuffle.
+  const i = rand(QUIZ_LENGTH);
+  const j = hasSpare ? QUIZ_LENGTH + rand(pool.length - QUIZ_LENGTH)
+    : (i + 1 + rand(QUIZ_LENGTH - 1)) % QUIZ_LENGTH;
+  [pool[i], pool[j]] = [pool[j], pool[i]];
+  return pool.slice(0, QUIZ_LENGTH);
 }
 
 export class Quiz {

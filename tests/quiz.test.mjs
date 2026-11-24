@@ -642,8 +642,10 @@ test("title visibility survives restarts and canonical migration, newly earned t
   assert.equal(f.e.quiz.titleSettings("90001").titles.length, 0);
 });
 
-test("restarts minimize overlap with the immediately preceding draw, including back-to-back restarts", t => {
+test("restarts allow overlap and reject only a repeat of the previous selection", t => {
   const f = fixture(t);
+  // An identity shuffle forces exact collisions and exercises the bounded fallback.
+  f.e.rand = bound => bound - 1;
   for (const size of [20, 21, 25, 39, 40, 65]) {
     const quiz = "pool-" + size;
     f.save({id:quiz,songs:Array.from({length:size}, (_, i) => ({
@@ -659,14 +661,28 @@ test("restarts minimize overlap with the immediately preceding draw, including b
       run = next.run;
       const songs = f.e.quiz.run("p",quiz).songs.map(s => s.audio);
       assert.equal(new Set(songs).size,20);
-      assert.equal(songs.filter(song => previous.includes(song)).length,Math.max(0,40-size));
-      assert.notEqual(songs[0],previous[0]);
-      if (size > 20) {
-        assert.ok(!previous.includes(songs[0]));
-        assert.ok(!songs.includes(previous[0]));
+      if (size === 20) {
+        assert.deepEqual(new Set(songs),new Set(previous));
+        assert.notDeepEqual(songs,previous);
+      } else {
+        assert.equal(songs.filter(song => previous.includes(song)).length,19);
+        assert.equal(songs[0],previous[0]);
       }
     }
   }
+});
+
+test("a valid first reroll is used intact even if the opener and 18 other songs repeat", t => {
+  const f = fixture(t);
+  f.e.rand = bound => bound - 1;
+  const first = f.action("p","quiz-start",{quiz:"test"}).run;
+  const original = f.e.quiz.run("p","test").songs.map(s=>s.audio);
+  const catalog = f.e.all("SELECT data FROM quiz_songs WHERE quiz=? ORDER BY id","test").map(s=>JSON.parse(s.data).audio);
+  // Exchange only positions 20 and 21 during the next shuffle.
+  f.e.rand = bound => bound === 21 ? 19 : bound - 1;
+  f.action("p","quiz-restart",{quiz:"test",run:first.id,index:0});
+  const next = f.e.quiz.run("p","test").songs.map(s=>s.audio);
+  assert.deepEqual(next,[...original.slice(0,19),catalog[20]]);
 });
 
 test("Sudden Death cannot finish or pay for a final-song miss, and restarts with a clean score", t => {
