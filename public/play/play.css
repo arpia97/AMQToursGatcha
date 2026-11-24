@@ -208,6 +208,8 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .console-library-header dd {color:var(--mint)}
 .console-library-coverage {margin-top:24px}
 .console-library-coverage small {color:var(--muted)}
+.console-coverage-heading {display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
+.console-library-coverage [role=status]:not(:empty) {display:block;margin-top:8px}
 .console-library-coverage dl {margin:10px 0 0;border:1px solid var(--border);border-radius:8px;background:var(--bg)}
 .console-library-coverage dl>div {display:flex;align-items:baseline;justify-content:space-between;gap:16px;padding:9px 14px}
 .console-library-coverage dl>div+div {border-top:1px solid var(--border)}

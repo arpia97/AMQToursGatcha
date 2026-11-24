@@ -87,17 +87,18 @@ export function compareLocalSources(reference,comparison,master,quizzes) {
     remaining:missing.size-sheet.size-quiz.size, eligible, plusOnly:comparison.plusOnly};
 }
 
-export async function libraryCoverage(play,officialVersion) {
+export async function libraryCoverage(play,source,readSnapshot) {
+  const referenceKey=source.revision||source.version;
   const core=play.core, master=await play.sheetSource(), manifest=await core.active(), quizzes=play.quizzes;
-  const key=JSON.stringify([officialVersion,manifest.version,master.version,play.quizVersion]);
+  const key=JSON.stringify([referenceKey,manifest.version,master.version,play.quizVersion]);
   if (play.comparing?.key === key) return play.comparing.result;
   const cacheKey='host-official-coverage-v1', saved=core.get(cacheKey);
   if (saved?.key===key) return saved.counts;
   const result=(async()=>{
     const url='https://quiz-assets.invalid/quiz-library/official-coverage.json';
-    const ref=await libraryJSON(await core.assets.fetch(new Request(url)),16000000);
-    if (ref.version!==officialVersion) throw Error('Official export is updating.');
-    const plusCacheKey='host-amq-plus-comparison-v1',plusVersion=JSON.stringify([ref.version,manifest.version]);
+    const ref=source.revision ? JSON.parse(await readSnapshot()) : await libraryJSON(await core.assets.fetch(new Request(url)),16000000);
+    if (ref.version!==source.version) throw Error('Official export is updating.');
+    const plusCacheKey='host-amq-plus-comparison-v1',plusVersion=JSON.stringify([referenceKey,manifest.version]);
     let plus=core.get(plusCacheKey);
     if (plus?.version!==plusVersion) {
       const comparison=await compareAmqPlus(ref,libraryShards(core,manifest,manifest.shards));

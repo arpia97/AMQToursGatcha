@@ -1,4 +1,4 @@
-import {libraryPanel,mountPlayLibrary} from './play-library-ui.js?v=official-coverage';
+import {libraryPanel,mountPlayLibrary} from './play-library-ui.js?v=official-refresh';
 import {playReviewPanel,mountPlayReview} from './play-review-ui.js?v=host-page';
 
 export function mountPlayConsole(main,api,esc,formatName){
@@ -11,7 +11,7 @@ export function mountPlayConsole(main,api,esc,formatName){
     <div data-console-panel="review">${playReviewPanel(true)}</div>
     ${libraryPanel()}</section>`;
   const root=main.querySelector('.play-console');
-  const host=(path,body)=>api('host/'+path,body);
+  const host=(path,body)=>api('host/'+path,body,undefined,path==='play-library'?{signal:AbortSignal.timeout(90000)}:undefined);
   const library=mountPlayLibrary(root.querySelector('.console-library'),host);
   root.querySelector('.console-sections').onclick=event=>{
     const tab=event.target.closest('[data-section]');

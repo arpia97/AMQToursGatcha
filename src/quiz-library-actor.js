@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
 import { PlayLibrary } from './play-library.js';
 import {libraryCoverage} from './official-song-coverage.js';
-import reference from './official-coverage-version.json' with {type:'json'};
+import {OfficialReferenceStore,officialActorName} from './official-reference-store.js';
 import {SheetRefresh,currentSheet} from "./play-sheet.js";
 export class QuizLibrary extends DurableObject {
   constructor(ctx, env) {
@@ -21,6 +21,7 @@ export class QuizLibrary extends DurableObject {
       },
       env.ASSETS,
     );
+    this.officialSource=()=>env.QUIZ_LIBRARY.getByName(officialActorName);
     this.sheetSource=currentSheet(env);
     this.play = new PlayLibrary(this.core,undefined,version=>
       env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version),this.sheetSource);
@@ -32,6 +33,8 @@ export class QuizLibrary extends DurableObject {
     const {done,total}=job.stage==='catalog'?(job.catalog||{}):job;
     return {stage:job.stage,done,total};
   }
+  officialStatus(){return new OfficialReferenceStore(this.core).status();}
+  officialSnapshot(revision){return new OfficialReferenceStore(this.core).snapshot(revision);}
   sheetStatus(){return this.sheetManager().status();}
   sheetSnapshot(version){return this.sheetManager().snapshot(version);}
   async startSheetRefresh(){
@@ -58,10 +61,19 @@ export class QuizLibrary extends DurableObject {
       const path = new URL(request.url).pathname;
       if (request.method === "GET" && path === "/status")
         return Response.json(await this.core.status());
+      if(path==='/refresh-official' && request.method==='POST'){
+        this.officialStore??=new OfficialReferenceStore(this.core);
+        try { return Response.json(await this.officialStore.refresh()); }
+        catch(error){return Response.json({error:'Official AMQ update failed. '+error.message},{status:502});}
+      }
       if(path==='/play-inventory'&&['GET','POST'].includes(request.method)){
         const inventory=await this.play.inventory(request.method==='POST');
         let coverage;
-        try { coverage=await libraryCoverage(this.play,reference.version); }
+        try {
+          const source=this.officialSource(), state=await source.officialStatus();
+          const counts=await libraryCoverage(this.play,state,()=>source.officialSnapshot(state.revision));
+          coverage={...counts,checkedAt:state.checkedAt};
+        }
         catch(error){ console.warn('Official catalog comparison unavailable',error.message); }
         return Response.json({...inventory,coverage});
       }
@@ -108,10 +120,10 @@ export class QuizLibrary extends DurableObject {
     }
   }
 }
-export async function quizLibraryRequest(env, path, body, key) {
+export async function quizLibraryRequest(env, path, body, key, name="quiz-song-library-v1") {
   if (!env.QUIZ_LIBRARY) return null;
   const stub = env.QUIZ_LIBRARY.get(
-      env.QUIZ_LIBRARY.idFromName("quiz-song-library-v1"),
+      env.QUIZ_LIBRARY.idFromName(name),
     ),
     r = await stub.fetch(
       new Request(

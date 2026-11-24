@@ -28,8 +28,11 @@ export function libraryPanel() {
     <p data-inventory-status role="status"></p>
     <p class="form-hint">Published Quizzes take priority. Sheets fills gaps in Quiz, and AMQ+ fills gaps in both.</p>
     <section class="console-library-coverage" aria-labelledby="official-coverage-heading">
-      <h3 id="official-coverage-heading">Official AMQ coverage</h3>
-      <small data-official-export></small>
+      <header class="console-coverage-heading">
+        <div><h3 id="official-coverage-heading">Official AMQ coverage</h3><small data-official-export></small></div>
+        <button type="button" class="button secondary" data-refresh="official">Update Official AMQ</button>
+      </header>
+      <small data-source-status="official" role="status"></small>
       <dl>${coverageRows.map(([key,label])=>`<div><dt>${label}</dt><dd data-coverage="${key}">—</dd></div>`).join('')}</dl>
     </section>
   </section>`;
@@ -65,8 +68,10 @@ export function mountPlayLibrary(root, host) {
         field.textContent=counts.coverage?.[field.dataset.coverage]?.toLocaleString()??'—';
       }
       root.querySelector('[data-official-export]').textContent=counts.coverage
-        ? 'AMQ export '+counts.coverage.officialVersion : 'Comparison currently unavailable';
+        ? 'AMQ export '+counts.coverage.officialVersion+(counts.coverage.checkedAt?' · Last checked '+date(counts.coverage.checkedAt):'')
+        : 'Comparison currently unavailable';
       message.textContent='';
+      return counts;
     }catch(error){
       if(!active()||id!==generation)return;
       const updating=!refresh&&error.status===405;
@@ -90,7 +95,14 @@ export function mountPlayLibrary(root, host) {
     let running=false;
     clearTimeout(timers.get(source));
     try {
-      if(source==='sheets'){
+      if(source==='official'){
+        status(source,'Checking the official AMQ export…');
+        const checked=await host('play-library',{source:'official'});
+        status(source,'Updating coverage counts…');
+        const counts=await inventory(true);
+        if(counts && !counts.coverage)throw Error('Export checked. Coverage counts are temporarily unavailable.');
+        status(source,checked.changed?'Official AMQ export updated.':'Official AMQ export is up to date.');
+      } else if(source==='sheets'){
         const job=await host('play-sheet',manual?{}:undefined);
         running=job.status==='running';
         status(source,running?'Importing · '+job.rows.toLocaleString()+' exports read':
@@ -122,7 +134,7 @@ export function mountPlayLibrary(root, host) {
       busy.delete(source);control.disabled=running;
     }
   }
-  for(const source of sections)button(source).onclick=()=>void update(source,true);
+  for(const source of [...sections,'official'])button(source).onclick=()=>void update(source,true);
   function stopPolling(){for(const timer of timers.values())clearTimeout(timer);timers.clear();}
   return {
     setVisible(visible){

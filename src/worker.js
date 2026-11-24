@@ -33,6 +33,7 @@ import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs,quizImportRows,quizRowAudio } from "../public/quiz-rules.js";
 import {libraryQuery} from '../public/quiz-library-data.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
+import {officialActorName} from './official-reference-store.js';
 import {syncQuizLibraryAnswers} from './quiz-library-sync.js';
 export {QuizLibrary} from './quiz-library-actor.js';
 import { durableRead, storageUnavailableResponse } from "./durable-recovery.js";
@@ -462,7 +463,10 @@ export class Game extends DurableObject {
           () => e.setQuizMakerAccess(actor, b)));
       }
       if(path==='host/play-library'){
-        const inventory=await quizLibraryRequest(this.env,'/play-inventory',post?{}:undefined);
+        const refreshOfficial=post && b.source==='official';
+        const inventory=refreshOfficial
+          ? await quizLibraryRequest(this.env,'/refresh-official',{},undefined,officialActorName)
+          : await quizLibraryRequest(this.env,'/play-inventory',post?{}:undefined);
         if(!inventory)fail('Song library unavailable.',503);
         return json(inventory);
       }
