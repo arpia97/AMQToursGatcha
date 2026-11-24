@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Gacha card purchase receipts
+
+Runtime `c9fd620` deployed as Worker `9949584e-7c79-4866-9f0b-7b409fde10f1`. Shop, marketplace and auction receipts expose Wishlist, Protect, For Trade, Showcase and Favorite. Verified all five writes in a local browser at 390px and 1280px, all 619 tests passed, and the live Gacha shell and three changed assets were verified.
+
 ## Fresh draws on Quiz restart
 
 Runtime `78e8ded` deployed as Worker `275e1b70-b577-481f-9ef9-b54e858d5a7e` at 100% traffic. Manual and Sudden Death restarts draw from the full quiz catalog. Only an identical set triggers a redraw, or an identical order for a 20-song catalog. All 619 tests passed and the live Quiz route returned HTTP 200.
