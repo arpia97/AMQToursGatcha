@@ -200,11 +200,19 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .play-console [data-review-assessment] {border-top:1px solid var(--border);padding-top:18px;margin-bottom:0}
 .play-console [data-review-assessment]>label:has([name=note]) {flex:1 1 200px}
 .play-console .form-hint {margin-top:18px;color:var(--muted)}
-.console-library dl {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
-.console-library dl>div {padding:14px;border:1px solid var(--border);border-radius:7px}
+.console-library-header {display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.console-library-header p,.source-caption {color:var(--muted);font-size:12px}
+.console-library-header dl {margin:0;padding:10px 16px;border:1px solid var(--border);border-radius:8px;background:var(--bg)}
 .console-library dt {font-size:12px;color:var(--muted)}
-.console-library dd {margin:6px 0 0;font-weight:700}
-.console-sync {display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.console-library dd {margin:4px 0 0;font-weight:700;font-size:clamp(17px,2.1vw,25px);font-variant-numeric:tabular-nums}
+.console-library-header dd {color:var(--mint)}
+.console-library-sources {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.console-library-source {display:flex;flex-direction:column;align-items:start;gap:12px;padding:15px;border:1px solid var(--border);border-radius:8px;background:var(--bg)}
+.console-library-source dl {display:flex;flex-wrap:wrap;gap:8px 16px;margin:0}
+.console-library-source [role=status] {color:var(--muted);font-size:12px}
+.console-library-source [role=status]:empty,.console-library [data-inventory-status]:empty {display:none}
+.console-library-source .button {margin-top:auto}
+.console-library [data-inventory-status] {margin-top:12px}
 @media(max-width:720px){
   .play-console .review-match-index,.play-console .review-match-index tbody {display:block}
   .play-console .review-match-index thead {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
@@ -220,7 +228,7 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
   .play-console .review-metric span {display:inline;font-size:11px;color:var(--muted)}
   .play-console .review-list-tools input[type=search] {flex-basis:100%}
   .play-console .review-list-tools .button {margin-left:auto}
-  .console-library dl {grid-template-columns:1fr}
+  .console-library-sources {grid-template-columns:1fr}
 }
 #play-anime-list{border-block:1px solid var(--border);padding:14px 0;margin:14px 0}
 #play-anime-list h3,#play-anime-list p{margin:0}

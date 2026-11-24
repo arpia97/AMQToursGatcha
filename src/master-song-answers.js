@@ -98,7 +98,8 @@ export function indexQuizRecordings(rows) {
     const matches=new Set([...ids].map(id=>winners[root(id)]));
     if(matches.size===1)keys[key]=matches.values().next().value;
   }
-  return {records,rows,keys};
+  const recordingIds=rows.map((_,id)=>winners[root(id)]);
+  return {records,rows,keys,recordingIds};
 }
 
 export function masterImportAnswers(snapshot,rows){

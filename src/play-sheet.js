@@ -166,8 +166,8 @@ export class SheetRefresh {
 }
 export function currentSheet(env){
   let snapshot=null,next=0,pending;
-  return async()=>{
-    if(snapshot&&Date.now()<next)return snapshot;
+  return async(force=false)=>{
+    if(!force&&snapshot&&Date.now()<next)return snapshot;
     if(!pending)pending=(async()=>{
       let update;
       try{update=await sheetActor(env)?.sheetSnapshot(snapshot?.version);}

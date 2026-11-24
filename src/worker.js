@@ -370,7 +370,7 @@ export class Game extends DurableObject {
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && path!=='host/play-library' && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -460,6 +460,11 @@ export class Game extends DurableObject {
         const actor = hostTokenValid ? "host-token" : e.hostIdentity(sessionHash);
         return json(e.mutate("host:quiz-maker-access", request.headers.get("Idempotency-Key"), {actor, player:b.player, enabled:b.enabled},
           () => e.setQuizMakerAccess(actor, b)));
+      }
+      if(path==='host/play-library'){
+        const inventory=await quizLibraryRequest(this.env,'/play-inventory',post?{}:undefined);
+        if(!inventory)fail('Song library unavailable.',503);
+        return json(inventory);
       }
       if(path==='host/play-sheet'){
         const actor=sheetActor(this.env);

@@ -56,6 +56,8 @@ export class QuizLibrary extends DurableObject {
       const path = new URL(request.url).pathname;
       if (request.method === "GET" && path === "/status")
         return Response.json(await this.core.status());
+      if(path==='/play-inventory'&&['GET','POST'].includes(request.method))
+        return Response.json(await this.play.inventory(request.method==='POST'));
       if(request.method==='GET' && path==='/play-catalog')return Response.json(await this.play.catalog());
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });

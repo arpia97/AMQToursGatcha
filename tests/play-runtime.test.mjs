@@ -147,6 +147,7 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   const lib=new PlayLibrary(core,undefined,previous=>previous===version?null:{version,rows:version==='v1'?rows:[]});
   lib.verifiedSource=async url=>url;
   const catalog=await lib.catalog();
+  assert.deepEqual(await lib.inventory(),{total:5,sheets:2,quiz:3,amqPlus:3,sheetsAdded:1,quizAdded:1});
   for(const name of ['Solo Name','Alias Name','Nested Member','Seed Member'])assert.ok(catalog.artist.includes(name));
   assert.deepEqual(catalog.coverage,{playableRecordings:5,sheetAdded:1,quizAdded:1,seedArtistNames:1});
   assert.ok(catalog.anime.includes('Metadata only'));
@@ -154,7 +155,8 @@ test('integrated catalogue samples sheet-only and published recordings and updat
   assert.deepEqual(sample.songs.map(s=>s.anime).sort(),['Plus 3','Quiz 2','Quiz 5','Sheet 1','Sheet 4']);
   assert.deepEqual(sample.songs.find(song=>song.anime==='Sheet 1').animeTitles,['Sheet 1','Sheet 1: Encore!']);
   assert.equal((await lib.load()).ngmcRows.length,5);
-  version='v2';lib.nextCheck=0;
+  version='v2';
+  assert.equal((await lib.inventory(true)).quiz,0,'Manual inventory refresh bypasses the quiz recheck interval');
   const refreshed=await lib.catalog();
   assert.notEqual(refreshed.version,catalog.version);
   assert.equal(refreshed.coverage.playableRecordings,4);
@@ -215,6 +217,12 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   };
   const host=await connect(0),visitor=await connect(1);
   assert.equal((await mf.dispatchFetch(base+'/api/host/play-sheet',{headers:{Cookie:cookies[0]}})).status,401);
+  const inventoryURL=base+'/api/host/play-library';
+  assert.equal((await mf.dispatchFetch(inventoryURL,{headers:{Cookie:cookies[0]}})).status,401);
+  const inventoryResponse=await mf.dispatchFetch(inventoryURL,{headers:{Authorization:'Bearer local-only-test-host-token-123456789'}});
+  assert.equal(inventoryResponse.status,200);
+  const inventory=await inventoryResponse.json();
+  assert.ok(inventory.total>=inventory.amqPlus && inventory.amqPlus>0);
   const listUpdate=(body,cookie)=>mf.dispatchFetch(base+'/api/play-anime-list',{method:'POST',headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify(body)});
   const listBody={provider:'myanimelist',username:'https://myanimelist.net/animelist/Local'};
   assert.equal((await listUpdate(listBody)).status,401);
