@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Link-only Song/Artist event quizzes
+
+Play Quiz has an Event tab. Shared event links open an unlisted pool for signed-out or signed-in players. Artist grading reuses the multiplayer matcher. The first event has 37 verified audio samples served through the private EVENT_CLIPS binding. Host registration and source data stay outside the public catalog. Runtime commits `986272e` and `a168a43` deployed as `e18e7373-eb0a-490b-a877-ba1e94a9b83a`. All 634 tests passed. Browser checks verified the lobby and public tab in production and a full scored run locally. All 37 production clips matched their source sample headers.
+
 ## Numeric rig totals on Match Complete
 
 The Rigs column displays numeric counts, including zero. Runtime `a1c0a96` deployed as `8c7cbedf-d3f1-4f3a-b1bb-2011692503ea`. The local NGMC fixture verified all eight results and the production asset matched the checked source.
