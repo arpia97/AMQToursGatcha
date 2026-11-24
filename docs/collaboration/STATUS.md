@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song Library recovers during rollout
+
+Runtime `eea8e0d` deployed to the original Worker as `85cf0b7e-0a67-44c2-80e7-f5304fb6204d`. The previous database actor returned 405 until it adopted the release. Song Library now shows an updating message and retries count reads automatically during this transition. Verified recovery on desktop and mobile with a simulated first-request 405, verified the production assets and authorization, and confirmed an authenticated production inventory response of 34,751 distinct recordings.
+
 ## Play song inventory and source updates
 
 Runtime `c4bf0da` deployed to the original Worker as `a494d0db-80fd-4a0e-b06c-0b975637cd46`. The Play Host Console Song Library shows distinct recording counts for each source and the deduplicated total. Sheets gets credit for recordings missing from AMQ+, and Quiz gets credit for recordings missing from both. Each source has its own update control. All 628 tests passed, and local desktop and mobile browser checks exercised the three controls. Verified the live shell, four changed assets and the inventory endpoint's signed-out access rejection. Production source refreshes can be run from the console.
