@@ -22,14 +22,15 @@ export function packCardActions(card, state, escape, options = {}) {
   }, escape, [...(isAutoSold || !state.inventory?.some(i => i.card === id) ? ["protect", "showcase"] : []), ...(favorite === undefined ? ["favorite"] : [])]) : ""}</div>`;
 }
 
-// Update every copy of a pulled card without replacing the card or its animation.
+// Refresh preferences in purchase receipts and on every copy in a pack opening.
 export function syncPackCardActions(root, state) {
-  for (const group of root.querySelectorAll("[data-pack-card]")) {
+  for (const group of root.querySelectorAll("[data-pack-card], [data-acquired-card]")) {
     const isAutoSold = group.dataset.autoSold === "1";
-    const id = group.dataset.packCard;
+    const id = group.dataset.packCard ?? group.dataset.acquiredCard;
     const owned = !isAutoSold && state.inventory?.find(item => item.card === id);
     for (const [action, pressed] of Object.entries({
       protect: !!owned?.protected,
+      trade: !!owned?.for_trade,
       showcase: !!owned && !!state.showcase?.includes(id),
       wishlist: !!state.wishlist?.includes(id),
       favorite: !!state.cardFavorites?.includes(id),
@@ -37,7 +38,7 @@ export function syncPackCardActions(root, state) {
       const button = group.querySelector(`[data-action="${action}-toggle"]`);
       if (!button) continue;
       button.setAttribute("aria-pressed", String(pressed));
-      if (action === "protect" || action === "showcase") button.disabled = !owned;
+      if (action === "protect" || action === "trade" || action === "showcase") button.disabled = !owned;
       if (action === "favorite") button.disabled = cardFavoriteFlag(state,id) === undefined;
     }
   }

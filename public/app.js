@@ -85,7 +85,7 @@ import {
 import { createAlchemyUI } from "./alchemy-ui.js";
 import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
-import { createPackReveal, syncPackCardActions } from "./pack-reveal.js";
+import { createPackReveal, syncPackCardActions as syncAcquiredCardActions } from "./pack-reveal.js?v=acquired-cards";
 import { createFeatures } from "./features.js?v=sell-wishlists";
 import { installInboxDropdown } from "./inbox-dropdown.js";
 import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js?v=play-quiz-links";
@@ -577,6 +577,8 @@ function revealAcquired(result, title = "A New Favourite Is Yours.") {
     toast(result.message);
     return;
   }
+  const owned = state.inventory?.find(item => item.card === c.id && item.copies > 0);
+  const preferences = owned ? ownedCardPreferences(c, owned, true) : "";
   modal(
     '<section class="pack-results acquisition"><div class="pull-label">ADDED TO YOUR COLLECTION</div><h2>' +
       escape(title) +
@@ -588,7 +590,8 @@ function revealAcquired(result, title = "A New Favourite Is Yours.") {
         copies: 1,
         preview: true,
       }) +
-      '</div><a class="button mint" href="' + routeHref("collection") + '" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
+      `</div><div class="acquisition-preferences" data-acquired-card="${escape(c.id)}">${preferences}</div>` +
+      '<a class="button mint" href="' + routeHref("collection") + '" data-close-dialog>View my collection ↗</a><button class="text-button" data-close-dialog>Keep exploring</button></section>',
   );
   if ($("#modal").open) markTradeNoticesSeen(result.noticeIds);
 }
@@ -657,15 +660,18 @@ function cardFlags(c) {
     wishlisted: (state?.wishlist || []).includes(c.id),
   };
 }
-function ownedCardActions(c, item) {
-  const id = escape(c.id), cost = enhancementCost(item.level), maxed = item.level >= MAX_CARD_LEVEL;
-  const showcased = state.showcase?.includes(c.id) ?? false;
-  const toggles = cardQuickActions(c, {
+function ownedCardPreferences(c, item, includeShowcase = false) {
+  return cardQuickActions(c, {
     wishlist: state.wishlist?.includes(c.id) ?? false,
     protect: !!item.protected,
     trade: !!item.for_trade,
-    favorite: cardFavoriteFlag(state,c.id),
+    showcase: includeShowcase ? !!state.showcase?.includes(c.id) : undefined,
+    favorite: cardFavoriteFlag(state, c.id),
   }, escape);
+}
+function ownedCardActions(c, item) {
+  const id = escape(c.id), cost = enhancementCost(item.level), maxed = item.level >= MAX_CARD_LEVEL;
+  const showcased = state.showcase?.includes(c.id) ?? false;
   return `<div class="card-copy-info"><span>${item.copies - 1} Extra Copies</span><span>${maxed ? "MAX" : cost + " to Enhance"}</span></div>
     <div class="card-action-grid owned-card-grid">
       <button class="bid-button" data-action="enhance" data-id="${id}" ${maxed || item.copies - 1 < cost ? "disabled" : ""}>${maxed ? "MAX" : "Enhance → " + (item.level + 1 === MAX_CARD_LEVEL ? "MAX" : item.level + 1)}</button>
@@ -673,7 +679,7 @@ function ownedCardActions(c, item) {
       <button type="button" class="text-button" data-action="showcase-toggle" data-id="${id}" aria-pressed="${showcased}">Showcase</button>
       <button class="text-button" data-action="sell-card" data-id="${id}" ${item.protected ? "disabled" : ""}>List Card ↗</button>
       ${collectorsButton(c, escape)}
-    </div>${toggles}`;
+    </div>${ownedCardPreferences(c, item)}`;
 }
 function cardHTML(c, a = null, item = null, extraActions = "", { packResult = false } = {}) {
   const mine = a?.winner === state.me?.id,
@@ -1319,11 +1325,11 @@ const packReveal = createPackReveal({
   getState: () => state,
 });
 async function saveCardAction(path, body, t) {
-  if (!t.closest("[data-pack-card]"))
+  if (!t.closest("[data-acquired-card], [data-pack-card]"))
     return execute(path, body, (result) => toast(result.message));
   if (busy) return;
   const root = $("#modal");
-  const buttons = [...root.querySelectorAll("[data-pack-card] button")].map(
+  const buttons = [...root.querySelectorAll(":is([data-acquired-card], [data-pack-card]) button")].map(
     (button) => ({ button, disabled: button.disabled }),
   );
   buttons.forEach(({ button }) => { button.disabled = true; });
@@ -1331,7 +1337,7 @@ async function saveCardAction(path, body, t) {
     return await execute(path, body, (result) => toast(result.message));
   } finally {
     buttons.forEach(({ button, disabled }) => { button.disabled = disabled; });
-    syncPackCardActions(root, state);
+    syncAcquiredCardActions(root, state);
     packReveal.syncSaleButton(root);
     syncCardFlags(root, cardFlags);
   }
