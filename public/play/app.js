@@ -6,7 +6,7 @@ import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
 import {ARENA_FORMAT} from '../play-arena-config.js';
-import { PLAY_MODES, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=play-quiz-links";
+import { PLAY_MODES, playPage, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=host-page";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "../quiz-title-display.js";
 import { readApiResponse } from "../api-response.js";
@@ -50,6 +50,7 @@ let rankingFormat = "ngmc-ranked", rankingPage = 0, rankingPool = 'random';
 try{if(localStorage.getItem('amqtours-play-ranking-pool')==='watched')rankingPool='watched';}catch{}
 let rankingSort='rank',rankingDirection='asc',rankingFriendsOnly=false;
 let linkedQuiz = null;
+let closeConsole;
 let viewVersion = 0, quiz, songArtist, accountError = "", titleMode = "romaji", toastTimer;
 try { if (storage.getItem("amqtours-title-mode") === "english") titleMode = "english"; } catch {}
 
@@ -84,6 +85,7 @@ function avatarHTML(me = state.me, card = state.avatar) {
 const accountMenu = installPlayAccountMenu({ $, api, modal, escape, number, avatarHTML, gachaHref, state: () => state });
 function header() {
   accountMenu.sync();
+  for(const link of document.querySelectorAll('[data-host-page]'))link.hidden=!state.me?.is_admin;
 }
 function account() {
   if (!state.me) { if (accountError) toast(accountError); auth(); return; }
@@ -178,7 +180,7 @@ function stopWatching(){
   watchView.close();watchView=null;
   $('#play-watch').hidden=true;
   $('#main').hidden=false;
-  $('.play-live').hidden=mode==='overview';
+  $('.play-live').hidden=mode==='overview'||mode==='host';
   if(watchOpener?.isConnected)watchOpener.focus({preventScroll:true});
   watchOpener=null;
   void refreshLive(true);
@@ -231,7 +233,7 @@ function showQueue(status){
   clearInterval(queueTimer);
   if(!format){
     if(wasQueued&&!multiplayerRoot.isConnected)queueMicrotask(()=>{
-      if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'))songArtist?.leave();
+      if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'||mode==='host'))songArtist?.leave();
     });
     return;
   }
@@ -307,9 +309,9 @@ function createQuizController(createQuizUI) {
   });
 }
 function nav() {
-  document.title = PLAY_MODES.find((item) => item.id === mode).name + " · AMQ Tours Play";
-  document.body.classList.toggle("play-viewport", mode !== "quiz" && mode !== "rankings");
-  $('.play-live').hidden=mode==='overview';
+  document.title = playPage(mode).name + " · AMQ Tours Play";
+  document.body.classList.toggle("play-viewport", !["quiz","rankings","host"].includes(mode));
+  $('.play-live').hidden=mode==='overview'||mode==='host';
   const link = (item, compact = false) => '<a ' +
     (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') +
     (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) +
@@ -318,6 +320,9 @@ function nav() {
   $("#play-nav").innerHTML = PLAY_MODES.map(item => link(item)).join("");
   $("#play-mobile-primary").innerHTML = PLAY_MODES.filter(item => mobileTabs.has(item.id)).map(item => link(item, true)).join("");
   $("#play-mobile-links").innerHTML = PLAY_MODES.filter(item => !item.disabled && !mobileTabs.has(item.id)).map(item => link(item)).join("");
+  for(const item of document.querySelectorAll('[data-host-page]')){
+    if(mode==='host')item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');
+  }
   moreButton.toggleAttribute("data-current", !mobileTabs.has(mode));
   if (mobileMenu.open) mobileMenu.close();
 }
@@ -342,7 +347,7 @@ async function resumeBackgroundQueue(version){
   if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved.format),saved);
 }
 async function openMode(id, push = true) {
-  const requested = PLAY_MODES.find(item => item.id === id);
+  const requested = playPage(id);
   if (!requested) return;
   if (requested.disabled) {
     id = playRoute("/play");
@@ -356,6 +361,7 @@ async function openMode(id, push = true) {
     }
   }
   const version = ++viewVersion;
+  closeConsole?.(); closeConsole=null;
   stopWatching();
   overview?.close();overview=null;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
@@ -365,10 +371,20 @@ async function openMode(id, push = true) {
   if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
   nav();
   if(id!=='rankings'||!$('#ranking-results'))
-    $("#main").innerHTML = '<p class="loading">' + (id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":id==='overview'?'Loading Overview…':"Loading Matchmaking…") + '</p>';
+    $("#main").innerHTML = '<p class="loading">' + (id === "host" ? "Loading Host Console…" : id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":id==='overview'?'Loading Overview…':"Loading Matchmaking…") + '</p>';
   try {
-    if(['overview','rankings','quiz'].includes(id))resumeBackgroundQueue(version).catch(fail);
-    if(id==='overview'){
+    if(['overview','rankings','quiz','host'].includes(id))resumeBackgroundQueue(version).catch(fail);
+    if(id==='host'){
+      await accountReady;
+      if(version!==viewVersion)return;
+      if(!state.me?.is_admin){
+        $('#main').innerHTML='<section class="play-quiz-error"><h1>Play Host Console</h1><p>Host access is required.</p>'+
+          (state.me?'':'<button class="button mint" data-action="account">Sign In</button>')+'</section>';
+        return;
+      }
+      const {mountPlayConsole}=await import('../play-console.js?v=host-page');
+      if(version===viewVersion)closeConsole=mountPlayConsole($('#main'),api,escape,format=>labels[format]||format);
+    } else if(id==='overview'){
       const [mount]=await Promise.all([loadOverview(),accountReady]);
       if(version!==viewVersion)return;
       const join=(format,pool)=>{
@@ -415,7 +431,7 @@ async function openMode(id, push = true) {
     }
   } catch (error) {
     if (version !== viewVersion) return;
-    const title = PLAY_MODES.find(item => item.id === id).name;
+    const title = playPage(id).name;
     const panel=id==='rankings' && $('#ranking-results');
     (panel || $("#main")).innerHTML = '<section class="play-quiz-error">' + (panel?'':'<h1>'+escape(title)+'</h1>') + '<p>' + escape(error.message) + '</p><button class="button secondary" data-action="retry-mode">Retry</button></section>';
   }
@@ -533,7 +549,10 @@ document.addEventListener("click", async (event) => {
       await openMode(mode,false);
     } else if (button.classList.contains("dialog-close")) $("#modal").close();
     else if (action === "account") account();
-    else if(action==="play-console" && state.me?.is_admin)await (await import("../play-console.js?v=player-flags")).openPlayConsole(modal,api,escape);
+    else if(action==="play-console" && state.me?.is_admin){
+      $('#modal').close();
+      await openMode('host');
+    }
     else if (action === "settings") settings();
     else if (action === "signin-form") auth();
     else if (action === "register-form") auth("register");

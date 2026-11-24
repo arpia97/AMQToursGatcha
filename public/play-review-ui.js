@@ -1,7 +1,17 @@
 import {timelineHTML,showTimelineAnswer} from './play-review-timeline.js?v=player-flags';
 
-export const playReviewPanel=()=>`<section class="host-panel play-review"><h2>Multiplayer Match Review</h2><p class="form-hint">Highlights are for host review. Focus changes are browser-reported. All timings use server receipt times.</p><div class="play-review-tools"><input type="search" data-review-search placeholder="Search player name, ID or match ID…" aria-label="Search matches"><label><input type="checkbox" data-review-flagged> Flagged matches only</label><button type="button" class="button secondary" data-review-refresh>Refresh</button></div><div data-review-matches></div><div data-review-detail></div><p data-review-error role="status"></p></section>`;
-export function mountPlayReview(root,initial,api,esc){
+export const playReviewPanel=(page=false)=>`<section class="host-panel play-review">
+  <div data-review-browser><h2>${page?'Match Review':'Multiplayer Match Review'}</h2>
+  <div class="play-review-tools review-list-tools"><input type="search" data-review-search placeholder="Search player name, ID or match ID…" aria-label="Search matches">
+  <label><input type="checkbox" data-review-flagged> Flagged matches only</label>
+  <button type="button" class="button secondary" data-review-refresh>Refresh</button></div>
+  <div data-review-matches></div></div>
+  ${page?'<button type="button" data-review-back class="text-button" hidden>← All matches</button>':''}
+  <div data-review-detail></div><p data-review-error role="status"></p>
+  <p class="form-hint">Focus changes are browser-reported. Times use server receipt. Flags are for host review.</p></section>`;
+
+export function mountPlayReview(root,initial,api,esc,formatName=value=>value){
+  const browser=root.querySelector('[data-review-browser]'),back=root.querySelector('[data-review-back]');
   let index=initial,detail=null,selected='',player='',view='highlights',version=0,searchTimer,round;
   const time=value=>new Date(value).toLocaleString(undefined,{hour12:false})+'.'+String(value%1000).padStart(3,'0');
   const query=values=>'play-review?'+new URLSearchParams(values);
@@ -11,7 +21,21 @@ export function mountPlayReview(root,initial,api,esc){
     return '<strong class="review-count'+(count>0?' review-'+kind:'')+'">'+value+'</strong>';
   }
   function list(){
-    root.querySelector('[data-review-matches]').innerHTML='<div class="table-wrap"><table><thead><tr><th>Started</th><th>Mode</th><th>Players</th><th>Status</th><th>Refocus</th><th>Link Match</th><th>Fast Answers</th><th></th></tr></thead><tbody>'+index.matches.map(m=>'<tr><td>'+esc(time(m.created))+'</td><td>'+esc(m.format)+'</td><td>'+m.players.map(p=>esc(p.name)).join(' · ')+'</td><td>'+esc(m.status)+'</td><td>'+ ['refocus','decoy','fast'].map(kind=>signalCount(kind,m.counts?.[kind]??(m.flags?null:0))).join('</td><td>') +'</td><td><button class="text-button" type="button" data-review-match="'+esc(m.id)+'">Review</button></td></tr>').join('')+'</tbody></table></div>'+(!index.matches.length?'<p>No matches found.</p>':'')+(index.next?'<button class="button secondary" type="button" data-review-older-matches="'+index.next+'">Older Matches</button>':'');
+    const signals=[['refocus','Refocus'],['decoy','Link Match'],['fast','Fast Answers']];
+    const rows=index.matches.map(m=>{
+      const date=new Date(m.created);
+      const counts=signals.map(([kind,label])=>'<td class="review-metric">'+(back?'<span>'+label+'</span>':'')+signalCount(kind,m.counts?.[kind]??(m.flags?null:0))+'</td>').join('');
+      return '<tr><td class="review-mode"><strong>'+esc(formatName(m.format))+'</strong><small>'+esc(m.status)+'</small></td>'+
+        '<td class="review-date">'+esc(date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}))+
+        '<small>'+esc(date.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'}))+'</small></td>'+
+        '<td class="review-roster">'+m.players.map(p=>esc(p.name)).join(' · ')+'</td>'+counts+
+        '<td class="review-open"><button class="text-button" type="button" data-review-match="'+esc(m.id)+'">Review</button></td></tr>';
+    }).join('');
+    root.querySelector('[data-review-matches]').innerHTML=(!rows?'<p>No matches found.</p>':
+      '<div class="table-wrap"><table class="review-match-index"><thead><tr><th>Match</th><th>Started</th><th>Players</th>'+
+      signals.map(([,label])=>'<th>'+label+'</th>').join('')+'<th aria-label="Actions"></th></tr></thead><tbody>'+rows+'</tbody></table></div>')+
+      (index.next?'<button class="button secondary" type="button" data-review-older-matches="'+index.next+'">Older Matches</button>':'');
+
   }
   function trackText(track){
     return [track.song,track.artist,track.anime].filter(Boolean).map(esc).join(' · ');
@@ -70,7 +94,8 @@ export function mountPlayReview(root,initial,api,esc){
     const names=new Map(detail.players.map(p=>[p.id,p.name]));
     const scroll = root.querySelector('.review-timeline-songs')?.scrollLeft ?? 0;
     const restoreSongFocus = document.activeElement?.matches('[data-review-round]') && root.contains(document.activeElement);
-    root.querySelector('[data-review-detail]').innerHTML='<div class="play-review-tools"><div><h3>'+esc(detail.format)+' · Match Review</h3><small>'+esc(detail.id)+'</small></div><label>Player<select data-review-player><option value="">All Players</option>'+detail.players.map(p=>'<option value="'+esc(p.id)+'" '+(player===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select></label><button class="button secondary" type="button" data-review-latest>Refresh</button></div>'+assessment()+'<div class="play-review-tools" aria-label="Review view">'+['highlights','timeline','events'].map(v=>'<button class="button secondary" type="button" data-review-view="'+v+'" aria-pressed="'+(v===view)+'">'+({highlights:'Highlights',timeline:'Timeline',events:'Full log'}[v])+'</button>').join('')+'</div>'+(detail.highlights?highlights(names):view==='timeline'?timelineHTML(detail.timeline,names,esc):'<div class="table-wrap"><table><thead><tr><th>Server Time</th><th>Player</th><th>Song / Phase</th><th>Event</th><th>Answer / Activity</th></tr></thead><tbody>'+detail.events.map(row=>'<tr><td>'+esc(time(row.at))+(row.data.clientAt?'<small>Client: '+esc(time(row.data.clientAt))+'</small>':'')+'</td><td>'+esc(names.get(row.player)||row.player||'Server')+'</td><td>'+row.data.round+' · '+esc(row.data.phase)+'</td><td>'+esc(row.kind)+'</td><td>'+eventText(row)+'</td></tr>').join('')+'</tbody></table></div>'+(detail.next?'<button class="button secondary" type="button" data-review-older-events="'+detail.next+'">Older Events</button>':''));
+    root.querySelector('[data-review-detail]').innerHTML='<div class="play-review-tools"><div><h3>'+esc(formatName(detail.format))+' · Match Review</h3><small>'+esc(detail.id)+'</small></div><label>Player<select data-review-player><option value="">All Players</option>'+detail.players.map(p=>'<option value="'+esc(p.id)+'" '+(player===p.id?'selected':'')+'>'+esc(p.name)+'</option>').join('')+'</select></label><button class="button secondary" type="button" data-review-latest>Refresh</button></div>'+(back?'':assessment())+'<div class="play-review-tools" aria-label="Review view">'+['highlights','timeline','events'].map(v=>'<button class="button secondary" type="button" data-review-view="'+v+'" aria-pressed="'+(v===view)+'">'+({highlights:'Highlights',timeline:'Timeline',events:'Full log'}[v])+'</button>').join('')+'</div>'+(detail.highlights?highlights(names):view==='timeline'?timelineHTML(detail.timeline,names,esc):'<div class="table-wrap"><table><thead><tr><th>Server Time</th><th>Player</th><th>Song / Phase</th><th>Event</th><th>Answer / Activity</th></tr></thead><tbody>'+detail.events.map(row=>'<tr><td>'+esc(time(row.at))+(row.data.clientAt?'<small>Client: '+esc(time(row.data.clientAt))+'</small>':'')+'</td><td>'+esc(names.get(row.player)||row.player||'Server')+'</td><td>'+row.data.round+' · '+esc(row.data.phase)+'</td><td>'+esc(row.kind)+'</td><td>'+eventText(row)+'</td></tr>').join('')+'</tbody></table></div>'+(detail.next?'<button class="button secondary" type="button" data-review-older-events="'+detail.next+'">Older Events</button>':''));
+    if(back)root.querySelector('[data-review-detail]').insertAdjacentHTML('beforeend',assessment());
     const songs = root.querySelector('.review-timeline-songs');
     const selectedSong = songs?.querySelector('[aria-pressed="true"]');
     if (selectedSong) {
@@ -92,7 +117,7 @@ export function mountPlayReview(root,initial,api,esc){
       root.querySelector('[data-review-error]').textContent='Checking retained match events…';
     } while(root.isConnected);
     if(root.isConnected){
-      const match=index.matches.find(m=>m.id===selected);
+      const match=index?.matches.find(m=>m.id===selected);
       if(match && result.highlights && !player){
         match.counts=result.highlights.counts;
         match.flags=result.highlights.total;
@@ -107,7 +132,15 @@ export function mountPlayReview(root,initial,api,esc){
     if(e.target.matches('[data-review-player]')){player=e.target.value;loadEvents();}
   });
   root.addEventListener('click',e=>{const button=e.target.closest('button');if(!button)return;
-    if(button.dataset.reviewMatch){detail=null;root.querySelector('[data-review-detail]').replaceChildren();selected=button.dataset.reviewMatch;player='';round=undefined;view='highlights';loadEvents();}
+    if(button.hasAttribute('data-review-back')){
+      ++version;const previous=selected;selected='';detail=null;
+      root.querySelector('[data-review-detail]').replaceChildren();
+      root.querySelector('[data-review-error]').textContent='';
+      back.hidden=true;browser.hidden=false;
+      browser.querySelector('[data-review-match="'+CSS.escape(previous)+'"]')?.focus();
+      return;
+    }
+    if(button.dataset.reviewMatch){clearTimeout(searchTimer);if(back){browser.hidden=true;back.hidden=false;back.focus();}detail=null;root.querySelector('[data-review-detail]').replaceChildren();selected=button.dataset.reviewMatch;player='';round=undefined;view='highlights';loadEvents();}
     else if(button.dataset.reviewView){view=button.dataset.reviewView;loadEvents();}
     else if(button.dataset.reviewContext){view='events';player=button.dataset.player;loadEvents(Number(button.dataset.reviewContext)+1);}
     else if(button.dataset.reviewRound && button.getAttribute('aria-pressed') !== 'true'){
@@ -124,5 +157,5 @@ export function mountPlayReview(root,initial,api,esc){
     else if(button.hasAttribute('data-review-refresh'))loadMatches();
     else if(button.dataset.reviewOlderMatches)loadMatches(button.dataset.reviewOlderMatches);
   });
-  list();
+  if(initial)list();else void loadMatches();
 }

@@ -11,10 +11,13 @@ export const PLAY_MODES = Object.freeze([
   { id: "quiz", name: "Quiz", short: "Quiz", icon: "M9 18V5l12-2v13M9 7l12-2M9 18c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2ZM21 16c0 2-2 3-4 3s-3-1-3-2 2-3 4-3 3 1 3 2Z" },
   { id: "rankings", name: "Rankings", short: "Rankings", icon: "M4 21V12h4v9m2 0V4h4v17m2 0V9h4v12" },
 ]);
+const hostPage = {id:'host', name:'Play Host Console'};
+export const playPage = id => id === 'host' ? hostPage : PLAY_MODES.find(item => item.id === id);
+
 export function playRoute(pathname) {
   if (pathname === "/play" || pathname === "/play/") return "overview";
   const id = pathname.replace(/\/$/, "").slice("/play/".length);
-  return pathname.startsWith("/play/") && PLAY_MODES.some((mode) => mode.id === id) ? id : null;
+  return pathname.startsWith("/play/") && playPage(id) ? id : null;
 }
 export const playHref = (id) => "/play/" + id;
 export function playQuizHref(quiz) {
