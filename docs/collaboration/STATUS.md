@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Official AMQ coverage refresh
+
+Play Host Console → Song Library → Update Official AMQ checks the official master list. When AMQ refuses the Worker request, the console uses the project reference verified by the six-hour GitHub Actions sync. The active reference, source verification time, and host check time persist. Source version or content changes invalidate the coverage counts. Runtime through `20ca04c` was pushed and deployed as `d2d77d47-7aae-469b-b9c7-19fc847ba823`. All 630 tests passed. The production button was verified with export `20261113150503-187`, including the synced-reference path and all five counts.
+
 ## Quiz-first Play song catalog
 
 Runtime `27095ac` deployed to the original Worker as `df5df4e3-2b9c-4af3-9e2d-c0e1b2d36571`. Published Quiz recordings take priority, followed by Google Sheets and AMQ+. The same recording identities drive gameplay grouping and Song Library contribution counts. All 628 tests passed, including linked duplicates, Quiz metadata and audio priority, fallback audio, unpublished Quiz fallback, and Dub exclusion. Verified the desktop and mobile console locally and confirmed the new catalog version live. The authenticated production inventory returned 34,752 combined recordings, with 8,033 attributed to Quiz, 20,780 to Sheets, and 5,939 to AMQ+.
