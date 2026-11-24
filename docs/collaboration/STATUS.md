@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz-first Play song catalog
+
+Runtime `27095ac` deployed to the original Worker as `df5df4e3-2b9c-4af3-9e2d-c0e1b2d36571`. Published Quiz recordings take priority, followed by Google Sheets and AMQ+. The same recording identities drive gameplay grouping and Song Library contribution counts. All 628 tests passed, including linked duplicates, Quiz metadata and audio priority, fallback audio, unpublished Quiz fallback, and Dub exclusion. Verified the desktop and mobile console locally and confirmed the new catalog version live. The authenticated production inventory returned 34,752 combined recordings, with 8,033 attributed to Quiz, 20,780 to Sheets, and 5,939 to AMQ+.
+
 ## Song Library recovers during rollout
 
 Runtime `eea8e0d` deployed to the original Worker as `85cf0b7e-0a67-44c2-80e7-f5304fb6204d`. The previous database actor returned 405 until it adopted the release. Song Library now shows an updating message and retries count reads automatically during this transition. Verified recovery on desktop and mobile with a simulated first-request 405, verified the production assets and authorization, and confirmed an authenticated production inventory response of 34,751 distinct recordings.
