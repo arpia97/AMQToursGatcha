@@ -1,4 +1,4 @@
-import {libraryPanel,mountPlayLibrary} from './play-library-ui.js?v=inventory-retry';
+import {libraryPanel,mountPlayLibrary} from './play-library-ui.js?v=quiz-first';
 import {playReviewPanel,mountPlayReview} from './play-review-ui.js?v=host-page';
 
 export function mountPlayConsole(main,api,esc,formatName){

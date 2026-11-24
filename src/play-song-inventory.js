@@ -4,6 +4,8 @@ const AMQ_PLUS=1, SHEETS=2, QUIZ=4;
 
 // Match across sources using the same recording identifiers and metadata
 // lookups as Play. Keep inventory counts independent of audio eligibility.
+export const PLAY_SONG_SOURCE_ORDER='quiz-sheets-amq-plus';
+
 export function playSongInventory(master, quizzes) {
   const sheets=master.records.map(()=>({sources:SHEETS}));
   const quiz=new Map();
@@ -36,17 +38,21 @@ export function playSongInventory(master, quizzes) {
       const record=amqPlus.get(key);
       link(record,sheets[sheetId]);
       link(record,quiz.get(quizId));
+      return record;
     },
+    sheet:id=>sheets[id],
+    quiz:id=>quiz.get(id),
+    root,
     counts(){
-      let total=0,sheetsAdded=0,quizAdded=0;
+      let total=0,quizAdded=0,sheetsAdded=0,amqPlusAdded=0;
       for(const source of [amqPlus.values(),sheets,quiz.values()])for(const record of source){
         if(record.parent)continue;
         total++;
-        if(record.sources&AMQ_PLUS)continue;
-        if(record.sources&SHEETS)sheetsAdded++;
-        else quizAdded++;
+        if(record.sources&QUIZ)quizAdded++;
+        else if(record.sources&SHEETS)sheetsAdded++;
+        else amqPlusAdded++;
       }
-      return {total,sheets:sheets.length,quiz:quiz.size,amqPlus:amqPlus.size,sheetsAdded,quizAdded};
+      return {sourceOrder:PLAY_SONG_SOURCE_ORDER,total,sheets:sheets.length,quiz:quiz.size,amqPlus:amqPlus.size,quizAdded,sheetsAdded,amqPlusAdded};
     },
   };
 }

@@ -1,5 +1,5 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
-import {playSongInventory} from './play-song-inventory.js';
+import {PLAY_SONG_SOURCE_ORDER, playSongInventory} from './play-song-inventory.js';
 import {ONE_TEAM_MODE} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
@@ -19,11 +19,11 @@ function isDubRecording(row) {
     [row.annSongId, ...(row.sourceIds?.annSongIds || [])].some(id => dubAnnIds.has(Number(id))) ||
     [row.amqSongId, ...(row.sourceIds?.amqSongIds || [])].some(id => dubAmqIds.has(Number(id))));
 }
-function eligibleSheetRecord(master, dubSheet, id) {
-  return dubSheet.has(id) || isDubRecording(sheetRecording(master,id)) ? undefined : id;
-}
-function eligibleQuizRecord(quizzes, id) {
-  return isDubRecording(quizzes.rows[id]) ? undefined : id;
+function preferRecord(index,current,candidate) {
+  if(candidate===undefined)return current;
+  if(current===undefined)return candidate;
+  const difference=index.records[candidate][0]-index.records[current][0];
+  return difference>0||difference===0&&candidate<current?candidate:current;
 }
 
 export class PlayLibrary {
@@ -62,10 +62,10 @@ export class PlayLibrary {
     const [artist,creditedNames]=await Promise.all([
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
     ]);
-    const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames,...artistAliasLabels]),playable=new Map(),withAudio=new Map(),ngmcRows=[];
+    const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames,...artistAliasLabels]),playable=new Map(),ngmcRows=[];
     const occurrenceAnime=new Map(), linkedAnime=new Map();
     for(const [ann,[myanimelist,anilist]] of Object.entries(master.animeLinks||{}))linkedAnime.set(Number(ann),{myanimelist,anilist});
-    const extras=new Map(), officialById=new Map(), matchedSheet=new Set(),matchedQuiz=new Set(),alternates=new Map();
+    const extras=new Map(), officialById=new Map(), amqOccurrences=[];
     const dubSheet = new Set();
     for (const id of dubAnnIds) dubSheet.add(master.keys['n:'+id]);
     for (const id of dubAmqIds) dubSheet.add(master.keys['a:'+id]);
@@ -77,71 +77,103 @@ export class PlayLibrary {
       if(ann)officialById.set('n:'+ann,meta);
       songs.add(title);artists.add(performer);for(const value of titles)anime.add(value);
     }
-    function add(row,sheetId,quizId,extra=false){
-      const sheet=sheetId===undefined?null:sheetRecording(master,sheetId), quiz=quizzes.rows[quizId];
-      const titles=sheetId!==undefined?master.records[sheetId].slice(1):quiz?.answers||row.titles||[];
-      for(const title of titles)anime.add(title);
-      if(row.title)songs.add(row.title);
-      if(row.artist)artists.add(row.artist);
-      for(const name of row.artistNames||[])artists.add(name);
-      const title=sheet?.title||quiz?.title||row.title,performer=sheet?.artist||quiz?.artist||row.artist;
-      if(title)songs.add(title);if(performer)artists.add(performer);
-      const source=playAudioSource(sheet?.audio)||playAudioSource(quiz?.audio)||playAudioSource(row.audio);
-      if(!title||!performer||!titles.length||!source||isDubRecording(row)||dubAudio(source))return;
-      const key=sheetId!==undefined?'sheet:'+sheetId:quizId!==undefined?'quiz:'+quizId:String(row.amqSongId||source);
-      if(!playable.has(key)){playable.set(key,[]);withAudio.set(key,source);}
-      for(const url of [quiz?.audio,row.audio]){
-        if(!url||url.split('/').pop()===withAudio.get(key).split('/').pop()||!playAudioSource(url)||dubAudio(url))continue;
-        if(!alternates.has(key))alternates.set(key,new Set());
-        alternates.get(key).add(url);
+    function occurrences(group,row,id) {
+      group.ids.push(id);
+      const annId=row.annId||row.sourceIds?.annIds?.[0];
+      if(!annId)return;
+      occurrenceAnime.set(id,annId);
+      if(row.linkedIds?.myanimelist || row.linkedIds?.anilist){
+        const prior=linkedAnime.get(annId);
+        linkedAnime.set(annId,{myanimelist:row.linkedIds.myanimelist||prior?.myanimelist,anilist:row.linkedIds.anilist||prior?.anilist});
       }
-      if(sheetId!==undefined)matchedSheet.add(sheetId);
-      if(quizId!==undefined)matchedQuiz.add(quizId);
-      const id=extra?-(extras.size+1):row.annSongId;
-      if(extra)extras.set(id,row);
-      playable.get(key).push(id);
-      const annId=row.annId||sheet?.annId||quiz?.sourceIds?.annIds?.[0];
-      if(annId){
-        occurrenceAnime.set(id,annId);
-        if(row.linkedIds?.myanimelist || row.linkedIds?.anilist){
-          const prior=linkedAnime.get(annId);
-          linkedAnime.set(annId,{myanimelist:row.linkedIds.myanimelist||prior?.myanimelist,anilist:row.linkedIds.anilist||prior?.anilist});
-        }
-      }
-      const type=(annId===sheet?.annId&&sheet?.type)||row.type||quiz?.type||sheet?.type;
-      if(type&&annId)ngmcRows.push({annId,annSongId:id,amqSongId:key,audio:source,type});
+      if(row.type)group.ngmc.push({annId,annSongId:id,type:row.type});
     }
+
     const inventory=playSongInventory(master,quizzes);
+    function groupFor(record) {
+      const key=inventory.root(record);
+      if(!playable.has(key))playable.set(key,{ids:[],ngmc:[],audio:[],quizId:undefined,sheetId:undefined,amqTitles:[]});
+      return playable.get(key);
+    }
     for await(const [,rows] of libraryShards(this.core,manifest,manifest.shards)) {
       for(const row of Object.values(rows)){
         const sheetId=bestMasterRecord(master,[row]),quizId=bestMasterRecord(quizzes,[row]);
-        inventory.addAmqPlus(row,sheetId,quizId);
-        add(row,eligibleSheetRecord(master,dubSheet,sheetId),eligibleQuizRecord(quizzes,quizId));
+        const record=inventory.addAmqPlus(row,sheetId,quizId);
+        if(isDubRecording(row))continue;
+        if(row.title)songs.add(row.title);
+        if(row.artist)artists.add(row.artist);
+        for(const name of row.artistNames||[])artists.add(name);
+        amqOccurrences.push({record,annSongId:row.annSongId,annId:row.annId,type:row.type,
+          audio:row.audio,title:row.title,artist:row.artist,titles:row.titles,linkedIds:row.linkedIds});
       }
       catalogBuild.done++;
     }
-    let sheetAdded=0,quizAdded=0;
-    for(const [id] of (master.recordings||[]).entries()){
-      if(matchedSheet.has(id)||dubSheet.has(id))continue;
-      const row=sheetRecording(master,id);
-      add(row,id,eligibleQuizRecord(quizzes,bestMasterRecord(quizzes,[row])),true);
-      if(matchedSheet.has(id))sheetAdded++;
+    for(const row of amqOccurrences){
+      const group=groupFor(row.record);
+      group.hasAmqPlus=true;
+      group.amqTitle||=row.title;
+      group.amqArtist||=row.artist;
+      for(const title of row.titles||[])group.amqTitles.push(title);
+      const url=playAudioSource(row.audio);
+      if(url&&!dubAudio(url))group.audio.push(url);
+      occurrences(group,row,row.annSongId);
     }
-    for(const quiz of quizzes.rows){
+    function addSource(record,row,id,field,index) {
+      const group=groupFor(record);
+      group[field]=preferRecord(index,group[field],id);
+      const url=playAudioSource(row.audio);
+      if(url&&!dubAudio(url))group.audio.push(url);
+      const annId=row.annId||row.sourceIds?.annIds?.[0];
+      if(group.hasAmqPlus&&(!annId||group.ids.some(id=>occurrenceAnime.get(id)===annId)))return;
+      const extraId=-(extras.size+1);
+      extras.set(extraId,row);
+      occurrences(group,row,extraId);
+    }
+    for(const id of new Set(quizzes.recordingIds)){
+      const quiz=quizzes.rows[id];
       if(isDubRecording(quiz))continue;
-      const id=eligibleQuizRecord(quizzes,bestMasterRecord(quizzes,[quiz])),sheetId=eligibleSheetRecord(master,dubSheet,bestMasterRecord(master,[quiz]));
-      if(id===undefined||matchedQuiz.has(id)||matchedSheet.has(sheetId))continue;
       const ann=quiz.sourceIds?.annSongIds?.[0],amq=quiz.sourceIds?.amqSongIds?.[0];
       const last=officialById.get('n:'+ann)||officialById.get('a:'+amq);
-      add({...last,...quiz,amqSongId:amq??last?.amqSongId,type:quiz.type||last?.type,annId:quiz.sourceIds?.annIds?.[0]||last?.annId,titles:quiz.answers},sheetId,id,true);
-      if(matchedQuiz.has(id))quizAdded++;
+      addSource(inventory.quiz(id),{...last,...quiz,amqSongId:amq??last?.amqSongId,type:quiz.type||last?.type,
+        annId:quiz.sourceIds?.annIds?.[0]||last?.annId,titles:quiz.answers},id,'quizId',quizzes);
+    }
+    for(const [id,record] of master.records.entries()){
+      const row=sheetRecording(master,id)||{titles:record.slice(1)};
+      if(dubSheet.has(id)||isDubRecording(row))continue;
+      addSource(inventory.sheet(id),row,id,'sheetId',master);
+    }
+
+    const groups=[],sources=[],alternates=[],preferred=[];
+    let sheetAdded=0,quizAdded=0;
+    for(const group of playable.values()){
+      const quiz=quizzes.rows[group.quizId];
+      const sheet=sheetRecording(master,group.sheetId)||(group.sheetId===undefined?null:{titles:master.records[group.sheetId].slice(1)});
+      const titles=quiz?.answers?.length?quiz.answers:sheet?.titles??group.amqTitles;
+      for(const title of titles)anime.add(title);
+      const title=quiz?.title||sheet?.title,performer=quiz?.artist||sheet?.artist;
+      if(title)songs.add(title);
+      if(performer)artists.add(performer);
+      const audio=new Map();
+      for(const link of [quiz?.audio,sheet?.audio,...group.audio]){
+        const url=playAudioSource(link);
+        if(url&&!dubAudio(url)&&!audio.has(audioFilename(url)))audio.set(audioFilename(url),url);
+      }
+      if(!titles.length||!audio.size||!(title||group.amqTitle)||!(performer||group.amqArtist))continue;
+      const [source,...mirrors]=audio.values(),groupId=groups.length;
+      groups.push(group.ids);sources.push(source);alternates.push(mirrors);
+      preferred.push({quiz,sheet,titles,amqTitle:group.amqTitle,amqArtist:group.amqArtist});
+      for(const row of group.ngmc)ngmcRows.push({...row,amqSongId:groupId+1,audio:source});
+      if(!group.hasAmqPlus){
+        if(quiz)quizAdded++;
+        else if(sheet)sheetAdded++;
+      }
     }
     // Names are independent lists. No per-song answer mapping goes to clients.
     for(const song of Object.values(artist.songs))if(song.title)songs.add(song.title);
-    const available=[...playable.entries()].filter(([key])=>withAudio.has(key));
-    const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion+'+no-dubs';
-    const coverage={playableRecordings:available.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
-    return {version,inventory:inventory.counts(),master,dubSheet,quizzes,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates:available.map(([key])=>alternates.get(key)),sources:available.map(([key])=>withAudio.get(key)),catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()},groups:available.map(([,ids])=>ids)};
+    const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion+'+no-dubs+'+PLAY_SONG_SOURCE_ORDER;
+    const coverage={playableRecordings:groups.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
+    return {version,inventory:inventory.counts(),artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates,sources,preferred,groups,
+      catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()}};
   }
   async inventory(refreshQuizzes) {
     const {inventory}=await this.load(undefined,{refreshQuizzes,refreshSheet:true});
@@ -244,15 +276,16 @@ export class PlayLibrary {
     const byId=new Map(result.songs.map(song=>[song.annSongId,song]));
     const buildSong=index=>{
       const variants=data.groups[index].map(id=>byId.get(id)||data.extras.get(id)).filter(Boolean),song=variants.find(s=>playAudioSource(s.audio))||variants[0], amq=data.artist.songs[song.amqSongId];
-      const matched=eligibleSheetRecord(data.master,data.dubSheet,bestMasterRecord(data.master,variants));
-      const sheet=sheetRecording(data.master,matched),quiz=data.quizzes.rows[eligibleQuizRecord(data.quizzes,bestMasterRecord(data.quizzes,variants))];
-      const titles=matched===undefined?quiz?.answers||variants.flatMap(s=>s.titles):data.master.records[matched].slice(1);
+      const {quiz,sheet,titles,amqTitle,amqArtist}=data.preferred[index];
       const animeTitles=[...new Set(titles.filter(title=>titleKey(title)))];
-      const title=sheet?.title||quiz?.title||song.title||amq?.title,performer=sheet?.artist||quiz?.artist||song.artist||amq?.artist;
-      const artists=[...new Set([performer,amq?.artist,...variants.map(s=>s.artist)].filter(Boolean))];
-      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:titles[0],animeTitles,title,songType:(sheet?.annId===song.annId&&sheet?.type)||song.type||quiz?.type||sheet?.type,artist:performer,
+      const title=quiz?.title||sheet?.title||song.title||amqTitle||amq?.title;
+      const performer=quiz?.artist||sheet?.artist||song.artist||amqArtist||amq?.artist;
+      const artists=[...new Set((quiz?.artist||sheet?.artist?[performer]:[performer,amq?.artist,...variants.map(s=>s.artist)]).filter(Boolean))];
+      const songNames=quiz?.title||sheet?.title?[title]:[title,amq?.title,...variants.map(s=>s.title)];
+      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index)}:{}),anime:animeTitles[0],animeTitles,title,
+        songType:quiz?.type||sheet?.type||song.type,artist:performer,
         artistMembers:data.artist.rules[artistKey(performer)]?.composition||[performer],
-        answers:{anime:[...new Set(animeTitles.map(titleKey))],song:[...new Set([title,amq?.title,...variants.map(s=>s.title)].filter(Boolean).map(titleKey))],artist:artists},
+        answers:{anime:[...new Set(animeTitles.map(titleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
     };
     const songs=[...selected].map(buildSong),decoys=[];

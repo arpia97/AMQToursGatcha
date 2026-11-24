@@ -1,6 +1,6 @@
 const sources = [
-  ['sheets','Google Sheets','Sheets','Refreshes weekly on Sundays at 04:12 UTC.'],
   ['quiz','Published Quizzes','Quiz','Checks for newly published and updated quizzes.'],
+  ['sheets','Google Sheets','Sheets','Refreshes weekly on Sundays at 04:12 UTC.'],
   ['amqPlus','AMQ+ DB','AMQ+','Refreshes the AMQ+ masterlist and song metadata.'],
 ];
 
@@ -12,13 +12,13 @@ export function libraryPanel() {
     <div class="console-library-sources">${sources.map(([source,name,short,caption])=>`<section class="console-library-source">
       <h3>${name}</h3>
       <dl><div><dt>Songs in source</dt><dd data-inventory="${source}">—</dd></div>
-        ${source==='amqPlus'?'':`<div><dt>Unique songs added</dt><dd data-inventory="${source}Added">—</dd></div>`}</dl>
+        <div><dt>Added to combined DB</dt><dd data-inventory="${source}Added">—</dd></div></dl>
       <p class="source-caption">${caption}</p>
       <p data-source-status="${source}" role="status"></p>
       <button type="button" class="button secondary" data-refresh="${source}">Update ${short}</button>
     </section>`).join('')}</div>
     <p data-inventory-status role="status"></p>
-    <p class="form-hint">Each source counts distinct recordings. Sheets adds songs missing from AMQ+. Quiz adds songs missing from both.</p>
+    <p class="form-hint">Published Quizzes take priority. Sheets fills gaps in Quiz, and AMQ+ fills gaps in both.</p>
   </section>`;
 }
 
@@ -42,6 +42,9 @@ export function mountPlayLibrary(root, host) {
     try {
       const counts=await host('play-library',refresh?{}:undefined);
       if(!active()||id!==generation)return;
+      if(counts.sourceOrder!=='quiz-sheets-amq-plus'){
+        throw Object.assign(new Error('Song Library is updating.'),{status:405});
+      }
       for(const field of root.querySelectorAll('[data-inventory]')){
         field.textContent=counts[field.dataset.inventory]?.toLocaleString()??'—';
       }

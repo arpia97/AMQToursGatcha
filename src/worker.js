@@ -1999,11 +1999,11 @@ export default {
           return publicPlaySnapshot(url,env.PLAY_QUEUE,globalThis.caches?.default,ctx);
       }
       if(url.pathname==='/api/play-catalog'&&request.method==='GET'){
-        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=integrated-v2');
+        const cache=globalThis.caches?.default,key=new Request(url.origin+'/api/play-catalog?source=quiz-sheets-amq-plus');
         const saved=await cache?.match(key);if(saved)return saved;
         try{const data=await quizLibraryRequest(env,'/play-catalog');if(!data)return json({error:'Song library unavailable.'},503);
           // The library actor can still be serving its previous version during rollout.
-          const current=Number.isInteger(data.coverage?.seedArtistNames);
+          const current=typeof data.version==='string'&&data.version.endsWith('+quiz-sheets-amq-plus');
           const response=Response.json(data,{headers:{'Cache-Control':current?'public,max-age=600':'no-store','X-Content-Type-Options':'nosniff'}});
           if(cache&&current)ctx.waitUntil(cache.put(key,response.clone()));return response;
         }catch{return json({error:'Song library is warming up. Please retry.'},503);}
