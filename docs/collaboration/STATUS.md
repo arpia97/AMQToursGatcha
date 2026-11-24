@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Notification bell and sound setting
+
+Runtime `b6e9cc1` deployed as `d7953f39-591a-4444-b668-769a5522ac83`. Gacha and Play use the approved single bell for new unread notifications in the foreground. The sound switch defaults on and saves immediately in the browser. Play Settings and the Gacha Notifications settings share the preference. All 630 tests passed for the bell, syntax and packaging checks passed with the toggle, and Chrome verified playback, mute persistence, and settings sharing. Both live routes and the production MP3 were verified against the approved preview.
+
 ## Official AMQ coverage refresh
 
 Play Host Console → Song Library → Update Official AMQ checks the official master list. When AMQ refuses the Worker request, the console uses the project reference verified by the six-hour GitHub Actions sync. The active reference, source verification time, and host check time persist. Source version or content changes invalidate the coverage counts. Runtime through `20ca04c` was pushed and deployed as `d2d77d47-7aae-469b-b9c7-19fc847ba823`. All 630 tests passed. The production button was verified with export `20261113150503-187`, including the synced-reference path and all five counts.
