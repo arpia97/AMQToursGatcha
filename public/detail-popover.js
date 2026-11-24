@@ -9,7 +9,7 @@ export function songProgressTrigger(scope, index, details, escape) {
 
 function fillSongPopover(tip, details) {
   tip.classList.add("song-progress-popover");
-  tip.dataset.result = details.correct ? "correct" : "incorrect";
+  tip.dataset.result = details.partial ? "partial" : details.correct ? "correct" : "incorrect";
   tip.innerHTML = '<div class="song-progress-content"><header class="song-progress-head"><span></span><strong></strong></header>' +
     '<div class="song-progress-track"><strong></strong><span></span><span></span></div>' +
     '<div class="song-progress-answer"><span>Your Answer</span><strong></strong></div></div>';
@@ -17,7 +17,7 @@ function fillSongPopover(tip, details) {
     ".song-progress-head > *, .song-progress-track > *, .song-progress-answer > strong",
   );
   number.textContent = details.song;
-  result.textContent = (details.correct ? "✓ " : "× ") + details.result;
+  result.textContent = (details.partial ? "" : details.correct ? "✓ " : "× ") + details.result;
   title.textContent = details.title || "Unknown Song";
   artist.textContent = details.artist || "";
   artist.hidden = !details.artist;

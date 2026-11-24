@@ -1,4 +1,4 @@
-import {createEventQuiz} from './quiz-event-ui.js?v=winter-sleeve';
+import {createEventQuiz} from './quiz-event-ui.js?v=event-song-recap';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
@@ -1837,6 +1837,7 @@ export function createQuizUI({
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if(category==="event" && eventQuiz.current()){eventQuiz.key(event);return;}
       if (event.key === "Tab" && !event.altKey && !event.ctrlKey && !event.metaKey)
         answerFocusPaused = true;
       if (songListQuiz && event.key === "Escape") {

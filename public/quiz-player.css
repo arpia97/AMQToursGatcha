@@ -110,8 +110,8 @@
 .event-next {display:flex;justify-content:center;margin-top:16px}
 .event-quiz.song-broadcast .event-reveal {grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:520px){.event-quiz.song-broadcast .event-reveal {grid-template-columns:minmax(0,1fr)}}
-.event-quiz .song-broadcast-header,.event-quiz .quiz-audio-footer,.event-quiz .finish-score {justify-content:center}
-.event-quiz .song-broadcast-header,.event-quiz .event-points,.event-quiz .quiz-lobby,.event-quiz .quiz-finish,.event-quiz .song-broadcast-body {text-align:center}
+.event-quiz .quiz-audio-footer,.event-quiz .finish-score {justify-content:center}
+.event-quiz .quiz-lobby,.event-quiz .quiz-finish,.event-quiz .song-broadcast-body {text-align:center}
 .event-quiz .sa-suggestions,.event-quiz .sa-combobox input {text-align:left}
 .event-quiz .sa-artist-list,.event-quiz .quiz-sleeve {align-items:center}
 .event-quiz .sa-artist-list {justify-content:center}
@@ -121,9 +121,15 @@
 .event-quiz .event-reveal > div {min-width:0;overflow-wrap:anywhere}
 .event-quiz .event-reveal .correct {color:var(--mint)}
 .event-quiz .event-reveal .incorrect {color:var(--pink)}
-.event-points {display:grid;gap:3px;text-align:right;font-family:Consolas,monospace}
-.event-points span,.event-points small {font-size:12px;color:var(--muted)}
-.event-points strong {font-size:22px}
+.event-round-header {
+  display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+  padding:12px clamp(14px,3vw,24px);background:#192127;border-bottom:1px solid var(--border);
+}
+.event-round-header h2 {margin:0;font-weight:600;font-size:18px;line-height:1.4;letter-spacing:normal}
+.event-round-header h2 small,.event-round-score {font-size:13px;font-weight:400;color:var(--muted)}
+.event-round-score b {margin-inline-start:4px;color:var(--text);font-variant-numeric:tabular-nums}
+.song-progress-popover[data-result=partial] {--song-progress-color:#e9c180}
+.song-progress-answer strong {white-space:pre-line}
 .event-quiz .quiz-song-progress-track {--gap:clamp(2px,.65vw,5px);display:flex;flex-wrap:wrap;justify-content:center;gap:var(--gap)}
 .event-quiz .quiz-progress-square {flex:0 0 calc((100% + var(--gap)) / 20 - var(--gap));min-width:0}
 .event-quiz .finish-track .quiz-song-progress {max-width:520px;margin-inline:auto}
@@ -132,8 +138,8 @@
 
 .event-quiz .quiz-sleeve.winter-sleeve {
   position:relative; justify-content:center; gap:clamp(10px,1.7vw,18px);
-  aspect-ratio:3; min-height:188px; padding:20px 16%;
-  color:#fff4db; background:#073127 url("./winter-sleeve.webp") center / 100% 100% no-repeat;
+  min-height:178px; padding:20px 16%;
+  color:#fff4db; background:#122c25;
   border-bottom:1px solid #ae925e;
 }
 .winter-sleeve .winter-caption {
@@ -148,7 +154,7 @@
   color:#fff4db;text-shadow:0 2px 4px #09251d;
 }
 .winter-sleeve h2 em {
-  font:italic 500 clamp(46px,7.6vw,84px)/.98 Baskervville,Georgia,serif;
+  font:italic 500 clamp(40px,6.4vw,64px)/.98 Baskervville,Georgia,serif;
   letter-spacing:-.055em;
 }
 .winter-sleeve h2 span {
@@ -156,6 +162,6 @@
   letter-spacing:.18em;text-transform:uppercase;
 }
 @media(max-width:540px) {
-  .event-quiz .quiz-sleeve.winter-sleeve {aspect-ratio:2.2;min-height:160px;padding-inline:12%}
+  .event-quiz .quiz-sleeve.winter-sleeve {min-height:148px;padding-inline:12%}
   .winter-sleeve .winter-caption {font-size:9px}
 }

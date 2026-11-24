@@ -1,3 +1,4 @@
+import {songProgressTrigger} from './detail-popover.js';
 import {createEventAnswers} from './quiz-event-answers.js';
 import {autolockControl} from './amq-anime-search.js?v=event-autolock';
 import {quizRarity} from './quiz-rules.js';
@@ -71,7 +72,7 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
       const value=await api('quiz-event',{id,revision:event.revision,index:order[position],action:'answer',
         ...submitted});
       if(version!==generation)return;
-      result=value; outcomes[position]=value; score+=Number(value.songCorrect)+Number(value.artistCorrect); phase='reveal';
+      result=value; outcomes[position]={...value,submitted}; score+=Number(value.songCorrect)+Number(value.artistCorrect); phase='reveal';
     } catch(error) {
       if(version!==generation)return;
       phase='grade-error'; message=error.message;
@@ -100,7 +101,14 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
       const points=r ? Number(r.songCorrect)+Number(r.artistCorrect) : null;
       const current=i===position && points===null && phase!=='done';
       const state=r ? ['incorrect','partial','correct'][points] : current ? 'current' : i<position ? 'skipped' : 'upcoming';
-      const label=e('Song '+(i+1)+' · '+(r ? points+'/2 · '+r.title : state));
+      if(r){
+        const answer='Song: '+(r.submitted.song||'No answer')+'\nArtist: '+(r.submitted.artists.join(', ')||'No answer');
+        const trigger=songProgressTrigger('event-'+id,i,{
+          title:r.title,artist:r.artist,answer,result:points+'/2 points',correct:points===2,partial:points===1
+        },e);
+        return '<li class="quiz-progress-square is-'+state+'">'+trigger+'</li>';
+      }
+      const label=e('Song '+(i+1)+' · '+state);
       return '<li class="quiz-progress-square is-'+state+'" aria-label="'+label+'" title="'+label+'"'+(current?' aria-current="step"':'')+'></li>';
     }).join('');
     return '<section class="quiz-song-progress" aria-label="Song progress"><ol class="quiz-song-progress-track">'+cells+'</ol></section>';
@@ -142,7 +150,7 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
     if(phase==='guess')body='<div class="quiz-countdown-meter" role="progressbar" aria-label="Seconds remaining" aria-valuemin="0" aria-valuemax="'+seconds+'">'+
       '<div class="quiz-countdown-fill" aria-hidden="true"></div><span role="timer"></span></div><form class="event-answer-form">'+
       '<div class="sa-answer-fields">'+answers.fieldsHTML()+'</div><button class="button mint" type="submit">Submit Answers</button>'+
-      '<div class="answer-search-controls">'+autolockControl()+'</div></form>';
+      '<div class="answer-search-controls">'+autolockControl()+'<button type="button" class="text-button" data-event="skip-answer">Skip Song</button></div></form>';
     if(phase==='buffering')body='<div class="quiz-audio-loading" role="status">Loading Audio…'+songLoadingBar({label:'Loading Audio'})+'</div>';
     if(phase==='audio-error')body='<p class="notice">Audio could not play.</p>'+button('retry','Retry Audio')+' '+button('skip','Skip Song');
     if(phase==='sending')body='<p role="status">Checking answers…</p>';
@@ -150,9 +158,9 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
     if(phase==='reveal')body='<div class="sa-reveal event-reveal" aria-label="Correct answers and your guesses">'+revealField('Song',result.songCorrect,result.title,submitted.song)+
       revealField('Artist',result.artistCorrect,result.artist,submitted.artists.join(', '))+
       '</div><div class="event-next">'+button('next',position===order.length-1?'Finish Quiz':'Next Song →','mint')+'</div>';
-    root.innerHTML='<section class="sa-play-panel sa-song-panel"><header class="song-broadcast-header"><div><span class="sa-round-status">'+
-      (phase==='reveal'?'Answers Revealed':'Song / Artist')+'</span><h2>Song '+(position+1)+' <small>/ '+event.count+'</small></h2></div>'+
-      '<div class="event-points"><span>Score</span><strong class="quiz-rarity-ink '+tier+'">'+score+' <small>/ '+maxScore+'</small></strong></div></header>'+
+    root.innerHTML='<section class="sa-play-panel sa-song-panel"><header class="event-round-header">'+
+      '<h2>Song <b>'+(position+1)+'</b> <small>of '+event.count+'</small></h2>'+
+      '<span class="event-round-score">Score <b>'+score+'</b></span></header>'+
       '<div class="song-broadcast-body quiz-question">'+body+progress()+'</div>'+controls+'</section>';
     if(phase==='guess')updateClock(Math.max(0,Math.ceil((deadline-Date.now())/1000)));
   }
@@ -169,12 +177,18 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
         if(action==='next'||action==='skip')next();
         if(action==='retry')round();
         if(action==='grade')void grade();
+        if(action==='skip-answer'&&phase==='guess'){submitted={song:'',artists:[]};void grade();}
         if(action==='reload'){answers.load(event);draw();}
       };
       draw();
     }
     holder.replaceChildren(root);
   }
-  return {open,leave,mount,setVolume(value){if(audio)audio.volume=value/100;}, current:()=>id, active:()=>Boolean(event)&&!['lobby','done'].includes(phase)};
+  function key(ev){
+    if(phase!=='reveal'||ev.key!=='Enter'||ev.repeat||ev.isComposing||ev.defaultPrevented||
+       ev.altKey||ev.ctrlKey||ev.metaKey||ev.shiftKey||ev.target?.closest?.('button,a,input,select,textarea,[contenteditable=true]'))return;
+    ev.preventDefault();next();
+  }
+  return {open,leave,mount,key,setVolume(value){if(audio)audio.volume=value/100;}, current:()=>id, active:()=>Boolean(event)&&!['lobby','done'].includes(phase)};
 }
 
