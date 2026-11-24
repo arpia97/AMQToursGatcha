@@ -50,7 +50,7 @@ export function installInboxDropdown({anchor, href, player, load, rememberCards,
       rememberCards(feed.cards);
       latest = feed.latest;
       syncBulk(feed.unread);
-      onCount(feed.unread);
+      onCount(feed.unread,feed.inboxLatestUnread);
       items = feed.items.slice(0, 6);
       if (items.length) list.innerHTML = items.map(row => inbox.rowButton(row, "peek")).join("");
       else list.textContent = "No notifications yet.";

@@ -1,4 +1,4 @@
-import { installInbox, inboxCount, saveNoticePreferences } from "./inbox.js";
+import { installInbox, inboxSummary, saveNoticePreferences } from "./inbox.js";
 import { installFavoriteOwnership, ownedCardCopies, pruneFavorite } from "./card-ownership.js";
 import { validateAvatarCrop } from "../public/avatar-crop.js";
 import { CreditAudit } from "./credit-audit.js";
@@ -1366,7 +1366,7 @@ export class Engine {
       horseRace: id ? this.economy.horse.view(id) : null,
       ...this.economy.pachinko.view(id),
       notices,
-      inboxUnread: inboxCount(this,id),
+      ...inboxSummary(this,id),
       catalog,
       specialPack,
       auctions,

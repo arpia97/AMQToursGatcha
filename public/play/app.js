@@ -1,7 +1,7 @@
 import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
-import { installPlayAccountMenu } from "../play-account-menu.js?v=shared-heartbeat";
+import { installPlayAccountMenu } from "../play-account-menu.js?v=notification-bell";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
@@ -462,7 +462,10 @@ async function refreshLive(force=false){
   try{
     const data=await api('play-live?'+params);
     if(hidden)lastHiddenPing=Date.now();
-    if(updateUnread && Number.isInteger(data.inboxUnread)){updateUnread(data.inboxUnread);lastInboxCheck=Date.now();}
+    if(updateUnread && Number.isInteger(data.inboxUnread)){
+      updateUnread(data.inboxUnread,data.inboxLatestUnread);
+      lastInboxCheck=Date.now();
+    }
     if(hidden||viewer!==state.me?.id||document.hidden)return;
     const {matches,online,waiting}=data;
     currentActivity=data;

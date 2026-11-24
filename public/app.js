@@ -88,7 +88,8 @@ import { applyAlchemyPatch } from "./alchemy-rules.js";
 import { listingModalHTML } from "./listing-form.js";
 import { createPackReveal, syncPackCardActions as syncAcquiredCardActions } from "./pack-reveal.js?v=acquired-cards";
 import { createFeatures } from "./features.js?v=market-notice-links";
-import { installInboxDropdown } from "./inbox-dropdown.js";
+import { installInboxDropdown } from "./inbox-dropdown.js?v=notification-bell";
+import { installNotificationSound } from "./notification-sound.js";
 import { createInbox, settingTabs, inboxSettings } from "./inbox-ui.js?v=market-notice-links";
 import { noticePanel } from "./player-notices.js?v=market-notice-links";
 import { applyGameState } from "./game-state.js";
@@ -372,11 +373,16 @@ const cardBy = (id) =>
     image: "",
   };
 const inbox = createInbox({escape,cardBy,routeHref});
+const observeNotice = installNotificationSound();
 let inboxWrites = Promise.resolve();
 const inboxDropdown = installInboxDropdown({
   anchor: $(".inbox-anchor"), href: routeHref("notifications"), player: () => state?.me?.id,
   load: () => api("inbox"), rememberCards, inbox,
-  onCount: unread => {state.inboxUnread = unread; updateInboxBadge();},
+  onCount: (unread,latest) => {
+    state.inboxUnread = unread;
+    observeNotice(state.me?.id,latest);
+    updateInboxBadge();
+  },
 });
 const image = (c) =>
   c.image
@@ -528,6 +534,7 @@ function acceptAuctionNotices(value, player) {
   if(state.me?.id!==player||busy)return;
   rememberCards(value.cards);
   state.notices=value.notices;
+  observeNotice(player,value.inboxLatestUnread);
   if (Number.isInteger(value.inboxUnread) && state.inboxUnread!==value.inboxUnread) {
     state.inboxUnread=value.inboxUnread; updateInboxBadge();
     if(page()==="notifications") loadDynamic().then(render).catch(err=>toast(err.message,true));
@@ -1839,7 +1846,11 @@ async function loadDynamic() {
   }
   if (data) {
     rememberCards(data.cards);
-    if(current==="notifications" && data.player===state.me?.id){inbox.accept(data);state.inboxUnread=data.unread;}
+    if(current==="notifications" && data.player===state.me?.id){
+      inbox.accept(data);
+      state.inboxUnread=data.unread;
+      observeNotice(state.me?.id,data.inboxLatestUnread);
+    }
     if (current === "collection") ui.animeData = data;
     if (current === "titles") {
       ui.titleData = data;
@@ -2118,6 +2129,7 @@ async function refresh() {
   const refreshState = api(demo ? "state" : "state?view=compact");
   if (page() === "home") loadFeatured();
   state = await refreshState;
+  observeNotice(state.me?.id,state.inboxLatestUnread);
   sharedRefreshNeeded = false;
   clockOffset = state.now - Date.now();
   if (previousPlayer && previousPlayer !== state.me?.id) {

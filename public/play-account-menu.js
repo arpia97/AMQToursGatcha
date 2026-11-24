@@ -1,4 +1,5 @@
-import { installInboxDropdown } from "./inbox-dropdown.js";
+import { installInboxDropdown } from "./inbox-dropdown.js?v=notification-bell";
+import { installNotificationSound } from "./notification-sound.js";
 import { createInbox } from "./inbox-ui.js?v=market-notice-links";
 import { recentActivityRows } from "./account-activity.js";
 import { friendsPanel } from "./friends-ui.js";
@@ -10,9 +11,11 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
   const cards = new Map();
   let friendView = "added", friendPage = 1, writes = Promise.resolve();
   const player = () => state().me?.id;
+  const observeNotice = installNotificationSound();
   let countVersion = 0;
-  function count(value) {
+  function count(value,latest) {
     countVersion++;
+    observeNotice(player(),latest);
     badge.hidden = !value;
     badge.textContent = value ? number(value) : "";
     bell.setAttribute("aria-label", value ? "Notifications, " + number(value) + " unread" : "Notifications");
@@ -20,8 +23,8 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
   }
   function unreadSnapshot() {
     const owner = player(), version = countVersion;
-    return value => {
-      if (player() === owner && countVersion === version && Number.isInteger(value)) count(value);
+    return (value,latest) => {
+      if (player() === owner && countVersion === version && Number.isInteger(value)) count(value,latest);
     };
   }
   const inbox = createInbox({ escape, cardBy: id => cards.get(id) || {}, routeHref: gachaHref });
@@ -54,7 +57,7 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
     if (hostShortcut) hostShortcut.hidden = !me?.is_admin;
     $("#play-signin").hidden = !!me;
     dropdown.sync();
-    count(state().inboxUnread || 0);
+    count(state().inboxUnread || 0,state().inboxLatestUnread);
     if (!me) { close(); return; }
     trigger.innerHTML = state().avatar ? avatarHTML() : escape(me.name.slice(0, 2).toUpperCase());
     wallet.querySelector("strong").textContent = number(me.balance);

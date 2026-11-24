@@ -1,5 +1,5 @@
 import {syncGameRecords} from './game-record-sync.js';
-import { inboxPage, readInbox, dismissInbox, inboxCount } from "./inbox.js";
+import { inboxPage, readInbox, dismissInbox, inboxSummary } from "./inbox.js";
 import { savedBopCompensation, bopCompensationPlan, bopCompensationSource, applyBopCompensation } from "./bop-compensation.js";
 import { quizCountdownPlan, applyQuizCountdown } from "./quiz-countdown.js";
 import {songRatingPools} from '../public/ngmc-leave-policy.js';
@@ -1426,7 +1426,7 @@ export class Game extends DurableObject {
         }:null;
         const data=await this.env.PLAY_QUEUE.getByName('play-queues-v1')
           .liveActivity(session?.player||null,overview,details,url.searchParams.get('presence')==='1');
-        if(session && url.searchParams.get("inbox")==="1")data.inboxUnread=inboxCount(e,session.player);
+        if(session && url.searchParams.get("inbox")==="1")Object.assign(data,inboxSummary(e,session.player));
         if(overview&&session&&data.onlinePlayers)data.onlinePlayers=playOverviewPlayers(e,data.onlinePlayers);
         return json(data);
       }
@@ -1754,7 +1754,7 @@ export class Game extends DurableObject {
       const notices = e.economy.notices.pending(session.player);
       return json({
         notices,
-        inboxUnread: inboxCount(e,session.player),
+        ...inboxSummary(e,session.player),
         ...(url.searchParams.has('auctions')?{auctionState:e.economy.notices.auctionState(session.player,url.searchParams.get('auctions'))}:{}),
         cards: e.catalogStore.cards(notices.map((n) => n.card).filter(Boolean)),
       });

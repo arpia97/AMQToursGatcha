@@ -1,4 +1,4 @@
-import { inboxCount } from "./inbox.js";
+import { inboxSummary } from "./inbox.js";
 import { listSummary } from "./play-anime-list.js";
 
 // A compact, session-scoped header read. No inventory listing or game settlement.
@@ -11,7 +11,7 @@ export function playState(e, player) {
     : null;
   const card = item ? e.catalogStore.cards([me.avatar_card])[0] : null;
   return {
-    now: e.now(), me, inboxUnread:inboxCount(e,player), animeList:listSummary(e,player),
+    now: e.now(), me, ...inboxSummary(e,player), animeList:listSummary(e,player),
     avatar: card ? { ...card, level: item.level } : null,
     titles: e.quiz.titles(player),
   };
