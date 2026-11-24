@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Watched rigs and Hot Potato rematches
+
+Runtime `1834ef9` deployed as `77116d60-438b-4071-9dfe-a0ec9c2250e8`. New Watched matches count each revealed song for everyone whose active imported list included the selected anime. Players and spectators see the totals on rosters and results. Hot Potato Team VS and 1-Team offer the restart vote after a finished match. Voters and invited spectators enter an invite-only lobby preserving the format and pool. All 632 tests passed. Local multiplayer verification completed a Team VS rematch with a spectator invitation and a solo custom cooperative rematch. Live UI assets were verified at 1360px and 390px.
+
 ## AMQ JSON working titles in Play
 
 Play Host Console → Song Library → Register AMQ JSON accepts AMQ working-title exports. It resolves the recording by IDs or AMQ filenames, with unique anime-scoped metadata for rows without a strong identifier. Working titles combine with published quiz titles at the top answer priority. Existing audio and catalogue source counts retain their own rules. Duplicate uploads are safe and registrations persist in the existing QuizLibrary Durable Object. Runtime `d26bfac` deployed as `8d1683e8-e058-4240-90e3-9dfa441352d6`. All 631 tests passed, including storage, scoring, host access, and duplicate handling. The upload form was verified at desktop and mobile widths.
