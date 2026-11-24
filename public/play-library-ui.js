@@ -26,7 +26,19 @@ export function libraryPanel() {
       <button type="button" class="button secondary" data-refresh="${source}">Update ${short}</button>
     </section>`).join('')}</div>
     <p data-inventory-status role="status"></p>
-    <p class="form-hint">Published Quizzes take priority. Sheets fills gaps in Quiz, and AMQ+ fills gaps in both.</p>
+    <section class="console-library-coverage" aria-labelledby="amq-registration-heading">
+      <header class="console-coverage-heading">
+        <div><h3 id="amq-registration-heading">AMQ JSON Registration</h3>
+          <small>Accepted titles share priority with published quiz answers.</small></div>
+        <small><strong data-inventory="registeredAnswers">—</strong> registered entries · <strong data-inventory="registeredMatches">—</strong> playable recordings matched</small>
+      </header>
+      <form class="console-amq-registration" data-amq-registration>
+        <label>AMQ export<input type="file" name="amqExport" accept=".json,application/json" required></label>
+        <button type="submit" class="button secondary">Register AMQ JSON</button>
+      </form>
+      <small data-amq-registration-status role="status"></small>
+    </section>
+    <p class="form-hint">Registered AMQ JSONs and Published Quizzes supply the preferred answers. Sheets and AMQ+ fill the remaining gaps.</p>
     <section class="console-library-coverage" aria-labelledby="official-coverage-heading">
       <header class="console-coverage-heading">
         <div><h3 id="official-coverage-heading">Official AMQ coverage</h3><small data-official-export></small></div>
@@ -139,6 +151,35 @@ export function mountPlayLibrary(root, host) {
     }
   }
   for(const source of [...sections,'official'])button(source).onclick=()=>void update(source,true);
+  const registration=root.querySelector('[data-amq-registration]');
+  registration.onsubmit=async event=>{
+    event.preventDefault();
+    const file=registration.elements.amqExport.files[0];
+    if(!file)return;
+    const message=root.querySelector('[data-amq-registration-status]');
+    const submit=registration.querySelector('button[type=submit]');
+    if(submit.disabled)return;
+    if(file.size>4000000){message.textContent='Choose an AMQ JSON file up to 4 MB.';return;}
+    submit.disabled=true;
+    try {
+      let data;
+      try { data=JSON.parse((await file.text()).replace(/^\uFEFF/,'')); }
+      catch { throw Error('This file is not valid JSON.'); }
+      message.textContent='Registering working titles…';
+      const result=await host('play-register-amq',{export:data});
+      if(!active())return;
+      registration.reset();
+      const updated=result.updated
+        ? 'Updated '+result.updated.toLocaleString()+' recording '+(result.updated===1?'entry.':'entries.')
+        : 'Those working titles are already registered.';
+      message.textContent=updated+(result.skipped?' Skipped '+result.skipped.toLocaleString()+' rows without usable working titles or recording identifiers.':'');
+      if(result.updated)await inventory().catch(()=>{});
+    }catch(error){
+      if(active())message.textContent=error.message;
+    }finally{
+      submit.disabled=false;
+    }
+  };
   function stopPolling(){for(const timer of timers.values())clearTimeout(timer);timers.clear();}
   return {
     setVisible(visible){

@@ -371,7 +371,7 @@ export class Game extends DurableObject {
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && path!=='host/play-library' && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -388,7 +388,7 @@ export class Game extends DurableObject {
           bytes += value.byteLength;
           if (
             bytes >
-            (["host/quiz-save", "host/quiz-preview"].includes(path)
+            (["host/quiz-save", "host/quiz-preview", "host/play-register-amq"].includes(path)
               ? 5000000
               : 1000000)
           ) {
@@ -461,6 +461,11 @@ export class Game extends DurableObject {
         const actor = hostTokenValid ? "host-token" : e.hostIdentity(sessionHash);
         return json(e.mutate("host:quiz-maker-access", request.headers.get("Idempotency-Key"), {actor, player:b.player, enabled:b.enabled},
           () => e.setQuizMakerAccess(actor, b)));
+      }
+      if(path==='host/play-register-amq' && post){
+        const result=await quizLibraryRequest(this.env,'/play-register-amq',b);
+        if(!result)fail('Song library unavailable.',503);
+        return json(result);
       }
       if(path==='host/play-library'){
         const refreshOfficial=post && b.source==='official';
@@ -2023,7 +2028,7 @@ export default {
       const size = Number(request.headers.get("Content-Length") || 0);
       if (
         size >
-        (["/api/host/quiz-save", "/api/host/quiz-preview"].includes(
+        (["/api/host/quiz-save", "/api/host/quiz-preview", "/api/host/play-register-amq"].includes(
           url.pathname,
         )
           ? 5000000

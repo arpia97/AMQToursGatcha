@@ -208,6 +208,9 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 .console-library-header dd {color:var(--mint)}
 .console-library-coverage {margin-top:24px}
 .console-library-coverage small {color:var(--muted)}
+.console-amq-registration {display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:12px 0 0}
+.console-amq-registration label {max-width:100%;min-width:0}
+.console-amq-registration input {max-width:100%}
 .console-coverage-heading {display:flex;align-items:center;justify-content:space-between;gap:8px 16px;flex-wrap:wrap}
 .console-library-coverage [role=status]:not(:empty) {display:block;margin-top:8px}
 .console-library-coverage dl {margin:10px 0 0;border:1px solid var(--border);border-radius:8px;background:var(--bg)}

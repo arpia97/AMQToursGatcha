@@ -235,6 +235,18 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(inventoryResponse.status,200);
   const inventory=await inventoryResponse.json();
   assert.ok(inventory.total>=inventory.amqPlus && inventory.amqPlus>0);
+  const registerUrl=base+'/api/host/play-register-amq';
+  const exportData={export:[{annSongId:999999,songInfo:{animeNames:{romaji:'Registration test anime'},allAlternativeAnswers:['Registration test alias']}}]};
+  const registerRequest={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(exportData)};
+  assert.equal((await mf.dispatchFetch(registerUrl,registerRequest)).status,401);
+  registerRequest.headers.Authorization='Bearer local-only-test-host-token-123456789';
+  const registered=await mf.dispatchFetch(registerUrl,registerRequest);
+  assert.equal(registered.status,200,await registered.clone().text());
+  assert.deepEqual(await registered.json(),{updated:1,skipped:0,registered:1});
+  const afterRegistration=await (await mf.dispatchFetch(inventoryURL,{headers:registerRequest.headers})).json();
+  assert.equal(afterRegistration.registeredAnswers,1);
+  assert.equal(afterRegistration.registeredMatches,0);
+  assert.equal(afterRegistration.total,inventory.total);
   const refreshRequest={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:'official'})};
   assert.equal((await mf.dispatchFetch(inventoryURL,refreshRequest)).status,401);
   refreshRequest.headers.Authorization='Bearer local-only-test-host-token-123456789';

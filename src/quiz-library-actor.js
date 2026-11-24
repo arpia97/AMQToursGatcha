@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
 import { PlayLibrary } from './play-library.js';
+import {PlayAnswerRegistry} from './play-answer-registry.js';
 import {libraryCoverage} from './official-song-coverage.js';
 import {OfficialReferenceStore,officialActorName} from './official-reference-store.js';
 import {SheetRefresh,currentSheet} from "./play-sheet.js";
@@ -24,8 +25,9 @@ export class QuizLibrary extends DurableObject {
     this.officialSource=()=>env.QUIZ_LIBRARY.getByName(officialActorName);
     this.sheetSource=currentSheet(env);
     this.play = new PlayLibrary(this.core,undefined,version=>
-      env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version),this.sheetSource);
+      env.GAME.getByName('amqtours-economy-v1').publishedQuizSongs(version),this.sheetSource,()=>this.answerRegistry().snapshot());
   }
+  answerRegistry(){return this.registrations??=new PlayAnswerRegistry(this.core);}
   sheetManager(){return this.sheet??=new SheetRefresh(this.ctx,this.core.assets);}
   selectionProgress(id){
     const job=this.selections.get(id);
@@ -81,9 +83,10 @@ export class QuizLibrary extends DurableObject {
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });
       const raw = await request.text();
-      if (raw.length > 1000000)
+      if (raw.length > (path==='/play-register-amq' ? 5000000 : 1000000))
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
+      if(path==='/play-register-amq')return Response.json(this.answerRegistry().register(body.export));
       if(path==='/play-ballot-catalog'){
         const catalog=await this.play.catalog();
         const fields=['anime','song','artist'].filter(field=>body.fields?.includes(field));

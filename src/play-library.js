@@ -1,5 +1,6 @@
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {PLAY_SONG_SOURCE_ORDER, playSongInventory} from './play-song-inventory.js';
+import {mergedTitles,registeredGroupAnswers} from './play-answer-registry.js';
 import {ONE_TEAM_MODE} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
@@ -27,7 +28,8 @@ function preferRecord(index,current,candidate) {
 }
 
 export class PlayLibrary {
-  constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets)) {
+  constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets),answerSource=()=>null) {
+    this.answerSource=answerSource;
     this.sheetSource=sheetSource;
     this.core=core;this.fetcher=fetcher;this.audioChecks=new Map();this.quizSource=quizSource;
     this.quizzes=indexQuizRecordings([]);this.quizVersion='';this.nextCheck=0;
@@ -48,16 +50,18 @@ export class PlayLibrary {
     }
     const manifest=await this.core.active();
     const master=await this.sheetSource(refreshSheet);
-    const version=manifest.version+'+'+this.quizVersion+'+'+master.version;
+    const registrations=this.answerSource();
+    const version=manifest.version+'+'+this.quizVersion+'+'+master.version+'+'+(registrations?.revision||'');
     if(this.version!==version){this.version=version;this.loading=null;}
     if(!this.loading){
       this.catalogBuild={done:0,total:manifest.shards.length};
-      this.loading=this.build(manifest,this.quizzes,this.quizVersion,master,this.catalogBuild).catch(error=>{if(this.version===version)this.loading=null;throw error;});
+      this.loading=this.build(manifest,this.quizzes,this.quizVersion,master,this.catalogBuild,registrations).catch(error=>{if(this.version===version)this.loading=null;throw error;});
     }
     if(progress)progress.catalog=this.catalogBuild;
     return this.loading;
   }
-  async build(manifest,quizzes,quizVersion,master,catalogBuild) {
+  async build(manifest,quizzes,quizVersion,master,catalogBuild,registrations) {
+    const hasRegistrations=!!registrations?.rows.size;
     const readAsset=async (file,limit)=>libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/'+file)),limit);
     const [artist,creditedNames]=await Promise.all([
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
@@ -103,13 +107,14 @@ export class PlayLibrary {
         if(row.title)songs.add(row.title);
         if(row.artist)artists.add(row.artist);
         for(const name of row.artistNames||[])artists.add(name);
-        amqOccurrences.push({record,annSongId:row.annSongId,annId:row.annId,type:row.type,
+        amqOccurrences.push({record,amqSongId:row.amqSongId,annSongId:row.annSongId,annId:row.annId,type:row.type,
           audio:row.audio,title:row.title,artist:row.artist,titles:row.titles,linkedIds:row.linkedIds});
       }
       catalogBuild.done++;
     }
     for(const row of amqOccurrences){
       const group=groupFor(row.record);
+      if(hasRegistrations)(group.registrationSources??=[]).push(row);
       group.hasAmqPlus=true;
       group.amqTitle||=row.title;
       group.amqArtist||=row.artist;
@@ -120,6 +125,7 @@ export class PlayLibrary {
     }
     function addSource(record,row,id,field,index) {
       const group=groupFor(record);
+      if(hasRegistrations)(group.registrationSources??=[]).push(row);
       group[field]=preferRecord(index,group[field],id);
       const url=playAudioSource(row.audio);
       if(url&&!dubAudio(url))group.audio.push(url);
@@ -143,12 +149,16 @@ export class PlayLibrary {
       addSource(inventory.sheet(id),row,id,'sheetId',master);
     }
 
+    const registeredAnswers=registeredGroupAnswers(registrations,playable.values());
     const groups=[],sources=[],alternates=[],preferred=[];
+    let registeredMatches=0;
     let sheetAdded=0,quizAdded=0;
     for(const group of playable.values()){
       const quiz=quizzes.rows[group.quizId];
       const sheet=sheetRecording(master,group.sheetId)||(group.sheetId===undefined?null:{titles:master.records[group.sheetId].slice(1)});
-      const titles=quiz?.answers?.length?quiz.answers:sheet?.titles??group.amqTitles;
+      const registered=registeredAnswers.get(group);
+      const titles=registered ? mergedTitles(quiz?.answers||[],registered) :
+        quiz?.answers?.length ? quiz.answers : sheet?.titles??group.amqTitles;
       for(const title of titles)anime.add(title);
       const title=quiz?.title||sheet?.title,performer=quiz?.artist||sheet?.artist;
       if(title)songs.add(title);
@@ -159,6 +169,7 @@ export class PlayLibrary {
         if(url&&!dubAudio(url)&&!audio.has(audioFilename(url)))audio.set(audioFilename(url),url);
       }
       if(!titles.length||!audio.size||!(title||group.amqTitle)||!(performer||group.amqArtist))continue;
+      if(registered)registeredMatches++;
       const [source,...mirrors]=audio.values(),groupId=groups.length;
       groups.push(group.ids);sources.push(source);alternates.push(mirrors);
       preferred.push({quiz,sheet,titles,amqTitle:group.amqTitle,amqArtist:group.amqArtist});
@@ -170,9 +181,12 @@ export class PlayLibrary {
     }
     // Names are independent lists. No per-song answer mapping goes to clients.
     for(const song of Object.values(artist.songs))if(song.title)songs.add(song.title);
-    const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion+'+no-dubs+'+PLAY_SONG_SOURCE_ORDER;
+    const registrationVersion=hasRegistrations?'+answers-'+registrations.revision:'';
+    const version=manifest.version+'+'+master.version+'+quiz-'+quizVersion+registrationVersion+'+no-dubs+'+PLAY_SONG_SOURCE_ORDER;
     const coverage={playableRecordings:groups.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
-    return {version,inventory:inventory.counts(),artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates,sources,preferred,groups,
+    const counts=inventory.counts();
+    if(registrations)Object.assign(counts,{registeredAnswers:registrations.rows.size,registeredMatches});
+    return {version,inventory:counts,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates,sources,preferred,groups,
       catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()}};
   }
   async inventory(refreshQuizzes) {
