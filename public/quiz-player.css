@@ -129,3 +129,33 @@
 .event-quiz .finish-track .quiz-song-progress {max-width:520px;margin-inline:auto}
 .event-quiz .quiz-progress-square.is-partial {background:linear-gradient(90deg,#88d4a8 50%,#e97b8d 50%)}
 .event-quiz .quiz-progress-square.is-skipped {background:transparent;border-style:dashed}
+
+.event-quiz .quiz-sleeve.winter-sleeve {
+  position:relative; justify-content:center; gap:clamp(10px,1.7vw,18px);
+  aspect-ratio:3; min-height:188px; padding:20px 16%;
+  color:#fff4db; background:#073127 url("./winter-sleeve.webp") center / 100% 100% no-repeat;
+  border-bottom:1px solid #ae925e;
+}
+.winter-sleeve .winter-caption {
+  display:flex;align-items:center;gap:10px;color:#f2d39f;
+  font:600 10px/1.4 Consolas,monospace;letter-spacing:.2em;text-transform:uppercase;
+}
+.winter-caption::before,.winter-caption::after {
+  content:"";width:26px;height:1px;background:currentColor;opacity:.65;
+}
+.event-quiz .winter-sleeve h2 {
+  display:grid;justify-items:center;gap:8px;max-width:100%;margin:0;
+  color:#fff4db;text-shadow:0 2px 4px #09251d;
+}
+.winter-sleeve h2 em {
+  font:italic 500 clamp(46px,7.6vw,84px)/.98 Baskervville,Georgia,serif;
+  letter-spacing:-.055em;
+}
+.winter-sleeve h2 span {
+  font-family:inherit;font-size:clamp(11px,1.5vw,16px);font-weight:600;line-height:1.3;
+  letter-spacing:.18em;text-transform:uppercase;
+}
+@media(max-width:540px) {
+  .event-quiz .quiz-sleeve.winter-sleeve {aspect-ratio:2.2;min-height:160px;padding-inline:12%}
+  .winter-sleeve .winter-caption {font-size:9px}
+}

@@ -115,7 +115,12 @@ export function createEventQuiz({api, escape:e, sleeve, volumeControl, getVolume
     const maxScore=event.count*2;
     const tier='tier-'+rarityClass(quizRarity(Math.floor((score||0)*20/maxScore)));
     const controls='<div class="quiz-audio-footer">'+volumeControl()+'</div>';
-    const cover=status=>sleeve({category:'event',name:event.name},status);
+    const cover=status=>{
+      const holiday=/^(Christmas)\s+(.+)$/i.exec(event.name);
+      if(!holiday)return sleeve({category:'event',name:event.name},status);
+      return '<header class="quiz-sleeve winter-sleeve"><span class="winter-caption">'+
+        (phase==='done'?'Quiz Complete':'Event Quiz')+'</span><h2><em>'+e(holiday[1])+'</em> <span>'+e(holiday[2])+'</span></h2></header>';
+    };
     if(phase==='lobby'){
       const start=answers.ready()?button('start','Start Quiz →','mint'):answers.error()
         ? '<span role="alert">'+e(answers.error())+'</span> '+button('reload','Retry Answer Lists')

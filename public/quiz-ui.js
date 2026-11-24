@@ -1,4 +1,4 @@
-import {createEventQuiz} from './quiz-event-ui.js?v=center-volume';
+import {createEventQuiz} from './quiz-event-ui.js?v=winter-sleeve';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
