@@ -1,3 +1,4 @@
+import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
 import { installPlayAccountMenu } from "../play-account-menu.js";
@@ -148,7 +149,14 @@ async function saveAnimeList(form,remove=false){
   finally{delete form.dataset.busy;for(const c of form.elements)c.disabled=false;}
 }
 function settings() {
-  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
+  modal('<h2>Settings</h2>'+cardSizeControl(currentCardSize())+'<label>Anime Titles<select id="play-settings-title-mode"><option value="romaji" ' + (titleMode === "romaji" ? 'selected' : '') + '>Romaji</option><option value="english" ' + (titleMode === "english" ? 'selected' : '') + '>English</option></select></label><p class="form-hint">Your title preference is shared with Gacha.</p>'+(state.me ? '<details class="settings-section"><summary>Quiz Hotkeys</summary><form id="play-quiz-hotkeys" class="stack"></form></details>' : '')+listForm()+'<a class="button secondary space-top" href="' + gachaHref('profile') + '">Gacha Profile ↗</a>', "settings-modal");
+  const form = $("#play-quiz-hotkeys"), player = state.me?.id;
+  if (form) mountQuizHotkeys(form, state.me.quiz_hotkeys, async (quizHotkeys) => {
+    await api("profile", {quizHotkeys});
+    if (state.me?.id !== player) return;
+    state.me.quiz_hotkeys = quizHotkeys;
+    if (mode === "quiz") renderQuiz();
+  });
 }
 async function refreshAccount(expectedPlayer) {
   try {
@@ -245,7 +253,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=autolock-shortcut-help"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=performance-time"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=guesses-above-input", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([

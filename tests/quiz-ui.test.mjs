@@ -775,6 +775,12 @@ test("quiz sorting covers performance, names, unplayed runs and pool size withou
   ui.setSort("best-desc");
   assert.deepEqual(order(), ["high", "mid", "tie", "low"]);
   assert.match(ui.render(), /value="best-desc" selected/);
+  quizzes[3].bestDurationMs = 54000;
+  assert.deepEqual(order(), ["high", "tie", "mid", "low"]);
+  quizzes[0].bestDurationMs = 59000;
+  assert.deepEqual(order(), ["high", "tie", "mid", "low"]);
+  quizzes[0].bestDurationMs = 53000;
+  assert.deepEqual(order(), ["high", "mid", "tie", "low"]);
   ui.setSort("best-asc");
   assert.deepEqual(order(), ["low", "mid", "tie", "high"]);
   ui.setSort("name");

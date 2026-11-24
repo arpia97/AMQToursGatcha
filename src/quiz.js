@@ -264,7 +264,7 @@ export class Quiz {
     host = host || this.isHost(player);
     const rows = this.e.all(
       "SELECT q.id,q.name,q.title,q.published,q.source,q.updated,q.category,(length(q.cover)>0) AS has_cover" +
-        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played,CASE WHEN f.player IS NOT NULL THEN 1 ELSE 0 END AS favorited FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? LEFT JOIN quiz_favorites f ON f.quiz=q.id AND f.player=? " +
+        ",(SELECT count(*) FROM quiz_songs s WHERE s.quiz=q.id) AS songs,COALESCE(p.best,0) AS best,p.best_duration_ms AS bestDurationMs,CASE WHEN p.player IS NOT NULL THEN 1 ELSE 0 END AS played,CASE WHEN f.player IS NOT NULL THEN 1 ELSE 0 END AS favorited FROM quizzes q LEFT JOIN quiz_progress p ON p.quiz=q.id AND p.player=? LEFT JOIN quiz_favorites f ON f.quiz=q.id AND f.player=? " +
         (host ? "" : "WHERE q.published=1 ") +
         "ORDER BY q.updated DESC,q.id",
       player || "",

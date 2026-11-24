@@ -782,7 +782,8 @@ export function createQuizUI({
                   case "pool-asc":
                     return a.songs - b.songs;
                   case "best-desc":
-                    return b.best - a.best;
+                    return b.best - a.best ||
+                      (a.bestDurationMs ?? Number.MAX_SAFE_INTEGER) - (b.bestDurationMs ?? Number.MAX_SAFE_INTEGER);
                   case "best-asc":
                     return a.best - b.best;
                   case "average-desc":
@@ -1198,9 +1199,14 @@ export function createQuizUI({
         const quiz = selected,
           completed = run.id;
         if (!run.preview)
-          quizzes = quizzes.map((q) =>
-            q.id === quiz ? { ...q, best: run.reward.best, played: true } : q,
-          );
+          quizzes = quizzes.map(q => {
+            if (q.id !== quiz) return q;
+            let bestDurationMs = q.bestDurationMs;
+            if (run.score > q.best) bestDurationMs = run.durationMs;
+            else if (run.score === q.best && run.durationMs != null)
+              bestDurationMs = Math.min(run.durationMs, bestDurationMs ?? Infinity);
+            return { ...q, best: run.reward.best, bestDurationMs, played: true };
+          });
         // The scored result is already durable. Optional list/ranking refreshes
         // must not keep the result screen locked or hide it on a read failure.
         const filterVersion=leaderboardFilterVersion;

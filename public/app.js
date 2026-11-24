@@ -30,12 +30,6 @@ import {
   levelLabel,
 } from "./card-values.js";
 import {
-  QUIZ_HOTKEY_ACTIONS,
-  DEFAULT_QUIZ_HOTKEYS,
-  formatHotkeyEvent,
-  normalizeQuizHotkeys,
-} from "./quiz-hotkeys.js";
-import {
   wishlistButton,
   profileCardTabs,
   profileCardPanel,
@@ -738,7 +732,7 @@ const workingTitlePopovers = installDetailPopovers(document);
 let quizUI, arcadePage;
 const quizPlaying = () => page() === "quiz" && quizUI?.active();
 const loadQuizUI = loadOnce(async () => {
-  const { createQuizUI } = await import("./quiz-ui.js?v=autolock-shortcut-help");
+  const { createQuizUI } = await import("./quiz-ui.js?v=performance-time");
   return quizUI = createQuizUI({
     gachaLayout: true,
     api,
@@ -2240,7 +2234,6 @@ async function execute(path, b, after, form = null) {
 function auth(register = false, recovery = false) {
   modal(authFormHTML(recovery ? "recover" : register ? "register" : "login"));
 }
-let settingsHotkeyDraft = { ...DEFAULT_QUIZ_HOTKEYS };
 const accountButton = $("#account");
 const accountMenu = $("#account-menu");
 const accountAnchor = accountMenu.parentElement;
@@ -2405,10 +2398,9 @@ document.addEventListener("click", async (ev) => {
     await loadDynamic(); render(); return;
   }
   if (a === "edit-profile") {
-    settingsHotkeyDraft = normalizeQuizHotkeys(state.me.quiz_hotkeys);
     const currentAutosell = state.me.autosell_below || "";
     modal(
-      `<h2>Settings</h2><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}${cardSizeControl(currentCardSize())}<label>Anime Titles<select id="settings-title-mode" aria-label="Anime Titles"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><fieldset class="settings-section"><legend>Quiz Hotkeys</legend><p class="form-hint">Click any field and press a key or shortcut (such as <code>Alt+S</code> or <code>/</code>). Use <code>Tab</code> to move between fields.</p><div class="hotkey-grid">${QUIZ_HOTKEY_ACTIONS.map((item) => `<div class="hotkey-row"><div><strong>${escape(item.label)}</strong><small>${escape(item.hint)}</small></div><div class="hotkey-controls"><input type="text" readonly class="hotkey-capture" data-hotkey-action="${item.id}" value="${escape(settingsHotkeyDraft[item.id] || "")}" placeholder="Unbound" aria-label="${escape(item.label)} hotkey"><button type="button" class="text-button" data-action="clear-hotkey" data-hotkey-action="${item.id}">Clear</button></div></div>`).join("")}</div><div class="hotkey-footer"><button type="button" class="text-button" data-action="reset-hotkeys">Reset Defaults</button></div></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
+      `<h2>Settings</h2><form id="profile-form" class="stack"><label>Username<input name="username" required maxlength="32" value="${escape(state.me.name)}" autocomplete="nickname"><span class="form-hint">Past usernames remain linked and searchable.</span></label><label>Profile picture<select name="avatar"><option value="">Use initials</option>${state.inventory.map((i) => `<option value="${escape(i.card)}" ${i.card === state.me.avatar_card ? "selected" : ""}>${escape(cardBy(i.card).name)} · ${levelLabel(i.level)}</option>`).join("")}</select></label><div data-avatar-editor></div><fieldset class="settings-section"><legend>Display</legend>${titleMotion.control()}${cardSizeControl(currentCardSize())}<label>Anime Titles<select id="settings-title-mode" aria-label="Anime Titles"><option value="romaji" ${titleMode === "romaji" ? "selected" : ""}>Romaji</option><option value="english" ${titleMode === "english" ? "selected" : ""}>English</option></select></label></fieldset><fieldset class="settings-section"><legend>Pack Auto-Sell</legend><label>Auto-sell cards strictly below tier<select name="autosellBelow"><option value="" ${!currentAutosell ? "selected" : ""}>Off · Keep all pulled cards</option>${AUTOSELL_TIERS.map((tier) => `<option value="${tier}" ${currentAutosell === tier ? "selected" : ""}>Below ${tier}</option>`).join("")}</select></label><p class="form-hint">Applies only to cards opened from card packs (including daily packs) for their Lv. 1 shop sell value. Never affects shop buys, auctions, or trades.</p></fieldset><fieldset class="settings-section"><legend>Privacy</legend><label class="check-label"><input type="checkbox" name="privateBalance" ${state.me.private_balance ? "checked" : ""}> Keep my credit balance and lifetime earnings private</label><label class="check-label"><input type="checkbox" name="privateCollection" ${state.me.private_collection ? "checked" : ""}> Keep my card collection private</label><p class="form-hint">Your avatar, showcase, wishlist and active listings remain public.</p></fieldset><div class="form-error" role="alert"></div><button type="submit" class="button full">Save settings →</button></form>`,
       false,
       "avatar-editor-modal settings-modal",
     );
@@ -2418,23 +2410,6 @@ document.addEventListener("click", async (ev) => {
       state.me.avatar_card,
       state.me.avatar_crop,
     );
-    return;
-  }
-  if (a === "clear-hotkey") {
-    const id = t.dataset.hotkeyAction;
-    if (id && Object.hasOwn(settingsHotkeyDraft, id)) {
-      settingsHotkeyDraft[id] = "";
-      const input = document.querySelector(`.hotkey-capture[data-hotkey-action="${id}"]`);
-      if (input) input.value = "";
-    }
-    return;
-  }
-  if (a === "reset-hotkeys") {
-    settingsHotkeyDraft = { ...DEFAULT_QUIZ_HOTKEYS };
-    for (const item of QUIZ_HOTKEY_ACTIONS) {
-      const input = document.querySelector(`.hotkey-capture[data-hotkey-action="${item.id}"]`);
-      if (input) input.value = settingsHotkeyDraft[item.id] || "";
-    }
     return;
   }
   if (a === "set-avatar") {
@@ -2677,7 +2652,6 @@ document.addEventListener("submit", async (ev) => {
       b.autosellBelow = f.elements.autosellBelow?.value || null;
       b.privateBalance = Boolean(f.elements.privateBalance?.checked);
       b.privateCollection = Boolean(f.elements.privateCollection?.checked);
-      b.quizHotkeys = normalizeQuizHotkeys(settingsHotkeyDraft);
       b.noticePreferences = inboxSettings(f);
       b.notifyFriendsQuiz = Boolean(f.elements.notifyFriendsQuiz?.checked);
     }
@@ -4664,27 +4638,6 @@ document.addEventListener("pointerdown", (ev) => {
   else if (page() === "quiz" && !ev.target.closest(".quiz-answer-field")) quizUI?.closeSuggestions();
 });
 document.addEventListener("keydown", (ev) => {
-  if (ev.target?.classList?.contains("hotkey-capture")) {
-    if (ev.key === "Tab") return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    const actionId = ev.target.dataset.hotkeyAction;
-    if (!actionId || !Object.hasOwn(settingsHotkeyDraft, actionId)) return;
-    if (ev.key === "Backspace" || ev.key === "Delete") {
-      settingsHotkeyDraft[actionId] = "";
-      ev.target.value = "";
-      return;
-    }
-    if (ev.key === "Escape") {
-      ev.target.blur();
-      return;
-    }
-    const combo = formatHotkeyEvent(ev);
-    if (!combo) return;
-    settingsHotkeyDraft[actionId] = combo;
-    ev.target.value = combo;
-    return;
-  }
   if (page() === "quiz" && !$("#modal")?.open) quizUI?.key(ev);
 });
 document.addEventListener("submit", (ev) => {
