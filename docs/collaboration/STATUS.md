@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Dedicated Play host console
+
+Runtime `20e4973` deployed to the original Worker as `e74e4e87-ca46-4991-9274-2c6b7775946d`. Hosts can open `/play/host` from Play navigation or the account menu. Match Review has a searchable index, a mobile list and full-width evidence. Song Library has its own refresh controls. All 620 release tests passed. Browser checks at 1360 and 390 pixels exercised host access, navigation, filtering, timeline, notes and refresh with local data. The production route and five assets were verified. Both host endpoints rejected signed-out access. The separate GitHub Pages demo job reported a missing artifact.
+
 ## Shop and auction notification destinations
 
 Runtime `5a6b6d7` deployed as Worker `c19b3688-d626-4814-bb55-96a287b8d200`. Market notifications from Gacha and Play open the relevant shop, auction section or trade view with the card type selected. Older outbid notices resolve the venue from their auction when available. All 620 tests passed. Verified desktop and phone navigation with local accounts and checked live routes and seven assets.
