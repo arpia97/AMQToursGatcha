@@ -135,8 +135,8 @@
 .event-quiz .quiz-song-progress-track {--gap:clamp(2px,.65vw,5px);display:flex;flex-wrap:wrap;justify-content:center;gap:var(--gap)}
 .event-quiz .quiz-progress-square {flex:0 0 calc((100% + var(--gap)) / 20 - var(--gap));min-width:0}
 .event-quiz .finish-track .quiz-song-progress {max-width:520px;margin-inline:auto}
-.event-quiz .quiz-progress-square.is-partial {background:linear-gradient(var(--split-direction,90deg),#88d4a8 50%,#e97b8d 50%)}
-.event-quiz .quiz-progress-square.artist-only {--split-direction:270deg}
+.event-quiz .quiz-progress-square.is-partial {background:linear-gradient(var(--split-direction,to bottom right),#88d4a8 50%,#e97b8d 50%)}
+.event-quiz .quiz-progress-square.artist-only {--split-direction:to top left}
 .event-quiz .quiz-progress-square.is-skipped {background:transparent;border-style:dashed}
 
 .event-quiz .quiz-sleeve.winter-sleeve {
