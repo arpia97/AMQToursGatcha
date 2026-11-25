@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Catalog-wide anime answer grading
+
+Play and Quiz expand the unambiguous registered titles of each accepted edition, including alternate editions accepted for a specific recording. Checked 9,633 edition identities, 217 published quizzes (8,874 song rows), 27,080 sheet recordings, 38,194 AMQ+ recordings and 38,200 AMQ+ working-title entries. Both graders passed 108,253 source/title comparisons. Among 13,918 distinct normalized song-pool labels, 1,013 shared labels and eight unresolved labels retain explicit-answer acceptance. Private quiz drafts were outside the production inventory. Catalog rebuilds regenerate the aliases, and the full 645-test suite includes every generated alias pair plus recording scope and edition collision checks. Runtime commits `0debad2` and `45230c5` are on main, deployed to Worker `aa89cc94-20f8-48d6-a951-5e8772357d8f`. Verified the live Quiz page, rules asset, and quiz directory read-only.
+
 ## Play Custom Lobby directory and creation
 
 Runtime `c4ff135` is on main and deployed as Worker `773fdc02-03bc-4fb9-8f09-768e30574738`. Overview and the new Custom Lobby tab share a single-page builder for six existing playable modes. The directory uses the live open-lobby feed. All 643 tests passed. A disposable two-player browser session verified creating and joining a private Song/Artist room with custom song count and timing. Production checks verified desktop and mobile navigation, mode selection, and direct URLs. Advanced custom rules are a separate, pending implementation.
