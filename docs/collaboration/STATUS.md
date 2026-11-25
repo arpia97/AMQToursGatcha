@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Artist catalog alias audit
+
+Reviewed 171 romanization candidates. Added 14 verified full-name aliases and limited Hinata Sato/Satou and Nao Toyama/Touyama to 109 corroborated AMQ recordings. Verified all 14 pairs in both directions, all 109 bundled recording credits and all 28 global spellings in the live dropdown. Full suite passed (639), with 23 focused tests rerun after including the Japanese middle dot as a credit separator. Runtime `0ee770d` deployed as `3cc4af9f-7e92-4d80-a340-ef121bf58598`.
+
 ## Artist romanization aliases
 
 Play and event song/artist grading recognizes Yu and Yuu for Kobayashi and Serizawa, including stored group-member rules. All 637 tests passed. Verified the four labels in the production Play catalog. Runtime `5439ecf` deployed as `4100af6e-96e8-4997-864c-efe0dce2b4e6`.
