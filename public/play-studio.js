@@ -47,7 +47,7 @@ const methods={
  'Force Weighted':'Each player will be guaranteed rigs proportionate to their list size during the match.',
  'Equal':'Each player have the same chance to draw their rig.',
  'Forced Equal':'Each player will be guaranteed an equal amount of rigs during the match.',
- 'Full Random':"The song pool will comprise of all entries from all players' lists with duplicates removed.",
+ 'Full Random':"The song pool will comprise of all entries from all players' lists with duplicates counting only once.",
  'Unique rigs only':'Exclude anime watched by at least the selected number of players.'
 };
 function watchedSettings(){
