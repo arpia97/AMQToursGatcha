@@ -1,4 +1,4 @@
-import {titleKey} from './play-artists.js';
+import {animeTitleKey} from './play-artists.js';
 import {arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
 
 export function arenaBatch(waiters, now) {
@@ -88,10 +88,10 @@ export function arenaVoteAction(state, player, message) {
   }
 
   const answer = typeof message.answer === 'string' ? message.answer.trim() : '';
-  const key = titleKey(answer);
+  const key = animeTitleKey(answer);
   if (!key || answer.length > 300) reject('Enter an anime title within 300 characters.');
-  if (key === titleKey(player.arenaTitle?.answer)) return;
-  if (choices.some(option => titleKey(option.answer) === key)) reject('Your partner already submitted that title. You can vote for it above.');
+  if (key === animeTitleKey(player.arenaTitle?.answer)) return;
+  if (choices.some(option => animeTitleKey(option.answer) === key)) reject('Your partner already submitted that title. You can vote for it above.');
 
   const oldChoice = player.arenaTitle?.id;
   for (const member of teammates) if (member.arenaVote === oldChoice) delete member.arenaVote;

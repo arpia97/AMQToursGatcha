@@ -1,3 +1,17 @@
+import {quizAnswerKey} from '../public/quiz-rules.js';
+
+// Spaces can vary in typed answers. Keep punctuation and symbols that identify the edition.
+export const animeTitleKey = value => quizAnswerKey(value).replace(/\s+/g,'');
+
+export function playFieldMatches(song, field, value) {
+  if (field === 'artist') return song.answers.artist.some(name => artistMatches(name, value, song.artistRules));
+  if (field === 'song') return titleMatches(song.answers.song, value);
+  const guess = animeTitleKey(value);
+  // Older matches stored stripped keys in answers.anime but retained the original title list.
+  const titles = song.animeTitles?.length ? song.animeTitles : song.answers.anime;
+  return Boolean(guess) && titles.some(title => animeTitleKey(title) === guess);
+}
+
 // Artist relationship rules adapted from the user's MIT-licensed AMQ Voicing
 // Mode 2.0.0 (4Lajf / Zolhungaj). Keep group -> solo acceptance directional.
 export const answerKey = value => String(value ?? '').normalize('NFKD')

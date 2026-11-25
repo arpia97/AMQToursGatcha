@@ -1,5 +1,5 @@
 import {matchGuessFields} from '../public/play-mode-rules.js';
-import {titleMatches,artistMatches} from './play-artists.js';
+import {playFieldMatches} from './play-artists.js';
 
 const MAX_EVENTS=36000,MAX_PLAYER_EVENTS=4000;
 function shuffle(values){
@@ -82,9 +82,6 @@ export function playbackView(state, player, now) {
   const slot = state.audioPool.findIndex(entry => entry.round === state.index);
   return { playback: { slot, key: state.audioPool[slot].key } };
 }
-function matches(song,field,value){
-  return field==='artist'?song.answers.artist.some(a=>artistMatches(a,value,song.artistRules)):titleMatches(song.answers[field],value);
-}
 export function decoyHits(state,answers,artists,round=state.index){
   const current = state.songs[round];
   const played = current ? {anime:current.anime,song:current.title,artist:current.artist} : undefined;
@@ -93,7 +90,7 @@ export function decoyHits(state,answers,artists,round=state.index){
     const value=field==='artist'?(artists??answers[field]):answers[field];
     // Shared anime titles/artists are not useful evidence. Suppress anything
     // that is an accepted answer anywhere in the actual match, not just now.
-    if(!value||!matches(song,field,value)||state.songs.some(s=>matches(s,field,value)))return [];
+    if(!value||!playFieldMatches(song,field,value)||state.songs.some(s=>playFieldMatches(s,field,value)))return [];
     return [{field,anime:song.anime,song:song.title,artist:song.artist,played,
       ...(song.assignedRound ? {assignedRound:song.assignedRound} : {})}];
   }));

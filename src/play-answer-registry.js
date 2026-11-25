@@ -2,7 +2,7 @@ import {amqAlternativeTitles} from '../public/quiz-answer-index.js';
 import {quizImportRows,songIsDub} from '../public/quiz-rules.js';
 import {fileKey} from './master-song-answers.js';
 import {descriptionKeys} from './official-song-coverage.js';
-import {titleKey} from './play-artists.js';
+import {animeTitleKey} from './play-artists.js';
 
 const strings = value => Array.isArray(value) ? value : [];
 const id = value => /^(?:[1-9][0-9]{0,14})$/.test(String(value)) ? String(value) : null;
@@ -10,7 +10,7 @@ const id = value => /^(?:[1-9][0-9]{0,14})$/.test(String(value)) ? String(value)
 export function mergedTitles(...lists) {
   const titles = new Map();
   for (const list of lists) for (const title of list) {
-    const key = titleKey(title);
+    const key = animeTitleKey(title);
     if (key && !titles.has(key)) titles.set(key,title);
   }
   return [...titles.values()];

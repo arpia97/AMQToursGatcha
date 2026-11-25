@@ -1,8 +1,9 @@
 import {isPotatoCoop} from '../public/hot-potato.js';
-import {titleKey,artistKey} from './play-artists.js';
+import {animeTitleKey,titleKey,artistKey} from './play-artists.js';
 import {matchGuessFields,ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
 const reject=message=>{throw Object.assign(Error(message),{status:409});};
+const fieldKey = field => field==='anime' ? animeTitleKey : field==='artist' ? artistKey : titleKey;
 export function proposeOrVote(state,player,message){
   const field=message.field;
   if(!matchGuessFields(state).includes(field))reject('Choose an answer category.');
@@ -10,9 +11,9 @@ export function proposeOrVote(state,player,message){
   const options=state.ballot[field];
   if(message.type==='propose'){
     const answer=typeof message.answer==='string'?message.answer.trim():'';
-    const key=field==='artist'?artistKey(answer):titleKey(answer);
+    const key=fieldKey(field)(answer);
     if(!key||answer.length>300)reject('Enter an answer within 300 characters.');
-    const existing=options.find(option=>option.key===key&&state.players.some(p=>p.id===option.owner&&!p.left));
+    const existing=options.find(option=>fieldKey(field)(option.answer)===key&&state.players.some(p=>p.id===option.owner&&!p.left));
     player.lastBallotChoice??={};
     if(existing){
       player.lastBallotChoice[field]=existing.id;
@@ -25,7 +26,7 @@ export function proposeOrVote(state,player,message){
     }
     if(options.filter(option=>option.owner===player.id).length>=8)reject('You have already submitted eight options for this field.');
     const id=crypto.randomUUID();
-    options.push({id,owner:player.id,answer,key});
+    options.push({id,owner:player.id,answer});
     player.lastBallotChoice[field]=id;
     if(player.answeredMatch===false)player.answeredMatch=true;
   }else if(message.type==='withdraw'){
@@ -45,10 +46,10 @@ export function proposeOrVote(state,player,message){
     }
   }
 }
-export function catalogAnswer(catalog,field,answer,key){
+export function catalogAnswer(catalog,field,answer){
   const entries=catalog?.[field];
   if(!entries||!answer)return false;
-  const normalized=key??(field==='artist'?artistKey(answer):titleKey(answer));
+  const normalized=fieldKey(field)(answer);
   return entries.has(normalized)||field==='artist'&&answer.split(',').every(name=>entries.has(artistKey(name)));
 }
 export function ballotStatus(state,catalog){
@@ -57,7 +58,7 @@ export function ballotStatus(state,catalog){
   let hasValidAnswer=false;
   for(const field of matchGuessFields(state)){
     const options=(state.ballot?.[field]||[]).filter(o=>ids.has(o.owner));
-    const valid=new Set(options.filter(o=>catalogAnswer(catalog,field,o.answer,o.key)).map(o=>o.id));
+    const valid=new Set(options.filter(o=>catalogAnswer(catalog,field,o.answer)).map(o=>o.id));
     for(const player of active){
       const vote=player.votes?.[field];
       // Rounds already running at deployment have no stored last action.
@@ -72,7 +73,7 @@ export function ballotStatus(state,catalog){
 }
 export function ballotCatalogIndex(catalog){
   return Object.fromEntries(Object.entries(catalog).map(([field,names])=>{
-    const normalize=field==='artist'?artistKey:titleKey;
+    const normalize=fieldKey(field);
     return [field,new Set(names.map(normalize).filter(Boolean))];
   }));
 }
@@ -86,7 +87,7 @@ export function selectWinners(state,catalog){
     const max=Math.max(...counts),leaders=options.filter((_,i)=>counts[i]===max);
     let eligible=leaders;
     if(leaders.length>1&&catalog){
-      eligible=leaders.filter(option=>catalogAnswer(catalog,field,option.answer,option.key));
+      eligible=leaders.filter(option=>catalogAnswer(catalog,field,option.answer));
       if(!eligible.length)continue;
     }
     const chosen=eligible.length===1?eligible[0]:eligible[Math.floor(Math.random()*eligible.length)];

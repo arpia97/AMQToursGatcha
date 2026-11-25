@@ -1,3 +1,4 @@
+import {mergedTitles} from '../src/play-answer-registry.js';
 import {archivedRecords} from '../src/play-records.js';
 import {loadTourRate} from '../src/play-tour-rate.js';
 import {closeSocket} from '../src/play-sockets.js';
@@ -25,15 +26,36 @@ test('Quiz ranking sorts across pages, retains overall ranks and places untimed 
     assert.deepEqual(page(0,'asc',[]).rows,[]);
   } finally {db.close();}
 });
-import {buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
+import {playFieldMatches,buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from '../src/play-arena.js';
-import {ballotCatalogIndex} from '../src/play-lobby-votes.js';
+import {proposeOrVote,catalogAnswer,ballotCatalogIndex} from '../src/play-lobby-votes.js';
 import {makeMatch,matchMove,matchView,advanceMatch} from '../src/play-match-rules.js';
 import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
 import {recapHTML, songResultsHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
+test('anime grading, title registration and team ballots distinguish punctuation-only seasons', () => {
+  const first = 'New Game!', second = 'New Game!!';
+  const song = {animeTitles:[first], answers:{anime:['newgame']}};
+  assert.equal(playFieldMatches(song,'anime',' NEW   GAME！ '),true);
+  assert.equal(playFieldMatches(song,'anime',second),false);
+  song.animeTitles = [second];
+  assert.equal(playFieldMatches(song,'anime',first),false);
+  song.animeTitles = mergedTitles([first],[second]);
+  assert.deepEqual(song.animeTitles,[first,second]);
+  for (const title of song.animeTitles) assert.equal(playFieldMatches(song,'anime',title),true);
+  assert.equal(playFieldMatches(song,'anime','New Game?'),false);
+  assert.equal(playFieldMatches({answers:{anime:['Title☆']}},'anime','Title★'),false);
+  const catalog = ballotCatalogIndex({anime:[first]});
+  assert.equal(catalogAnswer(catalog,'anime',first),true);
+  assert.equal(catalogAnswer(catalog,'anime',second),false);
+  const players = [{id:'a'},{id:'b'}], match={format:'1-team',players};
+  for (const [i,title] of [first,second].entries()) {
+    proposeOrVote(match,players[i],{type:'propose',field:'anime',answer:title});
+  }
+  assert.deepEqual(match.ballot.anime.map(option=>option.answer),[first,second]);
+});
 test('artist aliases, equivalent groups, directed solo groups and full member answers',()=>{
   const master={artistMap:{1:{name:'Manaka Iwami',altNameLinks:[2]},2:{name:'Iwami, Manaka'},3:{name:'Éir Aoi'}},groupMap:{1:{name:'Solo Project',artistMembers:[1]},2:{name:'Duo',artistMembers:[1,3]},3:{name:'Other Duo',artistMembers:[3,1]}}};
   const library=buildArtistLibrary(master);
@@ -407,7 +429,7 @@ test('custom team ballots turn duplicate proposals into votes, settle early and 
   const catalog=ballotCatalogIndex({anime:['Alpha','Beta'],song:['First'],artist:['Singer','Another Singer']});
   const move=(id,type,field,extra)=>matchMove(state,id,{type,index:0,field,...extra},100,catalog);
   move('a','propose','anime',{answer:'Alpha'});
-  move('b','propose','anime',{answer:'AL-PHA'});
+  move('b','propose','anime',{answer:'ALPHA'});
   assert.equal(state.ballot.anime.length,1);
   assert.equal(matchView(state,'b').myVotes.anime,state.ballot.anime[0].id);
   move('b','propose','anime',{answer:'Beta'});

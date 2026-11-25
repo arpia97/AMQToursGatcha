@@ -6,7 +6,7 @@ import {activeRankedGame,RECONNECT_MS,songRatingPools} from '../public/ngmc-leav
 import {proposeOrVote,ballotStatus,catalogAnswer,selectWinners,rematchView,returnVote,checkReturn,voteToAbort,checkAbort} from './play-lobby-votes.js';
 import { audioWindow, playerAudioReady, playbackView } from './play-integrity.js';
 import { balanceNgmc,ngmcGuesses,gradeNgmc,eligibleNgmc,finishNgmcCount } from './ngmc-rules.js';
-import { titleMatches, artistMatches, submittedArtists } from './play-artists.js';
+import { playFieldMatches, submittedArtists } from './play-artists.js';
 import {saveDraft,applyTimeoutDrafts,applyTimeoutProposals} from './play-drafts.js';
 import {POTATO_FORMAT, POTATO_COOP, isPotato, isPotatoCoop, validPotatoSize, potatoRules, passTargets, canAnswerPotato} from '../public/hot-potato.js';
 import {beginPotatoSong, passPotato, spendPotato, finishPotatoTurns, replaceDepartedHolders} from './hot-potato.js';
@@ -87,7 +87,7 @@ export function gradeRound(state,now,catalog) {
   const song=state.songs[state.index],teamHits=state.teams.map(()=>new Set());
   const scoringFields=matchGuessFields(state);
   const results=state.players.map(player=>{
-    const correct=Object.fromEntries(scoringFields.map(field=>[field,!player.left&&(field==='artist'?song.answers.artist.some(expected=>artistMatches(expected,player.artists??player.answers.artist,song.artistRules)):titleMatches(song.answers[field],player.answers[field])) ]));
+    const correct=Object.fromEntries(scoringFields.map(field=>[field,!player.left&&playFieldMatches(song,field,field==='artist' ? player.artists??player.answers.artist : player.answers[field]) ]));
     const earned=Object.values(correct).filter(Boolean).length;
     player.score+=earned;
     for(const field of FIELDS)if(correct[field])teamHits[player.team].add(field);

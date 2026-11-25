@@ -1,5 +1,5 @@
 import { PLAY_REVEAL_MS } from "../public/play-mode-rules.js";
-import { titleMatches } from "./play-artists.js";
+import { playFieldMatches } from "./play-artists.js";
 export function ngmcGuesses(rate) {
   if (!Number.isFinite(rate) || rate < 0 || rate > 100) throw Error('A valid guess rate is required.');
   return rate >= 40 ? 5 : rate >= 28 ? 4 : rate >= 19 ? 3 : rate >= 8 ? 2 : 1;
@@ -26,7 +26,7 @@ export function eligibleNgmc(state, team) {
 export function gradeNgmc(state,now) {
   const song=state.songs[state.index];
   const results=state.players.map(p=>{
-    const hit=!p.left&&titleMatches(song.answers.anime,p.answers.anime);
+    const hit=!p.left&&playFieldMatches(song,'anime',p.answers.anime);
     p.score+=Number(hit);
     return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit),autoSubmitted:!!p.autoSubmitted};
   });

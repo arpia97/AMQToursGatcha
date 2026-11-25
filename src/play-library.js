@@ -7,7 +7,7 @@ import {playAudioSource,playableMirror} from './play-media.js';
 import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
 import { ngmcSongPool } from './ngmc-selection.js';
 import { libraryJSON, libraryShards } from './quiz-library.js';
-import { titleKey, artistKey, artistAliasLabels } from './play-artists.js';
+import { animeTitleKey, titleKey, artistKey, artistAliasLabels } from './play-artists.js';
 import {songIsDub} from "../public/quiz-rules.js";
 import dubIndex from "../public/quiz-library/dub-recordings.json" with {type:"json"};
 import {loadMasterSongAnswers,bestMasterRecord,indexQuizRecordings,sheetRecording,fileKey} from './master-song-answers.js';
@@ -293,7 +293,7 @@ export class PlayLibrary {
     const buildSong=index=>{
       const variants=data.groups[index].map(id=>byId.get(id)||data.extras.get(id)).filter(Boolean),song=variants.find(s=>playAudioSource(s.audio))||variants[0], amq=data.artist.songs[song.amqSongId];
       const {quiz,sheet,titles,amqTitle,amqArtist}=data.preferred[index];
-      const animeTitles=[...new Set(titles.filter(title=>titleKey(title)))];
+      const animeTitles=[...new Set(titles.filter(title=>animeTitleKey(title)))];
       const title=quiz?.title||sheet?.title||song.title||amqTitle||amq?.title;
       const performer=quiz?.artist||sheet?.artist||song.artist||amqArtist||amq?.artist;
       const artists=[...new Set((quiz?.artist||sheet?.artist?[performer]:[performer,amq?.artist,...variants.map(s=>s.artist)]).filter(Boolean))];
@@ -301,7 +301,7 @@ export class PlayLibrary {
       return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
         songType:quiz?.type||sheet?.type||song.type,artist:performer,
         artistMembers:data.artist.rules[artistKey(performer)]?.composition||[performer],
-        answers:{anime:[...new Set(animeTitles.map(titleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},
+        answers:{anime:[...new Set(animeTitles.map(animeTitleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},
         artistRules:Object.fromEntries(artists.map(name=>[artistKey(name),data.artist.rules[artistKey(name)]]).filter(([,rule])=>rule))};
     };
     const songs=[...selected].map(buildSong),decoys=[];
