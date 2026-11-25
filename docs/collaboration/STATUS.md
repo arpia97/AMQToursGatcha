@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Watched song-type selection
+
+Released d4476ae on production Worker 98d95e27-d451-4dd4-a5be-dfa9ec9b0f82. Standard and custom Watched draws choose anime, then eligible type, then recording. Confirmed the 1 OP / 4 ED distribution, repeat-show draws, filtered replacement, mixed quotas and shared-file reassignment locally. All 654 tests, syntax checks and the Worker dry run passed. Read-only live checks returned the NGMC and Custom Lobby pages and the Play catalog with 34,275 playable recordings.
+
 ## Play lobby creation scrolling
 
 Runtime 22ef096 removes the nested scroll area from the lobby builder and hides the vertical scrollbar on the page. Verified on production at widths of 390, 1440 and 1920 px. Wheel scrolling reached the bottom at all three widths. Worker beed6c18-f859-48a8-9278-093fa96b122b.

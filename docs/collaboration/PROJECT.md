@@ -2,6 +2,10 @@
 
 Curated on November 9, 2026 (Asia/Seoul). This is a maintained engineering handoff, not a transcript or live database snapshot. Verify mutable facts against source and current deployment evidence. A new user instruction can supersede a product rule here; update this document when that happens.
 
+## Watched song draws
+
+All multiplayer Watched draws use the mode’s existing anime weights and custom quotas. Within each selected anime, choose uniformly among eligible OP, ED and IN types, then uniformly among distinct recordings of the chosen type. Apply this rule to Watched slots in Mixed lobbies, repeat-show draws and replacement songs.
+
 ## Applications and Addresses
 
 | Application | Source / Address | Purpose |
