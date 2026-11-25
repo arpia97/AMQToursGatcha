@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Stable Overview sections
+
+Runtime 100f65b is deployed as Worker 365bd950-941c-4aad-bb0a-2180be75f718. Live Matches and Open Lobbies reserve space while loading, empty and populated. Verified the live entry point and used the production Overview module and stylesheet with simulated activity at 320, 390, 920, 1024 and 1440 px. Section positions stayed identical through zero, one and twelve entries and back to zero. Both lists remained scrollable when full.
+
 ## Custom lobby team choice
 
 Released 88bcb17 on Worker 7220b31c-da6c-4ceb-9bdc-5b65a5f94a47. Custom rooms have at most eight seats. The team count is the current roster size divided by the selected team size, rounded up. Players may reserve a team or use automatic placement. Two local browser sessions verified choosing seats, readiness, start and return to lobby. All 656 tests passed, including all 64 headcount and team-size combinations. Verified size eight in the live desktop and mobile creator.
