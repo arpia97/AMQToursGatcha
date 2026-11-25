@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play lobby creation scrolling
+
+Runtime 22ef096 removes the nested scroll area from the lobby builder and hides the vertical scrollbar on the page. Verified on production at widths of 390, 1440 and 1920 px. Wheel scrolling reached the bottom at all three widths. Worker beed6c18-f859-48a8-9278-093fa96b122b.
+
 ## Manual card portrait recovery
 
 The 25 GGius Tours cards and Faker retained image URLs on the retired play.amqtours-gatcha.workers.dev host. The import manifest and live Gacha catalog both contained those addresses. All 26 packaged files still matched the production assets at amqtours.app/gacha/community-cards/. Runtime `7da0733` repairs image fields at startup, normalizes legacy imports, retains manually replaced portraits, and supports older client snapshots. A regression test checks the public URL and file signature for every bundled portrait. Local verification passed all 652 tests and the Worker dry run. Worker `60eb9ca6-2c04-4ebd-a287-fb4bca320001` is deployed. The production catalog returned canonical URLs for all 26 cards after the Durable Object rollout. Verified each image against its packaged bytes and confirmed ArronChu renders in Chrome. Application CI passed; the separate Pages demo job reported a missing github-pages artifact.
