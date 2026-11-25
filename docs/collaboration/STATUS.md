@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Quiz host console release
+
+Quiz Pools has a shared search, separate published and draft selectors, append by default on existing pools, source badges in upload review and the saved pool, and the masterlist at the bottom. Browser checks covered switching quizzes, preserving unsaved edits while searching, append/replace, title badges, sorting and mobile layout. Screenshots use sample data in the adjacent quiz-host-preview output directory. Runtime `3697d99` deployed as `7137f310-c29d-404e-838f-ede4d0b07400`. All 10 focused tests passed. Verified the live host page, both JavaScript modules and the stylesheet.
+
 ## Diagonal event quiz squares
 
 Song occupies the upper-left triangle and Artist the lower-right. Both split directions passed browser checks and the live Play stylesheet was verified. Runtime `3dd894a` deployed as `1071d8f4-e535-44f8-84c3-78ec63dc1b43`.
