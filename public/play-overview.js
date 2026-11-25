@@ -212,14 +212,15 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
       if(!teams.has(team))teams.set(team,[]);
       teams.get(team).push(player);
     }
+    const duel=teams.size===2&&match.roster.length===2;
     return '<div class="overview-matchup" popover="manual" id="overview-match-'+index+'" role="region" aria-label="'+esc(title)+' players" hidden>'+
       '<div class="overview-matchup-title"><strong>'+esc(title)+'</strong>'+poolLabel(match.pool)+'</div>'+
       '<div class="overview-live-score"><span>Loading score…</span></div>'+
       '<div class="overview-sides'+(teams.size===1?' single':'')+'">'+[...teams].sort(([a],[b])=>a-b).map(([team,roster])=>
-        '<section class="overview-side team-'+(team+1)+'"><h3>'+(teams.size===1?'Players':'Team '+(team+1))+'</h3><ul>'+
-          roster.map(player=>'<li data-player-id="'+esc(player.id)+'">'+avatar({...player,avatar:byId.get(player.id)?.avatar},esc)+esc(player.name)+'</li>').join('')+
+        '<section class="overview-side team-'+(team+1)+'">'+(duel?'':'<h3>'+(teams.size===1?'Players':'Team '+(team+1))+'</h3>')+'<ul>'+
+          roster.map(player=>'<li data-player-id="'+esc(player.id)+'">'+avatar({...player,avatar:byId.get(player.id)?.avatar},esc)+'<span class="overview-name">'+esc(player.name)+'</span></li>').join('')+
         '</ul></section>'
-      ).join('')+(teams.size===2?'<span class="overview-matchup-vs" aria-hidden="true">VS</span>':'')+'</div>'+
+      ).join('')+'</div>'+
       '</div>';
   }
 

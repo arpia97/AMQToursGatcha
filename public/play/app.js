@@ -254,7 +254,7 @@ function showQueue(status){
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadOverview=loadOnce(async()=>{
-  const [module]=await Promise.all([import('../play-overview.js?v=overview-directory'),loadStylesheet(new URL('../play-overview.css?v=overview-directory',import.meta.url))]);
+  const [module]=await Promise.all([import('../play-overview.js?v=match-portraits'),loadStylesheet(new URL('../play-overview.css?v=match-portraits',import.meta.url))]);
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-results"));
@@ -414,7 +414,7 @@ async function openMode(id, push = true, createLobby = false) {
       if(version===viewVersion)closeConsole=mountPlayConsole($('#main'),api,escape,format=>labels[format]||format);
     } else if(id==='custom-lobby'){
       const [{mountCustomLobby}]=await Promise.all([import('../play-custom-lobby.js'),accountReady,
-        loadStylesheet(new URL('../play-overview.css?v=overview-directory',import.meta.url)),
+        loadStylesheet(new URL('../play-overview.css?v=match-portraits',import.meta.url)),
         loadStylesheet(new URL('../play-custom-lobby.css',import.meta.url))]);
       if(version!==viewVersion)return;
       closeLobbyPage=mountCustomLobby($('#main'),{
