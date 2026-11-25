@@ -7,7 +7,7 @@ import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, lobbyGameMode, queueMode as modeForQueue} from '../play-mode-rules.js';
 import {ARENA_FORMAT} from '../play-arena-config.js';
-import { PLAY_MODES, playPage, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=host-page";
+import { PLAY_MODES, playPage, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=custom-lobby";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
 import { loadQuizTitleDisplay, quizAnimeTitle } from "../quiz-title-display.js";
 import { readApiResponse } from "../api-response.js";
@@ -235,7 +235,7 @@ function showQueue(status){
   clearInterval(queueTimer);
   if(!format){
     if(wasQueued&&!multiplayerRoot.isConnected)queueMicrotask(()=>{
-      if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'||mode==='host'))songArtist?.leave();
+      if(!songArtist?.waiting()&&!multiplayerRoot.isConnected&&(mode==='quiz'||mode==='rankings'||mode==='host'||mode==='custom-lobby'))songArtist?.leave();
     });
     return;
   }
@@ -261,7 +261,7 @@ const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-result
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=overview-directory"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=custom-lobby"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
@@ -282,6 +282,7 @@ const loadMultiplayer = loadOnce(async () => {
       if (navigating) {
         viewVersion++;
         if(mode==='quiz')quiz?.leave();
+        closeLobbyPage?.();closeLobbyPage=null;
         overview?.close();overview=null;
         $('#modal').close();
         $('#main').replaceChildren(multiplayerRoot);
@@ -299,16 +300,17 @@ const loadMultiplayer = loadOnce(async () => {
     },
   });
 });
-async function openOverviewLobby(target,room){
+const loadRooms=signal=>api('play-lobbies',undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])});
+let closeLobbyPage;
+async function openOverviewLobby(target,room,settings){
+  if(!state.me){account();return;}
+  if(currentQueue){toast('Leave your current queue before joining a lobby.');return;}
   await openMode(target);
-  if(mode===target&&multiplayerRoot.isConnected)songArtist?.requestLobby(room);
+  if(mode===target&&multiplayerRoot.isConnected)songArtist?.requestLobby(room,settings);
 }
-function chooseLobbyMode(){
-  const choices=PLAY_MODES.filter(m=>[DUEL_FORMAT,'ngmc-ranked',ARENA_FORMAT,'song-artist','one-team','variety'].includes(m.id));
-  modal('<form id="overview-create"><h2>Create a lobby</h2><label>Game mode<select name="mode">'+
-    choices.map(m=>'<option value="'+escape(m.id)+'">'+escape(m.name)+'</option>').join('')+
-    '</select></label><button class="button mint" type="submit">Continue</button></form>');
-  $('#overview-create').onsubmit=e=>{e.preventDefault();const target=e.target.elements.mode.value;$('#modal').close();void openOverviewLobby(target);};
+function openListedLobby(room){
+  if(room)void openOverviewLobby(lobbyGameMode(room.format),room);
+  else void openMode('custom-lobby',true,true);
 }
 function promptPrivateWatch(code,title){
   if(!state.me){account();return;}
@@ -370,7 +372,7 @@ async function resumeBackgroundQueue(version){
   const multiplayer=await loadMultiplayer();
   if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved.format),saved);
 }
-async function openMode(id, push = true) {
+async function openMode(id, push = true, createLobby = false) {
   const requested = playPage(id);
   if (!requested) return;
   if (requested.disabled) {
@@ -387,17 +389,19 @@ async function openMode(id, push = true) {
   const version = ++viewVersion;
   closeConsole?.(); closeConsole=null;
   stopWatching();
+  closeLobbyPage?.();closeLobbyPage=null;
   overview?.close();overview=null;
   if (mode === "quiz" && id !== "quiz") quiz?.leave();
   if (!songArtist?.waiting()) songArtist?.leave();
   mode = id;
   if(reportedQuiz&&mode!=='quiz')void refreshLive(true);
-  if (push && location.pathname !== playHref(id)) history.pushState(null, "", playHref(id));
+  const path=playHref(id)+(id==='custom-lobby'&&createLobby?'?create=1':'');
+  if(push&&(location.pathname!==playHref(id)||id==='custom-lobby'&&location.pathname+location.search!==path))history.pushState(null,"",path);
   nav();
   if(id!=='rankings'||!$('#ranking-results'))
-    $("#main").innerHTML = '<p class="loading">' + (id === "host" ? "Loading Host Console…" : id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":id==='overview'?'Loading Overview…':"Loading Matchmaking…") + '</p>';
+    $("#main").innerHTML = '<p class="loading">' + (id === "host" ? "Loading Host Console…" : id === "quiz" ? "Loading Quizzes…" : id==="rankings"?"Loading Rankings…":id==='overview'?'Loading Overview…':id==='custom-lobby'?'Loading lobbies…':"Loading Matchmaking…") + '</p>';
   try {
-    if(['overview','rankings','quiz','host'].includes(id))resumeBackgroundQueue(version).catch(fail);
+    if(['overview','rankings','quiz','host','custom-lobby'].includes(id))resumeBackgroundQueue(version).catch(fail);
     if(id==='host'){
       await accountReady;
       if(version!==viewVersion)return;
@@ -408,6 +412,17 @@ async function openMode(id, push = true) {
       }
       const {mountPlayConsole}=await import('../play-console.js?v=amq-registration');
       if(version===viewVersion)closeConsole=mountPlayConsole($('#main'),api,escape,format=>labels[format]||format);
+    } else if(id==='custom-lobby'){
+      const [{mountCustomLobby}]=await Promise.all([import('../play-custom-lobby.js'),accountReady,
+        loadStylesheet(new URL('../play-overview.css?v=overview-directory',import.meta.url)),
+        loadStylesheet(new URL('../play-custom-lobby.css',import.meta.url))]);
+      if(version!==viewVersion)return;
+      closeLobbyPage=mountCustomLobby($('#main'),{
+        create:new URLSearchParams(location.search).get('create')==='1',
+        onBrowse:()=>openMode('custom-lobby'),onCreate:()=>openListedLobby(),
+        esc:escape,loadRooms,openLobby:openListedLobby,
+        submit:(target,settings)=>openOverviewLobby(target,null,settings),
+      });
     } else if(id==='overview'){
       const [mount]=await Promise.all([loadOverview(),accountReady]);
       if(version!==viewVersion)return;
@@ -419,13 +434,7 @@ async function openMode(id, push = true) {
       };
       overview=mount($('#main'),{esc:escape,join,leave:()=>songArtist?.cancelQueue(),viewer:state.me,
         profileHref:playerProfileHref,
-        loadRooms:signal=>api('play-lobbies',undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),
-        openLobby:room=>{
-          if(!state.me){account();return;}
-          if(currentQueue){toast('Leave your current queue before joining a lobby.');return;}
-          if(room)void openOverviewLobby(lobbyGameMode(room.format),room);
-          else chooseLobbyMode();
-        },
+        loadRooms,openLobby:openListedLobby,
         watchPrivate:promptPrivateWatch,
         viewQueue:()=>currentQueue&&openMode(modeForQueue(currentQueue.format)),
         watch:(id,title)=>watchMatch(id,title).catch(fail),

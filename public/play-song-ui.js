@@ -7,7 +7,7 @@ import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
 import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, ngmcCounterSignupOpen, ngmcCanTakeOverCounting, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js?v=one-team-rematch';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
-import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=compact-team-guesses';
+import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=custom-lobby';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
 import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=stable-round';
@@ -205,14 +205,19 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     else if(Object.hasOwn(formats,id))format=id;
   }
   let requestedLobby=null;
-  function requestLobby(room){
-    requestedLobby={room};
+  function requestLobby(room,settings){
+    requestedLobby={room,settings};
     resolveLobbyRequest();
   }
   function resolveLobbyRequest(){
     if(!requestedLobby||!queue?.hasStatus||queue.readyState!==1)return;
-    const {room}=requestedLobby;requestedLobby=null;
+    const {room,settings}=requestedLobby;requestedLobby=null;
     if(queueStatus.type!=='idle'){error('Leave your current queue or lobby first.');return;}
+    if(settings){
+      primeAudio();
+      if(!send(queue,settings))error('Reconnect to create your lobby.');
+      return;
+    }
     const current=room&&lobbies?.find(r=>r.code===room.code);
     if(room&&!current){error('This lobby is no longer available.');return;}
     lobbyAction(room?'join':'create',current);

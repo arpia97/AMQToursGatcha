@@ -48,21 +48,34 @@ export function lobbyDirectoryHTML(lobbies,mode,enabled,esc){
         (full?'Full':'Join')+'</button></div>';
     }).join(''):'<p class="muted">'+(rooms?'No open lobbies.':'Loading lobbies…')+'</p>')+'</aside>';
 }
+const lobbyFormats = {
+  [DUEL_FORMAT]: DUEL_LOBBY_FORMAT, [ARENA_FORMAT]: ARENA_LOBBY_FORMAT,
+  'ngmc-ranked': 'lobby-ngmc', 'song-artist': 'lobby-ffa', [ONE_TEAM_MODE]: 'lobby-team', variety: POTATO_LOBBY,
+};
+
+export function lobbyCreateFields(mode,pool='random'){
+  const duel=mode===DUEL_FORMAT, songArtist=mode==='song-artist'||mode===ONE_TEAM_MODE;
+  return (mode==='variety'?potatoFormatPicker(POTATO_LOBBY):'')+poolPicker(pool)+
+    (duel||songArtist?'<label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>'+
+      '<label>Guess Time (Seconds)<input name="seconds" type="number" min="1" placeholder="Unlimited" value="'+(duel?duelRules.guessSeconds:30)+'"></label>':'')+
+    (songArtist?guessFieldPicker():'');
+}
+export function lobbyCreateMessage(form,mode){
+  const values=new FormData(form);
+  const payload={type:'lobby-create',format:values.get('format')||lobbyFormats[mode],pool:values.get('pool'),password:values.get('password')};
+  if(form.elements.songs){
+    payload.songs=Number(values.get('songs')||20);
+    payload.seconds=Number(values.get('seconds'));
+  }
+  if(form.querySelector('[name="guessFields"]'))payload.guessFields=readGuessFields(form);
+  return payload;
+}
 export function lobbyDialog(action,mode,room,send,pool='random'){
-  const ngmc=mode==='ngmc-ranked',arena=mode===ARENA_FORMAT,duel=mode===DUEL_FORMAT;
-  const cooperative=mode===ONE_TEAM_MODE, potato=mode==='variety';
   const create=action==='create',edit=action==='password',title=create?'Create Lobby':edit?'Lobby Password':'Join Lobby';
   const dialog=document.createElement('dialog');
   dialog.className='sa-song-dialog play-lobby-dialog';
   dialog.setAttribute('aria-label',title);
-  dialog.innerHTML='<form><h2>'+title+'</h2>'+(create&&ngmc?'<p>NGMC Unranked · 3v3 or 4v4</p>':'')+
-    (create&&potato?potatoFormatPicker(POTATO_LOBBY):'')+
-    (create&&arena?'<p>2v2 Arena · 4, 8, 12 or 16 players</p>':'')+
-    (create&&duel?'<p>1v1 Unranked</p><div class="lobby-settings">'+
-      '<label>Songs<input name="songs" type="number" min="1" max="100" placeholder="'+duelRules.songs+'"></label>'+
-      '<label>Guess Time (Seconds)<input name="seconds" type="number" min="1" placeholder="Unlimited" value="'+duelRules.guessSeconds+'"></label></div>':'')+
-    (create&&!potato&&!ngmc&&!arena&&!duel?'<p>'+(cooperative?'Song/Artist 1-Team':'Song/Artist Free-for-All')+'</p><label>Songs<input name="songs" type="number" min="1" max="100" placeholder="20"></label>':'')+
-    (create?poolPicker(pool):'')+(create&&!potato&&!ngmc&&!arena&&!duel?guessFieldPicker():'')+
+  dialog.innerHTML='<form><h2>'+title+'</h2>'+(create?lobbyCreateFields(mode,pool):'')+
     (action==='join'&&!room?'<label>Lobby Code<input name="code" required maxlength="8" autocomplete="off"></label>':'')+
     '<label>'+((create||edit||!room)?'Password (optional)':'Lobby Password')+'<input type="password" name="password" maxlength="128" autocomplete="'+(create||edit?'new-password':'off')+'" '+(room&&action==='join'?'required':'')+'></label>'+
     (edit?'<small>Leave blank to make this lobby public.</small>':'')+
@@ -73,9 +86,7 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
   dialog.querySelector('form').onsubmit=event=>{
     event.preventDefault();
     const values=new FormData(event.currentTarget);
-    const payload={type:'lobby-'+action,password:values.get('password')};
-    if(create)Object.assign(payload,{pool:values.get('pool'),format:potato?values.get('format'):duel?DUEL_LOBBY_FORMAT:arena?ARENA_LOBBY_FORMAT:ngmc?'lobby-ngmc':cooperative?'lobby-team':'lobby-ffa',songs:ngmc?35:Number(values.get('songs')||(duel?duelRules.songs:20)),seconds:duel?Number(values.get('seconds')):ngmc?20:30});
-    if(create&&!potato&&!ngmc&&!arena&&!duel)payload.guessFields=readGuessFields(dialog);
+    const payload=create?lobbyCreateMessage(event.currentTarget,mode):{type:'lobby-'+action,password:values.get('password')};
     if(action==='join')payload.code=room?.code||values.get('code');
     send(payload);
   };
