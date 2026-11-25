@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play chat emoji picker
+
+Runtime 115a3f7 is live on Worker 698199bc-e711-42fc-969a-46ebc1c32a95. Desktop keyboard and mobile touch checks passed, along with all 656 regression tests. Verified the Play entry point and matched all three live chat assets to the release files. Weekly streak and Donator changes remain local drafts.
+
 ## Centered desktop Overview
 
 Runtime 5550925 is live on Worker eff97ed1-e505-4b7a-a622-545ac5decaae. Verified the production entry and assets. Browser fixtures measured equal top and bottom margins at five desktop resolutions from 1280x720 to 1920x1080 across empty and populated feeds. Short and mobile viewports retained access to the first row.
