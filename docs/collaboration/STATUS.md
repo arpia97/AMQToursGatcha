@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Sudden Death restart timing
+
+Runtime 49a93f6 deployed as Worker 9cc30ff1-3b02-4d9c-92cb-0d7b2dc849ce. A recorded miss skips the opening countdown on the rerolled attempt when its audio is ready. All 656 tests passed, including delayed readiness and the initial countdown. The live Play Quiz route returned HTTP 200.
+
 ## Play chat emoji picker
 
 Runtime 115a3f7 is live on Worker 698199bc-e711-42fc-969a-46ebc1c32a95. Desktop keyboard and mobile touch checks passed, along with all 656 regression tests. Verified the Play entry point and matched all three live chat assets to the release files. Weekly streak and Donator changes remain local drafts.
