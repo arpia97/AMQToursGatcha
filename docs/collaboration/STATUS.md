@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Custom Lobby directory and creation
+
+Runtime `c4ff135` is on main and deployed as Worker `773fdc02-03bc-4fb9-8f09-768e30574738`. Overview and the new Custom Lobby tab share a single-page builder for six existing playable modes. The directory uses the live open-lobby feed. All 643 tests passed. A disposable two-player browser session verified creating and joining a private Song/Artist room with custom song count and timing. Production checks verified desktop and mobile navigation, mode selection, and direct URLs. Advanced custom rules are a separate, pending implementation.
+
 ## Same-edition anime grading
 
 Quiz and Play now recognize 92 verified labels across 36 editions where the official AMQ catalog and AMQ+ spell the same anime differently. For Sacred Force (AMQ song 20349, ANN anime 12221), the English and romaji movie titles work with or without the catalog colon. Checked 252 label pairings across Quiz, Play and team ballots, edition-separation regressions, and the full 643-test suite. Pushed runtime `492fb3d`, deployed Worker `6d3e93b8-aada-462a-bd8c-eef51e9c93c3` at 100%, confirmed live health and the track identity. Rebuild the grading table with `node tools/build-anime-grading-aliases.mjs` after refreshing the bundled catalogs.
