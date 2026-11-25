@@ -108,6 +108,22 @@ test('artist aliases, equivalent groups, directed solo groups and full member an
 const songs=Array.from({length:20},(_,i)=>({audio:'https://example.test/'+i+'.mp3',anime:'Anime',title:'Song',artist:'Artist',answers:{anime:['anime','alternate'],song:['song'],artist:['Artist']},artistRules:{}}));
 const players=Array.from({length:6},(_,i)=>({id:String(i),name:'Player '+i}));
 
+test('Yu, Yuu and macron spellings identify the same credited singer in either name order',()=>{
+  for(const surname of ['Kobayashi','Serizawa']){
+    for(const credit of ['Yu '+surname, surname+' Yuu']){
+      for(const guess of ['Yuu '+surname, surname+', Yu', 'Yū '+surname]){
+        assert.equal(artistMatches(credit,[guess]),true);
+      }
+    }
+  }
+  const savedRules={duo:{members:[['kobayashi yuu'],['serizawa yu']]}};
+  assert.equal(artistMatches('Duo',['Yu Kobayashi','Yuu Serizawa'],savedRules),true);
+  assert.equal(artistMatches('Duo',['Yu Kobayashi','Yuu Kobayashi'],savedRules),false);
+  assert.equal(artistMatches('Duo',['Yu Kobayashi','Yuu Serizawa','Another Singer'],savedRules),false);
+  assert.equal(artistMatches('Yu Serizawa',['Yuu Kobayashi']),false);
+  assert.equal(artistMatches('Yu Example',['Yuu Example']),false);
+});
+
 test('Song/Artist accepts Nagi Yanagi and yanaginagi interchangeably',()=>{
   const library=buildArtistLibrary({
     artistMap:{1:{name:'yanaginagi',altNameLinks:['nagi']},2:{name:'Jun Maeda'}},

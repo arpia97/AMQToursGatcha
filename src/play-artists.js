@@ -22,7 +22,12 @@ export const titleMatches = (expected,value) => {
   const key=titleKey(value);return !!key&&expected.some(answer=>titleKey(answer)===key);
 };
 const sortedArtistKey = value => answerKey(value).split(/\s+/).sort().join(' ');
-const artistAliases = [['Nagi Yanagi', 'yanaginagi']];
+// Full credited names keep long-vowel aliases scoped to the individual performer.
+const artistAliases = [
+  ['Nagi Yanagi', 'yanaginagi'],
+  ['Yuu Kobayashi', 'Yu Kobayashi'],
+  ['Yuu Serizawa', 'Yu Serizawa'],
+];
 const artistAliasKeys = new Map(artistAliases.map(([alias,credit])=>[sortedArtistKey(alias),sortedArtistKey(credit)]));
 export const artistAliasLabels = artistAliases.map(([alias])=>alias);
 export const artistKey = value => {
@@ -66,13 +71,14 @@ export function buildArtistLibrary(master) {
   return {version:master.masterListId,names:[...labels].sort(),rules,songs};
 }
 export function artistMatches(expected, submitted, rules = {}) {
-  const rule=rules[artistKey(expected)];
-  const names=[artistKey(expected),...(rule?.names||[])];
+  const expectedKey=artistKey(expected);
+  const rule=rules[expectedKey]??rules[sortedArtistKey(expected)];
+  const names=[expectedKey,...(rule?.names||[]).map(artistKey)];
   const isPerformer=part=>titleMatches(names,part);
   if(typeof submitted==='string'&&isPerformer(artistKey(submitted)))return true;
   const parts=[...new Set((Array.isArray(submitted)?submitted:String(submitted??'').split(',')).map(artistKey))];
   if(!parts.length||parts.includes(''))return false;
-  const members=rule?.members||[];
+  const members=(rule?.members||[]).map(aliases=>aliases.map(artistKey));
   const covered=part=>members.some(aliases=>titleMatches(aliases,part));
   if(parts.some(isPerformer))return parts.every(part=>isPerformer(part)||covered(part));
   // Redundant member aliases can remain unmatched, but every submitted artist
