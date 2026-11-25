@@ -11,9 +11,36 @@ function quizDeletePanel(q, e) {
     ? `<form id="quiz-delete" class="stack space-top"><input type="hidden" name="quiz" value="${e(q.id)}"><input type="hidden" name="quizName" value="${e(q.name)}"><p class="form-hint">Permanently delete this quiz, its song pool, leaderboard scores, active runs and completion titles. Existing credits stay.</p><button type="submit" class="button danger">Delete Quiz</button></form>`
     : "";
 }
-export function quizHostPanel(quizzes, e, selected = null, pool = null, library=null) {
+export function quizPickerOptions(quizzes, published, query, selected, e) {
+  const term = query.trim().toLowerCase();
+  const matches = quizzes.filter(quiz => Boolean(quiz.published) === published &&
+    quiz.name.toLowerCase().includes(term));
+  const group = published ? "published quiz" : "draft";
+  const prompt = matches.length ? "Choose a " + group : "No " + (published ? "published quizzes" : "drafts") + (term ? " match" : "");
+  return `<option value="" disabled${matches.some(quiz=>quiz.id===selected) ? "" : " selected"}>${prompt}</option>` + matches.map(quiz =>
+    `<option value="${e(quiz.id)}"${quiz.id === selected ? " selected" : ""}>${e(quiz.name)}</option>`
+  ).join("");
+}
+function quizPicker(quizzes, e, selected, query) {
+  return `<div class="quiz-pool-picker">
+    <label>Search quizzes<input type="search" id="host-quiz-search" value="${e(query)}" placeholder="Search by quiz name"></label>
+    <label>Published quizzes<select id="host-quiz-select">${quizPickerOptions(quizzes,true,query,selected,e)}</select></label>
+    <label>Drafts<select id="host-quiz-draft">${quizPickerOptions(quizzes,false,query,selected,e)}</select></label>
+    <button type="button" class="button secondary" data-new-quiz>New Quiz ＋</button>
+  </div>`;
+}
+const titleSources = new Map([
+  ["amq-export", "AMQ JSON"], ["saved-amq-export", "AMQ JSON"],
+  ["amq-master-sheet", "Google Sheets"], ["amq-plus", "AMQ+"],
+]);
+function answerSourceBadge(song) {
+  const label = titleSources.get(song.answerSource) || "Unverified";
+  const caution = label === "AMQ+" || label === "Unverified";
+  return `<small class="quiz-answer-source${caution ? " caution" : ""}" aria-label="Alternative title source: ${label}">${label}</small>`;
+}
+export function quizHostPanel(quizzes, e, selected = null, pool = null, library=null, query="") {
   const q = quizzes.find((q) => q.id === selected);
-  return `<section class="host-panel"><h2>Quiz Pools</h2><div id="quiz-library-status">${quizLibraryPanel(library,q,e)}</div><p>Upload an AnisongDB or AMQ song export. AMQ MP3 videoUrl links are used when supplied; missing audio is resolved by song ID. Audio links are checked before saving, and broken links can be replaced or skipped. AMQ JSON answers take priority; AMQ Plus fills missing metadata and fallback titles. Existing personal bests and one-time rewards remain when the pool is updated.</p><div class="quiz-pool-picker"><label for="host-quiz-select">Quiz<select id="host-quiz-select"><option value="" ${q ? "" : "selected"}>New Quiz</option>${quizzes.map((item) => `<option value="${e(item.id)}" ${item.id === selected ? "selected" : ""}>${e(item.name)} · ${item.published ? "Published" : "Draft"}</option>`).join("")}</select></label><button type="button" class="button secondary" data-new-quiz>New Quiz ＋</button></div><form id="quiz-save" class="stack space-top" data-pool-loading="${!!q && pool?.id !== q.id}" data-quiz-name-index="${e(JSON.stringify(quizzes.map(({id,name,category,published})=>({id,name,category,published}))))}"><input name="id" type="hidden" value="${e(q?.id || "")}"><label>Category<select name="category">${QUIZ_CATEGORIES.map(c => `<option value="${c}" ${(q?.category || "singers") === c ? "selected" : ""}>${quizCategoryLabel(c)}</option>`).join("")}</select></label><p class="form-hint">Franchise quizzes do not award credits.</p><label>Quiz Name<input name="name" maxlength="100" required value="${e(q?.name || "")}"></label><div data-quiz-name-warnings aria-live="polite">${quizNameWarningHTML(q?.name,quizzes,q?.id||"",e)}</div><label>100% Completion Title<input name="title" maxlength="80" value="${e(q?.title || "")}" placeholder="Optional achievement title"></label><label>Cover Image<input name="coverFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${q?.cover ? `<img class="quiz-cover-preview" src="${e(q.cover)}" alt="Current Quiz Cover">` : ""}${q ? `<div id="quiz-current-pool">${pool?.id === q.id ? quizPoolEditor(pool, e) : '<p role="status">Loading Current Song Pool…</p>'}</div><label>JSON Import Mode<select name="songMode"><option value="replace">Replace Pool</option><option value="append">Add Songs to Current Pool</option></select></label>` : ""}<label>AnisongDB / AMQ Song JSON<input name="songsFile" type="file" accept=".json,application/json" ${q ? "" : "required"}></label><p class="form-hint">Up to 2,000 songs. Use Replace Pool or Add Songs for a JSON import. Leave the file blank to keep the pool with any checked removals. A published quiz needs at least 20 matched songs.</p><div data-quiz-song-review aria-live="polite"></div><label>Status<select name="published"><option value="false" ${!q?.published ? "selected" : ""}>Draft · Hidden From Players</option><option value="true" ${q?.published ? "selected" : ""}>Published</option></select></label><button class="button" type="submit" ${q && pool?.id !== q.id ? "disabled" : ""}>Save Quiz →</button></form>${quizResetPanel(q, e)}${quizDeletePanel(q, e)}</section>`;
+  return `<section class="host-panel"><h2>Quiz Pools</h2>${quizPicker(quizzes,e,selected,query)}<form id="quiz-save" class="stack space-top" data-pool-loading="${!!q && pool?.id !== q.id}" data-quiz-name-index="${e(JSON.stringify(quizzes.map(({id,name,category,published})=>({id,name,category,published}))))}"><input name="id" type="hidden" value="${e(q?.id || "")}"><label>Category<select name="category">${QUIZ_CATEGORIES.map(c => `<option value="${c}" ${(q?.category || "singers") === c ? "selected" : ""}>${quizCategoryLabel(c)}</option>`).join("")}</select></label><p class="form-hint">Franchise quizzes do not award credits.</p><label>Quiz Name<input name="name" maxlength="100" required value="${e(q?.name || "")}"></label><div data-quiz-name-warnings aria-live="polite">${quizNameWarningHTML(q?.name,quizzes,q?.id||"",e)}</div><label>100% Completion Title<input name="title" maxlength="80" value="${e(q?.title || "")}" placeholder="Optional achievement title"></label><label>Cover Image<input name="coverFile" type="file" accept="image/png,image/jpeg,image/webp"></label>${q?.cover ? `<img class="quiz-cover-preview" src="${e(q.cover)}" alt="Current Quiz Cover">` : ""}${q ? `<div id="quiz-current-pool">${pool?.id === q.id ? quizPoolEditor(pool, e) : '<p role="status">Loading Current Song Pool…</p>'}</div><label>JSON Import Mode<select name="songMode"><option value="append" selected>Add Songs to Current Pool</option><option value="replace">Replace Pool</option></select></label>` : ""}<label>AnisongDB / AMQ Song JSON<input name="songsFile" type="file" accept=".json,application/json" ${q ? "" : "required"}></label><p class="form-hint">Up to 2,000 songs. Use Replace Pool or Add Songs for a JSON import. Leave the file blank to keep the pool with any checked removals. A published quiz needs at least 20 matched songs.</p><div data-quiz-song-review aria-live="polite"></div><label>Status<select name="published"><option value="false" ${!q?.published ? "selected" : ""}>Draft · Hidden From Players</option><option value="true" ${q?.published ? "selected" : ""}>Published</option></select></label><button class="button" type="submit" ${q && pool?.id !== q.id ? "disabled" : ""}>Save Quiz →</button></form>${quizResetPanel(q, e)}${quizDeletePanel(q, e)}</section><div id="quiz-library-status">${quizLibraryPanel(library,q,e)}</div>`;
 }
 export async function quizHostBody(form) {
   const fields = Object.fromEntries(new FormData(form)),
@@ -89,7 +116,7 @@ export function quizSongReview(result, e, sort={}, existing=[]) {
     songs.length +
     " Matched Songs · " +
     rejected.length +
-    ' Skipped Rows · ' + songs.filter(s=>!s.skipped).length + ' Included · ' + songs.filter(s=>s.skipped).length + ' Removed</p><p class="form-hint">Remove unwanted songs before saving. Restore to undo. Duplicate MP3s are included once.</p>' +
+    ' Skipped Rows · ' + songs.filter(s=>!s.skipped).length + ' Included · ' + songs.filter(s=>s.skipped).length + ' Removed</p><p class="form-hint">Remove unwanted songs before saving. Restore to undo. The badge under each anime names its alternative title source.</p>' +
     quizAutomodHTML(songs,e,{existing})+
     (songs.length
       ? '<div class="table-wrap quiz-song-list" role="region" aria-label="Imported Songs" tabindex="0"><table data-quiz-review-table="upload" data-review-sort="'+(sort.key||'')+'" data-review-ascending="'+(sort.ascending!==false)+'"><thead><tr><th>#</th>'+reviewSortHeader('title','Song',sort)+reviewSortHeader('artist','Artist',sort)+reviewSortHeader('anime','Anime',sort)+'<th>Audio Link</th><th>Include</th></tr></thead><tbody>' +
@@ -106,7 +133,7 @@ export function quizSongReview(result, e, sort={}, existing=[]) {
               '</td><td data-review-value="anime" data-sort-value="'+e(song.answers?.[0]||'')+'" title="' +
               e((song.answers || []).join(" / ")) +
               '">' +
-              e(song.answers?.[0] || "—") +
+              e(song.answers?.[0] || "—") + answerSourceBadge(song) +
               "</td><td>" +
               audioReviewCell(song, i, e) +
               '</td><td><button type="button" class="button secondary" data-quiz-audio-action="'+(song.skipped?'restore':'skip')+'" data-quiz-audio-index="'+i+'" aria-label="'+(song.skipped?'Restore ':'Remove ')+e(song.title)+'">'+(song.skipped?'Restore':'Remove')+'</button></td></tr>',
@@ -424,7 +451,7 @@ export function quizPoolEditor(pool, e) {
           '</td><td data-review-value="anime" data-sort-value="'+e(song.answers[0]||'')+'" title="' +
           e(song.answers.join(" / ")) +
           '">' +
-          e(song.answers[0]) +
+          e(song.answers[0]) + answerSourceBadge(song) +
           "</td></tr>",
       )
       .join("") +

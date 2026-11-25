@@ -36,20 +36,21 @@
 }
 
 .quiz-pool-picker {
-  display: flex;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 20px;
+  display:grid;grid-template-columns:minmax(180px,1.4fr) repeat(2,minmax(140px,1fr)) auto;
+  align-items:end;gap:12px;margin:18px 0 24px;
 }
-.quiz-pool-picker label {
-  flex: 1 1 240px;
-  min-width: 0;
-  max-width: 600px;
+.quiz-pool-picker label {min-width:0}
+.quiz-pool-picker :is(input,select,button) {width:100%;height:42px}
+@media(max-width:800px) {
+  .quiz-pool-picker {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .quiz-pool-picker label:first-child {grid-column:1/-1}
+  .quiz-pool-picker button {width:max-content}
 }
-.quiz-pool-picker select {
-  width: 100%;
+.quiz-song-list small.quiz-answer-source {
+  display:table;width:fit-content;margin-top:5px;padding:2px 6px;border-radius:4px;
+  background:#a5dbbd12;color:#b5e0c6;font-size:11px;line-height:1.4;white-space:nowrap;
 }
+.quiz-song-list small.quiz-answer-source.caution {background:#e8bd6516;color:#f2cc77}
 .quiz-import-review {
   padding: 16px;
   border: 1px solid var(--border);

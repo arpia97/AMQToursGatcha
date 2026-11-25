@@ -6,6 +6,7 @@ import { formIdentifier } from "./form-actions.js";
 import { quizLibraryPanel } from "./quiz-library-host-ui.js";
 import {
   quizHostPanel,
+  quizPickerOptions,
   quizHostBody,
   previewQuizFile,
   handleQuizAudioReview,
@@ -14,7 +15,7 @@ import {
   refreshQuizReviewWarnings,
   refreshQuizNameWarnings,
   checkQuizPoolLinks,
-} from "./quiz-host-ui.js";
+} from "./quiz-host-ui.js?v=quiz-source-picker";
 import { TOUR_SIZES } from "./tour-rewards.js";
 import { createTourRewardEditor } from "./tour-rewards-ui.js";
 import {
@@ -39,6 +40,7 @@ import { updateRewardDefaults } from "./host-defaults.js";
 import { accessPanel, participationPanel, rewardWorkspace, organizeHostTools } from "./host-panels.js";
 let deductionDraft = null,
   quizSelection = null,
+  quizSearch = "",
   quizPool = null;
 let quizLibraryStatus = null;
 let quizLibraryPolling = false;
@@ -155,7 +157,7 @@ function render() {
   let html = "";
   if(tab==='play-review')html=playReviewPanel();
   if (tab === "quiz")
-    html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool,quizLibraryStatus);
+    html = quizHostPanel(state.quizzes || [], esc, quizSelection, quizPool,quizLibraryStatus,quizSearch);
   if (tab === "rewards")
     html = `<section class="host-panel"><h2>Individual Grant</h2><form id="grant" class="stack">${creditPlayerPicker(state, "grant", esc)}<div class="form-grid"><label>Category<select name="reason"><option value="reporting">Reporting</option><option value="counting">Counting</option><option value="participation">Tour participation</option><option value="other">Other</option></select></label>${input("Credit amount", "amount", "number", 'min="1" max="1000000" step="1" value="750"')}</div><label class="reporting-games"><span class="reward-games-label">Rounds played</span><input name="games" type="number" min="1" max="2000" step="1" value="1" required></label><label class="reward-tour-size">Tour Size<select name="tourSize">${TOUR_SIZES.map((size) => `<option value="${size}" ${size === 16 ? "selected" : ""}>${size} Players</option>`).join("")}</select></label><p class="form-hint">Participation: 200 per round for up to 16 players, 300 for 24, 400 for 32 or more. Counting and reporting: a flat 750 each per tour. Custom credit amounts remain editable.</p>${input("Tour identifier (used once per activity count)", "event", "text", 'maxlength="240" placeholder="usual-2026-10-24-42"')}${input("Tour / explanation (audit note)", "note", "text", 'maxlength="240" placeholder="Tour reporting"')}<button class="button" type="submit">Grant credits →</button></form></section>`;
   if (tab === "players")
@@ -791,6 +793,13 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "host-quiz-search") {
+    quizSearch = ev.target.value;
+    for (const [id, published] of [["host-quiz-select", true], ["host-quiz-draft", false]]) {
+      $("#"+id).innerHTML = quizPickerOptions(state.quizzes, published, quizSearch, quizSelection, esc);
+    }
+    return;
+  }
   if (ev.target.dataset.creditSearch) {
     updateCreditPlayerSearch(state,ev.target,esc);
   }
@@ -1029,7 +1038,7 @@ document.addEventListener("click", (ev) => {
 });
 
 document.addEventListener("change", (ev) => {
-  if (ev.target.id === "host-quiz-select" && !working) {
+  if (["host-quiz-select","host-quiz-draft"].includes(ev.target.id) && !working) {
     quizSelection = ev.target.value || null;
     quizPool = null;
     render();
@@ -1048,7 +1057,7 @@ document.addEventListener("change", (ev) => {
         })
         .catch((err) => report(err.message, true));
     }
-    $("#host-quiz-select")?.focus();
+    $("#"+ev.target.id)?.focus();
   }
   if (
     ev.target.name === "songsFile" &&

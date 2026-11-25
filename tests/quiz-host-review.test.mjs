@@ -3,6 +3,7 @@ import {quizNameMatches,quizNameWarningHTML,quizReviewWarnings,sortQuizReview} f
 import assert from "node:assert/strict";
 import {
   quizHostPanel,
+  quizPickerOptions,
   quizPoolEditor,
   quizSongReview,
   readQuizJSON,
@@ -44,9 +45,15 @@ test("host quiz selector keeps selection and status beside New Quiz without a bu
     "b",
   );
   assert.match(html, /<select id="host-quiz-select">/);
-  assert.match(html, /value="b" selected>Two · Draft/);
-  assert.match(html, /One &lt;Quiz> · Published/);
+  assert.match(html, /id="host-quiz-draft">[^]*?value="b" selected>Two/);
+  assert.match(html, /One &lt;Quiz>/);
   assert.match(html, /data-new-quiz>New Quiz/);
+  assert.match(html, /name="songMode"><option value="append" selected>/);
+  assert.ok(html.indexOf('id="quiz-library-status"') > html.indexOf('id="quiz-delete"'));
+  const quizzes = [{id:"p",name:"Winter Hits",published:1},{id:"d",name:"Winter Draft"},{id:"q",name:"Unrelated",published:1}];
+  assert.match(quizPickerOptions(quizzes,true," WIN ",null,e), /Winter Hits/);
+  assert.doesNotMatch(quizPickerOptions(quizzes,true,"win",null,e), /Winter Draft|Unrelated/);
+  assert.match(quizPickerOptions(quizzes,false,"win",null,e), /Winter Draft/);
   assert.doesNotMatch(html, /data-edit-quiz/);
   assert.match(html, /data-quiz-song-review/);
   assert.match(html, /value="franchise"/);
@@ -84,6 +91,21 @@ test("song review escapes metadata and shows matched titles, artist, anime and s
   ])
     assert.ok(html.includes(text));
   assert.doesNotMatch(html, /<Song>|<Artist>|<Anime>|<Missing>/);
+});
+
+test("alternative title badges reflect the recorded answer source in uploads and saved pools", () => {
+  const sources = [
+    ["amq-export","AMQ JSON"], ["saved-amq-export","AMQ JSON"], ["amq-master-sheet","Google Sheets"],
+    ["amq-plus","AMQ+"], ["published-quiz","Unverified"], ["amq","Unverified"], [undefined,"Unverified"],
+  ];
+  for (const [answerSource,label] of sources) {
+    const songs = [{id:1,title:"Song",answers:["Anime"],answerSource}];
+    for (const html of [quizSongReview({songs},e),quizPoolEditor({songs},e)]) {
+      const badge = html.match(/<small class="quiz-answer-source([^"]*)"[^>]*>([^<]+)<\/small>/);
+      assert.equal(badge?.[2],label);
+      assert.equal(badge[1].includes("caution"),["AMQ+","Unverified"].includes(label));
+    }
+  }
 });
 
 test('automod distinguishes repeated song titles from shared anime answers and sorts without changing source rows or audio actions',()=>{
