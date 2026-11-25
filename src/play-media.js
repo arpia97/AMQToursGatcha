@@ -42,7 +42,7 @@ export async function sealPlayAudio(state, secret, issuedAt=state.created) {
     const position = entry.round === null ? new DataView(random(4).buffer).getUint32(0) / 4294967296 : state.samplePositions[entry.round];
     const iv = random(PLAY_AUDIO_IV_BYTES);
     entry.rangeSample ??= !entry.key;
-    const data = encoder.encode(JSON.stringify([source, key, position, state.mode, expires, entry.rangeSample]));
+    const data = encoder.encode(JSON.stringify([source, key, position, state.mode, expires, entry.rangeSample, state.clipSeconds]));
     if (data.length > TICKET_BYTES - 2) throw Error("Invalid Play audio ticket.");
     const padded = new Uint8Array(TICKET_BYTES);
     new DataView(padded.buffer).setUint16(0, data.length);
@@ -63,11 +63,12 @@ async function openTicket(ticket, secret) {
     const raw = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.subarray(0, PLAY_AUDIO_IV_BYTES), additionalData: ticketContext },
       cipher, bytes.subarray(PLAY_AUDIO_IV_BYTES));
     const length = new DataView(raw).getUint16(0);
-    const [source, key, position, mode, expires, rangeSample] = JSON.parse(new TextDecoder().decode(raw.slice(2, 2 + length)));
+    const [source, key, position, mode, expires, rangeSample, seconds] = JSON.parse(new TextDecoder().decode(raw.slice(2, 2 + length)));
     if (!playAudioSource(source) || !Number.isSafeInteger(expires) || expires <= Date.now() ||
         !["variety", DUEL_FORMAT, ONE_TEAM_MODE, "song-artist", "ngmc-ranked", "2v2-arena"].includes(mode) || !Number.isFinite(position) || position < 0 || position >= 1 ||
         typeof key !== "string" || audioBytes(key).byteLength !== 32) return null;
-    return { source, key, position, mode, rangeSample };
+    if(seconds!=null&&(!Number.isInteger(seconds)||seconds<1||seconds>120))return null;
+    return { source, key, position, mode, rangeSample,...(seconds?{seconds}:{}) };
   } catch { return null; }
 }
 
@@ -132,8 +133,8 @@ export async function playableMirror(source, fetcher) {
 
 async function encryptClip(ticket, server, fetcher) {
   const sources = new Set([quizAudioUrl(ticket.source, server), ticket.source, ...QUIZ_SERVERS.map(region => quizAudioUrl(ticket.source, region))]);
-  const duration = defaultPlayGuessSeconds(ticket.mode);
-  const payloadSize = playAudioBytes(ticket.mode);
+  const duration = ticket.seconds??defaultPlayGuessSeconds(ticket.mode);
+  const payloadSize = playAudioBytes(ticket.mode,ticket.seconds);
   for (const source of sources) {
     try {
       const {bytes: head, start, total} = await audioHead(source, fetcher);
@@ -178,15 +179,15 @@ export async function playAudioResponse(request, env, ctx, fetcher = (...args) =
   const cacheKey = new Request(url.origin + url.pathname + "?server=" + server);
   const cached = await cache?.match(cacheKey).catch(() => null);
   if (cached) {
-    return new Response(cached.body, { headers: audioHeaders("private, no-store", playAudioBytes(ticket.mode)) });
+    return new Response(cached.body, { headers: audioHeaders("private, no-store", playAudioBytes(ticket.mode,ticket.seconds)) });
   }
   const bytes = await encryptClip(ticket, server, fetcher);
   if (!bytes) {
     const signature = await crypto.subtle.sign("HMAC", await failureKey(env.HOST_TOKEN,"sign"), encoder.encode("play-audio-unavailable-v1:" + ticket.key));
     return new Response(null,{status:502,headers:{"Cache-Control":"no-store","X-Play-Audio-Failure":audioBase64(new Uint8Array(signature))}});
   }
-  if (cache) ctx.waitUntil(cache.put(cacheKey, new Response(bytes, { headers: audioHeaders("public, max-age=900", playAudioBytes(ticket.mode)) })).catch(() => {}));
-  return new Response(bytes, { headers: audioHeaders("private, no-store", playAudioBytes(ticket.mode)) });
+  if (cache) ctx.waitUntil(cache.put(cacheKey, new Response(bytes, { headers: audioHeaders("public, max-age=900", playAudioBytes(ticket.mode,ticket.seconds)) })).catch(() => {}));
+  return new Response(bytes, { headers: audioHeaders("private, no-store", playAudioBytes(ticket.mode,ticket.seconds)) });
 }
 
 function audioHeaders(cacheControl, payloadBytes) {

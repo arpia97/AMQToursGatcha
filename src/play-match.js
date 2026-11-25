@@ -138,17 +138,18 @@ export class PlayMatch extends DurableObject {
   }
   async buildOpening(id,format,players,lobby,pool){
     let watched=null;
-    if(pool==='watched'){
+    if(pool==='watched'||lobby?.studio?.pool==='Mixed'){
       watched=await this.env.GAME.getByName('amqtours-economy-v1').watchedAnimeLists(players.map(p=>p.id));
-      if(!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
+      if(pool==='watched'&&!watched.some(list=>list.ids.length))return {setupError:'Import a MAL or AniList list in Play Settings before playing Watched.'};
     }
     const survival=format===ONE_TEAM_FORMAT;
     const sampleMode=isPotato(format)?VARIETY_MODE:format==='lobby-ngmc'||format.startsWith('ngmc-')?'ngmc-ranked':
       format===ARENA_FORMAT?ARENA_FORMAT:survival?ONE_TEAM_MODE:'song-artist';
     let library;
     try{
-      library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:isPotato(format)?potatoRules.songs:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:survival?oneTeamRules.songs:lobby?.songs,watched});
+      library=await quizLibraryRequest(this.env,'/play-sample',{matchId:id,mode:sampleMode,count:isPotato(format)?potatoRules.songs:format===ARENA_FORMAT?arenaSongCount(players.length):format===DUEL_FORMAT?duelRules.songs:survival?oneTeamRules.songs:lobby?.songs,watched,studio:lobby?.studio});
     }catch(error){
+      if(lobby?.studio&&error.status===422)return {setupError:error.message};
       if(watched && (error.status===422 || error.message==='Not enough playable NGMC songs.'))return {setupError:error.status===422?error.message:'Too few playable NGMC songs on the Watched lists.'};
       throw error;
     }
@@ -356,12 +357,12 @@ export class PlayMatch extends DurableObject {
       const exclude=[...state.audioPool.map(e=>e.audio),...(state.failedAudio||[])];
       const snapshot=this.ctx.storage.sql.exec('SELECT data FROM match_state WHERE id=2').toArray()[0];
       const watched=snapshot?JSON.parse(snapshot.data):null;
-      const excludeAnime=watched&&entry.round!==null?state.songs.filter((_,index)=>index!==entry.round).map(song=>song.annId).filter(Boolean):[];
-      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude,watched,excludeAnime});
+      const excludeAnime=(watched||state.lobby?.studio)&&entry.round!==null?state.songs.filter((_,index)=>index!==entry.round).map(song=>song.annId).filter(Boolean):[];
+      const library=await quizLibraryRequest(this.env,'/play-sample',{mode:state.mode,count:1,exclude,watched,excludeAnime,studio:state.lobby?.studio,replacement:state.songs[entry.round]?.studioBucket||{kind:"random"}});
       const song=library?.songs[0];
       if(!song)fail('No replacement audio is available yet.',503);
       const next={round:entry.round,audio:song.audio,replacements:(entry.replacements||0)+1};
-      await sealPlayAudio({mode:state.mode,audioPool:[next],samplePositions:state.samplePositions},this.env.HOST_TOKEN,Date.now());
+      await sealPlayAudio({mode:state.mode,clipSeconds:state.clipSeconds,audioPool:[next],samplePositions:state.samplePositions},this.env.HOST_TOKEN,Date.now());
       // Timers, departures, answers and load acknowledgments can advance during I/O.
       const live=this.read();
       if(!live||live.audioPool[slot]?.key!==entry.key||!replaceable(live))return;

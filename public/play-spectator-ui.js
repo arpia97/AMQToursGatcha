@@ -78,7 +78,10 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     if(dial)updateRoundDial(dial,state,now);
     if(clip&&now>=state.until){audio.pause();return;}
     if(!clip||!source||audio.readyState<1||now<state.startsAt)return;
-    const position=(now-state.startsAt)/1000;
+    const elapsed=(now-state.startsAt)/1000;
+    if(state.audioSeconds&&elapsed>=state.audioSeconds){audio.pause();return;}
+    audio.playbackRate=state.rate||1;
+    const position=elapsed*audio.playbackRate;
     if(!Number.isFinite(audio.duration)||position<audio.duration)player.update(state.index,position);
   }
   const interval=setInterval(tick,120);
@@ -101,7 +104,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     clip=current;loadingAudio=true;audioNotice();
     const download=request=new AbortController();
     try{
-      const cache=createSealedAudioCache(apiBase,state.mode);
+      const cache=createSealedAudioCache(apiBase,state.mode,state.clipSeconds);
       await cache.prepare([clip.ticket],server,{
         signal:AbortSignal.any([download.signal,AbortSignal.timeout(12_000)]),onProgress:()=>{},
       });

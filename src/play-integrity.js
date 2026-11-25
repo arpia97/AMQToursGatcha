@@ -40,7 +40,7 @@ export function prepareAudioPool(state,decoys=[],sealed=false){
 export function audioManifest(state){
   const window=state.audioSealed?audioWindow(state):null;
   return {type:'manifest',revision:state.audioRevision||0,id:state.id,mode:state.mode||'song-artist',format:state.format,total:state.songs.length,
-    preload:state.audioPreload||firstRounds(state),
+    ...(state.clipSeconds?{clipSeconds:state.clipSeconds}:{}),preload:state.audioPreload||firstRounds(state),
     ...(state.audioSealed ? { sealed: true, downloadStart: window.start, downloadEnd: window.end } : {}),
     audio:(state.audioPool||state.songs).map(s=>state.audioSealed ? s.ticket : s.audio)};
 }

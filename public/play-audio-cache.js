@@ -1,8 +1,8 @@
 import { audioBytes, PLAY_AUDIO_IV_BYTES, PLAY_AUDIO_OVERHEAD, playAudioBytes } from "./play-audio-format.js";
 
-export function createSealedAudioCache(apiBase, mode) {
+export function createSealedAudioCache(apiBase, mode,seconds) {
   const files = new Map();
-  const expected = playAudioBytes(mode) + PLAY_AUDIO_OVERHEAD;
+  const expected = playAudioBytes(mode,seconds) + PLAY_AUDIO_OVERHEAD;
   const cacheKey = (ticket, server) => server + ":" + ticket;
   return {
     has(ticket, server) { return files.has(cacheKey(ticket, server)); },

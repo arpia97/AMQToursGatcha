@@ -17,15 +17,15 @@ export function mountOverviewRooms(root,{esc,loadRooms,openLobby,signal}){
     try{
       const list=await loadRooms(signal);
       if(signal.aborted)return;
-      rooms=list.filter(r=>r.players<lobbyCapacity(r.format));
+      rooms=list.filter(r=>r.players<(r.capacity??lobbyCapacity(r.format)));
       const next=JSON.stringify(rooms);
       status.hidden=rooms.length>0;status.textContent='No open lobbies.';
       root.querySelector('[data-room-count]').textContent=rooms.length;
       if(next===snapshot)return;
       snapshot=next;
       board.innerHTML=rooms.map(r=>{
-        const cap=lobbyCapacity(r.format);
-        return '<article class="roomtile"><h3>'+esc(r.host)+'’s Lobby</h3><p>'+esc(lobbyModeNames[r.format]||r.format)+' · '+poolName(r.pool)+'</p>'+
+        const cap=(r.capacity??lobbyCapacity(r.format));
+        return '<article class="roomtile"><h3>'+esc(r.name||r.host+'’s Lobby')+'</h3><p>'+esc(r.name?'Custom':lobbyModeNames[r.format]||r.format)+' · '+(r.pool==='mixed'?'Mixed':poolName(r.pool))+'</p>'+
           '<span class="access '+(r.locked?'locked':'open')+'">'+(r.locked?'Private':'Open')+'</span><div class="roomfoot"><span>'+r.players+(Number.isFinite(cap)?' / '+cap:'')+' players</span>'+
           '<button class="button secondary" data-room-code="'+esc(r.code)+'">Join lobby</button></div></article>';
       }).join('');

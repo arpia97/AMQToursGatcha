@@ -7,12 +7,18 @@ import {send} from './play-sockets.js';
 import {retryDurableOperation} from './durable-recovery.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
+import {studioLobbySettings} from '../public/play-studio-rules.js';
+const capacity=settings=>settings.studio?.players??lobbyCapacity(settings.format);
 export const ONE_TEAM_REMATCH_FORMAT='lobby-one-team-survival';
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
 
 
 export function lobbySettings(data){
   const {format}=data;
+  if(data.studio!==undefined){
+    if(format!=='lobby-ffa')fail('Invalid custom match format.');
+    return studioLobbySettings(data.studio);
+  }
   const pool=data.pool??'random';
   if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
   const selection=pool==='watched'?{pool}:{};
@@ -86,11 +92,13 @@ export class PlayLobbies {
   directory(){
     return this.queue.rows(`SELECT l.code,json_extract(l.settings,'$.format') AS format,json_extract(l.settings,'$.pool') AS pool,
       l.password_hash IS NOT NULL AS locked,COUNT(*) AS players,
+      json_extract(l.settings,'$.studio.name') AS name,json_extract(l.settings,'$.studio.players') AS capacity,
       CASE WHEN l.password_hash IS NULL THEN json_extract(l.settings,'$.guessFields') END AS guessFields,
       (SELECT h.name FROM lobby_members h WHERE h.code=l.code AND h.last_match IS NULL ORDER BY h.rowid LIMIT 1) AS host
       FROM play_lobbies l JOIN lobby_members m ON l.code=m.code WHERE l.match IS NULL
       AND json_extract(l.settings,'$.rematchOf') IS NULL
-      GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`).map(({guessFields, ...room}) => {
+      GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`).map(({guessFields,name,capacity,...room}) => {
+      if(name)Object.assign(room,{name,capacity});
       if (!room.locked && isSongArtistLobby(room.format)) {
         return {...room, guessFields: guessFields ? JSON.parse(guessFields) : songArtistFields};
       }
@@ -230,7 +238,7 @@ export class PlayLobbies {
       }else{
         code=String(message.code).trim().toUpperCase();
         const room=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
-        if(!room||room.match||JSON.parse(room.settings).rematchOf||this.roster(code).length>=lobbyCapacity(JSON.parse(room.settings).format))fail('Lobby is unavailable or full.');
+        if(!room||room.match||JSON.parse(room.settings).rematchOf||this.roster(code).length>=capacity(JSON.parse(room.settings)))fail('Lobby is unavailable or full.');
         hash=room.password_hash;
         if(hash&&await passwordDigest(message.password??'',hash.split(':')[0])!==hash)fail('Incorrect lobby password.',403);
       }
@@ -239,7 +247,7 @@ export class PlayLobbies {
         if(settings)this.sql.exec('INSERT INTO play_lobbies(code,settings,password_hash) VALUES(?,?,?)',code,JSON.stringify(settings),hash);
         else{
           const current=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
-          if(!current||current.match||current.password_hash!==hash||this.roster(code).length>=lobbyCapacity(JSON.parse(current.settings).format))fail('Lobby changed or is full. Try again.');
+          if(!current||current.match||current.password_hash!==hash||this.roster(code).length>=capacity(JSON.parse(current.settings)))fail('Lobby changed or is full. Try again.');
         }
         this.sql.exec('INSERT INTO lobby_members(player,code,name,avatar,expires) VALUES(?,?,?,?,?)',who.id,code,who.name,JSON.stringify(who.avatar||null),Date.now()+90000);
       });
@@ -266,14 +274,21 @@ export class PlayLobbies {
     if(message.type==='lobby-settings'){
       if(lobbyGameMode(JSON.parse(row.settings).format)!==lobbyGameMode(message.format))fail('Choose a format for this game mode.');
       if(message.format===POTATO_COOP_LOBBY && players.length>8)fail("1-Team Hot Potato has eight seats.");
-      const settings=JSON.stringify(lobbySettings(message));
-      if(settings!==row.settings)this.queue.ctx.storage.transactionSync(()=>{
-        this.sql.exec('UPDATE play_lobbies SET settings=? WHERE code=?',settings,row.code);
+      const validated=lobbySettings(message);
+      if(!!validated.studio!==!!settings.studio||capacity(validated)<players.length)fail('Choose settings that fit the current lobby.');
+      const hash=message.password!==undefined?await passwordDigest(message.password):undefined;
+      const current=this.forPlayer(who.id);
+      if(current?.code!==row.code||current.match||current.settings!==row.settings||this.readyRoster(row.code)[0]?.id!==who.id||capacity(validated)<this.roster(row.code).length)fail('Lobby changed. Reopen settings.');
+      if(hash!==undefined)this.sql.exec('UPDATE play_lobbies SET password_hash=? WHERE code=?',hash,row.code);
+      const updated=JSON.stringify(validated);
+      if(updated!==row.settings)this.queue.ctx.storage.transactionSync(()=>{
+        this.sql.exec('UPDATE play_lobbies SET settings=? WHERE code=?',updated,row.code);
         this.sql.exec('UPDATE lobby_members SET ready=0 WHERE code=? AND last_match IS NULL',row.code);
       });
       return;
     }
     if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
+    if(settings.studio?.format==='Teams'&&(players.length<settings.studio.teamSize*2||players.length%settings.studio.teamSize))fail('Start with two or more complete teams.');
     if(settings.format===ONE_TEAM_FORMAT){
       if(players.length<oneTeamRules.minPlayers)fail('1-Team needs at least '+oneTeamRules.minPlayers+' players.');
       for(const player of players)this.queue.assertActiveQueueAccess(null,player.id);

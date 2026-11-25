@@ -206,7 +206,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
   function matchup(match,title,byId,index) {
     if(!match.roster?.length)return '';
     const teams=new Map();
-    const grouped=match.format!=='lobby-ffa'&&match.roster.every(player=>Number.isInteger(player.team));
+    const grouped=(match.grouping==='Teams'||match.format!=='lobby-ffa')&&match.roster.every(player=>Number.isInteger(player.team));
     for (const player of match.roster) {
       const team=grouped?player.team:0;
       if(!teams.has(team))teams.set(team,[]);
@@ -233,7 +233,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
     setMatch(null);
     visibility.disconnect();visible.clear();checked.clear();
     matchList.innerHTML=matches.map((match,index)=>{
-      const [mode,title]=matchModes[match.format]||['overview',match.format];
+      const [mode,defaultTitle]=matchModes[match.format]||['overview',match.format];
+      const title=match.studioName||defaultTitle;
       const roster=matchup(match,title,byId,index);
       const detail=match.locked?'Private lobby':match.players+' player'+(match.players===1?'':'s');
       const when=Number.isFinite(match.started)?' · '+new Date(match.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';

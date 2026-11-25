@@ -27,6 +27,7 @@ function preferRecord(index,current,candidate) {
   return difference>0||difference===0&&candidate<current?candidate:current;
 }
 
+import {selectStudio} from './play-studio-selection.js';
 export class PlayLibrary {
   constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets),answerSource=()=>null) {
     this.answerSource=answerSource;
@@ -207,9 +208,20 @@ export class PlayLibrary {
     if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
     return url;
   }
-  async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[],progress=null) {
+  async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[],progress=null,studio=null,replacement=null) {
     const started=Date.now();
-    const data=await this.load(progress);
+    let data=await this.load(progress),studioMeta=null;
+    if(studio){
+      this.studioMetadata??=libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/quiz-library/studio-metadata.json')),16000000);
+      try{studioMeta=await this.studioMetadata;}catch(e){this.studioMetadata=null;throw e;}
+      if(studio.dubs){
+        data={...data,groups:[...data.groups],sources:[...data.sources],preferred:[...data.preferred],extras:new Map(data.extras),occurrenceAnime:new Map(data.occurrenceAnime)};
+        for(const row of studioMeta.dubs){
+          const id=-(data.extras.size+1);data.extras.set(id,row);data.occurrenceAnime.set(id,row.annId);
+          data.groups.push([id]);data.sources.push(row.audio);data.preferred.push({titles:row.titles,amqTitle:row.title,amqArtist:row.artist});
+        }
+      }
+    }
     const catalogReady=Date.now();
     const maxSongs=mode===ARENA_FORMAT?arenaSongCount(arenaRules.maxPlayers):100;
     if(!Number.isInteger(count)||count<1||count>maxSongs)throw Error('Invalid song count.');
@@ -245,7 +257,11 @@ export class PlayLibrary {
     };
     const randomIndex=length=>Math.floor(crypto.getRandomValues(random)[0]/4294967296*length);
     const tried=new Set(),pool=ranked?[]:[...available];
-    if(weights){
+    const buckets=new Map();
+    if(studio){
+      const picks=await selectStudio(data,studioMeta,studio,lists,verify,{exclude:exclude||[],excludeAnime,replacement});
+      for(const {anime,group,url,bucket} of picks){selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);buckets.set(group,bucket);}
+    }else if(weights){
       const candidates=watchedCandidates(data,weights,ranked,{groupById,excluded,excludedPaths});
       if(allowShort){
         target=Math.min(target,candidates.size);
@@ -264,7 +280,7 @@ export class PlayLibrary {
       const i=Math.floor(random[0]/4294967296*pool.length),group=pool[i];
       pool[i]=pool[pool.length-1];pool.pop();return {group,source:data.sources[group]};
     };
-    while(!weights&&selected.size<target&&tried.size<target+32){
+    while(!studio&&!weights&&selected.size<target&&tried.size<target+32){
       const needed=target-selected.size;
       const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>eligible(r.annSongId)&&!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
         .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
@@ -299,7 +315,7 @@ export class PlayLibrary {
       const artists=[...new Set((quiz?.artist||sheet?.artist?[performer]:[performer,amq?.artist,...variants.map(s=>s.artist)]).filter(Boolean))];
       const songNames=quiz?.title||sheet?.title?[title]:[title,amq?.title,...variants.map(s=>s.title)];
       const artistRules=recordingArtistRules(artists,data.artist.rules,song.amqSongId,amq?.artist);
-      return {audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
+      return {...(buckets.has(index)?{studioBucket:buckets.get(index)}:{}),audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
         songType:quiz?.type||sheet?.type||song.type,artist:performer,
         artistMembers:artistRules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(animeTitles.map(animeTitleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},

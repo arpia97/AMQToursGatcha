@@ -101,10 +101,10 @@ export class PlayQueue extends DurableObject {
     if(presenceOnly)return {};
     const detailed=!!player&&overview;
     const matches=this.rows(`WITH rooms AS (
-      SELECT match,format,pool,0 AS locked,NULL AS lobbyCode FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
-      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL,code
+      SELECT match,format,pool,0 AS locked,NULL AS lobbyCode,NULL AS studioName,NULL AS grouping FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
+      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL,code,json_extract(settings,'$.studio.name'),json_extract(settings,'$.studio.format')
         FROM play_lobbies WHERE match IS NOT NULL
-    ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players,
+    ) SELECT rooms.format,rooms.pool,rooms.studioName,rooms.grouping,m.created AS started,json_array_length(m.players) AS players,
          rooms.locked,rooms.lobbyCode,CASE WHEN ? AND NOT rooms.locked THEN m.id END AS id,
          CASE WHEN ? THEN m.players END AS roster
       FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
@@ -116,7 +116,8 @@ export class PlayQueue extends DurableObject {
     }
     const counts=this.queueCounts();
     const playing=new Set();
-    const visibleMatches=matches.map(({id,locked,roster,lobbyCode,...match})=>{
+    const visibleMatches=matches.map(({id,locked,roster,lobbyCode,studioName,grouping,...match})=>{
+      if(studioName)Object.assign(match,{studioName,grouping});
       if(!player)return locked?{...match,locked:true}:match;
       if(!detailed)return {...match,id,locked:!!locked};
       const players=JSON.parse(roster);
@@ -344,6 +345,7 @@ export class PlayQueue extends DurableObject {
       const first=this.rows("UPDATE match_reviews SET status=? WHERE id=? AND status='active' RETURNING id",status,id).length;
       const bans=first&&status==='finished'&&result?.participation?.length
         ? this.recordMatchParticipation(result.participation) : [];
+      sql.exec("UPDATE lobby_members SET last_match=NULL,ready=0 WHERE last_match=? AND code IN (SELECT code FROM play_lobbies WHERE match=? AND json_type(settings,'$.studio')='object')",id,id);
       sql.exec('UPDATE play_lobbies SET match=NULL WHERE match=?',id);
       sql.exec('DELETE FROM queue WHERE match=?',id);
       sql.exec('DELETE FROM preparing WHERE id=?',id);

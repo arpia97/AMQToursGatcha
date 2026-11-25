@@ -195,7 +195,7 @@ async function watchMatch(id,title){
   if(!state.me){account();return;}
   if(songArtist?.inMatch()||(mode==='quiz'&&quiz?.active())){toast('Finish your current game before spectating.');return;}
   const viewer=state.me.id,version=viewVersion,request=watchRequest={},opener=document.activeElement;
-  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=stable-round-layout'),loadMultiplayerStyles()]);
+  const [{watchPlayMatch}]=await Promise.all([import('../play-spectator-ui.js?v=studio'),loadMultiplayerStyles()]);
   if(watchRequest!==request||version!==viewVersion||state.me?.id!==viewer||songArtist?.inMatch())return;
   stopWatching();
   const root=$('#play-watch');
@@ -254,14 +254,14 @@ function showQueue(status){
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadOverview=loadOnce(async()=>{
-  const [module]=await Promise.all([import('../play-overview.js?v=match-portraits'),loadStylesheet(new URL('../play-overview.css?v=thin-avatar-rim',import.meta.url))]);
+  const [module]=await Promise.all([import('../play-overview.js?v=studio'),loadStylesheet(new URL('../play-overview.css?v=thin-avatar-rim',import.meta.url))]);
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-results"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=custom-lobby"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=custom-studio"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
@@ -413,14 +413,14 @@ async function openMode(id, push = true, createLobby = false) {
       const {mountPlayConsole}=await import('../play-console.js?v=amq-registration');
       if(version===viewVersion)closeConsole=mountPlayConsole($('#main'),api,escape,format=>labels[format]||format);
     } else if(id==='custom-lobby'){
-      const [{mountCustomLobby}]=await Promise.all([import('../play-custom-lobby.js'),accountReady,
+      const [{mountCustomLobby}]=await Promise.all([import('../play-custom-lobby.js?v=studio'),accountReady,
         loadStylesheet(new URL('../play-overview.css?v=thin-avatar-rim',import.meta.url)),
-        loadStylesheet(new URL('../play-custom-lobby.css',import.meta.url))]);
+        loadStylesheet(new URL('../play-custom-lobby.css?v=studio',import.meta.url))]);
       if(version!==viewVersion)return;
       closeLobbyPage=mountCustomLobby($('#main'),{
         create:new URLSearchParams(location.search).get('create')==='1',
         onBrowse:()=>openMode('custom-lobby'),onCreate:()=>openListedLobby(),
-        esc:escape,loadRooms,openLobby:openListedLobby,
+        user:state.me?.id,esc:escape,loadRooms,openLobby:openListedLobby,
         submit:(target,settings)=>openOverviewLobby(target,null,settings),
       });
     } else if(id==='overview'){

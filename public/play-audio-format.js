@@ -13,7 +13,7 @@ export function defaultPlayGuessSeconds(mode) {
 export const PLAY_AUDIO_PROTOCOL = 5;
 export const PLAY_AUDIO_IV_BYTES = 12;
 export const PLAY_AUDIO_OVERHEAD = PLAY_AUDIO_IV_BYTES + 16;
-export const playAudioBytes = (mode) => (defaultPlayGuessSeconds(mode) === 20 ? 832 : 1216) * 1024;
+export const playAudioBytes = (mode,seconds) => seconds ? (Math.ceil(seconds)*40+32)*1024 : (defaultPlayGuessSeconds(mode) === 20 ? 832 : 1216) * 1024;
 
 export function audioBase64(bytes) {
   return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");

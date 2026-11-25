@@ -97,7 +97,7 @@ export class QuizLibrary extends DurableObject {
       if(path==='/play-sample'){
         const job=body.matchId?{stage:'catalog'}:null;
         if(job)this.selections.set(body.matchId,job);
-        try{return Response.json(await this.play.sample(body.mode,body.count,body.exclude,body.watched,body.excludeAnime,job));}
+        try{return Response.json(await this.play.sample(body.mode,body.count,body.exclude,body.watched,body.excludeAnime,job,body.studio,body.replacement));}
         finally{if(job&&this.selections.get(body.matchId)===job)this.selections.delete(body.matchId);}
       }
       if (path === "/lookup")

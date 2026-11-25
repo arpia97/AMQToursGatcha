@@ -94,6 +94,10 @@ export function lobbyDialog(action,mode,room,send,pool='random'){
 }
 export const autoReadyHTML=checked=>'<label class="sa-auto-ready"><input type="checkbox" data-auto-ready '+(checked?'checked':'')+'> Auto-ready</label>';
 function lobbySettings(lobby, settings, host, draft, esc) {
+  if(lobby.studio){
+    const s=lobby.studio;
+    return '<dl class="room-rules">'+[['Song pool',s.pool],['Scoring',s.scoring],['Format',s.format==='Teams'?'Teams of '+s.teamSize:s.format],['Songs',s.songs],['Guess time',s.guess+'s']].map(([k,v])=>'<div><dt>'+k+'</dt><dd>'+esc(v)+'</dd></div>').join('')+'</dl><button class="button secondary" data-studio-settings>'+ (host?'Edit settings':'View settings')+'</button>';
+  }
   if(lobby.rematchOf&&!isPotato(lobby.format))return '<dl class="room-rules"><div><dt>Song Pool</dt><dd>'+poolName(lobby.pool)+
     '</dd></div><div><dt>Songs</dt><dd>Up to '+oneTeamRules.songs+'</dd></div><div><dt>Guess Time</dt><dd>'+oneTeamRules.guessSeconds+
     ' seconds</dd></div><div><dt>Lives</dt><dd>'+oneTeamRules.lives+'</dd></div></dl>';
@@ -136,7 +140,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const ngmc = lobby.format==='lobby-ngmc';
   const arena = lobby.format===ARENA_LOBBY_FORMAT;
   const duel = lobby.format===DUEL_LOBBY_FORMAT;
-  const canStart = isPotato(lobby.format) ? validPotatoSize(lobby.format,lobby.players.length,true) : lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
+  const canStart = lobby.studio?.format==='Teams'?lobby.players.length>=2*lobby.studio.teamSize&&lobby.players.length%lobby.studio.teamSize===0:isPotato(lobby.format) ? validPotatoSize(lobby.format,lobby.players.length,true) : lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
   const host = lobby.host===me && !lobby.busy;
   const ready = lobby.players.filter(p=>p.ready).length;
   const players = lobby.players.map(p=>{
@@ -144,16 +148,16 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
     return '<li class="room-player"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<span class="room-player-name"><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span></span>'+
       '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
   }).join('');
-  const shortPool = lobby.pool==='watched' && Number.isInteger(lobby.watchedPool?.eligible) &&
+  const shortPool = !lobby.studio&&lobby.pool==='watched' && Number.isInteger(lobby.watchedPool?.eligible) &&
     lobby.watchedPool.eligible<(lobby.format===ONE_TEAM_FORMAT?1:lobby.songs);
   const checkingPool = lobby.pool==='watched' && lobby.watchedPool===null;
   const startDisabled = !canStart || checkingPool || shortPool || draft || lobby.players.some(p=>p.id!==me&&!p.ready);
   const startLabel = (ngmc || lobby.format===POTATO_LOBBY) && canStart ? 'Start '+lobby.players.length/2+'v'+lobby.players.length/2 : 'Start Match';
   return '<section class="broadcast-room '+(ngmc?'ngmc-room':'song-room')+'">'+
-    '<header class="room-masthead"><div><small>'+(lobby.rematchOf?(isPotato(lobby.format)?lobbyModeNames[lobby.format]:'1-Team')+' · '+poolName(lobby.pool):ngmc||arena||duel||isPotato(lobby.format)?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
-    '</small><h1>'+(lobby.rematchOf?'Rematch Lobby':'Custom Lobby')+'</h1></div>'+
+    '<header class="room-masthead"><div><small>'+(lobby.studio?'Custom settings':lobby.rematchOf?(isPotato(lobby.format)?lobbyModeNames[lobby.format]:'1-Team')+' · '+poolName(lobby.pool):ngmc||arena||duel||isPotato(lobby.format)?lobbyModeNames[lobby.format]:'Song / Artist · '+lobbyModeNames[lobby.format])+
+    '</small><h1>'+(lobby.studio?esc(lobby.studio.name):lobby.rematchOf?'Rematch Lobby':'Custom Lobby')+'</h1></div>'+
     (lobby.rematchOf?'<div class="room-code"><span>Invite Only</span></div>':'<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div>')+'</header>'+
-    '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+seatCount(lobby.players.length,lobby.format)+'</span></header>'+
+    '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+(lobby.studio?lobby.players.length+' / '+lobby.studio.players:seatCount(lobby.players.length,lobby.format))+'</span></header>'+
     '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
     '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host&&!lobby.rematchOf,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host&&!lobby.rematchOf?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
@@ -164,6 +168,11 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
 }
 export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  if(match.lobby?.studio){
+    const s=match.lobby.studio, teams=s.format==='Teams';
+    const group=(team)=>players.filter(p=>p.team===team).map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts</span></div>').join('');
+    return '<section class="play-leaderboard"><h2>'+esc(s.name)+'</h2>'+match.teams.map((score,i)=>'<section>'+(teams||s.scoring==='Lives'?'<h3>'+(teams?'Team '+(i+1):esc(players.find(p=>p.team===i)?.name||''))+' · '+score+(s.scoring==='Lives'?' lives':' pts')+'</h3>':'')+group(i)+'</section>').join('')+'</section>';
+  }
   return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts'+(p.rigs!=null?' · '+rigCount(p):'')+'</span></div>').join('')+'</section>';
 }
 export function ballotHTML(match,esc){

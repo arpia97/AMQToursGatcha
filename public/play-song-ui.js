@@ -7,7 +7,7 @@ import {arenaBallot, arenaBoard, arenaReveal} from './play-arena-ui.js';
 import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, matchGuessFields, ngmcCounterSignupOpen, ngmcCanTakeOverCounting, animeOnlyMode, soloVersus, queueMode, lobbyGameMode, usesTeamBallot} from './play-mode-rules.js?v=one-team-rematch';
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
-import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=custom-lobby';
+import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=studio';
 import {broadcastResults} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
 import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=stable-round';
@@ -282,7 +282,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       ws.hasStatus=true;
       resolveLobbyRequest();
       joinFromOverview();
-      if(msg.type==='lobby'&&match&&msg.rematchOf===match.id){
+      if(msg.type==='lobby'&&match&&(msg.rematchOf===match.id||msg.studio&&msg.code===match.lobby?.code)){
         resetLobbyMatch();
         syncLobbyChat(ws,msg);
       }
@@ -374,7 +374,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
             downloads?.abort();downloads=null;replacingAudio=false;
             sources.forEach((source,i)=>{if(source!==msg.audio[i])sealedCache.discard(source,server);});sources=msg.audio;
           }
-        }else if(manifestId!==msg.id||changedRevision||sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,gameMode):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
+        }else if(manifestId!==msg.id||changedRevision||sources[0]!==msg.audio[0]){clearAudio();manifestId=msg.id;sources=msg.audio;sealedCache=msg.sealed?createSealedAudioCache(apiBase,gameMode,msg.clipSeconds):null;draft={anime:'',song:'',artist:''};chosen={};ready=false;
           prepareTitles().then(()=>{if(active&&manifestId===msg.id)render();}).catch(()=>{});
         }
         lastLoaded=loaded().join(',');send(room,{type:'loaded',revision:manifestRevision,indices:loaded()});if(ready){send(room,{type:'ready'});if(preparedIndex>=0&&audio.readyState>=3)send(room,{type:'clip-ready',index:preparedIndex,revision:manifestRevision});}preload();return;
@@ -510,8 +510,11 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   });
   function playRoundAudio(now,manual=false){
     if(!ready||preparedIndex!==match.index||audio.readyState<1||match.phase!=='guess'||now<match.startsAt||now>=match.until)return;
+    const elapsed=(now-match.startsAt)/1000;
+    if(match.lobby?.studio&&elapsed>=match.lobby.studio.guess){audio.pause();return;}
+    audio.playbackRate=match.rate||1;
     const sample=sealedCache?0:sampleStart(audio.duration,match.samplePosition,defaultPlayGuessSeconds(mode));
-    songAudio.update(match.index,sample+(now-match.startsAt)/1000,manual);
+    songAudio.update(match.index,sample+elapsed*audio.playbackRate,manual);
   }
   function revokePlayback() {
     if (playbackUrl) URL.revokeObjectURL(playbackUrl);
@@ -775,7 +778,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     const ngmcName=match.format==='lobby-ngmc'?'NGMC Custom':match.format==='ngmc-3v3'?'NGMC Unranked':'NGMC Ranked';
     const teamSize=match.players.length/2;
     const duelLabel=match.lobby?'1v1 Unranked':'1v1 Ranked';
-    const modeLabel=match.potatoes?potatoLabel(match.format):duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:
+    const modeLabel=match.lobby?.studio?esc(match.lobby.studio.name):match.potatoes?potatoLabel(match.format):duel()?duelLabel:arena()?'2v2 Round Robin':ranked()?(done?ngmcName+' · ':'')+teamSize+'v'+teamSize:
       match.format===ONE_TEAM_FORMAT?'1-Team':(done?'Song/Artist · ':'')+(lobbyModeNames[match.format]|| (match.format==='1-team'?'1-Team':formats[match.format]));
     const resumeAudio=done?'':'<button type="button" class="button mint" data-sa-action="resume-audio" hidden>Resume Audio</button>';
     const abortButton=done?'':'<button type="button" class="button secondary" data-abort-request>Request Abort Vote</button>';
@@ -837,7 +840,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function winnerText(){if(match.potatoes&&match.teams.length===1)return match.teams[0]?'Your team survived':'Your team ran out of lives';
     if(match.format===ONE_TEAM_FORMAT)return match.teams[0]?'Your team survived':'Your team ran out of lives';
     if(duel()&&match.players.some(p=>p.left&&p.id!==match.me)&&match.history.length<match.total)return 'You won by forfeit';
-    if(duel()&&player().left&&match.history.length<match.total)return 'You forfeited';if(match.format==='lobby-ffa'){const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=soloVersus(match.format)?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
+    if(duel()&&player().left&&match.history.length<match.total)return 'You forfeited';if(match.format==='lobby-ffa'){if(match.lobby?.studio&&match.teams.length===1)return match.lobby.studio.scoring==='Lives'?(match.teams[0]?'You survived':'Out of lives'):'You scored '+player().score+' points';const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=soloVersus(match.format)?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
     if(!active)return;
     root.classList.toggle('sa-match-layout',!!match);
@@ -929,7 +932,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     updateMarkup(readyWrap,readyMarkup);
     const liveSides=root.querySelector('.sa-live-answer-sides');if(liveSides)liveSides.hidden=waiting;
     const form=root.querySelector('#sa-answer-form');form.hidden=waiting||['reveal','counting'].includes(match.phase);
-    const unavailable=(match.potatoes&&!canAnswerPotato(match,me))||match.phase!=='guess'||!room||!ready||Date.now()+offset<match.startsAt;
+    const unavailable=(match.lobby?.studio?.scoring==='Lives'&&match.teams[me.team]===0)||(match.potatoes&&!canAnswerPotato(match,me))||match.phase!=='guess'||!room||!ready||Date.now()+offset<match.startsAt;
     const disabled=unavailable||pendingLock||pendingArtistKey!==null;
     if(teamFields()){const focused=document.activeElement?.dataset.saField;selectedField=updateTeamFields(root,match,disabled,esc,selectedField,unavailable);if(focused&&focused!==selectedField&&!disabled)root.querySelector('#sa-'+selectedField)?.focus({preventScroll:true});}else for(const el of form.querySelectorAll('input,button'))el.disabled=el.matches('input')?unavailable:disabled;
     updateArtistChips(root,match,disabled,esc);
@@ -1144,6 +1147,18 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(row && !event.target.closest('input,button,[role=option]'))row.querySelector('input:enabled')?.focus();
     const button=event.target.closest('button');
     if(!button)return;
+    if(button.hasAttribute('data-studio-settings')){
+      const {mountStudio}=await import('./play-studio.js');
+      const host=document.createElement('div'),isHost=queueStatus.host===getPlayer()?.id;
+      if(!isHost){document.body.append(host);mountStudio(host,{initial:queueStatus.studio,readonly:true});return;}
+      const dialog=document.createElement('dialog');dialog.className='studio-editor-dialog';dialog.style.cssText='width:min(1150px,96vw);max-height:90dvh;overflow:auto;background:#15191f;color:#eff4ef;border:1px solid #384249';
+      dialog.innerHTML='<button class="button secondary" type="button">Close</button>';
+      dialog.firstChild.onclick=()=>dialog.close();dialog.append(host);document.body.append(dialog);
+      dialog.onclose=()=>dialog.remove();dialog.showModal();
+      mountStudio(host,{initial:queueStatus.studio,privateRoom:queueStatus.locked,user:getPlayer()?.id,submit:(studio,password)=>{
+        if(send(queue,{type:'lobby-settings',format:'lobby-ffa',studio,...(password!==undefined?{password}:{})}))dialog.close();
+      }});return;
+    }
     if(playPools.includes(button.dataset.queuePool)){
       try{localStorage.setItem(poolKey(mode),button.dataset.queuePool);}catch{}
       render();root.querySelector('[data-queue-pool="'+button.dataset.queuePool+'"]')?.focus({preventScroll:true});return;

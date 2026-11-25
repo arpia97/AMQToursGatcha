@@ -8,7 +8,7 @@ export const gameEnded=phase=>phase==='finished'||phase==='cancelled';
 
 export function liveMatchScore(state){
   const {arena,format,index,players,teams}=state;
-  const individual=format==='lobby-ffa'||(!arena&&teams.length>1&&teams.length===players.length);
+  const individual=format==='lobby-ffa'&&state.lobby?.studio?.format!=='Teams'||(!arena&&teams.length>1&&teams.length===players.length);
   const teamName=team=>individual?players.find(player=>player.team===team)?.name:
     teams.length===1?'Team':'Team '+(team+1);
   const round=arena?Math.min(arena.rounds.length-1,Math.floor(index/arena.songsPerFixture)):null;
@@ -20,7 +20,7 @@ export function liveMatchScore(state){
     : [teams.map((value,team)=>({team,label:teamName(team),value}))];
   return {
     phase:state.phase,song:Math.min(index+1,state.songs.length),total:state.songs.length,
-    unit:state.mode==='ngmc-ranked'||state.potatoes||format===ONE_TEAM_FORMAT?'Lives':'Points',scores,
+    unit:state.lobby?.studio?.scoring==='Lives'||state.mode==='ngmc-ranked'||state.potatoes||format===ONE_TEAM_FORMAT?'Lives':'Points',scores,
     ...(arena?{round:round+1,rounds:arena.rounds.length}:{}),
   };
 }
@@ -47,7 +47,7 @@ export function spectatorView(state,compact=false){
   } : null;
   return {
     id:state.id,mode:state.mode,format:state.format,pool:state.pool||state.lobby?.pool||'random',
-    ...liveMatchScore(state),index:state.index,startsAt:state.startsAt,
+    ...liveMatchScore(state),index:state.index,startsAt:state.startsAt,...(state.clipSeconds?{clipSeconds:state.clipSeconds,rate:state.playbackRates[state.index],audioSeconds:state.lobby.studio.guess}:{}),
     until:Number.isFinite(state.until)?state.until:null,reveal,
     history:(compact?state.history.slice(-1):state.history).map(revealedRound),compact,
     ...(state.potatoes?{potatoes:state.potatoes}:{}),teams:state.teams,teamFields:!!state.teamFields,
