@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Artist romanization aliases
+
+Play and event song/artist grading recognizes Yu and Yuu for Kobayashi and Serizawa, including stored group-member rules. All 637 tests passed. Verified the four labels in the production Play catalog. Runtime `5439ecf` deployed as `4100af6e-96e8-4997-864c-efe0dce2b4e6`.
+
 ## Play anime answer punctuation
 
 Multiplayer anime grading and ballots preserve punctuation and use original accepted titles for running matches that retained them. New Game! and New Game!! are distinct unless both titles are explicitly accepted. Verified both autocomplete modes with both queries, all 636 tests, the Worker dry run and the live Play route. Runtime `07cfd37` deployed as `8e702ce2-7807-4fc3-a797-234995dadb11`.
