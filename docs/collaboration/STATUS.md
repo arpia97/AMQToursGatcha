@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Custom gameplay chat emojis
+
+Released d472bcb on Worker 8941e2cb-c8a1-4e14-869c-baec8f7b7ff5. Players and spectators can use the 146 supplied filename shortcodes in chat and saved shortcuts. Verified all 146 images and three client files byte-for-byte on production, the Play entry point, desktop and narrow browser fixtures, and all 656 tests.
+
 ## Stable Overview sections
 
 Runtime 100f65b is deployed as Worker 365bd950-941c-4aad-bb0a-2180be75f718. Live Matches and Open Lobbies reserve space while loading, empty and populated. Verified the live entry point and used the production Overview module and stylesheet with simulated activity at 320, 390, 920, 1024 and 1440 px. Section positions stayed identical through zero, one and twelve entries and back to zero. Both lists remained scrollable when full.
