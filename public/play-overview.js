@@ -51,10 +51,10 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
       <header class="overview-section-head"><h2 id="live-matches-title">Live Matches <span class="overview-total">—</span></h2>
         <div class="overview-arrows" hidden><button type="button" data-slide="-1" aria-label="Previous matches">‹</button><button type="button" data-slide="1" aria-label="Next matches">›</button></div>
       </header>
-      <ul class="overview-match-list" aria-label="Live match scorecards" tabindex="0"></ul>
-      <p class="overview-empty overview-match-empty" role="status">Loading…</p>
+      <div class="overview-match-space"><ul class="overview-match-list" aria-label="Live match scorecards" tabindex="0"></ul>
+      <p class="overview-empty overview-match-empty" role="status">Loading…</p></div>
     </section>
-    <section class="open-lobbies" aria-labelledby="overview-open-title"><header class="overview-section-head"><h2 id="overview-open-title">Open Lobbies <span class="overview-total" data-room-count>—</span></h2></header><div class="room-board"></div><p class="overview-empty" data-room-status role="status">Loading lobbies…</p></section>
+    <section class="open-lobbies" aria-labelledby="overview-open-title"><header class="overview-section-head"><h2 id="overview-open-title">Open Lobbies <span class="overview-total" data-room-count>—</span></h2></header><div class="overview-room-space"><div class="room-board"></div><p class="overview-empty" data-room-status role="status">Loading lobbies…</p></div></section>
       <section id="quick-join" aria-labelledby="quick-join-title">
         <header class="overview-section-head"><h2 id="quick-join-title">Quick Join</h2>
           <div class="overview-selection" role="group" aria-label="Song pool">

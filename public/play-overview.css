@@ -221,6 +221,11 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 @media(max-width:1180px){.overview-page .overview-queue-list{grid-template-columns:minmax(0,1fr)}.play-directory{gap:15px}.play-directory-main{gap:18px}}
 @media(max-width:920px){.play-directory{grid-template-columns:minmax(0,1fr)}.overview-page .overview-queue-list{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-page .overview-player-list{flex:none;contain:none;max-height:246px}}
 .overview-page .overview-heading h1{margin:0 0 7px}
+/* Keep the directory below the live feeds anchored as their contents change. */
+#overview-live-matches .overview-section-head{min-height:32px}
+.overview-match-space{min-block-size:max(164px,11rem);display:flow-root}
+.overview-room-space{block-size:190px;display:flex;flex-direction:column;min-width:0}
+.overview-room-space .room-board{min-height:0;max-height:100%}
 .overview-page .room-board:empty{display:none}
 .overview-page .room-board .access{padding:3px 6px;border-radius:4px}
 .overview-page .access.open{color:#bce6cd;background:#26372f}
