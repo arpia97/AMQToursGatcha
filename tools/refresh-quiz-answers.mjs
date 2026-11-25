@@ -31,6 +31,8 @@ const compact = {
 const file = new URL("../public/quiz-amq-master.json", import.meta.url);
 await fs.writeFile(file, JSON.stringify(compact) + String.fromCharCode(10));
 await writeQuizTitleNames(compact);
+const {writeGradingAliases}=await import("./build-anime-grading-aliases.mjs");
+await writeGradingAliases();
 const {writeOfficialCoverage}=await import('./build-official-coverage.mjs');
 await writeOfficialCoverage(data);
 console.log(

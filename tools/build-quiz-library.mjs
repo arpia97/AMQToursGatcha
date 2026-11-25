@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';import crypto from 'node:crypto';
 import {compactLibrarySong,libraryBucket,libraryTitles} from '../public/quiz-library-data.js';
+import {writePlusNames,writeGradingAliases} from './build-anime-grading-aliases.mjs';
 const [songsPath,titlesPath,sourceCommit='local-files']=process.argv.slice(2);
 if(!songsPath||!titlesPath)throw Error('Usage: node tools/build-quiz-library.mjs MASTERLIST_JSON WORKING_TITLES_JSON [SOURCE_COMMIT]');
 const bytes=await fs.readFile(songsPath),titleBytes=await fs.readFile(titlesPath),songs=JSON.parse(bytes),working=JSON.parse(titleBytes);
@@ -22,3 +23,6 @@ const sha=crypto.createHash('sha256').update(bytes).digest('hex'),titleSha=crypt
 const manifest={schema:1,version,source:'AMQ Plus / AnisongDB',repository:'https://github.com/4Lajf/amq-plus',commit:sourceCommit,generatedAt:new Date().toISOString(),sourceSha256:sha,workingTitlesSha256:titleSha,count:seen.size,requested:Object.keys(working).length,missing:Object.keys(working).map(Number).filter(id=>!seen.has(id)),shards:[...buckets.keys()].sort((a,b)=>a-b),amq};
 await fs.writeFile(new URL('artist-names.json',root),JSON.stringify([...creditedNames].sort())+'\n');
 let total=0;for(const [b,data] of buckets){const text=JSON.stringify(data);total+=Buffer.byteLength(text);await fs.writeFile(new URL(b+'.json',root),text+'\n');}for(const [b,data] of titleBuckets)await fs.writeFile(new URL('titles-'+b+'.json',root),JSON.stringify(data)+'\n');await fs.writeFile(new URL('manifest.json',root),JSON.stringify(manifest)+'\n');console.log(JSON.stringify({version,count:manifest.count,requested:manifest.requested,missing:manifest.missing,metadataBytes:total,shards:buckets.size,manifestBytes:JSON.stringify(manifest).length}));
+
+await writePlusNames(songs);
+await writeGradingAliases();

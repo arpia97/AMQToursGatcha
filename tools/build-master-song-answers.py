@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import re
+import subprocess
 import unicodedata
 from collections import defaultdict
 from pathlib import Path
@@ -61,9 +62,10 @@ def build(records):
         info = export["songInfo"]
         names = info["animeNames"]
         canonical = [names.get("romaji"), names.get("english")]
-        alternatives = info.get("allAlternativeAnswers")
-        if alternatives is None:
-            alternatives = [*info.get("altAnimeNames", []), *info.get("altAnimeNamesAnswers", [])]
+        alternatives = [
+            title for field in ("allAlternativeAnswers", "altAnimeNames", "altAnimeNamesAnswers", "animeNamesAnswers")
+            if isinstance(info.get(field), list) for title in info[field]
+        ]
         titles = {}
         for title in [*canonical, *alternatives]:
             if isinstance(title, str) and title.strip():
@@ -197,4 +199,5 @@ if __name__ == "__main__":
     temp = dest.with_suffix(".tmp")
     temp.write_bytes(encode(data) + b"\n")
     temp.replace(dest)
+    subprocess.run(["node", str(Path(__file__).with_name("build-anime-grading-aliases.mjs"))], check=True)
     print(f"{data['sourceRows']:,} exports; {len(data['keys']):,} lookup keys; {data['version']}")
