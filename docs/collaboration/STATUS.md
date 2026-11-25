@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Custom lobby team choice
+
+Released 88bcb17 on Worker 7220b31c-da6c-4ceb-9bdc-5b65a5f94a47. Custom rooms have at most eight seats. The team count is the current roster size divided by the selected team size, rounded up. Players may reserve a team or use automatic placement. Two local browser sessions verified choosing seats, readiness, start and return to lobby. All 656 tests passed, including all 64 headcount and team-size combinations. Verified size eight in the live desktop and mobile creator.
+
 ## Multiplayer song draws and Online Players portraits
 
 Runtime 363cd15 is live on Worker 0066330b-e94f-4dc1-b9db-5e303573da07. Standard Random, custom Random and Unwatched slots now draw anime, eligible type, then recording, including replacement draws. The Online Players scroll area extends into its panel gutter to give the portrait glow room. All 655 tests, syntax checks and the Worker dry run passed. The live shell and song catalog responded successfully. A browser fixture using the production stylesheet verified 26 px of clearance and scrolling at widths of 320, 390 and 1440 px.
