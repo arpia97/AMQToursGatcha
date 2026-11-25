@@ -1,5 +1,11 @@
 export const audioFilename = url => url.slice(url.lastIndexOf('/') + 1);
-const rankedType=/^(Opening|OP|Ending|ED|Insert|IN)\b/i;
+export function songTypeKey(label) {
+  const prefix = String(label ?? '').trim().match(/^(Opening|Ending|Insert|OP|ED|IN)(?=\b|\d)/i)?.[1].toUpperCase();
+  if (prefix === 'OPENING') return 'OP';
+  if (prefix === 'ENDING') return 'ED';
+  if (prefix === 'INSERT') return 'IN';
+  return prefix || null;
+}
 const providerIndexes=new WeakMap();
 
 // A slow mirror occupies one slot. Other slots keep working through the draw.
@@ -23,32 +29,23 @@ export function recordingGroupIndex(data) {
   return data.groupById;
 }
 
-export function watchedCandidates(data, weights, ranked, options = {}) {
-  const {excluded, excludedPaths} = options;
+export function watchedCandidates(data, weights, excluded, excludedPaths) {
   const candidates = new Map();
-  function add(anime, group, source) {
-    if (!weights.has(anime) || excluded?.has(group) || excludedPaths?.has(audioFilename(source))) return;
-    if (!candidates.has(anime)) candidates.set(anime, new Map());
-    candidates.get(anime).set(group, {group,source});
-  }
-  if (ranked) {
-    const groupById = options.groupById ?? recordingGroupIndex(data);
-    for (const row of data.ngmcRows) {
-      if (rankedType.test(row.type)) add(row.annId,groupById.get(row.annSongId),row.audio);
-    }
-  } else {
-    data.groups.forEach((ids,group) => {
-      for (const id of ids) add(data.occurrenceAnime.get(id),group,data.sources[group]);
-    });
+  const groups = recordingGroupIndex(data);
+  // ngmcRows contains the typed occurrences from every playable catalog source.
+  for (const row of data.ngmcRows) {
+    if (!weights.has(row.annId)) continue;
+    const type = songTypeKey(row.type);
+    const group = groups.get(row.annSongId);
+    if (!type || excluded.has(group) || excludedPaths.has(audioFilename(row.audio))) continue;
+    if (!candidates.has(row.annId)) candidates.set(row.annId, new Map());
+    candidates.get(row.annId).set(group + ':' + type, {group, source:row.audio, type, label:row.type});
   }
   return candidates;
 }
 
-export function countWatchedCandidates(data,weights,ranked) {
-  // Counts need only eligible anime IDs. Build recording choices when the match starts.
-  const eligible=ranked
-    ? (data.rankedWatchedAnime??=new Set(data.ngmcRows.filter(row=>rankedType.test(row.type)).map(row=>row.annId)))
-    : (data.watchedAnime??=new Set(data.occurrenceAnime.values()));
+export function countWatchedCandidates(data, weights) {
+  const eligible = data.watchedAnime ??= new Set(data.ngmcRows.filter(row => songTypeKey(row.type)).map(row => row.annId));
   let count=0;
   for(const anime of weights.keys())if(eligible.has(anime))count++;
   return count;
@@ -138,17 +135,34 @@ function assignWatched(order, count, optionsFor, recordingKey) {
   return picks;
 }
 
-export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename) {
+function shuffleChoices(values, randomIndex) {
+  const options = [...values];
+  for (let i = 0; i < options.length - 1; i++) {
+    const j = i + randomIndex(options.length - i);
+    [options[i], options[j]] = [options[j], options[i]];
+  }
+  return options;
+}
+
+export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename, byType = true) {
   const choices = new Map();
   const verified = new Map();
   const optionsFor = anime => {
     if (!choices.has(anime)) {
-      const options = [...candidates.get(anime)];
-      for (let i = 0; i < options.length - 1; i++) {
-        const j = i + randomIndex(options.length - i);
-        [options[i], options[j]] = [options[j], options[i]];
+      const entries = candidates.get(anime);
+      if (byType) {
+        const types = new Map();
+        for (const entry of entries) {
+          if (!types.has(entry.type)) types.set(entry.type, []);
+          types.get(entry.type).push(entry);
+        }
+        // A failed or already-used file can fall through within its type before
+        // trying another type. Keep this order stable across verification retries.
+        choices.set(anime, shuffleChoices(types.values(), randomIndex)
+          .flatMap(songs => shuffleChoices(songs, randomIndex)));
+      } else {
+        choices.set(anime, shuffleChoices(entries, randomIndex));
       }
-      choices.set(anime, options);
     }
     return choices.get(anime);
   };
@@ -162,7 +176,7 @@ export async function watchedRecordings(order, candidates, count, verify, random
     });
     const probes = [...picks.values()].filter(({group}) => !verified.has(group)).slice(0, budget);
     if (!probes.length) {
-      return [...picks].map(([anime, {group}]) => ({anime, group, url:verified.get(group).url}));
+      return [...picks].map(([anime, {group, label}]) => ({anime, group, label, url:verified.get(group).url}));
     }
     const urls = await checkAudioCandidates(probes, ({group, source}) => verify(group, source));
     probes.forEach(({group}, i) => {

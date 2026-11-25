@@ -8,7 +8,7 @@ import {compactLibrarySong} from '../public/quiz-library-data.js';
 import {PlayLibrary} from '../src/play-library.js';
 import {amqAnimeOptions} from '../public/amq-anime-search.js';
 import {liveMatchScore,spectatorClip,spectatorView} from '../src/play-spectator.js';
-import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings} from '../src/play-watched-selection.js';
+import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates} from '../src/play-watched-selection.js';
 import {audioBytes,PLAY_AUDIO_PROTOCOL,PLAY_AUDIO_IV_BYTES} from '../public/play-audio-format.js';
 test('Watched weights sum square-root budgets from distinct MAL and AniList shows',()=>{
   const linked=new Map([
@@ -85,6 +85,25 @@ test('spectator scores cover each Arena fixture and never expose an unrevealed a
     players:[{name:'A',team:0},{name:'B',team:1}]});
   assert.deepEqual(ffa.scores[0].map(side=>[side.label,side.value]),[['A',7],['B',9]]);
 });
+test('Watched draws uniformly by eligible type and then recording for each anime', async () => {
+  const types=['Opening 1','ED1','Ending 2','Ending 3','Ending 4','Insert Song','Unknown'];
+  const data={groups:types.map((_,i)=>[i]),ngmcRows:types.map((type,i)=>({annId:i===6?2:1,annSongId:i,audio:i+'.mp3',type}))};
+  data.ngmcRows.push({...data.ngmcRows[1]});
+  const weights=new Map([[1,2],[2,1]]);
+  const candidates=watchedCandidates(data,weights,new Set(),new Set(['5.mp3']));
+  assert.equal(countWatchedCandidates(data,weights),1);
+  assert.equal(candidates.get(1).size,5);
+  const options=new Map([[1,[...candidates.get(1).values()]]]);
+  const counts=[0,0,0,0,0];
+  // Enumerate both choices of type and all four choices of first ending.
+  for(let t=0;t<2;t++)for(let ending=0;ending<4;ending++){
+    const picks=await watchedRecordings([1],options,1,async(_,url)=>url,
+      n=>n===4?ending:n===2?t:0,url=>url);
+    counts[picks[0].group]++;
+  }
+  assert.deepEqual(counts,[4,1,1,1,1]);
+});
+
 test('Watched keeps the earliest feasible anime when shared recordings need reassignment',async()=>{
   const recordings = groups => groups.map(group=>({group,source:group}));
   const select = async (lists, count, urls = {}) => {

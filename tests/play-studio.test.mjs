@@ -60,3 +60,30 @@ test('Mixed draws enforce exact bucket sizes, owner quotas, and unique playable 
   assert.ok(picks.find(p=>p.bucket.kind==='unwatched').anime>5);
   await assert.rejects(selectStudio(data,meta,{...base,types:['ED']},[],async(_,url)=>url),/fit these filters/);
 });
+
+test('custom Watched picks types evenly, including repeat shows and filtered replacement draws',async t=>{
+  let state=329;
+  t.mock.method(Math,'random',()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/2**32;});
+  const types=['OP','ED','ED','ED','ED','IN'];
+  const ids=types.map((_,i)=>i+1);
+  const data={groups:ids.map(i=>[i]),sources:ids.map(i=>i+'.mp3'),ngmcRows:[],extras:new Map(),preferred:[],
+    occurrenceAnime:new Map(ids.map(i=>[i,1])),linkedAnime:new Map([[1,{anilist:10}]])};
+  const meta={songs:Object.fromEntries(ids.map((id,i)=>[id,[types[i],'Standard',false,false,20,null]])),
+    anime:{1:['TV',8000,8,100,[],[]]}};
+  const lists=[{player:'a',provider:'anilist',ids:[10]}];
+  const rules={...base,pool:'Watched',types:['OP','ED'],categories:{...base.categories,ED:['Standard']}};
+  for(const dupes of [false,true]){
+    let withOpening=0;
+    for(let i=0;i<1200;i++){
+      const picks=await selectStudio(data,meta,{...rules,dupes,songs:dupes?2:1},lists,async(_,url)=>url);
+      assert.equal(new Set(picks.map(p=>p.group)).size,picks.length);
+      assert.ok(picks.every(p=>p.label==='OP'||p.label==='ED'));
+      if(picks.some(p=>p.label==='OP'))withOpening++;
+    }
+    const expected=dupes?.75:.5;
+    assert.ok(Math.abs(withOpening/1200-expected)<.05, String(withOpening));
+  }
+  const replacement=await selectStudio(data,meta,rules,lists,async(_,url)=>url,
+    {exclude:['1.mp3'],replacement:{kind:'watched'}});
+  assert.equal(replacement[0].label,'ED');
+});

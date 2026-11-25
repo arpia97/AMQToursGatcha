@@ -195,10 +195,10 @@ export class PlayLibrary {
     return inventory;
   }
   async catalog() { return (await this.load()).catalog; }
-  async watchedAnimeCount(lists, ranked) {
+  async watchedAnimeCount(lists) {
     if(!lists.some(list=>list.ids.length))return 0;
     const data=await this.load();
-    return countWatchedCandidates(data,watchedWeights(lists,data.linkedAnime),ranked);
+    return countWatchedCandidates(data,watchedWeights(lists,data.linkedAnime));
   }
   async verifiedSource(source){
     const cached=this.audioChecks.get(source);
@@ -235,7 +235,7 @@ export class PlayLibrary {
     const lists=Array.isArray(watched)?watched:watched&&Object.entries(watched).map(([provider,ids])=>({provider,ids}));
     const weights=lists?watchedWeights(lists,data.linkedAnime):null;
     for(const anime of excludeAnime)weights?.delete(anime);
-    const pickedAnime=new Map();
+    const pickedAnime=new Map(), pickedType=new Map();
     const eligible=id=>!weights||weights.has(data.occurrenceAnime.get(id));
     const excluded=new Set(),available=[];
     for(let i=0;i<data.groups.length;i++){
@@ -260,9 +260,9 @@ export class PlayLibrary {
     const buckets=new Map();
     if(studio){
       const picks=await selectStudio(data,studioMeta,studio,lists,verify,{exclude:exclude||[],excludeAnime,replacement});
-      for(const {anime,group,url,bucket} of picks){selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);buckets.set(group,bucket);}
+      for(const {anime,group,url,bucket,label} of picks){selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);buckets.set(group,bucket);if(label)pickedType.set(group,label);}
     }else if(weights){
-      const candidates=watchedCandidates(data,weights,ranked,{groupById,excluded,excludedPaths});
+      const candidates=watchedCandidates(data,weights,excluded,excludedPaths);
       if(allowShort){
         target=Math.min(target,candidates.size);
         if(progress)progress.total=target;
@@ -271,8 +271,8 @@ export class PlayLibrary {
       for(const anime of weights.keys())if(!candidates.has(anime))weights.delete(anime);
       const recordings=await watchedRecordings(weightedAnimeOrder(weights),new Map([...candidates].map(([anime,options])=>[anime,[...options.values()]])),target,verify,randomIndex,audioFilename);
       if(!recordings.length||!allowShort&&recordings.length!==target)throw shortPool();
-      for(const {anime,group,url} of recordings){
-        selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);
+      for(const {anime,group,url,label} of recordings){
+        selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);pickedType.set(group,label);
       }
     }
     const draw=()=>{
@@ -316,7 +316,7 @@ export class PlayLibrary {
       const songNames=quiz?.title||sheet?.title?[title]:[title,amq?.title,...variants.map(s=>s.title)];
       const artistRules=recordingArtistRules(artists,data.artist.rules,song.amqSongId,amq?.artist);
       return {...(buckets.has(index)?{studioBucket:buckets.get(index)}:{}),audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
-        songType:quiz?.type||sheet?.type||song.type,artist:performer,
+        songType:pickedType.get(index)||quiz?.type||sheet?.type||song.type,artist:performer,
         artistMembers:artistRules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(animeTitles.map(animeTitleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},
         artistRules};
