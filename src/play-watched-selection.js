@@ -103,41 +103,71 @@ export function weightedAnimeOrder(weights, random = Math.random) {
     .sort((a,b) => b[1] - a[1]).map(([anime]) => anime);
 }
 
-export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename) {
-  const selected = new Map();
-  const recorded = new Set();
-  const tried = new Set();
-  let cursor = 0;
-  while (selected.size < count && cursor < order.length && tried.size < count + 32) {
-    const batch = order.slice(cursor,cursor + count - selected.size);
-    const reserved = new Set();
-    const candidatesByAnime = batch.map(anime => [...candidates.get(anime)]);
-    while (candidatesByAnime.some(options => options.length) && tried.size < count + 32) {
-      let budget = count + 32 - tried.size;
-      const probes = candidatesByAnime.map(options => {
-        if (!budget) return;
-        while (options.length) {
-          const [{group, source}] = options.splice(randomIndex(options.length),1);
-          if (tried.has(group) || recorded.has(filename(source))) continue;
-          if (reserved.has(group)) continue;
-          reserved.add(group);
-          budget--;
-          return {group, source};
-        }
-      });
-      if (!probes.some(Boolean)) break;
-      const urls = await checkAudioCandidates(probes, probe => probe ? verify(probe.group,probe.source) : null);
-      probes.forEach((probe,i) => {
-        if (!probe) return;
-        tried.add(probe.group);
-        if (!urls[i] || recorded.has(filename(urls[i]))) return;
-        recorded.add(filename(urls[i]));
-        selected.set(batch[i], {group:probe.group, url:urls[i]});
-        candidatesByAnime[i].length = 0;
-      });
+// Match in weighted anime order. Move a previously chosen recording only if the
+// earlier anime can still be assigned one, including chains of shared recordings.
+function assignWatched(order, count, optionsFor, recordingKey) {
+  const owners = new Map();
+  const picks = new Map();
+  function assign(anime, seen) {
+    const occupied = [];
+    for (const option of optionsFor(anime)) {
+      const key = recordingKey(option);
+      if (key == null || seen.has(key)) continue;
+      if (!owners.has(key)) {
+        owners.set(key, anime);
+        picks.set(anime, option);
+        return true;
+      }
+      occupied.push([key, option]);
     }
-    cursor += batch.length;
+    for (const [key, option] of occupied) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if (assign(owners.get(key), seen)) {
+        owners.set(key, anime);
+        picks.set(anime, option);
+        return true;
+      }
+    }
+    return false;
   }
-  // Audio checks can finish out of order. Keep the A-Res ordering in the playlist.
-  return order.filter(anime => selected.has(anime)).map(anime => ({anime,...selected.get(anime)}));
+  for (const anime of order) {
+    if (picks.size >= count) break;
+    assign(anime, new Set());
+  }
+  return picks;
+}
+
+export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename) {
+  const choices = new Map();
+  const verified = new Map();
+  const optionsFor = anime => {
+    if (!choices.has(anime)) {
+      const options = [...candidates.get(anime)];
+      for (let i = 0; i < options.length - 1; i++) {
+        const j = i + randomIndex(options.length - i);
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      choices.set(anime, options);
+    }
+    return choices.get(anime);
+  };
+
+  for (;;) {
+    const budget = count + 32 - verified.size;
+    const picks = assignWatched(order, count, optionsFor, ({group}) => {
+      // A fallback mirror can reveal that two groups share one playable file.
+      if (verified.has(group)) return verified.get(group)?.key;
+      return budget > 0 ? 'group:' + group : null;
+    });
+    const probes = [...picks.values()].filter(({group}) => !verified.has(group)).slice(0, budget);
+    if (!probes.length) {
+      return [...picks].map(([anime, {group}]) => ({anime, group, url:verified.get(group).url}));
+    }
+    const urls = await checkAudioCandidates(probes, ({group, source}) => verify(group, source));
+    probes.forEach(({group}, i) => {
+      const url = urls[i];
+      verified.set(group, url ? {url, key:'file:' + filename(url)} : null);
+    });
+  }
 }

@@ -85,6 +85,29 @@ test('spectator scores cover each Arena fixture and never expose an unrevealed a
     players:[{name:'A',team:0},{name:'B',team:1}]});
   assert.deepEqual(ffa.scores[0].map(side=>[side.label,side.value]),[['A',7],['B',9]]);
 });
+test('Watched keeps the earliest feasible anime when shared recordings need reassignment',async()=>{
+  const recordings = groups => groups.map(group=>({group,source:group}));
+  const select = async (lists, count, urls = {}) => {
+    const candidates = new Map(lists.map((list,i)=>[i,recordings(list)]));
+    const checked = new Set();
+    return watchedRecordings([...candidates.keys()],candidates,count,async group=>{
+      assert.ok(!checked.has(group),'each recording group is probed at most once');
+      checked.add(group);
+      return Object.hasOwn(urls,group) ? urls[group] : group;
+    },()=>0,url=>url.split('/').at(-1));
+  };
+  const assignments = result => result.map(({anime,group})=>[anime,group]);
+  assert.deepEqual(assignments(await select([['shared','other'],['shared'],['later']],2)),
+    [[0,'other'],[1,'shared']]);
+  assert.deepEqual(assignments(await select([['a','b'],['b','c'],['a'],['later']],3)),
+    [[0,'b'],[1,'c'],[2,'a']]);
+  const mirrors = {a:'eu/song.mp3',b:'us/song.mp3',dead:null};
+  assert.deepEqual(assignments(await select([['a','dead','extra'],['b'],['later']],2,mirrors)),
+    [[0,'extra'],[1,'b']]);
+  assert.deepEqual(assignments(await select([['a','dead'],['b'],['later']],2,mirrors)),
+    [[0,'a'],[2,'later']]);
+});
+
 test('a slow mirror does not block later Watched probes or change playlist order',async()=>{
   const order=Array.from({length:10},(_,i)=>i+1);
   const options=new Map(order.map(id=>[id,[{group:id,source:String(id)}]]));

@@ -239,7 +239,7 @@ export class PlayLibrary {
       for(const alternate of data.alternates[group]||[]){if(url)break;url=await this.verifiedSource(alternate);}
       if(url&&progress){
         checked.add(weights?audioFilename(url):group);
-        progress.done=checked.size;
+        progress.done=Math.min(target,checked.size);
       }
       return url;
     };
