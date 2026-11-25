@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Overview live match portraits
+
+Restored the prior scorecard treatment and stacked team portraits. Duels use 34px portraits, the hover roster uses 26px portraits, and the floating VS badge is removed. Overview portrait frames have a 1px rim at every enhancement level. Browser checks covered full 4v4 rosters, duel hover content, score clearance, rim width, and popover bounds at 320, 390 and 1440px. Commits `e47cee5` and `e7dc94c` reached main. The final production Worker is `90ab2a6c-6351-4a4e-b662-29c8728ab6fe`. Verified the live Overview shell and stylesheet.
+
 ## Catalog-wide anime answer grading
 
 Play and Quiz expand the unambiguous registered titles of each accepted edition, including alternate editions accepted for a specific recording. Checked 9,633 edition identities, 217 published quizzes (8,874 song rows), 27,080 sheet recordings, 38,194 AMQ+ recordings and 38,200 AMQ+ working-title entries. Both graders passed 108,253 source/title comparisons. Among 13,918 distinct normalized song-pool labels, 1,013 shared labels and eight unresolved labels retain explicit-answer acceptance. Private quiz drafts were outside the production inventory. Catalog rebuilds regenerate the aliases, and the full 645-test suite includes every generated alias pair plus recording scope and edition collision checks. Runtime commits `0debad2` and `45230c5` are on main, deployed to Worker `aa89cc94-20f8-48d6-a951-5e8772357d8f`. Verified the live Quiz page, rules asset, and quiz directory read-only.
