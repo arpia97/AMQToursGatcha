@@ -4,7 +4,7 @@ export function validateStudio(s){
   if(!s||typeof s!=='object'||typeof s.name!=='string'||!s.name.trim()||s.name.length>55)return 'Enter a lobby name of up to 55 characters.';
   const number=(k,min,max,whole=false)=>Number.isFinite(s[k])&&s[k]>=min&&s[k]<=max&&(!whole||Number.isInteger(s[k]));
   const choices=(v,allowed)=>Array.isArray(v)&&v.length<=allowed.length&&new Set(v).size===v.length&&v.every(x=>allowed.includes(x));
-  if(!['Free-for-all','Teams'].includes(s.format)||!number('players',1,8,true)||!number('teamSize',1,4,true)||s.format==='Teams'&&s.teamSize*2>s.players)return 'Choose a capacity that fits the teams.';
+  if(!['Free-for-all','Teams'].includes(s.format)||!number('players',1,8,true)||!number('teamSize',1,8,true))return 'Choose a capacity that fits the teams.';
   if(!number('songs',1,100,true))return 'Choose 1–100 songs.';
   if(!['Random','Watched','Mixed'].includes(s.pool)||!studioMethods.includes(s.watchMethod)||!number('cutoff',2,8,true))return 'Choose a valid song pool.';
   if(!['Ratio','Songs'].includes(s.unit)||!Array.isArray(s.mix)||s.mix.length!==3||s.mix.some(n=>!Number.isFinite(n)||n<0||n>100))return 'Check the mixed allocation.';
@@ -22,6 +22,25 @@ export function validateStudio(s){
   if(JSON.stringify(s).length>4200)return 'Choose fewer genre or tag filters to fit the lobby settings.';
   return '';
 }
+// Assign explicit choices first so an automatic seat can move when someone picks a team.
+export function studioTeamAssignments(players, size) {
+  const counts=Array(Math.ceil(players.length/size)).fill(0);
+  const teams=new Map();
+  for(const {id,teamChoice} of players){
+    if(Number.isInteger(teamChoice)&&counts[teamChoice]<size){
+      teams.set(id,teamChoice);
+      counts[teamChoice]++;
+    }
+  }
+  for(const {id} of players){
+    if(teams.has(id))continue;
+    const team=counts.indexOf(Math.min(...counts));
+    teams.set(id,team);
+    counts[team]++;
+  }
+  return teams;
+}
+
 export function apportion(total,weights){
   const sum=weights.reduce((a,b)=>a+b,0);
   if(!sum)return weights.map(()=>0);

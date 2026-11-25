@@ -1,3 +1,4 @@
+import {studioTeamAssignments} from '../public/play-studio-rules.js';
 import {NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, matchGuessFields, songArtistFields, animeOnlyMode, DUEL_FORMAT, duelRules, DUEL_LOBBY_FORMAT, ONE_TEAM_MODE, ONE_TEAM_FORMAT, oneTeamRules, PLAY_REVEAL_MS, queueMode, usesTeamBallot} from '../public/play-mode-rules.js';
 import {defaultPlayGuessSeconds} from '../public/play-audio-format.js';
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
@@ -57,11 +58,9 @@ export function makeMatch(id,format,players,songs,now=Date.now(),lobby=null) {
   const samples=new Uint32Array(songs.length);crypto.getRandomValues(samples);
   const mode=ngmc?'ngmc-ranked':survival?ONE_TEAM_MODE:queueMode(format)===ONE_TEAM_MODE?'song-artist':queueMode(format);
   const studio=lobby?.studio;
-  if(studio?.format==='Teams'){
-    if(players.length%studio.teamSize||players.length<studio.teamSize*2)fail('Teams must be complete.');
-    rules.teams=players.length/studio.teamSize;
-  }
-  const state = {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(potato?potatoRules.lives:ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:ngmc||arena?p.team:i%rules.teams,...(arena?{elo:p.elo}:{}),...(potato?{guesses:potatoRules.guesses}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(!custom||survival?{answeredMatch:false}:{}),answers:{},locked:false}))};
+  const studioTeams=studio?.format==='Teams'?studioTeamAssignments(players,studio.teamSize):null;
+  if(studioTeams)rules.teams=Math.ceil(players.length/studio.teamSize);
+  const state = {id,format,...(custom?{lobby}:{readyDeadline:now+90000}),samplePositions:Array.from(samples,n=>n/4294967296),teamFields:['3v3','1-team'].includes(format),...(arena?{arena:arenaSchedule(rules.teams)}:{}),mode,...(ngmc?{counters:[null,null],autoCounting:[false,false],autoCountAt:now+NGMC_COUNTER_SIGNUP_MS}:{}),songs,index:0,phase:'loading',until:now+180000,created:now,teams:Array(rules.teams).fill(potato?potatoRules.lives:ngmc?5:survival?oneTeamRules.lives:0),history:[],players:roster.map((p,i)=>({id:p.id,name:p.name,avatar:p.avatar||null,team:studioTeams?.get(p.id)??(ngmc||arena?p.team:i%rules.teams),...(arena?{elo:p.elo}:{}),...(potato?{guesses:potatoRules.guesses}:{}),...(ngmc?{elo:p.elo,guessRate:p.guessRate,initialGuesses:p.guessRate===null?3:ngmcGuesses(p.guessRate),guesses:p.guessRate===null?3:ngmcGuesses(p.guessRate)}:{}),score:0,loaded:[],acceptedReady:!!custom,ready:false,left:false,...(!custom||survival?{answeredMatch:false}:{}),answers:{},locked:false}))};
   if(studio){
     if(!studio.randomSample)state.samplePositions.fill(Math.min(1-Number.EPSILON,studio.sample/100));
     state.playbackRates=Array.from(samples,()=>studio.speedMode==='Fixed'?studio.speed:studio.minSpeed+Math.random()*(studio.maxSpeed-studio.minSpeed));

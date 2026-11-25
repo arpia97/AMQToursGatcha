@@ -140,11 +140,20 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
   const ngmc = lobby.format==='lobby-ngmc';
   const arena = lobby.format===ARENA_LOBBY_FORMAT;
   const duel = lobby.format===DUEL_LOBBY_FORMAT;
-  const canStart = lobby.studio?.format==='Teams'?lobby.players.length>=2*lobby.studio.teamSize&&lobby.players.length%lobby.studio.teamSize===0:isPotato(lobby.format) ? validPotatoSize(lobby.format,lobby.players.length,true) : lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
+  const canStart = isPotato(lobby.format) ? validPotatoSize(lobby.format,lobby.players.length,true) : lobby.rematchOf ? lobby.players.length>=oneTeamRules.minPlayers : duel ? lobby.players.length===2 : arena ? arenaPlayerCounts.includes(lobby.players.length) : !ngmc || [6,8].includes(lobby.players.length);
   const host = lobby.host===me && !lobby.busy;
   const ready = lobby.players.filter(p=>p.ready).length;
+  const teamSize=lobby.studio?.format==='Teams'?lobby.studio.teamSize:0;
+  const teamCount=teamSize?Math.ceil(lobby.players.length/teamSize):0;
+  const teamPicker=teamCount>1&&mine&&!lobby.busy
+    ? '<fieldset class="room-guess-types"><legend>Your team</legend>'+
+      [null,...Array.from({length:teamCount},(_,i)=>i)].map(team=>{
+        const selected=team===null?mine.teamChoice==null||mine.teamChoice>=teamCount:mine.teamChoice===team;
+        const full=team!==null&&lobby.players.filter(p=>p.id!==me&&p.teamChoice===team).length>=teamSize;
+        return '<button type="button" class="button '+(selected?'mint':'secondary')+'" data-lobby-action="team-choice" data-team="'+(team??'auto')+'" aria-pressed="'+selected+'" '+(full?'disabled':'')+'>'+(team===null?'Auto':'Team '+(team+1))+'</button>';
+      }).join(' ')+'</fieldset>':'';
   const players = lobby.players.map(p=>{
-    const role = [p.id===lobby.host?'Host':'',p.id===me?'You':''].filter(Boolean).join(' · ');
+    const role = [teamSize&&Number.isInteger(p.team)?'Team '+(p.team+1):'',p.id===lobby.host?'Host':'',p.id===me?'You':''].filter(Boolean).join(' · ');
     return '<li class="room-player"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<span class="room-player-name"><strong>'+esc(p.name)+'</strong>'+(role?'<small>'+role+'</small>':'')+'</span></span>'+
       '<span class="lobby-ready-status '+(p.ready?'is-ready':'')+'">'+(p.ready?'Ready':'Waiting')+'</span></li>';
   }).join('');
@@ -158,7 +167,7 @@ export function roomLobby(lobby, me, esc, autoReady, draft) {
     '</small><h1>'+(lobby.studio?esc(lobby.studio.name):lobby.rematchOf?'Rematch Lobby':'Custom Lobby')+'</h1></div>'+
     (lobby.rematchOf?'<div class="room-code"><span>Invite Only</span></div>':'<div class="room-code"><small>Lobby Code</small><strong>'+esc(lobby.code)+'</strong><span>'+(lobby.locked?'Password protected':'Public')+'</span></div>')+'</header>'+
     '<div class="room-columns"><section class="room-panel"><header><h2>Players</h2><span>'+(lobby.studio?lobby.players.length+' / '+lobby.studio.players:seatCount(lobby.players.length,lobby.format))+'</span></header>'+
-    '<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
+    teamPicker+'<ul class="room-roster">'+players+'</ul><div class="room-readiness"><meter min="0" max="'+lobby.players.length+'" value="'+ready+'" aria-label="Players ready"></meter><span>'+ready+' / '+lobby.players.length+' ready · '+percentDone(ready,lobby.players.length)+'</span></div></section>'+
     '<section class="room-panel"><header><h2>Match Settings</h2></header><div class="room-options">'+lobbySettings(lobby,draft||lobby,host&&!lobby.rematchOf,draft,esc)+watchedPoolStatus(lobby,host,shortPool)+
     (host&&!lobby.rematchOf?'<button class="text-button" data-lobby-action="password">Set Password</button>':'')+'</div></section></div>'+
     '<footer class="room-controls"><button class="button secondary" data-lobby-action="leave">Leave Lobby</button><div>'+autoReadyHTML(autoReady)+

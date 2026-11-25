@@ -1174,6 +1174,10 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     }
     if(button.dataset.lobbyAction){
       const action=button.dataset.lobbyAction;
+      if(action==='team-choice'){
+        send(queue,{type:'lobby-team-choice',team:button.dataset.team==='auto'?null:Number(button.dataset.team)});
+        return;
+      }
       if(action==='ready'){
         const mine=queueStatus.players.find(p=>p.id===getPlayer()?.id);
         if(mine?.ready&&autoReady)setAutoReady(false);

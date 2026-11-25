@@ -602,6 +602,7 @@ dialog.play-lobby-dialog {width:min(370px,calc(100vw - 24px));}
 .room-controls [aria-pressed=true] { color:var(--mint); border-color:var(--mint); }
 #sa-answer-form:not(:has(#sa-anime)) label:has([data-fuzzy-anime]) {display:none}
 .room-guess-types {margin:0;padding:0;border:0;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.room-panel > .room-guess-types {margin:12px 16px 4px;}
 .room-guess-types legend {padding:0;margin-bottom:6px;color:var(--muted);font-size:12px}
 .room-options .room-guess-types label,.play-lobby-dialog .room-guess-types label {display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer}
 .room-guess-types label:has(:checked) {background:color-mix(in srgb,var(--mint) 9%,var(--bg));border-color:color-mix(in srgb,var(--mint) 45%,var(--border));color:var(--mint)}

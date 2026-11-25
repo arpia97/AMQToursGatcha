@@ -7,7 +7,7 @@ import {send} from './play-sockets.js';
 import {retryDurableOperation} from './durable-recovery.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 
-import {studioLobbySettings} from '../public/play-studio-rules.js';
+import {studioLobbySettings,studioTeamAssignments} from '../public/play-studio-rules.js';
 const capacity=settings=>settings.studio?.players??lobbyCapacity(settings.format);
 export const ONE_TEAM_REMATCH_FORMAT='lobby-one-team-survival';
 const poolKey=(settings,players)=>JSON.stringify([settings.format,players.map(p=>p.id)]);
@@ -68,6 +68,8 @@ export class PlayLobbies {
     }
     if(!queue.rows('PRAGMA table_info(lobby_members)').some(c=>c.name==='ready'))
       this.sql.exec('ALTER TABLE lobby_members ADD COLUMN ready INTEGER NOT NULL DEFAULT 0');
+    if(!queue.rows('PRAGMA table_info(lobby_members)').some(c=>c.name==='team_choice'))
+      this.sql.exec('ALTER TABLE lobby_members ADD COLUMN team_choice INTEGER');
     this.sql.exec('CREATE INDEX IF NOT EXISTS lobby_roster ON lobby_members(code)');
     this.sql.exec(`CREATE TABLE IF NOT EXISTS lobby_chat(
       seq INTEGER PRIMARY KEY,code TEXT NOT NULL,player TEXT NOT NULL,name TEXT,body TEXT NOT NULL,at INTEGER NOT NULL
@@ -77,7 +79,7 @@ export class PlayLobbies {
   forPlayer(player){
     return this.queue.rows('SELECT l.*,m.last_match FROM play_lobbies l JOIN lobby_members m USING(code) WHERE m.player=?',player)[0];
   }
-  readyRoster(code){return this.queue.rows('SELECT player AS id,name,avatar,ready FROM lobby_members WHERE code=? AND last_match IS NULL ORDER BY rowid',code);}
+  readyRoster(code){return this.queue.rows('SELECT player AS id,name,avatar,ready,team_choice AS teamChoice FROM lobby_members WHERE code=? AND last_match IS NULL ORDER BY rowid',code);}
   roster(code){return this.queue.rows('SELECT player AS id,name,avatar FROM lobby_members WHERE code=? ORDER BY rowid',code);}
   async unlockWatch(player,code,password){
     const room=this.queue.rows("SELECT l.match,l.password_hash FROM play_lobbies l JOIN match_reviews m ON m.id=l.match WHERE code=? AND m.status='active' AND l.password_hash IS NOT NULL",code)[0];
@@ -107,8 +109,12 @@ export class PlayLobbies {
   }
   status(row){
     if(row.last_match)return {type:row.match===row.last_match?'matched':'lobby-ended',match:row.last_match,code:row.code};
-    const players=this.readyRoster(row.code).map(({id,name,avatar,ready})=>({id,name,avatar:JSON.parse(avatar),ready:!!ready}));
     const settings=JSON.parse(row.settings);
+    const roster=this.readyRoster(row.code);
+    const teams=settings.studio?.format==='Teams'?studioTeamAssignments(roster,settings.studio.teamSize):null;
+    const players=roster.map(({id,name,avatar,ready,teamChoice})=>({
+      id,name,avatar:JSON.parse(avatar),ready:!!ready,...(teams?{team:teams.get(id),teamChoice}:{})
+    }));
     if (settings.format===ARENA_LOBBY_FORMAT) {
       settings.songs=arenaPlayerCounts.includes(players.length)?arenaSongCount(players.length):null;
     }
@@ -260,6 +266,18 @@ export class PlayLobbies {
       this.sql.exec('UPDATE lobby_members SET ready=? WHERE player=?',Number(message.ready),who.id);
       return;
     }
+    if(message.type==='lobby-team-choice'){
+      const studio=JSON.parse(row.settings).studio;
+      const team=message.team;
+      if(studio?.format!=='Teams')fail('This lobby does not use teams.');
+      if(team!==null){
+        const count=Math.ceil(players.length/studio.teamSize);
+        if(!Number.isInteger(team)||team<0||team>=count)fail('Choose an available team.');
+        if(players.filter(p=>p.id!==who.id&&p.teamChoice===team).length>=studio.teamSize)fail('That team is full.');
+      }
+      this.sql.exec('UPDATE lobby_members SET team_choice=? WHERE player=? AND code=?',team,who.id,row.code);
+      return;
+    }
     if(players[0].id!==who.id)fail('Only the lobby host can do that.',403);
     const settings=JSON.parse(row.settings);
     if(settings.rematchOf&&message.type!=='lobby-start')fail('This rematch uses the same settings.');
@@ -283,12 +301,13 @@ export class PlayLobbies {
       const updated=JSON.stringify(validated);
       if(updated!==row.settings)this.queue.ctx.storage.transactionSync(()=>{
         this.sql.exec('UPDATE play_lobbies SET settings=? WHERE code=?',updated,row.code);
+        if(settings.studio?.format!==validated.studio?.format||settings.studio?.teamSize!==validated.studio?.teamSize)
+          this.sql.exec('UPDATE lobby_members SET team_choice=NULL WHERE code=?',row.code);
         this.sql.exec('UPDATE lobby_members SET ready=0 WHERE code=? AND last_match IS NULL',row.code);
       });
       return;
     }
     if(!players.every(p=>p.id===who.id||p.ready))fail('Every player must be ready before starting.');
-    if(settings.studio?.format==='Teams'&&(players.length<settings.studio.teamSize*2||players.length%settings.studio.teamSize))fail('Start with two or more complete teams.');
     if(settings.format===ONE_TEAM_FORMAT){
       if(players.length<oneTeamRules.minPlayers)fail('1-Team needs at least '+oneTeamRules.minPlayers+' players.');
       for(const player of players)this.queue.assertActiveQueueAccess(null,player.id);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {studioLobbySettings} from '../public/play-studio-rules.js';
+import {studioLobbySettings,studioTeamAssignments} from '../public/play-studio-rules.js';
 import {makeMatch,gradeRound,advanceMatch} from '../src/play-match-rules.js';
 import {selectStudio,eligibleOccurrence} from '../src/play-studio-selection.js';
 const base={
@@ -9,9 +9,9 @@ const base={
   unit:'Songs',mix:[2,1,1],types:['OP'],categories:{OP:['Standard'],ED:[],IN:[]},dupes:false,rebroadcast:false,dubs:false,
   difficultyFrom:0,difficultyTo:100,popFrom:0,popTo:100,from:7696,to:8100,animeTypes:['TV'],top:'',scoreFrom:0,scoreTo:10,genres:[],tags:[],genreLogic:'OR',tagLogic:'OR'
 };
-function match(overrides={}){
+function match(overrides={}, roster){
   const studio={...base,...overrides},lobby=studioLobbySettings(studio);
-  const players=Array.from({length:4},(_,i)=>({id:String(i),name:'Player '+i}));
+  const players=roster??Array.from({length:4},(_,i)=>({id:String(i),name:'Player '+i}));
   const song={anime:'Anime',answers:{anime:['Anime']}};
   return makeMatch('match','lobby-ffa',players,Array(studio.songs).fill(song),0,lobby);
 }
@@ -25,9 +25,27 @@ test('studio settings create a real custom match with synchronized timing and se
   assert.equal(m.lobby.seconds,25);assert.deepEqual(m.lobby.guessFields,['song','artist']);
   assert.deepEqual(m.playbackRates,[1.25,1.25,1.25,1.25]);assert.equal(m.clipSeconds,25);
   assert.ok(m.samplePositions.every(v=>v>0.999&&v<1));
-  assert.throws(()=>match({format:'Teams',teamSize:3}),/complete/);
+  assert.equal(match({format:'Teams',teamSize:3}).teams.length,2);
   assert.throws(()=>match({guessFields:[]}),/scoring/);
 });
+test('studio teams use the current headcount, balance automatic seats and keep player choices at kickoff',()=>{
+  for(let n=1;n<=8;n++)for(let size=1;size<=8;size++){
+    const players=Array.from({length:n},(_,i)=>({id:String(i),name:'Player '+i}));
+    const m=match({format:'Teams',teamSize:size},players);
+    const sizes=m.teams.map((_,i)=>m.players.filter(p=>p.team===i).length);
+    assert.equal(sizes.length,Math.ceil(n/size));
+    assert.ok(Math.max(...sizes)<=size&&Math.max(...sizes)-Math.min(...sizes)<=1);
+  }
+  const players=[null,1,1,null,0].map((teamChoice,i)=>({id:String(i),name:'P'+i,teamChoice}));
+  const expected=studioTeamAssignments(players,3);
+  const m=match({format:'Teams',teamSize:3},players);
+  assert.ok(m.players.every(p=>p.team===expected.get(p.id)));
+  assert.equal(expected.get('1'),1);assert.equal(expected.get('2'),1);assert.equal(expected.get('4'),0);
+  assert.throws(()=>match({format:'Teams',teamSize:9}),/capacity/);
+  const single=match({format:'Teams',teamSize:8,scoring:'Lives'});
+  grade(single,()=>false);assert.deepEqual(single.teams,[1]);
+});
+
 test('team lives survive equal hits and misses; only a losing side loses one life',()=>{
   const m=match({format:'Teams',scoring:'Lives',lives:2});
   grade(m,()=>true);assert.deepEqual(m.teams,[2,2]);
