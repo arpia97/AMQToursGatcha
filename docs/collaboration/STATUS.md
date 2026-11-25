@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Legacy domain retirement and decorative anime titles
+
+Both production Workers disable workers.dev and version preview URLs. Verified both former sites and their account endpoints return 404. Gacha and Play remain on amqtours.app. The Host Platform uses a limited account bridge at accounts.amqtours.app. Verified a public player identity through both the custom Host domain and the Sites address after publishing Host version 101.
+
+Quiz and multiplayer accept 19 catalog-verified starred anime spellings in either direction while preserving distinct editions. All 642 game tests and six focused Host tests passed. Game commit `cad8225`, Worker `b2bfd660-0a82-4887-8f10-f5b0e1053858`, routing Worker `4cf13af6-3314-41f0-b628-6df5704f24f3`.
+
 ## Artist catalog alias audit
 
 Reviewed 171 romanization candidates. Added 14 verified full-name aliases and limited Hinata Sato/Satou and Nao Toyama/Touyama to 109 corroborated AMQ recordings. Verified all 14 pairs in both directions, all 109 bundled recording credits and all 28 global spellings in the live dropdown. Full suite passed (639), with 23 focused tests rerun after including the Japanese middle dot as a credit separator. Runtime `0ee770d` deployed as `3cc4af9f-7e92-4d80-a340-ef121bf58598`.
