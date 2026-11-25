@@ -1,3 +1,4 @@
+import { importedPortrait } from "./community-cards.js";
 import { installInbox, inboxSummary, saveNoticePreferences } from "./inbox.js";
 import { installFavoriteOwnership, ownedCardCopies, pruneFavorite } from "./card-ownership.js";
 import { validateAvatarCrop } from "../public/avatar-crop.js";
@@ -1025,7 +1026,8 @@ export class Engine {
           fail("ACDB was retired. Use MAL character IDs.", 409);
         if (!["character", "seiyuu"].includes(c.kind))
           fail("Invalid catalog type.");
-        const image = c.image || "",
+        const old = this.catalogStore.rawCard(text(c.id, 100));
+        const image = importedPortrait(c, old),
           source = c.source || "";
         for (const u of [image, source])
           if (u && !/^https:\/\//.test(u))
@@ -1034,7 +1036,6 @@ export class Engine {
           c.kind === "seiyuu" ? "supporting" : c.role || "supporting";
         if (!["main", "supporting", "unknown"].includes(role))
           fail("Character role must be main, supporting, or unknown.");
-        const old = this.catalogStore.rawCard(text(c.id, 100));
         const fixedRarity =
           c.fixedRarity === undefined
             ? (old?.fixed_rarity ?? null)

@@ -1,3 +1,4 @@
+import { syncBundledCards } from '../src/community-cards.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -144,4 +145,39 @@ test("fixed rarity accepts only valid community IDs; malformed imports roll back
   assert.equal(e.catalogStore.card(cards[0].id).rarity, "S");
   host({ cards: [{ ...cards[0], fixedRarity: null }] });
   assert.equal(e.catalogStore.card(cards[0].id).rarity, null);
+});
+
+test('each bundled community portrait resolves to a shipped image on the public Gacha domain', () => {
+  for (const card of cards) {
+    const url = new URL(card.image);
+    assert.equal(url.origin, 'https://amqtours.app', card.id);
+    assert.match(url.pathname, /^\/gacha\/community-cards\/[a-z0-9-]+\.(?:webp|jpg|png)$/);
+    const file = new URL('../public/' + url.pathname.slice('/gacha/'.length), import.meta.url);
+    const bytes = fs.readFileSync(file);
+    if (file.pathname.endsWith('.webp')) assert.equal(bytes.subarray(8,12).toString(), 'WEBP');
+    else if (file.pathname.endsWith('.png')) assert.equal(bytes.subarray(0,8).toString('hex'), '89504e470d0a1a0a');
+    else assert.equal(bytes.subarray(0,3).toString('hex'), 'ffd8ff');
+  }
+});
+
+test('repair and reimport keep bundled portraits available without replacing custom artwork', t => {
+  const {e,host,sql}=fixture(t);
+  const [first,second,third]=cards;
+  const retired=first.image.replace('amqtours.app/gacha','play.amqtours-gatcha.workers.dev');
+  const override='https://example.org/custom-art.png';
+  host({cards});
+  sql('UPDATE catalog SET image=? WHERE id=?',retired,first.id);
+  sql("UPDATE catalog SET image='' WHERE id=?",second.id);
+  sql('UPDATE catalog SET image=? WHERE id=?',override,third.id);
+  assert.equal(e.catalogStore.card(first.id).image,retired);
+  syncBundledCards(e);
+  assert.equal(e.catalogStore.card(first.id).image,first.image);
+  assert.equal(e.catalogStore.card(second.id).image,second.image);
+  assert.equal(e.catalogStore.card(third.id).image,override);
+  syncBundledCards(e);
+  host({cards:[{...first,image:retired},{...second,image:undefined},{...third,image:''}]});
+  assert.equal(e.catalogStore.card(first.id).image,first.image);
+  assert.equal(e.catalogStore.card(second.id).image,second.image);
+  assert.equal(e.catalogStore.card(third.id).image,override);
+  assert.equal(sql('SELECT count(*) n FROM catalog')[0].n,cards.length);
 });

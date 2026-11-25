@@ -59,7 +59,7 @@ import {
   nextBudgetDay,
   storageQuotaResponse,
 } from "./sql-budget.js";
-import communityCards from "../public/community-cards.json" with { type: "json" };
+import { syncBundledCards } from "./community-cards.js";
 import { applyPortraitRepairs } from "./portrait-repairs.js";
 
 const enc = new TextEncoder();
@@ -189,21 +189,7 @@ export class Game extends DurableObject {
   }
   syncCommunityCards() {
     if (this._communitySynced) return;
-    const hasSeed = this.engine.one(
-      "SELECT id FROM catalog WHERE id='community-ggius-arronchu'",
-    );
-    if (!hasSeed) {this._communitySynced=true;return;}
-    const existing = new Set(this.engine.all(
-      "SELECT id FROM catalog WHERE id IN (SELECT value FROM json_each(?))",
-      JSON.stringify(communityCards.map(card=>card.id)),
-    ).map(row=>row.id));
-    const missingCards = communityCards.filter(card=>!existing.has(card.id));
-    if (missingCards.length) {
-      this.engine.tx(() => {
-        this.engine.host("catalog", { cards: missingCards });
-      });
-    }
-    applyPortraitRepairs(this.engine);
+    if (syncBundledCards(this.engine)) applyPortraitRepairs(this.engine);
     this._communitySynced = true;
   }
   async alarm() {

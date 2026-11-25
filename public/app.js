@@ -1,3 +1,4 @@
+import { communityPortraitUrl } from "./community-portrait.js";
 import { applyMarketNotice } from "./market-notice-link.js";
 import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
 import { SPECIAL_PACK_DESCRIPTION } from "./pack-odds.js";
@@ -2960,6 +2961,8 @@ document.addEventListener(
   async (ev) => {
     const img = ev.target;
     if (img.tagName !== "IMG") return;
+    const current = communityPortraitUrl(img.src);
+    if (current !== img.src) { img.src = current; return; }
     if (img.dataset.portraitId) {
       const original = img.src;
       const lookup = replacementPortrait(img.dataset.portraitId);
