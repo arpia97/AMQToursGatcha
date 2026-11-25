@@ -43,7 +43,9 @@ const starAliases = new Map([
 ]);
 const compactStarAliases = new Map([...starAliases].map(([a,b])=>[a.replace(/\s/g,''), b.replace(/\s/g,'')]));
 export function animeAnswerKey(value, compact = false) {
-  const key = quizAnswerKey(value);
+  return normalizedAnimeAnswerKey(quizAnswerKey(value),compact);
+}
+export function normalizedAnimeAnswerKey(key,compact=false) {
   if (compact) {
     const joined = key.replace(/\s/g,'');
     return compactStarAliases.get(joined) ?? joined;

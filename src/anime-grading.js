@@ -1,4 +1,4 @@
-import {animeAnswerKey} from '../public/quiz-rules.js';
+import {animeAnswerKey,normalizedAnimeAnswerKey} from '../public/quiz-rules.js';
 import editions from './anime-grading-aliases.json' with {type:'json'};
 
 // Match registered spellings at grading time. Keep the original labels for
@@ -6,8 +6,9 @@ import editions from './anime-grading-aliases.json' with {type:'json'};
 function indexEditions(compact){
   const index=new Map();
   for(const names of editions){
-    const canonical=animeAnswerKey(names[0],compact);
-    for(const name of names)index.set(animeAnswerKey(name,compact),canonical);
+    // The build already applied Unicode normalization and case folding.
+    const canonical=normalizedAnimeAnswerKey(names[0],compact);
+    for(const name of names)index.set(normalizedAnimeAnswerKey(name,compact),canonical);
   }
   return index;
 }
