@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Same-edition anime grading
+
+Quiz and Play now recognize 92 verified labels across 36 editions where the official AMQ catalog and AMQ+ spell the same anime differently. For Sacred Force (AMQ song 20349, ANN anime 12221), the English and romaji movie titles work with or without the catalog colon. Checked 252 label pairings across Quiz, Play and team ballots, edition-separation regressions, and the full 643-test suite. Pushed runtime `492fb3d`, deployed Worker `6d3e93b8-aada-462a-bd8c-eef51e9c93c3` at 100%, confirmed live health and the track identity. Rebuild the grading table with `node tools/build-anime-grading-aliases.mjs` after refreshing the bundled catalogs.
+
 ## Play Overview directory
 
 Overview shows Live Matches, Open Lobbies and Quick Join in order, with a searchable player panel. Join and create use the existing mode lobby flows. Private matches accept password-authorized spectating per account and match. Source `7972606` is deployed at 100% as `c6bd37e2-ccf6-4098-a923-0b1b1feeb0fe`. All 643 tests passed. A local browser exercised private lobby creation/join and a 12-room scrolling directory at five widths. Production desktop and mobile checks verified one live match, zero open lobbies, eight quick-join formats and the guest sign-in flow. The separate custom-lobby builder and local return-to-lobby edits are outside this deployment.
