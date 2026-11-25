@@ -5,7 +5,7 @@ import { installPlayAccountMenu } from "../play-account-menu.js?v=notification-m
 import { bindNotificationSoundControl, notificationSoundControl } from "../notification-sound.js?v=mute";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
-import {DUEL_FORMAT, ONE_TEAM_FORMAT, queueMode as modeForQueue} from '../play-mode-rules.js';
+import {DUEL_FORMAT, ONE_TEAM_FORMAT, lobbyGameMode, queueMode as modeForQueue} from '../play-mode-rules.js';
 import {ARENA_FORMAT} from '../play-arena-config.js';
 import { PLAY_MODES, playPage, playRoute, playHref, playQuizHref } from "../play-navigation.js?v=host-page";
 import { loadOnce, loadStylesheet } from "../route-resources.js";
@@ -254,14 +254,14 @@ function showQueue(status){
   box.querySelector('[data-action="leave-queue"]').disabled=!status.connected||['preparing','matched'].includes(status.type);
 }
 const loadOverview=loadOnce(async()=>{
-  const [module]=await Promise.all([import('../play-overview.js?v=rematch-transfer'),loadStylesheet(new URL('../play-overview.css?v=rematch-transfer',import.meta.url))]);
+  const [module]=await Promise.all([import('../play-overview.js?v=overview-directory'),loadStylesheet(new URL('../play-overview.css?v=overview-directory',import.meta.url))]);
   return module.mountPlayOverview;
 });
 const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-results"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
-    import("../play-song-ui.js?v=stable-round"), loadMultiplayerStyles(),
+    import("../play-song-ui.js?v=overview-directory"), loadMultiplayerStyles(),
   ]);
   return songArtist = createSongArtistUI({
     root: multiplayerRoot, apiBase, getPlayer: () => state.me, escape,
@@ -299,6 +299,28 @@ const loadMultiplayer = loadOnce(async () => {
     },
   });
 });
+async function openOverviewLobby(target,room){
+  await openMode(target);
+  if(mode===target&&multiplayerRoot.isConnected)songArtist?.requestLobby(room);
+}
+function chooseLobbyMode(){
+  const choices=PLAY_MODES.filter(m=>[DUEL_FORMAT,'ngmc-ranked',ARENA_FORMAT,'song-artist','one-team','variety'].includes(m.id));
+  modal('<form id="overview-create"><h2>Create a lobby</h2><label>Game mode<select name="mode">'+
+    choices.map(m=>'<option value="'+escape(m.id)+'">'+escape(m.name)+'</option>').join('')+
+    '</select></label><button class="button mint" type="submit">Continue</button></form>');
+  $('#overview-create').onsubmit=e=>{e.preventDefault();const target=e.target.elements.mode.value;$('#modal').close();void openOverviewLobby(target);};
+}
+function promptPrivateWatch(code,title){
+  if(!state.me){account();return;}
+  modal('<form id="private-watch"><h2>Watch private match</h2><label>Lobby Password<input name="password" type="password" maxlength="128" required autocomplete="off"></label><p role="alert"></p><button class="button mint">Watch</button></form>');
+  const form=$('#private-watch');
+  form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('button');button.disabled=true;
+    try{const {match}=await api('play-watch-unlock',{code,password:form.elements.password.value});
+      if(!form.isConnected||!$('#modal').open)return;
+      $('#modal').close();await watchMatch(match,title);
+    }catch(error){if(form.isConnected)form.querySelector('[role=alert]').textContent=error.message;}finally{button.disabled=false;}
+  };
+}
 function resetQuiz() {
   quiz?.leave();
   quiz = null;
@@ -397,6 +419,14 @@ async function openMode(id, push = true) {
       };
       overview=mount($('#main'),{esc:escape,join,leave:()=>songArtist?.cancelQueue(),viewer:state.me,
         profileHref:playerProfileHref,
+        loadRooms:signal=>api('play-lobbies',undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),
+        openLobby:room=>{
+          if(!state.me){account();return;}
+          if(currentQueue){toast('Leave your current queue before joining a lobby.');return;}
+          if(room)void openOverviewLobby(lobbyGameMode(room.format),room);
+          else chooseLobbyMode();
+        },
+        watchPrivate:promptPrivateWatch,
         viewQueue:()=>currentQueue&&openMode(modeForQueue(currentQueue.format)),
         watch:(id,title)=>watchMatch(id,title).catch(fail),
         loadScore:(id,signal)=>api(watchingPath(id),undefined,undefined,{signal:AbortSignal.any([signal,AbortSignal.timeout(8000)])}),

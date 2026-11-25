@@ -372,7 +372,7 @@ export class Game extends DurableObject {
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && path!=='play-watch-unlock' && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1391,6 +1391,15 @@ export class Game extends DurableObject {
       const headers=new Headers({Upgrade:'websocket','X-Play-Identity':JSON.stringify({id:session.player,name:playPlayer.name,avatar:playAvatar(e,playPlayer),protocol:Number(url.searchParams.get('protocol'))||1,expires:Math.min(session.expires,Date.now()+30*60000)})});
       return (match?this.env.PLAY_MATCHES.getByName(match):queue).fetch(new Request('https://play.internal/socket',{headers}));
     }
+    if(post&&path==='play-watch-unlock'){
+      if(!session)fail('Sign in to watch matches.',401);
+      e.assertAccountUnlocked(session.player);
+      if(typeof b.code!=='string'||!/^[A-Z0-9]{8}$/.test(b.code)||typeof b.password!=='string'||!b.password||b.password.length>128)fail('Enter the lobby password.');
+      this.rate('private-watch:'+session.player,12);
+      const match=await this.env.PLAY_QUEUE.getByName('play-queues-v1').unlockWatch(session.player,b.code,b.password);
+      if(!match)fail('Incorrect password or the match has ended.',403);
+      return json({match});
+    }
     if (playRead) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       if(path==='play-history'){
@@ -1413,7 +1422,7 @@ export class Game extends DurableObject {
         if(upgrade&&request.headers.get('Origin')!==url.origin)fail('Cross-origin requests are not allowed.',403);
         this.bursts.take('play-watch:'+session.player,10,1);
         const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
-        if(!await queue.canWatch(id))fail('This public match is no longer available.',404);
+        if(!await queue.canWatch(id,session.player))fail('This public match is no longer available.',404);
         const room=this.env.PLAY_MATCHES.getByName(id);
         if(upgrade){
           const player=e.player(session.player);

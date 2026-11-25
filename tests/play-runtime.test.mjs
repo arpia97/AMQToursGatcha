@@ -411,6 +411,14 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
   assert.equal(protectedMatch.roster,undefined);
   assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{Cookie:cookies[0]}})).status,404);
   assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{...upgrade,Cookie:cookies[4]}})).status,404);
+  const unlock=(cookie,password)=>mf.dispatchFetch(base+'/api/play-watch-unlock',{method:'POST',
+    headers:{'Content-Type':'application/json',...(cookie?{Cookie:cookie}:{})},body:JSON.stringify({code:protectedMatch.lobbyCode,password})});
+  assert.equal(protectedMatch.lobbyCode,arenaLobby.code);
+  assert.equal((await unlock(null,'private-arena')).status,401);
+  assert.equal((await unlock(cookies[4],'wrong')).status,403);
+  assert.deepEqual(await (await unlock(cookies[4],'private-arena')).json(),{match:arenaId});
+  assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{Cookie:cookies[4]}})).status,200);
+  assert.equal((await mf.dispatchFetch(watchPath(arenaId),{headers:{Cookie:cookies[6]}})).status,404);
   for(const socket of arenaQueues){
     const after=socket.messages.length;
     socket.send({type:'lobby-leave'});

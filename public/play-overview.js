@@ -1,3 +1,4 @@
+import {mountOverviewRooms} from './play-overview-rooms.js';
 import {PLAY_MODES,playHref} from './play-navigation.js';
 import {ARENA_FORMAT} from './play-arena-config.js';
 import {DUEL_FORMAT,ONE_TEAM_FORMAT,ONE_TEAM_MODE} from './play-mode-rules.js';
@@ -38,22 +39,22 @@ const defaultPool=()=>{
   catch{return 'random';}
 };
 
-export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore,viewer,profileHref}) {
+export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPrivate,loadScore,loadRooms,openLobby,viewer,profileHref}) {
   let pool=defaultPool(),counts,currentQueue,players=[],signedIn=!!viewer,openMatch=null,pinned=false;
   let matchSnapshot,playerSnapshot;
   const lifetime=new AbortController();
   root.innerHTML=`<div class="overview-page">
-    <header class="overview-heading"><h1>Overview</h1><div class="overview-stats">
+    <header class="overview-heading"><div><h1>Overview</h1><div class="overview-stats">
       <span><b data-online>—</b> online</span><span><b data-queued>—</b> queued</span><span><b data-live>—</b> live</span>
-    </div></header>
-    <section id="overview-live-matches" aria-labelledby="live-matches-title">
+    </div></div><button class="button mint" data-create-overview>＋ Create a lobby</button></header>
+    <div class="play-directory"><div class="play-directory-main"><section id="overview-live-matches" aria-labelledby="live-matches-title">
       <header class="overview-section-head"><h2 id="live-matches-title">Live Matches <span class="overview-total">—</span></h2>
         <div class="overview-arrows" hidden><button type="button" data-slide="-1" aria-label="Previous matches">‹</button><button type="button" data-slide="1" aria-label="Next matches">›</button></div>
       </header>
       <ul class="overview-match-list" aria-label="Live match scorecards" tabindex="0"></ul>
       <p class="overview-empty overview-match-empty" role="status">Loading…</p>
     </section>
-    <div class="overview-columns">
+    <section class="open-lobbies" aria-labelledby="overview-open-title"><header class="overview-section-head"><h2 id="overview-open-title">Open Lobbies <span class="overview-total" data-room-count>—</span></h2></header><div class="room-board"></div><p class="overview-empty" data-room-status role="status">Loading lobbies…</p></section>
       <section id="quick-join" aria-labelledby="quick-join-title">
         <header class="overview-section-head"><h2 id="quick-join-title">Quick Join</h2>
           <div class="overview-selection" role="group" aria-label="Song pool">
@@ -62,8 +63,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
         </header>
         <div class="overview-queue-list">
           ${groups.flatMap(([mode,formats])=>formats.map(([format,label])=>
-            '<article class="overview-mode"><h3>'+icon(modes.get(mode).icon)+modes.get(mode).name+'</h3>'+
-            '<div class="overview-queue-row"><strong>'+label+'</strong><span class="overview-count" data-overview-count="'+format+'"></span><button type="button" class="button overview-join" data-overview-join="'+format+'"></button></div></article>'
+            '<article class="overview-mode"><h3>'+icon(modes.get(mode).icon)+modes.get(mode).name+(label?'<small>'+label+'</small>':'')+'</h3>'+
+            '<div class="overview-queue-row"><span class="overview-count" data-overview-count="'+format+'"></span><button type="button" class="button overview-join" data-overview-join="'+format+'"></button></div></article>'
           )).join('')}
           <article class="overview-mode overview-solo">
             <h3>${icon(modes.get('quiz').icon)}Quiz</h3><span>Solo</span>
@@ -74,7 +75,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
           </article>
         </div>
       </section>
-        <section id="online-players" class="overview-panel" aria-labelledby="online-players-title">
+        </div><section id="online-players" class="overview-panel" aria-labelledby="online-players-title">
           <header><h2 id="online-players-title">Online Players</h2><span class="overview-total overview-online-total">—</span></header>
           <div class="overview-search">${icon('M21 21l-4.5-4.5M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z')}<input type="search" placeholder="Find a player" aria-label="Find an online player"></div>
           <ul class="overview-player-list" aria-label="Online players" tabindex="0"></ul>
@@ -236,12 +237,12 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
       const detail=match.locked?'Private lobby':match.players+' player'+(match.players===1?'':'s');
       const when=Number.isFinite(match.started)?' · '+new Date(match.started).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'';
       const button=roster?'button type="button" aria-expanded="false" aria-controls="overview-match-'+index+'"':'div';
-      return '<li class="overview-match" data-match-id="'+esc(match.id??index)+'"><'+button+' class="overview-match-button">'+
+      return '<li class="overview-match" '+(match.locked?'data-private':'')+' data-match-id="'+esc(match.id??index)+'"><'+button+' class="overview-match-button">'+
         '<span class="overview-card-meta"><b>● LIVE</b><span class="overview-spectators" role="img" hidden>'+eye+
         '<span aria-hidden="true"></span></span>'+poolLabel(match.pool)+'</span><span class="overview-match-mode"><strong>'+esc(title)+'</strong></span>'+
         '<span class="overview-versus"><span class="overview-stack"></span><b class="overview-card-score">'+(roster?'…':'—')+'</b><span class="overview-stack"></span></span>'+
         (roster?'</button>':'</div>')+'<div class="overview-card-foot"><small class="overview-song">'+esc(detail+when)+'</small>'+
-        (roster?'<button type="button" class="overview-watch" data-watch-match="'+esc(match.id)+'">▷ Watch</button>':'')+'</div>'+roster+'</li>';
+        (match.locked&&match.lobbyCode?'<button type="button" class="overview-watch" data-private-watch="'+esc(match.lobbyCode)+'">Watch</button>':roster?'<button type="button" class="overview-watch" data-watch-match="'+esc(match.id)+'">▷ Watch</button>':'')+'</div>'+roster+'</li>';
     }).join('');
     updateArrows();
     $('[data-live]').textContent=$('#overview-live-matches .overview-total').textContent=matches.length;
@@ -295,6 +296,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
   }
 
   function update(data,account=viewer) {
+    void refreshRooms();
     signedIn=!!account;
     players=data.onlinePlayers||[];
     $('[data-online]').textContent=$('.overview-online-total').textContent=data.online??'—';
@@ -304,6 +306,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
     renderMatches(data.matches||[],new Map(players.map(player=>[player.id,player])));
   }
 
+  const refreshRooms=mountOverviewRooms(root,{esc,loadRooms,openLobby,signal:lifetime.signal});
+  void refreshRooms();
   const listeners=lifetime;
   const resize=new ResizeObserver(updateArrows);
   resize.observe(matchList);
@@ -312,6 +316,8 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,loadScore
   window.addEventListener('resize',positionDetails,{signal:listeners.signal});
   search.addEventListener('input',filterPlayers,{signal:listeners.signal});
   root.addEventListener('click',event=>{
+    const privateButton=event.target.closest('[data-private-watch]');
+    if(privateButton){watchPrivate(privateButton.dataset.privateWatch,privateButton.closest('li').querySelector('.overview-match-mode strong').textContent);return;}
     const arrow=event.target.closest('[data-slide]');
     if(arrow){
       const step=(matchList.firstElementChild?.offsetWidth||0)+10;

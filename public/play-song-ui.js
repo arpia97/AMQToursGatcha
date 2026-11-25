@@ -204,6 +204,28 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     else if(id===ONE_TEAM_FORMAT||id==='1-team')oneTeamFormat=id;
     else if(Object.hasOwn(formats,id))format=id;
   }
+  let requestedLobby=null;
+  function requestLobby(room){
+    requestedLobby={room};
+    resolveLobbyRequest();
+  }
+  function resolveLobbyRequest(){
+    if(!requestedLobby||!queue?.hasStatus||queue.readyState!==1)return;
+    const {room}=requestedLobby;requestedLobby=null;
+    if(queueStatus.type!=='idle'){error('Leave your current queue or lobby first.');return;}
+    const current=room&&lobbies?.find(r=>r.code===room.code);
+    if(room&&!current){error('This lobby is no longer available.');return;}
+    lobbyAction(room?'join':'create',current);
+  }
+  function lobbyAction(action,roomInfo){
+    const transmit=payload=>{
+      if(['lobby-create','lobby-join'].includes(payload.type))primeAudio();
+      if(!send(queue,payload))error('Reconnect to manage lobbies.');
+    };
+    if(roomInfo&&!roomInfo.locked){transmit({type:'lobby-join',code:roomInfo.code});return;}
+    lobbyModal?.close();
+    lobbyModal=lobbyDialog(action,mode,roomInfo,transmit,preferredPool());
+  }
   function connectQueue(){
     if(!active||!getPlayer()||queue?.readyState===0||queue?.readyState===1)return;
     connecting=true;render();const ws=queue=new WebSocket(socketURL());ws.lastReply=Date.now();
@@ -253,6 +275,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       if(msg.type!=='lobby')ws.chatCode=null;
       syncLobbyChat(ws,msg);
       ws.hasStatus=true;
+      resolveLobbyRequest();
       joinFromOverview();
       if(msg.type==='lobby'&&match&&msg.rematchOf===match.id){
         resetLobbyMatch();
@@ -1126,13 +1149,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     if(button.dataset.lobbyJoin||['create','join','password'].includes(button.dataset.lobbyAction)){
       const roomInfo=button.dataset.lobbyJoin?lobbies?.find(item=>item.code===button.dataset.lobbyJoin):null;
       if(button.dataset.lobbyJoin&&!roomInfo)return;
-      const transmit=payload=>{
-        if(['lobby-create','lobby-join'].includes(payload.type))primeAudio();
-        if(!send(queue,payload))error('Reconnect to manage lobbies.');
-      };
-      if(roomInfo&&!roomInfo.locked){transmit({type:'lobby-join',code:roomInfo.code});return;}
-      lobbyModal?.close();
-      lobbyModal=lobbyDialog(button.dataset.lobbyAction||'join',mode,roomInfo,transmit,preferredPool());
+      lobbyAction(button.dataset.lobbyAction||'join',roomInfo);
       return;
     }
     if(button.dataset.lobbyAction){
@@ -1230,7 +1247,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       document.addEventListener('visibilitychange',wakeConnection);window.addEventListener('online',wakeConnection);window.addEventListener('pageshow',wakeConnection);
   }
   return {
-    enter,quickJoin,render,waiting,cancelQueue,rankedAtRisk,confirmNavigation,
+    enter,quickJoin,requestLobby,render,waiting,cancelQueue,rankedAtRisk,confirmNavigation,
     inMatch:()=>!!match&&!['finished','cancelled'].includes(match.phase),
     leave({preserveQueue=false,cancelQueue=false}={}){
       if(!active)return;
@@ -1238,7 +1255,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       document.removeEventListener('visibilitychange',wakeConnection);window.removeEventListener('online',wakeConnection);window.removeEventListener('pageshow',wakeConnection);
       activity.stop();songDialog.close();counterDialog.close();lobbyModal?.close();active=false;personalRatings=null;
       if(cancelQueue)send(queue,{type:'cancel'});
-      overviewJoin=null;
+      overviewJoin=null;requestedLobby=null;
       if(!preserveQueue){queuedFormat=null;notifyQueue();}
       queue?.close();room?.close();queue=null;room=null;gameMode=null;clearTimeout(queueRetry);clearTimeout(roomRetry);clearTimeout(searchTimer);clearTimeout(draftTimer);clearInterval(heartbeat);clearTimeout(raf);clearAudio();ready=false;worker?.terminate();worker=null;searchReady=false;},
   };

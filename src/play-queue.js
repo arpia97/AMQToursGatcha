@@ -87,11 +87,13 @@ export class PlayQueue extends DurableObject {
     }
     return results;
   }
-  canWatch(id){
+  unlockWatch(player,code,password){return this.lobbies.unlockWatch(player,code,password);}
+  canWatch(id,player=null){
     return !!this.rows(`SELECT 1 FROM match_reviews m WHERE m.id=? AND m.status='active'
       AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id)
       AND (EXISTS(SELECT 1 FROM queue q WHERE q.match=m.id AND q.expires>?)
-        OR EXISTS(SELECT 1 FROM play_lobbies l WHERE l.match=m.id AND l.password_hash IS NULL))`,id,Date.now())[0];
+        OR EXISTS(SELECT 1 FROM play_lobbies l WHERE l.match=m.id AND (l.password_hash IS NULL OR EXISTS(
+          SELECT 1 FROM play_watch_grants g WHERE g.player=? AND g.match=l.match AND g.expires>? AND g.salt=substr(l.password_hash,1,instr(l.password_hash,':')-1)))))`,id,Date.now(),player,Date.now())[0];
   }
   liveActivity(player,overview=false,details=null,presenceOnly=false){
     const now=Date.now();
@@ -99,11 +101,11 @@ export class PlayQueue extends DurableObject {
     if(presenceOnly)return {};
     const detailed=!!player&&overview;
     const matches=this.rows(`WITH rooms AS (
-      SELECT match,format,pool,0 AS locked FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
-      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL
+      SELECT match,format,pool,0 AS locked,NULL AS lobbyCode FROM queue WHERE match IS NOT NULL AND expires>? GROUP BY match,format,pool
+      UNION ALL SELECT match,json_extract(settings,'$.format'),COALESCE(json_extract(settings,'$.pool'),'random'),password_hash IS NOT NULL,code
         FROM play_lobbies WHERE match IS NOT NULL
     ) SELECT rooms.format,rooms.pool,m.created AS started,json_array_length(m.players) AS players,
-         rooms.locked,CASE WHEN ? AND NOT rooms.locked THEN m.id END AS id,
+         rooms.locked,rooms.lobbyCode,CASE WHEN ? AND NOT rooms.locked THEN m.id END AS id,
          CASE WHEN ? THEN m.players END AS roster
       FROM rooms JOIN match_reviews m ON m.id=rooms.match WHERE m.status='active'
       AND NOT EXISTS(SELECT 1 FROM preparing WHERE id=m.id) ORDER BY m.created DESC`,now,Number(!!player),Number(detailed));
@@ -114,12 +116,12 @@ export class PlayQueue extends DurableObject {
     }
     const counts=this.queueCounts();
     const playing=new Set();
-    const visibleMatches=matches.map(({id,locked,roster,...match})=>{
-      if(!player)return match;
+    const visibleMatches=matches.map(({id,locked,roster,lobbyCode,...match})=>{
+      if(!player)return locked?{...match,locked:true}:match;
       if(!detailed)return {...match,id,locked:!!locked};
       const players=JSON.parse(roster);
       for(const member of players)playing.add(member.id);
-      return {...match,id,locked:!!locked,...(!locked&&{
+      return {...match,id,locked:!!locked,...(locked&&{lobbyCode}),...(!locked&&{
         roster:players.map(({id,name,team})=>({id,name,team})),
       })};
     });

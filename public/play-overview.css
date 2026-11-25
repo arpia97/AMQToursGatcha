@@ -168,3 +168,69 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-mode:first-child {border-radius:8px 8px 0 0}
 .overview-mode:last-child {border-radius:0 0 8px 8px}
 @media(max-width:600px){.overview-match{flex-basis:213px}.overview-heading{gap:9px}.overview-arrows button{width:36px;height:32px}}
+
+.overview-page{max-width:none}
+.overview-page .overview-heading{margin:0 0 20px}
+.overview-page .overview-stats{font:12px "Segoe UI",sans-serif;gap:15px}
+.overview-page .overview-stats b{font-size:14px}
+.play-directory{display:grid;grid-template-columns:minmax(0,1fr) clamp(220px,23%,290px);gap:24px;align-items:start}
+.play-directory-main{min-width:0;display:grid;gap:24px}
+.overview-page .play-directory-main>section{margin:0;padding:0;min-width:0}
+.overview-page .overview-section-head{min-height:31px;margin:0 0 10px}
+.overview-page .play-directory h2{font:650 19px/1.25 "Segoe UI",sans-serif;letter-spacing:-.035em;color:#f3f5f4}
+.overview-page .overview-total{display:inline-grid;place-items:center;min-width:20px;height:19px;margin-left:4px;padding:0 5px;border-radius:5px;background:#242d31;color:#b5c2bf;font:11px Consolas,monospace}
+.overview-page .overview-match-list{margin:0;display:flex;padding:0 0 4px;gap:8px;scrollbar-width:thin;list-style:none;align-items:stretch}
+.overview-page .overview-match{flex-basis:252px;padding:11px 13px 9px;border:1px solid #354a43;border-top:2px solid #a5d5bc;background:linear-gradient(110deg,#20312c,#1c2527);border-radius:8px}
+.overview-page .overview-match .overview-match-button{display:grid;width:100%;grid-template-columns:minmax(0,1fr);gap:3px;min-width:0}
+.overview-page .overview-card-meta,.overview-page .overview-versus{width:100%;min-width:0}
+.overview-page .overview-versus{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:5px;align-items:center;margin:2px 0}
+.overview-page .overview-stack,.overview-page .overview-stack:last-child{display:flex;gap:2px;min-width:0;padding:0}
+.overview-page .overview-stack .overview-avatar,.overview-page .overview-stack:has(.overview-avatar:nth-child(4)) .overview-avatar{width:17px;height:17px;margin:0}
+.overview-page .overview-stack .overview-avatar+.overview-avatar{margin:0}
+.overview-page .overview-card-score{white-space:nowrap;font:700 17px Consolas,monospace}
+.overview-page .overview-match-mode strong{font:650 15px "Segoe UI",sans-serif}
+.overview-page .overview-watch,.overview-page .roomfoot .button{min-height:25px;line-height:1;padding:4px 9px;border:1px solid #42544c;background:#273830;color:#c5e6d2;border-radius:5px;font:600 11px "Segoe UI",sans-serif}
+.overview-page .roomfoot span{font:11px Consolas,monospace;color:#b5bfbd}
+.overview-page .access{font:600 10px "Segoe UI",sans-serif}
+.overview-page .room-board{display:grid;border:1px solid var(--border);border-radius:9px;overflow:auto;max-height:190px}
+.overview-page .room-board .roomtile{margin:0;padding:10px 12px;min-height:49px;display:grid;grid-template-columns:minmax(100px,1.1fr) minmax(74px,.95fr) 58px minmax(130px,1fr);gap:8px;align-items:center;background:#1a1f25;border:0;border-radius:0}
+.overview-page .room-board .roomtile+.roomtile{border-top:1px solid var(--border)}
+.overview-page .room-board .roomtile h3{grid-area:1/1;margin:0;font-size:14px}
+.overview-page .room-board .roomtile p{grid-area:1/2;margin:0;color:#adb9bb;font-size:11px}
+.overview-page .room-board .roomtile .access{grid-area:1/3;justify-self:start}
+.overview-page .room-board .roomfoot{grid-area:1/4;display:flex;align-items:center;justify-content:space-between;gap:3px;border:0;margin:0;padding:0}
+.overview-page .overview-queue-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 9px}
+.overview-page .overview-mode,.overview-page .overview-mode:first-child,.overview-page .overview-mode:last-child,.overview-page .overview-mode+.overview-mode{margin:0;padding:8px 10px;min-height:47px;grid-template-columns:minmax(0,1fr) auto;gap:5px;border:1px solid #30383e;border-radius:7px;background:#1a2025}
+.overview-page .overview-mode h3{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:start;gap:1px;margin:0;padding-left:25px;font:650 13px "Segoe UI",sans-serif;white-space:normal}
+.overview-page .overview-mode h3 small{color:#aab7b9;font-size:10px;font-weight:400}
+.overview-page .overview-mode h3 svg{position:absolute;left:0;top:50%;transform:translateY(-50%)}
+.overview-page .overview-queue-row{display:flex;gap:7px;min-height:0}
+.overview-page .overview-queue-row strong:empty{display:none}
+.overview-page .overview-mode.overview-solo>span,.overview-page .overview-solo .overview-chevron{display:none}
+.overview-page .overview-mode.overview-disabled>span{grid-column:auto;justify-self:end;font:11px "Segoe UI",sans-serif}
+.overview-page .overview-join,.overview-page .overview-open{display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap;background:#26352e;color:#c3e2d1;border:1px solid #43554b;min-height:25px;padding:3px 8px;border-radius:5px;font:600 11px "Segoe UI",sans-serif;text-decoration:none}
+.overview-page .overview-selection [data-overview-pool=watched][aria-pressed=true]{background:#b4b9dd;color:#20253c}
+.overview-page .play-directory #online-players{width:100%;box-sizing:border-box;min-width:0;align-self:stretch;display:flex;flex-direction:column;padding:15px;border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden}
+.overview-page #online-players>header{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px}
+.overview-page .overview-search{width:100%;margin:0 0 8px}
+.overview-page .overview-player-list{box-sizing:border-box;width:100%;min-width:0;min-height:0;max-height:none;flex:1;contain:size;margin:0;padding:0 3px;scrollbar-width:thin;overflow:auto;overscroll-behavior:contain}
+.overview-page .overview-player-list li{width:100%;min-width:0;height:41px;min-height:41px;display:grid;grid-template-columns:26px minmax(0,1fr) max-content;align-items:center;gap:7px;margin:0;padding:0 3px;border-bottom:1px solid #ffffff0d}
+.overview-page .overview-player-list li[hidden]{display:none}
+.overview-page .overview-player-profile{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;font:600 12px "Segoe UI",sans-serif}
+.overview-page .overview-player-status{font:10px "Segoe UI",sans-serif;white-space:nowrap}
+.overview-page .overview-side li{overflow-wrap:anywhere}
+@media(max-width:1180px){.overview-page .overview-queue-list{grid-template-columns:minmax(0,1fr)}.play-directory{gap:15px}.play-directory-main{gap:18px}}
+@media(max-width:920px){.play-directory{grid-template-columns:minmax(0,1fr)}.overview-page .overview-queue-list{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-page .overview-player-list{flex:none;contain:none;max-height:246px}}
+.overview-page .overview-heading h1{margin:0 0 7px}
+.overview-page .room-board:empty{display:none}
+.overview-page .room-board .access{padding:3px 6px;border-radius:4px}
+.overview-page .access.open{color:#bce6cd;background:#26372f}
+.overview-page .access.locked{color:#ebc189;background:#3a3025}
+.overview-page .roomfoot .button{margin:0}
+.overview-page .roomtile :is(h3,p){min-width:0;overflow-wrap:anywhere}
+.overview-page .overview-match[data-private]{background:linear-gradient(110deg,#332e27,#282622);border-top-color:#c3a17f}
+.overview-page .overview-player-list .overview-avatar{margin-inline:0}
+.overview-page .overview-player-list{padding-inline:8px}
+.overview-page .overview-stack .overview-avatar+.overview-avatar{margin-left:0}
+.overview-page #overview-live-matches{margin-bottom:0}
+@media(max-width:600px){.overview-page .overview-queue-list{grid-template-columns:minmax(0,1fr)}.overview-page .overview-heading{margin-bottom:13px}.overview-page .room-board .roomtile{grid-template-columns:minmax(0,1fr) auto;gap:3px 6px;padding:9px 10px}.overview-page .room-board .roomtile h3{grid-area:1/1}.overview-page .room-board .roomtile p{grid-area:2/1}.overview-page .room-board .roomtile .access{grid-area:1/2;justify-self:end}.overview-page .room-board .roomfoot{grid-area:2/2;gap:8px}.overview-page .overview-mode h3{font-size:13px}.overview-page .overview-match{flex-basis:235px}.overview-page .overview-stats{font-size:11px}}

@@ -48,6 +48,8 @@ export class PlayLobbies {
     this.queue=queue;
     this.watchedPools=new Map();
     this.sql=queue.ctx.storage.sql;
+    this.sql.exec('CREATE TABLE IF NOT EXISTS play_watch_grants(player TEXT, match TEXT, salt TEXT, expires INTEGER, PRIMARY KEY(player,match))');
+    this.sql.exec('CREATE INDEX IF NOT EXISTS play_watch_expiry ON play_watch_grants(expires)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS play_lobbies(code TEXT PRIMARY KEY,settings TEXT,match TEXT)');
     if(!queue.rows('PRAGMA table_info(play_lobbies)').some(c=>c.name==='password_hash'))
       this.sql.exec('ALTER TABLE play_lobbies ADD COLUMN password_hash TEXT');
@@ -71,6 +73,16 @@ export class PlayLobbies {
   }
   readyRoster(code){return this.queue.rows('SELECT player AS id,name,avatar,ready FROM lobby_members WHERE code=? AND last_match IS NULL ORDER BY rowid',code);}
   roster(code){return this.queue.rows('SELECT player AS id,name,avatar FROM lobby_members WHERE code=? ORDER BY rowid',code);}
+  async unlockWatch(player,code,password){
+    const room=this.queue.rows("SELECT l.match,l.password_hash FROM play_lobbies l JOIN match_reviews m ON m.id=l.match WHERE code=? AND m.status='active' AND l.password_hash IS NOT NULL",code)[0];
+    if(!room)return null;
+    const salt=room.password_hash.split(':')[0];
+    if(await passwordDigest(password,salt)!==room.password_hash)return null;
+    const now=Date.now();
+    this.sql.exec('DELETE FROM play_watch_grants WHERE expires<=?',now);
+    this.sql.exec('INSERT OR REPLACE INTO play_watch_grants VALUES(?,?,?,?)',player,room.match,salt,now+2*60*60_000);
+    return room.match;
+  }
   directory(){
     return this.queue.rows(`SELECT l.code,json_extract(l.settings,'$.format') AS format,json_extract(l.settings,'$.pool') AS pool,
       l.password_hash IS NOT NULL AS locked,COUNT(*) AS players,
