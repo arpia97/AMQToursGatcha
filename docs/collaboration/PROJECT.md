@@ -7,10 +7,9 @@ Curated on November 9, 2026 (Asia/Seoul). This is a maintained engineering hando
 | Application | Source / Address | Purpose |
 | --- | --- | --- |
 | Gatcha repository | https://github.com/arpia97/AMQToursGatcha | This repository |
-| Live Gatcha | https://amqtours.app/gacha/ | Shared production economy; previous play address remains available |
+| Live Gatcha | https://amqtours.app/gacha/ | Shared production economy |
 | Play | https://amqtours.app/play/ | This repo's `public/play/` shell;5 modes, shared Gacha Quiz and accounts |
 | Host console | https://amqtours.app/gacha/host | Gatcha host administration |
-| Original Worker address | https://amqtours-gatcha.amqtours-gatcha.workers.dev/ | Same economy; hostname-specific sessions |
 | GitHub Pages | https://arpia97.github.io/AMQToursGatcha/ | Browser-only demo, separate fictional state |
 | Tour host platform | https://amqtours.app/tour (source in `../AMQToursHost`) | Separate tour hosting application; see `HOST-PLATFORM.md` |
 

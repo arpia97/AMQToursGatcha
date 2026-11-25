@@ -49,3 +49,26 @@ test('custom domain mounts Gacha at its prefix and isolates its session from the
   assert.equal(forwarded.headers.get('authorization'),null);
   assert.equal((await proxy.fetch(new Request(base+'/tour/profile'),{})).status,404);
 });
+
+test('custom domain forwards host CLI bearer credentials only on server-side host requests',async()=>{
+  for(const [path, headers, expected] of [
+    ['/gacha/api/host/catalog',{},'Bearer example'],
+    ['/gacha/api/host/catalog',{Origin:'https://amqtours.app'},null],
+    ['/gacha/api/account',{},null],
+  ]) {
+    const request=new Request('https://amqtours.app'+path,{method:'POST',headers:{Authorization:'Bearer example',...headers}});
+    await proxy.fetch(request,{GAME_SITE:{fetch:r=>{
+      assert.equal(r.headers.get('authorization'),expected);
+      return new Response(null);
+    }}});
+  }
+});
+
+test('Host account bridge only serves the Host Platform account and player API',async()=>{
+  const root='https://accounts.amqtours.app', env={GAME_SITE:{fetch:r=>Response.json(new URL(r.url).pathname)}};
+  for(const path of ['/','/play/','/gacha/','/gacha/api/host/catalog','/gacha/api/login']){
+    assert.equal((await proxy.fetch(new Request(root+path),env)).status,404);
+  }
+  assert.equal(await (await proxy.fetch(new Request(root+'/gacha/api/player?id=368'),env)).json(),'/api/player');
+  assert.equal(await (await proxy.fetch(new Request(root+'/gacha/api/login',{method:'POST'}),env)).json(),'/api/login');
+});

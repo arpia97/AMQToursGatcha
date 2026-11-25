@@ -5,7 +5,13 @@ import { playQuizHref } from '../public/play-navigation.js';
 export default {
   async fetch(request, env) {
     const url=new URL(request.url);
-    if(url.hostname==='amqtours.app'){
+    const accountBridge=url.hostname==='accounts.amqtours.app';
+    if(accountBridge){
+      const allowed=request.method==='GET' ? /^\/gacha\/api\/(?:account|game-state|player|state)$/ :
+        request.method==='POST' ? /^\/gacha\/api\/(?:login|register|logout)$/ : null;
+      if(!allowed?.test(url.pathname))return new Response('Not Found',{status:404});
+    }
+    if(url.hostname==='amqtours.app'||accountBridge){
       if(url.pathname==='/gacha'||url.pathname==='/play')return Response.redirect(url.origin+url.pathname+'/'+url.search,308);
       const gacha=url.pathname.startsWith('/gacha/'),play=url.pathname.startsWith('/play/');
       if(gacha && /^\/gacha\/quiz\/?$/.test(url.pathname) && ["GET","HEAD"].includes(request.method))
@@ -16,7 +22,10 @@ export default {
       // A player may also be signed in to Sites on this host. The game only needs its own cookie.
       const session=request.headers.get('cookie')?.match(/(?:^|;\s*)(amq_session=[a-f0-9]{48})(?:;|$)/)?.[1];
       upstream.headers.delete('cookie');
-      upstream.headers.delete('authorization');
+      const hostIntegration = gacha && url.pathname.startsWith('/api/host/') &&
+        request.method === 'POST' && !request.headers.has('origin') &&
+        /^Bearer \S+$/i.test(request.headers.get('authorization') || '');
+      if (!hostIntegration) upstream.headers.delete('authorization');
       upstream.headers.delete('OAI-Sites-Authorization');
       if(session)upstream.headers.set('cookie',session);
       const response=await env.GAME_SITE.fetch(upstream);

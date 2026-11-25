@@ -1,6 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "amqtours-gatcha",
+  "workers_dev": false,
+  "preview_urls": false,
   "main": "src/worker.js",
   "compatibility_date": "2026-10-01",
   "vars": { "BACKGROUND_IMPORT_MODE": "continuous" },

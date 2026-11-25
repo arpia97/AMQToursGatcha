@@ -35,6 +35,20 @@ import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
 import {recapHTML, songResultsHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
+test('Quiz and Play accept verified star spellings and preserve distinct anime editions', async () => {
+  const {advanceQuizRun} = await import('../src/quiz-run-state.js');
+  for (const [title, answer, expected] of [
+    ['Lucky Star','Lucky☆Star',true], ['Lucky☆Star','Lucky Star',true],
+    ['Lovely Complex','Lovely★Complex',true], ['Lucky☆Star OVA','Lucky Star',false],
+    ['Candy Boy','Candy☆Boy',false], ['New Game!','New Game!!',false],
+  ]) {
+    const run = {id:'test',index:0,answers:[],songs:[{answers:[title]}],timing:{index:0,startsAt:10,endsAt:1000}};
+    advanceQuizRun(run,'quiz-answer',{run:'test',index:0,answer},100);
+    assert.equal(run.answers[0].correct,expected);
+    assert.equal(run.answers[0].submittedAnswer,answer);
+    assert.equal(playFieldMatches({animeTitles:[title],answers:{anime:[]}},'anime',answer),expected);
+  }
+});
 test('anime grading, title registration and team ballots distinguish punctuation-only seasons', () => {
   const first = 'New Game!', second = 'New Game!!';
   const song = {animeTitles:[first], answers:{anime:['newgame']}};

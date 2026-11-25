@@ -83,7 +83,7 @@ Create `grant.json` locally:
 Then run:
 
 ```sh
-node tools/host.mjs grant grant.json --url https://YOUR-WORKER.workers.dev --key usual42-reporting-00123
+node tools/host.mjs grant grant.json --url https://amqtours.app/gacha --key usual42-reporting-00123
 ```
 
 Reuse the **same key and exact payload** for a retry. A key reused with a different payload is rejected. Choose different keys for different intended grants. Generated request IDs are printed by the tool so they can be reused after a network interruption.

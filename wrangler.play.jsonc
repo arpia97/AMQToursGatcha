@@ -1,8 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "play",
-  "workers_dev": true,
+  "workers_dev": false,
+  "preview_urls": false,
   "routes": [
+    { "pattern": "accounts.amqtours.app", "custom_domain": true },
     { "pattern": "amqtours.app/gacha", "zone_name": "amqtours.app" },
     { "pattern": "amqtours.app/gacha/*", "zone_name": "amqtours.app" },
     { "pattern": "amqtours.app/play", "zone_name": "amqtours.app" },

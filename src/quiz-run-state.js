@@ -1,5 +1,5 @@
 import { quizElapsed } from "../public/quiz-time.js";
-import { QUIZ_SONG_MS, QUIZ_LEAD_IN_MS, QUIZ_ANSWER_GRACE_MS, quizAnswerKey } from "../public/quiz-rules.js";
+import { QUIZ_SONG_MS, QUIZ_LEAD_IN_MS, QUIZ_ANSWER_GRACE_MS, animeAnswerKey } from "../public/quiz-rules.js";
 
 function reject(message, status = 409) { throw Object.assign(new Error(message), { status }); }
 
@@ -120,7 +120,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
       answer, submittedAnswer, receivedAt, processedAt: now, timedOut, skipped: !!b.skip,
       elapsedMs: quizElapsed(run.startedAt, receivedAt),
       responseMs: quizElapsed(run.timing?.startsAt, receivedAt),
-      correct: !!answer && run.songs[run.index].answers.some(a => quizAnswerKey(a) === quizAnswerKey(answer)),
+      correct: !!answer && run.songs[run.index].answers.some(a => animeAnswerKey(a) === animeAnswerKey(answer)),
     });
     if (run.index === 19) {
       run.completedAt = receivedAt;

@@ -1,5 +1,5 @@
 // Syncs community cards from public/community-cards.json into the catalog via the host endpoint.
-// Usage: node tools/sync-community-cards.mjs --url https://play.amqtours-gatcha.workers.dev
+// Usage: node tools/sync-community-cards.mjs --url https://amqtours.app/gacha
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -11,7 +11,7 @@ const option = (name) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 
-const base = option("--url") || "https://play.amqtours-gatcha.workers.dev";
+const base = option("--url") || "https://amqtours.app/gacha";
 const token = process.env.AMQ_HOST_TOKEN;
 if (!token) {
   console.error("Set AMQ_HOST_TOKEN in the environment before running.");
@@ -25,7 +25,7 @@ const cards = JSON.parse(
 const key = option("--key") || crypto.randomUUID();
 console.log(`Syncing ${cards.length} community cards to ${base} (key: ${key})...`);
 
-const r = await fetch(new URL("/api/host/catalog", base), {
+const r = await fetch(new URL("api/host/catalog", base.replace(/\/?$/, "/")), {
   method: "POST",
   headers: {
     Authorization: "Bearer " + token,

@@ -18,6 +18,38 @@ export const quizAnswerKey = (s) =>
     .trim()
     .toLocaleLowerCase("en-US")
     .replace(/\s+/g, " ");
+// AMQ and AMQ+ spellings sharing an anime ID. Keep edition punctuation and
+// ambiguous pairs such as Candy Boy / Candy☆Boy distinct.
+const starAliases = new Map([
+  ["kaminari boy pikkari★bee", "kaminari boy pikkaribee"],
+  ["mad★bull 34", "mad bull 34"],
+  ["magical☆shopping arcade abenobashi", "magical shopping arcade abenobashi"],
+  ["magical★taruruuto-kun", "magical taruruuto-kun"],
+  ["transformers: the☆headmasters", "transformers: the headmasters"],
+  ["the☆ultraman", "the ultraman"],
+  ["kirameki☆project", "kirameki project"],
+  ["lucky☆star", "lucky star"],
+  ["shakotan★boogie", "shakotan boogie"],
+  ["lovely★complex", "lovely complex"],
+  ["lucky☆star ova", "lucky star ova"],
+  ["miracle☆train: oedo-sen e youkoso", "miracle train: oedo-sen e youkoso"],
+  ["kaitou tenshi twin angel: kyun kyun☆tokimeki paradise!!", "kaitou tenshi twin angel: kyun kyun tokimeki paradise!!"],
+  ["chibi☆devi!", "chibi devi!"],
+  ["musekinin galaxy☆tylor", "musekinin galaxy tylor"],
+  ["the irresponsible galaxy☆tylor", "the irresponsible galaxy tylor"],
+  ["hatena☆illusion", "hatena illusion"],
+  ["skate-leading☆stars", "skate-leading stars"],
+  ["hetalia world★stars", "hetalia world stars"],
+]);
+const compactStarAliases = new Map([...starAliases].map(([a,b])=>[a.replace(/\s/g,''), b.replace(/\s/g,'')]));
+export function animeAnswerKey(value, compact = false) {
+  const key = quizAnswerKey(value);
+  if (compact) {
+    const joined = key.replace(/\s/g,'');
+    return compactStarAliases.get(joined) ?? joined;
+  }
+  return starAliases.get(key) ?? key;
+}
 export function quizReward(previous, score, category = "singers") {
   if (
     !Number.isInteger(score) ||

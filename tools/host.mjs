@@ -1,5 +1,5 @@
 // Terminal companion for integration with an AMQ host script. Token is read only from environment.
-// node tools/host.mjs grant grant.json --url https://your-worker.workers.dev --key tour42-reporting-amq123
+// node tools/host.mjs grant grant.json --url https://amqtours.app/gacha --key tour42-reporting-amq123
 import { readFile } from "node:fs/promises";
 const [action, file, ...flags] = process.argv.slice(2);
 const option = (name) => {
@@ -22,7 +22,7 @@ if (
 const body = JSON.parse(await readFile(file, "utf8")),
   key = option("--key") || crypto.randomUUID();
 console.log("Request ID:", key, "(reuse this same key for a retry)");
-const r = await fetch(new URL("/api/host/" + action, base), {
+const r = await fetch(new URL("api/host/" + action, base.replace(/\/?$/, "/")), {
   method: "POST",
   headers: {
     Authorization: "Bearer " + process.env.AMQ_HOST_TOKEN,

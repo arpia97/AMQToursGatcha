@@ -6,7 +6,7 @@ For coding collaborators: start with [AGENTS.md](AGENTS.md), the [shared project
 
 UI copy uses book-style title case for page and section headings, navigation, game names, table headings and dialog titles (for example, “Gem Faceting” and “Rules & Scoring”). Short articles, conjunctions and prepositions stay lowercase within titles. Preserve the spelling of player names, anime titles and card names supplied by their sources; descriptions and action sentences use sentence case.
 
-**[Open the shared Cloudflare game](https://play.amqtours-gatcha.workers.dev/)** · [GitHub Pages demo](https://arpia97.github.io/AMQToursGatcha/) · [Deploy the shared game](DEPLOY.md) · [Host tool / API](HOST-TOOLS.md)
+**[Open the shared Cloudflare game](https://amqtours.app/gacha/)** · [GitHub Pages demo](https://arpia97.github.io/AMQToursGatcha/) · [Deploy the shared game](DEPLOY.md) · [Host tool / API](HOST-TOOLS.md)
 
 The GitHub Pages site is an explicitly labelled **browser-only demo** with fictional players. It does not award real community credits. The same frontend and the shared backend are deployed together on Cloudflare Workers. No paid database, separate server, or custom domain is required for a small deployment within Cloudflare's free allowances.
 
