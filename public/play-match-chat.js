@@ -1,3 +1,4 @@
+import {attachEmojiSuggestions} from './play-emoji-suggestions.js';
 import {emojiChoices, isChatShortcode, renderChatText} from './play-chat-emojis.js';
 
 const markup = `<aside class="chat" id="panel" aria-label="Match chat">
@@ -8,7 +9,7 @@ const markup = `<aside class="chat" id="panel" aria-label="Match chat">
 </header>
 <div id="content" class="content"><div class="stage"><div id="log" class="log" role="log" aria-label="Match messages" aria-live="polite"></div><div class="fx" id="fx" aria-hidden="true"></div></div>
 <div class="controls"><div class="shortcuts" id="quick"><button class="edit" id="edit"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14z"/></svg>Edit</button></div>
-<form id="compose" class="compose"><input id="text" aria-label="Message the match" maxlength="220" placeholder="Message the match…" autocomplete="off"><button aria-label="Send message" title="Send message" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 17-7-6 18-3-8zM11 13l9-10"/></svg></button></form></div></div>
+<div class="chat-entry"><div class="emoji-menu" id="emojiMenu" hidden><div class="emoji-menu-head"><strong>Emoji</strong><span><kbd>↑</kbd><kbd>↓</kbd> browse <kbd>Enter</kbd> select</span></div><div id="emojiList" role="listbox" aria-label="Emoji suggestions"></div></div><form id="compose" class="compose"><input id="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="emojiList" aria-label="Message the match" maxlength="220" placeholder="Message the match…" autocomplete="off"><button aria-label="Send message" title="Send message" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 17-7-6 18-3-8zM11 13l9-10"/></svg></button></form></div></div></div>
 <section class="editor" id="editor" hidden><h2>Emoji shortcuts</h2><p>Choose a slot, then choose an emoji or enter :name:.</p><div class="slots" id="slots" aria-label="Shortcut slots"></div><input class="emoji-search" id="emojiSearch" type="search" aria-label="Find an emoji" placeholder="Find an emoji…" autocomplete="off"><div class="palette" id="palette" aria-label="Emoji choices"></div><form class="custom" id="custom"><input id="customEmoji" aria-label="Emoji for selected slot" placeholder="Emoji or :name:" autocomplete="off"><button class="assign">Save shortcut</button></form><div id="error" class="error" role="status"></div><button class="edit" id="back">Back to chat</button></section></aside>
 <button class="open" id="open" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H9l-5 3v-5a7.4 7.4 0 0 1-2-5V9a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6z"/><path d="M7 9h8M7 13h5"/></svg>Match chat</button>`;
 const defaults = ['🔥','🌋','❓'];
@@ -93,6 +94,7 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     while(log.children.length>80)log.firstChild.remove();
     if(follow)log.scrollTop=log.scrollHeight;
   }
+  attachEmojiSuggestions({input,panel,menu:by('emojiMenu'),list:by('emojiList'),signal:events.signal});
   input.oninput=()=>by('compose').querySelector('button').disabled=!input.value.trim();
   by('compose').onsubmit=e=>{
     e.preventDefault();
