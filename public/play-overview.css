@@ -232,6 +232,15 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-page #overview-live-matches{margin-bottom:0}
 @media(max-width:600px){.overview-page .overview-queue-list{grid-template-columns:minmax(0,1fr)}.overview-page .room-board .roomtile{grid-template-columns:minmax(0,1fr) auto;gap:3px 6px;padding:9px 10px}.overview-page .room-board .roomtile h3{grid-area:1/1}.overview-page .room-board .roomtile p{grid-area:2/1}.overview-page .room-board .roomtile .access{grid-area:1/2;justify-self:end}.overview-page .room-board .roomfoot{grid-area:2/2;gap:8px}.overview-page .overview-mode h3{font-size:13px}.overview-page .overview-match{flex-basis:235px}.overview-page .overview-stats{font-size:11px}}
 
+@media (min-width:921px) {
+  .play-viewport #main > .overview-page:has(> .play-directory) {
+    display:grid;
+    min-block-size:100%;
+    align-content:center;
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+
 @media (min-width:921px) and (max-height:950px) {
   .play-viewport #main:has(.play-directory) {padding-block:10px}
   .play-directory-main {gap:8px}
