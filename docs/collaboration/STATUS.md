@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Compact Play Overview
+
+Runtime 361ead3 is deployed on Worker ec458390-5043-4a17-b005-53188c03d151. Online Players contains the activity totals. Lobby creation remains available from Custom Lobby. Browser checks at 1280x720, 1366x768, 1440x900 and 1920x1080 fit all Quick Join rows without page scrolling. All four sizes and 390px mobile kept sections stable across empty and populated feeds. Verified the live entry point and four shipped assets.
+
 ## Custom gameplay chat emojis
 
 Released d472bcb on Worker 8941e2cb-c8a1-4e14-869c-baec8f7b7ff5. Players and spectators can use the 146 supplied filename shortcodes in chat and saved shortcuts. Verified all 146 images and three client files byte-for-byte on production, the Play entry point, desktop and narrow browser fixtures, and all 656 tests.
