@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play anime answer punctuation
+
+Multiplayer anime grading and ballots preserve punctuation and use original accepted titles for running matches that retained them. New Game! and New Game!! are distinct unless both titles are explicitly accepted. Verified both autocomplete modes with both queries, all 636 tests, the Worker dry run and the live Play route. Runtime `07cfd37` deployed as `8e702ce2-7807-4fc3-a797-234995dadb11`.
+
 ## Quiz host console release
 
 Quiz Pools has a shared search, separate published and draft selectors, append by default on existing pools, source badges in upload review and the saved pool, and the masterlist at the bottom. Browser checks covered switching quizzes, preserving unsaved edits while searching, append/replace, title badges, sorting and mobile layout. Screenshots use sample data in the adjacent quiz-host-preview output directory. Runtime `3697d99` deployed as `7137f310-c29d-404e-838f-ede4d0b07400`. All 10 focused tests passed. Verified the live host page, both JavaScript modules and the stylesheet.
