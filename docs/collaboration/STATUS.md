@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Watched shared recordings
+
+Watched selection can reassign shared recordings along a chain while retaining the A-Res anime order, unique playable files, bounded concurrent checks, and the existing probe budget. Compared 4,608 small-pool cases with exhaustive assignments. All 643 tests passed. Runtime `1d1f8d3` deployed at 100% as `8759ef11-495e-4bec-8514-128fcb581496`. Read-only live checks passed for Play and its song catalog.
+
 ## Legacy domain retirement and decorative anime titles
 
 Both production Workers disable workers.dev and version preview URLs. Verified both former sites and their account endpoints return 404. Gacha and Play remain on amqtours.app. The Host Platform uses a limited account bridge at accounts.amqtours.app. Verified a public player identity through both the custom Host domain and the Sites address after publishing Host version 101.
