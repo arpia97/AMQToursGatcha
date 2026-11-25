@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer song draws and Online Players portraits
+
+Runtime 363cd15 is live on Worker 0066330b-e94f-4dc1-b9db-5e303573da07. Standard Random, custom Random and Unwatched slots now draw anime, eligible type, then recording, including replacement draws. The Online Players scroll area extends into its panel gutter to give the portrait glow room. All 655 tests, syntax checks and the Worker dry run passed. The live shell and song catalog responded successfully. A browser fixture using the production stylesheet verified 26 px of clearance and scrolling at widths of 320, 390 and 1440 px.
+
 ## Full Random wording
 
 Updated the Watched Full Random description in 314c907. All six custom lobby tests passed, and the new sentence was verified in the live lobby editor after deploying Worker e0b22af0-a75e-41c3-afa4-15737836f355.
