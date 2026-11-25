@@ -1,4 +1,5 @@
 import {quizAnswerKey} from '../public/quiz-rules.js';
+import recordingAliases from './play-artist-recording-aliases.json' with {type:'json'};
 
 // Spaces can vary in typed answers. Keep punctuation and symbols that identify the edition.
 export const animeTitleKey = value => quizAnswerKey(value).replace(/\s+/g,'');
@@ -27,13 +28,77 @@ const artistAliases = [
   ['Nagi Yanagi', 'yanaginagi'],
   ['Yuu Kobayashi', 'Yu Kobayashi'],
   ['Yuu Serizawa', 'Yu Serizawa'],
+  // AMQ recording IDs document matching credits in the independent song sources.
+  ['Fuuka Izumi', 'Fuka Izumi'],                 // 76269
+  ['Hiyori Kouno', 'Hiyori Kono'],              // 53490
+  ['Kanae Itou', 'Kanae Ito'],                   // 19158
+  ['Kanako Itou', 'Kanako Ito'],                 // 14840
+  ['Kazuhiko Katou', 'Kazuhiko Kato'],           // 14583
+  ['Kazuya Ichijou', 'Kazuya Ichijo'],           // 79251
+  ['Rina Satou', 'Rina Satoh'],                  // 53981
+  ['Ryoutarou Okiayu', 'Ryotaro Okiayu'],        // 17009
+  ['Shinichiro Kawakami', 'Shinichirou Kawakami'], // 11607
+  ['Takayuki Kondou', 'Takayuki Kondo'],         // 18781
+  ['Yuka Keichou', 'Yuka Keicho'],               // 64314
+  ['Yuka Masui', 'Yuuka Masui'],                 // 81885
+  ['Yuuko Oono', 'Yuko Ono'],                    // 46104
+  ['Yurika Endou', 'Yurika Endo'],               // 22392
 ];
 const artistAliasKeys = new Map(artistAliases.map(([alias,credit])=>[sortedArtistKey(alias),sortedArtistKey(credit)]));
-export const artistAliasLabels = artistAliases.map(([alias])=>alias);
+export const artistAliasLabels = [...new Set(artistAliases.flat())];
 export const artistKey = value => {
   const key=sortedArtistKey(value);
   return artistAliasKeys.get(key)??key;
 };
+
+// Ambiguous spellings are interchangeable only on independently corroborated AMQ recordings.
+const aliasesByRecording = new Map();
+for (const {name, alias, recordings} of recordingAliases) {
+  const pair = [artistKey(name), artistKey(alias)];
+  for (const id of recordings) {
+    if (!aliasesByRecording.has(id)) aliasesByRecording.set(id, []);
+    aliasesByRecording.get(id).push(pair);
+  }
+}
+
+export function recordingArtistRules(credits, library, recordingId, amqCredit) {
+  const pairs = aliasesByRecording.get(Number(recordingId)) || [];
+  const localKey = value => {
+    const key = artistKey(value);
+    return pairs.find(pair => pair.includes(key))?.[0] ?? key;
+  };
+  // Compare performer lists before their words are sorted together into the stored group key.
+  const creditParts = label => label.split(/\s*(?:[,、・&×]|\bfeat(?:uring)?\.?\s+)\s*/iu).map(localKey).join('|');
+  const amqParts = amqCredit && creditParts(amqCredit);
+  const rules = {};
+  for (const credit of credits) {
+    const key = artistKey(credit);
+    const base = library[key] ?? library[sortedArtistKey(credit)];
+    if (!pairs.length && (!amqCredit || credit === amqCredit)) {
+      if (base) rules[key] = base;
+      continue;
+    }
+    const sameCredit = amqParts && creditParts(credit) === amqParts;
+    const amqRule = sameCredit && library[artistKey(amqCredit)];
+    // A homonym's dictionary entry can have unrelated aliases. Use the recording's
+    // own credited performer when the source uses the ambiguous spelling.
+    const useRecordingCredit = pairs.length && sameCredit && key !== artistKey(amqCredit);
+    let rule = base || amqRule;
+    if (useRecordingCredit || (!base?.members && amqRule?.members)) rule = amqRule;
+    const names = new Set([key, ...(rule?.names || [])]);
+    if (sameCredit) names.add(artistKey(amqCredit));
+    const expand = aliases => {
+      const keys = new Set([...aliases].map(artistKey));
+      return [...new Set([...aliases, ...pairs.filter(pair => pair.some(n => keys.has(n))).flat()])];
+    };
+    const fullNames = expand(names);
+    if (rule || fullNames.length > 1) {
+      rules[key] = {...rule, names:fullNames};
+      if (pairs.length && rule?.members) rules[key].members = rule.members.map(expand);
+    }
+  }
+  return rules;
+}
 const values = value => Array.isArray(value) ? value.flatMap(values) : value == null ? [] : typeof value !== 'object' ? [value]
   : ['name','artistName','artistId','songArtistId','id'].some(k => value[k] != null) ? [value]
   : Object.entries(value).flatMap(([key, v]) => v == null || v === true ? [key] : /^\d+$/.test(key) ? [v] : [key,v]);

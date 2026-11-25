@@ -26,7 +26,7 @@ test('Quiz ranking sorts across pages, retains overall ranks and places untimed 
     assert.deepEqual(page(0,'asc',[]).rows,[]);
   } finally {db.close();}
 });
-import {playFieldMatches,buildArtistLibrary,artistMatches,submittedArtists,titleMatches} from '../src/play-artists.js';
+import {playFieldMatches,buildArtistLibrary,artistMatches,recordingArtistRules,submittedArtists,titleMatches} from '../src/play-artists.js';
 import {ARENA_FORMAT} from '../public/play-arena-config.js';
 import {arenaSongCount} from '../src/play-arena.js';
 import {proposeOrVote,catalogAnswer,ballotCatalogIndex} from '../src/play-lobby-votes.js';
@@ -122,6 +122,38 @@ test('Yu, Yuu and macron spellings identify the same credited singer in either n
   assert.equal(artistMatches('Duo',['Yu Kobayashi','Yuu Serizawa','Another Singer'],savedRules),false);
   assert.equal(artistMatches('Yu Serizawa',['Yuu Kobayashi']),false);
   assert.equal(artistMatches('Yu Example',['Yuu Example']),false);
+});
+
+test('verified recording credits accept alternate spellings in solo and group answers',()=>{
+  assert.ok(artistMatches('Ryotaro Okiayu',['Okiayu Ryoutarou']));
+  assert.ok(artistMatches('Rina Satou',['Rina Satoh']));
+  const members={duo:{members:[['fuka izumi'],['ono yuko']]}};
+  assert.ok(artistMatches('Duo',['Yuuko Oono','Fuuka Izumi'],members));
+  assert.equal(artistMatches('Duo',['Izumi Fuka','Fuuka Izumi'],members),false);
+  assert.equal(artistMatches('Yuki Masuda',['Yuuki Masuda']),false);
+  assert.equal(artistMatches('Yusuke Kobayashi',['Yuusuke Kobayashi']),false);
+});
+
+test('ambiguous aliases apply only to the verified performer on the verified recording',()=>{
+  const credit='Momoyo Koyama, Suzuko Mimori, Hinata Sato';
+  const variant=credit.replace('Sato','Satou');
+  const library=buildArtistLibrary({
+    artistMap:{1:{name:'Hinata Sato'},2:{name:'Momoyo Koyama'},3:{name:'Suzuko Mimori'}},
+    groupMap:{4:{name:credit,artistMembers:[1,2,3]}}
+  }).rules;
+  const rules=recordingArtistRules([variant],library,47607,credit);
+  assert.ok(artistMatches(variant,['Hinata Satou','Momoyo Koyama','Suzuko Mimori'],rules));
+  assert.ok(artistMatches(variant,[credit],rules));
+  assert.equal(artistMatches(variant,['Hinata Satou'],rules),false);
+  const solo=id=>recordingArtistRules(['Nao Toyama'],{},id,'Nao Toyama');
+  assert.ok(artistMatches('Nao Toyama',['Touyama Nao'],solo(20024)));
+  const homonym=recordingArtistRules(['Nao Touyama'],{'nao touyama':{names:['unrelated singer']}},20024,'Nao Toyama');
+  assert.ok(artistMatches('Nao Touyama',['Nao Toyama'],homonym));
+  assert.equal(artistMatches('Nao Touyama',['unrelated singer'],homonym),false);
+  assert.equal(artistMatches('Nao Toyama',['Touyama Nao'],solo(111)),false);
+  assert.equal(artistMatches('Nao Touyama',['Nao Toyama']),false);
+  const unrelated=recordingArtistRules(['Different singer'],library,47607,credit);
+  assert.equal(artistMatches('Different singer',['Hinata Satou'],unrelated),false);
 });
 
 test('Song/Artist accepts Nagi Yanagi and yanaginagi interchangeably',()=>{
