@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Play custom settings lobbies
+
+Advanced creation is live at `/play/custom-lobby?create=1`. Overview and Custom Lobby open the settings builder by default. The existing mode templates remain a separate choice. The lobby service persists rules and verifies capacity, team sizes, password access and host edits. Unranked matches draw and grade against those settings and return participants to the room. Named presets are per account on the device.
+
+Runtime commit `ec5b6cd`, Worker `b76e231c-6c58-4487-a216-de306f34b50c`. All 650 tests and the Worker dry run passed. Two local Chrome sessions verified creation, join, rule inspection, match start, and automatic return. The production creator and directory were verified at 1440 and 390 px. The AMQ song-popularity slider is unavailable because the source exports lack this metric. Custom filter metadata uses official AMQ occurrences, exported sheet tags, seed-library difficulty and a MAL 2023 snapshot for anime scores and popularity ranks. Rebuild with `tools/build-play-studio-metadata.py` when replacing those source snapshots.
+
 ## Overview live match portraits
 
 Restored the prior scorecard treatment and stacked team portraits. Duels use 34px portraits, the hover roster uses 26px portraits, and the floating VS badge is removed. Overview portrait frames have a 1px rim at every enhancement level. Browser checks covered full 4v4 rosters, duel hover content, score clearance, rim width, and popover bounds at 320, 390 and 1440px. Commits `e47cee5` and `e7dc94c` reached main. The final production Worker is `90ab2a6c-6351-4a4e-b662-29c8728ab6fe`. Verified the live Overview shell and stylesheet.
