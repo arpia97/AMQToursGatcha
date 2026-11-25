@@ -1,4 +1,4 @@
-import {mountOverviewRooms} from './play-overview-rooms.js';
+import {mountOverviewRooms} from './play-overview-rooms.js?v=directory-header';
 import {PLAY_MODES,playHref} from './play-navigation.js';
 import {ARENA_FORMAT} from './play-arena-config.js';
 import {DUEL_FORMAT,ONE_TEAM_FORMAT,ONE_TEAM_MODE} from './play-mode-rules.js';
@@ -44,9 +44,6 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
   let matchSnapshot,playerSnapshot;
   const lifetime=new AbortController();
   root.innerHTML=`<div class="overview-page">
-    <header class="overview-heading"><div><h1>Overview</h1><div class="overview-stats">
-      <span><b data-online>—</b> online</span><span><b data-queued>—</b> queued</span><span><b data-live>—</b> live</span>
-    </div></div><button class="button mint" data-create-overview>＋ Create a lobby</button></header>
     <div class="play-directory"><div class="play-directory-main"><section id="overview-live-matches" aria-labelledby="live-matches-title">
       <header class="overview-section-head"><h2 id="live-matches-title">Live Matches <span class="overview-total">—</span></h2>
         <div class="overview-arrows" hidden><button type="button" data-slide="-1" aria-label="Previous matches">‹</button><button type="button" data-slide="1" aria-label="Next matches">›</button></div>
@@ -76,7 +73,9 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
         </div>
       </section>
         </div><section id="online-players" class="overview-panel" aria-labelledby="online-players-title">
-          <header><h2 id="online-players-title">Online Players</h2><span class="overview-total overview-online-total">—</span></header>
+          <header><h2 id="online-players-title">Online Players</h2>
+            <div class="overview-stats"><span><b data-online>—</b> online</span><span><b data-queued>—</b> queued</span><span><b data-live>—</b> live</span></div>
+          </header>
           <div class="overview-search">${icon('M21 21l-4.5-4.5M18 11a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z')}<input type="search" placeholder="Find a player" aria-label="Find an online player"></div>
           <ul class="overview-player-list" aria-label="Online players" tabindex="0"></ul>
           <p class="overview-empty overview-player-empty" role="status">Loading…</p>
@@ -301,7 +300,7 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
     void refreshRooms();
     signedIn=!!account;
     players=data.onlinePlayers||[];
-    $('[data-online]').textContent=$('.overview-online-total').textContent=data.online??'—';
+    $('[data-online]').textContent=data.online??'—';
     counts=data.counts??counts;
     renderQueues();
     renderPlayers();

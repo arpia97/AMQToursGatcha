@@ -5,7 +5,7 @@ import {poolName} from './play-pool.js';
 export function mountOverviewRooms(root,{esc,loadRooms,openLobby,signal}){
   const board=root.querySelector('.room-board'), status=root.querySelector('[data-room-status]');
   let rooms=[],snapshot,last=0,busy=false;
-  root.querySelector('[data-create-overview]').addEventListener('click',()=>openLobby(),{signal});
+  root.querySelector('[data-create-overview]')?.addEventListener('click',()=>openLobby(),{signal});
   board.addEventListener('click',e=>{
     const code=e.target.closest('[data-room-code]')?.dataset.roomCode;
     const room=rooms.find(r=>r.code===code);
