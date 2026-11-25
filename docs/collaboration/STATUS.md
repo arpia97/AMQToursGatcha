@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Centered desktop Overview
+
+Runtime 5550925 is live on Worker eff97ed1-e505-4b7a-a622-545ac5decaae. Verified the production entry and assets. Browser fixtures measured equal top and bottom margins at five desktop resolutions from 1280x720 to 1920x1080 across empty and populated feeds. Short and mobile viewports retained access to the first row.
+
 ## Compact Play Overview
 
 Runtime 361ead3 is deployed on Worker ec458390-5043-4a17-b005-53188c03d151. Online Players contains the activity totals. Lobby creation remains available from Custom Lobby. Browser checks at 1280x720, 1366x768, 1440x900 and 1920x1080 fit all Quick Join rows without page scrolling. All four sizes and 390px mobile kept sections stable across empty and populated feeds. Verified the live entry point and four shipped assets.
