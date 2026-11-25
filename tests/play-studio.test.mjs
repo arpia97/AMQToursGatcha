@@ -61,7 +61,7 @@ test('Mixed draws enforce exact bucket sizes, owner quotas, and unique playable 
   await assert.rejects(selectStudio(data,meta,{...base,types:['ED']},[],async(_,url)=>url),/fit these filters/);
 });
 
-test('custom Watched picks types evenly, including repeat shows and filtered replacement draws',async t=>{
+test('all custom pool slots pick types evenly, including repeat shows and filtered replacement draws',async t=>{
   let state=329;
   t.mock.method(Math,'random',()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/2**32;});
   const types=['OP','ED','ED','ED','ED','IN'];
@@ -72,18 +72,23 @@ test('custom Watched picks types evenly, including repeat shows and filtered rep
     anime:{1:['TV',8000,8,100,[],[]]}};
   const lists=[{player:'a',provider:'anilist',ids:[10]}];
   const rules={...base,pool:'Watched',types:['OP','ED'],categories:{...base.categories,ED:['Standard']}};
-  for(const dupes of [false,true]){
-    let withOpening=0;
-    for(let i=0;i<1200;i++){
-      const picks=await selectStudio(data,meta,{...rules,dupes,songs:dupes?2:1},lists,async(_,url)=>url);
-      assert.equal(new Set(picks.map(p=>p.group)).size,picks.length);
-      assert.ok(picks.every(p=>p.label==='OP'||p.label==='ED'));
-      if(picks.some(p=>p.label==='OP'))withOpening++;
+  for(const kind of ['watched','unwatched','random']){
+    const poolLists=kind==='unwatched'?[]:lists;
+    const poolRules=kind==='watched'?rules:{...rules,pool:'Mixed'};
+    for(const dupes of [false,true]){
+      const songs=dupes?2:1;
+      const mix=[kind==='watched'?songs:0,kind==='unwatched'?songs:0,kind==='random'?songs:0];
+      let withOpening=0;
+      for(let i=0;i<1200;i++){
+        const picks=await selectStudio(data,meta,{...poolRules,dupes,songs,mix},poolLists,async(_,url)=>url);
+        assert.equal(new Set(picks.map(p=>p.group)).size,picks.length);
+        assert.ok(picks.every(p=>p.bucket.kind===kind&&(p.label==='OP'||p.label==='ED')));
+        if(picks.some(p=>p.label==='OP'))withOpening++;
+      }
+      assert.ok(Math.abs(withOpening/1200-(dupes?.75:.5))<.05, kind+': '+withOpening);
+      const replacement=await selectStudio(data,meta,{...poolRules,dupes},poolLists,async(_,url)=>url,
+        {exclude:['1.mp3'],replacement:{kind}});
+      assert.equal(replacement[0].label,'ED');
     }
-    const expected=dupes?.75:.5;
-    assert.ok(Math.abs(withOpening/1200-expected)<.05, String(withOpening));
   }
-  const replacement=await selectStudio(data,meta,rules,lists,async(_,url)=>url,
-    {exclude:['1.mp3'],replacement:{kind:'watched'}});
-  assert.equal(replacement[0].label,'ED');
 });

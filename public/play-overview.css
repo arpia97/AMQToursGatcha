@@ -212,7 +212,7 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-page .play-directory #online-players{width:100%;box-sizing:border-box;min-width:0;align-self:stretch;display:flex;flex-direction:column;padding:15px;border:1px solid var(--border);border-radius:10px;background:var(--panel);overflow:hidden}
 .overview-page #online-players>header{display:flex;justify-content:space-between;align-items:center;margin:0 0 12px}
 .overview-page .overview-search{width:100%;margin:0 0 8px}
-.overview-page .overview-player-list{box-sizing:border-box;width:100%;min-width:0;min-height:0;max-height:none;flex:1;contain:size;margin:0;padding:0 3px;scrollbar-width:thin;overflow:auto;overscroll-behavior:contain}
+.overview-page .overview-player-list{box-sizing:border-box;width:auto;min-width:0;min-height:0;max-height:none;flex:1;contain:size;margin:0 0 0 -15px;padding:12px 8px 12px 23px;scrollbar-width:thin;overflow:auto;overscroll-behavior:contain}
 .overview-page .overview-player-list li{width:100%;min-width:0;height:41px;min-height:41px;display:grid;grid-template-columns:26px minmax(0,1fr) max-content;align-items:center;gap:7px;margin:0;padding:0 3px;border-bottom:1px solid #ffffff0d}
 .overview-page .overview-player-list li[hidden]{display:none}
 .overview-page .overview-player-profile{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:none;font:600 12px "Segoe UI",sans-serif}
@@ -229,6 +229,5 @@ div.overview-match-button {cursor:default;background:#13161d;border-color:var(--
 .overview-page .roomtile :is(h3,p){min-width:0;overflow-wrap:anywhere}
 .overview-page .overview-match[data-private]{background:linear-gradient(110deg,#332e27,#282622);border-top-color:#c3a17f}
 .overview-page .overview-player-list .overview-avatar{margin-inline:0}
-.overview-page .overview-player-list{padding-inline:8px}
 .overview-page #overview-live-matches{margin-bottom:0}
 @media(max-width:600px){.overview-page .overview-queue-list{grid-template-columns:minmax(0,1fr)}.overview-page .overview-heading{margin-bottom:13px}.overview-page .room-board .roomtile{grid-template-columns:minmax(0,1fr) auto;gap:3px 6px;padding:9px 10px}.overview-page .room-board .roomtile h3{grid-area:1/1}.overview-page .room-board .roomtile p{grid-area:2/1}.overview-page .room-board .roomtile .access{grid-area:1/2;justify-self:end}.overview-page .room-board .roomfoot{grid-area:2/2;gap:8px}.overview-page .overview-mode h3{font-size:13px}.overview-page .overview-match{flex-basis:235px}.overview-page .overview-stats{font-size:11px}}

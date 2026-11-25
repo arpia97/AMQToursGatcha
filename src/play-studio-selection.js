@@ -1,3 +1,4 @@
+import {randomRecordings} from './play-random-selection.js';
 import {apportion,studioMix} from '../public/play-studio-rules.js';
 import {watchedWeights,weightedAnimeOrder,watchedRecordings,audioFilename,songTypeKey} from './play-watched-selection.js';
 const unavailable=message=>Object.assign(Error(message),{status:422});
@@ -57,6 +58,8 @@ export async function selectStudio(data,meta,s,lists,verify,{exclude=[],excludeA
   const result=[];
   for(const {kind,owner,count} of batches){
     const weights=new Map(),options=new Map();
+    const repeatRandom=s.dupes&&kind!=='watched';
+    const rows=[];
     for(const [anime,groupMap] of eligible){
       if(usedAnime.has(anime))continue;
       const people=owners.get(anime)||[];
@@ -69,27 +72,29 @@ export async function selectStudio(data,meta,s,lists,verify,{exclude=[],excludeA
       }
       const entries=[...groupMap.values()].filter(v=>!excluded.has(audioFilename(v.source)));
       if(!entries.length)continue;
-      const recordings=new Map(entries.map(item=>[item.group,item]));
-      const watchedDraw=kind==='watched';
-      const choices=watchedDraw?entries:[...recordings.values()];
-      if(s.dupes){
-        // Preserve the anime's original ticket budget and depletion rate.
-        // Each Watched ticket gets an independent type-first choice from the remaining songs.
-        for(const [group,item] of recordings){
+      if(repeatRandom){
+        for(const item of entries)rows.push({annId:anime,amqSongId:item.group+1,type:item.label,audio:item.source});
+      }else if(s.dupes){
+        // Keep the anime's total ticket weight independent of its song count.
+        // Each ticket draws from the same eligible types and remaining recordings.
+        const groups=new Set(entries.map(item=>item.group));
+        for(const group of groups){
           const key=anime+':'+group;
-          weights.set(key,weight/recordings.size);
-          options.set(key,watchedDraw?choices:[item]);
+          weights.set(key,weight/groups.size);
+          options.set(key,entries);
         }
-      }else{weights.set(anime,weight);options.set(anime,choices);}
+      }else{weights.set(anime,weight);options.set(anime,entries);}
     }
-    const picks=await watchedRecordings(weightedAnimeOrder(weights),options,count,async(g,url)=>{
+    const randomIndex=n=>Math.floor(Math.random()*n);
+    const picks=repeatRandom?await randomRecordings(rows,count,verify,randomIndex,excluded):
+      await watchedRecordings(weightedAnimeOrder(weights),options,count,async(g,url)=>{
       const verified=await verify(g,url);return verified&&!excluded.has(audioFilename(verified))?verified:null;
-    },n=>Math.floor(Math.random()*n),audioFilename,kind==='watched');
+    },randomIndex,audioFilename);
     if(picks.length<count)throw unavailable('Only '+picks.length+' of '+count+' '+kind+' songs fit these filters'+(owner?' for an assigned player':'')+'. Change the filters or song count.');
     for(const pick of picks){
       const anime=Number(String(pick.anime).split(':')[0]);if(!s.dupes)usedAnime.add(anime);
       excluded.add(audioFilename(pick.url));excluded.add(audioFilename(data.sources[pick.group]));
-      result.push({...pick,label:kind==='watched'?pick.label:undefined,anime,bucket:{kind,...(owner?{owner}:{})}});
+      result.push({...pick,anime,bucket:{kind,...(owner?{owner}:{})}});
     }
   }
   return shuffle(result);

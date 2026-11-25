@@ -6,7 +6,7 @@ import {RankedLeaves} from '../src/ngmc-leaves.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ngmcGuesses,balanceNgmc} from '../src/ngmc-rules.js';
-import {ngmcSongPool} from '../src/ngmc-selection.js';
+import {randomSongDraws,randomRecordings} from '../src/play-random-selection.js';
 import {balancedNgmcRatings,ngmcRatings} from '../src/ngmc-ratings.js';
 import {reconcileRankedIncident} from '../src/play-rating-repair.js';
 import {makeMatch,advanceMatch,matchMove,matchView,gradeRound} from '../src/play-match-rules.js';
@@ -62,9 +62,19 @@ test('NGMC uses exact thresholds, optimal balance and uniform anime/type/song dr
  assert.deepEqual([0,7.99,8,18.99,19,27.99,28,39.99,40,100].map(ngmcGuesses),[1,1,2,2,3,3,4,4,5,5]);
  const balanced=balanceNgmc(players);assert.equal(balanced.filter(p=>p.team===0).length,4);assert.equal(balanced.reduce((sum,p)=>sum+(p.team?1:-1)*p.elo,0),0);
  const rows=[{annId:1,amqSongId:1,type:'Opening 1',audio:'a'},{annId:1,amqSongId:2,type:'Ending 1',audio:'b'},{annId:2,amqSongId:3,type:'Opening 1',audio:'c'},{annId:2,amqSongId:1,type:'Ending 1',audio:'a'}];
- const sizes=[],pool=ngmcSongPool(rows,3,n=>{sizes.push(n);return 0;});assert.deepEqual(sizes.slice(0,3),[2,2,1]);assert.equal(new Set(pool.map(r=>r.amqSongId)).size,3);
- assert.throws(()=>ngmcSongPool(rows,4),/Not enough/);
+ const sizes=[],pool=[...randomSongDraws(rows,n=>{sizes.push(n);return 0;})];assert.deepEqual(sizes.slice(0,3),[2,2,1]);assert.equal(new Set(pool.map(r=>r.amqSongId)).size,3);
+ assert.equal(pool.length,3);
 });
+test('Random retries missing and duplicate playable files, and can exhaust a short pool',async()=>{
+ const types=['OP1','ED1','Insert Song','OP2'];
+ const rows=types.map((type,i)=>({annId:1,amqSongId:i+1,type,audio:i+'.mp3'}));
+ const urls=[null,'/eu/same.mp3','/us/same.mp3','/eu/final.mp3'];
+ const tried=new Set();
+ const picks=await randomRecordings(rows,4,async group=>urls[group],()=>0,new Set(),tried);
+ assert.equal(tried.size,4);
+ assert.deepEqual(picks.map(p=>p.url.split('/').pop()).sort(),['final.mp3','same.mp3']);
+});
+
 test('counter prompt follows the server assignment through Auto-Count and into the first guess',()=>{
  const state=create(),player=state.players[0],opponent=state.players.find(p=>p.team!==player.team);
  const afterDeadline=40_001;

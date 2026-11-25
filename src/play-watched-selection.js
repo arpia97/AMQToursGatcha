@@ -144,25 +144,21 @@ function shuffleChoices(values, randomIndex) {
   return options;
 }
 
-export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename, byType = true) {
+export async function watchedRecordings(order, candidates, count, verify, randomIndex, filename) {
   const choices = new Map();
   const verified = new Map();
   const optionsFor = anime => {
     if (!choices.has(anime)) {
       const entries = candidates.get(anime);
-      if (byType) {
-        const types = new Map();
-        for (const entry of entries) {
-          if (!types.has(entry.type)) types.set(entry.type, []);
-          types.get(entry.type).push(entry);
-        }
-        // A failed or already-used file can fall through within its type before
-        // trying another type. Keep this order stable across verification retries.
-        choices.set(anime, shuffleChoices(types.values(), randomIndex)
-          .flatMap(songs => shuffleChoices(songs, randomIndex)));
-      } else {
-        choices.set(anime, shuffleChoices(entries, randomIndex));
+      const types = new Map();
+      for (const entry of entries) {
+        if (!types.has(entry.type)) types.set(entry.type, []);
+        types.get(entry.type).push(entry);
       }
+      // A failed or already-used file can fall through within its type before
+      // trying another type. Keep this order stable across verification retries.
+      choices.set(anime, shuffleChoices(types.values(), randomIndex)
+        .flatMap(songs => shuffleChoices(songs, randomIndex)));
     }
     return choices.get(anime);
   };

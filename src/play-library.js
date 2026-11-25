@@ -4,8 +4,8 @@ import {mergedTitles,registeredGroupAnswers} from './play-answer-registry.js';
 import {ONE_TEAM_MODE} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {playAudioSource,playableMirror} from './play-media.js';
-import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, recordingGroupIndex, audioFilename, checkAudioCandidates} from './play-watched-selection.js';
-import { ngmcSongPool } from './ngmc-selection.js';
+import {watchedRigOwners, watchedWeights, weightedAnimeOrder, watchedRecordings, watchedCandidates, countWatchedCandidates, audioFilename, songTypeKey} from './play-watched-selection.js';
+import {randomRecordings} from './play-random-selection.js';
 import { libraryJSON, libraryShards } from './quiz-library.js';
 import { animeTitleKey, titleKey, artistKey, artistAliasLabels, recordingArtistRules } from './play-artists.js';
 import {songIsDub} from "../public/quiz-rules.js";
@@ -174,7 +174,12 @@ export class PlayLibrary {
       const [source,...mirrors]=audio.values(),groupId=groups.length;
       groups.push(group.ids);sources.push(source);alternates.push(mirrors);
       preferred.push({quiz,sheet,titles,amqTitle:group.amqTitle,amqArtist:group.amqArtist});
-      for(const row of group.ngmc)ngmcRows.push({...row,amqSongId:groupId+1,audio:source});
+      // A single occurrence can use the preferred catalog's type. Shared tracks
+      // keep the individual type for each anime and use (for example OP and ED).
+      const first=group.ngmc[0];
+      const preferredType=quiz?.type||sheet?.type;
+      const usePreferred=songTypeKey(preferredType)&&group.ngmc.every(row=>row.annId===first.annId&&row.type===first.type);
+      for(const row of group.ngmc)ngmcRows.push({...row,type:usePreferred?preferredType:row.type,amqSongId:groupId+1,audio:source});
       if(!group.hasAmqPlus){
         if(quiz)quizAdded++;
         else if(sheet)sheetAdded++;
@@ -244,7 +249,6 @@ export class PlayLibrary {
       else available.push(i);
     }
     const shortPool=()=>Object.assign(Error("Too few distinct anime with playable songs on the Watched lists. Add more entries, choose fewer songs in a custom lobby, or switch to Random."),{status:422});
-    const groupById=ranked?recordingGroupIndex(data):null;
     const checked=progress?new Set():null;
     const verify=async(group,source)=>{
       let url=await this.verifiedSource(source);
@@ -256,7 +260,7 @@ export class PlayLibrary {
       return url;
     };
     const randomIndex=length=>Math.floor(crypto.getRandomValues(random)[0]/4294967296*length);
-    const tried=new Set(),pool=ranked?[]:[...available];
+    const tried=new Set();
     const buckets=new Map();
     if(studio){
       const picks=await selectStudio(data,studioMeta,studio,lists,verify,{exclude:exclude||[],excludeAnime,replacement});
@@ -274,23 +278,15 @@ export class PlayLibrary {
       for(const {anime,group,url,label} of recordings){
         selected.add(group);tried.add(group);pickedAnime.set(group,anime);verifiedAudio.set(group,url);pickedType.set(group,label);
       }
-    }
-    const draw=()=>{
-      crypto.getRandomValues(random);
-      const i=Math.floor(random[0]/4294967296*pool.length),group=pool[i];
-      pool[i]=pool[pool.length-1];pool.pop();return {group,source:data.sources[group]};
-    };
-    while(!studio&&!weights&&selected.size<target&&tried.size<target+32){
-      const needed=target-selected.size;
-      const candidates=ranked?ngmcSongPool(data.ngmcRows.filter(r=>eligible(r.annSongId)&&!excluded.has(groupById.get(r.annSongId))&&!tried.has(groupById.get(r.annSongId))),needed)
-        .map(row=>({group:groupById.get(row.annSongId),source:row.audio})):
-        Array.from({length:Math.min(pool.length,needed)},draw);
-      if(!candidates.length)break;
-      const urls=await checkAudioCandidates(candidates,({group,source})=>verify(group,source));
-      candidates.forEach(({group},i)=>{
-        tried.add(group);
-        if(urls[i]){verifiedAudio.set(group,urls[i]);selected.add(group);}
-      });
+    }else{
+      const rows=excluded.size?data.ngmcRows.filter(row=>!excluded.has(row.amqSongId-1)):data.ngmcRows;
+      const picks=await randomRecordings(rows,target,verify,randomIndex,excludedPaths,tried);
+      for(const {group,anime,label,url} of picks){
+        selected.add(group);
+        pickedAnime.set(group,anime);
+        pickedType.set(group,label);
+        verifiedAudio.set(group,url);
+      }
     }
     if(!selected.size||!allowShort&&selected.size!==target)throw Object.assign(Error('Not enough playable MP3s. Please try again shortly.'),{status:503});
     if(progress)progress.stage='finalizing';
