@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play Overview directory
+
+Overview shows Live Matches, Open Lobbies and Quick Join in order, with a searchable player panel. Join and create use the existing mode lobby flows. Private matches accept password-authorized spectating per account and match. Source `7972606` is deployed at 100% as `c6bd37e2-ccf6-4098-a923-0b1b1feeb0fe`. All 643 tests passed. A local browser exercised private lobby creation/join and a 12-room scrolling directory at five widths. Production desktop and mobile checks verified one live match, zero open lobbies, eight quick-join formats and the guest sign-in flow. The separate custom-lobby builder and local return-to-lobby edits are outside this deployment.
+
 ## Watched shared recordings
 
 Watched selection can reassign shared recordings along a chain while retaining the A-Res anime order, unique playable files, bounded concurrent checks, and the existing probe budget. Compared 4,608 small-pool cases with exhaustive assignments. All 643 tests passed. Runtime `1d1f8d3` deployed at 100% as `8759ef11-495e-4bec-8514-128fcb581496`. Read-only live checks passed for Play and its song catalog.
