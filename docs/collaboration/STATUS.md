@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Manual card portrait recovery
+
+The 25 GGius Tours cards and Faker retained image URLs on the retired play.amqtours-gatcha.workers.dev host. The import manifest and live Gacha catalog both contained those addresses. All 26 packaged files still matched the production assets at amqtours.app/gacha/community-cards/. Runtime `7da0733` repairs image fields at startup, normalizes legacy imports, retains manually replaced portraits, and supports older client snapshots. A regression test checks the public URL and file signature for every bundled portrait. Local verification passed all 652 tests and the Worker dry run. Worker `60eb9ca6-2c04-4ebd-a287-fb4bca320001` is deployed. The production catalog returned canonical URLs for all 26 cards after the Durable Object rollout. Verified each image against its packaged bytes and confirmed ArronChu renders in Chrome. Application CI passed; the separate Pages demo job reported a missing github-pages artifact.
+
 ## Play custom settings lobbies
 
 Advanced creation is live at `/play/custom-lobby?create=1`. Overview and Custom Lobby open the settings builder by default. The existing mode templates remain a separate choice. The lobby service persists rules and verifies capacity, team sizes, password access and host edits. Unranked matches draw and grade against those settings and return participants to the room. Named presets are per account on the device.
