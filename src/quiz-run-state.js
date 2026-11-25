@@ -100,7 +100,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
     reject("The question changed. Refresh the quiz.");
   if (action === "quiz-ready") {
     if (!run.answers[run.index] && run.timing?.index !== run.index) {
-      const startsAt = now + (run.index === 0 ? QUIZ_LEAD_IN_MS : 0);
+      const startsAt = now + (run.index === 0 && !run.skipStartCountdown ? QUIZ_LEAD_IN_MS : 0);
       run.timing = { index: run.index, startsAt, endsAt: startsAt + QUIZ_SONG_MS };
       if ((run.fast || run.clockFromAudio) && run.startedAt == null) run.startedAt = startsAt;
     }

@@ -692,6 +692,7 @@ test("Sudden Death cannot finish or pay for a final-song miss, and restarts with
   for (let index = 0; index < 20; index++) {
     const body = {quiz:"test", run:first.id, index};
     const {run} = f.action("p", "quiz-ready", body);
+    if (index === 0) assert.equal(run.startsAt-f.e.now(),2000);
     f.advance(Math.max(0, run.startsAt - f.e.now()));
     const answer = index === 19 ? "Wrong" : f.e.quiz.run("p","test").songs[index].answers[0];
     const reveal = f.action("p","quiz-answer",{...body,answer}).run;
@@ -704,6 +705,12 @@ test("Sudden Death cannot finish or pay for a final-song miss, and restarts with
       assert.equal(restarted.index,0);
       assert.equal(restarted.score,0);
       assert.equal(restarted.suddenDeath,true);
+      assert.equal(restarted.startsAt,null);
+      f.advance(7000);
+      const ready = f.action("p","quiz-ready",{quiz:"test",run:restarted.id,index:0}).run;
+      assert.equal(ready.startsAt,f.e.now());
+      assert.equal(ready.startedAt,ready.startsAt);
+      assert.equal(ready.endsAt-ready.startsAt,20000);
     }
   }
   assert.equal(f.e.player("p").balance,balance);

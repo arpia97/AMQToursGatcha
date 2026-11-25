@@ -689,6 +689,8 @@ export class Quiz {
         startedAt: null,
         clockFromAudio: true,
         suddenDeath: b.suddenDeath === true,
+        skipStartCountdown: action === "quiz-restart" && b.suddenDeath === true
+          && run.suddenDeath === true && run.answers[run.index]?.correct === false,
         index: 0,
         songs: songs.map(s => ({ ...s, sample: (10 + e.rand(61)) / 100 })),
         answers: [],
