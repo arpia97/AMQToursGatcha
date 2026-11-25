@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Full Random wording
+
+Updated the Watched Full Random description in 314c907. All six custom lobby tests passed, and the new sentence was verified in the live lobby editor after deploying Worker e0b22af0-a75e-41c3-afa4-15737836f355.
+
 ## Watched song-type selection
 
 Released d4476ae on production Worker 98d95e27-d451-4dd4-a5be-dfa9ec9b0f82. Standard and custom Watched draws choose anime, then eligible type, then recording. Confirmed the 1 OP / 4 ED distribution, repeat-show draws, filtered replacement, mixed quotas and shared-file reassignment locally. All 654 tests, syntax checks and the Worker dry run passed. Read-only live checks returned the NGMC and Custom Lobby pages and the Play catalog with 34,275 playable recordings.
