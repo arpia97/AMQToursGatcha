@@ -1,3 +1,4 @@
+import {playAnimeGradingKey} from './anime-grading.js';
 import {animeAnswerKey} from '../public/quiz-rules.js';
 import recordingAliases from './play-artist-recording-aliases.json' with {type:'json'};
 
@@ -7,10 +8,10 @@ export const animeTitleKey = value => animeAnswerKey(value, true);
 export function playFieldMatches(song, field, value) {
   if (field === 'artist') return song.answers.artist.some(name => artistMatches(name, value, song.artistRules));
   if (field === 'song') return titleMatches(song.answers.song, value);
-  const guess = animeTitleKey(value);
+  const guess = playAnimeGradingKey(value);
   // Older matches stored stripped keys in answers.anime but retained the original title list.
   const titles = song.animeTitles?.length ? song.animeTitles : song.answers.anime;
-  return Boolean(guess) && titles.some(title => animeTitleKey(title) === guess);
+  return Boolean(guess) && titles.some(title => playAnimeGradingKey(title) === guess);
 }
 
 // Artist relationship rules adapted from the user's MIT-licensed AMQ Voicing

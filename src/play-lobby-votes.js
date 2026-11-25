@@ -1,9 +1,10 @@
+import {playAnimeGradingKey} from './anime-grading.js';
 import {isPotatoCoop} from '../public/hot-potato.js';
-import {animeTitleKey,titleKey,artistKey} from './play-artists.js';
+import {titleKey,artistKey} from './play-artists.js';
 import {matchGuessFields,ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
 
 const reject=message=>{throw Object.assign(Error(message),{status:409});};
-const fieldKey = field => field==='anime' ? animeTitleKey : field==='artist' ? artistKey : titleKey;
+const fieldKey = field => field==='anime' ? playAnimeGradingKey : field==='artist' ? artistKey : titleKey;
 export function proposeOrVote(state,player,message){
   const field=message.field;
   if(!matchGuessFields(state).includes(field))reject('Choose an answer category.');

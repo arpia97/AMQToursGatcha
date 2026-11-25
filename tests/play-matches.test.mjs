@@ -35,9 +35,15 @@ import {sealPlayAudio,playAudioResponse} from '../src/play-media.js';
 import {sampleStart} from '../public/play-sample.js';
 import {recapHTML, songResultsHTML} from '../public/play-round-ui.js';
 import {answerSearchIndex,searchAnswers} from '../public/play-answer-search.js';
-test('Quiz and Play accept verified star spellings and preserve distinct anime editions', async () => {
+test('Quiz and Play accept verified catalog spellings and preserve distinct anime editions', async () => {
   const {advanceQuizRun} = await import('../src/quiz-run-state.js');
   for (const [title, answer, expected] of [
+    ["Mahou Shoujo Lyrical Nanoha: The Movie 2nd A's","Magical Girl Lyrical Nanoha The Movie 2nd A's",true],
+    ["Magical Girl Lyrical Nanoha The Movie 2nd A's","Magical Girl Lyrical Nanoha: The Movie 2nd A's",true],
+    ["Magical Girl Lyrical Nanoha: The Movie 2nd A's","Magical Girl Lyrical Nanoha The Movie 1st",false],
+    ["Magical Girl Lyrical Nanoha: The Movie 2nd A's","Magical Girl Lyrical Nanoha A's",false],
+    ['Burn-Up W','Burn Up W',true], ['Burn-Up W','Burn-Up Excess',false],
+    ['Yuru Yuri Nachuyachumi!','Yuru Yuri Nachuyachumi!+',false],
     ['Lucky Star','Lucky☆Star',true], ['Lucky☆Star','Lucky Star',true],
     ['Lovely Complex','Lovely★Complex',true], ['Lucky☆Star OVA','Lucky Star',false],
     ['Candy Boy','Candy☆Boy',false], ['New Game!','New Game!!',false],
