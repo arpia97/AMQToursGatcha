@@ -66,9 +66,6 @@ export function mountPlayOverview(root,{esc,join,leave,viewQueue,watch,watchPriv
             <h3>${icon(modes.get('quiz').icon)}Quiz</h3><span>Solo</span>
             <a href="${playHref('quiz')}" data-play-mode="quiz" class="button secondary overview-open">Browse Quizzes${chevron}</a>
           </article>
-          <article class="overview-mode overview-disabled">
-            <h3>${icon(modes.get('speed-showdown').icon)}Speed Showdown</h3><span>Coming Soon</span>
-          </article>
         </div>
       </section>
         </div><section id="online-players" class="overview-panel" aria-labelledby="online-players-title">

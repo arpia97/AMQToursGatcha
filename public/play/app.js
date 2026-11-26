@@ -338,14 +338,12 @@ function nav() {
   document.title = playPage(mode).name + " · AMQ Tours Play";
   document.body.classList.toggle("play-viewport", !["quiz","rankings","host"].includes(mode));
   $('.play-live').hidden=mode==='overview'||mode==='host';
-  const link = (item, compact = false) => '<a ' +
-    (item.disabled ? 'role="link" aria-disabled="true" tabindex="-1" title="Coming Soon"' : 'href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"') +
+  const link = (item, compact = false) => '<a href="' + playHref(item.id) + '" data-play-mode="' + item.id + '"' +
     (mode === item.id ? ' aria-current="page"' : '') + ' aria-label="' + item.name + '">' + icon(item.icon) +
-    '<span>' + (compact ? item.short : item.name) + '</span>' +
-    (item.disabled ? '<i class="play-soon-dot" aria-hidden="true"></i>' : '') + '</a>';
+    '<span>' + (compact ? item.short : item.name) + '</span></a>';
   $("#play-nav").innerHTML = PLAY_MODES.map(item => link(item)).join("");
   $("#play-mobile-primary").innerHTML = PLAY_MODES.filter(item => mobileTabs.has(item.id)).map(item => link(item, true)).join("");
-  $("#play-mobile-links").innerHTML = PLAY_MODES.filter(item => !item.disabled && !mobileTabs.has(item.id)).map(item => link(item)).join("");
+  $("#play-mobile-links").innerHTML = PLAY_MODES.filter(item => !mobileTabs.has(item.id)).map(item => link(item)).join("");
   for(const item of document.querySelectorAll('[data-host-page]')){
     if(mode==='host')item.setAttribute('aria-current','page');else item.removeAttribute('aria-current');
   }
@@ -373,12 +371,7 @@ async function resumeBackgroundQueue(version){
   if(version===viewVersion&&!multiplayer.waiting())multiplayer.enter(modeForQueue(saved.format),saved);
 }
 async function openMode(id, push = true, createLobby = false) {
-  const requested = playPage(id);
-  if (!requested) return;
-  if (requested.disabled) {
-    id = playRoute("/play");
-    history.replaceState(null, "", playHref(id));
-  }
+  if (!playPage(id)) return;
   if(songArtist?.rankedAtRisk()){
     if(id===mode)return;
     if(!songArtist.confirmNavigation()){

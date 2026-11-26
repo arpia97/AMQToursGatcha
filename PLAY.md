@@ -1,9 +1,8 @@
 # AMQ Tours Play
 
-Play uses the existing Gacha login. 1v1 Ranked, 2v2 Arena, Song/Artist, 1-Team,
-and NGMC offer matchmaking and custom lobbies. Speed Showdown is a placeholder.
-1v1 custom lobbies are unranked and support Random and Watched. Arena plays
-20 songs against each opposing pair in its round robin.
+Play uses the existing Gacha login. 1v1 Ranked, Song/Artist, 1-Team, NGMC,
+and Hot Potato offer matchmaking and custom lobbies. 1v1 custom lobbies are
+unranked and support Random and Watched.
 The original Quiz tab still uses its existing quiz transport and rewards.
 
 Multiplayer song selection excludes recordings marked as Dub in both Random and Watched pools.

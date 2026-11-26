@@ -12,8 +12,6 @@
 #play-nav a:hover { color:var(--text); background:#1b1e27; }
 #play-nav a[aria-current=page] { color:var(--mint); background:#b6e2c50d; border-color:#b6e2c524; }
 .play-icon { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
-.play-soon-dot { width:4px; height:4px; border-radius:50%; background:#646b7b; margin-left:auto; }
-#play-nav a[aria-current=page] .play-soon-dot { background:var(--mint); }
 .play-crosslinks { margin-top:auto; padding:30px 12px 0; display:grid; gap:16px; font-size:11px; color:var(--muted); }
 .play-crosslinks a { display:flex; justify-content:space-between; }
 .play-crosslinks a:hover { color:var(--text); }
@@ -79,7 +77,6 @@ html:has(> .play-viewport, > .play-site #play-mobile-menu[open]) { overflow:hidd
 }
 @media (prefers-reduced-motion:reduce) { .play-site #play-nav a { transition:none; } }
 
-#play-nav a[aria-disabled=true] { opacity:.4;cursor:not-allowed;background:none;border-color:transparent;color:var(--muted); }
 
 .play-leaderboard { padding:clamp(14px,3vw,28px); border:1px solid var(--border); background:var(--panel); border-radius:12px; }
 .play-leaderboard label { display:grid; gap:5px; max-width:220px; }
