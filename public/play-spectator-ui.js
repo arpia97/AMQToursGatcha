@@ -1,9 +1,10 @@
+import {playSongProgressHTML} from './play-song-progress.js';
 import {potatoTeams} from './hot-potato-ui.js';
 import {openMatchChat} from './play-match-chat.js';
 import {poolName} from './play-pool.js';
 import {createSongListDialog} from './play-song-dialog.js';
 import {songBroadcastLayout,songTeamsHTML,recapHTML,teamLivesHTML,updateRoundDial,versusHTML} from './play-round-ui.js?v=stable-round-layout';
-import {ngmcArena,ngmcTeams,ngmcTrack,ngmcProgress} from './ngmc-ui.js?v=guesses-above-input';
+import {ngmcArena,ngmcTeams,ngmcTrack} from './ngmc-ui.js?v=guesses-above-input';
 import {pointsBoard} from './play-lobby-ui.js?v=compact-team-guesses';
 import {broadcastResults} from './play-match-results.js';
 import {arenaBoard} from './play-arena-ui.js';
@@ -213,10 +214,10 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
       state.potatoes?potatoTeams(state,esc):ngmc?ngmcTeams(state,esc):songTeamsHTML(state,esc));
     if(ngmc){
       setMarkup('.ngmc-track',ngmcTrack(revealed,esc,animeTitle));
-      setMarkup('.ngmc-progress',ngmcProgress(state,esc,animeTitle));
     }else{
       setMarkup('.sa-reveal-wrap',revealed?recapHTML(state,esc,animeTitle)+(state.potatoes||state.format===ONE_TEAM_FORMAT?'':versusHTML(state,revealed,esc)):'');
     }
+    if(!finished)setMarkup('.play-song-progress',playSongProgressHTML(state,esc,animeTitle));
     songList.update(state);audioNotice();tick();
   }
 

@@ -1,3 +1,4 @@
+import {playSongProgressHTML} from './play-song-progress.js';
 import {POTATO_FORMAT,POTATO_COOP,isPotato,isPotatoCoop,potatoLabel,canAnswerPotato} from './hot-potato.js';
 import {potatoTeams,potatoTurn} from './hot-potato-ui.js';
 import {autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
@@ -20,7 +21,7 @@ import {openMatchChat} from './play-match-chat.js';
 import {createPlaySoundCues,roundSoundCues} from './play-sound-cues.js?v=team-skip-audio';
 import {preparationLabel,percentDone} from './play-setup-progress.js';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
-import {ngmcTeams,ngmcControls,ngmcProgress,ngmcArena,ngmcTrack,createCounterDialog} from './ngmc-ui.js?v=guesses-above-input';
+import {ngmcTeams,ngmcControls,ngmcArena,ngmcTrack,createCounterDialog} from './ngmc-ui.js?v=guesses-above-input';
 import {createQuizAudioCache} from './quiz-audio-cache.js';
 import {createSealedAudioCache,silentPlayAudio} from './play-audio-cache.js';
 import {PLAY_AUDIO_PROTOCOL, defaultPlayGuessSeconds} from './play-audio-format.js';
@@ -887,8 +888,8 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
       updateMarkup(scoreboard,arenaBoard(match,esc));
       if(open)scoreboard.querySelector('details').open=true;
     }else updateMarkup(scoreboard,match.phase==='finished'?(match.lobby||oneTeam()||match.potatoes||match.format==='ngmc-3v3'?pointsBoard(match,esc):matchLeaderboard(match,esc)):teamHTML());
-    const progress=ranked()&&root.querySelector('.ngmc-progress');
-    if(progress)updateMarkup(progress,ngmcProgress(match,esc,animeTitle));
+    const progress=root.querySelector('.play-song-progress');
+    if(progress)updateMarkup(progress,playSongProgressHTML(match,esc,animeTitle));
     const status=root.querySelector('.sa-round-status');if(!status)return;
     if(match.format===ONE_TEAM_FORMAT)updateMarkup(root.querySelector('.one-team-mobile-lives'),teamLivesHTML(match.teams[0],oneTeamRules.lives));
     const me=player(),indices=loaded();

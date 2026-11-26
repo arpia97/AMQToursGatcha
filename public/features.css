@@ -5810,15 +5810,15 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
   box-shadow: 0 0 0 2px #f2cf7618, 0 0 10px #f2cf7626;
 }
 .quiz-progress-square:has(.song-progress-trigger),
-.ngmc-progress i:has(.song-progress-trigger) { position:relative; }
+.play-song-progress i:has(.song-progress-trigger) { position:relative; }
 .song-progress-trigger {
   position:absolute; inset:0; width:100%; padding:0; border:0; border-radius:inherit;
   background:transparent; cursor:pointer; -webkit-tap-highlight-color:transparent;
 }
-.ngmc-progress .song-progress-trigger { inset:-5px 0; }
+.play-song-progress .song-progress-trigger { inset:-5px 0; }
 .song-progress-trigger:focus-visible { outline:none; }
 .quiz-progress-square:has(.song-progress-trigger:is(:focus-visible,[aria-expanded=true])),
-.ngmc-progress i:has(.song-progress-trigger:is(:focus-visible,[aria-expanded=true])) {
+.play-song-progress i:has(.song-progress-trigger:is(:focus-visible,[aria-expanded=true])) {
   outline:2px solid #e6eaf2; outline-offset:2px;
 }
 .detail-popover.song-progress-popover {
@@ -5839,6 +5839,24 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
   display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 12px;
   color:#adb6ca; font:700 11px/1.2 Consolas,monospace; letter-spacing:.06em; text-transform:uppercase;
 }
+.song-progress-popover[data-lobby] { --song-progress-header:#242936; }
+.song-progress-popover[data-lobby]::after { background:var(--song-progress-header); }
+.song-progress-popover[data-lobby] .song-progress-head {
+  padding:10px 12px;
+  background:var(--song-progress-header); border-bottom:1px solid #373d49;
+  border-radius:8px 8px 0 0;
+}
+.song-progress-popover[data-lobby] .song-progress-head > span {
+  color:#e1e6ef; font-size:17px; line-height:1.15;
+}
+.song-progress-popover[data-lobby] .song-progress-track { padding-top:10px; }
+.song-progress-status { text-align:right; }
+.song-progress-lobby:not([hidden]) {
+  display:block; margin-top:4px; font:500 10px/1.2 Inter,'Segoe UI',sans-serif;
+  letter-spacing:0; text-transform:none; font-variant-numeric:tabular-nums;
+}
+.song-progress-popover[data-result=revealed] { --song-progress-color:#adb6ca; }
+.song-progress-answer[hidden] { display:none; }
 .song-progress-head strong { color:var(--song-progress-color); font-family:Inter,'Segoe UI',sans-serif; letter-spacing:0; text-transform:none; }
 .song-progress-track { display:grid; gap:4px; padding:0 12px 10px; }
 .song-progress-track strong { font-size:14px; }

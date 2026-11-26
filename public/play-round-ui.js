@@ -26,7 +26,7 @@ export function songBroadcastLayout(match,{tiles='',answerForm='',skipButton='',
     (survival?'<div class="one-team-mobile-lives"></div>':'')+'</div>'+roundDialHTML+'</header>'+
     '<div class="song-broadcast-body">'+ready+'<div class="sa-reveal-wrap"></div>'+
     '<div class="sa-shared-wrap"></div>'+(survival?'':tiles)+answerForm+skipButton+
-    '</div></section>'+(arena?scoreboard:'')+'</div>'+'<div class="sa-match-audio-footer">'+download+resumeAudio+'</div>';
+    '<div class="play-song-progress" aria-label="Song progress"></div></div></section>'+(arena?scoreboard:'')+'</div>'+'<div class="sa-match-audio-footer">'+download+resumeAudio+'</div>';
 }
 export function updateRoundDial(dial,match,now){
   const guessing=match.phase==='guess',counting=match.phase==='counting';

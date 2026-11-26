@@ -1,7 +1,6 @@
 import {rigCount} from './play-rig-count.js';
 import {comparePlayTier as byTier, NGMC_COUNTER_SIGNUP_MS, ngmcCounterDeadline, ngmcCounterSignupOpen, ngmcCanTakeOverCounting} from './play-mode-rules.js';
 import {playPlayerAvatar} from './play-avatar.js';
-import {songProgressTrigger} from './detail-popover.js';
 import {animeTitlesHTML,artistCreditsHTML,roundDialHTML,teamLivesHTML} from './play-round-ui.js?v=guesses-above-input';
 const num=n=>Math.round(n).toLocaleString('en-US');
 const counterIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 11h2m4 0h2m-8 4h2m4 0h2"/></svg>';
@@ -120,7 +119,7 @@ export function ngmcArena(match,form){
     '<div class="ngmc-on-air"><div class="ngmc-track"></div>'+roundDialHTML+'</div>'+
     '<div class="ngmc-console-body"><div class="ngmc-action-area"><div class="ngmc-input-wrap">'+form+'</div>'+
     '<div class="sa-ready-wrap"></div><div class="sa-shared-wrap"></div></div>'+
-    '<div class="ngmc-progress" aria-label="Song progress"></div></div></section></div>'+
+    '<div class="play-song-progress ngmc-progress" aria-label="Song progress"></div></div></section></div>'+
     '<div class="sa-download-status ngmc-download"></div>';
 }
 export function ngmcTrack(row,esc,animeTitle){
@@ -170,20 +169,4 @@ export function ngmcControls(match,esc) {
     html+='<div class="ngmc-round-outcome '+(mine&&!other?'gain':other&&!mine?'loss':'')+'">'+(mine&&other?'Both Teams Countered':mine?'Opponent Loses a Life':other?'Your Team Loses a Life':'No Lives Lost')+'<span class="ngmc-life-score">'+match.teams[me.team]+' – '+match.teams[1-me.team]+' lives</span>'+(row.reset?.length?'<small>'+row.reset.map(t=>t===me.team?'Your team’s guesses refilled':'Opponents’ guesses refilled').join(' · ')+'</small>':'')+'</div>';
   }
   return html;
-}
-export function ngmcProgress(match,esc,animeTitle) {
-  const revealed=new Map(match.history.map(row=>[row.index,row]));
-  return Array.from({length:match.total},(_,index)=>{
-    const row=revealed.get(index);
-    const own=row?.results.find(result=>result.id===match.me);
-    if(!own){
-      if(row&&!match.me)return '<i class="hit" title="'+esc(animeTitle(row))+'"></i>';
-      return '<i class="'+(index===match.index?'current':'')+'" title="Song '+(index+1)+'"></i>';
-    }
-    const correct=!!own.correct.anime;
-    return '<i class="'+(correct?'hit':'miss')+'">'+songProgressTrigger(match.id,index,{
-      title:row.song, artist:row.artist, anime:animeTitle(row), answer:own.answers.anime,
-      result:correct?'Correct':'Incorrect', correct,
-    },esc)+'</i>';
-  }).join('');
 }

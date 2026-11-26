@@ -9,20 +9,29 @@ export function songProgressTrigger(scope, index, details, escape) {
 
 function fillSongPopover(tip, details) {
   tip.classList.add("song-progress-popover");
-  tip.dataset.result = details.partial ? "partial" : details.correct ? "correct" : "incorrect";
-  tip.innerHTML = '<div class="song-progress-content"><header class="song-progress-head"><span></span><strong></strong></header>' +
+  tip.dataset.result = details.spectator ? "revealed" : details.partial ? "partial" : details.correct ? "correct" : "incorrect";
+  tip.innerHTML = '<div class="song-progress-content"><header class="song-progress-head"><span></span><div class="song-progress-status"><strong></strong><span class="song-progress-lobby" hidden></span></div></header>' +
     '<div class="song-progress-track"><strong></strong><span></span><span></span></div>' +
-    '<div class="song-progress-answer"><span>Your Answer</span><strong></strong></div></div>';
-  const [number, result, title, artist, anime, answer] = tip.querySelectorAll(
-    ".song-progress-head > *, .song-progress-track > *, .song-progress-answer > strong",
+    '<div class="song-progress-answer"><span></span><strong></strong></div></div>';
+  const [number, result, lobby, primary, secondary, tertiary, answerLabel, answer] = tip.querySelectorAll(
+    ".song-progress-head > span, .song-progress-status > *, .song-progress-track > *, .song-progress-answer > *",
   );
   number.textContent = details.song;
-  result.textContent = (details.partial ? "" : details.correct ? "✓ " : "× ") + details.result;
-  title.textContent = details.title || "Unknown Song";
-  artist.textContent = details.artist || "";
-  artist.hidden = !details.artist;
-  anime.textContent = details.anime || "";
-  anime.hidden = !details.anime;
+  result.textContent = (details.spectator || details.partial ? "" : details.correct ? "✓ " : "× ") + details.result;
+  tip.toggleAttribute("data-lobby", !!details.lobbyScore);
+  if (details.lobbyScore) {
+    lobby.textContent = "Lobby Guesses " + details.lobbyScore.correct + "/" + details.lobbyScore.total;
+    lobby.hidden = false;
+  }
+  answerLabel.textContent = details.teamAnswer ? "Team Answer" : "Your Answer";
+  answerLabel.parentElement.hidden = !!details.spectator;
+  const songTitle = details.title || "Unknown Song";
+  const animeFirst = !!details.lobbyScore && !!details.anime;
+  primary.textContent = animeFirst ? details.anime : songTitle;
+  secondary.textContent = (animeFirst ? songTitle : details.artist) || "";
+  tertiary.textContent = (animeFirst ? details.artist : details.anime) || "";
+  secondary.hidden = !secondary.textContent;
+  tertiary.hidden = !tertiary.textContent;
   if (details.answerFields?.length) {
     const rows = details.answerFields.map(field => {
       const row = tip.ownerDocument.createElement("strong");
