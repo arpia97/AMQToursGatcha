@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Speed Showdown removal
+
+Runtime 52d371a deployed as Worker 93582503-8fcb-4dc3-a348-dfd85970a57e. Removed the Speed Showdown route, navigation item, and Quick Join placeholder. Focused route and Worker tests, syntax checks, and the dry-run build passed. Production desktop and mobile Chrome rendered the expected navigation links and Quick Join entries. Verified Overview and Quiz return 200, the retired route returns 404 with or without a trailing slash, and the five deployed assets match the release files.
+
 ## Arena retirement and Pick’em recovery
 
 Runtime 0343bae deployed as Worker 09289b7d-7ed0-4c95-9fa5-73a265e40566. Play no longer offers 2v2 Arena in navigation, Quick Join, matchmaking, or custom lobby creation. Verified the old route returns 404, Overview returns 200, and the three public assets match the release. All 656 tests passed.
