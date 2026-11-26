@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Multiplayer song progress tooltips
+
+Runtime 89bb45e deployed as Worker 31391c63-fb6e-41ac-ad59-41845a37148e. Multiplayer progress tooltips show the result and lobby guess count in a shaded header, followed by anime, song and artist. The count includes each player with at least one correct enabled field. All 656 tests passed. Verified the four live Play routes, matched all eight production assets to the release files, and tested the shipped tooltip in NGMC and Song/Artist browser fixtures.
+
 ## Speed Showdown removal
 
 Runtime 52d371a deployed as Worker 93582503-8fcb-4dc3-a348-dfd85970a57e. Removed the Speed Showdown route, navigation item, and Quick Join placeholder. Focused route and Worker tests, syntax checks, and the dry-run build passed. Production desktop and mobile Chrome rendered the expected navigation links and Quick Join entries. Verified Overview and Quiz return 200, the retired route returns 404 with or without a trailing slash, and the five deployed assets match the release files.
