@@ -9,7 +9,7 @@ import {DUEL_FORMAT, duelRules, ONE_TEAM_FORMAT, ONE_TEAM_MODE, oneTeamRules, ma
 import {ARENA_FORMAT, arenaRules} from './play-arena-config.js';
 import {activeRankedGame,inactivityBanMessage,leaveWarning,RANKED_LEAVE_COST,songRatingPools} from './ngmc-leave-policy.js';
 import {readGuessFields,autoReadyHTML,lobbyDirectoryHTML,lobbyDialog,roomLobby,lobbyModeNames,pointsBoard,ballotHTML,updateMatchVoteDialog} from './play-lobby-ui.js?v=studio';
-import {broadcastResults} from './play-match-results.js';
+import {broadcastResults,studioWinnerText} from './play-match-results.js';
 import {matchLeaderboard} from './play-rankings.js';
 import {songTeamsHTML,answerSideHTML,versusHTML,readyHTML,recapHTML,songBroadcastLayout,teamLivesHTML,updateRoundDial} from './play-round-ui.js?v=stable-round';
 import {roundAudio} from './play-round-audio.js';
@@ -841,7 +841,9 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   function winnerText(){if(match.potatoes&&match.teams.length===1)return match.teams[0]?'Your team survived':'Your team ran out of lives';
     if(match.format===ONE_TEAM_FORMAT)return match.teams[0]?'Your team survived':'Your team ran out of lives';
     if(duel()&&match.players.some(p=>p.left&&p.id!==match.me)&&match.history.length<match.total)return 'You won by forfeit';
-    if(duel()&&player().left&&match.history.length<match.total)return 'You forfeited';if(match.format==='lobby-ffa'){if(match.lobby?.studio&&match.teams.length===1)return match.lobby.studio.scoring==='Lives'?(match.teams[0]?'You survived':'Out of lives'):'You scored '+player().score+' points';const best=Math.max(...match.teams);return match.teams[player().team]===best?(match.teams.filter(v=>v===best).length>1?'Tied for First':'You won'):'You lost';}if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=soloVersus(match.format)?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
+    if(duel()&&player().left&&match.history.length<match.total)return 'You forfeited';
+    if(match.format==='lobby-ffa')return studioWinnerText(match,player());
+    if(match.teams.length===1)return 'Your team scored '+match.teams[0]+' points.';const mine=match.teams[player().team],other=match.teams[1-player().team];const subject=soloVersus(match.format)?'You':'Your team';return mine===other?'A tie!':subject+(mine>other?' won':' lost');}
   function render(){
     if(!active)return;
     root.classList.toggle('sa-match-layout',!!match);

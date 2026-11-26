@@ -1,6 +1,6 @@
 import {arenaStandings} from './play-arena.js';
 import {matchRecords} from './play-records.js';
-import {ONE_TEAM_FORMAT} from '../public/play-mode-rules.js';
+import {ONE_TEAM_FORMAT,studioTeamsMatch,freeForAllMatch} from '../public/play-mode-rules.js';
 
 import {sharedSongFormat, teamSongResult} from '../public/play-team-song.js';
 
@@ -23,15 +23,17 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   const players = state.players.map(({id, team, score, left, elo}) => {
     let outcome = left ? 'Left' : outcomes.get(id);
     if (!outcome && state.format === ONE_TEAM_FORMAT) outcome = state.teams[0] > 0 ? 'Survived' : 'OutOfLives';
-    if (!outcome && state.teams.length === 2 && !placements && state.format !== 'lobby-ffa') {
+    if (!outcome && studioTeamsMatch(state) && state.teams.length===1 && state.lobby.studio.scoring==='Lives')
+      outcome=state.teams[0]>0?'Survived':'OutOfLives';
+    if (!outcome && state.teams.length === 2 && !placements && !freeForAllMatch(state)) {
       const other = state.teams[1 - team];
       outcome = scoreOutcome(state.teams[team], other);
     }
-    const place = placements ? placements.indexOf(team) + 1 : state.format === 'lobby-ffa'
+    const place = placements ? placements.indexOf(team) + 1 : (freeForAllMatch(state)||studioTeamsMatch(state)&&state.teams.length>2)
       ? 1 + state.teams.filter(total => total > state.teams[team]).length : undefined;
-    return {id, score, outcome, place, ratingBefore:elo};
+    return {id, ...(studioTeamsMatch(state)?{team}:{}), score, outcome, place, ratingBefore:elo};
   });
-  const summary = {teams:state.teams,arena:state.arena?{songsPerFixture:state.arena.songsPerFixture,
+  const summary = {teams:state.teams,...(studioTeamsMatch(state)?{studioTeams:true}:{}),arena:state.arena?{songsPerFixture:state.arena.songsPerFixture,
     rounds:state.arena.rounds.map(fixtures=>fixtures.map(({home,away,scores,complete,forfeits})=>({home,away,scores,complete,forfeits})))}:null,pool: state.pool ?? state.lobby?.pool, ended, players, rounds: state.history.length};
   storage.transactionSync(() => {
     sql.exec('CREATE TABLE IF NOT EXISTS play_history_rounds(idx INTEGER PRIMARY KEY,data TEXT NOT NULL)');
@@ -55,13 +57,19 @@ export function readPlayHistory(storage, state, player, includeSongs, format = s
     stored = load();
   }
   if (stored) {
-    const {pool, ended, players, rounds} = JSON.parse(stored.data);
+    const summary=JSON.parse(stored.data);
+    const {pool, ended, players, rounds}=summary;
+    const studioTeams=summary.studioTeams||!!(state&&studioTeamsMatch(state));
+    const roster=state?.players??players;
+    const team=studioTeams?roster.find(p=>p.id===player)?.team:undefined;
+    const teammates=studioTeams&&includeSongs&&team!=null?new Set(roster.filter(p=>p.team===team).map(p=>p.id)):null;
     const entry = players.find(row => row.id === player);
     if (!entry) return null;
     const songs = includeSongs ? sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().flatMap(({data}) => {
       const round = JSON.parse(data);
       const result = round.results.find(row => row.id === player);
       if (!result) return [];
+      if(teammates)return [{...songResult(round,result),teamResult:teamSongResult(round.results.filter(r=>teammates.has(r.id)))}];
       if (sharedSongFormat(format)) return [{...songResult(round, result), teamResult: teamSongResult(round.results)}];
       const lobbyScore = {
         correct: round.results.filter(row => row.correct?.anime === true).length,
@@ -69,7 +77,7 @@ export function readPlayHistory(storage, state, player, includeSongs, format = s
       };
       return [{...songResult(round, result), lobbyScore}];
     }) : undefined;
-    return {pool, ended, score: entry.score, outcome: entry.outcome, place: entry.place,
+    return {pool, ended, ...(studioTeams?{studioTeams:true,teamCount:summary.teams.length}:{}), score: entry.score, outcome: entry.outcome, place: entry.place,
       rounds, ...(includeSongs ? {songs} : {})};
   }
   const ended = endedAt();

@@ -179,7 +179,13 @@ export function pointsBoard(match,esc){
   const players=match.players.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
   if(match.lobby?.studio){
     const s=match.lobby.studio, teams=s.format==='Teams';
-    const group=(team)=>players.filter(p=>p.team===team).map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts</span></div>').join('');
+    const viewer=players.find(p=>p.id===match.me);
+    const status=p=>{
+      if(!teams||match.phase!=='guess')return '';
+      const answers=p.locked&&p.team===viewer?.team?matchGuessFields(match).map(field=>p.answers?.[field]).filter(Boolean):[];
+      return '<small>'+esc(p.left?'Left':p.locked?(answers.join(' · ')||'Submitted'):'Answering…')+'</small>';
+    };
+    const group=(team)=>players.filter(p=>p.team===team).map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span>'+status(p)+'<span>'+p.score+' pts</span></div>').join('');
     return '<section class="play-leaderboard"><h2>'+esc(s.name)+'</h2>'+match.teams.map((score,i)=>'<section>'+(teams||s.scoring==='Lives'?'<h3>'+(teams?'Team '+(i+1):esc(players.find(p=>p.team===i)?.name||''))+' · '+score+(s.scoring==='Lives'?' lives':' pts')+'</h3>':'')+group(i)+'</section>').join('')+'</section>';
   }
   return '<section class="play-leaderboard"><h2>'+ (match.phase==='finished'?'Match Leaderboard':'Players')+'</h2>'+players.map(p=>'<div class="lobby-member"><span class="play-player-identity">'+playPlayerAvatar(p,esc)+'<strong>'+esc(p.name)+(p.id===match.me?' · You':'')+'</strong></span><span>'+p.score+' pts'+(p.rigs!=null?' · '+rigCount(p):'')+'</span></div>').join('')+'</section>';

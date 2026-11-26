@@ -1,5 +1,5 @@
-import {sharedSongFormat,teamSongResult} from './play-team-song.js';
-import {matchGuessFields} from './play-mode-rules.js';
+import {sharedSongFormat,teamSongResult,studioTeamResults} from './play-team-song.js';
+import {matchGuessFields,studioTeamsMatch} from './play-mode-rules.js';
 import {animeTitlesHTML} from './play-round-ui.js';
 
 export function createSongListDialog(esc,animeTitle){
@@ -7,7 +7,8 @@ export function createSongListDialog(esc,animeTitle){
   function update(match){
     if(!dialog?.open)return;
     const songs=match.songList||match.history;
-    const ngmc=match.mode==='ngmc-ranked',cooperative=sharedSongFormat(match.format);
+    const ngmc=match.mode==='ngmc-ranked',studioTeams=studioTeamsMatch(match),
+      cooperative=sharedSongFormat(match.format)||studioTeams&&(match.me!=null||match.teams.length===1);
     const rounds=new Map(match.history.map(row=>[row.index,row.results]));
     const spectator=!match.me;
     const shared=cooperative?'<th>Team Result</th>':ngmc?'<th>Lobby Score</th>':'';
@@ -17,7 +18,7 @@ export function createSongListDialog(esc,animeTitle){
       const own=results?.find(player=>player.id===match.me);
       let score;
       if(cooperative){
-        const team=results && teamSongResult(results);
+        const team=results && teamSongResult(studioTeams?studioTeamResults(match,results):results);
         const total=team && Object.keys(team.correct).length;
         const label=!total?'—':total>1?team.earned+' / '+total:team.earned?'✓ Hit':'× Missed';
         score='<td class="sa-lobby-score">'+label+'</td>';

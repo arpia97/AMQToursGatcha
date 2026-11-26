@@ -49,6 +49,8 @@ export function lobbyCapacity(format) {
 
 export const animeOnlyMode = mode => [DUEL_FORMAT, ARENA_FORMAT, 'ngmc-ranked',ONE_TEAM_MODE,VARIETY_MODE].includes(mode);
 export const songArtistFields = Object.freeze(['anime','song','artist']);
+export const studioTeamsMatch = match => match.lobby?.studio?.format === 'Teams';
+export const freeForAllMatch = match => match.format === 'lobby-ffa' && !studioTeamsMatch(match);
 export const isSongArtistLobby = format => format === 'lobby-team' || format === 'lobby-ffa';
 export function matchGuessFields(match) {
   if (isSongArtistLobby(match.format)) return match.lobby?.guessFields ?? songArtistFields;

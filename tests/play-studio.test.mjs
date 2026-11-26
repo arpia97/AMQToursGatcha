@@ -2,6 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {studioLobbySettings,studioTeamAssignments} from '../public/play-studio-rules.js';
 import {makeMatch,gradeRound,advanceMatch} from '../src/play-match-rules.js';
+import {versusHTML,recapHTML} from '../public/play-round-ui.js';
+import {broadcastResults,studioWinnerText} from '../public/play-match-results.js';
+import {pointsBoard} from '../public/play-lobby-ui.js';
+import {playSongProgressHTML} from '../public/play-song-progress.js';
+import {roundSoundCues} from '../public/play-sound-cues.js';
+import {spectatorView} from '../src/play-spectator.js';
+import {matchView} from '../src/play-match-rules.js';
 import {selectStudio,eligibleOccurrence} from '../src/play-studio-selection.js';
 const base={
   name:'Evening',format:'Free-for-all',players:8,teamSize:2,songs:4,scoring:'Count',guessFields:['anime'],lives:2,guess:20,extra:5,
@@ -44,6 +51,94 @@ test('studio teams use the current headcount, balance automatic seats and keep p
   assert.throws(()=>match({format:'Teams',teamSize:9}),/capacity/);
   const single=match({format:'Teams',teamSize:8,scoring:'Lives'});
   grade(single,()=>false);assert.deepEqual(single.teams,[1]);
+});
+
+test('one-team ED lobby keeps a teammate hit shared through guessing, reveal and results',()=>{
+  const settings={format:'Teams',teamSize:8,types:['ED'],categories:{OP:[],ED:['Standard'],IN:[]}};
+  const m=match(settings);
+  const [me,friend]=m.players;
+  assert.ok(m.players.every(p=>p.team===0));
+  assert.ok(eligibleOccurrence(m.lobby.studio,['ED','Standard',false,false,50,null],['TV',8000,8,200,[],[]]));
+  assert.ok(!eligibleOccurrence(m.lobby.studio,['OP','Standard',false,false,50,null],['TV',8000,8,200,[],[]]));
+  m.phase='guess';friend.answers={anime:'Anime'};friend.locked=true;
+  const snapshot=()=>matchView(m,me.id,100);
+  const guessing=snapshot();
+  assert.match(pointsBoard(guessing,String),/<small>Anime<\/small>/);
+  assert.doesNotMatch(pointsBoard(spectatorView(m),String),/<small>Anime<\/small>/);
+  grade(m,p=>p.id===friend.id);
+  const v=snapshot(),row=v.history[0];
+  assert.deepEqual(v.teams,[1]);assert.equal(me.score,0);
+  assert.match(versusHTML(v,row,String),/Your Team/);
+  assert.match(versusHTML(v,row,String),/data-answer-state="correct"/);
+  assert.match(recapHTML(v,String,r=>r.anime),/Team \+1 · You \+0/);
+  assert.match(playSongProgressHTML(v,String,r=>r.anime),/class="hit"/);
+  assert.deepEqual(roundSoundCues(guessing,v),['correct']);
+  assert.equal(studioWinnerText(v,me),'Your team scored 1 point');
+  assert.match(broadcastResults({...v,phase:'finished'},String,r=>r.anime,()=>studioWinnerText(v,me)),/Your team/);
+  assert.equal(spectatorView(m).lobby.studio.format,'Teams');
+});
+
+test('custom reveal groups each side once and hides opponent guesses until reveal',()=>{
+  const m=match({format:'Teams',teamSize:2},Array.from({length:5},(_,i)=>({id:String(i),name:'P'+i,teamChoice:Math.floor(i/2)})));
+  const me=m.players.find(p=>p.team===2),opponent=m.players.find(p=>p.team===0);
+  m.phase='guess';opponent.locked=true;opponent.answers={anime:'Opponent guess'};
+  assert.doesNotMatch(pointsBoard(matchView(m,me.id),String),/Opponent guess/);
+  grade(m,p=>p.team===0);
+  const v=matchView(m,me.id),html=versusHTML(v,v.history[0],String);
+  assert.equal((html.match(/class="sa-side-heading"/g)||[]).length,3);
+  assert.match(playSongProgressHTML(v,String,r=>r.anime),/class="miss"/);
+  assert.equal(studioWinnerText(v,me),'Your team lost');
+  const ffa=match();grade(ffa,()=>true);
+  const fv=matchView(ffa,ffa.players[0].id);
+  assert.match(versusHTML(fv,fv.history[0],String),/>You</);
+  assert.doesNotMatch(versusHTML(fv,fv.history[0],String),/>Your Team</);
+});
+
+test('ED-only team roster survives the queue to match websocket handoff',async t=>{
+  const {playRuntimeFixture}=await import('./play-runtime-fixture.mjs');
+  const {PLAY_AUDIO_PROTOCOL}=await import('../public/play-audio-format.js');
+  const runtime=await playRuntimeFixture({endingSongs:true});
+  const sockets=[];
+  t.after(async()=>{for(const ws of sockets)ws.close();await runtime.dispose();});
+  const baseURL='http://game';
+  const connect=async(cookie,id='')=>{
+    const response=await runtime.dispatchFetch(baseURL+'/api/play-connect?protocol='+PLAY_AUDIO_PROTOCOL+'&match='+id,
+      {headers:{Upgrade:'websocket',Origin:baseURL,Cookie:cookie}});
+    assert.equal(response.status,101);
+    const ws=response.webSocket,messages=[];
+    ws.addEventListener('message',e=>messages.push(JSON.parse(e.data)));
+    ws.accept();sockets.push(ws);
+    return {send:data=>ws.send(JSON.stringify(data)),async wait(predicate){
+      for(let i=0;i<300;i++){
+        const error=messages.find(m=>m.type==='error');if(error)throw Error(error.message);
+        const msg=messages.find(predicate);if(msg)return msg;
+        await new Promise(resolve=>setTimeout(resolve,20));
+      }
+      throw Error('Timed out waiting for lobby or match state');
+    }};
+  };
+  const cookies=await Promise.all([1,2,3].map(async id=>(await (await runtime.dispatchFetch(baseURL+'/api/__test-session?id='+id)).json()).cookie));
+  const queues=await Promise.all(cookies.map(cookie=>connect(cookie)));
+  const host=queues[0];
+  host.send({type:'lobby-create',format:'lobby-ffa',studio:{...base,format:'Teams',teamSize:8,types:['ED'],categories:{OP:[],ED:['Standard'],IN:[]}}});
+  const {code}=await host.wait(m=>m.type==='lobby');
+  for(const guest of queues.slice(1)){
+    guest.send({type:'lobby-join',code});
+    await guest.wait(m=>m.type==='lobby');
+    guest.send({type:'lobby-ready',ready:true});
+  }
+  const lobby=await host.wait(m=>m.type==='lobby'&&m.players.length===3&&m.players.every(p=>p.id===m.host||p.ready));
+  const assignments=Object.fromEntries(lobby.players.map(p=>[p.id,p.team]));
+  assert.deepEqual(Object.values(assignments),[0,0,0]);
+  host.send({type:'lobby-start'});
+  const {match:id}=await host.wait(m=>m.type==='matched');
+  for(const cookie of cookies){
+    const room=await connect(cookie,id);
+    const {state}=await room.wait(m=>m.type==='state');
+    assert.deepEqual(Object.fromEntries(state.players.map(p=>[p.id,p.team])),assignments);
+    assert.deepEqual(state.teams,[0]);
+    assert.deepEqual(state.lobby.studio.types,['ED']);
+  }
 });
 
 test('team lives survive equal hits and misses; only a losing side loses one life',()=>{

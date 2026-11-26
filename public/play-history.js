@@ -13,7 +13,7 @@ const formats = {
 const outcomes = {W: 'Win', L: 'Loss', T: 'Draw', Left: 'Left', Survived:'Survived', OutOfLives:'Out of lives'};
 const dateFormat = new Intl.DateTimeFormat(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
 const dateOf = row => dateFormat.format(row.ended ?? row.date);
-const formatOf = row => formats[row.format] ?? row.format;
+const formatOf = row => row.studioTeams ? (row.teamCount===1?'Custom Lobby · 1-Team':'Custom Lobby · Teams') : formats[row.format] ?? row.format;
 const labels = {anime: 'Anime', song: 'Song', artist: 'Artist'};
 
 export function matchHistoryHTML(matches, escape) {
@@ -32,7 +32,7 @@ export function matchHistoryHTML(matches, escape) {
 
 export function songHistoryHTML(data, escape, titleMode) {
   if (!data.songs?.length) return '<p class="ph-empty">No song results were recorded for this match.</p>';
-  const shared = sharedSongFormat(data.format);
+  const shared = data.studioTeams || sharedSongFormat(data.format);
   const rows = data.songs.map(personal => {
     const known = !shared || !!personal.teamResult;
     const song = shared ? {...personal, earned: 0, correct: {}, answers: {}, ...personal.teamResult} : personal;

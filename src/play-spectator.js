@@ -51,7 +51,9 @@ export function spectatorView(state,compact=false){
     until:Number.isFinite(state.until)?state.until:null,reveal,
     history:(compact?state.history.slice(-1):state.history).map(revealedRound),compact,
     ...(state.potatoes?{potatoes:state.potatoes}:{}),teams:state.teams,teamFields:!!state.teamFields,
-    ...(state.lobby?{lobby:{seconds:state.lobby.seconds,...(state.lobby.guessFields?{guessFields:state.lobby.guessFields}:{})}}:{}),
+    ...(state.lobby?{lobby:{seconds:state.lobby.seconds,...(state.lobby.studio?{studio:{
+      name:state.lobby.studio.name,format:state.lobby.studio.format,scoring:state.lobby.studio.scoring
+    }}:{}),...(state.lobby.guessFields?{guessFields:state.lobby.guessFields}:{})}}:{}),
     counters:state.counters,autoCounting:state.autoCounting,
     ...(state.arena?{arena:{rounds:state.arena.rounds,songsPerFixture:state.arena.songsPerFixture,standings:arenaStandings(state.arena)}}:{}),
     players:state.players.map(p=>({

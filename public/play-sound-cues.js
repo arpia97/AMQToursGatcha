@@ -1,4 +1,4 @@
-import {ONE_TEAM_FORMAT} from './play-mode-rules.js';
+import {ONE_TEAM_FORMAT,studioTeamsMatch} from './play-mode-rules.js';
 
 // Each note specifies frequency in Hz, offset and length in seconds, gain, and an optional waveform.
 const cues = {
@@ -143,7 +143,7 @@ export function roundSoundCues(previous, next) {
   const round = next.history.at(-1);
   const own = round?.index === next.index && round.results.find(result => result.id === next.me);
   const sounds = [];
-  if (grading && round?.index===next.index && (next.potatoes || [ONE_TEAM_FORMAT,'lobby-team','1-team'].includes(next.format))) {
+  if (grading && round?.index===next.index && (next.potatoes || studioTeamsMatch(next) || [ONE_TEAM_FORMAT,'lobby-team','1-team'].includes(next.format))) {
     sounds.push(round.points[player.team]>0?'correct':'incorrect');
   } else if (grading && own) {
     if (next.mode === 'ngmc-ranked' && own.correct.anime && round.results.filter(result => result.correct.anime).length === 1)

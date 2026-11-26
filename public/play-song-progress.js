@@ -1,13 +1,14 @@
 import {songProgressTrigger} from './detail-popover.js';
-import {matchGuessFields} from './play-mode-rules.js';
-import {sharedSongFormat,teamSongResult} from './play-team-song.js';
+import {matchGuessFields,studioTeamsMatch} from './play-mode-rules.js';
+import {sharedSongFormat,teamSongResult,studioTeamResults} from './play-team-song.js';
 
 const fieldLabels={anime:'Anime',song:'Song',artist:'Artist'};
 
 export function playSongProgressHTML(match,escape,animeTitle) {
   const rounds=new Map(match.history.map(row=>[row.index,row]));
   const fields=matchGuessFields(match);
-  const teamAnswer=sharedSongFormat(match.format) || (match.potatoes && match.teams.length===1);
+  const studioTeams=studioTeamsMatch(match);
+  const teamAnswer=studioTeams || sharedSongFormat(match.format) || (match.potatoes && match.teams.length===1);
 
   return Array.from({length:match.total},(_,index)=>{
     const row=rounds.get(index);
@@ -17,7 +18,7 @@ export function playSongProgressHTML(match,escape,animeTitle) {
     }
 
     const own=row.results.find(result=>result.id===match.me);
-    const view=own && teamAnswer ? teamSongResult(row.results) : own;
+    const view=own && teamAnswer ? teamSongResult(studioTeams?studioTeamResults(match,row.results):row.results) : own;
     const hits=fields.filter(field=>view?.correct?.[field]===true).length;
     const correct=hits===fields.length;
     const partial=hits>0 && !correct;

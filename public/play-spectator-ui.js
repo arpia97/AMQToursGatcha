@@ -158,6 +158,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
   function winnerLabel(){
     if(state.potatoes&&state.teams.length===1)return state.teams[0]?'Team survived':'Team ran out of lives';
     if(state.format===ONE_TEAM_FORMAT)return state.teams[0]?'Team survived':'Team ran out of lives';
+    if(state.teams.length===1&&state.lobby?.studio?.scoring==='Lives')return state.teams[0]?'Team survived':'Team ran out of lives';
     if(state.teams.length===1)return 'Team score · '+state.teams[0]+' points';
     const high=Math.max(...state.teams),leaders=state.teams.flatMap((score,team)=>score===high?[team]:[]);
     const remaining=state.players.filter(p=>!p.left);

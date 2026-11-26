@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture({groups=false,media,beforeAudio,songCount=40}={}){
+export async function playRuntimeFixture({groups=false,media,beforeAudio,songCount=40,endingSongs=false}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -76,11 +76,15 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio,songCou
       return worker.fetch(request,env,ctx);
     }};
   `},bundle:true,write:false,format:'esm',platform:'browser',external:['cloudflare:workers']});
-  const songs=Object.fromEntries(Array.from({length:songCount},(_,i)=>{const id=i+1;return [id,{linkedIds:{myanimelist:id+1000,anilist:id+2000},annId:id,type:'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
+  const songs=Object.fromEntries(Array.from({length:songCount},(_,i)=>{const id=i+1;return [id,{linkedIds:{myanimelist:id+1000,anilist:id+2000},annId:id,type:endingSongs?'Ending 1':'Opening 1',annSongId:id,amqSongId:1000+id,title:'Song '+id,artist:groups?'Group '+id:'Artist '+id,audio:'https://eudist.animemusicquiz.com/local-'+id+'.mp3',titles:['Anime '+id,'Alternative '+id]}];}));
   const manifest={schema:1,version:'play-fixture',count:songCount,shards:[0],amq:Object.fromEntries(Object.values(songs).map(s=>[s.amqSongId,[s.annSongId]]))};
   const asset=async request=>{
     const path=new URL(request.url).pathname;
     if(path==='/quiz-library/master-answers.json')return Response.json({version:'fixture-master',records:[[1,'Sheet Anime 1','Alternative 1']],keys:{'a:1001':0}});
+    if(endingSongs&&path==='/quiz-library/studio-metadata.json')return Response.json({
+      songs:Object.fromEntries(Object.keys(songs).map(id=>[id,['ED','Standard',false,false,50,null]])),
+      anime:Object.fromEntries(Object.keys(songs).map(id=>[id,['TV',8000,8,200,[],[]]]))
+    });
     if(path==='/quiz-library/manifest.json')return Response.json(manifest);
     if(path==='/quiz-library/0.json')return Response.json(songs);
     if(path==='/quiz-library/artist-names.json')return Response.json(['Featured Singer']);

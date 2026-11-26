@@ -1,9 +1,9 @@
-import {ONE_TEAM_FORMAT,soloVersus} from './play-mode-rules.js';
+import {ONE_TEAM_FORMAT,soloVersus,studioTeamsMatch,freeForAllMatch} from './play-mode-rules.js';
 import {songResultsHTML} from './play-round-ui.js';
 
 function finalScores(match,me,escapeName){
-  const scores=match.teams,freeForAll=match.format==='lobby-ffa';
-  const unit=match.mode==='ngmc-ranked'||match.potatoes||match.format===ONE_TEAM_FORMAT?'lives':'pts';
+  const scores=match.teams,freeForAll=freeForAllMatch(match);
+  const unit=match.lobby?.studio?.scoring==='Lives'||match.mode==='ngmc-ranked'||match.potatoes||match.format===ONE_TEAM_FORMAT?'lives':'pts';
   const solo=freeForAll||soloVersus(match.format);
   const metric=(label,value)=>'<div><small>'+label+'</small><strong>'+value+' <span>'+unit+'</span></strong></div>';
   if(!me){
@@ -15,8 +15,20 @@ function finalScores(match,me,escapeName){
   }
   let html=metric(solo?'You':'Your team',scores[me.team]);
   if(freeForAll&&scores.length>1)html+=metric('Highest score',Math.max(...scores));
+  else if(studioTeamsMatch(match)&&scores.length>2)html+=scores.map((v,i)=>i===me.team?'':metric('Team '+(i+1),v)).join('');
   else if(scores.length===2)html+=metric(solo?'Opponent':'Opponents',scores[1-me.team]);
   return '<div class="broadcast-final-scores">'+html+'</div>';
+}
+
+export function studioWinnerText(match,me){
+  const subject=studioTeamsMatch(match)?'Your team':'You',scores=match.teams;
+  if(scores.length===1){
+    if(match.lobby?.studio?.scoring==='Lives')return subject+(scores[0]?' survived':' ran out of lives');
+    return subject+' scored '+scores[0]+(scores[0]===1?' point':' points');
+  }
+  const highest=Math.max(...scores);
+  if(scores[me.team]<highest)return subject+' lost';
+  return scores.filter(score=>score===highest).length>1?'Tied for First':subject+' won';
 }
 
 function ngmcHistory(match,me,esc,animeTitle){
