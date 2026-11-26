@@ -1,5 +1,11 @@
 # Shared Status and Handoff
 
+## Arena retirement and Pick’em recovery
+
+Runtime 0343bae deployed as Worker 09289b7d-7ed0-4c95-9fa5-73a265e40566. Play no longer offers 2v2 Arena in navigation, Quick Join, matchmaking, or custom lobby creation. Verified the old route returns 404, Overview returns 200, and the three public assets match the release. All 656 tests passed.
+
+Pick’em 206 was restored under its original event and deadline from the creation, deletion and prediction receipts. All 98 final votes matched. The public board shows the unsettled pick’em. Recovery is complete.
+
 ## Sudden Death restart timing
 
 Runtime 49a93f6 deployed as Worker 9cc30ff1-3b02-4d9c-92cb-0d7b2dc849ce. A recorded miss skips the opening countdown on the rerolled attempt when its audio is ready. All 656 tests passed, including delayed readiness and the initial countdown. The live Play Quiz route returned HTTP 200.
