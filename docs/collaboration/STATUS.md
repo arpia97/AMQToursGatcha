@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Custom lobby teams
+
+Runtime f100ab7 deployed as Worker 2d315fce-3532-42ac-91d2-a6983ad1161c. The custom team roster already survived kickoff. Match displays had interpreted the underlying lobby-ffa format as individual play. Gameplay, song reveals, progress, feedback, results and history now respect the configured teams. Confirmed a three-player endings-only lobby through its local queue and match sockets. All 659 tests passed. Verified the production Custom Lobby route, all 11 shipped browser files, and the team reveal and result on mobile and desktop widths using production assets.
+
 ## Multiplayer song progress tooltips
 
 Runtime 89bb45e deployed as Worker 31391c63-fb6e-41ac-ad59-41845a37148e. Multiplayer progress tooltips show the result and lobby guess count in a shaded header, followed by anime, song and artist. The count includes each player with at least one correct enabled field. All 656 tests passed. Verified the four live Play routes, matched all eight production assets to the release files, and tested the shipped tooltip in NGMC and Song/Artist browser fixtures.
