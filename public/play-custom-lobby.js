@@ -6,7 +6,6 @@ import {mountStudio} from './play-studio.js';
 const modes=[
   ['1v1-ranked','1v1 Duel','2 players · Unranked'],
   ['ngmc-ranked','NGMC','3v3 or 4v4 · Unranked'],
-  ['2v2-arena','2v2 Arena','Round robin'],
   ['song-artist','Song/Artist','Free-for-all'],
   ['one-team','Song/Artist 1-Team','Cooperative'],
   ['variety','Hot Potato','Team VS or 1-Team'],

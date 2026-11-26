@@ -3,7 +3,6 @@ import {playPools, poolFormat} from '../public/play-pool.js';
 import {DUEL_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, queueMode} from '../public/play-mode-rules.js';
 import {duelRatings} from './play-duel-ratings.js';
 import {ARENA_FORMAT, ARENA_LOBBY_FORMAT, arenaRules} from '../public/play-arena-config.js';
-import {arenaBatch} from './play-arena.js';
 import {playRankingPage} from './play-ranking-query.js';
 import {playerHistory} from './play-history.js';
 import {PlayRecords} from './play-records.js';
@@ -471,17 +470,10 @@ export class PlayQueue extends DurableObject {
     let size=PLAY_FORMATS[format].size;
     let rows;
     if(format===ARENA_FORMAT){
-      const waiting=this.rows(`SELECT q.*, COALESCE(p.elo, ?) AS rating FROM queue q
-        LEFT JOIN ${rankingTable} p ON p.player=q.player WHERE q.format=? AND q.pool=? AND q.match IS NULL AND q.expires>?
-        ORDER BY q.joined,q.player LIMIT ?`, arenaRules.startingRating,format,pool,now,arenaRules.maxPlayers);
-      const batch=arenaBatch(waiting,now);
-      if(!batch.size){
-        if(batch.deadline)await this.scheduleQueue(batch.deadline);
-        return;
-      }
-      size=batch.size;
-      rows=waiting.slice(0,size);
-    }else if(format==='ngmc-3v3'){
+      this.ctx.storage.sql.exec('DELETE FROM queue WHERE format=? AND pool=? AND match IS NULL',format,pool);
+      return;
+    }
+    if(format==='ngmc-3v3'){
       const anchor=this.rows(`SELECT p.elo,q.joined FROM queue q JOIN ${rankingTable} p ON p.player=q.player
         WHERE q.format=? AND q.pool=? AND q.match IS NULL AND q.expires>? ORDER BY q.joined,q.player LIMIT 1`,format,pool,now)[0];
       if(!anchor)return;
@@ -525,6 +517,7 @@ export class PlayQueue extends DurableObject {
       this.broadcast();
       await this.lobbies.refreshWatchedPool(this.lobbies.forPlayer(who.id)?.code);
     }else if(message.type==='join'){
+      if(message.format===ARENA_FORMAT)fail('2v2 Arena has been retired.',410);
       if(this.lobbies.forPlayer(who.id))fail('Leave your lobby first.');
       if(who.protocol!==PLAY_AUDIO_PROTOCOL)fail('Refresh Play to load the updated match player.',409);
       if(!Object.hasOwn(PLAY_FORMATS,message.format)||(message.mode!==queueMode(message.format)&&

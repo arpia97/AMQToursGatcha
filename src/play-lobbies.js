@@ -1,5 +1,5 @@
 import {POTATO_LOBBY, POTATO_COOP_LOBBY, isPotato, isPotatoCoop, validPotatoSize, potatoRules} from '../public/hot-potato.js';
-import {ARENA_LOBBY_FORMAT, arenaRules, arenaPlayerCounts} from '../public/play-arena-config.js';
+import {ARENA_LOBBY_FORMAT, arenaPlayerCounts} from '../public/play-arena-config.js';
 import {DUEL_LOBBY_FORMAT, ONE_TEAM_FORMAT, oneTeamRules, duelRules, isSongArtistLobby, songArtistFields, lobbyCapacity, lobbyGameMode} from '../public/play-mode-rules.js';
 import {arenaSongCount} from './play-arena.js';
 import {fail} from './play-match-rules.js';
@@ -22,7 +22,7 @@ export function lobbySettings(data){
   const pool=data.pool??'random';
   if(!['random','watched'].includes(pool))fail('Choose Random or Watched.');
   const selection=pool==='watched'?{pool}:{};
-  if(format===ARENA_LOBBY_FORMAT)return {format,seconds:arenaRules.guessSeconds,...selection};
+  if(format===ARENA_LOBBY_FORMAT)fail('2v2 Arena has been retired.',410);
   if(format==='lobby-ngmc')return {format,songs:35,seconds:20,...selection};
   if ([POTATO_LOBBY,POTATO_COOP_LOBBY].includes(format)) return {format,songs:potatoRules.songs,seconds:potatoRules.seconds,...selection};
   const duel=format===DUEL_LOBBY_FORMAT;
@@ -98,7 +98,7 @@ export class PlayLobbies {
       CASE WHEN l.password_hash IS NULL THEN json_extract(l.settings,'$.guessFields') END AS guessFields,
       (SELECT h.name FROM lobby_members h WHERE h.code=l.code AND h.last_match IS NULL ORDER BY h.rowid LIMIT 1) AS host
       FROM play_lobbies l JOIN lobby_members m ON l.code=m.code WHERE l.match IS NULL
-      AND json_extract(l.settings,'$.rematchOf') IS NULL
+      AND json_extract(l.settings,'$.format') != 'lobby-arena' AND json_extract(l.settings,'$.rematchOf') IS NULL
       GROUP BY l.code HAVING host IS NOT NULL ORDER BY l.rowid DESC`).map(({guessFields,name,capacity,...room}) => {
       if(name)Object.assign(room,{name,capacity});
       if (!room.locked && isSongArtistLobby(room.format)) {
@@ -245,6 +245,7 @@ export class PlayLobbies {
         code=String(message.code).trim().toUpperCase();
         const room=this.queue.rows('SELECT match,password_hash,settings FROM play_lobbies WHERE code=?',code)[0];
         if(!room||room.match||JSON.parse(room.settings).rematchOf||this.roster(code).length>=capacity(JSON.parse(room.settings)))fail('Lobby is unavailable or full.');
+        if(JSON.parse(room.settings).format===ARENA_LOBBY_FORMAT)fail('2v2 Arena has been retired.',410);
         hash=room.password_hash;
         if(hash&&await passwordDigest(message.password??'',hash.split(':')[0])!==hash)fail('Incorrect lobby password.',403);
       }
@@ -280,6 +281,7 @@ export class PlayLobbies {
     }
     if(players[0].id!==who.id)fail('Only the lobby host can do that.',403);
     const settings=JSON.parse(row.settings);
+    if(settings.format===ARENA_LOBBY_FORMAT)fail('2v2 Arena has been retired.',410);
     if(settings.rematchOf&&message.type!=='lobby-start')fail('This rematch uses the same settings.');
     if(message.type==='lobby-password'){
       const hash=await passwordDigest(message.password);

@@ -13,7 +13,6 @@ const chevron='<span aria-hidden="true" class="overview-chevron">›</span>';
 const groups=[
   [DUEL_FORMAT,[[DUEL_FORMAT,'']]],
   ['ngmc-ranked',[['ngmc-ranked','4v4 Ranked'],['ngmc-3v3','3v3 Unranked']]],
-  [ARENA_FORMAT,[[ARENA_FORMAT,'Round Robin']]],
   ['song-artist',[['1v1','1v1'],['3v3','3v3']]],
   [ONE_TEAM_MODE,[[ONE_TEAM_FORMAT,'Survival'],['1-team','Song/Artist']]],
 ];
