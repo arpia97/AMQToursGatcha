@@ -42,6 +42,11 @@ test('Quiz and Play accept verified catalog spellings and preserve distinct anim
     ["Magical Girl Lyrical Nanoha The Movie 2nd A's","Magical Girl Lyrical Nanoha: The Movie 2nd A's",true],
     ["Magical Girl Lyrical Nanoha: The Movie 2nd A's","Magical Girl Lyrical Nanoha The Movie 1st",false],
     ["Magical Girl Lyrical Nanoha: The Movie 2nd A's","Magical Girl Lyrical Nanoha A's",false],
+    ['Akuma-kun','Akuma Kun',true], ['Akuma Kun','Akuma-kun',true],
+    ['Akuma‑kun','Akuma Kun',true], ['Akuma—kun','Akuma Kun',true],
+    ['Akuma-kun: Youkoso Akuma Land e!!','Akuma Kun',false],
+    ['Kizu-darake Seijo yori Houfuku o Komete','Kizu Darake Seijo yori Houfuku o Komete',true],
+    ['Show-','Show',false], ['Show--Time','Show Time',false],
     ['Burn-Up W','Burn Up W',true], ['Burn-Up W','Burn-Up Excess',false],
     ['Yuru Yuri Nachuyachumi!','Yuru Yuri Nachuyachumi!+',false],
     ['Lucky Star','Lucky☆Star',true], ['Lucky☆Star','Lucky Star',true],
@@ -56,6 +61,7 @@ test('Quiz and Play accept verified catalog spellings and preserve distinct anim
   }
 });
 test('anime grading, title registration and team ballots distinguish punctuation-only seasons', () => {
+  assert.deepEqual(mergedTitles(['Akuma-kun'],['Akuma Kun']),['Akuma-kun','Akuma Kun']);
   const first = 'New Game!', second = 'New Game!!';
   const song = {animeTitles:[first], answers:{anime:['newgame']}};
   assert.equal(playFieldMatches(song,'anime',' NEW   GAME！ '),true);

@@ -41,16 +41,27 @@ const starAliases = new Map([
   ["skate-leading☆stars", "skate-leading stars"],
   ["hetalia world★stars", "hetalia world stars"],
 ]);
-const compactStarAliases = new Map([...starAliases].map(([a,b])=>[a.replace(/\s/g,''), b.replace(/\s/g,'')]));
+// A single dash between words is a separator. Preserve terminal and repeated
+// punctuation, including season markers, and Japanese vowel-length marks.
+export const animeWordSeparators = title => title.replace(/(?<=[\p{L}\p{N}])\s*[-‐‑‒–—]\s*(?=[\p{L}\p{N}])/gu,' ');
+// Keep registered labels available in both spellings when merging song sources.
+const registeredStars = new Map([...starAliases].map(([a,b])=>[a.replace(/\s/g,''),b.replace(/\s/g,'')]));
+export function registeredAnimeTitleKey(title){
+  const key=quizAnswerKey(title).replace(/\s/g,'');
+  return registeredStars.get(key)??key;
+}
+const spacedStarAliases = new Map([...starAliases].map(([a,b])=>[animeWordSeparators(a),animeWordSeparators(b)]));
+const compactStarAliases = new Map([...spacedStarAliases].map(([a,b])=>[a.replace(/\s/g,''), b.replace(/\s/g,'')]));
 export function animeAnswerKey(value, compact = false) {
   return normalizedAnimeAnswerKey(quizAnswerKey(value),compact);
 }
 export function normalizedAnimeAnswerKey(key,compact=false) {
+  key = animeWordSeparators(key);
   if (compact) {
     const joined = key.replace(/\s/g,'');
     return compactStarAliases.get(joined) ?? joined;
   }
-  return starAliases.get(key) ?? key;
+  return spacedStarAliases.get(key) ?? key;
 }
 export function quizReward(previous, score, category = "singers") {
   if (
