@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Hyphenated anime answers
+
+Released 01b3412 as Worker 07cab885-8955-4e2c-a5a8-6a68acc9d689. Play and Quiz accept a single dash between words as a space, including Akuma-kun. Checked 9,633 edition IDs and 2,240 spellings containing these separators. The catalog regression detects new cross-edition collisions. All 659 tests passed. Verified the deployed rules asset byte-for-byte and the Quiz and NGMC routes.
+
 ## Custom lobby teams
 
 Runtime f100ab7 deployed as Worker 2d315fce-3532-42ac-91d2-a6983ad1161c. The custom team roster already survived kickoff. Match displays had interpreted the underlying lobby-ffa format as individual play. Gameplay, song reveals, progress, feedback, results and history now respect the configured teams. Confirmed a three-player endings-only lobby through its local queue and match sockets. All 659 tests passed. Verified the production Custom Lobby route, all 11 shipped browser files, and the team reveal and result on mobile and desktop widths using production assets.
