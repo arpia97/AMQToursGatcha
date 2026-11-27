@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Play match exports and ranked history on Quiz profiles
+
+Released runtime fd27f55 as Worker a5acc00b-5beb-4872-906b-61de5b71012e. Play History → Songs downloads the selected finished match in AMQ format or the versioned Gacha stats format. Older archives without retained audio or sample data leave those fields empty. The profile Quiz tab charts Rating and Guess Rate from completed ranked matches, with a compact mode selector and separate Random and Watched pools. All 659 tests passed. Verified both browser downloads, mobile layout at 390px, the shipped live assets, live profile history and the export sign-in requirement.
+
 ## Hyphenated anime answers
 
 Released 8fbbcf6 as Worker c16f4ec3-bac2-480e-8de9-79ed672cd236. Removed automatic dash folding from Play and Quiz. The before-and-after audit found one newly merged pair among registered title labels (Akuma-kun and Akuma Kun), plus 2,055 unregistered space variants in Quiz and 2,049 in Play. The other ten registered dash-variant groups, including Burn-Up W, still match through the edition aliases. Preserve explicit recording answers, including both spellings on Futari. All 659 tests passed. Verified live rules bytes and the Quiz and NGMC routes.
