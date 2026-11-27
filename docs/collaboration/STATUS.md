@@ -2,7 +2,7 @@
 
 ## Hyphenated anime answers
 
-Released 01b3412 as Worker 07cab885-8955-4e2c-a5a8-6a68acc9d689. Play and Quiz accept a single dash between words as a space, including Akuma-kun. Checked 9,633 edition IDs and 2,240 spellings containing these separators. The catalog regression detects new cross-edition collisions. All 659 tests passed. Verified the deployed rules asset byte-for-byte and the Quiz and NGMC routes.
+Released 8fbbcf6 as Worker c16f4ec3-bac2-480e-8de9-79ed672cd236. Removed automatic dash folding from Play and Quiz. The before-and-after audit found one newly merged pair among registered title labels (Akuma-kun and Akuma Kun), plus 2,055 unregistered space variants in Quiz and 2,049 in Play. The other ten registered dash-variant groups, including Burn-Up W, still match through the edition aliases. Preserve explicit recording answers, including both spellings on Futari. All 659 tests passed. Verified live rules bytes and the Quiz and NGMC routes.
 
 ## Custom lobby teams
 
