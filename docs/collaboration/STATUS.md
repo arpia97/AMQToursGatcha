@@ -2,6 +2,8 @@
 
 ## Ranked profile graph trends
 
+Released 99af108 as Worker 60c617a4-c04d-48a0-b053-11316a3ed2ca. Rating tooltips display the signed match change from its rating receipt. Verified gain, loss, neutral and missing values in the browser, checked both receipt tables and verified the live frontend assets. All 659 tests passed.
+
 Released ea2ccee as Worker e6944966-44cc-4f03-9e69-d0b18e63e340. The Show trend checkbox starts unchecked and carries its state across ranked history views until the page reloads. Verified both metrics and mobile layout locally and matched the live profile assets to the release.
 
 Released 8b43c84 as Worker 801de986-0bf3-48c2-9bb0-c65b8126d3d1. The Quiz profile chart shows overall guess rate within each mode and pool, and a linear trend for both metrics when two or more matches have values. Verified the live frontend assets and the 137/682 aggregate for profile 368. Desktop and mobile browser checks covered filtering, keyboard inspection and the empty state.
