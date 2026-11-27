@@ -9,6 +9,7 @@ const modes={
 const view={mode:'ngmc-ranked',pool:'random',metric:'rating',showTrend:false};
 const date=new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'});
 const formatRating=new Intl.NumberFormat(undefined,{maximumFractionDigits:1});
+const formatSmallChange=new Intl.NumberFormat(undefined,{maximumSignificantDigits:1});
 const formatRate=new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1});
 const format=(value,isRate)=>isRate?formatRate.format(value/100):formatRating.format(value);
 
@@ -69,7 +70,16 @@ function bindPlot(root,points,isRate){
     dot.classList.add('active');
     const detail=isRate?' · '+p.correct+' / '+p.possible:'';
     const label='Match '+p.match+' · '+date.format(p.playedAt);
-    tip.innerHTML='<small>'+label+'</small><strong>'+format(p.value,isRate)+detail+'</strong>';
+    let changeText='',changeMarkup='';
+    if(!isRate && Number.isFinite(p.ratingChange)){
+      const amount=Math.abs(p.ratingChange);
+      const direction=Math.sign(p.ratingChange);
+      const sign=direction>0?'+':direction<0?'−':'';
+      const magnitude=(amount<0.05?formatSmallChange:formatRating).format(amount);
+      changeText=' ('+sign+magnitude+')';
+      changeMarkup='<span class="rh-change" data-direction="'+direction+'">'+changeText+'</span>';
+    }
+    tip.innerHTML='<small>'+label+'</small><strong>'+format(p.value,isRate)+detail+changeMarkup+'</strong>';
     tip.hidden=false;
     const x=dot.getAttribute('cx'),y=dot.getAttribute('cy');
     const above=dot.cy.baseVal.value>tip.offsetHeight+12;
@@ -77,7 +87,7 @@ function bindPlot(root,points,isRate){
     tip.style.top=`calc(${y} ${above?'-':'+'} 9px)`;
     tip.style.translate=`-${x} ${above?'-100%':'0'}`;
     surface.setAttribute('aria-valuenow',p.match);
-    surface.setAttribute('aria-valuetext',label+' · '+format(p.value,isRate)+detail);
+    surface.setAttribute('aria-valuetext',label+' · '+format(p.value,isRate)+detail+changeText);
   }
   function hide(){tip.hidden=true;dots[active].classList.remove('active');}
   function inspect(e){

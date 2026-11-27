@@ -39,4 +39,7 @@
 .rh-tip {position:absolute;width:max-content;max-width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:8px 12px;pointer-events:none;box-shadow:0 3px 12px #0005;font-variant-numeric:tabular-nums;}
 .rh-tip strong,.rh-tip small {display:block;}
 .rh-tip strong {margin-top:3px;color:var(--mint);}
+.rh-tip .rh-change {color:var(--muted);}
+.rh-tip .rh-change[data-direction="1"] {color:#8cdeb1;}
+.rh-tip .rh-change[data-direction="-1"] {color:#ff919b;}
 @media(max-width:520px){.rh-switch button {padding:6px 9px;}.rh-scale {width:5ch;}.rh-axis span:nth-child(even) {display:none;}.rh-axis span:last-child {display:block;}}

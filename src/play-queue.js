@@ -313,6 +313,7 @@ export class PlayQueue extends DurableObject {
     return this.rows(`
       SELECT r.format,m.created AS playedAt,
              json_extract(p.value,'$.after') AS rating,
+             coalesce(json_extract(p.value,'$.after') - json_extract(p.value,'$.before'),json_extract(p.value,'$.delta')) AS ratingChange,
              json_extract(p.value,'$.correct') AS correct,
              json_extract(p.value,'$.seen') * CASE WHEN r.format IN ('1v1','1v1-watched') THEN 3 ELSE 1 END AS possible
       FROM play_records r
