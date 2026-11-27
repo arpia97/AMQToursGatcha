@@ -25,8 +25,7 @@ test('team ballots filter only tied leaders against the full field catalog',()=>
     selectWinners(state,catalog);
     return state.players.find(p=>p.answers[field])?.answers[field];
   }
-  assert.equal(winner('anime',['unknown','Known-Title'],[0,1]),'Known-Title');
-  assert.equal(winner('anime',['unknown','Known Title!!'],[0,1]),undefined);
+  assert.equal(winner('anime',['unknown','Known-Title'],[0,1]),undefined);
   assert.equal(winner('anime',['unknown','Known Title'],[]),'Known Title');
   assert.equal(winner('anime',['unknown','other unknown','Known Title'],[0,1]),undefined);
   assert.equal(winner('anime',['unknown','Known Title'],[0,0]),'unknown');

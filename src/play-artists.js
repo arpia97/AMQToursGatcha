@@ -1,9 +1,9 @@
 import {playAnimeGradingKey} from './anime-grading.js';
-import {registeredAnimeTitleKey} from '../public/quiz-rules.js';
+import {animeAnswerKey} from '../public/quiz-rules.js';
 import recordingAliases from './play-artist-recording-aliases.json' with {type:'json'};
 
 // Spaces can vary in typed answers. Keep punctuation and symbols that identify the edition.
-export const animeTitleKey = registeredAnimeTitleKey;
+export const animeTitleKey = value => animeAnswerKey(value, true);
 
 export function playFieldMatches(song, field, value) {
   if (field === 'artist') return song.answers.artist.some(name => artistMatches(name, value, song.artistRules));

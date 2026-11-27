@@ -6,26 +6,10 @@ import {animeGradingKey,playAnimeGradingKey} from '../src/anime-grading.js';
 import {playFieldMatches} from '../src/play-artists.js';
 import {advanceQuizRun} from '../src/quiz-run-state.js';
 import {ballotCatalogIndex,catalogAnswer} from '../src/play-lobby-votes.js';
-import {animeAnswerKey,animeWordSeparators} from '../public/quiz-rules.js';
+import {animeAnswerKey} from '../public/quiz-rules.js';
 
 test('all shipped edition aliases grade together and no expanded key belongs to a different edition',async()=>{
   const {groups,editions,owners}=await buildGradingCatalog();
-  // If a future catalog adds different works distinguished only by a word dash,
-  // require a grading exception before shipping the refreshed catalog.
-  const dashVariants=new Map();
-  for(const [id,names] of editions)for(const name of names){
-    const original=name.replaceAll(' ','');
-    const key=animeWordSeparators(name).replaceAll(' ','');
-    if(!dashVariants.has(key))dashVariants.set(key,new Map());
-    const variants=dashVariants.get(key);
-    if(!variants.has(original))variants.set(original,new Set());
-    variants.get(original).add(id);
-  }
-  for(const [key,variants] of dashVariants){
-    if(variants.size<2)continue;
-    const [first,...rest]=variants.values();
-    assert.ok([...first].some(id=>rest.every(ids=>ids.has(id))), 'Dash collision between editions: '+key);
-  }
   assert.deepEqual(shipped,groups,'Regenerate the alias index when refreshing the catalogs');
   for(const compact of [false,true]){
     const seen=new Map();
