@@ -104,7 +104,7 @@ export function gradeRound(state,now,catalog) {
     if(earned&&studio?.scoring==='Speed')earned=Number((2-Math.min(1,(player.lockedElapsedMs??studio.guess*1000)/(studio.guess*1000))).toFixed(2));
     player.score=Math.round((player.score+earned)*100)/100;
     for(const field of FIELDS)if(correct[field])teamHits[player.team].add(field);
-    return {id:player.id,answers:{...player.answers},correct,earned,autoSubmitted:!!player.autoSubmitted};
+    return {id:player.id,answers:{...player.answers},correct,earned,autoSubmitted:!!player.autoSubmitted,lockedElapsedMs:player.lockedElapsedMs};
   });
   const points=studio?.scoring==='Speed'?state.teams.map((_,team)=>Math.max(0,...results.filter((_,i)=>state.players[i].team===team).map(r=>r.earned))):teamHits.map(hits=>hits.size);
   const survival=state.format===ONE_TEAM_FORMAT;

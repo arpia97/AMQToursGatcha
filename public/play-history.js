@@ -80,7 +80,7 @@ export function openPlayHistory({modal, api, escape, titleMode}) {
     filters.innerHTML = showPicker ? '<label>Match<select aria-label="Match" data-history-picker>' +
       results.matches.map((row, index) => '<option value="' + index + '"' + (index === selected ? ' selected' : '') +
         '>' + escape([formatOf(row), row.pool === 'watched' ? 'Watched' : row.pool === 'random' ? 'Random' : null,
-          dateOf(row)].filter(Boolean).join(' · ')) + '</option>').join('') + '</select></label>' : '';
+          dateOf(row)].filter(Boolean).join(' · ')) + '</option>').join('') + '</select></label><div class="ph-exports"></div>' : '';
     footer.innerHTML = page || results?.next ? '<span>Page ' + (page + 1) + '</span><div>' +
       '<button type="button" class="button secondary" data-history-page="-1"' + (!page ? ' disabled' : '') + '>Newer</button>' +
       '<button type="button" class="button secondary" data-history-page="1"' + (!results?.next ? ' disabled' : '') + '>Older</button></div>' : '';
@@ -89,7 +89,11 @@ export function openPlayHistory({modal, api, escape, titleMode}) {
     if (view === 'matches') { body.innerHTML = matchHistoryHTML(results.matches, escape); return; }
     const id = results.matches[selected].id;
     const detail = details.get(id);
-    if (detail) { body.innerHTML = songHistoryHTML(detail, escape, titleMode); return; }
+    if (detail) {
+      body.innerHTML = songHistoryHTML(detail, escape, titleMode);
+      showExportButtons(detail);
+      return;
+    }
     body.innerHTML = pending('Loading song results…');
     const request = ++revision;
     const ready = data => {
@@ -99,12 +103,46 @@ export function openPlayHistory({modal, api, escape, titleMode}) {
     api('play-history?match=' + encodeURIComponent(id)).then(data => {
       details.set(id, data);
       ready(data);
+      if (panel.isConnected && request === revision && view === 'songs') showExportButtons(data);
       void loadQuizTitleDisplay().then(() => {
         if (!body.querySelector('details[open]') && !body.contains(document.activeElement)) ready(data);
       });
     }).catch(error => {
       if (panel.isConnected && request === revision) showError(error, 'songs');
     });
+  }
+
+  function showExportButtons(detail) {
+    if (!detail.songs?.length) return;
+    filters.querySelector('.ph-exports').innerHTML = '<div role="group" aria-label="Export match"><button type="button" class="button secondary" data-history-export="amq">AMQ JSON</button>' +
+      '<button type="button" class="button secondary" data-history-export="gacha">Gacha JSON</button></div><small role="status"></small>';
+  }
+
+  async function downloadMatch(button) {
+    const format = button.dataset.historyExport;
+    const id = results?.matches[selected]?.id;
+    if (!id || button.disabled) return;
+    const controls = button.closest('.ph-exports');
+    const status = controls.querySelector('[role="status"]');
+    const buttons = controls.querySelectorAll('button');
+    for (const item of buttons) item.disabled = true;
+    status.textContent = 'Preparing download…';
+    try {
+      const data = await api('play-history?' + new URLSearchParams({match:id, export:format}));
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data)], {type:'application/json'}));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = format + '-play-' + id + '.json';
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      status.textContent = '';
+    } catch (error) {
+      status.textContent = error.message || 'Download failed. Try again.';
+    } finally {
+      for (const item of buttons) item.disabled = false;
+    }
   }
 
   function showError(error, retry) {
@@ -129,6 +167,7 @@ export function openPlayHistory({modal, api, escape, titleMode}) {
   panel.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
+    if (button.dataset.historyExport) { void downloadMatch(button); return; }
     const {historyView, historyMatch, historyPage, historyRetry} = button.dataset;
     if (!historyView && historyMatch == null && !historyPage && !historyRetry) return;
     revision++;

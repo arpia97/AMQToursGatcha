@@ -37,7 +37,8 @@ import {
   profileCardPanel,
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
-import {profileQuizPanel} from './profile-quiz-ui.js?v=play-quiz-links';
+import {profileQuizPanel} from './profile-quiz-ui.js?v=ranked-history';
+import {mountRankedHistory} from './ranked-profile-history.js';
 import {friendButton,friendsPanel} from './friends-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
 import { loadOnce, loadStylesheet } from "./route-resources.js";
@@ -780,7 +781,7 @@ const arcadeStyles = ["mahjong.css", "pachinko.css", "adventure.css", "horse-rac
   loadOnce(() => loadStylesheet(new URL(name, import.meta.url), document.querySelector('link[href="card-frames.css"]'))),
 );
 const loadGachaPlayHistory = loadOnce(async () => {
-  const [history] = await Promise.all([import("./play-history.js?v=team-song-result"), loadStylesheet(new URL("play-history.css?v=team-song-result", import.meta.url))]);
+  const [history] = await Promise.all([import("./play-history.js?v=json-export"), loadStylesheet(new URL("play-history.css?v=json-export", import.meta.url))]);
   return history;
 });
 const loadArcadePage = loadOnce(async () => {
@@ -2029,6 +2030,8 @@ function render() {
   }
   tickCountdowns();
   ensureCollectorCounts();
+  const rankedHistory = document.querySelector("[data-ranked-history]");
+  if (rankedHistory) mountRankedHistory(rankedHistory, ui.profileQuizData?.rankedHistory);
   if (route === "arcade") arcadePage?.mount();
   document.title = title + " · AMQ Tours Gatcha";
 }

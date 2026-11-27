@@ -3,6 +3,7 @@ import {matchRecords} from './play-records.js';
 import {ONE_TEAM_FORMAT,studioTeamsMatch,freeForAllMatch} from '../public/play-mode-rules.js';
 
 import {sharedSongFormat, teamSongResult} from '../public/play-team-song.js';
+import {resolveQuizAudio} from '../public/quiz-rules.js';
 
 const HISTORY_META_ID = 6;
 const PAGE_SIZE = 6;
@@ -12,6 +13,47 @@ function songResult(round, result) {
   const {index, anime, song, songType, artist} = round;
   const {earned, correct, answers} = result;
   return {index, anime, song, songType, artist, earned, correct, answers};
+}
+
+function exportTrack(state, index) {
+  const song = state?.songs?.[index];
+  if (!song) return undefined;
+  const position = state.samplePositions?.[index];
+  return {
+    audio: resolveQuizAudio(song.audio),
+    animeTitles: song.animeTitles,
+    annId: song.annId ?? song.exportIds?.annId,
+    annSongId: song.exportIds?.annSongId,
+    amqSongId: song.exportIds?.amqSongId,
+    siteIds: song.exportIds?.siteIds,
+    startPoint: Number.isFinite(position) ? Math.round(position * 100) : null,
+  };
+}
+
+export function readMatchArchive(sql, state) {
+  const stored = sql.exec('SELECT data FROM review_meta WHERE id=?', HISTORY_META_ID).toArray()[0];
+  if (stored) {
+    const rounds = sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().map(({data}) => {
+      const round = JSON.parse(data);
+      if (!round.track && state) round.track = exportTrack(state, round.index);
+      return round;
+    });
+    return {summary:JSON.parse(stored.data), rounds};
+  }
+  const rounds = new Map();
+  for (const row of sql.exec("SELECT player,data FROM review_events WHERE kind='round-result' ORDER BY seq")) {
+    const r = JSON.parse(row.data);
+    if (!Number.isInteger(r.round) || r.round < 1) continue;
+    const index = r.round - 1;
+    if (!rounds.has(index)) {
+      const song = state?.songs?.[index];
+      rounds.set(index, {index, anime:r.anime ?? song?.anime, song:r.song ?? song?.title, artist:r.artist ?? song?.artist,
+        songType:r.songType ?? song?.songType, track:exportTrack(state, index), results:[]});
+    }
+    rounds.get(index).results.push({id:row.player, earned:r.earned, correct:r.correct, answers:r.answers});
+  }
+  const ended = sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at;
+  return {summary:{ended}, rounds:[...rounds.values()].sort((a,b) => a.index - b.index)};
 }
 
 export function preservePlayHistory(storage, state, ended = Date.now()) {
@@ -38,8 +80,8 @@ export function preservePlayHistory(storage, state, ended = Date.now()) {
   storage.transactionSync(() => {
     sql.exec('CREATE TABLE IF NOT EXISTS play_history_rounds(idx INTEGER PRIMARY KEY,data TEXT NOT NULL)');
     for (const {index, anime, song, songType, artist, results, points, lives} of state.history) {
-      const row = {index, anime, song, songType, artist, points, lives,
-        results: results.map(({id, earned, correct, answers}) => ({id, earned, correct, answers}))};
+      const row = {index, anime, song, songType, artist, points, lives, track:exportTrack(state,index),
+        results: results.map(({id, earned, correct, answers, lockedElapsedMs}) => ({id, earned, correct, answers, lockedElapsedMs}))};
       sql.exec('INSERT OR REPLACE INTO play_history_rounds VALUES(?,?)', index, JSON.stringify(row));
     }
     sql.exec('INSERT INTO review_meta VALUES(?,?,0)', HISTORY_META_ID, JSON.stringify(summary));
@@ -123,7 +165,7 @@ export function playedTrackLookup(sql, history = [], rounds) {
   return tracks;
 }
 
-export async function playerHistory(queue, player, {before, match} = {}) {
+export async function playerHistory(queue, player, {before, match, exportFormat} = {}) {
   const participant = "m.status='finished' AND EXISTS (SELECT 1 FROM json_each(m.players) p WHERE json_extract(p.value,'$.id')=?)";
   const records = `SELECT m.id,m.created,m.format,r.outcome FROM match_reviews m
     LEFT JOIN play_records r ON r.match=m.id AND r.player=? WHERE ${participant}`;
@@ -135,6 +177,11 @@ export async function playerHistory(queue, player, {before, match} = {}) {
   };
   if (match) {
     const row = queue.rows(records + ' AND m.id=?', player, player, match)[0];
+    if (row && exportFormat) {
+      const ratings = exportFormat === 'gacha' ? queue.rows(
+        'SELECT data FROM ngmc_results WHERE id=? UNION ALL SELECT data FROM song_results WHERE id=? LIMIT 1', row.id, row.id)[0] : null;
+      return queue.env.PLAY_MATCHES.getByName(row.id).exportHistory(player, exportFormat, ratings ? JSON.parse(ratings.data) : []);
+    }
     return row ? detail(row, true) : null;
   }
   const cursor = before && queue.rows(records + ' AND m.id=?', player, player, before)[0];

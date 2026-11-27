@@ -28,7 +28,7 @@ export function gradeNgmc(state,now) {
   const results=state.players.map(p=>{
     const hit=!p.left&&playFieldMatches(song,'anime',p.answers.anime);
     p.score+=Number(hit);
-    return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit),autoSubmitted:!!p.autoSubmitted};
+    return {id:p.id,answers:{...p.answers},correct:{anime:hit},earned:Number(hit),autoSubmitted:!!p.autoSubmitted,lockedElapsedMs:p.lockedElapsedMs};
   });
   state.history.push({index:state.index,anime:song.anime,animeTitles:song.animeTitles,song:song.title,songType:song.songType,artist:song.artist,artistMembers:song.artistMembers||[song.artist],results});
   state.counts=[null,null];state.phase='counting';state.until=now+8000;

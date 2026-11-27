@@ -8,7 +8,8 @@ import {reviewTimeline} from './play-review-timeline.js';
 import {ReviewHighlights} from './play-review-highlights.js';
 import {ballotCatalogIndex,checkRestart,rematchPlayers,rematchView,voteToRestart} from './play-lobby-votes.js';
 import {matchCreditPlan} from './play-rewards.js';
-import {preservePlayHistory, readPlayHistory, playedTrackLookup} from './play-history.js';
+import {preservePlayHistory, readPlayHistory, readMatchArchive, playedTrackLookup} from './play-history.js';
+import {amqHistoryExport} from './play-history-export.js';
 import {matchRecords,archivedRecords} from './play-records.js';
 import { DurableObject } from 'cloudflare:workers';
 import { quizLibraryRequest } from './quiz-library-actor.js';
@@ -488,20 +489,20 @@ export class PlayMatch extends DurableObject {
   }
   getStatsRecord(ratings){
     const sql=this.ctx.storage.sql;
-    const readMeta=id=>JSON.parse(sql.exec('SELECT data FROM review_meta WHERE id=?',id).toArray()[0]?.data||'null');
-    const meta=readMeta(1);
+    const meta=JSON.parse(sql.exec('SELECT data FROM review_meta WHERE id=1').toArray()[0]?.data||'null');
     if(!meta)return null;
-    const saved=readMeta(6);
-    if(saved)return playRecord(meta,saved,sql.exec('SELECT data FROM play_history_rounds ORDER BY idx').toArray().map(r=>JSON.parse(r.data)),ratings);
-    const rounds=new Map();
-    for(const row of sql.exec("SELECT player,data FROM review_events WHERE kind='round-result' ORDER BY seq")){
-      const r=JSON.parse(row.data);
-      if(!Number.isInteger(r.round)||r.round<1)continue;
-      if(!rounds.has(r.round))rounds.set(r.round,{index:r.round-1,results:[]});
-      rounds.get(r.round).results.push({id:row.player,earned:r.earned,correct:r.correct});
-    }
-    const ended=sql.exec("SELECT at FROM review_events WHERE kind='ended' ORDER BY seq LIMIT 1").toArray()[0]?.at;
-    return playRecord(meta,{ended},[...rounds.values()].sort((a,b)=>a.index-b.index),ratings);
+    const {summary,rounds}=readMatchArchive(sql);
+    return playRecord(meta,summary,rounds,ratings);
+  }
+  exportHistory(player, format, ratings){
+    const state=this.read();
+    if(state && (state.phase!=='finished' || state.aborted))return null;
+    const sql=this.ctx.storage.sql;
+    const meta=JSON.parse(sql.exec('SELECT data FROM review_meta WHERE id=1').toArray()[0]?.data||'null');
+    if(!meta?.players.some(p=>String(p.id)===String(player)))return null;
+    const {summary,rounds}=readMatchArchive(sql,state);
+    if(!rounds.length)return null;
+    return format==='amq' ? amqHistoryExport(meta,rounds,String(player)) : playRecord(meta,summary,rounds,ratings);
   }
   historicalRecords(format,ratings){
     const state=this.read();

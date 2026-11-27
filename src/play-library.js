@@ -311,8 +311,14 @@ export class PlayLibrary {
       const artists=[...new Set((quiz?.artist||sheet?.artist?[performer]:[performer,amq?.artist,...variants.map(s=>s.artist)]).filter(Boolean))];
       const songNames=quiz?.title||sheet?.title?[title]:[title,amq?.title,...variants.map(s=>s.title)];
       const artistRules=recordingArtistRules(artists,data.artist.rules,song.amqSongId,amq?.artist);
-      return {...(buckets.has(index)?{studioBucket:buckets.get(index)}:{}),audio:verifiedAudio.get(index)||data.sources[index],...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
-        songType:pickedType.get(index)||quiz?.type||sheet?.type||song.type,artist:performer,
+      const audio=verifiedAudio.get(index)||data.sources[index];
+      const songType=pickedType.get(index)||quiz?.type||sheet?.type||song.type;
+      const exact=variants.find(row=>fileKey(row.audio)===fileKey(audio)&&row.annId===(pickedAnime.get(index)??song.annId)&&
+        songTypeKey(row.type)===songTypeKey(songType));
+      const exportIds=exact?{annId:exact.annId,annSongId:exact.annSongId,amqSongId:exact.amqSongId,
+        siteIds:{annId:exact.annId,malId:exact.linkedIds?.myanimelist,kitsuId:exact.linkedIds?.kitsu,aniListId:exact.linkedIds?.anilist}}:undefined;
+      return {...(buckets.has(index)?{studioBucket:buckets.get(index)}:{}),audio,...(pickedAnime.has(index)?{annId:pickedAnime.get(index),...(rigOwners?{rigOwners:rigOwners.get(pickedAnime.get(index))}:{})}:{}),anime:animeTitles[0],animeTitles,title,
+        songType,artist:performer,exportIds,
         artistMembers:artistRules[artistKey(performer)]?.composition||[performer],
         answers:{anime:[...new Set(animeTitles.map(animeTitleKey))],song:[...new Set(songNames.filter(Boolean).map(titleKey))],artist:artists},
         artistRules};

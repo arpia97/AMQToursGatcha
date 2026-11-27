@@ -309,6 +309,21 @@ export class PlayQueue extends DurableObject {
     });
     return ratings;
   }
+  rankedProfileHistory(player){
+    return this.rows(`
+      SELECT r.format,m.created AS playedAt,
+             json_extract(p.value,'$.after') AS rating,
+             json_extract(p.value,'$.correct') AS correct,
+             json_extract(p.value,'$.seen') * CASE WHEN r.format IN ('1v1','1v1-watched') THEN 3 ELSE 1 END AS possible
+      FROM play_records r
+      JOIN match_reviews m ON m.id=r.match AND m.status='finished'
+      LEFT JOIN ngmc_results n ON n.id=r.match
+      LEFT JOIN song_results s ON s.id=r.match
+      JOIN json_each(coalesce(n.data,s.data)) p
+      WHERE r.player=? AND r.format IN ('ngmc-ranked','1v1-ranked','1v1','3v3','ngmc-ranked-watched','1v1-ranked-watched','1v1-watched','3v3-watched')
+        AND CAST(json_extract(p.value,'$.id') AS TEXT)=r.player
+      ORDER BY m.created,r.match`,String(player));
+  }
   async rankings(format,page,sort,dir,pool='random',friendIds=null,viewer=null){
     if(this.records.pending()){
       const alarm=await this.ctx.storage.getAlarm();

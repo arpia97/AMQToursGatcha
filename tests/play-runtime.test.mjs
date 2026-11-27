@@ -923,7 +923,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       const history=base+'/api/play-history',detail=history+'?match='+id;
       const owned={headers:{Cookie:cookies[0]}};
       assert.equal((await mf.dispatchFetch(history)).status,401);
+      assert.equal((await mf.dispatchFetch(detail+'&export=amq')).status,401);
       assert.equal((await mf.dispatchFetch(detail,{headers:{Cookie:cookies[2]}})).status,404);
+      assert.equal((await mf.dispatchFetch(detail+'&export=gacha',{headers:{Cookie:cookies[2]}})).status,404);
+      assert.equal((await mf.dispatchFetch(history+'?export=amq',owned)).status,400);
+      assert.equal((await mf.dispatchFetch(detail+'&export=other',owned)).status,400);
       const page=await (await mf.dispatchFetch(history,owned)).json();
       const summary=page.matches.find(row=>row.id===id);
       assert.equal(summary.outcome,'W');
@@ -936,6 +940,29 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       assert.deepEqual(archived.songs[0],{index:0,anime:song.anime,song:song.title,songType:'Opening 1',artist:song.artist,
         earned:1,correct:{anime:true},answers:{anime:song.anime},lobbyScore:{correct:1,total:2}});
       assert.equal(archived.pool,'random');
+      const amqResponse=await mf.dispatchFetch(detail+'&export=amq',owned);
+      assert.equal(amqResponse.headers.get('Content-Disposition'), 'attachment; filename="amq-play-'+id+'.json"');
+      const amq=await amqResponse.json();
+      assert.equal(amq.songs.length,archived.songs.length);
+      assert.deepEqual(Object.keys(amq),['roomName','startTime','songs']);
+      assert.equal(amq.songs[0].songInfo.songName,song.title);
+      assert.equal(amq.songs[0].songInfo.type,1);
+      assert.equal(amq.songs[0].songInfo.typeNumber,1);
+      assert.equal(amq.songs[0].songInfo.annSongId,song.exportIds.annSongId);
+      assert.match(amq.songs[0].videoUrl,/\.mp3$/);
+      assert.equal(amq.songs[0].correctGuessPlayers[0].name,'Local Player 1');
+      assert.equal(amq.songs[0].incorrectGuessPlayers[0].name,'Local Player 2');
+      assert.ok(!JSON.stringify(amq).includes('decoy'));
+      const {quizImportRows}=await import('../public/quiz-rules.js');
+      assert.equal(quizImportRows(amq)[0].audio,amq.songs[0].videoUrl);
+      const gachaResponse=await mf.dispatchFetch(detail+'&export=gacha',owned);
+      assert.equal(gachaResponse.headers.get('Content-Disposition'), 'attachment; filename="gacha-play-'+id+'.json"');
+      const gacha=await gachaResponse.json();
+      assert.equal(gacha.schemaVersion,1);
+      assert.equal(gacha.id,'play:'+id);
+      assert.equal(gacha.players.find(p=>p.id==='1').ratingAfter,1016);
+      assert.deepEqual(Object.fromEntries(gacha.songs[0].results.map(r=>[r.playerId,r.correct.anime])),{'1':true,'2':false});
+      assert.ok(!('videoUrl' in gacha.songs[0]));
     }
     for(const connection of [...queues,...rooms])connection.ws.close();
 

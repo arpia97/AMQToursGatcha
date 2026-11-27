@@ -24,10 +24,14 @@
 .ph-tabs { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: #15171f; }
 .ph-tabs button { padding: 7px 16px; border-radius: 5px; border: 0; color: var(--muted); background: transparent; }
 .ph-tabs button[aria-pressed="true"] { color: #111c17; background: #b2dfc6; font-weight: 700; }
-.ph-filters { padding: 12px 22px 0; }
+.ph-filters { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; padding: 12px 22px 0; }
 .ph-filters:empty,.ph-footer:empty { display: none; }
-.ph-filters label { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--muted); font-size: 12px; }
+.ph-filters label { display: flex; align-items: center; gap: 12px; max-width: 100%; margin: 0; color: var(--muted); font-size: 12px; }
 .ph-filters select { width: min(100%, 410px); min-width: 0; min-height: 36px; margin: 0; }
+.ph-exports:empty,.ph-exports small:empty { display: none; }
+.ph-exports > div { display: flex; gap: 6px; }
+.ph-exports small { display: block; margin-top: 4px; }
+.ph-exports .button { min-height: 36px; padding: 5px 10px; white-space: nowrap; }
 .ph-body { overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 14px 22px; }
 .ph-matches { display: grid; gap: 6px; }
 .ph-match {

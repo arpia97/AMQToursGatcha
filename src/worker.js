@@ -1391,13 +1391,14 @@ export class Game extends DurableObject {
       if(path==='play-history'){
         if(!session)fail('Sign in to see your Play history.',401);
         this.bursts.take('play-history:'+session.player,12,2);
-        const match=url.searchParams.get('match'),before=url.searchParams.get('before');
+        const match=url.searchParams.get('match'),before=url.searchParams.get('before'),exportFormat=url.searchParams.get('export');
         const valid=id=>!id||/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(id);
         if(!valid(match)||!valid(before))fail('Choose a valid match.',400);
+        if(exportFormat!==null&&(!match||!['amq','gacha'].includes(exportFormat)))fail('Choose a match and JSON format.',400);
         const queue=this.env.PLAY_QUEUE.getByName('play-queues-v1');
-        const data=await queue.playerHistory(session.player,{before,match});
+        const data=await queue.playerHistory(session.player,{before,match,exportFormat});
         if(!data)fail('Match history is unavailable.',404);
-        return json(data);
+        return json(data,200,exportFormat?{'Content-Disposition':`attachment; filename="${exportFormat}-play-${match}.json"`}:{});
       }
       if(path==='play-watch'){
         if(!session)fail('Sign in to watch matches.',401);
@@ -1879,7 +1880,14 @@ export class Game extends DurableObject {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
       const id=e.resolvePlayer(text(url.searchParams.get("id"),100));
       e.player(id);
-      return json(e.quiz.profileStats(id));
+      const stats=e.quiz.profileStats(id);
+      try {
+        stats.rankedHistory=await this.env.PLAY_QUEUE.getByName('play-queues-v1').rankedProfileHistory(id);
+      } catch(error) {
+        console.error('Ranked profile history unavailable',error);
+        stats.rankedHistory=null;
+      }
+      return json(stats);
     }
     if (path === "player" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
