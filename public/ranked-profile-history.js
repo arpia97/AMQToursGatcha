@@ -17,24 +17,43 @@ function switches(key,choices,label){
     `<button type="button" data-key="${key}" data-value="${value}" aria-pressed="${view[key]===value}">${name}</button>`).join('')}</div>`;
 }
 
+function trendEndpoints(points){
+  if(points.length<2)return [];
+  const meanMatch=points.reduce((sum,p)=>sum+p.match,0)/points.length;
+  const meanValue=points.reduce((sum,p)=>sum+p.value,0)/points.length;
+  let covariance=0,variance=0;
+  for(const p of points){
+    const distance=p.match-meanMatch;
+    covariance+=distance*(p.value-meanValue);
+    variance+=distance*distance;
+  }
+  return [points[0],points.at(-1)].map(({match})=>({match,value:meanValue+(match-meanMatch)*covariance/variance}));
+}
+
 function plot(points,total,isRate){
-  const values=points.map(p=>p.value);
+  const trend=trendEndpoints(points);
+  const values=[...points,...trend].map(p=>p.value);
   const low=values.reduce((a,b)=>Math.min(a,b)),high=values.reduce((a,b)=>Math.max(a,b));
-  const pad=Math.max((high-low)*.12,isRate?2:1);
-  const bottom=isRate?Math.max(0,low-pad):low-pad,top=isRate?Math.min(100,high+pad):high+pad;
+  const roughStep=Math.max(high-low,isRate?8:4)/4;
+  const magnitude=10**Math.floor(Math.log10(roughStep));
+  const step=[1,2,2.5,5,10].find(n=>n*magnitude>=roughStep)*magnitude;
+  const bottom=Math.max(isRate?0:-Infinity,Math.floor((low-step*.12)/step)*step);
+  const top=Math.min(isRate?100:Infinity,Math.ceil((high+step*.12)/step)*step);
   const x=n=>total===1?50:2+96*(n-1)/(total-1);
   const y=v=>100*(top-v)/(top-bottom);
   const path=points.map(p=>x(p.match)+','+y(p.value)).join(' ');
-  const grid=[0,25,50,75,100];
+  const grid=[];
+  for(let value=bottom;value<=top;value+=step)grid.push(value);
   const ticks=Array.from({length:Math.min(total,5)},(_,i)=>1+Math.round(i*(total-1)/Math.max(1,Math.min(total,5)-1)));
-  return `<div class="rh-plot"><div class="rh-scale">${grid.map(n=>`<span style="top:${n}%">${format(top-(top-bottom)*n/100,isRate)}</span>`).join('')}</div>
+  return `<div class="rh-plot"><div class="rh-scale">${grid.map(n=>`<span style="top:${y(n)}%">${format(n,isRate)}</span>`).join('')}</div>
     <div class="rh-surface" tabindex="0" role="slider" aria-readonly="true" aria-label="${isRate?'Guess rate':'Rating'} by match" aria-valuemin="${points[0].match}" aria-valuemax="${points.at(-1).match}" aria-valuenow="${points.at(-1).match}">
     <svg width="100%" height="100%" aria-hidden="true">
       <defs><linearGradient id="ranked-fill" x1="0%" x2="0%" y1="0%" y2="100%"><stop stop-color="#94d3bd" stop-opacity=".23"/><stop offset="1" stop-color="#94d3bd" stop-opacity=".015"/></linearGradient></defs>
-      ${grid.map(n=>`<line x1="0%" x2="100%" y1="${n}%" y2="${n}%" stroke="var(--border)"/>`).join('')}
+      ${grid.map(n=>`<line x1="0%" x2="100%" y1="${y(n)}%" y2="${y(n)}%" stroke="var(--border)"/>`).join('')}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%">
         <polygon fill="url(#ranked-fill)" points="${x(points[0].match)},100 ${path} ${x(points.at(-1).match)},100"/>
         <polyline points="${path}" fill="none" stroke="#94d3bd" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+        ${trend.length?`<polyline class="rh-trend" points="${trend.map(p=>x(p.match)+','+y(p.value)).join(' ')}" fill="none" stroke-width="1.8" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>`:''}
       </svg>${points.map(p=>`<circle cx="${x(p.match)}%" cy="${y(p.value)}%" r="${points.length>60?2:3.3}"/>`).join('')}
     </svg><output class="rh-tip" hidden></output></div>
     <div class="rh-axis">${ticks.map(n=>`<span style="left:${x(n)}%">Match ${n}</span>`).join('')}</div></div>`;
@@ -89,15 +108,21 @@ export function mountRankedHistory(root,history){
     const rows=(history||[]).filter(r=>r.format===poolFormat(view.mode,view.pool));
     const points=rows.map((r,i)=>({...r,match:i+1,value:isRate?
       (r.possible>0&&Number.isFinite(r.correct)?100*r.correct/r.possible:null):r.rating})).filter(p=>Number.isFinite(p.value));
-    root.innerHTML=`<h2>Ranked match history</h2>
-      <div class="rh-controls">
+    const correct=isRate?points.reduce((sum,p)=>sum+p.correct,0):0;
+    const possible=isRate?points.reduce((sum,p)=>sum+p.possible,0):0;
+    const value=isRate?100*correct/possible:points.at(-1)?.value;
+    root.innerHTML=`<header class="rh-controls"><h2>Ranked match history</h2>
         <div class="rh-mode-controls">
           <select aria-label="Ranked mode">${Object.entries(modes).map(([key,name])=>`<option value="${key}" ${key===view.mode?'selected':''}>${name}</option>`).join('')}</select>
           ${switches('pool',{random:'Random',watched:'Watched'},'Song selection')}
         </div>
+      </header>
+      <div class="rh-measure">
+        <div class="rh-summary"><small>${isRate?'Average guess rate':'Latest rating'}</small>
+        <div><strong>${points.length?format(value,isRate):'—'}</strong><span>${rows.length} ${rows.length===1?'match':'matches'}${isRate&&possible?' · '+correct+' / '+possible+' correct':''}</span></div></div>
         ${switches('metric',{rating:'Rating',rate:'Guess Rate'},'Metric')}
       </div>
-      ${points.length?`<div class="rh-summary"><strong>${format(points.at(-1).value,isRate)}</strong><span>Last match · ${rows.length} ${rows.length===1?'match':'matches'} played</span></div>${plot(points,rows.length,isRate)}`:
+      ${points.length?`${plot(points,rows.length,isRate)}<div class="rh-legend"><span>Per match</span>${points.length>1?'<span title="Linear trend across the selected matches">Trend</span>':''}</div>`:
       `<p class="rh-empty">${history==null?'Ranked history is currently unavailable.':rows.length?'No guess rate recorded for these matches.':'No completed ranked matches in this pool yet.'}</p>`}`;
     if(points.length)bindPlot(root,points,isRate);
   }

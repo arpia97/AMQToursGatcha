@@ -38,7 +38,7 @@ import {
 } from "./profile-cards-ui.js";
 import { titleBadges, titleSettingsPanel } from "./title-ui.js";
 import {profileQuizPanel} from './profile-quiz-ui.js?v=ranked-history';
-import {mountRankedHistory} from './ranked-profile-history.js';
+import {mountRankedHistory} from './ranked-profile-history.js?v=trend';
 import {friendButton,friendsPanel} from './friends-ui.js';
 import { createTitleOrderEditor } from "./title-order.js";
 import { loadOnce, loadStylesheet } from "./route-resources.js";
