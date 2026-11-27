@@ -6,7 +6,7 @@ const modes={
   '1v1':'S/A 1v1',
   '3v3':'S/A 3v3',
 };
-const view={mode:'ngmc-ranked',pool:'random',metric:'rating'};
+const view={mode:'ngmc-ranked',pool:'random',metric:'rating',showTrend:false};
 const date=new Intl.DateTimeFormat(undefined,{year:'numeric',month:'short',day:'numeric'});
 const formatRating=new Intl.NumberFormat(undefined,{maximumFractionDigits:1});
 const formatRate=new Intl.NumberFormat(undefined,{style:'percent',maximumFractionDigits:1});
@@ -31,7 +31,7 @@ function trendEndpoints(points){
 }
 
 function plot(points,total,isRate){
-  const trend=trendEndpoints(points);
+  const trend=view.showTrend?trendEndpoints(points):[];
   const values=[...points,...trend].map(p=>p.value);
   const low=values.reduce((a,b)=>Math.min(a,b)),high=values.reduce((a,b)=>Math.max(a,b));
   const roughStep=Math.max(high-low,isRate?8:4)/4;
@@ -122,11 +122,21 @@ export function mountRankedHistory(root,history){
         <div><strong>${points.length?format(value,isRate):'—'}</strong><span>${rows.length} ${rows.length===1?'match':'matches'}${isRate&&possible?' · '+correct+' / '+possible+' correct':''}</span></div></div>
         ${switches('metric',{rating:'Rating',rate:'Guess Rate'},'Metric')}
       </div>
-      ${points.length?`${plot(points,rows.length,isRate)}<div class="rh-legend"><span>Per match</span>${points.length>1?'<span title="Linear trend across the selected matches">Trend</span>':''}</div>`:
+      ${points.length?`${plot(points,rows.length,isRate)}<div class="rh-legend"><span>Per match</span>${points.length>1?`<label><input type="checkbox" data-show-trend ${view.showTrend?'checked':''}>Show trend</label>`:''}</div>`:
       `<p class="rh-empty">${history==null?'Ranked history is currently unavailable.':rows.length?'No guess rate recorded for these matches.':'No completed ranked matches in this pool yet.'}</p>`}`;
     if(points.length)bindPlot(root,points,isRate);
   }
-  root.onchange=e=>{if(e.target.matches('select')){view.mode=e.target.value;render();root.querySelector('select').focus();}};
+  root.onchange=e=>{
+    if(e.target.matches('[data-show-trend]')){
+      view.showTrend=e.target.checked;
+      render();
+      root.querySelector('[data-show-trend]').focus({preventScroll:true});
+    }else if(e.target.matches('select')){
+      view.mode=e.target.value;
+      render();
+      root.querySelector('select').focus();
+    }
+  };
   root.onclick=e=>{
     const button=e.target.closest('button[data-key]');
     if(!button)return;
