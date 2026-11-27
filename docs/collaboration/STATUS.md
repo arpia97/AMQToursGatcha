@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Ranked profile graph trends
+
+Released 8b43c84 as Worker 801de986-0bf3-48c2-9bb0-c65b8126d3d1. The Quiz profile chart shows overall guess rate within each mode and pool, and a linear trend for both metrics when two or more matches have values. Verified the live frontend assets and the 137/682 aggregate for profile 368. Desktop and mobile browser checks covered filtering, keyboard inspection and the empty state.
+
 ## Play match exports and ranked history on Quiz profiles
 
 Released runtime fd27f55 as Worker a5acc00b-5beb-4872-906b-61de5b71012e. Play History → Songs downloads the selected finished match in AMQ format or the versioned Gacha stats format. Older archives without retained audio or sample data leave those fields empty. The profile Quiz tab charts Rating and Guess Rate from completed ranked matches, with a compact mode selector and separate Random and Watched pools. All 659 tests passed. Verified both browser downloads, mobile layout at 390px, the shipped live assets, live profile history and the export sign-in requirement.
