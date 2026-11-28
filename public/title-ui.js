@@ -34,7 +34,7 @@ export function titleBadges(profile, escape) {
     "</div></div>"
   );
 }
-export function titleSettingsPanel(data, e) {
+export function titleSettingsPanel(data, e, category='All') {
   if (!data) return '<div class="loading">Loading Your Titles…</div>';
   const role = roleBadge(data.role) + donatorBadge(data.donator);
   const titles = data.titles || [],
@@ -67,6 +67,11 @@ export function titleSettingsPanel(data, e) {
       (count > 1 ? " · Award " + number + " of " + count : "")
     );
   }
+  const group=t=>t.category==='anime-collection'?'Anime Collection':isCard(t)?'MAX Cards':'Quiz';
+  const categories=['All','Anime Collection','MAX Cards','Quiz'];
+  const visible=titles.filter(t=>category==='All'||group(t)===category);
+  const filters='<nav class="tabs title-category-tabs" aria-label="Title categories">'+categories.map(name=>
+    '<button type="button" class="tab '+(category===name?'active':'')+'" data-title-category="'+name+'" aria-pressed="'+(category===name)+'">'+name+' <small>'+(name==='All'?titles.length:titles.filter(t=>group(t)===name).length)+'</small></button>').join('')+'</nav>';
   return (
     '<div class="page-intro"><div><h1>My Titles</h1><p>Choose the titles displayed on your profile.</p></div></div>' +
     (role
@@ -75,13 +80,13 @@ export function titleSettingsPanel(data, e) {
         '<span>Always Equipped</span><input type="checkbox" checked disabled aria-label="' + e(data.role) + ' Is Always Equipped"></section>'
       : "") +
     (titles.length
-      ? '<form id="titles-form" class="stack title-arrange-panel"><div class="toolbar"><p class="form-hint" id="title-drag-help">Drag titles to change their order, or use arrow keys on a handle.</p><button type="button" class="text-button" data-action="title-order-reset">Reset Changes</button></div><div class="title-options title-sort-grid" role="list" aria-label="Title Display Order">' +
-        titles
+      ? '<form id="titles-form" class="stack title-arrange-panel">' + filters + '<div class="toolbar"><p class="form-hint" id="title-drag-help">'+(category==='All'?'Drag titles to change their order, or use arrow keys on a handle.':'Open All to arrange your titles.')+'</p><button type="button" class="text-button" data-action="title-order-reset">Reset Changes</button></div><div class="title-options title-sort-grid" role="list" aria-label="Title Display Order">' +
+        visible
           .map(
             (t, index) =>
-              '<div class="title-option title-sort-card" role="listitem" draggable="true" data-title-sort-card="' +
+              '<div class="title-option title-sort-card" role="listitem" draggable="'+(category==='All')+'" data-title-sort-card="' +
               e(titleOrderKey(t)) +
-              '"><button type="button" class="wishlist-drag-handle title-drag-handle" draggable="true" data-title-handle="' +
+              '"><button type="button" class="wishlist-drag-handle title-drag-handle" '+(category==='All'?'draggable="true"':'disabled')+' data-title-handle="' +
               e(titleOrderKey(t)) +
               '" aria-label="Move ' +
               e(t.title) +
@@ -103,7 +108,7 @@ export function titleSettingsPanel(data, e) {
               (t.equipped ? "checked" : "") +
               "></div>",
           )
-          .join("") +
+          .join("") + (!visible.length?'<p class="form-hint">No titles earned in this category yet.</p>':'') +
         "</div>" +
         (data.orderRevision === 1
           ? ""

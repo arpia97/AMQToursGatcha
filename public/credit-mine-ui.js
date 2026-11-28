@@ -1,9 +1,11 @@
+import {cardComparator,rarityOrder} from './card-display.js';
+import {cardMatcher} from './search.js';
 function duration(ms){
   const minutes=Math.ceil(Math.max(0,ms)/60000);
   return minutes>=60?Math.floor(minutes/60)+'h '+minutes%60+'m':minutes+'m';
 }
 
-export async function mountCreditMine({root,state,demo,api,execute,escape:e,cardBy,image,modal}){
+export async function mountCreditMine({root,state,demo,api,execute,escape:e,cardBy,image,cardHTML,modal}){
   root.className='credit-mine';
   root.innerHTML=`<header class="mine-hero"><div><h1>Aoji Credit Mine</h1>
     <p>Purge your capitalist enemies and sentence them to revolutionary labor in the coal mines as a sign of absolute devotion to the Supreme Leader.</p></div><img class="mine-aoji" src="aoji-miner.webp" width="420" height="404" alt=""></header><section class="mine-crew"></section>`;
@@ -47,26 +49,41 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
         const button=event.target.closest('[data-op]');
         if(!button)return;
         if(button.dataset.op==='pick'){
-          const rows=state.inventory.map(i=>({i,c:cardBy(i.card)}))
-            .filter(({i,c})=>!assigned.has(i.card)&&c.rarity)
-            .sort((a,b)=>a.c.name.localeCompare(b.c.name));
-          modal('<h2>Assign a card</h2><input type="search" class="search" placeholder="Find a card" aria-label="Find a card" data-mine-search><div class="mine-picker"></div>');
-          const dialog=document.querySelector('#modal'),results=dialog.querySelector('.mine-picker');
-          const show=(query='')=>{
-            const matches=rows.filter(({c})=>c.name.toLowerCase().includes(query.toLowerCase()));
-            results.innerHTML=matches.slice(0,100).map(({i,c})=>{
-              const wear=resting.get(i.card);
-              return `<button class="button secondary" data-assign="${e(i.card)}">
-                <strong>${e(c.name)}</strong><small>${e(c.rarity)} · Lv. ${i.level}${wear?.status?' · '+e(wear.status):''} · ${wear?.efficiency??100}% efficiency</small></button>`;
-            }).join('')||
-              '<p>No eligible cards found.</p>';
-            if(matches.length>100)results.insertAdjacentHTML('beforeend','<small>Search to narrow the list.</small>');
-          };
+          const inventory=state.inventory.map(item=>({item,card:cardBy(item.card)}))
+            .filter(({item,card})=>item.copies>0&&!assigned.has(item.card)&&card?.rarity);
+          modal(`<h2>Assign a card</h2><div class="fusion-filters" data-filter-scope="mine-picker" data-mine-filters>
+            <input type="search" class="search" placeholder="Search cards or anime…" aria-label="Search cards or anime">
+            <label>Type<select name="kind"><option value="">Characters + Seiyuus</option><option value="character">Characters</option><option value="seiyuu">Seiyuus</option></select></label>
+            <label>Rarity<select name="rarity"><option value="">All rarities</option>${rarityOrder.map(r=>`<option>${e(r)}</option>`).join('')}</select></label>
+            <label>Sort by<select name="sort"><option value="rarity">Highest rarity</option><option value="rarity-low">Lowest rarity</option><option value="level">Highest level</option><option value="name">Name</option></select></label>
+            <label><input type="checkbox" name="favorite"> Favorites only</label></div><div data-mine-results></div>`,true);
+          const dialog=document.querySelector('#modal'),filters=dialog.querySelector('[data-mine-filters]'),results=dialog.querySelector('[data-mine-results]');
+          let page=1;
+          function show(){
+            const value=name=>filters.querySelector('[name="'+name+'"]').value;
+            const matches=cardMatcher(filters.querySelector('input.search').value),sort=value('sort');
+            const favorites=filters.querySelector('[name="favorite"]').checked?new Set(state.cardFavorites):null;
+            const compare=cardComparator(sort==='level'?'rarity':sort);
+            const rows=inventory.filter(({item,card})=>(!value('kind')||card.kind===value('kind'))&&
+              (!value('rarity')||card.rarity===value('rarity'))&&(!favorites||favorites.has(item.card))&&matches(card))
+              .sort((a,b)=>(sort==='level'?b.item.level-a.item.level:0)||compare(a.card,b.card));
+            const pages=Math.max(1,Math.ceil(rows.length/24));
+            page=Math.min(pages,Math.max(1,page));
+            const tiles=rows.slice((page-1)*24,page*24).map(({item,card})=>{
+              const wear=resting.get(item.card);
+              return `<article class="alchemy-material-choice"><button type="button" class="alchemy-material-toggle" data-assign="${e(item.card)}" aria-label="Assign ${e(card.name)}">
+                ${cardHTML(card,null,{preview:true,level:item.level,portrait:item.portrait,mineStatus:wear?.status})}<span class="alchemy-selection-mark">Assign</span></button>
+                <small>${wear?.efficiency??100}% efficiency</small></article>`;
+            }).join('');
+            results.innerHTML=`<p class="form-hint">${rows.length} matching cards</p><div class="card-grid alchemy-material-grid">${tiles||'<p>No eligible cards found.</p>'}</div>`+
+              (pages>1?`<div class="toolbar space-top"><button class="button secondary" data-step="-1" ${page===1?'disabled':''}>Previous</button><span>Page ${page} of ${pages}</span><button class="button secondary" data-step="1" ${page===pages?'disabled':''}>Next</button></div>`:'');
+          }
           show();
-          dialog.querySelector('[data-mine-search]').oninput=ev=>show(ev.target.value);
+          filters.oninput=()=>{page=1;show();};
           results.onclick=ev=>{
-            const target=ev.target.closest('[data-assign]');
-            if(target)void execute('credit-mine',{op:'assign',card:target.dataset.assign});
+            const target=ev.target.closest('button');
+            if(target?.dataset.assign)void execute('credit-mine',{op:'assign',card:target.dataset.assign});
+            if(target?.dataset.step){page+=Number(target.dataset.step);show();filters.scrollIntoView({block:'nearest'});}
           };
           return;
         }

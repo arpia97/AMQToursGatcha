@@ -1,3 +1,4 @@
+import {songPanel,itemKinds} from "./song-category.js";
 import { collectionView, reverseCardSortOptions } from "./card-display.js";
 import { RARITIES } from "./card-values.js";
 import { cardSurface } from "./card-surface.js";
@@ -93,7 +94,7 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
     if (mode !== "collection") return;
     if (
       field === "kind" &&
-      ["character", "seiyuu", "both"].includes(value)
+      itemKinds.some(([key])=>key===value)
     ) {
       kind = value;
       if (kind !== "character") role = "";
@@ -159,11 +160,7 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
     const filterControls =
       mode === "collection"
         ? '<div class="collection-arrange-filters"><div class="tabs profile-collection-tabs" role="group" aria-label="Collection Card Type">' +
-          [
-            ["character", "Characters"],
-            ["seiyuu", "Seiyuus"],
-            ["both", "Both"],
-          ]
+          itemKinds
             .map(
               ([id, label]) =>
                 '<button type="button" class="tab ' +
@@ -203,6 +200,10 @@ export function createShowcaseEditor(helpers, { mode = "showcase" } = {}) {
             : "") +
           "</div></div>"
         : "";
+    if(mode==='collection'&&kind==='song'){
+      const selector=itemKinds.map(([id,label])=>`<button type="button" class="tab ${id===kind?'active':''}" data-action="collection-arrange-kind" data-kind="${id}">${label}</button>`).join('');
+      return '<section class="profile-card-panel"><div class="tabs">'+selector+'</div>'+songPanel('collection',owner,e)+'</section>';
+    }
     return (
       '<section class="profile-card-panel ' +
       mode +

@@ -40,7 +40,8 @@ import {libraryQuery} from '../public/quiz-library-data.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
 import {backfillAnimeTitles,collectionRecordings,decorateProgress,settleAnimeTitles} from './anime-completion.js';
 import {loadGallery,galleryView,changePortrait,indexGallery,nextGallery} from './card-gallery.js';
-import {fillSongMetrics,songbookRequest} from './songbook.js';
+import {songListingPage} from './song-market.js';
+import {fillSongMetrics,songbookRequest,profileSongPage} from './songbook.js';
 import {mineView,changeMine} from './credit-mine.js';
 import {musicRead,musicAction} from './music.js';
 import {officialActorName} from './official-reference-store.js';
@@ -1941,6 +1942,10 @@ export class Game extends DurableObject {
       );
     }
     if (path === "player-cards" && !post) {
+      if(url.searchParams.get('kind')==='song'){
+        this.bursts.take('song-profile:'+(session?.player||ip),30,5);
+        return json(await profileSongPage(e,session?.player,url.searchParams,input=>quizLibraryRequest(this.env,'/songbook',input)));
+      }
       const result = e.economy.wishlist.page(
         url.searchParams.get("id"),
         url.searchParams.get("view"),
@@ -2047,6 +2052,10 @@ export class Game extends DurableObject {
       this.bursts.take('mine:'+session.player,24,5);
       if(!post)return json(mineView(e,session.player));
       return json(e.mutate(session.player+':mine',request.headers.get('Idempotency-Key'),b,()=>changeMine(e,session.player,b)));
+    }
+    if(path==='song-market'&&!post){
+      this.bursts.take('read:'+session.player,60,5);
+      return json(songListingPage(e,session.player,url.searchParams.get('section'),Number(url.searchParams.get('page')||1)));
     }
     if(path==='music'){
       this.bursts.take('music:'+session.player,60,5);

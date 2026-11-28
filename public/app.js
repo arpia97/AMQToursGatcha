@@ -4,7 +4,8 @@ import { communityPortraitUrl } from "./community-portrait.js";
 import {portraitControls} from './portrait-gallery-ui.js';
 import {featuredSongPanel} from './song-tiles.js';
 import {createSongbookUI,songPackTile,songProgress} from './songbook-ui.js?v=song-catalogue';
-import {mountCreditMine} from './credit-mine-ui.js?v=rested-badge';
+import {itemKinds,songPanel,mountSongPanel} from './song-category.js';
+import {mountCreditMine} from './credit-mine-ui.js?v=mine-card-picker';
 import {createMusicUI} from './music-ui.js?v=party-mine';
 import {installSongPreviews} from './song-tiles.js?v=song-catalogue';
 import { applyMarketNotice } from "./market-notice-link.js";
@@ -775,12 +776,8 @@ function cardHTML(c, a = null, item = null, extraActions = "", { packResult = fa
   );
 }
 function tabs() {
-  const choices = [
-    ["character", "Characters"],
-    ["seiyuu", "Seiyuus"],
-    ...(page() === "packs" ? [] : [["both", "Both"]]),
-  ];
-  return `<div class="tabs" role="group" aria-label="Card type">${choices.map(([id, label]) => `<button class="tab ${tab === id ? "active" : ""}" data-tab="${id}" aria-pressed="${tab === id}">${label}</button>`).join("")}</div>`;
+  const choices=page()==='packs'?itemKinds.slice(0,2):itemKinds;
+  return `<div class="tabs" role="group" aria-label="Item type">${choices.map(([id, label]) => `<button class="tab ${tab === id ? "active" : ""}" data-tab="${id}" aria-pressed="${tab === id}">${label}</button>`).join("")}</div>`;
 }
 const workingTitlePopovers = installDetailPopovers(document);
 let quizUI, arcadePage;
@@ -929,13 +926,18 @@ document.addEventListener("input", (event) => {
       Number(event.target.value) * 100,
     );
 });
+let titleCategory='All';
+document.addEventListener('click',event=>{
+  const choice=event.target.closest('[data-title-category]');
+  if(choice){titleCategory=choice.dataset.titleCategory;render();document.querySelector('.title-category-tabs .active')?.focus();}
+});
 const titleEditor = createTitleOrderEditor();
 const titleDrag = installCardOrderDrag(document, titleEditor, {
   prefix: "title",
   pointerMouse: true,
   panel: ".title-arrange-panel",
   canEdit: () =>
-    !busy && page() === "titles" && titleEditor.activeFor(state.me?.id),
+    !busy && titleCategory==='All' && page() === "titles" && titleEditor.activeFor(state.me?.id),
   changed(id) {
     const scroll = window.scrollY;
     render();
@@ -1465,6 +1467,7 @@ function home() {
   );
 }
 function collection() {
+  if(tab==='song'&&!collectionEditor.activeFor(state.me?.id))return profileTabs('collection')+intro('My Collection','')+tabs()+(state.me?songPanel('collection',state.me.id,escape):empty('Sign in to view your songs.',''));
   if (
     state.me &&
     (collectionEditor.activeFor(state.me.id) ||
@@ -1535,18 +1538,17 @@ function packs() {
   return dailyPack()+`<div class="section-head pack-type-head"><h2>Card packs</h2>${tabs()}</div><div class="shop-pack-grid">${types.filter(t=>t[3]).map(([tier,label,description,price])=>`<article class="shop-pack-tile"><div class="shop-pack-art ${tier}">${packIllustration(kind,tier)}</div><div class="shop-pack-copy"><h3>${label}</h3><p>${description}</p><div><strong><span class="coin">✦</span> ${number(price)}</strong>${btn("Open pack","pack",`data-kind="${kind}" data-premium="${tier==="premium"}" data-special="${tier==="special"}"`,"secondary")}</div></div></article>`).join("")}</div>`
     +(demo?"":songPackTile(routeHref("catalog")+"?section=songs"))+packMotionControl();
 }
-const songCatalogueActive=()=>!demo&&new URLSearchParams(location.search).get('section')==='songs';
+const songCatalogueActive=()=>tab==='song';
 function catalogue() {
   const songs=songCatalogueActive();
-  const sections=demo?'':`<div class="tabs catalogue-sections" aria-label="Catalogue sections"><a class="tab ${songs?'':'active'}" href="${routeHref('catalog')}" ${songs?'':'aria-current="page"'}>Cards</a><a class="tab ${songs?'active':''}" href="${routeHref('catalog')}?section=songs" ${songs?'aria-current="page"':''}>Songs</a></div>`;
-  if(songs)return sections+'<div data-music-root></div>';
+  if(songs)return tabs()+(demo?'<p class="notice">Open the live site to browse songs.</p>':'<div data-music-root></div>');
   const pool = state.catalogSummary || {
     character: state.catalog.filter((c) => c.kind === "character").length,
     seiyuu: state.catalog.filter((c) => c.kind === "seiyuu").length,
   };
   const list = catalogPageData?.cards || [];
   return (
-    sections + intro(
+    intro(
       "Card Catalogue",
       "Find your favourites among all imported characters and seiyuus.",
     ) +
@@ -1558,13 +1560,14 @@ function catalogue() {
 }
 
 function auctions() {
-  const list = state.auctions.filter((a) => tab === "both" || a.kind === tab),
+  const list = state.auctions.filter((a) => (tab === "both" ? ["character","seiyuu"].includes(a.kind) : a.kind === tab)),
     active = list.filter((a) => !a.seller && a.ends > state.now),
     won = list.filter((a) => a.ends <= state.now);
   const pane=ui.auctionPane;
   const options=[["community","Community"],["user","Player Auctions"],["mine","My Auctions"],["claims","Claims"+(won.length?" · "+won.length:"")]];
   if(pane==="all") options.unshift(["all","All Auctions"]);
   const navigation=`<div class="tabs shop-sections" aria-label="Auction sections">${options.map(([key,label])=>`<button class="tab ${key===pane?'active':''}" data-action="auction-pane" data-section="${key}" aria-pressed="${key===pane}">${label}</button>`).join("")}</div>`;
+  if(tab==='song')return navigation+tabs()+songPanel(({all:'auction',user:'auction'})[pane]||pane);
   const claims=()=>`<div class="section-head"><h2>Ready to Claim</h2></div>${won.length?`<div class="card-grid">${won.map(a=>cardHTML(cardBy(a.card),a)).join("")}</div>`:empty("No cards to claim.","Your winning bids appear here when bidding ends.")}`;
   const community=()=>`<div class="section-head" id="community-auctions"><h2>${state.communityMarket?.active?"Community Auctions":"Weekly Community Auctions"}</h2><span class="subtext">${countdown(active[0]?.ends||nextWeeklyReset(state.now),"Next auction ends in ",true,"Refreshing auctions…")}</span></div>${active.length?`<div class="card-grid">${active.map(a=>cardHTML(cardBy(a.card),a)).join("")}</div>`:empty("No Community Auctions.","Check back when the next auction opens.")}`;
   const content=pane==="claims"?claims():pane==="mine"||pane==="user"?features.userAuctions(pane):pane==="all"?community()+features.userAuctions("user")+claims():community();
@@ -1633,7 +1636,7 @@ function myTitles() {
     profileTabs("titles") +
     titleSettingsPanel(
       titleEditor.activeFor(state.me.id) ? titleEditor.data() : ui.titleData,
-      escape,
+      escape,titleCategory,
     )
   );
 }
@@ -1661,6 +1664,11 @@ function profile() {
   const heading =
     `<div class="profile-heading">${avatarHTML(p, true)}<div><span class="eyebrow">THE AMQ COLLECTION CLUB</span><h1>${escape(p.name)}</h1>${titleBadges(p, escape)}<p>AMQ Tours ID · ${escape(p.id)}</p></div></div>` +
     profileCardTabs(ui.profileView, friendButton(p,state.me?.id,escape));
+  const view=ui.profileView;
+  if(['collection','favorites','wishlist'].includes(view)&&(view==='wishlist'?ui.profileWishlist:profileInventoryFilters()).kind==='song'&&!(view==='collection'&&collectionEditor.activeFor(p.id))){
+    const kindTabs=itemKinds.map(([id,label])=>`<button class="tab ${id==='song'?'active':''}" data-action="profile-${view}-kind" data-kind="${id}" aria-pressed="${id==='song'}">${label}</button>`).join('');
+    return heading+`<section class="profile-card-panel"><div class="tabs">${kindTabs}</div>${songPanel(view,p.id,escape)}</section>`;
+  }
   if(ui.profileView==='quiz')return heading+profileQuizPanel(ui.profileQuizData,escape,ui.profileQuizSort);
   if (ui.profileView !== "overview")
     return (
@@ -1718,7 +1726,7 @@ async function loadDynamic() {
   const version = ++loadVersion,
     current = page(),
     route = currentRoute();
-  if (current === "packs" && tab === "both") tab = "character";
+  if (current === "packs" && ["both","song"].includes(tab)) tab = "character";
   let data, pickemDetail, profileCardsResult,profileQuizResult;
   if (current === "shop" && ui.marketSort === "ending")
     ui.marketSort = "newest";
@@ -1791,8 +1799,8 @@ async function loadDynamic() {
   if (current === "arcade" && state.me && ui.mahjongHistoryOpen)
     data = await api("mahjong-history?page=" + ui.mahjongHistoryPage);
   if (
-    current === "auctions" ||
-    (current === "shop" && ui.shopSection === "market")
+    tab!=="song" && (current === "auctions" ||
+    (current === "shop" && ui.shopSection === "market"))
   )
     data = await api(
       "market?venue=" +
@@ -1851,6 +1859,7 @@ async function loadDynamic() {
     data &&
     ui.profileView !== "overview" &&
     ui.profileView !== "quiz" &&
+    (ui.profileView==="listings"||(ui.profileView==="wishlist"?ui.profileWishlist:profileInventoryFilters()).kind!=="song") &&
     !(ui.profileView === "wishlist" && wishlistEditor.activeFor(data.id)) &&
     !(ui.profileView === "collection" && collectionEditor.activeFor(data.id))
   ) {
@@ -2024,8 +2033,10 @@ function render() {
     $("#main").insertAdjacentHTML("afterbegin",`<header class="unified-shop"><h1>Shop</h1><nav aria-label="Shop sections">${shopTabs.map(([key,label])=>`<a href="${routeHref(key)}" ${key===route?'aria-current="page"':''}>${svg(icons[key])}${label}</a>`).join('')}</nav></header>`);
   }
   $("#main").dataset.cardPage = route;
+  const songRoot=document.querySelector('#main [data-song-panel]');
+  if(songRoot)mountSongPanel(songRoot,{api,modal,execute,escape,me:state.me?.id});
   musicUI.attach(demo?'demo':route==='catalog'&&songCatalogueActive()?'song-catalogue':route,state.me?.id??null,!!state.me?.donator);
-  if(route==='mine')mountCreditMine({root:document.querySelector('[data-mine-root]'),state,demo,api,execute,escape,cardBy,image,modal});
+  if(route==='mine')mountCreditMine({root:document.querySelector('[data-mine-root]'),state,demo,api,execute,escape,cardBy,image,cardHTML,modal});
   mobileNavigation.update();
   cardFilters.update();
   cardSurfaces.restore($("#main"), cardSurfaceState);
@@ -2359,6 +2370,12 @@ document.addEventListener("click", async (ev) => {
   if (!t || busy) return;
   if (t.dataset.tab) {
     tab = t.dataset.tab;
+    if(page()==='catalog'){
+      const dest=new URL(location.href);
+      if(tab==='song')dest.searchParams.set('section','songs');else dest.searchParams.delete('section');
+      history.replaceState(history.state,'',dest);
+    }
+    if(tab==='song'&&page()==='auctions'&&ui.auctionPane==='community')ui.auctionPane='user';
     ui.shopSell.page = 1;
     ui.marketPage = 1;
     ui.filters.role = "";
@@ -3095,7 +3112,8 @@ function applyNoticeDestination() {
     const requested=new URLSearchParams(location.search).get("section");
     ui.auctionPane=destination?.auctionSection || (requested==="all"?"all":"community");
   }
-  if (page()==="packs"&&tab==="both") tab="character";
+  if(page()==="catalog" && new URLSearchParams(location.search).get("section")==="songs")tab="song";
+  if (page()==="packs"&&["both","song"].includes(tab)) tab="character";
   return destination?.auctionSection;
 }
 function scrollToAuctionSection(section) {
@@ -3317,7 +3335,7 @@ async function handleFeatureClick(a, t) {
       }
       if (a === "trade-kind") {
         const nextKind = t.dataset.kind;
-        if (!["both", "character", "seiyuu"].includes(nextKind)) return true;
+        if (!["both", "character", "seiyuu","song"].includes(nextKind)) return true;
         ui.tradeKind = nextKind;
         if (nextKind !== "character") ui.tradeRole = "";
         ui.tradePage = 1;
@@ -3692,7 +3710,7 @@ async function handleFeatureClick(a, t) {
     }
     if (a === "profile-wishlist-kind") {
       const nextKind = t.dataset.kind;
-      if (!["both", "character", "seiyuu"].includes(nextKind)) return true;
+      if (!["both", "character", "seiyuu","song"].includes(nextKind)) return true;
       wishlistDrag.cancel();
       wishlistEditor.close();
       ui.profileWishlist.kind = nextKind;

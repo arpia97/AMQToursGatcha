@@ -70,7 +70,7 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     if(id!==player){player=id;data=null;group="";unread=false;cursors=[];}
     return "inbox?"+new URLSearchParams({group,unread:unread?"1":"0",before:String(cursors.at(-1)||0)});
   }
-  function copy(r){return describe(r,r.card?cardBy(r.card):null);}
+  function copy(r){return describe(r,r.metadata?.songName?{name:r.metadata.songName,kind:"song"}:r.card?cardBy(r.card):null);}
   function thumb(r){
     const g=noticeGroup(r.kind),m=r.metadata||{};
     const url=r.card?cardBy(r.card).image:(m.cover || (m.hasCover?"api/quiz-cover?quiz="+encodeURIComponent(m.quiz)+"&v="+encodeURIComponent(m.version):""));

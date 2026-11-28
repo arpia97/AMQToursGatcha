@@ -92,6 +92,8 @@ test("MAX enhancement awards a rarity title atomically, once, and keeps it after
   assert.match(result.message, /Yoshika Miyafuji/);
   assert.deepEqual(act("enhance", body, "max-once"), result);
   assert.equal(e.one("SELECT count(*) AS n FROM card_title_awards").n, 1);
+  assert.deepEqual(e.quiz.titles("p"),[]);
+  e.quiz.equipTitles("p",{quizzes:[],awards:e.cardTitles.options("p").map(t=>t.award)});
   assert.equal(e.quiz.titles("p")[0].rarity, "AG");
   assert.equal(e.quiz.titles("p")[0].title, "Yoshika Miyafuji");
   assert.equal(

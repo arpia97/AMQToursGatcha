@@ -5900,6 +5900,16 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
 .anime-collection-body small,.anime-collection-body p{color:var(--muted);font-size:.76rem;}
 .anime-collection-body li small{text-align:right;}
 .anime-collection-body footer{margin-top:12px;}
+.song-category-list {list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:8px;padding:0}
+.song-category-list li {display:flex;align-items:center;gap:12px;background:var(--panel,#1c2029);border:1px solid #363b47;padding:10px;border-radius:8px;min-width:0}
+.song-category-list li>div {min-width:0;overflow-wrap:anywhere}
+.song-category-list song-poster {display:block;width:44px;height:60px;flex:none;overflow:hidden;border-radius:5px}
+.song-category-list song-poster img {width:100%;height:100%;object-fit:cover}
+.song-category-list small {display:block;color:#abb3c3}
+.song-row-controls {margin-left:auto;text-align:right}
+.song-category-search {display:block;max-width:34rem;margin-top:12px}
+.title-category-tabs {flex-wrap:wrap;align-self:start}
+.title-category-tabs small {opacity:.72;margin-left:.25em}
 .equipped-title.anime-earned-title {
   color: #ffceb7;
   border-color: #c98773;

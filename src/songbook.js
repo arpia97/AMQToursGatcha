@@ -1,9 +1,11 @@
+import {installSongMarket} from './song-market.js';
 import {noteSongs} from './anime-completion.js';
 import {fail,integer,text} from './engine.js';
 import {SONG_PACK_PRICE,SONG_PACK_SIZE,DUPLICATE_NOTES,SONG_EXCHANGE_COST} from '../public/song-pack-rules.js';
 import {compareSongs,matchesSong,matchesSongFlags,songFilters} from '../public/song-filters.js';
 
 export function installSongbook(e){
+  installSongMarket(e);
   e.run('CREATE TABLE IF NOT EXISTS songbook_featured(player TEXT PRIMARY KEY,owned INTEGER NOT NULL)');
   e.run('CREATE TABLE IF NOT EXISTS songbook_owned (id INTEGER PRIMARY KEY, player TEXT NOT NULL, recording TEXT NOT NULL, acquired INTEGER NOT NULL)');
   e.run('CREATE INDEX IF NOT EXISTS songbook_player ON songbook_owned(player,id DESC)');
@@ -27,11 +29,11 @@ export function featuredSong(e,player){
   if(row){const {title,artist,audio,anime}=JSON.parse(row.recording);return {title,artist,audio,anime};}
   return null;
 }
-const ownedSelect=`SELECT s.id,s.recording,EXISTS(SELECT 1 FROM songbook_featured sf WHERE sf.player=s.player AND sf.owned=s.id) AS showcased,f.favorite,f.protected,EXISTS(
+const ownedSelect=`SELECT s.id,s.recording,EXISTS(SELECT 1 FROM songbook_featured sf WHERE sf.player=s.player AND sf.owned=s.id) AS showcased,EXISTS(SELECT 1 FROM song_listed l WHERE l.owned=s.id) AS listed,f.favorite,f.protected,EXISTS(
   SELECT 1 FROM songbook_alias a JOIN songbook_wishlist w ON w.player=a.player AND w.alias=a.alias
   WHERE a.player=s.player AND a.owned=s.id) AS wishlist
   FROM songbook_owned s LEFT JOIN songbook_flags f ON f.player=s.player AND f.owned=s.id WHERE s.player=?`;
-const ownedRecording=r=>({...JSON.parse(r.recording),id:r.id,owned:true,showcased:!!r.showcased,favorite:!!r.favorite,protected:!!r.protected,wishlist:!!r.wishlist});
+const ownedRecording=r=>({...JSON.parse(r.recording),id:r.id,owned:true,listed:!!r.listed,showcased:!!r.showcased,favorite:!!r.favorite,protected:!!r.protected,wishlist:!!r.wishlist});
 
 export function ownedSongs(e,player,ids){
   return e.all(ownedSelect+' AND s.id IN (SELECT value FROM json_each(?))',player,JSON.stringify(ids)).map(ownedRecording);
@@ -64,6 +66,7 @@ function setFlag(e,player,body,aliases){
   if(body.id!=null){
     const id=integer(body.id,1);
     if(!e.one('SELECT 1 FROM songbook_owned WHERE player=? AND id=?',player,id))fail('Choose a song you own.',404);
+    if(flag==='protected'&&enabled&&e.one('SELECT 1 FROM song_listed WHERE owned=?',id))fail('Withdraw the song listing before protecting it.',409);
     if(flag!=='wishlist'){
       e.run(`INSERT INTO songbook_flags(player,owned,${flag}) VALUES(?,?,?) ON CONFLICT(player,owned) DO UPDATE SET ${flag}=excluded.${flag}`,player,id,Number(enabled));
       return {flag,enabled};
@@ -105,6 +108,26 @@ export function acquireSongs(e,player,songs,exchange,count=1){
   const balance=notes(e,player)+change;
   e.run('INSERT OR REPLACE INTO songbook_notes VALUES(?,?)',player,balance);
   return {pulls,notes:balance};
+}
+
+export async function profileSongPage(e,viewer,params,library){
+  const player=e.resolvePlayer(params.get('id')),owner=e.player(player);
+  const view=params.get('view'),page=integer(Number(params.get('page')||1),1,100000);
+  if(!['collection','favorites','wishlist'].includes(view))fail('Unknown song collection.');
+  if(view!=='wishlist'&&owner.private_collection&&viewer!==player)return {hidden:true,rows:[],page};
+  const q=String(params.get('q')||'').trim().slice(0,100);
+  if(view==='wishlist'){
+    const wishes=e.all('SELECT alias FROM songbook_wishlist WHERE player=?',player).map(r=>r.alias);
+    if(!wishes.length)return {rows:[],page};
+    const filters=songFilters(new URLSearchParams({wishlist:'1',q}));
+    const result=await library({action:'browse',filters,wishlist:wishes,page});
+    return {rows:result.rows.map(publicSong),page,hasMore:page*20<result.total};
+  }
+  const query=`SELECT s.recording FROM songbook_owned s ${view==='favorites'?'JOIN songbook_flags f ON f.player=s.player AND f.owned=s.id AND f.favorite=1':''}
+    WHERE s.player=? AND (?='' OR instr(lower(json_extract(s.recording,'$.title')||' '||json_extract(s.recording,'$.artist')||' '||json_extract(s.recording,'$.anime')),lower(?))>0)
+    ORDER BY s.acquired DESC,s.id DESC LIMIT 21 OFFSET ?`;
+  const rows=e.all(query,player,q,q,(page-1)*20);
+  return {rows:rows.slice(0,20).map(r=>publicSong(JSON.parse(r.recording))),hasMore:rows.length>20,page};
 }
 
 export async function songbookRequest(e,player,path,url,post,body,key,library,checkSession){

@@ -5,8 +5,8 @@ import {Engine} from '../src/engine.js';
 import {changeMine,mineView,mineCondition,cardWear,installMine,receiveMineCard} from '../src/credit-mine.js';
 
 const hour=3600000;
-function fixture(){
-  const db=new DatabaseSync(':memory:');let now=Date.now(),roll=0;
+function fixture(startTime=Date.now()){
+  const db=new DatabaseSync(':memory:');let now=startTime,roll=0;
   const e=new Engine((sql,...args)=>db.prepare(sql).all(...args),fn=>{
     db.exec('BEGIN');try{const result=fn();db.exec('COMMIT');return result;}catch(err){db.exec('ROLLBACK');throw err;}
   },()=>now,()=>roll);
@@ -48,6 +48,15 @@ test('working fatigue increases continuously, resting takes five times as long a
   assert.throws(()=>act('collect',0,{start}),/changed/);
   act('recall',0,{start:read().start});advance(200*hour);assert.equal(view().resting.length,0);
   act('assign',0);assert.equal(read().efficiency,100);
+});
+test('legacy shifts retire their Tired badge while working and resting, retaining fatigue',()=>{
+  const {act,advance,view}=fixture(Date.parse('2026-11-28T18:00:00Z'));
+  act('assign',0);advance(3*hour);
+  const shift=view().shifts[0];
+  assert.equal(shift.status,'');assert.ok(shift.efficiency<100);
+  act('recall',0,{start:shift.start});
+  assert.equal(view().resting[0].status,'');
+  act('assign',0);assert.equal(view().shifts[0].status,'Tired');
 });
 test('full-efficiency AG averages 2500 per day, with a 1906.25 first-day mean and 125 at the floor',()=>{
   const {act,view,setRoll,e}=fixture();

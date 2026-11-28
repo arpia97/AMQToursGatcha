@@ -5,7 +5,8 @@ import {Engine} from '../src/engine.js';
 import {backfillAnimeTitles,decorateProgress,settleAnimeTitles} from '../src/anime-completion.js';
 import {animeTile} from '../public/anime-completion-ui.js';
 import {SongbookCatalog} from '../src/songbook-catalog.js';
-import {songbookRequest} from '../src/songbook.js';
+import {songListingPage} from '../src/song-market.js';
+import {songbookRequest,profileSongPage} from '../src/songbook.js';
 import {musicAction,musicRead} from '../src/music.js';
 import {SONG_PACK_PRICE,SONG_EXCHANGE_COST} from '../public/song-pack-rules.js';
 
@@ -161,6 +162,10 @@ test('anime completion requires every character and distinct song, including ins
   await assert.rejects(settleAnimeTitles(e,async()=>{throw Error('offline')}),/offline/);
   await settleAnimeTitles(e,library);await settleAnimeTitles(e,library);
   assert.deepEqual(await status(),[0,1,1,2]);
+  assert.deepEqual(titles(),[]);
+  const earned=e.quiz.titleOptions('p').find(t=>t.category==='anime-collection');
+  assert.equal(earned.equipped,false);
+  e.quiz.equipTitles('p',{quizzes:[earned.quiz],awards:[]});
   assert.deepEqual(titles().map(t=>t.title),['alpha']);
   e.quiz.equipTitles('p',{quizzes:[],awards:[]});
   assert.equal(titles().length,0);
@@ -182,7 +187,7 @@ test('existing complete collections get a title during backfill without opening 
   e.economy.anime.save({phase:'done'});
   backfillAnimeTitles(e);
   await settleAnimeTitles(e,input=>catalog.request(input));
-  assert.deepEqual(e.quiz.titles('p').map(t=>t.title),['beta']);
+  assert.deepEqual(e.quiz.titleOptions('p').map(t=>[t.title,t.equipped]),[['beta',false]]);
   assert.ok(!e.one("SELECT 1 FROM catalog_meta WHERE key='anime-title-backfill'"));
 });
 
@@ -203,6 +208,49 @@ test('one owned song can be showcased publicly and the catalogue sorts using act
   assert.equal(e.profile('p').featuredSong,null);
 });
 
+test('song listings isolate card categories and transfer exactly once on purchase, cancellation and auction claim',async()=>{
+  const {e,call,data}=fixture();
+  e.host('players',{players:[{id:'q',name:'Buyer'},{id:'r',name:'Bidder'}]});
+  for(const id of ['q','r'])e.wallet(id,1000,'Fixture');
+  const id=(await call('songbook-pack',{},'pack')).pulls[0].id;
+  const act=(player,action,body,key=crypto.randomUUID())=>e.mutate(player+':'+action,key,body,()=>e.action(player,action,body));
+  const list=(player,venue)=>act(player,'list-card',{song:id,venue,price:100,hours:1});
+  await call('songbook-flag',{flag:'protected',enabled:true,id},'protect');
+  assert.throws(()=>list('p','shop'),/Unprotect/);
+  await call('songbook-flag',{flag:'protected',enabled:false,id},'unprotect');
+  list('p','shop');
+  assert.throws(()=>list('p','auction'),/already listed/);
+  assert.equal(e.economy.market('shop','both').items.length,0);
+  const fixed=songListingPage(e,'q','market',1).rows[0];
+  assert.equal(fixed.title,'Theme');
+  const before=e.player('p').balance,b={listing:fixed.listing};
+  act('q','buy-listing',b,'purchase');act('q','buy-listing',b,'purchase');
+  assert.equal(e.player('p').balance,before+100);
+  assert.equal(e.one('SELECT player FROM songbook_owned WHERE id=?',id).player,'q');
+  assert.equal(e.one('SELECT count(*) n FROM song_listed').n,0);
+  list('q','auction');
+  let lot=songListingPage(e,'r','auction',1).rows[0].listing;
+  act('q','cancel-listing',{listing:lot,venue:'auction'});
+  list('q','auction');lot=songListingPage(e,'r','auction',1).rows[0].listing;
+  const start=e.now();e.now=()=>start;
+  const funds=e.player('q').balance;
+  act('p','bid',{auction:lot,amount:100});act('r','bid',{auction:lot,amount:110});
+  assert.equal(e.player('p').balance,before+100);
+  assert.throws(()=>act('q','cancel-listing',{listing:lot,venue:'auction'}),/first bid/);
+  e.now=()=>start+3600001;
+  e.tx(()=>e.economy.tick());
+  act('r','claim',{auction:lot},'claim');act('r','claim',{auction:lot},'claim');
+  assert.equal(e.player('q').balance,funds+110);
+  assert.equal(e.one('SELECT player FROM songbook_owned WHERE id=?',id).player,'r');
+  assert.equal(songListingPage(e,'r','claims',1).rows.length,0);
+  const library=input=>new SongbookCatalog(data).request(input);
+  const params=new URLSearchParams({id:'r',view:'collection'});
+  const visible=await profileSongPage(e,'p',params,library);
+  assert.equal(visible.rows[0].title,'Theme');assert.equal(visible.rows[0].audio,undefined);
+  e.run("UPDATE players SET private_collection=1 WHERE id='r'");
+  assert.equal((await profileSongPage(e,'p',params,library)).hidden,true);
+  assert.equal((await profileSongPage(e,'r',params,library)).rows.length,1);
+});
 test('bulk song packs validate quantity and charge and reveal all draws once',async()=>{
   const {e,call}=fixture();
   const buy=(count,key)=>call('songbook-pack',{count},key);

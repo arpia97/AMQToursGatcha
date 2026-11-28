@@ -23,6 +23,7 @@ import { Quiz } from "./quiz.js";
 import { installAnimeCompletion,noteCharacter } from './anime-completion.js';
 import { featuredSong,installSongbook } from "./songbook.js";
 import {addCollectionMineStatus,enhanceMineCard,installMine} from './credit-mine.js';
+import {checkSongBuyer,listedSongName} from './song-market.js';
 import {installMusic,clearPlayerMusic} from './music.js';
 import { Friends } from "./friends.js";
 import {
@@ -632,6 +633,7 @@ export class Engine {
       if (!a || a.closed || now >= a.ends) fail("This auction has ended.", 409);
       if (a.seller === player) fail("You cannot bid on your own auction.");
       if(a.seller) this.assertAccountUnlocked(a.seller);
+      if(a.kind==="song")checkSongBuyer(this,player,a.card);
       const amount = integer(b.amount, 1);
       if (a.buyout && amount >= a.buyout)
         return this.economy.buyout(player, a.id);
@@ -678,9 +680,10 @@ export class Engine {
       );
       if (!a || now < a.ends || a.winner !== player || a.claimed)
         fail("This auction cannot be claimed.", 409);
+      const songName=a.kind==='song'?listedSongName(this,a.card):null;
       this.economy.acquire(player, a.card, a.level, a.extra_copies,a.artwork);
       if (a.seller && !a.paid) {
-        const cardName = this.catalogStore.card(a.card)?.name || a.card;
+        const cardName = songName || this.catalogStore.card(a.card)?.name || a.card;
         const winnerName = this.player(player).name;
         this.wallet(
           a.seller,
@@ -701,8 +704,8 @@ export class Engine {
       }
       this.run("UPDATE auctions SET claimed=1,closed=1 WHERE id=?", a.id);
       return {
-        message: "Auction card added to your collection.",
-        cards: [this.catalogStore.card(a.card)],
+        message: a.kind==="song"?"Song auction claimed.":"Auction card added to your collection.",
+        cards: a.kind==="song"?[]:[this.catalogStore.card(a.card)],
         level: a.level,
       };
     }
@@ -1188,7 +1191,7 @@ export class Engine {
         "mine_shifts", "mine_wear", "songbook_alias", "songbook_owned", "songbook_notes",
         "songbook_wishlist", "songbook_flags", "songbook_featured", "portrait_choice", "player_portraits",
         "host_credit_issues",
-        "music_lists","music_rooms","music_guests","music_chat",
+        "music_lists","music_rooms","music_guests","music_chat","song_listed",
         "pack_result_items",
         "pack_auto_sales",
         "ledger",

@@ -1,4 +1,5 @@
 import {loginDay,streakReward,weeklySignInStarts} from "../public/weekly-streak.js";
+import {lockSongListing,releaseSongListing,listedSongName,checkSongBuyer} from './song-market.js';
 import {receiveArtwork} from './card-gallery.js';
 import {transferCardState} from './transfer-card-state.js';
 import {receiveMineCard,takeMineBase} from './credit-mine.js';
@@ -300,7 +301,8 @@ export class Economy {
       fail("This auction is not available for buyout.", 409);
     if (a.seller === player) fail("You cannot buy your own auction.");
     e.assertAccountUnlocked(a.seller);
-    const cardName = e.catalogStore.card(a.card)?.name || a.card;
+    if(a.kind==='song')checkSongBuyer(e,player,a.card);
+    const cardName = a.kind==='song'?listedSongName(e,a.card):e.catalogStore.card(a.card)?.name || a.card;
     const sellerName =
       e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", a.seller)
         ?.name || a.seller;
@@ -358,11 +360,12 @@ export class Economy {
     return {
       message: "Auction bought out. Card added to your collection.",
       noticeIds: [notice],
-      cards: [e.catalogStore.card(a.card)],
+      cards: a.kind==="song"?[]:[e.catalogStore.card(a.card)],
       level: a.level,
     };
   }
   acquire(player, card, level = 1, extraCopies = 0, artwork = null) {
+    if(card.startsWith('song-listing:'))return releaseSongListing(this.e,player,card);
     const current = this.e.one(
         "SELECT copies,level FROM inventory WHERE player=? AND card=?",
         player,
@@ -441,7 +444,7 @@ export class Economy {
       now,
     )) {
       if (a.winner) {
-        const cardName = e.catalogStore.card(a.card)?.name || a.card;
+        const cardName = a.kind==='song'?listedSongName(e,a.card):e.catalogStore.card(a.card)?.name || a.card;
         const winnerName =
           e.one(
             "SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?",
@@ -795,8 +798,9 @@ export class Economy {
         player,
       ).n;
       if (active >= 20 && !e.player(player).donator) fail("You can have up to 20 open listings.");
-      const id = text(b.card, 100),
-        c = e.catalogStore.card(id);
+      const song=b.song!==undefined;
+      const id=song?lockSongListing(e,player,b.song):text(b.card,100);
+      const c=song?{kind:'song'}:e.catalogStore.card(id);
       if (!c) fail("Unknown card.");
       const price = integer(b.price, 1, 1000000);
       const hours = b.hours ?? (b.days ?? 3) * 24;
@@ -806,8 +810,8 @@ export class Economy {
           ? null
           : integer(b.buyout, price, 1000000);
       const variant = b.variant || "extra";
-      const artwork = transferCardState(e,player,id,variant);
-      const level = this.take(player,id,variant,{escrow:true});
+      const artwork = song?null:transferCardState(e,player,id,variant);
+      const level = song?1:this.take(player,id,variant,{escrow:true});
       if (venue === "shop")
         e.run(
           "INSERT INTO market_listings(seller,card,kind,level,price,created,artwork) VALUES(?,?,?,?,?,?,?)",
@@ -834,7 +838,7 @@ export class Economy {
         );
       return {
         message:
-          venue === "shop"
+          song ? "Song listed." : venue === "shop"
             ? "Card listed in the User Marketplace."
             : "Card listed in User Auctions.",
       };
@@ -867,7 +871,7 @@ export class Economy {
         );
       } else fail("Unknown listing type.");
       return {
-        message: "Listing withdrawn. Card returned to your collection.",
+        message: "Listing withdrawn.",
       };
     }
     if (action === "buy-listing") {
@@ -878,7 +882,8 @@ export class Economy {
       if (!l) fail("This card has already sold or been withdrawn.", 409);
       if (l.seller === player) fail("You cannot buy your own listing.");
       e.assertAccountUnlocked(l.seller);
-      const cardName = e.catalogStore.card(l.card)?.name || l.card;
+      if(l.kind==='song')checkSongBuyer(e,player,l.card);
+      const cardName = l.kind==='song'?listedSongName(e,l.card):e.catalogStore.card(l.card)?.name || l.card;
       const sellerName =
         e.one("SELECT COALESCE(display_name,name) AS name FROM players WHERE id=?", l.seller)
           ?.name || l.seller;
@@ -905,8 +910,8 @@ export class Economy {
       );
       pruneFavorite(e,l.seller,l.card);
       return {
-        message: "Card purchased and added to your collection.",
-        cards: [e.catalogStore.card(l.card)],
+        message: l.kind==="song"?"Song purchased.":"Card purchased and added to your collection.",
+        cards: l.kind==="song"?[]:[e.catalogStore.card(l.card)],
         level: l.level,
       };
     }
@@ -989,7 +994,7 @@ export class Economy {
       (auction ? " LEFT JOIN players w ON w.id=a.winner" : "") +
       " WHERE " +
       (auction ? "a.closed=0 AND a.ends>?" : "l.status='open'") +
-      (kind === "both" ? "" : " AND " + alias + ".kind=?") +
+      (kind === "both" ? " AND "+alias+".kind IN ('character','seiyuu')" : " AND " + alias + ".kind=?") +
       (wishlistOnly ? " AND is_wishlisted=1" : "") +
       (favoritesOnly ? " AND " + alias + ".card IN (SELECT value FROM json_each(?))" : "") +
       friendScope.sql;
@@ -1127,6 +1132,12 @@ export class Economy {
     e.run("DELETE FROM card_favorites WHERE player=?", player);
     e.run("DELETE FROM card_wishlist WHERE player=?", player);
     this.trades.resetPlayer(player);
+    // A paid auction prize belongs to its winner even if the seller resets before claim.
+    for(const lot of e.all("SELECT id,winner,card FROM auctions WHERE seller=? AND kind='song' AND paid=1 AND claimed=0 AND winner IS NOT NULL",player)){
+      releaseSongListing(e,lot.winner,lot.card);
+      e.run('UPDATE auctions SET claimed=1 WHERE id=?',lot.id);
+    }
+    e.run('DELETE FROM song_listed WHERE seller=?',player);
     for (const a of e.all(
       "SELECT * FROM auctions WHERE seller=? AND paid=0",
       player,

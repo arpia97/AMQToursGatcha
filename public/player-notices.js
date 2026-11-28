@@ -54,7 +54,7 @@ export function noticeCopy(notice) {
       };
     case "market-sale":
       return {
-        title: notice.metadata?.buyerName ? `${notice.metadata.buyerName} bought your card` : "Your Marketplace Card Sold",
+        title: notice.metadata?.buyerName ? `${notice.metadata.buyerName} bought your ${notice.metadata.songName?"song":"card"}` : "Your Marketplace Card Sold",
         detail: "Credits have been added to your wallet.",
         credit: "Received",
         sign: "+",
@@ -112,7 +112,7 @@ export function noticePanel(
             : `<div class="fallback-img" aria-label="Quiz">♪</div>`;
         return `<article class="trade-notice tier-${tier}"><div class="trade-notice-portrait tier-${tier}">${cover}</div><div><h3>${e(copy.title)}</h3><strong>${e(quizName)}</strong><p>${e(copy.detail)}</p><a class="button secondary" href="${e(playQuizHref(notice.metadata?.quiz))}">View Quiz Leaderboard →</a></div></article>`;
       }
-      const card = cardBy(notice.card);
+      const card = notice.metadata?.songName?{id:notice.card,name:notice.metadata.songName,kind:"song"}:cardBy(notice.card);
       const href = marketNoticeHref(notice, card, routeHref);
       const linkText = notice.kind === "trade-request" ? "Review Trade Offers" : notice.kind === "market-sale" ? "View Your Listings" : "View Auctions";
       const link = href ? `<a class="button secondary" data-inbox-link href="${e(href)}">${linkText} →</a>` : "";

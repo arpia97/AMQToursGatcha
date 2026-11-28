@@ -19,6 +19,10 @@ export class PlayerNotices {
       );
   }
   add(player, key, kind, card, level, credits, metadata = {}) {
+    if(card?.startsWith('song-listing:')){
+      const row=this.e.one("SELECT json_extract(s.recording,'$.title') AS name FROM song_listed l JOIN songbook_owned s ON s.id=l.owned WHERE l.token=?",card);
+      metadata={...metadata,songName:row?.name||metadata.songName||'Song'};
+    }
     if (["jam-invite","trade-request","credit-reward","quiz-leader-beaten"].includes(kind) && this.e.one("SELECT json_extract(notice_preferences,?) AS enabled FROM players WHERE id=?", '$."'+kind+'"', player)?.enabled === 0) return null;
     this.e.run(
       "INSERT OR IGNORE INTO player_notices(player,event_key,kind,card,level,credits,created,metadata,seen) VALUES(?,?,?,?,?,?,?,?,?)",

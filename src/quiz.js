@@ -767,6 +767,8 @@ export class Quiz {
             bestAt,
             duration,
           );
+          if(q.title && score===20 && previous?.best!==20)
+            e.run('INSERT OR IGNORE INTO profile_title_preferences VALUES(?,?,1)',player,q.id);
           let leaderNotified = null;
           if (improved && previousLeader && previousLeader.id !== player) {
             const newLeader = this.topLeader(q.id, true);
@@ -848,7 +850,7 @@ export class Quiz {
         )
         .map(({ hidden, ...title }) => ({ ...title, premium:Number.isSafeInteger(title.durationMs)&&title.durationMs>=0&&title.durationMs<60000,equipped: !hidden })),
       ...this.e.all(`SELECT 'anime-collection:'||a.series_key AS quiz,a.title,
-        'anime-collection' AS category,coalesce(t.hidden,0) AS hidden
+        'anime-collection' AS category,coalesce(t.hidden,1) AS hidden
         FROM anime_completion_titles a LEFT JOIN profile_title_preferences t
         ON t.player=a.player AND t.quiz='anime-collection:'||a.series_key
         WHERE a.player=? ORDER BY a.title COLLATE NOCASE`,player).map(({hidden,...t})=>({...t,equipped:!hidden})),
@@ -932,12 +934,8 @@ export class Quiz {
     }
     this.e.run("DELETE FROM profile_title_preferences WHERE player=?", player);
     for (const title of quizTitles)
-      if (!b.quizzes.includes(title.quiz))
-        this.e.run(
-          "INSERT INTO profile_title_preferences VALUES(?,?,1)",
-          player,
-          title.quiz,
-        );
+      if (title.category==='anime-collection' || !b.quizzes.includes(title.quiz))
+        this.e.run("INSERT INTO profile_title_preferences VALUES(?,?,?)",player,title.quiz,Number(!b.quizzes.includes(title.quiz)));
     for (const title of cardTitles)
       this.e.run(
         "UPDATE card_title_awards SET hidden=? WHERE player=? AND card=?",

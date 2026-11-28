@@ -27,8 +27,9 @@ export function marketNoticeHref(row, card, routeHref) {
   const url = new URL(routeHref(page), "https://amqtours.app");
   url.searchParams.set("section", section);
   if (view) url.searchParams.set("view", view);
-  if (card?.kind === "character" || card?.kind === "seiyuu") url.searchParams.set("kind", card.kind);
-  if (row.card && card?.name && ["market","trades","user"].includes(section) &&
+  if(row.card?.startsWith('song-listing:'))url.searchParams.set('kind','song');
+  else if (card?.kind === "character" || card?.kind === "seiyuu") url.searchParams.set("kind", card.kind);
+  if (row.card && !row.card.startsWith('song-listing:') && card?.name && ["market","trades","user"].includes(section) &&
       !["auction-sale","auction-buyout"].includes(row.kind)) url.searchParams.set("q", card.name);
   return url.pathname + url.search + url.hash;
 }
@@ -36,7 +37,7 @@ export function marketNoticeHref(row, card, routeHref) {
 export function applyMarketNotice(page, params, ui) {
   const section = params.get("section");
   const query = (params.get("q") || "").slice(0, 100);
-  const kind = ["character","seiyuu"].includes(params.get("kind")) ? params.get("kind") : "both";
+  const kind = ["character","seiyuu","song"].includes(params.get("kind")) ? params.get("kind") : "both";
   if (page === "shop" && ["buy","market","listings","trades"].includes(section)) {
     ui.shopSection = section;
     if (section === "market") ui.marketQuery = query;

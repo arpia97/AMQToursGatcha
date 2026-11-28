@@ -20,6 +20,14 @@ export function mineCondition(debt,level){
   const status=fraction<1/24?'':stages[Math.min(5,Math.floor(fraction*5))];
   return {debt,capacity:max,status,efficiency:Math.round((100-95*fraction)*10)/10};
 }
+// The original release displayed Tired immediately. Retire that badge for those
+// shifts while keeping earned credits, underlying wear and the later stages intact.
+const restedBadgeRelease=Date.parse('2026-11-28T18:10:55.940Z');
+function shiftCondition(debt,level,start){
+  const condition=mineCondition(debt,level);
+  if(start<restedBadgeRelease && condition.status==='Tired')condition.status='';
+  return condition;
+}
 function stored(e,player,card,slot){
   const row=e.one('SELECT debt,at FROM mine_wear WHERE player=? AND card=? AND slot=?',player,card,slot);
   return row?recover(e,row.debt,row.at):0;
@@ -118,11 +126,11 @@ export function mineView(e,player){
   e.assertAccountUnlocked(player);
   const now=e.now(),rows=e.all('SELECT * FROM mine_shifts WHERE player=? AND retired=0 ORDER BY start,card',player);
   const shifts=rows.map(row=>({card:row.card,start:row.start,level:row.level,working:row.ends===OPEN,prize:row.prize,
-    available:earned(e,row,now).available,...mineCondition(debtAt(row,now),row.level)}));
-  const resting=e.all('SELECT w.card,w.debt,w.at,i.level FROM mine_wear w JOIN inventory i ON i.player=w.player AND i.card=w.card WHERE w.player=? AND w.slot=0 AND w.at+w.debt*?>?',player,REST_PER_FATIGUE,now)
+    available:earned(e,row,now).available,...shiftCondition(debtAt(row,now),row.level,row.start)}));
+  const resting=e.all('SELECT w.card,w.debt,w.at,i.level,coalesce(s.start,w.at) AS start FROM mine_wear w JOIN inventory i ON i.player=w.player AND i.card=w.card LEFT JOIN mine_shifts s ON s.player=w.player AND s.card=w.card AND s.ends=w.at WHERE w.player=? AND w.slot=0 AND w.at+w.debt*?>?',player,REST_PER_FATIGUE,now)
     .map(r=>{
       const debt=recover(e,r.debt,r.at,now);
-      return {card:r.card,...mineCondition(debt,r.level),readyAt:now+debt*REST_PER_FATIGUE};
+      return {card:r.card,...shiftCondition(debt,r.level,r.start),readyAt:now+debt*REST_PER_FATIGUE};
     }).filter(r=>r.debt>0);
   return {now,slots:slotsFor(e,player),shifts,resting};
 }
@@ -130,16 +138,17 @@ export function mineView(e,player){
 export function addCollectionMineStatus(e,player,items){
   if(!items.length)return;
   const now=e.now(), visible=new Map(items.map(item=>[item.card,item]));
-  const rows=e.all(`SELECT card,debt,segment,ends,level,NULL AS at FROM mine_shifts
+  const rows=e.all(`SELECT card,debt,segment,ends,level,NULL AS at,start FROM mine_shifts
     WHERE player=? AND retired=0 AND ends=?
-    UNION ALL SELECT card,debt,NULL,NULL,NULL,at FROM mine_wear
-    WHERE player=? AND slot=0 AND at+debt*?>?`,player,OPEN,player,REST_PER_FATIGUE,now);
+    UNION ALL SELECT w.card,w.debt,NULL,NULL,NULL,w.at,coalesce(s.start,w.at) FROM mine_wear w
+    LEFT JOIN mine_shifts s ON s.player=w.player AND s.card=w.card AND s.ends=w.at
+    WHERE w.player=? AND w.slot=0 AND w.at+w.debt*?>?`,player,OPEN,player,REST_PER_FATIGUE,now);
   for(const row of rows){
     const item=visible.get(row.card);
     if(!item)continue;
     const working=row.at===null;
     const debt=working?debtAt(row,now):recover(e,row.debt,row.at,now);
-    const status=mineCondition(debt,item.level).status;
+    const status=shiftCondition(debt,item.level,row.start).status;
     if(status)item.mineStatus=status;
   }
 }

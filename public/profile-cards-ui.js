@@ -60,6 +60,7 @@ function profileCollectionControls(
       ["character", "Characters"],
       ["seiyuu", "Seiyuus"],
       ["both", "Both"],
+      ["song", "Song"],
     ]
       .map(
         ([id, label]) =>

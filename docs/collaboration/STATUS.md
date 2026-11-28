@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song marketplace, titles and mine picker
+
+Song follows Both in the shared category selectors. Owned songs can be listed at a fixed credit price or auctioned with the usual bid holds and settlement. Profile song collections and favorites respect collection privacy. The mine assignment picker uses paginated card tiles. Legacy shifts suppress their early Tired badge. Anime completion titles and newly earned titles are opt-in from the categorized title picker.
+
 ## Collection title and mine badges
 
 Profile titles earned for completing an anime collection use a coral palette in both the profile and title picker. The mine and collection show the first fatigue badge at one twenty-fourth of a card's fatigue capacity (two hours for a rested level-one card). Efficiency continues to decline gradually throughout the shift.

@@ -238,7 +238,7 @@ export class AliasSync {
       "profile_title_preferences",
       "profile_title_order",
       "card_titles",
-      "card_title_awards",
+      "card_title_awards","songbook_owned","songbook_alias","songbook_notes","songbook_wishlist","songbook_flags","songbook_featured","songbook_series","anime_completion_titles","anime_completion_pending","music_lists","mine_shifts","mine_wear",
       "card_upgrade_progress",
       "card_alchemy",
       "alchemy_bop_xp",
@@ -253,6 +253,7 @@ export class AliasSync {
     this.e.run("UPDATE player_friends SET player=? WHERE player=?", id, old);
     this.e.run("UPDATE player_friends SET friend=? WHERE friend=?", id, old);
     this.e.run("UPDATE auctions SET winner=? WHERE winner=?", id, old);
+    this.e.run("UPDATE song_listed SET seller=? WHERE seller=?",id,old);
     this.e.run("UPDATE auctions SET seller=? WHERE seller=?", id, old);
     this.e.run("UPDATE market_listings SET seller=? WHERE seller=?", id, old);
     this.e.run("UPDATE market_listings SET buyer=? WHERE buyer=?", id, old);

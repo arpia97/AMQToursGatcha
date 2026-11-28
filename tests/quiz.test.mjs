@@ -238,7 +238,7 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
     f.e.economy.rankings("earned").rows.find((p) => p.id === "p").value,
     2900,
   );
-  assert.equal(f.e.profile("p").titles[0].title, "Perfect Listener");
+  assert.equal(f.e.quiz.titleSettings("p").titles[0].title, "Perfect Listener");
   assert.equal(play(f, 20).run.reward.total, 0);
   assert.equal(f.e.player("p").earned, 2900);
   assert.equal(f.e.player("q").earned, 0);
@@ -259,7 +259,7 @@ test("server picks20 unique songs, resumes, locks answers, awards once across re
   }
   assert.equal(f.e.quiz.leaderboard("test", "q").me.best, 20);
   assert.equal(f.e.quiz.profileStats("q").maxScores, 1);
-  assert.equal(f.e.profile("q").titles[0].title, "Perfect Listener");
+  assert.equal(f.e.quiz.titleSettings("q").titles[0].title, "Perfect Listener");
   assert.equal(f.e.player("q").balance, before.balance);
   assert.equal(f.e.player("q").earned, before.earned);
   assert.equal(f.e.one("SELECT count(*) AS n FROM ledger WHERE player='q'").n, ledger);
@@ -303,6 +303,7 @@ test("reset clears quiz progress and restores5000 once while quiz definitions re
 test("canonical ID migration retains quiz progress and active questions", (t) => {
   const f = fixture(t);
   play(f, 20);
+  f.action("p", "equip-titles", {quizzes:["test"]});
   f.action("p", "quiz-start", { quiz: "test" });
   const run = f.e.quiz.view("p", "test").run;
   f.e.tx(() => new AliasSync(f.e).renamePlayer("p", "90001"));
@@ -576,7 +577,7 @@ test("title selection is limited to earned titles, changes public display only, 
     balance: f.e.player("p").balance,
     best: f.e.quiz.list("p")[0].best,
   };
-  assert.equal(f.e.quiz.titleSettings("p").titles[0].equipped, true);
+  assert.equal(f.e.quiz.titleSettings("p").titles[0].equipped, false);
   const hidden = f.action("p", "equip-titles", { quizzes: [] }, "hide-title");
   assert.equal(hidden.titles[0].equipped, false);
   assert.equal(f.e.profile("p").titles.length, 0);
@@ -606,7 +607,7 @@ test("title selection is limited to earned titles, changes public display only, 
   assert.equal(f.e.quiz.titleSettings("368").role, "Host");
   assert.equal(f.e.profile("368").role, "Host");
 });
-test("title visibility survives restarts and canonical migration, newly earned titles equip by default and player reset clears preferences", (t) => {
+test("title visibility survives restarts and canonical migration, older perfect scores retain their visibility and player reset clears preferences", (t) => {
   const f = fixture(t);
   play(f, 20);
   f.action("p", "equip-titles", { quizzes: [] });
@@ -794,7 +795,7 @@ test("host quiz score reset removes scores, active runs and completion titles wi
   assert.deepEqual(reset(), result);
   assert.equal(f.e.quiz.list("p")[0].best, 20);
   f.save({ title: "Renamed Completion" });
-  assert.equal(f.e.profile("p").titles[0].title, "Renamed Completion");
+  assert.equal(f.e.profile("p").titles.length, 0);
   assert.equal(
     f.e.quiz.titleSettings("p").titles[0].title,
     "Renamed Completion",
@@ -1413,7 +1414,7 @@ test("host quiz delete removes quiz, songs, answers, progress, runs, reward hist
   play(f, 20);
   const balance = f.e.player("p").balance;
   f.e.run(
-    "INSERT INTO profile_title_preferences VALUES(?,?,1)",
+    "INSERT OR REPLACE INTO profile_title_preferences VALUES(?,?,1)",
     "p",
     "test",
   );

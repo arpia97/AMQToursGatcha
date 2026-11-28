@@ -8,6 +8,7 @@ import { roleBadge } from "./role-label.js";
 import { collectionView, collectionPage, reverseCardSortOptions } from "./card-display.js";
 import { RARITIES, SHOP_PRICES, instantSalePrice } from "./card-values.js";
 
+import {songPanel} from './song-category.js';
 export function shopSellPage(inventory, cardBy, options, kind) {
   const items = collectionView(inventory, cardBy, {
       kind,
@@ -140,7 +141,7 @@ export function createShopUI(h, ui) {
     const s = getState(),
       weekly = s.shop || [],
       market = ui.marketData || { items: [] },
-      own = (s.myListings || []).filter((l) => l.venue === "shop");
+      own = (s.myListings || []).filter((l) => l.venue === "shop" && l.kind!=='song' && (ui.tab()==='both'||(l.kind??cardBy(l.card)?.kind)===ui.tab()));
     const section = ["buy", "sell", "market", "listings", "trades"].includes(
       ui.shopSection,
     )
@@ -159,10 +160,11 @@ export function createShopUI(h, ui) {
       )
       .join("")}</div>`;
     if (section === "trades") return header + h.renderTrades();
+    if (['sell','market','listings'].includes(section)&&ui.tab()==='song')return header+h.tabs()+songPanel(section);
     if (section === "sell") return header + sell();
     if (section === "listings")
       return (
-        header +
+        header + h.tabs() +
         `<div class="section-head"><h2>Your Marketplace Listings</h2>${btn("List another card", "shop-section", 'data-section="sell"', "secondary")}</div><p class="subtext">You set the price and receive the full amount when a card sells. Withdraw any unsold listing to return the card to your collection.</p>${!s.me ? empty("Sign In to Manage Your Listings.", "Your sales and cards stay linked to your AMQ Tours account.", btn("Sign in", "shop-sign-in", "", "mint")) : own.length ? `<div class="card-grid market-card-grid space-top">${own.map((l) => listingCard(l)).join("")}</div>` : empty("No Cards Listed Yet.", "Choose a card in Sell cards and set your asking price.")}`
       );
     if (section === "market")

@@ -122,7 +122,7 @@ export class CardTitles {
     const award = crypto.randomUUID();
     // Historical repeat-award rows remain evidence; new MAX runs claim once per card ID.
     this.e.run(
-      "INSERT INTO card_title_awards(player,award,card,title,rarity,at,hidden) SELECT ?,?,?,?,?,?,0 WHERE NOT EXISTS(SELECT 1 FROM card_title_awards WHERE player=? AND card=?)",
+      "INSERT INTO card_title_awards(player,award,card,title,rarity,at,hidden) SELECT ?,?,?,?,?,?,1 WHERE NOT EXISTS(SELECT 1 FROM card_title_awards WHERE player=? AND card=?)",
       player, award, id, title, rarity, this.e.now(), player, id,
     );
     return this.e.one("SELECT award FROM card_title_awards WHERE player=? AND award=?", player, award) ? title : null;
