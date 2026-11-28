@@ -4,6 +4,8 @@
 
 The Songbook uses the official display name keyed by ANN anime ID. Existing ownership snapshots are repaired from unambiguous MAL links. Unlocked artwork can be cropped as a separate profile picture, and losing the artwork clears that choice. Empty Year Quiz decades before 1960 are hidden. The earlier portrait credits reconciled against the wallet ledger with no outstanding overpayments.
 
+Released `36075bb` as Worker `5664eee5-6ab3-42d6-911e-b8483a16f171`. All 724 tests passed. Browser checks passed at 390 and 1280 px. Production normalized 42 saved recordings and the owned copy of Ima wa Oyasumi now displays Mobile Suit Gundam. Eight historical rolls reconciled with 1,050 credits already refunded.
+
 ## Song sell-back and alternate image pricing
 
 A player can return an owned, unprotected, unlisted song for 100 credits through My Songs or Sell Cards. Alternative image rolls start at 500 and rise by 250 per unlocked alternative on the card. The refund migration accounts for the earlier pricing adjustment. The Year Quiz directory explains the song quota for decades with no eligible years.
