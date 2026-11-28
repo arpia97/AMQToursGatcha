@@ -62,7 +62,10 @@ test('full-efficiency AG averages 2500 per day, with a 1906.25 first-day mean an
   const firstDay=Array.from({length:288},(_,i)=>reward*62500/720000*(1-.95*(i+.5)/576));
   assert.ok(Math.abs(firstDay.reduce((sum,n)=>sum+n,0)-1906.25)<1e-8);
   assert.equal(reward*288*62500/720000*.05,125);
-  assert.equal(new Set([0,5,10,15,20,24].map(f=>mineCondition(f,1).status)).size,6);
+  assert.deepEqual([0,1,5,10,15,20,24].map(f=>mineCondition(f,1).status),
+    ['','Tired','Sad','Miserable','Despaired','Agonized','Suicidal']);
+  assert.equal(mineCondition(1,2).status,'');
+  assert.equal(mineCondition(1.25,2).status,'Tired');
 });
 test('enhancing an assigned base keeps debt, original tick cadence and credits already earned',()=>{
   const {e,act,advance,view}=fixture(),card='community-mine0';
@@ -156,8 +159,13 @@ test('collection badges follow the working base, its recovery, and the new owner
   };
   assert.equal(status('a'),undefined);
   act('assign',0);
+  assert.equal(status('a'),undefined);
+  assert.equal(view().shifts[0].status,'');
+  advance(2*hour-1);
+  assert.equal(status('a'),undefined);
+  advance(1);
   assert.equal(status('a'),'Tired');
-  advance(30*hour);
+  advance(28*hour);
   assert.equal(status('a'),view().shifts[0].status);
   act('recall',0,{start:view().shifts[0].start});
   assert.equal(status('a'),'Despaired');
@@ -169,6 +177,9 @@ test('collection badges follow the working base, its recovery, and the new owner
   e.action('b','buy-listing',{listing:e.one('SELECT id FROM market_listings').id});
   assert.equal(status('a'),undefined);
   assert.equal(status('b'),'Miserable');
-  advance(110*hour);
+  advance(105*hour);
+  assert.equal(status('b'),undefined);
+  assert.ok(cardWear(e,'b',card,'card',1)>0);
+  advance(5*hour);
   assert.equal(status('b'),undefined);
 });

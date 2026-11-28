@@ -16,7 +16,9 @@ function recover(e,debt,at,now=e.now()){
 }
 export function mineCondition(debt,level){
   const max=fatigueCapacity(level), fraction=Math.min(1,Math.max(0,debt/max));
-  return {debt,capacity:max,status:stages[Math.min(5,Math.floor(fraction*5))],efficiency:Math.round((100-95*fraction)*10)/10};
+  // A rested level-one card works two hours before showing its first fatigue badge.
+  const status=fraction<1/24?'':stages[Math.min(5,Math.floor(fraction*5))];
+  return {debt,capacity:max,status,efficiency:Math.round((100-95*fraction)*10)/10};
 }
 function stored(e,player,card,slot){
   const row=e.one('SELECT debt,at FROM mine_wear WHERE player=? AND card=? AND slot=?',player,card,slot);
@@ -137,7 +139,8 @@ export function addCollectionMineStatus(e,player,items){
     if(!item)continue;
     const working=row.at===null;
     const debt=working?debtAt(row,now):recover(e,row.debt,row.at,now);
-    if(working||debt>0)item.mineStatus=mineCondition(debt,item.level).status;
+    const status=mineCondition(debt,item.level).status;
+    if(status)item.mineStatus=status;
   }
 }
 export function changeMine(e,player,b){

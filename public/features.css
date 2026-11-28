@@ -5900,4 +5900,8 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
 .anime-collection-body small,.anime-collection-body p{color:var(--muted);font-size:.76rem;}
 .anime-collection-body li small{text-align:right;}
 .anime-collection-body footer{margin-top:12px;}
-.anime-earned-title{color:#bce4ce;border-color:#81b598;}
+.equipped-title.anime-earned-title {
+  color: #ffceb7;
+  border-color: #c98773;
+  background: #37252c;
+}

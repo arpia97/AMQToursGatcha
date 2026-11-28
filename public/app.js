@@ -4,7 +4,7 @@ import { communityPortraitUrl } from "./community-portrait.js";
 import {portraitControls} from './portrait-gallery-ui.js';
 import {featuredSongPanel} from './song-tiles.js';
 import {createSongbookUI,songPackTile,songProgress} from './songbook-ui.js?v=song-catalogue';
-import {mountCreditMine} from './credit-mine-ui.js?v=card-fatigue';
+import {mountCreditMine} from './credit-mine-ui.js?v=rested-badge';
 import {createMusicUI} from './music-ui.js?v=party-mine';
 import {installSongPreviews} from './song-tiles.js?v=song-catalogue';
 import { applyMarketNotice } from "./market-notice-link.js";

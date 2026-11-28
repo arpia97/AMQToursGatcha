@@ -21,8 +21,9 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
       const resting=new Map(data.resting.map(s=>[s.card,s]));
       function worker(s){
         const c=cardBy(s.card),stock=state.inventory.find(i=>i.card===s.card);
+        const badge=s.working?s.status:'Shift complete';
         return `<article class="mine-worker" data-mood="${s.working?e(s.status):'Off duty'}"><div class="mine-portrait">${image({...c,image:stock?.portrait||c.image})}
-          <strong class="mine-status">${s.working?e(s.status):'Shift complete'}</strong></div>
+          ${badge?`<strong class="mine-status">${e(badge)}</strong>`:''}</div>
           <div class="mine-worker-info"><h3>${e(c.name)}</h3><small>${e(c.rarity||'')} · Lv. ${s.level}</small>
           ${s.working?`<div class="mine-eff"><span>Efficiency</span><b>${s.efficiency}%</b></div><progress class="mine-meter" aria-label="Mining efficiency" max="100" value="${s.efficiency}"></progress><small>${duration(data.now-s.start)} worked</small>`:'<p>Ready to collect</p>'}
           <strong>✦ ${s.available.toLocaleString()} credits</strong></div>
@@ -53,8 +54,11 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
           const dialog=document.querySelector('#modal'),results=dialog.querySelector('.mine-picker');
           const show=(query='')=>{
             const matches=rows.filter(({c})=>c.name.toLowerCase().includes(query.toLowerCase()));
-            results.innerHTML=matches.slice(0,100).map(({i,c})=>`<button class="button secondary" data-assign="${e(i.card)}" >
-              <strong>${e(c.name)}</strong><small>${e(c.rarity)} · Lv. ${i.level}${resting.has(i.card)?' · '+e(resting.get(i.card).status)+' · '+resting.get(i.card).efficiency+'% efficiency':' · 100% efficiency'}</small></button>`).join('')||
+            results.innerHTML=matches.slice(0,100).map(({i,c})=>{
+              const wear=resting.get(i.card);
+              return `<button class="button secondary" data-assign="${e(i.card)}">
+                <strong>${e(c.name)}</strong><small>${e(c.rarity)} · Lv. ${i.level}${wear?.status?' · '+e(wear.status):''} · ${wear?.efficiency??100}% efficiency</small></button>`;
+            }).join('')||
               '<p>No eligible cards found.</p>';
             if(matches.length>100)results.insertAdjacentHTML('beforeend','<small>Search to narrow the list.</small>');
           };
