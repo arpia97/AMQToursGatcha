@@ -358,7 +358,7 @@ export class Game extends DurableObject {
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && path!=='play-watch-unlock' && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && path!=='login-check-in' && path!=='play-watch-unlock' && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -1917,6 +1917,13 @@ export class Game extends DurableObject {
       )
     )
       fail("Your session ended. Please sign in again.", 401);
+    if(path==="login-check-in" && post){
+      if(b.player!==session.player)fail("Account changed.",409);
+      const reward=e.economy.checkIn(session.player);
+      const p=e.player(session.player);
+      return json({reward,daily:p.daily,login_days:p.login_days,balance:p.balance,earned:p.earned,
+        streakPacks:e.all("SELECT tier,quantity FROM login_packs WHERE player=? AND quantity>0",session.player)});
+    }
     if (path === "quiz-audio" && !post) {
       this.bursts.take("read:" + session.player, 60, 5);
       return json(

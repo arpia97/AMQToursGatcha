@@ -1,3 +1,4 @@
+import {watchLoginDay,weeklySignInStarts,checkLoginStreak,streakPanel,streakReward} from './weekly-streak.js';
 import { communityPortraitUrl } from "./community-portrait.js";
 import { applyMarketNotice } from "./market-notice-link.js";
 import { cardFavoriteFlag, cardQuickActions } from "./card-quick-actions.js";
@@ -640,6 +641,12 @@ function showAuctionWin() {
 }
 let showingSpecialPack = false;
 function showSpecialPack() {
+  if(state?.streakAward && !busy && !document.hidden && !$("#modal").open && !fusionOverlayOpen() && !quizPlaying()){
+    const reward=state.streakAward;
+    delete state.streakAward;
+    modal(streakPanel(reward,state.me.donator));
+    return;
+  }
   if (
     showingSpecialPack ||
     !state?.me ||
@@ -1353,6 +1360,9 @@ async function saveCardAction(path, body, t) {
   }
 }
 function dailyPack() {
+  if(!demo && state.now>=weeklySignInStarts){
+    return (state.streakPacks||[]).map(({tier,quantity})=>`<form class="daily-strip daily-pack-claim" data-streak-pack="${escape(tier)}"><strong>${escape(tier)} pack × ${number(quantity)}</strong><select name="kind" aria-label="Streak pack type"><option value="character">Characters</option><option value="seiyuu">Seiyuus</option></select><button class="button mint">Open pack</button></form>`).join('');
+  }
   const day = new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
   if (state.me?.daily_pack === day) return "";
   if (Object.hasOwn(state, "loginReward"))
@@ -1360,6 +1370,10 @@ function dailyPack() {
   return `<div class="daily-strip daily-pack"><div class="daily-icon">♢</div><div><h3>Your Daily Pack Is Waiting.</h3><p>Choose 5 random characters or seiyuus · free each day</p></div><form id="daily-pack-form" class="daily-pack-claim"><label>Pack Type<select id="daily-pack-kind" name="kind" aria-label="Daily pack type"><option value="character" ${ui.dailyPackKind !== "seiyuu" ? "selected" : ""}>Character Pack</option><option value="seiyuu" ${ui.dailyPackKind === "seiyuu" ? "selected" : ""}>Seiyuu Pack</option></select></label><button type="submit" class="button mint">Claim & open →</button></form></div>`;
 }
 function daily() {
+  if(!demo && state.now>=weeklySignInStarts){
+    if(!state.me)return '';
+    return '<div class="daily-strip"><div><h3>Weekly Login Streak</h3><p>'+number(state.me.login_days)+' consecutive days</p></div>'+btn('View rewards','streak-details','','secondary')+'</div>';
+  }
   const claimed =
     state.me?.daily ===
     new Date(state.now + 9 * 3600000).toISOString().slice(0, 10);
@@ -2128,11 +2142,14 @@ const loadFeatured = loadOnce(async () => {
   }
 });
 let sharedRefreshNeeded = false;
+if(!demo)watchLoginDay(()=>state,refresh);
 async function refresh() {
   const previousPlayer = state?.me?.id;
   const refreshState = api(demo ? "state" : "state?view=compact");
   if (page() === "home") loadFeatured();
-  state = await refreshState;
+  const updated=await refreshState;
+  if(!demo)await checkLoginStreak(updated,api).catch(err=>toast(err.message));
+  state=updated;
   observeNotice(state.me?.id,state.inboxLatestUnread);
   sharedRefreshNeeded = false;
   clockOffset = state.now - Date.now();
@@ -2451,6 +2468,10 @@ document.addEventListener("click", async (ev) => {
     );
     return;
   }
+  if (a==="streak-details") {
+    if(state.me)modal(streakPanel(streakReward(state.me.login_days,state.me.donator),state.me.donator));
+    return;
+  }
   if (a === "daily" || a === "enhance" || a === "claim") {
     await execute(
       a,
@@ -2622,7 +2643,7 @@ document.addEventListener("submit", async (ev) => {
     return;
   }
 
-  if (formIdentifier(f) === "daily-pack-form") {
+  if (f.dataset.streakPack || formIdentifier(f) === "daily-pack-form") {
     ui.dailyPackKind = b.kind;
     if (!state.me) {
       auth();
@@ -2630,7 +2651,7 @@ document.addEventListener("submit", async (ev) => {
     }
     await execute(
       "daily-pack",
-      { kind: b.kind },
+      { kind: b.kind, ...(f.dataset.streakPack?{tier:f.dataset.streakPack}:{}) },
       (r) => packReveal.show(r, { daily: true, kind: b.kind }),
       f,
     );

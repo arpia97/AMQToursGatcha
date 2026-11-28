@@ -1,3 +1,4 @@
+import {watchLoginDay,checkLoginStreak,streakPanel} from '../weekly-streak.js';
 import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
@@ -166,7 +167,10 @@ async function refreshAccount(expectedPlayer) {
   try {
     const updated = await api("play-state");
     if (expectedPlayer && (state.me?.id !== expectedPlayer || updated.me?.id !== expectedPlayer)) return;
+    await checkLoginStreak(updated,api).catch(fail);
+    if (expectedPlayer && state.me?.id !== expectedPlayer) return;
     state = updated;
+    if(updated.streakAward && !document.querySelector('dialog[open]'))modal(streakPanel(updated.streakAward,updated.me.donator));
     accountError = "";
   }
   catch (error) { accountError = error.message; }
@@ -477,6 +481,7 @@ async function openMode(id, push = true, createLobby = false) {
   }
 }
 const accountReady = refreshAccount();
+watchLoginDay(()=>state,()=>refreshAccount(state.me?.id));
 const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked',
   'lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
 let activityBusy=false,activityPending=false,drawerSnapshot;

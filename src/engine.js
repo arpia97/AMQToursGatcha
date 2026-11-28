@@ -226,12 +226,13 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,is_quiz_maker,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,login_days,donator_until,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,is_quiz_maker,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
     return {
       ...p,
+      donator:p.donator_until>this.now(),
       autosell_below: p.autosell_below || null,
       private_balance: !!p.private_balance,
       private_collection: !!p.private_collection,
@@ -1135,6 +1136,8 @@ export class Engine {
         id,
       );
       for (const table of [
+        "login_packs",
+        "songbook_notes",
         "inventory",
         "ledger",
         "predictions",
@@ -1146,7 +1149,7 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table} WHERE player=?`, id);
       this.run(
-        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL WHERE id=?",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,login_days=0,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL WHERE id=?",
         id,
       );
       this.run(
@@ -1180,6 +1183,8 @@ export class Engine {
         "auctions",
         "weekly_shop",
         "market_listings",
+        "login_packs",
+        "songbook_notes",
         "trade_offer_cards",
         "trade_offers",
         "trade_listings",
@@ -1211,7 +1216,7 @@ export class Engine {
       ])
         this.run(`DELETE FROM ${table}`);
       this.run(
-        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL",
+        "UPDATE players SET balance=5000,earned=5000,starter_granted=1,starter_amount=5000,daily=NULL,login_days=0,daily_pack=NULL,avatar_card=NULL,avatar_crop=NULL",
       );
       if (!full)
         this.run(
@@ -1369,6 +1374,7 @@ export class Engine {
       notices,
       ...inboxSummary(this,id),
       catalog,
+      streakPacks:id?this.all("SELECT tier,quantity FROM login_packs WHERE player=? AND quantity>0",id):[],
       specialPack,
       auctions,
       auctionWins: auctions.filter(

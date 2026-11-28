@@ -1299,3 +1299,48 @@ test("prior Special Pack refunds reverse only original copies and auto-sales and
   assert.equal(paidSpecialRefundPlan(e)[0].orders.length, 0);
   assert.throws(() => refund("duplicate"), /changed or needs review/);
 });
+
+test("weekly panel distinguishes locked extras from earned Donator rewards", async()=>{
+  const {streakPanel,streakReward}=await import('../public/weekly-streak.js');
+  for(const donor of [false,true]){
+    const panel=streakPanel(streakReward(12,donor),donor);
+    assert.match(panel,/12 consecutive days/);
+    assert.equal((panel.match(/<li class="streak-card/g)||[]).length,7);
+    assert.equal((panel.match(/aria-label="Collected"/g)||[]).length,4);
+    assert.match(panel,/character-special\.png/);
+    assert.equal((panel.match(/aria-current="step"/g)||[]).length,1);
+    assert.equal((panel.match(/aria-disabled="true"/g)||[]).length,donor?0:1);
+    assert.ok(panel.includes(donor?'1,400 credits · 2 × Premium pack · 1 Note':'700 credits · Premium pack'));
+  }
+});
+
+test("weekly KST streak loops, resets and delivers earned packs once",()=>{
+  const f=fixture(), e=f.e;
+  const start=Date.parse('2026-11-30T00:00:00+09:00');
+  f.tick(start-e.now()-1);
+  assert.equal(e.economy.checkIn('buyer'),null);
+  assert.equal(f.act('buyer','daily-pack',{kind:'character'}).cards.length,5);
+  assert.equal(f.act('buyer','daily',{}).credits,300);
+  f.tick(1);
+  assert.throws(()=>f.act('buyer','daily-pack',{kind:'character'}),/no earned packs/);
+  e.run("UPDATE players SET donator_until=? WHERE id='seller'",start+86400000);
+  const bonus=e.economy.checkIn('seller');
+  assert.equal(bonus.credits,600);
+  assert.equal(bonus.notes,1);
+  for(const [index,credits] of [300,300,500,500,700,700,1000,300].entries()){
+    const reward=e.economy.checkIn("buyer");
+    assert.equal(reward.credits,credits);
+    assert.equal(reward.consecutive,index+1);
+    assert.equal(reward.day,index%7+1);
+    assert.equal(e.economy.checkIn("buyer"),null);
+    f.tick(86400000);
+  }
+  assert.deepEqual(e.all("SELECT tier,quantity FROM login_packs ORDER BY tier").map(x=>[x.tier,x.quantity]),[["normal",1],["premium",1],["special",1]]);
+  const opened=f.act("buyer","daily-pack",{kind:"seiyuu",tier:"normal"},"daily-key");
+  assert.equal(opened.cards.length,5);
+  assert.ok(opened.cards.every(c=>c.kind==="seiyuu"));
+  assert.deepEqual(f.act("buyer","daily-pack",{kind:"seiyuu",tier:"normal"},"daily-key"),opened);
+  assert.throws(()=>f.act("buyer","daily-pack",{kind:"character",tier:"normal"}),/no earned packs/);
+  f.tick(86400000);
+  assert.equal(e.economy.checkIn("buyer").consecutive,1);
+});

@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Weekly sign-in cutover
+
+At midnight KST on November 30, 2026, the daily pack and flat daily credits switch to the seven-day sign-in track on Gacha and Play. Earned packs remain redeemable in Gacha. The economy tests cover the last millisecond before the switch, the first claim after midnight, a missed day, day eight and receipt replay.
+
 ## Custom lobby chat and refinement rarity sort
 
 f6ba5f6 deployed as Worker e2391742-c1f6-48d9-aa4e-cfccf2d042a1. New custom matches share the lobby transcript and chat window through play and return. Existing matches finish on their original chat. Alchemy materials support Lowest Rarity. All 660 tests, syntax and the Worker dry-run passed. The live Play route and shared chat and Alchemy assets were verified. Weekly sign-in and mine drafts were excluded.

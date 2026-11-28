@@ -1,3 +1,4 @@
+import {loginDay,streakReward,weeklySignInStarts} from "../public/weekly-streak.js";
 import { cardMatcher } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
 import { cardInvestment } from "../public/card-values.js";
@@ -94,6 +95,8 @@ export class Economy {
       ["starter_granted", "INTEGER NOT NULL DEFAULT 0"],
       ["starter_amount", "INTEGER NOT NULL DEFAULT 0"],
       ["daily_pack", "TEXT"],
+      ["login_days","INTEGER NOT NULL DEFAULT 0"],
+      ["donator_until","INTEGER NOT NULL DEFAULT 0"],
     ])
       if (!e.all("PRAGMA table_info(players)").some((c) => c.name === name))
         e.run(`ALTER TABLE players ADD COLUMN ${name} ${definition}`);
@@ -169,7 +172,46 @@ export class Economy {
       );
     }
   }
+  checkIn(player) {
+    if (this.e.now()<weeklySignInStarts || this.e.one("SELECT daily FROM players WHERE id=?",player)?.daily===loginDay(this.e.now())) return null;
+    return this.e.tx(()=>this.streakLogin(player));
+  }
+  streakLogin(player) {
+    const e=this.e, now=e.now(), today=loginDay(now), p=e.player(player);
+    if (p.daily===today) fail("You already claimed today’s credits. Come back after midnight KST.",409);
+    const consecutive=p.daily===loginDay(now-86400000) ? p.login_days+1 : 1;
+    const reward=streakReward(consecutive,p.donator);
+    if(reward.notes)e.run('INSERT INTO songbook_notes(player,balance) VALUES(?,1) ON CONFLICT(player) DO UPDATE SET balance=balance+1',player);
+    e.wallet(player,reward.credits,"Daily login",true);
+    e.run("UPDATE players SET daily=?,login_days=? WHERE id=?",today,consecutive,player);
+    if(reward.pack)e.run("INSERT INTO login_packs VALUES(?,?,?) ON CONFLICT(player,tier) DO UPDATE SET quantity=quantity+excluded.quantity",player,reward.pack,reward.packs);
+    return {...reward,date:today,balance:e.player(player).balance,message:reward.credits+" login credits added.",cards:[]};
+  }
+  openStreakPack(player, kind, tier='normal') {
+    if (!["character","seiyuu"].includes(kind)) fail("Choose a character or seiyuu daily pack.");
+    const e=this.e;
+    if(!["normal","premium","special"].includes(tier) ||
+       !e.one("SELECT 1 FROM login_packs WHERE player=? AND tier=? AND quantity>0",player,tier))
+      fail("You have no earned packs of this type.",409);
+    const context={};
+    if(!e.catalogStore.summary()[kind]) fail("This catalogue has no cards yet.",409);
+    const cards=tier==='special'?this.specialDraw(kind,context):Array.from({length:5},()=>tier==='premium'
+      ?this.premiumDraw(kind,context):e.catalogStore.draw(kind,e.rand,100,new Set(),context));
+    const outcome=e.grantPackPulls(player,cards,"Weekly streak "+tier+" pack");
+    e.run("UPDATE login_packs SET quantity=quantity-1 WHERE player=? AND tier=?",player,tier);
+    return {
+      message: "Your "+tier+" streak pack is here!",
+      credits: outcome.autoSoldCredits,
+      autoSoldCount: outcome.autoSoldCount,
+      autoSoldCredits: outcome.autoSoldCredits,
+      balance: outcome.balance,
+      kind,
+      cards: outcome.cards,
+      opening: outcome.opening,
+    };
+  }
   daily(player) {
+    if(this.e.now()>=weeklySignInStarts)return this.streakLogin(player);
     const e = this.e,
       day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
     if (e.player(player).daily === day) {
@@ -186,7 +228,8 @@ export class Economy {
       cards: [],
     };
   }
-  dailyPack(player, kind) {
+  dailyPack(player, kind, tier) {
+    if(this.e.now()>=weeklySignInStarts)return this.openStreakPack(player,kind,tier);
     if (!["character", "seiyuu"].includes(kind))
       fail("Choose a character or seiyuu daily pack.");
     const e = this.e,
@@ -632,7 +675,7 @@ export class Economy {
         level,
       };
     }
-    if (action === "daily-pack") return this.dailyPack(player, b.kind);
+    if (action === "daily-pack") return this.dailyPack(player, b.kind, b.tier);
     if (action === "pin-anime") return this.anime.pin(player, b);
     if (action === "pinned-anime-order")
       return this.anime.reorderPinned(player, b);
@@ -1075,6 +1118,8 @@ CREATE INDEX IF NOT EXISTS pack_auto_sales_player ON pack_auto_sales(player);
 CREATE TABLE IF NOT EXISTS market_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,kind TEXT NOT NULL,level INTEGER NOT NULL,price INTEGER NOT NULL,created INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',buyer TEXT,sold_at INTEGER);
 CREATE INDEX IF NOT EXISTS listings_open ON market_listings(status,kind,id);
 CREATE INDEX IF NOT EXISTS listings_seller ON market_listings(seller,status);
+CREATE TABLE IF NOT EXISTS login_packs(player TEXT NOT NULL,tier TEXT NOT NULL,quantity INTEGER NOT NULL,PRIMARY KEY(player,tier));
+CREATE TABLE IF NOT EXISTS songbook_notes(player TEXT PRIMARY KEY,balance INTEGER NOT NULL CHECK(balance>=0));
 CREATE TABLE IF NOT EXISTS weekly_shop(id INTEGER PRIMARY KEY AUTOINCREMENT,card TEXT NOT NULL,kind TEXT NOT NULL,price INTEGER NOT NULL,starts INTEGER NOT NULL,ends INTEGER NOT NULL,buyer TEXT,base_price INTEGER,discount_percent INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS shop_week ON weekly_shop(starts,kind);
 CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL;
