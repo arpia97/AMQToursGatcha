@@ -2,6 +2,8 @@
 
 The production Worker is `amqtours-gatcha`. It serves Gacha and Play. Both avatar menus show Donator Membership when the Worker has all five Live settings. One-time passes and recurring subscriptions both start at USD 1.00. A verified completed payment credits the signed-in account for one month.
 
+**Windows shortcut.** After obtaining your Live app credentials, run `tools\paypal-live.cmd` in a checkout with the project dependencies and authenticated Wrangler. Enter the client ID and secret at the prompts. The launcher prepares the plan and webhook and sends all five settings directly to Cloudflare. It hides the secret during entry. The steps below are the manual alternative.
+
 1. In your verified PayPal Business account, open [Apps & Credentials](https://developer.paypal.com/dashboard/applications/live), select **Live**, and create or select the AMQ Tours REST app. Enable subscriptions for that app.
 2. Set `PAYPAL_LIVE_CLIENT_ID` and `PAYPAL_LIVE_CLIENT_SECRET` in a private local shell environment. Use the credentials for that Live app. Keep their values out of chat, Git and shell history.
 3. From the repository root, run `node tools/paypal-sandbox.mjs --live`. The explicit Live option registers or reuses the product, the USD 1 monthly plan and the webhook on the Live app. It prints the product, plan and webhook IDs. This setup creates no orders or charges.

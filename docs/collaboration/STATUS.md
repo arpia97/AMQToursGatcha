@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## November 29 combined production release
+
+Runtime `f599800` deployed to the original Gacha Worker as `8039505a-2d4d-4b26-9fec-5bfb40801bb7`. Music, private Jam Parties with rejoin, song packs, expanded anime collections, card galleries, the Aoji Credit Mine, unified Shop, Year and Song Type quizzes and Donator perks shipped together. The November 30 midnight KST weekly sign-in cutover is preserved. All 716 tests passed and the two browser bundles validated. Production served the shipped Music, Quiz, mine and Donator assets. PayPal accepts Live credentials via the setup launcher. Live merchant settings are pending. No real payment was made.
+
 ## Weekly sign-in cutover
 
 At midnight KST on November 30, 2026, the daily pack and flat daily credits switch to the seven-day sign-in track on Gacha and Play. Earned packs remain redeemable in Gacha. The economy tests cover the last millisecond before the switch, the first claim after midnight, a missed day, day eight and receipt replay.

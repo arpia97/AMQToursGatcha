@@ -1,4 +1,5 @@
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {spawnSync} from 'node:child_process';
 
 const productsPath = '/v1/catalogs/products';
 const plansPath = '/v1/billing/plans';
@@ -134,10 +135,21 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const live=process.argv.includes('--live');
     const prefix=live?'PAYPAL_LIVE':'PAYPAL_SANDBOX';
-    console.log(await setupMembership(live?'live':'sandbox',{
+    const result=await setupMembership(live?'live':'sandbox',{
       clientId:process.env[prefix+'_CLIENT_ID'],
       clientSecret:process.env[prefix+'_CLIENT_SECRET'],
-    }));
+    });
+    console.log(result);
+    if(live && process.argv.includes('--configure-worker')){
+      const root=fileURLToPath(new URL('../',import.meta.url));
+      const bindings={PAYPAL_LIVE_CLIENT_ID:process.env.PAYPAL_LIVE_CLIENT_ID,
+        PAYPAL_LIVE_CLIENT_SECRET:process.env.PAYPAL_LIVE_CLIENT_SECRET,PAYPAL_LIVE_PLAN_ID:result.planId,
+        PAYPAL_LIVE_PRODUCT_ID:result.productId,PAYPAL_LIVE_WEBHOOK_ID:result.webhookId};
+      const child=spawnSync(process.execPath,['node_modules/wrangler/bin/wrangler.js','secret','bulk','--name','amqtours-gatcha'],
+        {cwd:root,input:JSON.stringify(bindings),stdio:['pipe','inherit','inherit']});
+      if(child.status!==0)throw Error('Cloudflare did not confirm the live bindings. You can rerun setup.');
+      console.log('Live checkout configured. Sign in and open Donator Membership from your profile menu.');
+    }
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;
