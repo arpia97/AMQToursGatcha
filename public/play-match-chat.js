@@ -39,7 +39,7 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
   }
   const players=new Map(match.players.map(p=>[p.id,p]));
   const key='amqtours-play-chat-emojis:'+match.me;
-  let slots=defaults.slice(),selected=0,lastSeq=0,drag=null,resizing=null;
+  let slots=defaults.slice(),selected=0,drag=null,resizing=null;
   try {
     const saved=JSON.parse(localStorage.getItem(key));
     if(Array.isArray(saved))slots=defaults.map((fallback,i)=>validEmoji(saved[i])?saved[i]:fallback);
@@ -69,8 +69,10 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     while(fx.children.length>36)fx.firstChild.remove();
   }
   function receive(row,animate=true) {
-    if(row.seq<=lastSeq)return;
-    lastSeq=row.seq;
+    // A socket can deliver live rows while the history request is in flight.
+    const lines=Array.from(log.children);
+    if(lines.some(line=>Number(line.dataset.seq)===row.seq))return;
+    const next=lines.find(line=>Number(line.dataset.seq)>row.seq);
     const system=row.player==='',spectating=row.player.startsWith('play-spectators:');
     const id=spectating?row.player.slice('play-spectators:'.length):row.player;
     const player=players.get(id),mine=!system&&id===match.me;
@@ -90,7 +92,7 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
       }
       if(validEmoji(row.body)){body.className='emoji';if(animate)burst(row.body);}
     }
-    message.append(body);line.append(time,message);log.append(line);
+    message.append(body);line.append(time,message);line.dataset.seq=row.seq;log.insertBefore(line,next||null);
     while(log.children.length>80)log.firstChild.remove();
     if(follow)log.scrollTop=log.scrollHeight;
   }
@@ -193,5 +195,5 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
   };
   window.addEventListener('resize',clamp,{signal:events.signal});
   shortcuts();
-  return {matchId:match.id,receive,close(){events.abort();host.remove();}};
+  return {matchId:match.id,receive,updatePlayers(roster){for(const p of roster)players.set(p.id,p);},close(){events.abort();host.remove();}};
 }

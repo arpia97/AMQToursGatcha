@@ -104,6 +104,16 @@ test("alchemy keeps an ordered selection and confirmation preserves the exact ve
   f.ui.toggle({ card: "a", variant: "extra" });
   assert.equal(f.ui.request().card, "d");
 });
+test("material picker sorts lowest rarity first and can return to highest rarity",()=>{
+  const {ui}=fixture();
+  ui.openPicker("material");
+  for(const [sort,first,second] of [["rarity-low","D Card","&lt;Alchemy>"],["rarity","&lt;Alchemy>","D Card"]]){
+    ui.filter("sort",sort);
+    const html=ui.renderPicker();
+    assert.ok(html.includes("Lowest Rarity"));
+    assert.ok(html.indexOf(first)>=0 && html.indexOf(second)>html.indexOf(first));
+  }
+});
 test("target clearing addresses its own tier and cash-out quotes keep leftover XP for other tiers", () => {
   const f = fixture();
   f.ui.update({

@@ -985,6 +985,8 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       guest.send({type:'lobby-ready',ready:true});
       await host.wait(m=>m.type==='lobby'&&m.songs===songs&&m.players[1]?.ready);
     }
+    host.send({type:'lobby-chat',code:lobby.code,body:'Before the duel'});
+    const beforeChat=(await guest.wait(m=>m.type==='lobby-chat'&&m.row.body==='Before the duel')).row;
     host.send({type:'lobby-start'});
     const {match:customId}=await host.wait(m=>m.type==='matched');
     const customRooms=[await connect(0,customId),await connect(1,customId)];
@@ -995,6 +997,11 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
       room.send({type:'loaded',indices:manifest.audio.map((_,i)=>i)});
       room.send({type:'ready'});
     }
+    const replay=await customRooms[1].wait(m=>m.type==='chat-history');
+    assert.equal(replay.rows.find(r=>r.body==='Before the duel').seq,beforeChat.seq);
+    customRooms[1].send({type:'chat-send',body:'During the duel'});
+    const duringChat=(await customRooms[0].wait(m=>m.type==='chat-message'&&m.row.body==='During the duel')).row;
+    assert.ok(duringChat.seq>beforeChat.seq);
     const duel=(await customRooms[0].wait(m=>m.state?.phase==='guess')).state;
     assert.equal(duel.format,'lobby-duel');
     assert.equal(duel.lobby.code,lobby.code);
@@ -1020,6 +1027,7 @@ test('multiplayer Workers authenticate sockets, form all formats, preload, score
     guest.send({type:'lobby-chat-history',code:lobby.code});
     const notices=await guest.wait(m=>m.type==='lobby-chat-history');
     assert.equal(notices.rows.filter(row=>row.body==='Local Player 1 left the lobby.').length,1);
+    assert.deepEqual(notices.rows.filter(r=>r.body.endsWith('the duel')).map(r=>r.seq),[beforeChat.seq,duringChat.seq]);
     for(const socket of [host,guest]){
       const after=socket.messages.length;
       socket.send({type:'lobby-leave'});

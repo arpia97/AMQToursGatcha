@@ -522,6 +522,7 @@ export function createAlchemyUI(h) {
     const targetMode = picker === "target",
       matches = cardMatcher(query, strict),
       favoriteIds = favoritesOnly ? new Set(getState().cardFavorites || []) : null;
+    const compareRarity=cardComparator(materialSort === "rarity-low" ? "rarity-low" : "rarity");
     let items = targetMode
       ? targetData?.cards || []
       : getState()
@@ -536,7 +537,7 @@ export function createAlchemyUI(h) {
               (!grade || i.c.rarity === grade) &&
               matches(i.c),
           )
-          .sort((a, b) => (materialSort === "newest" ? (b.acquired_at || 0) - (a.acquired_at || 0) : 0) || cardComparator("rarity")(a.c, b.c))
+          .sort((a, b) => (materialSort === "newest" ? (b.acquired_at || 0) - (a.acquired_at || 0) : 0) || compareRarity(a.c, b.c))
           .flatMap((i) => [
             ...(i.copies > 1
               ? [{ ...i, variant: "extra", displayLevel: 1 }]
@@ -681,7 +682,7 @@ export function createAlchemyUI(h) {
           '<label class="alchemy-wishlist-filter" title="Hide cards marked for trade"><input id="alchemy-hide-tradeables" type="checkbox" ' +
           (hideTradeables ? "checked" : "") + ">Hide Tradeables</label>"
         : "") +
-      (!targetMode ? '<label>Sort By<select id="fusion-sort"><option value="rarity">Highest Rarity</option><option value="newest" ' + (materialSort === "newest" ? "selected" : "") + '>Newest First</option></select></label>' : "") +
+      (!targetMode ? '<label>Sort By<select id="fusion-sort"><option value="rarity">Highest Rarity</option><option value="rarity-low" ' + (materialSort === "rarity-low" ? "selected" : "") + '>Lowest Rarity</option><option value="newest" ' + (materialSort === "newest" ? "selected" : "") + '>Newest First</option></select></label>' : "") +
       '<label class="check-label"><input type="checkbox" id="alchemy-favorites" '+(favoritesOnly ? "checked" : "")+'> Favorites Only</label>' +
       '<label class="check-label"><input type="checkbox" id="fusion-strict" '+(strict ? "checked" : "")+'> Strict (exact title match)</label></div><div id="alchemy-picker-results">' +
       results +

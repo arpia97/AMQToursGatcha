@@ -155,21 +155,41 @@ export class PlayLobbies {
       this.queue.broadcast();
   }
   heartbeat(id){this.sql.exec('UPDATE lobby_members SET expires=? WHERE player=?',Date.now()+90000,id);}
-  appendChat(code,player,name,body){
-    const row=this.sql.exec('INSERT INTO lobby_chat(code,player,name,body,at) VALUES(?,?,?,?,?) RETURNING *',
+  history(code,since=0){
+    return this.queue.rows('SELECT seq,player,name,body,at FROM lobby_chat WHERE code=? AND at>=? ORDER BY seq',code,since);
+  }
+  appendChat(code,player,name,body,fromMatch=false){
+    const row=this.sql.exec('INSERT INTO lobby_chat(code,player,name,body,at) VALUES(?,?,?,?,?) RETURNING seq,player,name,body,at',
       code,player,name,body,Date.now()).one();
     this.sql.exec('DELETE FROM lobby_chat WHERE code=? AND seq IN (SELECT seq FROM lobby_chat WHERE code=? ORDER BY seq DESC LIMIT -1 OFFSET 80)',code,code);
-    for(const member of this.readyRoster(code)){
+    const members=this.queue.rows('SELECT player AS id,last_match FROM lobby_members WHERE code=?',code);
+    const preparing=members.some(m=>m.last_match)&&this.queue.rows('SELECT 1 FROM preparing p JOIN play_lobbies l ON l.match=p.id WHERE l.code=?',code).length;
+    for(const member of members){
+      if(member.last_match&&!preparing)continue;
       for(const socket of this.queue.ctx.getWebSockets(member.id)){
         if(socket.deserializeAttachment()?.expires>row.at)send(socket,{type:'lobby-chat',code,row});
       }
     }
+    if(!fromMatch){
+      // Players can return to the waiting room while teammates are still on results.
+      const active=this.queue.rows('SELECT match FROM play_lobbies WHERE code=?',code)[0]?.match;
+      const rooms=new Set(members.map(m=>m.last_match).filter(id=>id&&(!active||active===id)));
+      for(const id of rooms){
+        const recipients=members.filter(m=>m.last_match===id).map(m=>m.id);
+        this.queue.ctx.waitUntil(this.queue.env.PLAY_MATCHES.getByName(id).deliverLobbyChat(code,row,recipients));
+      }
+    }
+    return row;
   }
   chat(ws,who,message){
     const lobby=this.forPlayer(who.id);
-    if(!lobby||lobby.last_match||message.code!==lobby.code)return;
+    if(!lobby||message.code!==lobby.code)return;
+    if(lobby.last_match&&!this.queue.rows('SELECT 1 FROM preparing WHERE id=?',lobby.last_match).length){
+      if(message.type==='lobby-chat')send(ws,{type:'error',message:'The match has started. Send your message again when connected.'});
+      return;
+    }
     if(message.type==='lobby-chat-history'){
-      const rows=this.queue.rows('SELECT seq,player,name,body,at FROM lobby_chat WHERE code=? ORDER BY seq',lobby.code);
+      const rows=this.history(lobby.code);
       send(ws,{type:'lobby-chat-history',code:lobby.code,rows});return;
     }
     const body=typeof message.body==='string'?message.body.trim():'';

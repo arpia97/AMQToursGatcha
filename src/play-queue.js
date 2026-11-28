@@ -15,6 +15,7 @@ import { balancedNgmcRatings,ngmcRatings } from './ngmc-ratings.js';
 import {reconcileRankedIncident} from './play-rating-repair.js';
 import { DurableObject } from 'cloudflare:workers';
 import { PLAY_FORMATS,fail } from './play-match-rules.js';
+import {spectatorTag} from './play-spectator.js';
 import {PlayPresence} from './play-presence.js';
 import {accept,identity,receive,send,socketError,closeSocket} from './play-sockets.js';
 // Only matchmaking lives here; every match has its own isolated actor.
@@ -352,6 +353,19 @@ export class PlayQueue extends DurableObject {
     if(saved)this.ctx.storage.sql.exec('DELETE FROM stats_record_jobs WHERE id=?',id);
     else this.ctx.storage.sql.exec('UPDATE stats_record_jobs SET retry_at=? WHERE id=?',Date.now()+3600000,id);
   }
+  matchLobbyChat(code,match,who,body=null,since=0){
+    const lobby=this.rows('SELECT match FROM play_lobbies WHERE code=?',code)[0];
+    if(!lobby||lobby.match&&lobby.match!==match)return null;
+    if(who.spectator){
+      if(lobby.match!==match)return null;
+    }else if(who.id){
+      if(!this.rows('SELECT 1 FROM lobby_members WHERE code=? AND player=? AND last_match=?',code,who.id,match).length)return null;
+    }else if(lobby.match!==match)return null;
+    if(body===null)return this.lobbies.history(code,who.spectator?since:0);
+    const player=who.spectator?spectatorTag+':'+who.id:who.id;
+    if(player&&this.rows('SELECT 1 FROM lobby_chat WHERE code=? AND player IN (?,?) AND at>? LIMIT 1 OFFSET 3',code,who.id,spectatorTag+':'+who.id,Date.now()-2000).length)return null;
+    return this.lobbies.appendChat(code,player,who.name,body,true);
+  }
   async complete(id,result=null,status='cancelled'){
     let ratings=null;
     const sql=this.ctx.storage.sql;
@@ -425,7 +439,7 @@ export class PlayQueue extends DurableObject {
       const custom=row.format.startsWith('lobby-');
       const lobby=custom&&this.rows('SELECT * FROM play_lobbies WHERE match=?',row.id)[0];
       if(custom&&!lobby){await this.complete(row.id);return;}
-      const settings=lobby?{code:lobby.code,...JSON.parse(lobby.settings)}:null;
+      const settings=lobby?{code:lobby.code,...JSON.parse(lobby.settings),sharedChat:true}:null;
       const pool=settings?.pool||row.pool||'random';
       if(row.format==='lobby-ngmc')await Promise.all(players.map(async player=>Object.assign(player,await this.rating(player.id,pool))));
       const format=row.format===ARENA_LOBBY_FORMAT?ARENA_FORMAT:

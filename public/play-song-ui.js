@@ -45,18 +45,28 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   let chat=null, lobbyChat=null, personalRatings=null;
   function closeChat(){chat?.close();chat=null;}
   function closeLobbyChat(){lobbyChat?.close();lobbyChat=null;}
-  function syncLobbyChat(ws,status){
-    if(status.type!=='lobby'||match){
-      closeLobbyChat();return;
-    }
-    const {code,players}=status;
+  function lobbyWindow(code,players){
     if(lobbyChat?.matchId!==code){
       closeLobbyChat();
       lobbyChat=openMatchChat({id:code,players,me:getPlayer()?.id},body=>{
-        if(send(queue,{type:'lobby-chat',code,body}))return true;
+        if(queueStatus.type==='matched'||queueStatus.type==='lobby-ended'||match?.lobby?.code===code&&queueStatus.type!=='lobby'){
+          if(match?.lobby?.code===code&&send(room,{type:'chat-send',body}))return true;
+        }else if(send(queue,{type:'lobby-chat',code,body}))return true;
         error('Reconnecting to lobby chat.');return false;
       },{label:'Lobby chat'});
+    }else lobbyChat.updatePlayers(players);
+    return lobbyChat;
+  }
+  function syncLobbyChat(ws,status){
+    if(status.code&&['preparing','matched','lobby-ended'].includes(status.type)){
+      if(status.code!==lobbyChat?.matchId)closeLobbyChat();
+      return;
     }
+    if(status.type!=='lobby'){
+      closeLobbyChat();return;
+    }
+    const {code,players}=status;
+    lobbyWindow(code,players);
     if(ws.chatCode!==code){
       ws.chatCode=code;
       ws.pendingLobbyChat=[];
@@ -322,7 +332,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
   }
   function connectRoom(id){
     if(!active||room?.matchId===id&&(room.readyState===0||room.readyState===1))return;
-    closeLobbyChat();
+    if(!queueStatus.code||queueStatus.code!==lobbyChat?.matchId)closeLobbyChat();
     if(chat&&chat.matchId!==id)closeChat();
     room?.close();const ws=room=new WebSocket(socketURL(id));ws.matchId=id;ws.lastState=ws.lastReply=Date.now();
     let bestRtt=Infinity;
@@ -333,14 +343,21 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
     ws.onmessage=({data})=>{if(room!==ws||!active)return;ws.lastReply=Date.now();const msg=JSON.parse(data);
       if(msg.type==='chat-error'){error(msg.message);return;}
       if(msg.type==='chat-history'&&match?.id===id){
-        chat??=openMatchChat(match,body=>{
+        if(match.lobby?.code&&!match.lobby.sharedChat)closeLobbyChat();
+        const window=match.lobby?.sharedChat?lobbyWindow(match.lobby.code,match.players):(chat??=openMatchChat(match,body=>{
           if(room?.matchId===id&&send(room,{type:'chat-send',body}))return true;
           error('Reconnecting to match chat.');return false;
-        });
-        for(const row of msg.rows)chat.receive(row,false);
+        }));
+        for(const row of [...msg.rows,...(ws.earlyChat||[])])window.receive(row,false);
+        ws.earlyChat=[];
         return;
       }
-      if(msg.type==='chat-message'){chat?.receive(msg.row);return;}
+      if(msg.type==='chat-message'){
+        const window=match?.lobby?.sharedChat?lobbyChat:chat;
+        if(window)window.receive(msg.row);
+        else ws.earlyChat=[...(ws.earlyChat||[]),msg.row].slice(-80);
+        return;
+      }
       if(msg.type==='error'){counterDialog.retry(msg.message);if(replacingAudio){replacingAudio=false;downloadError='Replacement audio is unavailable. Retry the missing downloads.';}pendingArtistKey=null;pendingLock=false;error(msg.message);render();return;}
       if(msg.type==='pong'&&msg.sentAt){
         const received=Date.now(),rtt=received-msg.sentAt;
@@ -403,7 +420,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
           if(autoSkipIntent?.socket===room&&autoSkipIntent.vote===!!match.myAutoSkip)autoSkipIntent=null;
         }
         sounds.play(...roundSoundCues(previous,match));
-        if(player()?.left)closeChat();
+        if(player()?.left){closeChat();closeLobbyChat();}
         if(previous?.index!==match.index||previous?.id!==match.id){tabbedThisRound=false;clearTimeout(draftTimer);timeoutSuggestions.clear();draftDirty=false;lastDraft='';selectedField=match.myDraft?.field||(match.format==='1-team'?savedField():fields[0]);const saved=match.myDraft?.answers||player().answers;const arenaTitle=match.arena?.ballot.find(option=>option.owner===match.me)?.answer;draft={anime:arenaTitle||saved?.anime||'',song:saved?.song||'',artist:match.myDraft?.answers?.artist||''};chosen={};pendingArtistKey=null;pendingLock=false;hideSuggestions();}
         if(player().locked||teamFields())pendingLock=false;
         if(pendingArtistKey===JSON.stringify(player().artists||[])){pendingArtistKey=null;if(!teamFields())scheduleDraft();}

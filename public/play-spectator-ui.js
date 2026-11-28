@@ -234,6 +234,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
     if(!controller.signal.aborted)connect();
   }
   function connect(){
+    const earlyChat=[];
     socket=new WebSocket(url);
     socket.onmessage=event=>{
       let message;
@@ -244,10 +245,10 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
           if(socket.readyState!==1){showStatus('Reconnecting to match chat…');return false;}
           socket.send(JSON.stringify({type:'chat-send',body}));return true;
         },{showSelfName:true});
-        for(const row of message.rows)chat.receive(row,false);
+        for(const row of [...message.rows,...earlyChat.splice(0)])chat.receive(row,false);
         return;
       }
-      if(message.type==='chat-message'){chat?.receive(message.row);return;}
+      if(message.type==='chat-message'){if(chat)chat.receive(message.row);else{earlyChat.push(message.row);if(earlyChat.length>80)earlyChat.shift();}return;}
       if(message.type==='chat-error'||message.type==='error'){join.disabled=false;showStatus(message.message);return;}
       if(message.type==='rematch-joined'){onJoinLobby(state?.mode);return;}
       if(message.type!=='spectator'||message.state?.id!==id)return;
