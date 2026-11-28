@@ -1,4 +1,4 @@
-import {installSongMarket} from './song-market.js';
+import {installSongMarket,sellSong} from './song-market.js';
 import {noteSongs} from './anime-completion.js';
 import {fail,integer,text} from './engine.js';
 import {SONG_PACK_PRICE,SONG_PACK_SIZE,DUPLICATE_NOTES,SONG_EXCHANGE_COST} from '../public/song-pack-rules.js';
@@ -29,11 +29,11 @@ export function featuredSong(e,player){
   if(row){const {title,artist,audio,anime}=JSON.parse(row.recording);return {title,artist,audio,anime};}
   return null;
 }
-const ownedSelect=`SELECT s.id,s.recording,EXISTS(SELECT 1 FROM songbook_featured sf WHERE sf.player=s.player AND sf.owned=s.id) AS showcased,EXISTS(SELECT 1 FROM song_listed l WHERE l.owned=s.id) AS listed,f.favorite,f.protected,EXISTS(
+const ownedSelect=`SELECT s.id,s.acquired,s.recording,EXISTS(SELECT 1 FROM songbook_featured sf WHERE sf.player=s.player AND sf.owned=s.id) AS showcased,EXISTS(SELECT 1 FROM song_listed l WHERE l.owned=s.id) AS listed,f.favorite,f.protected,EXISTS(
   SELECT 1 FROM songbook_alias a JOIN songbook_wishlist w ON w.player=a.player AND w.alias=a.alias
   WHERE a.player=s.player AND a.owned=s.id) AS wishlist
   FROM songbook_owned s LEFT JOIN songbook_flags f ON f.player=s.player AND f.owned=s.id WHERE s.player=?`;
-const ownedRecording=r=>({...JSON.parse(r.recording),id:r.id,owned:true,listed:!!r.listed,showcased:!!r.showcased,favorite:!!r.favorite,protected:!!r.protected,wishlist:!!r.wishlist});
+const ownedRecording=r=>({...JSON.parse(r.recording),id:r.id,acquired:r.acquired,owned:true,listed:!!r.listed,showcased:!!r.showcased,favorite:!!r.favorite,protected:!!r.protected,wishlist:!!r.wishlist});
 
 export function ownedSongs(e,player,ids){
   return e.all(ownedSelect+' AND s.id IN (SELECT value FROM json_each(?))',player,JSON.stringify(ids)).map(ownedRecording);
@@ -193,6 +193,7 @@ export async function songbookRequest(e,player,path,url,post,body,key,library,ch
       progress:series?{linked:malIds.length>0,themes:[themes.filter(owned).length,themes.length],inserts:[inserts.filter(owned).length,inserts.length]}:null,
       version:result.version,page,hasMore:page*20<result.total,notes:notes(e,player)};
   }
+  if(post&&path==='songbook-sell')return e.mutate(player+':songbook-sell',key,body,()=>sellSong(e,player,body));
   if(!post||!['songbook-pack','songbook-redeem','songbook-flag'].includes(path))fail('Unknown songbook action.',404);
   const exchange=path==='songbook-redeem',scope=player+':'+path;
   const preference=path==='songbook-flag';

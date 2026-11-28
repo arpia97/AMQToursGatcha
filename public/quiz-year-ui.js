@@ -39,7 +39,7 @@ export function yearDirectory(quizzes,decade){
         return `<span title="${q.year} · ${info}" class="${q.inactive?'inactive':''}" aria-label="${q.year}, ${info}"><i><s style="height:${100*(q.best||0)/30}%"></s></i><small>${String(q.year).slice(-2)}</small></span>`;
       }).join('')}</div>
       <dl>${active===2020?`<div><dt>Score</dt><dd>${bestPoints(played)} / 300</dd></div>`:''}<div><dt>Years played</dt><dd>${played.length} / ${years.length}</dd></div><div><dt>Perfect scores</dt><dd>${played.filter(q=>q.best===30).length}</dd></div></dl>
-    </section><section class="year-grid" aria-label="${active}s quizzes"><div class="year-list-head"><h3>Choose a year</h3><span>Personal best</span></div>${rows}</section></div></section>`;
+    </section><section class="year-grid" aria-label="${active}s quizzes"><div class="year-list-head"><h3>Choose a year</h3><span>Personal best</span></div>${years.every(q=>q.inactive)?'<p class="form-hint">No year in this decade has enough playable songs for 10 openings, 10 endings and 10 inserts.</p>':''}${rows}</section></div></section>`;
 }
 export function yearProgress(types,cells){
   return '<section class="quiz-song-progress year-progress" aria-label="Song progress">'+['OP','ED','IN'].map(type=>

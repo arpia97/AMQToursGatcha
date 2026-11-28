@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song sell-back and alternate image pricing
+
+A player can return an owned, unprotected, unlisted song for 100 credits through My Songs or Sell Cards. Alternative image rolls start at 500 and rise by 250 per unlocked alternative on the card. The refund migration accounts for the earlier pricing adjustment. The Year Quiz directory explains the song quota for decades with no eligible years.
+
 ## Songbook navigation and portrait pricing
 
 My Songs follows the filtered, ordered list across page boundaries. Song Packs links directly to a 10-Note song picker using the catalogue filters. Anime tiles have a consistent collapsed height. The mine shows MAX levels and roll counts, refreshing on return. Alternative images cost 500 credits per step on each card. The one-time refund uses the payer and historical gallery quote saved at purchase.

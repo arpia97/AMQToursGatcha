@@ -1,7 +1,11 @@
-import {SONG_EXCHANGE_COST} from './song-pack-rules.js';
+import {SONG_EXCHANGE_COST,SONG_SELL_PRICE} from './song-pack-rules.js?v=song-sell';
 import {songPoster} from './song-posters.js';
 import {cardActionIcon} from './card-quick-actions.js';
 
+export function songSellButton(song,e){
+  const reason=song.protected?'Unprotect to sell':song.listed?'Withdraw listing to sell':'';
+  return `<button type="button" class="button secondary" data-action="songbook-sell-review" data-id="${song.id}" data-acquired="${song.acquired}" data-title="${e(song.title)}" ${reason?'disabled title="'+reason+'"':''}>Sell for ${SONG_SELL_PRICE} credits</button>`;
+}
 export function songQuickActions(song,escape,version=''){
   if(!song.id&&!version)return '';
   const identity=song.id?`data-id="${song.id}"`:`data-index="${song.index}" data-key="${escape(song.key)}" data-version="${escape(version)}"`;

@@ -2,7 +2,7 @@ import {jamPollDelay} from './jam-polling.js';
 import {openMatchChat} from './play-match-chat.js?v=party';
 import {songPoster} from './song-posters.js';
 import {createMusicPlayer,playerIcon} from './music-player.js?v=songbook-queue';
-import {songAddButton,songCollectionButton,songQuickActions,songTile} from './song-tiles.js?v=pack-choice';
+import {songAddButton,songCollectionButton,songQuickActions,songSellButton,songTile} from './song-tiles.js?v=song-sell';
 import {compareSongs,matchesSong,matchesSongFlags,songFilters,songFilterBar,songFilterParams,SONG_FILTER_DEFAULTS} from './song-filters.js';
 import {DUPLICATE_NOTES,SONG_EXCHANGE_COST} from './song-pack-rules.js';
 
@@ -136,7 +136,7 @@ export function createMusicUI({api,escape:e,modal,toast,avatar,rememberCards,rou
         <button type="button" class="music-row-play" data-music="single" data-id="${song.id}" aria-label="Play ${e(song.title)}">▶</button>
         <div class="music-track-summary">${songPoster(song)}<div class="music-track"><strong>${e(song.title)}</strong><small>${e(song.artist)}${series?' · '+e(series):''}</small></div></div>
         <button class="music-row-more" aria-label="Options for ${e(song.title)}" aria-expanded="false">•••</button><div class="music-list-actions">${types?`<small class="music-song-type">${e(types)}</small>`:''}
-        ${songQuickActions(song,e)}${songAddButton(song,e,inPlaylist?.has(song.id))}${songCollectionButton(song,e)}</div>
+        ${songQuickActions(song,e)}${songAddButton(song,e,inPlaylist?.has(song.id))}${songCollectionButton(song,e)}${songSellButton(song,e)}</div>
       </li>`;
     }).join('');
     const body=`<section class="music-library-content"><header class="section-head"><h2>${inPlaylist?'Add Songs to '+e(list.name):'My Songs'}</h2>

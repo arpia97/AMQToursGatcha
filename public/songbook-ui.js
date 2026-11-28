@@ -1,4 +1,4 @@
-import {DUPLICATE_NOTES,SONG_EXCHANGE_COST,SONG_PACK_PRICE,SONG_PACK_SIZE} from './song-pack-rules.js';
+import {DUPLICATE_NOTES,SONG_SELL_PRICE,SONG_EXCHANGE_COST,SONG_PACK_PRICE,SONG_PACK_SIZE} from './song-pack-rules.js?v=song-sell';
 import {songTile} from './song-tiles.js?v=song-catalogue';
 
 import {quantityInput} from './quantity-input.js';
@@ -60,6 +60,16 @@ export function createSongbookUI({api,modal,escape:e,execute,balance}){
       <div class="songbook-footer">${volumeControl}${pack?button('songbook-review',quantity===1?'Open another pack':`Open ${quantity} more packs`,`data-count="${quantity}" ${balance()<quantity*SONG_PACK_PRICE?'disabled':''}`):''}${button('songbook-owned','My Songs')}</div>`,pack,'songbook-dialog');
   }
   async function click(action,t){
+    if(action==='songbook-sell-review'){
+      const {id,acquired,title}=t.dataset;
+      modal(`<h2>Sell ${e(title)}?</h2><p>You’ll receive ${SONG_SELL_PRICE} credits. This removes the song from your Songbook and playlists.</p><div class="form-error" role="alert"></div>${button('songbook-sell','Sell for '+SONG_SELL_PRICE+' credits',`data-id="${Number(id)}" data-acquired="${Number(acquired)}" data-title="${e(title)}"`)}`);
+      return;
+    }
+    if(action==='songbook-sell'){
+      const result=await execute(action,{id:Number(t.dataset.id),acquired:Number(t.dataset.acquired),title:t.dataset.title});
+      if(result)document.dispatchEvent(new Event('songbook-changed'));
+      return;
+    }
     if(action==='songbook-results'&&opening)return reveal(opening,Number(t.dataset.page));
     if(action==='songbook-open')return browse({series:t.dataset.series||''});
     if(action==='songbook-owned')return browse({owned:true});

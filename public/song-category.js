@@ -1,4 +1,5 @@
 import {songPoster} from './song-posters.js';
+import {songSellButton} from './song-tiles.js?v=song-sell';
 import {minimumBid} from './community-market-rules.js';
 
 export const itemKinds=[['character','Characters'],['seiyuu','Seiyuus'],['both','Both'],['song','Song']];
@@ -18,7 +19,7 @@ export function mountSongPanel(root,{api,modal,execute,escape:e,me}){
   }
   function row(s,index){
     let controls='';
-    if(selling)controls=s.protected?'Protected':s.listed?'Listed':action('list','List song',index);
+    if(selling)controls=s.protected?'Protected':s.listed?'Listed':action('list','List song',index)+songSellButton(s,e);
     else if(!profile){
       const name=e(s.sellerName);
       controls=`<small>${name} · ${Number(shop?s.price:s.bid||s.reserve).toLocaleString()} credits</small>`;

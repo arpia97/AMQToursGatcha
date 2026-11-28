@@ -1,6 +1,6 @@
 import {fail,integer} from './engine.js';
 import {noteSongs} from './anime-completion.js';
-import {DUPLICATE_NOTES} from '../public/song-pack-rules.js';
+import {DUPLICATE_NOTES,SONG_SELL_PRICE} from '../public/song-pack-rules.js';
 
 // Each listing locks one owned recording. The ordinary market holds the credits
 // and determines when a withdrawal, purchase or auction claim can release it.
@@ -25,6 +25,27 @@ export function checkSongBuyer(e,player,token){
     JOIN songbook_alias buyer ON buyer.player=? AND buyer.alias=seller.alias WHERE l.token=? LIMIT 1`,player,token))
     fail('You already own this song.',409);
 }
+function removeSongReferences(e,player,owned){
+  for(const list of e.all('SELECT id,tracks FROM music_lists WHERE player=? AND EXISTS(SELECT 1 FROM json_each(tracks) WHERE value=?)',player,owned))
+    e.run('UPDATE music_lists SET tracks=?,rev=rev+1 WHERE id=?',JSON.stringify(JSON.parse(list.tracks).filter(id=>id!==owned)),list.id);
+  for(const table of ['songbook_flags','songbook_featured','songbook_alias'])
+    e.run('DELETE FROM '+table+' WHERE player=? AND owned=?',player,owned);
+}
+
+export function sellSong(e,player,body){
+  const id=integer(body.id,1);
+  const song=e.one(`SELECT s.acquired,json_extract(s.recording,'$.title') AS title,f.protected,
+    EXISTS(SELECT 1 FROM song_listed WHERE owned=s.id) AS listed
+    FROM songbook_owned s LEFT JOIN songbook_flags f ON f.owned=s.id AND f.player=s.player
+    WHERE s.player=? AND s.id=?`,player,id);
+  if(!song||song.acquired!==body.acquired||song.title!==body.title)fail('This song has changed. Refresh your Songbook.',409);
+  if(song.protected)fail('Unprotect this song before selling it.',409);
+  if(song.listed)fail('Withdraw the listing before selling this song.',409);
+  removeSongReferences(e,player,id);
+  e.run('DELETE FROM songbook_owned WHERE player=? AND id=?',player,id);
+  e.wallet(player,SONG_SELL_PRICE,'Song sell-back · '+song.title);
+  return {credits:SONG_SELL_PRICE,message:'Song sold for '+SONG_SELL_PRICE+' credits.'};
+}
 export function releaseSongListing(e,player,token){
   const row=e.one('SELECT l.owned,l.seller,s.recording FROM song_listed l JOIN songbook_owned s ON s.id=l.owned AND s.player=l.seller WHERE l.token=?',token);
   if(!row)fail('This song listing has already been settled.',409);
@@ -34,10 +55,7 @@ export function releaseSongListing(e,player,token){
   const aliases=e.all('SELECT alias FROM songbook_alias WHERE player=? AND owned=?',...args).map(r=>r.alias);
   const encoded=JSON.stringify(aliases);
   const duplicate=e.one('SELECT owned FROM songbook_alias WHERE player=? AND alias IN (SELECT value FROM json_each(?)) LIMIT 1',player,encoded);
-  for(const list of e.all('SELECT id,tracks FROM music_lists WHERE player=? AND EXISTS(SELECT 1 FROM json_each(tracks) WHERE value=?)',...args))
-    e.run('UPDATE music_lists SET tracks=?,rev=rev+1 WHERE id=?',JSON.stringify(JSON.parse(list.tracks).filter(id=>id!==row.owned)),list.id);
-  for(const table of ['songbook_flags','songbook_featured','songbook_alias'])
-    e.run('DELETE FROM '+table+' WHERE player=? AND owned=?',...args);
+  removeSongReferences(e,row.seller,row.owned);
   if(duplicate){
     e.run('DELETE FROM songbook_owned WHERE id=?',row.owned);
     e.run('INSERT INTO songbook_notes VALUES(?,?) ON CONFLICT(player) DO UPDATE SET balance=balance+excluded.balance',player,DUPLICATE_NOTES);

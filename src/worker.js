@@ -2066,7 +2066,7 @@ export class Game extends DurableObject {
       }
       return json(e.mutate(session.player+':music',request.headers.get('Idempotency-Key'),b,()=>musicAction(e,session.player,b)));
     }
-    if (['songbook','songbook-pack','songbook-redeem','songbook-flag'].includes(path)) {
+    if (['songbook','songbook-pack','songbook-redeem','songbook-flag','songbook-sell'].includes(path)) {
       this.bursts.take('songbook:'+session.player,30,5);
       const result=await songbookRequest(e,session.player,path,url,post,b,request.headers.get('Idempotency-Key'),async input=>{
         const data=await quizLibraryRequest(this.env,'/songbook',input);
@@ -2075,7 +2075,7 @@ export class Game extends DurableObject {
       },()=>{
         if(!e.one('SELECT player FROM sessions WHERE player=? AND token=? AND expires>?',session.player,sessionHash,e.now()))fail('Your session ended.',401);
       });
-      if(post && path!=='songbook-flag')await this.scheduleAlarm();
+      if(post && (path==='songbook-pack' || path==='songbook-redeem'))await this.scheduleAlarm();
       return json(result);
     }
     if (path === "quiz-audio" && !post) {

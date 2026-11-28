@@ -222,14 +222,25 @@ test("rankings return equipped card portraits and their current enhancement leve
 test('portrait repricing refunds only the difference per successful roll once to its payer',async()=>{
   const {refundPortraitOverpayments}=await import('../src/card-gallery.js');
   const {e}=fixture();
-  e.run("DELETE FROM settings WHERE key='portrait-roll-pricing-v2'");
+  e.run("DELETE FROM settings WHERE key IN ('portrait-roll-pricing-v2','portrait-roll-pricing-v3')");
   const before=e.player('001');
   for(const [key,price,owned] of [['first',800,1],['second',1600,2],['cheap',400,1]]){
     e.mutate('001:card-gallery',key,{action:'roll',card:'old',price,owned},()=>({unlocked:'image'+key}));
   }
   refundPortraitOverpayments(e);refundPortraitOverpayments(e);
-  assert.equal(e.player('001').balance-before.balance,900);
+  assert.equal(e.player('001').balance-before.balance,1150);
   assert.equal(e.player('001').earned,before.earned);
+});
+test('new portrait refunds subtract earlier refunds and skip cheap rolls',async()=>{
+  const {refundPortraitOverpayments}=await import('../src/card-gallery.js');
+  const {e}=fixture();
+  e.run("DELETE FROM settings WHERE key='portrait-roll-pricing-v3'");
+  e.run("INSERT OR REPLACE INTO settings VALUES('portrait-roll-pricing-v2',?)",e.now()+100);
+  const before=e.player('001').balance;
+  for(const [key,price,owned] of [['first',800,1],['second',1600,2],['third',400,3],['fourth',2000,4]])
+    e.mutate('001:card-gallery',key,{action:'roll',price,owned},()=>({unlocked:'image'}));
+  refundPortraitOverpayments(e);refundPortraitOverpayments(e);
+  assert.equal(e.player('001').balance-before,1000);
 });
 test('a gallery can be indexed before opening, rolls one new portrait for the progressive price and isolates equipment per owner',async()=>{
   const {changePortrait,indexGallery,queueGalleries,galleryCounts,galleryView}=await import('../src/card-gallery.js');
@@ -256,7 +267,7 @@ test('a gallery can be indexed before opening, rolls one new portrait for the pr
   e.run("UPDATE players SET balance=5000 WHERE id='001'");
   assert.equal(roll('paid').unlocked,base+'2.jpg');
   assert.equal(roll('paid').unlocked,base+'2.jpg');
-  assert.equal(galleryView(e,'001',card).price,1000);
+  assert.equal(galleryView(e,'001',card).price,750);
   assert.throws(()=>roll('extra'),/Every available/);
   assert.equal(e.player('001').balance,5000-initial.price);
   const equip={card:id,action:'equip',image:base+'2.jpg'};

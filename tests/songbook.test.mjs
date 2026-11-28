@@ -261,6 +261,28 @@ test('song listings isolate card categories and transfer exactly once on purchas
   assert.equal((await profileSongPage(e,'p',params,library)).hidden,true);
   assert.equal((await profileSongPage(e,'r',params,library)).rows.length,1);
 });
+test('selling a song pays a flat 100 once, enforces ownership and removes it from playlists',async()=>{
+  const {e,call}=fixture();
+  const pack=await call('songbook-pack',{},'pack');
+  const {id,title,acquired}=pack.pulls[0],body={id,title,acquired,price:999};
+  const sell=key=>call('songbook-sell',body,key);
+  await assert.rejects(call('songbook-sell',{...body,acquired:acquired-1},'stale'),/changed/);
+  await call('songbook-flag',{id,flag:'protected',enabled:true},'protect');
+  await assert.rejects(sell('shielded'),/Unprotect/);
+  await call('songbook-flag',{id,flag:'protected',enabled:false},'unprotect');
+  e.action('p','list-card',{song:id,venue:'shop',price:200});
+  await assert.rejects(sell('listed'),/Withdraw/);
+  e.action('p','cancel-listing',{listing:e.one('SELECT id FROM market_listings').id,venue:'shop'});
+  const list=e.tx(()=>musicAction(e,'p',{op:'create-list',name:'For sale',track:id}));
+  const before=e.player('p').balance;
+  assert.equal((await sell('sale')).credits,100);
+  assert.equal((await sell('sale')).credits,100);
+  await assert.rejects(sell('new-key'),/changed/);
+  assert.equal(e.player('p').balance,before+100);
+  assert.equal(e.one('SELECT tracks FROM music_lists WHERE id=?',list.id).tracks,'[]');
+  assert.equal((await call('songbook?owned=1')).rows.length,0);
+  assert.equal(e.one('SELECT count(*) AS n FROM songbook_alias WHERE owned=?',id).n,0);
+});
 test('bulk song packs validate quantity and charge and reveal all draws once',async()=>{
   const {e,call}=fixture();
   const buy=(count,key)=>call('songbook-pack',{count},key);

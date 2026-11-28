@@ -1,3 +1,4 @@
+export const SONG_SELL_PRICE = 100;
 export const SONG_PACK_PRICE = 500;
 export const SONG_PACK_SIZE = 3;
 export const DUPLICATE_NOTES = 1;

@@ -2,20 +2,23 @@ import {fail,randomInt} from './engine.js';
 import {MAX_CARD_LEVEL} from '../public/card-values.js';
 import {sourcePortrait} from '../public/mal-portraits.js';
 
-const portraitRollCost = alternatives => 500 * (alternatives + 1);
+const portraitRollCost = alternatives => 500 + 250 * alternatives;
 
 export function refundPortraitOverpayments(e){
-  const key='portrait-roll-pricing-v2';
+  const key='portrait-roll-pricing-v3';
   if(e.one('SELECT 1 FROM settings WHERE key=?',key))return;
   e.tx(()=>{
     if(e.one('SELECT 1 FROM settings WHERE key=?',key))return;
     // Legacy rolls saved the quote and owned image count (including the original).
-    const rolls=e.all(`SELECT p.id,r.input FROM players p CROSS JOIN receipts r
+    const previous=e.one("SELECT value FROM settings WHERE key='portrait-roll-pricing-v2'");
+    const rolls=e.all(`SELECT p.id,r.input,r.at FROM players p CROSS JOIN receipts r
       WHERE r.scope=p.id||':card-gallery' AND json_extract(r.input,'$.action')='roll'
       AND json_type(r.result,'$.unlocked')='text'`);
     for(const roll of rolls){
       const {price,owned}=JSON.parse(roll.input);
-      const refund=price-portraitRollCost(Math.max(0,owned-1));
+      const alternatives=Math.max(0,owned-1);
+      const netPaid=previous && roll.at<=previous.value?Math.min(price,500*(alternatives+1)):price;
+      const refund=netPaid-portraitRollCost(alternatives);
       if(Number.isSafeInteger(refund)&&refund>0)e.wallet(roll.id,refund,'Alternative image roll price refund');
     }
     e.run('INSERT INTO settings(key,value) VALUES(?,?)',key,e.now());
