@@ -1,7 +1,7 @@
 import {watchLoginDay,weeklySignInStarts,checkLoginStreak,streakPanel,streakReward} from './weekly-streak.js';
 import {createDonatorCheckout} from './donator-checkout.js';
 import { communityPortraitUrl } from "./community-portrait.js";
-import {portraitControls} from './portrait-gallery-ui.js';
+import {portraitControls} from './portrait-gallery-ui.js?v=gallery-avatar';
 import {featuredSongPanel} from './song-tiles.js';
 import {createSongbookUI,songPackTile,songProgress} from './songbook-ui.js?v=song-sell';
 import {itemKinds,songPanel,mountSongPanel} from './song-category.js?v=song-sell';
@@ -24,8 +24,8 @@ import { installCardOrderDrag } from "./card-order-drag.js";
 import {installAnimeDetails} from './anime-completion-ui.js';
 import { animeChecklist } from "./anime-checklist-ui.js";
 import { quantityInput, installQuantityInputs } from "./quantity-input.js";
-import { avatarCropStyle } from "./avatar-crop.js";
-import { createAvatarEditor } from "./avatar-editor.js";
+import { avatarCropStyle, avatarArtwork } from "./avatar-crop.js?v=gallery-avatar";
+import { createAvatarEditor } from "./avatar-editor.js?v=gallery-avatar";
 import { catalogProgressHTML } from "./catalog-progress.js";
 import { cardSizeControl, installCardSize } from "./card-preferences.js";
 import {
@@ -1609,7 +1609,7 @@ function avatarHTML(p, large = false) {
       (i) => i.card === p.avatar_card,
     ),
     card = p.avatar_card ? cardBy(p.avatar_card) : null;
-  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} ${cardFrameClass(p.avatar_level || item?.level || 1)}">${cardAura(p.avatar_level || item?.level || 1)}<span class="avatar-crop" style="${avatarCropStyle(p.avatar_crop)}">${card ? image(card) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
+  return `<span class="profile-avatar ${card ? "tier-" + rarityClass(card.rarity) : ""} ${large ? "large" : ""} ${cardFrameClass(p.avatar_level || item?.level || 1)}">${cardAura(p.avatar_level || item?.level || 1)}<span class="avatar-crop" style="${avatarCropStyle(p.avatar_crop)}">${card ? image({...card,image:avatarArtwork(p.avatar_crop)||card.image}) : escape(p.name.slice(0, 2).toUpperCase())}</span>${item || p.avatar_level ? `<b>${levelLabel(p.avatar_level || item?.level)}</b>` : ""}</span>`;
 }
 const avatarEditor = createAvatarEditor({
   avatarHTML,
@@ -2524,6 +2524,7 @@ document.addEventListener("click", async (ev) => {
       $("#avatar-form"),
       t.dataset.id,
       t.dataset.id === state.me.avatar_card ? state.me.avatar_crop : null,
+      t.dataset.image === cardBy(t.dataset.id)?.image ? null : t.dataset.image ?? (state.inventory.find(i=>i.card===t.dataset.id)?.portrait || undefined),
     );
     return;
   }

@@ -95,6 +95,8 @@ test('2020s progress includes ten years, while only eligible years can open a qu
     assert.ok(directory.includes('disabled aria-label="'+year+', inactive"'));
     assert.ok(!directory.includes('data-quiz-open="year-'+year+'"'));
   }
+  assert.doesNotMatch(directory,/data-year-decade="19[2-5]0"/);
+  assert.match(yearDirectory([quiz(1955),...quizzes],1950),/data-quiz-open="year-1955"/);
   const next=yearDirectory([quiz(2026),...quizzes],2020);
   assert.ok(next.includes('data-quiz-open="year-2026"'));
   assert.match(next,/<b>24%<\/b>/);

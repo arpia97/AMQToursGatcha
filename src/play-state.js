@@ -1,3 +1,4 @@
+import {avatarArtwork} from '../public/avatar-crop.js';
 import { inboxSummary } from "./inbox.js";
 import { listSummary } from "./play-anime-list.js";
 
@@ -12,7 +13,7 @@ export function playState(e, player) {
   const card = item ? e.catalogStore.cards([me.avatar_card])[0] : null;
   return {
     now: e.now(), me, ...inboxSummary(e,player), animeList:listSummary(e,player),
-    avatar: card ? { ...card, level: item.level } : null,
+    avatar: card ? { ...card, image:avatarArtwork(me.avatar_crop)||card.image, level: item.level } : null,
     titles: e.quiz.titles(player),
   };
 }
@@ -28,7 +29,7 @@ export function playOverviewPlayers(e,onlinePlayers) {
     .map(card=>[card.id,card]));
   return rows.map(({id,name,avatar_card,avatar_crop,level})=>{
     const card=cards.get(avatar_card);
-    const avatar=card&&level!=null?{image:card.image,rarity:card.rarity,level,crop:avatar_crop}:null;
+    const avatar=card&&level!=null?{image:avatarArtwork(avatar_crop)||card.image,rarity:card.rarity,level,crop:avatar_crop}:null;
     return {id,name,avatar,status:status.get(id)};
   });
 }
@@ -37,5 +38,5 @@ export function playOverviewPlayers(e,onlinePlayers) {
 export function playAvatar(e,me) {
   const item=me.avatar_card?e.one('SELECT level FROM inventory WHERE player=? AND card=?',me.id,me.avatar_card):null;
   const card=item?e.catalogStore.cards([me.avatar_card])[0]:null;
-  return card?{image:card.image,rarity:card.rarity,level:item.level,crop:me.avatar_crop}:null;
+  return card?{image:avatarArtwork(me.avatar_crop)||card.image,rarity:card.rarity,level:item.level,crop:me.avatar_crop}:null;
 }

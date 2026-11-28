@@ -35,6 +35,8 @@ const {writeGradingAliases}=await import("./build-anime-grading-aliases.mjs");
 await writeGradingAliases();
 const {writeOfficialCoverage}=await import('./build-official-coverage.mjs');
 await writeOfficialCoverage(data);
+const {writeSongAnimeLabels}=await import('./build-song-anime-labels.mjs');
+await writeSongAnimeLabels(data);
 console.log(
   JSON.stringify({
     masterListId: compact.masterListId,

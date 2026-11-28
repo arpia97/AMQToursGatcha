@@ -12,7 +12,7 @@ export function yearDirectory(quizzes,decade){
   for(let d=latest;d>=1920;d-=10){
     const years=[];
     for(let y=d+9;y>=Math.max(1924,d);y--)years.push(available.get(y)??{year:y,inactive:true});
-    groups.set(d,years);
+    if(d>=1960||years.some(q=>!q.inactive))groups.set(d,years);
   }
   const active=groups.has(decade)?decade:Math.max(...groups.keys());
   const years=groups.get(active),played=years.filter(q=>q.played);

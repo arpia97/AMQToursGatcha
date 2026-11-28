@@ -18,7 +18,7 @@ import { authFormHTML } from "../auth-form.js";
 import { cardFrameClass, cardAura } from "../card-frames.js";
 import { rarityClass } from "../card-display.js";
 import { levelLabel } from "../card-values.js";
-import { avatarCropStyle } from "../avatar-crop.js";
+import { avatarCropStyle, avatarArtwork } from "../avatar-crop.js?v=gallery-avatar";
 import { roleBadge } from "../role-label.js";
 import {preparationLabel,percentDone} from "../play-setup-progress.js";
 import { installTitleMotion } from "../title-motion.js";
@@ -85,7 +85,7 @@ function auth(form = "login") { modal(authFormHTML(form).replace("Join AMQ Gatch
 function avatarHTML(me = state.me, card = state.avatar) {
   if (!card) return '<span class="profile-avatar">' + escape(me.name.slice(0, 2).toUpperCase()) + '</span>';
   return '<span class="profile-avatar tier-' + rarityClass(card.rarity) + ' ' + cardFrameClass(card.level) + '">' + cardAura(card.level) +
-    '<span class="avatar-crop" style="' + avatarCropStyle(me.avatar_crop) + '"><img src="' + escape(card.image) + '" alt=""></span><b>' + levelLabel(card.level) + '</b></span>';
+    '<span class="avatar-crop" style="' + avatarCropStyle(me.avatar_crop) + '"><img src="' + escape(avatarArtwork(me.avatar_crop)||card.image) + '" alt=""></span><b>' + levelLabel(card.level) + '</b></span>';
 }
 const accountMenu = installPlayAccountMenu({ $, api, modal, escape, number, avatarHTML, gachaHref, state: () => state });
 function header() {

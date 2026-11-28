@@ -6,11 +6,12 @@ import {songTypePools,drawSongType} from '../src/song-type-quiz.js';
 import {yearQuizMove} from '../src/year-quiz.js';
 import {yearDirectory} from '../public/quiz-year-ui.js';
 
-test('all decades remain selectable even when their years have no qualifying songs',()=>{
+test('decades from the 1960s onward remain available and empty earlier decades are hidden',()=>{
   const html=yearDirectory([{year:2025,id:'year-2025'}],1920);
-  for(let decade=1920;decade<=Math.floor(new Date().getUTCFullYear()/10)*10;decade+=10)
+  for(let decade=1960;decade<=Math.floor(new Date().getUTCFullYear()/10)*10;decade+=10)
     assert.ok(html.includes('data-year-decade="'+decade+'"'));
-  assert.match(html,/1924, inactive/);
+  assert.doesNotMatch(html,/data-year-decade="19[2-5]0"/);
+  assert.match(html,/aria-pressed="true" data-year-decade="20\d0"/);
   assert.doesNotMatch(html,/data-quiz-open="year-1924"/);
 });
 

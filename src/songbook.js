@@ -1,9 +1,37 @@
+import animeIdentities from './song-anime-labels.json' with {type:'json'};
 import {installSongMarket,sellSong} from './song-market.js';
 import {noteSongs} from './anime-completion.js';
 import {fail,integer,text} from './engine.js';
 import {SONG_PACK_PRICE,SONG_PACK_SIZE,DUPLICATE_NOTES,SONG_EXCHANGE_COST} from '../public/song-pack-rules.js';
 import {compareSongs,matchesSong,matchesSongFlags,songFilters} from '../public/song-filters.js';
 
+function repairSongAnimeLabels(e){
+  const key='songbook-anime-labels-v1';
+  if(e.one('SELECT 1 FROM settings WHERE key=?',key))return;
+  e.tx(()=>{
+    const names=new Map();
+    for(const [name,mal] of Object.values(animeIdentities)){
+      if(!mal)continue;
+      names.set(mal,!names.has(mal)||names.get(mal)===name?name:null);
+    }
+    let after=0,updated=0;
+    for(;;){
+      const rows=e.all('SELECT id,recording FROM songbook_owned WHERE id>? ORDER BY id LIMIT 100',after);
+      if(!rows.length)break;
+      for(const {id,recording} of rows){
+        after=id;
+        const song=JSON.parse(recording);
+        let changed=false;
+        for(const entry of song.anime||[]){
+          const name=names.get(entry.mal);
+          if(name&&name!==entry.name){entry.name=name;changed=true;}
+        }
+        if(changed){e.run('UPDATE songbook_owned SET recording=? WHERE id=?',JSON.stringify(song),id);updated++;}
+      }
+    }
+    e.run('INSERT INTO settings(key,value) VALUES(?,?)',key,updated);
+  });
+}
 export function installSongbook(e){
   installSongMarket(e);
   e.run('CREATE TABLE IF NOT EXISTS songbook_featured(player TEXT PRIMARY KEY,owned INTEGER NOT NULL)');
@@ -16,6 +44,7 @@ export function installSongbook(e){
   e.run('CREATE INDEX IF NOT EXISTS songbook_owners_by_alias ON songbook_alias(alias,player)');
   e.run('CREATE INDEX IF NOT EXISTS songbook_wishes_by_alias ON songbook_wishlist(alias,player)');
   e.run('CREATE TABLE IF NOT EXISTS songbook_flags (player TEXT NOT NULL, owned INTEGER NOT NULL, favorite INTEGER NOT NULL DEFAULT 0, protected INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(player,owned))');
+  repairSongAnimeLabels(e);
 }
 function notes(e,player){
   return e.one('SELECT balance FROM songbook_notes WHERE player=?',player)?.balance||0;

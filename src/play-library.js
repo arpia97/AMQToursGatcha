@@ -1,3 +1,4 @@
+import animeIdentities from './song-anime-labels.json' with {type:'json'};
 import {ARENA_FORMAT, arenaRules} from '../public/play-arena-config.js';
 import {PLAY_SONG_SOURCE_ORDER, playSongInventory} from './play-song-inventory.js';
 import {mergedTitles,registeredGroupAnswers} from './play-answer-registry.js';
@@ -90,7 +91,10 @@ export class PlayLibrary {
       const annId=row.annId||row.sourceIds?.annIds?.[0];
       if(!annId)return;
       occurrenceAnime.set(id,annId);
-      if(row.titles?.[0]&&!animeLabels.has(annId))animeLabels.set(annId,row.titles[0]);
+      if(!animeLabels.has(annId)){
+        const name=animeIdentities[annId]?.[0]||row.titles?.[0];
+        if(name)animeLabels.set(annId,name);
+      }
       if(row.linkedIds?.myanimelist || row.linkedIds?.anilist){
         const prior=linkedAnime.get(annId);
         linkedAnime.set(annId,{myanimelist:row.linkedIds.myanimelist||prior?.myanimelist,anilist:row.linkedIds.anilist||prior?.anilist});

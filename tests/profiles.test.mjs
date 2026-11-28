@@ -272,9 +272,18 @@ test('a gallery can be indexed before opening, rolls one new portrait for the pr
   assert.equal(e.player('001').balance,5000-initial.price);
   const equip={card:id,action:'equip',image:base+'2.jpg'};
   assert.throws(()=>changePortrait(e,'002',equip),/unlocked/);
+  const crop={x:.4,y:.3,zoom:2,image:equip.image};
+  assert.throws(()=>e.tx(()=>e.action('002','profile',{avatar:id,crop})),/unlocked/);
+  e.tx(()=>e.action('001','profile',{avatar:id,crop}));
+  const {playAvatar,playOverviewPlayers}=await import('../src/play-state.js');
+  assert.equal(playAvatar(e,e.player('001')).image,equip.image);
+  assert.equal(playOverviewPlayers(e,[{id:'001'}])[0].avatar.image,equip.image);
   changePortrait(e,'001',equip);
   assert.equal(e.state('001').inventory.find(c=>c.card===id).portrait,equip.image);
   assert.equal(galleryView(e,'002',card).pictures[0].selected,true);
   changePortrait(e,'001',{...equip,image:card.image});
   assert.equal(galleryView(e,'001',card).pictures[0].selected,true);
+  assert.equal(playAvatar(e,e.player('001')).image,equip.image);
+  e.run("DELETE FROM player_portraits WHERE player='001' AND card=?",id);
+  assert.equal(playAvatar(e,e.player('001')).image,card.image);
 });

@@ -1,11 +1,12 @@
 import {
   avatarCrop,
+  avatarArtwork,
   DEFAULT_AVATAR_CROP,
   panAvatarCrop,
-} from "./avatar-crop.js";
+} from "./avatar-crop.js?v=gallery-avatar";
 export function createAvatarEditor({ avatarHTML, getState, cardBy }) {
   const editors = new WeakMap();
-  function mount(form, card, saved) {
+  function mount(form, card, saved, artwork = avatarArtwork(saved)) {
     const area = form.querySelector("[data-avatar-editor]");
     if (!area) return;
     if (!card) {
@@ -21,7 +22,7 @@ export function createAvatarEditor({ avatarHTML, getState, cardBy }) {
     }
     let crop = avatarCrop(saved),
       drag = null;
-    const data = { card, read: () => ({ ...crop }) };
+    const data = { card, read: () => artwork ? { ...crop, image: artwork } : { ...crop } };
     editors.set(form, data);
     area.innerHTML =
       '<div class="avatar-editor-layout"><div class="avatar-editor-stage" tabindex="0" role="group" aria-label="Profile picture crop; drag to move or use arrow keys">' +
@@ -29,7 +30,7 @@ export function createAvatarEditor({ avatarHTML, getState, cardBy }) {
         {
           name: cardBy(card).name,
           avatar_card: card,
-          avatar_crop: crop,
+          avatar_crop: data.read(),
           avatar_level: item.level,
         },
         true,

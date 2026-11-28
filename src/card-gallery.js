@@ -35,6 +35,9 @@ export function installCardGallery(e){
     if(!e.all('PRAGMA table_info('+table+')').some(c=>c.name==='artwork'))
       e.run('ALTER TABLE '+table+' ADD COLUMN artwork TEXT');
   }
+  e.run(`CREATE TRIGGER IF NOT EXISTS avatar_artwork_removed AFTER DELETE ON player_portraits BEGIN
+    UPDATE players SET avatar_crop=NULL WHERE id=OLD.player AND avatar_card=OLD.card
+    AND json_extract(avatar_crop,'$.image')=OLD.image; END`);
   // Removing the enhanced base either deletes inventory or promotes a plain spare.
   // These triggers also cover direct batch sales and host inventory corrections.
   const clear="DELETE FROM player_portraits WHERE player=OLD.player AND card=OLD.card; DELETE FROM portrait_choice WHERE player=OLD.player AND card=OLD.card;";

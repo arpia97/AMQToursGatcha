@@ -206,7 +206,7 @@ song-poster[data-ready] img {opacity:1;}
 dialog.portrait-dialog{width:min(620px,94vw)}
 .portrait-gallery header p,.portrait-heading span,.portrait-gallery footer>span{color:var(--muted,#a5aaba);font-size:.83rem}
 .portrait-heading{margin:1.25rem 0 .65rem}
-.portrait-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:.65rem;max-height:48vh;overflow-y:auto}
+.portrait-tile{display:flex;flex-direction:column;gap:4px;min-width:0}.portrait-tile>.button{min-height:30px;padding:4px}.portrait-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:.65rem;max-height:48vh;overflow-y:auto}
 .portrait-option{display:grid;align-content:start;padding:0;background:#161920;color:#e8eaf0;border:1px solid #373c46;border-radius:8px;overflow:hidden;text-align:left;cursor:pointer}
 .portrait-option:disabled{opacity:1;cursor:default}
 .portrait-option[aria-pressed=true]{border-color:#a2d5bd}

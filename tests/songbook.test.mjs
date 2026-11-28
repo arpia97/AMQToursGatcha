@@ -32,6 +32,15 @@ function fixture(){
   const call=(path,body=null,key=null,source=library)=>songbookRequest(e,'p',path.split('?')[0],new URL('https://local/'+path),!!body,body,key,source,()=>{});
   return {e,call,data};
 }
+test('older saved songs use the anime identity even when an accepted answer names another show',async()=>{
+  const {e}=fixture();
+  e.run("DELETE FROM settings WHERE key='songbook-anime-labels-v1'");
+  const record={title:'Ima wa Oyasumi',anime:[{mal:80,name:"Gintama'",types:['IN']}]};
+  e.run('INSERT INTO songbook_owned(player,recording,acquired) VALUES(?,?,?)','p',JSON.stringify(record),1);
+  const {installSongbook}=await import('../src/songbook.js');
+  installSongbook(e);installSongbook(e);
+  assert.deepEqual(JSON.parse(e.one('SELECT recording FROM songbook_owned').recording),{...record,anime:[{...record.anime[0],name:'Mobile Suit Gundam'}]});
+});
 test('My Songs can navigate to the last page under its current filters and ordering',async()=>{
   const {call,e}=fixture();
   for(let i=0;i<44;i++)e.run('INSERT INTO songbook_owned(player,recording,acquired) VALUES(?,?,?)','p',

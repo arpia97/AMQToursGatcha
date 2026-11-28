@@ -7,8 +7,8 @@ export function portraitPanel(view,e,newImage){
   const status=!view.level?'Collect this card to equip artwork.':!remaining?'All available artwork collected.':!maxed?'Reach MAX to unlock more artwork.':view.balance<view.price?'More credits needed.':'';
   const images=view.pictures.map((p,i)=>{
     const label=p.selected?'Equipped':p.owned?'Use image':'Locked';
-    return `<button type="button" class="portrait-option" data-id="${e(view.card)}" data-image="${e(p.url)}" data-action="portrait-equip" ${p.owned&&!p.selected?'':'disabled'} aria-label="${label} · Image ${i+1}" aria-pressed="${p.selected}">
-      <img src="${e(p.url)}" loading="lazy" referrerpolicy="no-referrer" alt=""><span><b>${i===0?'Original':'Image '+(i+1)}</b><small>${p.url===newImage?'New · ':''}${label}</small></span></button>`;
+    return `<div class="portrait-tile"><button type="button" class="portrait-option" data-id="${e(view.card)}" data-image="${e(p.url)}" data-action="portrait-equip" ${p.owned&&!p.selected?'':'disabled'} aria-label="${label} · Image ${i+1}" aria-pressed="${p.selected}">
+      <img src="${e(p.url)}" loading="lazy" referrerpolicy="no-referrer" alt=""><span><b>${i===0?'Original':'Image '+(i+1)}</b><small>${p.url===newImage?'New · ':''}${label}</small></span></button>${p.owned?`<button type="button" class="button secondary" data-action="set-avatar" data-id="${e(view.card)}" data-image="${e(p.url)}" aria-label="Use image ${i+1} as profile picture">Profile Pic</button>`:''}</div>`;
   }).join('');
   return `<section class="portrait-gallery"><header><span class="eyebrow">Card artwork</span><h2>${e(view.name)}</h2><p>${e(view.rarity||'Pending')} · ${maxed?'MAX':view.level?'Lv. '+view.level:'Unowned'}</p></header>
     <div class="portrait-heading"><h3>Image gallery</h3><span>${owned} / ${view.pictures.length} owned</span></div>

@@ -1,5 +1,5 @@
 import {songTypeDirectory,songTypeSleeve,songTypeProgress,songTypeDifficulty,openSongTypeBoard} from './quiz-song-type-ui.js';
-import {yearDirectory,yearProgress} from './quiz-year-ui.js?v=decades';
+import {yearDirectory,yearProgress} from './quiz-year-ui.js?v=eligible-decades';
 import {createEventQuiz} from './quiz-event-ui.js?v=event-field-results';
 import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=quiz-controls';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';

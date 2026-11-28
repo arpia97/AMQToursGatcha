@@ -776,7 +776,14 @@ export class Engine {
         if (b.crop !== undefined) {
           if (!avatar) fail("Choose a card before cropping a profile picture.");
           try {
-            crop = JSON.stringify(validateAvatarCrop(b.crop));
+            const next = validateAvatarCrop(b.crop);
+            if (b.crop.image != null) {
+              if (typeof b.crop.image !== 'string' || !this.one(
+                'SELECT 1 FROM player_portraits WHERE player=? AND card=? AND image=?', player, avatar, b.crop.image,
+              )) fail('Choose artwork you have unlocked on this card.');
+              next.image = b.crop.image;
+            }
+            crop = JSON.stringify(next);
           } catch (error) {
             fail(error.message);
           }

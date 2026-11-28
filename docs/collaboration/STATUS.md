@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Song anime identity, gallery avatars and Year Quiz eligibility
+
+The Songbook uses the official display name keyed by ANN anime ID. Existing ownership snapshots are repaired from unambiguous MAL links. Unlocked artwork can be cropped as a separate profile picture, and losing the artwork clears that choice. Empty Year Quiz decades before 1960 are hidden. The earlier portrait credits reconciled against the wallet ledger with no outstanding overpayments.
+
 ## Song sell-back and alternate image pricing
 
 A player can return an owned, unprotected, unlisted song for 100 credits through My Songs or Sell Cards. Alternative image rolls start at 500 and rise by 250 per unlocked alternative on the card. The refund migration accounts for the earlier pricing adjustment. The Year Quiz directory explains the song quota for decades with no eligible years.

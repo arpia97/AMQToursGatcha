@@ -17,6 +17,14 @@ export function validateAvatarCrop(value) {
     throw new Error("Choose a valid profile-picture crop (zoom 1–3×).");
   return { x: value.x, y: value.y, zoom: value.zoom };
 }
+export function avatarArtwork(value) {
+  try {
+    const crop = typeof value === "string" ? JSON.parse(value) : value;
+    return typeof crop?.image === "string" ? crop.image : null;
+  } catch {
+    return null;
+  }
+}
 export function avatarCrop(value) {
   try {
     return validateAvatarCrop(
