@@ -1,3 +1,4 @@
+import {queueGalleries} from './card-gallery.js';
 import { AnimeEnrichment } from "./anime-enrichment.js";
 import { findPortraitRepairs, savePortraitRepairs } from "./portrait-repairs.js";
 import {
@@ -382,6 +383,7 @@ export class JikanImport {
               .filter((p) => Number.isSafeInteger(p.mal_id) && p.mal_id > 0)
               .map((p) => [prefix + p.mal_id, p.favorites]),
           );
+          queueGalleries(this.e,data.data.filter(p=>Number.isSafeInteger(p.mal_id)&&p.mal_id>0).map(p=>prefix+p.mal_id));
           f.scannedEntries += data.data.length;
           f.requests++;
           if (data.pagination.has_next_page) f.page++;

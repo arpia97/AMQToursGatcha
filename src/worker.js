@@ -1,3 +1,7 @@
+import {songTypeQuiz} from '../public/quiz-rules.js';
+import {yearQuizMove} from './year-quiz.js';
+import {PayPalDonator,paypalEnabled} from './paypal-donator.js';
+import {donorEmojiRequest} from './donor-emojis.js';
 import {registerEvent,eventAction,eventAudio,storedEventAudio} from './quiz-event.js';
 import {syncGameRecords} from './game-record-sync.js';
 import { inboxPage, readInbox, dismissInbox, inboxSummary } from "./inbox.js";
@@ -34,6 +38,11 @@ import { resolveQuizImport } from "./quiz-import.js";
 import { prepareQuizSongs,quizImportRows,quizRowAudio } from "../public/quiz-rules.js";
 import {libraryQuery} from '../public/quiz-library-data.js';
 import {quizLibraryRequest} from './quiz-library-actor.js';
+import {backfillAnimeTitles,collectionRecordings,decorateProgress,settleAnimeTitles} from './anime-completion.js';
+import {loadGallery,galleryView,changePortrait,indexGallery,nextGallery} from './card-gallery.js';
+import {fillSongMetrics,songbookRequest} from './songbook.js';
+import {mineView,changeMine} from './credit-mine.js';
+import {musicRead,musicAction} from './music.js';
 import {officialActorName} from './official-reference-store.js';
 import {syncQuizLibraryAnswers} from './quiz-library-sync.js';
 export {QuizLibrary} from './quiz-library-actor.js';
@@ -187,16 +196,48 @@ export class Game extends DurableObject {
     );
     this.budget.observe(startup.read, startup.written, "startup");
   }
+  async quizDirectory(path){
+    // Only catalogue availability is shared. Personal bests stay per player.
+    this.drawnDirectories??=new Map();
+    let entry=this.drawnDirectories.get(path);
+    if(!entry||Date.now()>=entry.until){
+      entry={until:Date.now()+15000,pending:quizLibraryRequest(this.env,path,{})};
+      this.drawnDirectories.set(path,entry);
+    }
+    try{
+      const result=await entry.pending;
+      if(!result&&this.drawnDirectories.get(path)===entry)this.drawnDirectories.delete(path);
+      return result;
+    }catch(error){
+      if(this.drawnDirectories.get(path)===entry)this.drawnDirectories.delete(path);
+      throw error;
+    }
+  }
   syncCommunityCards() {
     if (this._communitySynced) return;
     if (syncBundledCards(this.engine)) applyPortraitRepairs(this.engine);
     this._communitySynced = true;
   }
+  async animeSongLibrary(input){
+    const result=await quizLibraryRequest(this.env,'/songbook',input);
+    if(!result)fail('The song library is unavailable.',503);
+    return result;
+  }
+  async animeBoard(player,rows){
+    try{await decorateProgress(this.engine,player,rows,input=>this.animeSongLibrary(input));}
+    catch(error){
+      console.error('Anime completion unavailable',error.message);
+      for(const row of rows)row.completionUnavailable=true;
+    }
+  }
   async alarm() {
     // Rescue an interrupted import without losing its checkpoint or racing a lease.
     if (this.jikan.nextAlarm() || this.aliases.nextAlarm())
       await this.ctx.storage.setAlarm(Date.now() + 65000);
-    if (!this.budget.paused()) await this.jikan.step();
+    if (!this.budget.paused()){
+      await this.jikan.step();
+      await indexGallery(this.engine,this.fetchVoiceSource);
+    }
     await this.aliases.step();
     this.engine.track("maintenance", () =>
       this.engine.tx(() => this.engine.economy.fundStarters()),
@@ -209,6 +250,9 @@ export class Game extends DurableObject {
       this.engine.ensureAuctions(),
     );
     this.engine.track("maintenance", () => this.cleanup());
+    if(!this.budget.paused())backfillAnimeTitles(this.engine);
+    try{await settleAnimeTitles(this.engine,input=>this.animeSongLibrary(input));}
+    catch(error){console.error('Anime completion awards pending',error.message);}
     this.budget.flush(true);
     await this.scheduleAlarm(next);
   }
@@ -271,6 +315,10 @@ export class Game extends DurableObject {
   async scheduleAlarm(auctionEnd = this.maintainMarket(true)) {
     const next = Math.min(
       auctionEnd,
+      this.budget.paused()?Infinity:nextGallery(this.engine),
+      this.engine.one('SELECT 1 FROM anime_completion_pending LIMIT 1') ||
+        (!this.budget.paused() && this.engine.one("SELECT 1 FROM catalog_meta WHERE key='anime-title-backfill'"))
+        ?Date.now()+30000:Infinity,
       this.budget.paused()
         ? nextBudgetDay(Date.now())
         : this.jikan.nextAlarm() || Infinity,
@@ -279,7 +327,9 @@ export class Game extends DurableObject {
         ? Infinity
         : this.engine.economy.anime.nextAlarm() || Infinity,
     );
-    if ((await this.ctx.storage.getAlarm()) !== next)
+    const existing=await this.ctx.storage.getAlarm();
+    if(existing>Date.now() && existing<=next)return;
+    if (existing !== next)
       await this.ctx.storage.setAlarm(next);
   }
   cleanup() {
@@ -340,8 +390,9 @@ export class Game extends DurableObject {
       url = new URL(request.url),
       path = url.pathname.slice(5),
       post = request.method === "POST";
+    const paypalAction = ['paypal-donator-start','paypal-donator-sync','paypal-donator-webhook'].includes(path);
     const authenticating = post && (path==="login"||path==="register");
-    if(!authenticating)this.syncCommunityCards();
+    if(!authenticating&&!paypalAction)this.syncCommunityCards();
     // Timed quiz moves do not award starters or alter market/import alarms.
     // Leave shared housekeeping to normal requests and the existing alarm.
     const quizMove = [
@@ -355,10 +406,11 @@ export class Game extends DurableObject {
     const quizRun = path === "quiz-run" && !post;
     const quizPreference = ["quiz-favorite", "friend-set"].includes(path) && post;
     const friendsRead = path === "friends" && !post;
+    const leaderboardRead = path === "quiz-leaderboard" && !post;
     const playRead = ["play-state", "play-connect", "play-live", "play-history", "play-watch", "play-rankings", "quiz-play-rankings"].includes(path) && !post;
     if(path==="registration-policy-actor" && !post) return json(registrationPolicy);
     const reviewedRepair = ["host/quiz-countdown", "host/paid-special-refunds", "host/bop-xp-compensation"].includes(path);
-    if (!authenticating && !quizMove && !quizRun && !quizPreference && !friendsRead && !playRead && path!=='login-check-in' && path!=='play-watch-unlock' && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
+    if (!authenticating && !paypalAction && !quizMove && !quizRun && !quizPreference && !friendsRead && !leaderboardRead && path!=="music" && path!=="credit-mine" && !playRead && !['chat-emojis','chat-emoji-image','login-check-in'].includes(path) && path!=='play-watch-unlock' && !path.startsWith('host/play-review') && !['host/play-library','host/play-register-amq'].includes(path) && !path.startsWith('host/quiz-master') && !["quiz-event","quiz-event-audio","host/quiz-event"].includes(path) && !reviewedRepair) e.tx(() => e.economy.fundStarters());
     if (!["GET", "POST"].includes(request.method))
       fail("Method not allowed.", 405);
     let b = {};
@@ -500,6 +552,10 @@ export class Game extends DurableObject {
             403,
           );
       };
+      if(path==='host/donator-receipt' && post){
+        requireOwner();
+        return json(e.tx(()=>e.economy.recordDonatorMonth(b)));
+      }
       if(path==='host/play-review-rating-repair'){
         requireOwner();
         return json(await this.env.PLAY_QUEUE.getByName('play-queues-v1').repairDelayedRatings(post&&b.apply===true));
@@ -1307,6 +1363,18 @@ export class Game extends DurableObject {
           Date.now(),
         )
       : null;
+    if(paypalAction){
+      if(!post)fail('Method not allowed.',405);
+      const webhook=path==='paypal-donator-webhook';
+      if(!webhook&&!session)fail('Sign in to your AMQ Tours account first.',401);
+      this.bursts.take('paypal-donator:'+(webhook?ip:session.player),webhook?60:5,webhook?1:0.2);
+      this.paypalDonator??=new PayPalDonator(e,this.env);
+      return json(await this.paypalDonator.action({path,session,body:b,headers:request.headers,origin:url.origin}));
+    }
+    if(path==='chat-emojis'||path==='chat-emoji-image'){
+      if(post)this.bursts.take('donor-emojis:'+(session?.player||ip),6,1/10);
+      return donorEmojiRequest(e,{path,post,url,body:b,player:session?.player});
+    }
     if (!post && (path==='quiz-play-rankings'||path==='play-rankings')) {
       const viewer=session?.player??null;
       let friendIds=null;
@@ -1435,7 +1503,7 @@ export class Game extends DurableObject {
         if(overview&&session&&data.onlinePlayers)data.onlinePlayers=playOverviewPlayers(e,data.onlinePlayers);
         return json(data);
       }
-      return json(playState(e, session?.player));
+      return json({...playState(e,session?.player),donatorCheckout:!!session&&paypalEnabled(this.env,url.origin)});
     }
     if (path === "quiz-cover" && !post) {
       const cover = e.quiz.cover(
@@ -1456,8 +1524,34 @@ export class Game extends DurableObject {
         },
       );
     }
+    if(path==='quiz-song-types'&&!post){
+      this.bursts.take('quiz-song-types:'+(session?.player||ip),30,5);
+      const result=await this.quizDirectory('/song-type-quiz');
+      if(!result)fail('Song Type quizzes are temporarily unavailable.',503);
+      const bests=session?e.all("SELECT quiz,best FROM quiz_progress WHERE player=? AND quiz GLOB 'song-type-*'",session.player):[];
+      return json({...result,bests:Object.fromEntries(bests.map(r=>[r.quiz,r.best]))});
+    }
+    if(path==="quiz-years"&&!post){
+      this.bursts.take("quiz-years:"+(session?.player||ip),30,5);
+      const result=await this.quizDirectory('/year-quiz');
+      if(!result)fail('Year quizzes are temporarily unavailable.',503);
+      return json({...result,bests:session?Object.fromEntries(e.all('SELECT year,best FROM year_quiz_bests WHERE player=?',session.player).map(r=>[r.year,r.best])):{}});
+    }
     if (quizMove || quizRun) {
       if (!session) fail("Sign in to play quizzes.", 401);
+      const yearId=post?b.quiz:url.searchParams.get("quiz");
+      const typeQuiz=songTypeQuiz(yearId);
+      if(typeQuiz||/^year-\d{4}$/.test(yearId)){
+        if(!post&&!quizRun)fail('POST required.',405);
+        this.bursts.take("year-quiz:"+session.player,60,5);
+        return json(await yearQuizMove(e,session.player,path,yearId,b,request.headers.get('Idempotency-Key'),
+          async year=>{
+            const result=typeQuiz?await quizLibraryRequest(this.env,'/song-type-quiz',{id:yearId}):await quizLibraryRequest(this.env,'/year-quiz',{year});
+            if(!result)fail('Quiz library temporarily unavailable.',503);
+            return result;
+          },()=>{if(!e.one('SELECT 1 FROM sessions WHERE token=? AND expires>?',sessionHash,e.now()))fail('Your session ended.',401);},
+          Number(request.headers.get(QUIZ_ARRIVAL_HEADER))));
+      }
       if (post && b.competitive !== true && b.fastSession !== true) {
         this.bursts.take("play:" + session.player);
         const result = e.mutate(session.player + ":" + path,
@@ -1702,12 +1796,22 @@ export class Game extends DurableObject {
       );
     if (path === "anime-collection" && !post) {
       if (!session) fail("Sign in to view your anime collection.", 401);
-      return json(
-        e.economy.anime.page(
-          session.player,
-          Number(url.searchParams.get("page") || 1),
-        ),
-      );
+      const data=e.economy.anime.page(session.player,Number(url.searchParams.get('page')||1));
+      await this.animeBoard(session.player,[...data.series,...data.pinned]);
+      return json(data);
+    }
+    if(path==='anime-progress-details'&&!post){
+      const player=text(url.searchParams.get('player')||session?.player,100);
+      const series=text(url.searchParams.get('series'),1000);
+      const checkAccess=()=>{
+        if(player!==session?.player && (e.player(player).private_collection || !e.one('SELECT 1 FROM profile_anime WHERE player=? AND series_key=?',player,series)))
+          fail('This collection is private.',403);
+      };
+      checkAccess();
+      const rows=await collectionRecordings(e,player,[series],input=>this.animeSongLibrary(input));
+      checkAccess();
+      return json({characterTotal:e.economy.anime.progress(player,series)?.total||0,songTotal:rows.get(series).length,characters:e.economy.anime.collectedCharacters(player,series),
+        songs:rows.get(series).filter(song=>song.ownedId).map(({title,artist})=>({title,artist})).sort((a,b)=>a.title.localeCompare(b.title))});
     }
     if (path === "anime-checklist" && !post) {
       if (!session) fail("Sign in to view your anime checklist.", 401);
@@ -1722,9 +1826,9 @@ export class Game extends DurableObject {
     }
     if (path === "anime-search" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
-      return json(
-        e.economy.anime.search(url.searchParams.get("q"), session?.player),
-      );
+      const data=e.economy.anime.search(url.searchParams.get("q"),session?.player);
+      if(session)await this.animeBoard(session.player,data.series);
+      return json(data);
     }
     if (path === "pickem-tours" && !post)
       return json(
@@ -1856,8 +1960,10 @@ export class Game extends DurableObject {
           viewer: session?.player,
         },
       );
+      const choices=new Map(['collection','favorites'].includes(result.view)&&result.rows.length?e.all('SELECT card,image FROM portrait_choice WHERE player=? AND card IN (SELECT value FROM json_each(?))',e.resolvePlayer(url.searchParams.get('id')),JSON.stringify(result.rows.map(r=>r.card))).map(r=>[r.card,r.image]):[]);
       return json({
         ...result,
+        rows:['collection','favorites'].includes(result.view)?result.rows.map(r=>({...r,portrait:choices.get(r.card)})):result.rows,
         cards: e.economy.wishlist.withCounts(result.cards),
       });
     }
@@ -1891,9 +1997,13 @@ export class Game extends DurableObject {
     }
     if (path === "player" && !post) {
       this.bursts.take("read:" + (session?.player || ip), 60, 5);
-      return json(
-        e.profile(text(url.searchParams.get("id"), 100), session?.player || null),
-      );
+      const profile=e.profile(text(url.searchParams.get("id"),100),session?.player||null);
+      if(!profile.collectionHidden && profile.pinnedAnime.length){
+        await this.animeBoard(profile.id,profile.pinnedAnime);
+        if(profile.id!==session?.player && e.player(profile.id).private_collection)return json(e.profile(profile.id,session?.player||null));
+        profile.titles=e.quiz.titles(profile.id);
+      }
+      return json(profile);
     }
     if (path === "state" && !post) {
       if (session)
@@ -1904,6 +2014,7 @@ export class Game extends DurableObject {
         });
       return json({
         ...e.state(session?.player, { includeRanks: url.searchParams.get("view") !== "compact" }),
+        donatorCheckout: !!session && paypalEnabled(this.env, url.origin),
         betaRegistration: false,
         openRegistration: true,
       });
@@ -1923,6 +2034,40 @@ export class Game extends DurableObject {
       const p=e.player(session.player);
       return json({reward,daily:p.daily,login_days:p.login_days,balance:p.balance,earned:p.earned,
         streakPacks:e.all("SELECT tier,quantity FROM login_packs WHERE player=? AND quantity>0",session.player)});
+    }
+    if(path==='card-gallery'){
+      this.bursts.take('gallery:'+session.player,24,5);
+      if(post)return json(e.mutate(session.player+':card-gallery',request.headers.get('Idempotency-Key'),b,()=>changePortrait(e,session.player,b)));
+      const card=e.catalogStore.card(text(url.searchParams.get('card'),100));
+      if(!card)fail('Card unavailable.',404);
+      await loadGallery(e,card,this.fetchVoiceSource);
+      return json(galleryView(e,session.player,card));
+    }
+    if(path==='credit-mine'){
+      this.bursts.take('mine:'+session.player,24,5);
+      if(!post)return json(mineView(e,session.player));
+      return json(e.mutate(session.player+':mine',request.headers.get('Idempotency-Key'),b,()=>changeMine(e,session.player,b)));
+    }
+    if(path==='music'){
+      this.bursts.take('music:'+session.player,60,5);
+      if(!post){
+        const result=musicRead(e,session.player,url.searchParams);
+        if(url.searchParams.get('view')==='playlist')await fillSongMetrics(e,session.player,result.tracks,input=>quizLibraryRequest(this.env,'/songbook',input));
+        return json(result);
+      }
+      return json(e.mutate(session.player+':music',request.headers.get('Idempotency-Key'),b,()=>musicAction(e,session.player,b)));
+    }
+    if (['songbook','songbook-pack','songbook-redeem','songbook-flag'].includes(path)) {
+      this.bursts.take('songbook:'+session.player,30,5);
+      const result=await songbookRequest(e,session.player,path,url,post,b,request.headers.get('Idempotency-Key'),async input=>{
+        const data=await quizLibraryRequest(this.env,'/songbook',input);
+        if(!data)fail('The Play song library is unavailable.',503);
+        return data;
+      },()=>{
+        if(!e.one('SELECT player FROM sessions WHERE player=? AND token=? AND expires>?',session.player,sessionHash,e.now()))fail('Your session ended.',401);
+      });
+      if(post && path!=='songbook-flag')await this.scheduleAlarm();
+      return json(result);
     }
     if (path === "quiz-audio" && !post) {
       this.bursts.take("read:" + session.player, 60, 5);
@@ -1948,8 +2093,11 @@ export class Game extends DurableObject {
         cards: e.catalogStore.cards(collection.map((r) => r.card)),
       });
     }
-    if (path === "my-titles" && !post)
+    if (path === "my-titles" && !post) {
+      try{await settleAnimeTitles(e,input=>this.animeSongLibrary(input),session.player);}
+      catch(error){console.error('Anime completion awards pending',error.message);}
       return json(e.quiz.titleSettings(session.player));
+    }
     if (path === "alchemy" && !post)
       return json({ alchemyState: e.economy.alchemy.state(session.player) });
     if (path === "gambling-history" && !post) {

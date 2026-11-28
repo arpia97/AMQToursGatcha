@@ -12,12 +12,12 @@ export function setAccountLock(e,b) {
     for(const l of e.all("SELECT * FROM trade_listings WHERE seller=? AND status='open'",id)) e.economy.trades.close(l);
     for(const o of e.all("SELECT * FROM trade_offers WHERE proposer=? AND status='open'",id)) e.economy.trades.returnOffer(o,"withdrawn");
     for(const l of e.all("SELECT * FROM market_listings WHERE seller=? AND status='open'",id)) {
-      e.economy.acquire(id,l.card,l.level,l.extra_copies);
+      e.economy.acquire(id,l.card,l.level,l.extra_copies,l.artwork);
       e.run("UPDATE market_listings SET status='cancelled' WHERE id=?",l.id);
     }
     for(const a of e.all("SELECT * FROM auctions WHERE seller=? AND paid=0 AND claimed=0",id)) {
       if(a.winner && a.bid) e.wallet(a.winner,a.bid,"Locked seller: auction refund");
-      e.economy.acquire(id,a.card,a.level,a.extra_copies);
+      e.economy.acquire(id,a.card,a.level,a.extra_copies,a.artwork);
       e.run("UPDATE auctions SET closed=1,claimed=1,paid=1,winner=NULL,bid=0,ends=MIN(ends,?) WHERE id=?",e.now(),a.id);
     }
     for(const a of e.all("SELECT * FROM auctions WHERE winner=? AND ends>? AND claimed=0",id,e.now())) {

@@ -72,3 +72,54 @@ export function createQuizAudioCache({
     },
   };
 }
+
+// Keep only the sliding audio window for this quiz. Foreground playback streams
+// independently, even if a mirror rejects cross-origin background downloads.
+export function createRollingQuizAudio(makeCache=createQuizAudioCache) {
+  const entries=new Map();
+  let owner=null, active=0, queue=[];
+  function discard(source,entry){
+    entries.delete(source);
+    entry.controller.abort();
+    entry.cache.clear();
+  }
+  function pump(){
+    while(active<2 && queue.length){
+      const entry=queue.shift();
+      if(entry.controller.signal.aborted)continue;
+      active++;
+      const timeout=setTimeout(()=>entry.controller.abort(),15000);
+      entry.pending=entry.cache.prepare([entry.source],entry.server,{signal:entry.controller.signal})
+        .catch(()=>{}).finally(()=>{
+          clearTimeout(timeout);
+          active--;
+          entry.pending=null;
+          if(entry.controller.signal.aborted)entry.cache.clear();
+          pump();
+        });
+    }
+  }
+  function clear(){
+    queue=[];
+    for(const [source,entry] of entries)discard(source,entry);
+    owner=null;
+  }
+  return {
+    clear,
+    url(source,server){return entries.get(source)?.cache.url(source,server);},
+    pending(source){return entries.get(source)?.pending;},
+    update(runId,server,sources){
+      const key=runId+' '+server;
+      if(key!==owner){clear();owner=key;}
+      const keep=new Set(sources);
+      for(const [source,entry] of entries)if(!keep.has(source))discard(source,entry);
+      for(const source of sources.slice(1)){
+        if(!source||entries.has(source))continue;
+        const entry={source,server,cache:makeCache(),controller:new AbortController()};
+        entries.set(source,entry);
+        queue.push(entry);
+      }
+      pump();
+    },
+  };
+}

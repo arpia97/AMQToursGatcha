@@ -53,7 +53,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
           if(match?.lobby?.code===code&&send(room,{type:'chat-send',body}))return true;
         }else if(send(queue,{type:'lobby-chat',code,body}))return true;
         error('Reconnecting to lobby chat.');return false;
-      },{label:'Lobby chat'});
+      },{label:'Lobby chat',donator:getPlayer()?.donator});
     }else lobbyChat.updatePlayers(players);
     return lobbyChat;
   }
@@ -347,7 +347,7 @@ export function createSongArtistUI({root,apiBase,getPlayer,escape:esc,animeTitle
         const window=match.lobby?.sharedChat?lobbyWindow(match.lobby.code,match.players):(chat??=openMatchChat(match,body=>{
           if(room?.matchId===id&&send(room,{type:'chat-send',body}))return true;
           error('Reconnecting to match chat.');return false;
-        }));
+        },{donator:getPlayer()?.donator}));
         for(const row of [...msg.rows,...(ws.earlyChat||[])])window.receive(row,false);
         ws.earlyChat=[];
         return;

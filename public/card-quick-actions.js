@@ -6,6 +6,10 @@ const actions = {
   favorite: ["Favorite", '<path d="m12 2.8 2.8 5.8 6.4 1-4.6 4.5 1.1 6.4-5.7-3-5.7 3 1.1-6.4-4.6-4.5 6.4-1Z"/>'],
 };
 
+export function cardActionIcon(key) {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${actions[key][1]}</svg>`;
+}
+
 export function cardFavoriteFlag(state, id) {
   if (!state?.me || !(state.inventory?.some(item => item.card === id && item.copies > 0) || state.heldCardIds?.includes(id))) return;
   return state.cardFavorites?.includes(id) ?? false;
@@ -14,6 +18,6 @@ export function cardFavoriteFlag(state, id) {
 // An omitted toggle is unavailable in this view. Explicit false means available and off.
 export function cardQuickActions(card, flags, escape, disabled = []) {
   const buttons = Object.entries(actions).filter(([key]) => flags[key] !== undefined)
-    .map(([key, [label, path]]) => `<button type="button" class="card-quick-button" data-action="${key}-toggle" data-id="${escape(card.id)}" aria-pressed="${!!flags[key]}" aria-label="${label}" title="${label}" ${disabled.includes(key) ? "disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg></button>`);
+    .map(([key, [label]]) => `<button type="button" class="card-quick-button" data-action="${key}-toggle" data-id="${escape(card.id)}" aria-pressed="${!!flags[key]}" aria-label="${label}" title="${label}" ${disabled.includes(key) ? "disabled" : ""}>${cardActionIcon(key)}</button>`);
   return `<div class="card-quick-actions" role="group" aria-label="Card preferences">${buttons.join("")}</div>`;
 }

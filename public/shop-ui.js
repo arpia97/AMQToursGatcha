@@ -146,12 +146,12 @@ export function createShopUI(h, ui) {
     )
       ? ui.shopSection
       : "buy";
-    const header = `<div class="page-intro"><div><h1>Find It. Trade It. Make It Yours.</h1><p>Buy a favourite, sell a spare, or trade with another collector.</p></div><span class="pill">${s.me ? "✦ " + n(s.me.balance) + " AVAILABLE" : "COLLECTOR SHOP"}</span></div><div class="tabs shop-sections" role="group" aria-label="Shop sections">${[
-      ["buy", "Buy Cards"],
-      ["sell", "Sell Cards"],
-      ["market", "Player Marketplace"],
+    const header = `<div class="tabs shop-sections" role="group" aria-label="Marketplace sections">${[
+      ["buy", s.communityMarket?.active ? "Flash Shop" : "Weekly Shop"],
+      ["market", "Player Listings"],
       ["trades", "Trades"],
-      ["listings", "Your Listings" + (own.length ? " · " + own.length : "")],
+      ["sell", "Sell Cards"],
+      ["listings", "My Listings" + (own.length ? " · " + own.length : "")],
     ]
       .map(
         ([id, label]) =>

@@ -1,8 +1,10 @@
 import {watchLoginDay,checkLoginStreak,streakPanel} from '../weekly-streak.js';
+import {donatorBadge} from '../role-label.js';
+import {createDonatorCheckout} from '../donator-checkout.js';
 import { mountQuizHotkeys } from "../quiz-hotkey-settings.js";
 import {readAniListExport} from "../play-anilist-export.js";
 import {watchedListStatuses} from "../play-list-statuses.js";
-import { installPlayAccountMenu } from "../play-account-menu.js?v=notification-mute";
+import { installPlayAccountMenu } from "../play-account-menu.js?v=donator-menu";
 import { bindNotificationSoundControl, notificationSoundControl } from "../notification-sound.js?v=mute";
 import { cardSizeControl, installCardSize } from "../card-preferences.js";
 import {playPools} from '../play-pool.js';
@@ -78,6 +80,7 @@ function modal(html, className = "") {
   $("#modal-body").innerHTML = html;
   if (!dialog.open) dialog.showModal();
 }
+const donator = createDonatorCheckout({api, modal, account: () => state.me, refresh: refreshAccount});
 function auth(form = "login") { modal(authFormHTML(form).replace("Join AMQ Gatcha.", "Join AMQ Tours.")); }
 function avatarHTML(me = state.me, card = state.avatar) {
   if (!card) return '<span class="profile-avatar">' + escape(me.name.slice(0, 2).toUpperCase()) + '</span>';
@@ -102,7 +105,7 @@ const loadPlayHistory = loadOnce(async () => {
 function profile() {
   const me = state.me;
   const hostBadge = me.role === "Host" ? '<div class="profile-title-stack">' + roleBadge(me.role) + '</div>' : "";
-  modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + hostBadge +
+  modal('<section class="play-account-summary"><h2>' + escape(me.name) + '</h2>' + hostBadge + donatorBadge(me.donator) +
     '<p>AMQ Tours ID · ' + escape(me.id) + '</p><div class="stat-grid"><div class="stat"><span>Available</span><strong>' + number(me.balance) + '</strong></div><div class="stat"><span>Lifetime Earned</span><strong>' + number(me.earned) + '</strong></div></div></section><div class="play-account-actions"><a class="button" href="' + gachaHref('player/' + encodeURIComponent(me.id)) + '">Your Profile ↗</a>'+(me.is_admin?'<button class="button secondary" data-action="play-console">Play Host Console</button>':'')+'<a class="button secondary" href="/tour/profile">Tour Platform ↗</a></div>');
 }
 function listSourceFields(provider, list) {
@@ -207,7 +210,7 @@ async function watchMatch(id,title){
   $('.play-live').hidden=true;
   root.hidden=false;
   watchOpener=opener;
-  watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,esc:escape,
+  watchView=watchPlayMatch({root,api,apiBase,title,id,viewer,donator:state.me?.donator,esc:escape,
     animeTitle:song=>quizAnimeTitle(song,titleMode),onLeave:stopWatching,
     onJoinLobby:mode=>void openMode(mode||'one-team'),
     onActivity:()=>void refreshLive(true),
@@ -261,7 +264,7 @@ const loadOverview=loadOnce(async()=>{
   const [module]=await Promise.all([import('../play-overview.js?v=compact-overview-status'),loadStylesheet(new URL('../play-overview.css?v=centered-overview',import.meta.url))]);
   return module.mountPlayOverview;
 });
-const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=event-field-results"));
+const loadQuizModule = loadOnce(() => import("../quiz-ui.js?v=song-type"));
 const loadMultiplayerStyles = loadOnce(() => loadStylesheet(new URL("../play-song.css?v=stable-round", import.meta.url)));
 const loadMultiplayer = loadOnce(async () => {
   const [{ createSongArtistUI }] = await Promise.all([
@@ -272,6 +275,7 @@ const loadMultiplayer = loadOnce(async () => {
     animeTitle: song => quizAnimeTitle(song, titleMode), prepareTitles: loadQuizTitleDisplay,
     onError: fail, onQueueChange: showQueue, onQueueCounts: counts=>overview?.updateCounts(counts), onCreditReward: refreshAccount,
     onMatchMode(id,matchId) {
+      if(matchId)signalGameplayAudio();
       stopWatching();
       const navigating=mode!==id||!multiplayerRoot.isConnected;
       // Bind the queue origin to this match so reconnects and reloads retain it.
@@ -333,7 +337,7 @@ function resetQuiz() {
   linkedQuiz = null;
 }
 function createQuizController(createQuizUI) {
-  return createQuizUI({ gachaLayout: true, api, escape, getState: () => state, onRender: renderQuiz,
+  return createQuizUI({ yearTab: true, gachaLayout: true, api, escape, getState: () => state, onRender: renderQuiz,
     onWallet: me => { if (state.me?.id === me.id) { state.me = me; header(); } },
     storage, prepareTitles: loadQuizTitleDisplay, animeTitle: song => quizAnimeTitle(song, titleMode),
   });
@@ -354,8 +358,10 @@ function nav() {
   moreButton.toggleAttribute("data-current", !mobileTabs.has(mode));
   if (mobileMenu.open) mobileMenu.close();
 }
+function signalGameplayAudio(){try{localStorage.setItem('amqtours-gameplay-audio',String(Date.now()));}catch{}}
 function renderQuiz({ questionOnly = false } = {}) {
   if (mode !== "quiz" || !quiz) return;
+  if(quiz.active()&&!reportedQuiz)signalGameplayAudio();
   if(quiz.active()!==reportedQuiz)void refreshLive(true);
   if (questionOnly && quiz.updateQuestion()) return;
   const active = document.activeElement;
@@ -482,6 +488,18 @@ async function openMode(id, push = true, createLobby = false) {
 }
 const accountReady = refreshAccount();
 watchLoginDay(()=>state,()=>refreshAccount(state.me?.id));
+void accountReady.then(async()=>{
+  const url=new URL(location.href);
+  const action=url.searchParams.get('donator');
+  if(!state.donatorCheckout || !['return','pass-return','pass-cancel','cancel'].includes(action))return;
+  const order=url.searchParams.get('token');
+  for(const key of ['donator','subscription_id','ba_token','token','PayerID'])url.searchParams.delete(key);
+  history.replaceState(history.state,'',url);
+  if(action==='pass-return'||action==='return'){
+    const message=await donator.sync(action==='pass-return'?'pass':'monthly',order);
+    if(message)toast(message);
+  }
+}).catch(fail);
 const labels={...queueLabels,'lobby-duel':'1v1 Unranked','lobby-ngmc':'NGMC Unranked',
   'lobby-team':'Song/Artist 1-Team','lobby-ffa':'Song/Artist Free-for-All','lobby-arena':'2v2 Arena'};
 let activityBusy=false,activityPending=false,drawerSnapshot;
@@ -607,6 +625,7 @@ document.addEventListener("click", async (event) => {
       $('#modal').close();
       await openMode('host');
     }
+    else if (action === "donator-checkout" && state.donatorCheckout) donator.open();
     else if (action === "settings") settings();
     else if (action === "signin-form") auth();
     else if (action === "register-form") auth("register");

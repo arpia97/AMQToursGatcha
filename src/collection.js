@@ -1,3 +1,4 @@
+import {songSeries} from './anime-completion.js';
 import { searchSql } from "./search.js";
 import { MAX_PINNED_ANIME } from "../public/site-defaults.js";
 import { integer, text, fail } from "./engine.js";
@@ -301,6 +302,17 @@ export class AnimeCollection {
         : rows,
     };
   }
+  collectedCharacters(player,key){
+    const rows=this.e.all(`WITH associated AS (${animeLinks("s.series_key=?")}), holdings AS (
+      SELECT card,level FROM inventory WHERE player=? AND copies>0
+      UNION ALL SELECT card,level FROM market_listings WHERE seller=? AND status='open'
+      UNION ALL SELECT card,level FROM auctions WHERE seller=? AND paid=0
+      UNION ALL SELECT card,level FROM trade_listings WHERE seller=? AND status='open'
+      UNION ALL SELECT COALESCE(c.card,o.card),COALESCE(c.level,o.level) FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open')
+      SELECT a.card,max(h.level) AS level FROM associated a JOIN holdings h USING(card) GROUP BY a.card`,key,key,...Array(5).fill(player));
+    const names=new Map(this.e.catalogStore.cards(rows.map(r=>r.card)).map(c=>[c.id,c.name]));
+    return rows.map(r=>({name:names.get(r.card)||r.card,level:r.level})).sort((a,b)=>a.name.localeCompare(b.name));
+  }
   checklist(player, series, page = 1) {
     const key = text(series, 1000);
     integer(page, 1, 10000);
@@ -348,8 +360,7 @@ export class AnimeCollection {
       }
     }
   }
-  page(player, page = 1) {
-    integer(page, 1, 10000);
+  tracked(player) {
     // The SQL order supplies the original binary title/key tie-break for the stable sort below.
     const rows = this.e.all(
       `WITH owned AS MATERIALIZED (${ownedCards}), associated AS (${animeLinks("s.card IN(SELECT card FROM owned)")}),
@@ -360,7 +371,20 @@ export class AnimeCollection {
       ...Array(5).fill(player), player,
     );
     this.fillSeriesTotals(rows);
-    rows.sort((a, b) => b.pinned - a.pinned || b.owned / b.total - a.owned / a.total);
+    const known=new Set(rows.map(r=>r.series_key));
+    const additional=[...songSeries(this.e,player)].filter(([key])=>!known.has(key));
+    if(additional.length){
+      const pins=new Set(this.e.all('SELECT series_key FROM profile_anime WHERE player=?',player).map(r=>r.series_key));
+      const extra=additional.map(([key,name])=>({series_key:key,series_romaji:name,series_english:'',owned:0,pinned:Number(pins.has(key))}));
+      this.fillSeriesTotals(extra);
+      rows.push(...extra);
+    }
+    return rows;
+  }
+  page(player,page=1){
+    integer(page,1,10000);
+    const rows=this.tracked(player);
+    rows.sort((a, b) => b.pinned - a.pinned || b.owned / (b.total||1) - a.owned / (a.total||1));
     const offset = (page - 1) * 24;
     return {
       series: rows.slice(offset, offset + 24),
@@ -384,4 +408,4 @@ function animeLinks(where) {
   );
 }
 const ownedCards =
-  "SELECT card FROM inventory WHERE player=? UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'";
+  "SELECT card FROM inventory WHERE player=? AND copies>0 UNION SELECT card FROM market_listings WHERE seller=? AND status='open' UNION SELECT card FROM auctions WHERE seller=? AND paid=0 UNION SELECT card FROM trade_listings WHERE seller=? AND status='open' UNION SELECT COALESCE(c.card,o.card) AS card FROM trade_offers o LEFT JOIN trade_offer_cards c ON c.offer=o.id WHERE o.proposer=? AND o.status='open'";

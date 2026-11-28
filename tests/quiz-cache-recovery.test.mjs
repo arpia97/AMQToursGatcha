@@ -120,3 +120,38 @@ test("Public lobby snapshots survive a short queue outage and expire after one m
   assert.equal((await publicPlaySnapshot(url,namespace,cache,ctx)).status,503);
   assert.equal(calls,3);
 });
+
+
+test('rolling quiz audio bounds concurrency and memory and continues after a failed song',async()=>{
+  const {createRollingQuizAudio}=await import('../public/quiz-audio-cache.js');
+  const calls=[],released=[],pending=new Map();
+  const rolling=createRollingQuizAudio(()=>{
+    let stored;
+    return {
+      prepare([source],server,{signal}){
+        calls.push(source);
+        return new Promise((resolve,reject)=>{
+          pending.set(source,()=>{stored=source;resolve();});
+          signal.addEventListener('abort',()=>reject(Error('aborted')),{once:true});
+          if(source==='b')reject(Error('bad mirror'));
+        });
+      },
+      url(){return stored;},clear(){if(stored)released.push(stored);stored=null;},
+    };
+  });
+  const tick=()=>new Promise(r=>setImmediate(r));
+  const window=['now','a','b','c','d','e'];
+  rolling.update('run','EU',window);
+  assert.deepEqual(calls,['a','b']);
+  await tick();
+  assert.deepEqual(calls,['a','b','c']);
+  rolling.update('run','EU',window);
+  for(const id of ['a','c','d','e']){pending.get(id)();await tick();}
+  assert.equal(rolling.url('a','EU'),'a');
+  rolling.update('run','EU',['c','d','e','f']);
+  assert.deepEqual(calls,['a','b','c','d','e','f']);
+  assert.ok(released.includes('a'));
+  rolling.clear();
+  await tick();
+  assert.ok(!rolling.url('c','EU'));
+});

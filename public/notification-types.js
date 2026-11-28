@@ -14,6 +14,7 @@ export const NOTICE_TYPES = {
   "quiz-friend-beaten": ["quiz", "A friend beats your quiz score"],
   "quiz-new": ["quiz", "New quizzes"],
   "friend-add": ["social", "Someone adds you as a friend"],
+  "jam-invite": ["social", "Jam Party invitations"],
   "credit-reward": ["social", "Credit rewards"],
   "pickem-new": ["tour", "New tour pick’ems"],
 };

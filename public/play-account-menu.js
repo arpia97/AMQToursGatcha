@@ -55,6 +55,7 @@ export function installPlayAccountMenu({ $, api, modal, escape, number, avatarHT
     anchor.hidden = wallet.hidden = !me;
     const hostShortcut = menu.querySelector('[data-action="play-console"]');
     if (hostShortcut) hostShortcut.hidden = !me?.is_admin;
+    menu.querySelector('[data-action="donator-checkout"]')?.toggleAttribute('hidden', !me || !state().donatorCheckout);
     $("#play-signin").hidden = !!me;
     dropdown.sync();
     count(state().inboxUnread || 0,state().inboxLatestUnread);

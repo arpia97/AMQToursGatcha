@@ -849,6 +849,17 @@ export function demoFeatures(d, path, b) {
         .filter(Boolean),
     };
   }
+  if (path.startsWith("anime-progress-details?")) {
+    const params=new URLSearchParams(path.split("?")[1]), owner=params.get("player")||me.id;
+    const key=params.get("series"), summary=animeGroups(owner).find(row=>row.series_key===key);
+    if(!summary || (owner!==me.id && (s.players||[]).find(p=>p.id===owner)?.private_collection))throw Error("Collection unavailable.");
+    const holdings=owner===me.id?[...s.inventory,...demoHeldCards(s)]:[{card:d.cards[2].id,level:1}];
+    const levels=new Map();
+    for(const item of holdings)levels.set(item.card,Math.max(levels.get(item.card)||1,item.level||1));
+    const characters=d.cards.filter(c=>c.kind==='character' && (c.series_romaji||c.series).trim().toLowerCase()===key && levels.has(c.id))
+      .map(c=>({name:c.name,level:levels.get(c.id)}));
+    return {characters,characterTotal:summary.total,songs:[],songTotal:0};
+  }
   if (path.startsWith("anime-search?")) {
     const matches = searchMatcher(
       new URLSearchParams(path.split("?")[1]).get("q"),

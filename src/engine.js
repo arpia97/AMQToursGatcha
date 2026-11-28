@@ -1,3 +1,4 @@
+import {galleryCounts,installCardGallery} from './card-gallery.js';
 import { importedPortrait } from "./community-cards.js";
 import { installInbox, inboxSummary, saveNoticePreferences } from "./inbox.js";
 import { installFavoriteOwnership, ownedCardCopies, pruneFavorite } from "./card-ownership.js";
@@ -19,6 +20,10 @@ import {
 import { validFavorites } from "./popularity.js";
 import { CardTitles } from "./card-titles.js";
 import { Quiz } from "./quiz.js";
+import { installAnimeCompletion,noteCharacter } from './anime-completion.js';
+import { featuredSong,installSongbook } from "./songbook.js";
+import {addCollectionMineStatus,enhanceMineCard,installMine} from './credit-mine.js';
+import {installMusic,clearPlayerMusic} from './music.js';
 import { Friends } from "./friends.js";
 import {
   PICKEM_PARTICIPATION_REWARD,
@@ -83,6 +88,7 @@ export class Engine {
       ["players", "display_name", "TEXT"],
       ["players", "avatar_card", "TEXT"],
       ["players", "avatar_crop", "TEXT"],
+      ["players", "donator_until", "INTEGER NOT NULL DEFAULT 0"],
       ["players", "is_quiz_maker", "INTEGER NOT NULL DEFAULT 0"],
       ["host_access_log", "role", "TEXT NOT NULL DEFAULT 'Host'"],
       ["players", "is_admin", "INTEGER NOT NULL DEFAULT 0"],
@@ -148,6 +154,11 @@ export class Engine {
     migrateEnhancements(this);
     installFavoriteOwnership(this);
     installPackResultSales(this);
+    installSongbook(this);
+    installCardGallery(this);
+    installAnimeCompletion(this);
+    installMusic(this);
+    installMine(this);
     this.cardTitles.backfill();
     migrateTradeDefaults(this);
     installInbox(this);
@@ -226,7 +237,7 @@ export class Engine {
   }
   player(id) {
     const p = this.one(
-      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,login_days,donator_until,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,is_quiz_maker,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
+      "SELECT id,COALESCE(display_name,name) AS name,balance,earned,daily,daily_pack,login_days,max(donator_until,COALESCE((SELECT max(s.expires) FROM paypal_donator_links l JOIN paypal_donator_sales s ON s.link=l.ref WHERE l.player=players.id AND s.revoked=0),0)) AS donator_until,avatar_card,avatar_crop,account_locked,autosell_below,COALESCE(private_balance,0) AS private_balance,COALESCE(private_collection,0) AS private_collection,quiz_hotkeys,notice_preferences,notify_friends_quiz,COALESCE((SELECT slots FROM showcase_capacity WHERE player=players.id),30) AS showcase_slots,is_quiz_maker,CASE WHEN id='368' OR id IN (SELECT player FROM host_delegations) THEN is_admin ELSE 0 END AS is_admin FROM players WHERE id=?",
       id,
     );
     if (!p) fail("Unknown AMQ player ID.", 404);
@@ -423,13 +434,14 @@ export class Engine {
     );
   }
   addCard(player, card, count = 1) {
-    this.run(
-      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies",
+    const item=this.one(
+      "INSERT INTO inventory(player,card,copies,level,acquired_at) VALUES(?,?,?,1,?) ON CONFLICT(player,card) DO UPDATE SET copies=copies+excluded.copies RETURNING copies",
       player,
       card,
       count,
       this.now(),
     );
+    if(item.copies===count)noteCharacter(this,player,card);
   }
   mutate(scope, key, body, fn) {
     text(key, 100);
@@ -589,6 +601,7 @@ export class Engine {
       const cost = enhancementCost(item.level);
       if (item.copies - 1 < cost)
         fail(`You need ${cost} extra copies to reach level ${item.level + 1}.`);
+      enhanceMineCard(this,player,b.card,item,cost);
       this.run(
         "UPDATE inventory SET copies=copies-?,level=level+1 WHERE player=? AND card=?",
         cost,
@@ -665,7 +678,7 @@ export class Engine {
       );
       if (!a || now < a.ends || a.winner !== player || a.claimed)
         fail("This auction cannot be claimed.", 409);
-      this.economy.acquire(player, a.card, a.level, a.extra_copies);
+      this.economy.acquire(player, a.card, a.level, a.extra_copies,a.artwork);
       if (a.seller && !a.paid) {
         const cardName = this.catalogStore.card(a.card)?.name || a.card;
         const winnerName = this.player(player).name;
@@ -1122,6 +1135,7 @@ export class Engine {
       if (b.confirmation !== `RESET PLAYER ${id}`)
         fail(`Type RESET PLAYER ${id} to confirm.`);
       this.economy.resetPlayer(id);
+      clearPlayerMusic(this,id);
       this.run("DELETE FROM quiz_runs WHERE player=?", id);
       this.run("DELETE FROM quiz_progress WHERE player=?", id);
       this.run("DELETE FROM quiz_favorites WHERE player=?", id);
@@ -1137,8 +1151,9 @@ export class Engine {
       );
       for (const table of [
         "login_packs",
-        "songbook_notes",
         "inventory",
+        "mine_shifts", "mine_wear", "songbook_alias", "songbook_owned", "songbook_notes",
+        "songbook_wishlist", "songbook_flags", "songbook_featured", "portrait_choice", "player_portraits",
         "ledger",
         "predictions",
         "tour_events",
@@ -1170,7 +1185,10 @@ export class Engine {
         fail("The confirmation phrase does not match the selected reset.");
       for (const table of [
         "inventory",
+        "mine_shifts", "mine_wear", "songbook_alias", "songbook_owned", "songbook_notes",
+        "songbook_wishlist", "songbook_flags", "songbook_featured", "portrait_choice", "player_portraits",
         "host_credit_issues",
+        "music_lists","music_rooms","music_guests","music_chat",
         "pack_result_items",
         "pack_auto_sales",
         "ledger",
@@ -1184,7 +1202,6 @@ export class Engine {
         "weekly_shop",
         "market_listings",
         "login_packs",
-        "songbook_notes",
         "trade_offer_cards",
         "trade_offers",
         "trade_listings",
@@ -1309,10 +1326,11 @@ export class Engine {
     const specialPack = id ? this.economy.specialPack.pendingPopup(id) : null;
     const inventory = id
       ? this.all(
-          "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
+          "SELECT i.*,v.image AS portrait FROM inventory i LEFT JOIN portrait_choice v ON v.player=i.player AND v.card=i.card WHERE i.player=? ORDER BY position IS NULL,position",
           id,
         )
       : [];
+    addCollectionMineStatus(this,id,inventory);
     const ranks = includeRanks ? this.all(
       "SELECT id,COALESCE(display_name,name) AS name,earned,avatar_card,avatar_crop FROM players WHERE earned>0 AND COALESCE(private_balance,0)=0 ORDER BY earned DESC,name COLLATE NOCASE,id LIMIT 100",
     ) : [];
@@ -1327,11 +1345,11 @@ export class Engine {
     const myListings = id
       ? [
           ...this.all(
-            "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name,'shop' AS venue FROM market_listings l LEFT JOIN players p ON p.id=l.seller WHERE l.seller=? AND l.status='open' ORDER BY l.id DESC LIMIT 20",
+            "SELECT l.*,COALESCE(p.display_name,p.name) AS seller_name,'shop' AS venue FROM market_listings l LEFT JOIN players p ON p.id=l.seller WHERE l.seller=? AND l.status='open' ORDER BY l.id DESC",
             id,
           ),
           ...this.all(
-            "SELECT a.*,COALESCE(s.display_name,s.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name,'auction' AS venue FROM auctions a LEFT JOIN players s ON s.id=a.seller LEFT JOIN players w ON w.id=a.winner WHERE a.seller=? AND a.paid=0 AND a.closed=0 ORDER BY a.id DESC LIMIT 20",
+            "SELECT a.*,COALESCE(s.display_name,s.name) AS seller_name,COALESCE(w.display_name,w.name) AS winner_name,'auction' AS venue FROM auctions a LEFT JOIN players s ON s.id=a.seller LEFT JOIN players w ON w.id=a.winner WHERE a.seller=? AND a.paid=0 AND a.closed=0 ORDER BY a.id DESC",
             id,
           ),
         ]
@@ -1363,7 +1381,7 @@ export class Engine {
     else
       for (const c of this.catalogStore.page("character", "", 1, 12).cards)
         references.add(c.id);
-    const catalog = this.catalogStore.cards([...references]);
+    const catalog = galleryCounts(this,this.catalogStore.cards([...references]));
     return {
       now,
       me,
@@ -1430,7 +1448,8 @@ export class Engine {
   publicRoles() {
     return Object.fromEntries(
       this.all(
-        "SELECT id,'Host' AS role FROM players WHERE is_admin=1 AND (id='368' OR id IN (SELECT player FROM host_delegations)) UNION ALL SELECT id,'Quiz Maker' FROM players WHERE is_quiz_maker=1 AND is_admin=0",
+        "SELECT id,'Host' AS role FROM players WHERE is_admin=1 AND (id='368' OR id IN (SELECT player FROM host_delegations)) UNION ALL SELECT id,'Quiz Maker' FROM players WHERE is_quiz_maker=1 AND is_admin=0 UNION ALL SELECT id,'Donator' FROM players WHERE donator_until>0 AND donator_until>? AND is_admin=0 AND is_quiz_maker=0 UNION SELECT p.id,'Donator' FROM paypal_donator_sales s JOIN paypal_donator_links l ON l.ref=s.link JOIN players p ON p.id=l.player WHERE s.revoked=0 AND s.expires>? AND p.is_admin=0 AND p.is_quiz_maker=0",
+        this.now(),this.now(),
       ).map((p) => [p.id, p.role]),
     );
   }
@@ -1480,13 +1499,13 @@ export class Engine {
       id,
     );
     const showcase = this.all(
-      "SELECT s.card,i.level,i.copies,i.protected,COALESCE(i.for_trade,0) AS for_trade FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
+      "SELECT s.card,(SELECT image FROM portrait_choice v WHERE v.player=s.player AND v.card=s.card) AS portrait,i.level,i.copies,i.protected,COALESCE(i.for_trade,0) AS for_trade FROM profile_showcase s JOIN inventory i ON i.player=s.player AND i.card=s.card WHERE s.player=? ORDER BY s.position",
       id,
     );
     const inventory = hideCollection
       ? []
       : this.all(
-          "SELECT * FROM inventory WHERE player=? ORDER BY position IS NULL,position",
+          "SELECT i.*,v.image AS portrait FROM inventory i LEFT JOIN portrait_choice v ON v.player=i.player AND v.card=i.card WHERE i.player=? ORDER BY position IS NULL,position",
           id,
         );
     const collectionCount = hideCollection
@@ -1497,6 +1516,8 @@ export class Engine {
         ).n;
     return {
       ...this.friends.decorate([p],viewerId)[0],
+      donator_until: isSelf ? p.donator_until : undefined,
+      login_days: isSelf ? p.login_days : undefined,
       notice_preferences: isSelf ? p.notice_preferences : undefined,
       notify_friends_quiz: isSelf ? p.notify_friends_quiz : undefined,
       balance: hideBalance ? null : p.balance,
@@ -1521,6 +1542,7 @@ export class Engine {
       },
       showcase,
       wishlist: this.economy.wishlist.read(id),
+      featuredSong:featuredSong(this,id),
       pinnedAnime: this.economy.anime.pinned(id, { hideOwnership: hideCollection }),
       completion: hideCollection ? null : this.economy.completion(id),
       inventory,

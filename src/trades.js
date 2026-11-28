@@ -1,3 +1,4 @@
+import {transferCardState} from './transfer-card-state.js';
 import { pruneFavorite } from "./card-ownership.js";
 import { fail, integer, text } from "./engine.js";
 import { cardMatcher } from "../public/search.js";
@@ -92,17 +93,19 @@ export class Trades {
     const level = variant === "extra" ? 1 : item?.level;
     if (b.expectedLevel !== level)
       fail("This card changed. Choose it again before trading.", 409);
-    return { card, level: this.e.economy.take(player, card, variant, {escrow:true}) };
+    const artwork=transferCardState(this.e,player,card,variant,item.copies);
+    return { card, artwork, level: this.e.economy.take(player, card, variant, {escrow:true}) };
   }
   offerCards(o) {
     const rows = this.e.all(
-      "SELECT card,level,extra_copies FROM trade_offer_cards WHERE offer=? ORDER BY position",
+      "SELECT card,level,extra_copies,artwork FROM trade_offer_cards WHERE offer=? ORDER BY position",
       o.id,
     );
     return rows.length
       ? rows.map((r) => ({
           card: r.card,
           level: r.level,
+          ...(r.artwork ? {artwork:r.artwork} : {}),
           ...(r.extra_copies ? { extra_copies: r.extra_copies } : {}),
         }))
       : [
@@ -160,7 +163,7 @@ export class Trades {
   }
   returnOffer(o, status = "returned") {
     for (const c of this.offerCards(o))
-      this.e.economy.acquire(o.proposer, c.card, c.level, c.extra_copies);
+      this.e.economy.acquire(o.proposer, c.card, c.level, c.extra_copies,c.artwork);
     if (Number(o.credits) > 0) {
       const l = this.e.one(
         "SELECT l.card,COALESCE(p.display_name,p.name,l.seller) AS seller_name FROM trade_listings l LEFT JOIN players p ON p.id=l.seller WHERE l.id=?",
@@ -183,7 +186,7 @@ export class Trades {
   }
   close(l, skipPlayer = null) {
     if (l.seller !== skipPlayer)
-      this.e.economy.acquire(l.seller, l.card, l.level, l.extra_copies);
+      this.e.economy.acquire(l.seller, l.card, l.level, l.extra_copies,l.artwork);
     for (const o of this.e.all(
       "SELECT * FROM trade_offers WHERE listing=? AND status='open'",
       l.id,
@@ -223,17 +226,18 @@ export class Trades {
         e.one(
           "SELECT count(*) n FROM trade_listings WHERE seller=? AND status='open'",
           player,
-        ).n >= 20
+        ).n >= 20 && !e.player(player).donator
       )
         fail("You can have up to 20 open trade listings.");
       const c = this.take(player, b);
       e.run(
-        "INSERT INTO trade_listings(seller,card,level,created_at,updated_at) VALUES(?,?,?,?,?)",
+        "INSERT INTO trade_listings(seller,card,level,created_at,updated_at,artwork) VALUES(?,?,?,?,?,?)",
         player,
         c.card,
         c.level,
         e.now(),
         e.now(),
+        c.artwork,
       );
       return {
         message: "Card listed for trade.",
@@ -256,14 +260,14 @@ export class Trades {
         e.one(
           "SELECT count(*) n FROM trade_offers WHERE proposer=? AND status='open'",
           player,
-        ).n >= 20
+        ).n >= 20 && !e.player(player).donator
       )
         fail("You can have up to 20 open offers.");
       if (
         e.one(
           "SELECT count(*) n FROM trade_offers WHERE listing=? AND status='open'",
           l.id,
-        ).n >= 20
+        ).n >= 20 && !e.player(l.seller).donator
       )
         fail("This listing already has 20 offers.", 409);
       const credits =
@@ -292,11 +296,12 @@ export class Trades {
       const offer = e.one("SELECT last_insert_rowid() id").id;
       cards.forEach((c, position) =>
         e.run(
-          "INSERT INTO trade_offer_cards(offer,position,card,level) VALUES(?,?,?,?)",
+          "INSERT INTO trade_offer_cards(offer,position,card,level,artwork) VALUES(?,?,?,?,?)",
           offer,
           position,
           c.card,
           c.level,
+          c.artwork,
         ),
       );
       e.economy.notices.add(
@@ -348,8 +353,8 @@ export class Trades {
       e.assertAccountUnlocked(o.proposer);
       const offered = this.offerCards(o);
       for (const c of offered)
-        e.economy.acquire(l.seller, c.card, c.level, c.extra_copies);
-      e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies);
+        e.economy.acquire(l.seller, c.card, c.level, c.extra_copies,c.artwork);
+      e.economy.acquire(o.proposer, l.card, l.level, l.extra_copies,l.artwork);
       if (Number(o.credits) > 0) {
         const cardName = e.catalogStore.card(l.card)?.name || l.card;
         const proposerName =
@@ -504,7 +509,7 @@ export class Trades {
       offers: player
         ? this.e
             .all(
-              `SELECT o.*,COALESCE(p.display_name,p.name,o.proposer) proposer_name FROM trade_offers o LEFT JOIN players p ON p.id=o.proposer WHERE o.listing=? AND ${l.seller === player ? "o.status IN ('open','accepted')" : "o.proposer=?"} ORDER BY o.id DESC LIMIT 20`,
+              `SELECT o.*,COALESCE(p.display_name,p.name,o.proposer) proposer_name FROM trade_offers o LEFT JOIN players p ON p.id=o.proposer WHERE o.listing=? AND ${l.seller === player ? "o.status IN ('open','accepted')" : "o.proposer=?"} ORDER BY o.id DESC`,
               l.id,
               ...(l.seller === player ? [] : [player]),
             )

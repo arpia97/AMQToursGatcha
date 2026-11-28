@@ -1,7 +1,10 @@
 import {loginDay,streakReward,weeklySignInStarts} from "../public/weekly-streak.js";
+import {receiveArtwork} from './card-gallery.js';
+import {transferCardState} from './transfer-card-state.js';
+import {receiveMineCard,takeMineBase} from './credit-mine.js';
 import { cardMatcher } from "../public/search.js";
 import { MARKET_SORTS, sortMarketItems } from "../public/market-sort.js";
-import { cardInvestment } from "../public/card-values.js";
+import { cardInvestment, MAX_CARD_LEVEL } from "../public/card-values.js";
 import { Wishlist } from "./wishlist.js";
 import { pruneFavorite } from "./card-ownership.js";
 import {
@@ -10,6 +13,7 @@ import {
   FREE_SPOTLIGHTS,
 } from "../public/site-defaults.js";
 import { fail, integer, text, WEEK } from "./engine.js";
+import { noteCharacter } from './anime-completion.js';
 import { AnimeCollection } from "./collection.js";
 import { premiumPool, drawPremium, specialPool, drawSpecialPack, SPECIAL_PACK_RULE } from "../public/pack-odds.js";
 import {
@@ -36,6 +40,10 @@ export class Economy {
     this.e = e;
     this.wishlist = new Wishlist(e);
     for (const sql of SCHEMA.split(";").filter((s) => s.trim())) e.run(sql);
+    const checkoutColumns=new Set(e.all("PRAGMA table_info(paypal_donator_links)").map(column=>column.name));
+    if(!checkoutColumns.has("kind"))e.run("ALTER TABLE paypal_donator_links ADD COLUMN kind TEXT NOT NULL DEFAULT 'monthly'");
+    if(!checkoutColumns.has("order_id"))e.run("ALTER TABLE paypal_donator_links ADD COLUMN order_id TEXT");
+    e.run("CREATE UNIQUE INDEX IF NOT EXISTS paypal_donator_order ON paypal_donator_links(order_id) WHERE order_id IS NOT NULL");
     if (!e.one("SELECT value FROM settings WHERE key='showcase_capacity_1000'"))
       e.tx(() => {
         // Widen the old CHECK constraint while preserving every purchased capacity.
@@ -106,6 +114,7 @@ export class Economy {
     e.run(
       "CREATE INDEX IF NOT EXISTS starter_amount_pending ON players(starter_amount) WHERE starter_amount<5000",
     );
+    e.run("CREATE INDEX IF NOT EXISTS active_donators ON players(donator_until) WHERE donator_until>0");
     this.anime = new AnimeCollection(e);
     this.fusion = new Fusion(e);
     this.alchemy = new Alchemy(e);
@@ -172,6 +181,25 @@ export class Economy {
       );
     }
   }
+  recordDonatorMonth({player,receipt,cents}){
+    const e=this.e;
+    receipt=text(receipt,120); cents=integer(cents,100,100000000);
+    e.player(player);
+    const manual=e.one("SELECT donator_until FROM players WHERE id=?",player);
+    const existing=e.one("SELECT player,cents,expires FROM donor_receipts WHERE receipt=?",receipt);
+    if(existing){
+      if(existing.player!==player||existing.cents!==cents)fail("This payment is already assigned.",409);
+      return {expires:existing.expires,message:"This payment was already recorded."};
+    }
+    const now=e.now(), end=new Date(Math.max(manual.donator_until,now));
+    const day=end.getUTCDate();
+    end.setUTCMonth(end.getUTCMonth()+2,0);
+    end.setUTCDate(Math.min(day,end.getUTCDate()));
+    const expires=end.getTime();
+    e.run("INSERT INTO donor_receipts VALUES(?,?,?,?,?)",receipt,player,cents,now,expires);
+    e.run("UPDATE players SET donator_until=? WHERE id=?",expires,player);
+    return {expires,message:"Donator membership extended by one month."};
+  }
   checkIn(player) {
     if (this.e.now()<weeklySignInStarts || this.e.one("SELECT daily FROM players WHERE id=?",player)?.daily===loginDay(this.e.now())) return null;
     return this.e.tx(()=>this.streakLogin(player));
@@ -214,16 +242,19 @@ export class Economy {
     if(this.e.now()>=weeklySignInStarts)return this.streakLogin(player);
     const e = this.e,
       day = new Date(e.now() + 9 * 3600000).toISOString().slice(0, 10);
-    if (e.player(player).daily === day) {
+    const account=e.player(player);
+    if (account.daily === day) {
       fail(
         "You already claimed today’s credits. Come back after midnight KST.",
         409,
       );
     }
+    if(account.donator)e.run('INSERT INTO songbook_notes(player,balance) VALUES(?,1) ON CONFLICT(player) DO UPDATE SET balance=balance+1',player);
     e.wallet(player, DAILY_CREDITS, "Daily login", true);
     e.run("UPDATE players SET daily=? WHERE id=?", day, player);
     return {
-      message: `${DAILY_CREDITS} daily credits added.`,
+      message: `${DAILY_CREDITS} daily credits${account.donator?" and 1 Note":""} added.`,
+      notes: Number(account.donator),
       credits: DAILY_CREDITS,
       cards: [],
     };
@@ -252,7 +283,7 @@ export class Economy {
     const outcome = e.grantPackPulls(player, cards, "Daily pack");
     e.run("UPDATE players SET daily_pack=? WHERE id=?", day, player);
     return {
-      message: "Your daily five-card pack is here!",
+      message: "Your daily pack is here!",
       credits: outcome.autoSoldCredits,
       autoSoldCount: outcome.autoSoldCount,
       autoSoldCredits: outcome.autoSoldCredits,
@@ -307,7 +338,7 @@ export class Economy {
       a.buyout,
       {buyerName, buyout: true},
     );
-    this.acquire(player, a.card, a.level, a.extra_copies);
+    this.acquire(player, a.card, a.level, a.extra_copies,a.artwork);
     e.run(
       "UPDATE auctions SET bid=?,winner=?,ends=?,closed=1,paid=1,claimed=1 WHERE id=?",
       a.buyout,
@@ -331,7 +362,7 @@ export class Economy {
       level: a.level,
     };
   }
-  acquire(player, card, level = 1, extraCopies = 0) {
+  acquire(player, card, level = 1, extraCopies = 0, artwork = null) {
     const current = this.e.one(
         "SELECT copies,level FROM inventory WHERE player=? AND card=?",
         player,
@@ -351,6 +382,9 @@ export class Economy {
       highest,
       this.e.now(),
     );
+    receiveMineCard(this.e,player,card,current,level,artwork && JSON.parse(artwork).wear);
+    receiveArtwork(this.e,player,card,artwork,current?.level>=MAX_CARD_LEVEL);
+    if(!current)noteCharacter(this.e,player,card);
   }
   take(player, id, variant, { escrow = false } = {}) {
     const e = this.e,
@@ -376,6 +410,7 @@ export class Economy {
       );
       return 1;
     }
+    takeMineBase(e,player,id,item.copies);
     if (item.copies > 1)
       e.run(
         "UPDATE inventory SET copies=copies-1,level=1 WHERE player=? AND card=?",
@@ -429,7 +464,7 @@ export class Economy {
         e.run("UPDATE auctions SET paid=1,closed=1 WHERE id=?", a.id);
         pruneFavorite(e,a.seller,a.card);
       } else {
-        this.acquire(a.seller, a.card, a.level, a.extra_copies);
+        this.acquire(a.seller, a.card, a.level, a.extra_copies,a.artwork);
         e.run("UPDATE auctions SET paid=1,closed=1,claimed=1 WHERE id=?", a.id);
       }
     }
@@ -759,7 +794,7 @@ export class Economy {
         player,
         player,
       ).n;
-      if (active >= 20) fail("You can have up to 20 open listings.");
+      if (active >= 20 && !e.player(player).donator) fail("You can have up to 20 open listings.");
       const id = text(b.card, 100),
         c = e.catalogStore.card(id);
       if (!c) fail("Unknown card.");
@@ -770,20 +805,23 @@ export class Economy {
         venue !== "auction" || b.buyout == null || b.buyout === ""
           ? null
           : integer(b.buyout, price, 1000000);
-      const level = this.take(player, id, b.variant || "extra", {escrow:true});
+      const variant = b.variant || "extra";
+      const artwork = transferCardState(e,player,id,variant);
+      const level = this.take(player,id,variant,{escrow:true});
       if (venue === "shop")
         e.run(
-          "INSERT INTO market_listings(seller,card,kind,level,price,created) VALUES(?,?,?,?,?,?)",
+          "INSERT INTO market_listings(seller,card,kind,level,price,created,artwork) VALUES(?,?,?,?,?,?,?)",
           player,
           id,
           c.kind,
           level,
           price,
           now,
+          artwork,
         );
       else
         e.run(
-          "INSERT INTO auctions(card,kind,starts,ends,seller,level,reserve,buyout) VALUES(?,?,?,?,?,?,?,?)",
+          "INSERT INTO auctions(card,kind,starts,ends,seller,level,reserve,buyout,artwork) VALUES(?,?,?,?,?,?,?,?,?)",
           id,
           c.kind,
           now,
@@ -792,6 +830,7 @@ export class Economy {
           level,
           price,
           buyout,
+          artwork,
         );
       return {
         message:
@@ -809,7 +848,7 @@ export class Economy {
           player,
         );
         if (!l) fail("This listing cannot be withdrawn.", 409);
-        this.acquire(player, l.card, l.level, l.extra_copies);
+        this.acquire(player, l.card, l.level, l.extra_copies,l.artwork);
         e.run("UPDATE market_listings SET status='cancelled' WHERE id=?", id);
       } else if (b.venue === "auction") {
         const a = e.one(
@@ -820,7 +859,7 @@ export class Economy {
         );
         if (!a || a.winner)
           fail("An auction can only be withdrawn before its first bid.", 409);
-        this.acquire(player, a.card, a.level, a.extra_copies);
+        this.acquire(player, a.card, a.level, a.extra_copies,a.artwork);
         e.run(
           "UPDATE auctions SET closed=1,claimed=1,paid=1,ends=? WHERE id=?",
           now,
@@ -857,7 +896,7 @@ export class Economy {
         l.price,
         {buyerName},
       );
-      this.acquire(player, l.card, l.level, l.extra_copies);
+      this.acquire(player, l.card, l.level, l.extra_copies,l.artwork);
       e.run(
         "UPDATE market_listings SET status='sold',buyer=?,sold_at=? WHERE id=?",
         player,
@@ -1118,7 +1157,6 @@ CREATE INDEX IF NOT EXISTS pack_auto_sales_player ON pack_auto_sales(player);
 CREATE TABLE IF NOT EXISTS market_listings(id INTEGER PRIMARY KEY AUTOINCREMENT,seller TEXT NOT NULL,card TEXT NOT NULL,kind TEXT NOT NULL,level INTEGER NOT NULL,price INTEGER NOT NULL,created INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',buyer TEXT,sold_at INTEGER);
 CREATE INDEX IF NOT EXISTS listings_open ON market_listings(status,kind,id);
 CREATE INDEX IF NOT EXISTS listings_seller ON market_listings(seller,status);
-CREATE TABLE IF NOT EXISTS login_packs(player TEXT NOT NULL,tier TEXT NOT NULL,quantity INTEGER NOT NULL,PRIMARY KEY(player,tier));
 CREATE TABLE IF NOT EXISTS songbook_notes(player TEXT PRIMARY KEY,balance INTEGER NOT NULL CHECK(balance>=0));
 CREATE TABLE IF NOT EXISTS weekly_shop(id INTEGER PRIMARY KEY AUTOINCREMENT,card TEXT NOT NULL,kind TEXT NOT NULL,price INTEGER NOT NULL,starts INTEGER NOT NULL,ends INTEGER NOT NULL,buyer TEXT,base_price INTEGER,discount_percent INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS shop_week ON weekly_shop(starts,kind);
@@ -1126,6 +1164,19 @@ CREATE INDEX IF NOT EXISTS shop_open ON weekly_shop(ends,id) WHERE buyer IS NULL
 CREATE TABLE IF NOT EXISTS gambling_rounds(id INTEGER PRIMARY KEY AUTOINCREMENT,player TEXT NOT NULL,game TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL,net INTEGER NOT NULL,outcome TEXT NOT NULL,at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS gambling_player ON gambling_rounds(player,id);
 CREATE TABLE IF NOT EXISTS showcase_slots(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 0 AND 20));
+CREATE TABLE IF NOT EXISTS paypal_donator_links(
+  ref TEXT PRIMARY KEY,player TEXT NOT NULL,cents INTEGER NOT NULL,created INTEGER NOT NULL,
+  subscription TEXT UNIQUE,approval TEXT,closed INTEGER NOT NULL DEFAULT 0,
+  kind TEXT NOT NULL DEFAULT 'monthly',order_id TEXT
+);
+CREATE INDEX IF NOT EXISTS paypal_donator_player_links ON paypal_donator_links(player,created DESC);
+CREATE TABLE IF NOT EXISTS paypal_donator_sales(
+  sale TEXT PRIMARY KEY,link TEXT,expires INTEGER NOT NULL,revoked INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS paypal_donator_link_expiry ON paypal_donator_sales(link,expires DESC) WHERE revoked=0;
+CREATE TABLE IF NOT EXISTS donor_receipts(receipt TEXT PRIMARY KEY,player TEXT NOT NULL,cents INTEGER NOT NULL,granted_at INTEGER NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS donor_emojis(id TEXT PRIMARY KEY,player TEXT NOT NULL,name TEXT NOT NULL COLLATE NOCASE,image TEXT NOT NULL,UNIQUE(player,name));
+CREATE TABLE IF NOT EXISTS login_packs(player TEXT NOT NULL,tier TEXT NOT NULL,quantity INTEGER NOT NULL,PRIMARY KEY(player,tier));
 CREATE TABLE IF NOT EXISTS showcase_capacity(player TEXT PRIMARY KEY,slots INTEGER NOT NULL CHECK(slots BETWEEN 30 AND 1000));
 CREATE TABLE IF NOT EXISTS profile_showcase(player TEXT NOT NULL,card TEXT NOT NULL,position INTEGER NOT NULL,PRIMARY KEY(player,card));
 `;

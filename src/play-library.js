@@ -27,6 +27,9 @@ function preferRecord(index,current,candidate) {
   return difference>0||difference===0&&candidate<current?candidate:current;
 }
 
+import {songTypePools,drawSongType} from './song-type-quiz.js';
+import {songTypeQuiz,SONG_TYPE_LENGTH} from '../public/quiz-rules.js';
+import {yearPools,eligibleYear,drawYear} from './year-quiz-selection.js';
 import {selectStudio} from './play-studio-selection.js';
 export class PlayLibrary {
   constructor(core,fetcher=(...args)=>globalThis.fetch(...args),quizSource=()=>null,sheetSource=()=>loadMasterSongAnswers(core.assets),answerSource=()=>null) {
@@ -53,7 +56,7 @@ export class PlayLibrary {
     const master=await this.sheetSource(refreshSheet);
     const registrations=this.answerSource();
     const version=manifest.version+'+'+this.quizVersion+'+'+master.version+'+'+(registrations?.revision||'');
-    if(this.version!==version){this.version=version;this.loading=null;}
+    if(this.version!==version){this.version=version;this.loading=null;this.songTypes=null;this.years=null;}
     if(!this.loading){
       this.catalogBuild={done:0,total:manifest.shards.length};
       this.loading=this.build(manifest,this.quizzes,this.quizVersion,master,this.catalogBuild,registrations).catch(error=>{if(this.version===version)this.loading=null;throw error;});
@@ -68,7 +71,7 @@ export class PlayLibrary {
       readAsset('play-artists.json',16000000),readAsset('quiz-library/artist-names.json',2000000),
     ]);
     const anime=new Set(),songs=new Set(),artists=new Set([...artist.names,...creditedNames,...artistAliasLabels]),playable=new Map(),ngmcRows=[];
-    const occurrenceAnime=new Map(), linkedAnime=new Map();
+    const occurrenceAnime=new Map(), linkedAnime=new Map(), animeLabels=new Map();
     for(const [ann,[myanimelist,anilist]] of Object.entries(master.animeLinks||{}))linkedAnime.set(Number(ann),{myanimelist,anilist});
     const extras=new Map(), officialById=new Map(), amqOccurrences=[];
     const dubSheet = new Set();
@@ -87,11 +90,12 @@ export class PlayLibrary {
       const annId=row.annId||row.sourceIds?.annIds?.[0];
       if(!annId)return;
       occurrenceAnime.set(id,annId);
+      if(row.titles?.[0]&&!animeLabels.has(annId))animeLabels.set(annId,row.titles[0]);
       if(row.linkedIds?.myanimelist || row.linkedIds?.anilist){
         const prior=linkedAnime.get(annId);
         linkedAnime.set(annId,{myanimelist:row.linkedIds.myanimelist||prior?.myanimelist,anilist:row.linkedIds.anilist||prior?.anilist});
       }
-      if(row.type)group.ngmc.push({annId,annSongId:id,type:row.type});
+      if(row.type)group.ngmc.push({annId,annSongId:id,type:row.type,difficulty:row.difficulty});
     }
 
     const inventory=playSongInventory(master,quizzes);
@@ -108,7 +112,7 @@ export class PlayLibrary {
         if(row.title)songs.add(row.title);
         if(row.artist)artists.add(row.artist);
         for(const name of row.artistNames||[])artists.add(name);
-        amqOccurrences.push({record,amqSongId:row.amqSongId,annSongId:row.annSongId,annId:row.annId,type:row.type,
+        amqOccurrences.push({record,difficulty:row.difficulty,amqSongId:row.amqSongId,annSongId:row.annSongId,annId:row.annId,type:row.type,
           audio:row.audio,title:row.title,artist:row.artist,titles:row.titles,linkedIds:row.linkedIds});
       }
       catalogBuild.done++;
@@ -117,6 +121,7 @@ export class PlayLibrary {
       const group=groupFor(row.record);
       if(hasRegistrations)(group.registrationSources??=[]).push(row);
       group.hasAmqPlus=true;
+      group.amqId||=row.amqSongId;
       group.amqTitle||=row.title;
       group.amqArtist||=row.artist;
       for(const title of row.titles||[])group.amqTitles.push(title);
@@ -173,7 +178,7 @@ export class PlayLibrary {
       if(registered)registeredMatches++;
       const [source,...mirrors]=audio.values(),groupId=groups.length;
       groups.push(group.ids);sources.push(source);alternates.push(mirrors);
-      preferred.push({quiz,sheet,titles,amqTitle:group.amqTitle,amqArtist:group.amqArtist});
+      preferred.push({quiz,sheet,titles,amqId:group.amqId,amqTitle:group.amqTitle,amqArtist:group.amqArtist});
       // A single occurrence can use the preferred catalog's type. Shared tracks
       // keep the individual type for each anime and use (for example OP and ED).
       const first=group.ngmc[0];
@@ -192,8 +197,45 @@ export class PlayLibrary {
     const coverage={playableRecordings:groups.length,sheetAdded,quizAdded,seedArtistNames:creditedNames.length};
     const counts=inventory.counts();
     if(registrations)Object.assign(counts,{registeredAnswers:registrations.rows.size,registeredMatches});
-    return {version,inventory:counts,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,alternates,sources,preferred,groups,
+    return {version,inventory:counts,artist,extras,ngmcRows,occurrenceAnime,linkedAnime,animeLabels,alternates,sources,preferred,groups,
       catalog:{version,coverage,anime:[...anime].sort(),artist:[...artists].sort(),song:[...songs].sort()}};
+  }
+  async songTypeQuiz(id){
+    const data=await this.load();
+    const metadata=await this.studioInfo();
+    if(this.songTypes?.data!==data)this.songTypes={data,pools:songTypePools(data,metadata)};
+    const {pools}=this.songTypes;
+    if(id==null)return {counts:Object.fromEntries([...pools].map(([key,pool])=>[key,Math.min(pool.length,SONG_TYPE_LENGTH)]))};
+    const pool=pools.get(id);
+    if(!pool?.length)throw Object.assign(Error('No playable songs for this quiz.'),{status:422});
+    return {songs:drawSongType(pool).map(group=>this.quizRecording(data,group,songTypeQuiz(id).type))};
+  }
+  quizRecording(data,group,type){
+    const {quiz,sheet,titles,amqTitle,amqArtist}=data.preferred[group];
+    return {type,audio:data.sources[group],answers:titles,title:quiz?.title||sheet?.title||amqTitle,
+      artist:quiz?.artist||sheet?.artist||amqArtist};
+  }
+  async yearQuiz(year){
+    const data=await this.load();
+    if(this.years?.data!==data){
+      const metadata=await this.studioInfo();
+      const all=yearPools(data,metadata);
+      this.years={data,pools:new Map([...all].filter(([,pool])=>eligibleYear(pool)))};
+    }
+    const cutoff=new Date().getUTCFullYear();
+    if(year==null)return {years:[...this.years.pools.keys()].filter(y=>y<cutoff).sort((a,b)=>b-a)};
+    const pool=year<cutoff&&this.years.pools.get(year);
+    if(!pool)throw Object.assign(Error('This year does not have a complete 30-song quiz.'),{status:422});
+    const picks=drawYear(pool);
+    for(let i=picks.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [picks[i],picks[j]]=[picks[j],picks[i]];
+    }
+    return {songs:picks.map(({group,type})=>this.quizRecording(data,group,type))};
+  }
+  async studioInfo(){
+    this.studioMetadata??=this.core.assets.fetch(new Request('https://quiz-assets.invalid/quiz-library/studio-metadata.json')).then(response=>libraryJSON(response,16000000));
+    try{return await this.studioMetadata;}catch(error){this.studioMetadata=null;throw error;}
   }
   async inventory(refreshQuizzes) {
     const {inventory}=await this.load(undefined,{refreshQuizzes,refreshSheet:true});
@@ -213,12 +255,12 @@ export class PlayLibrary {
     if(this.audioChecks.size>4000)this.audioChecks.delete(this.audioChecks.keys().next().value);
     return url;
   }
+
   async sample(mode='song-artist',count=20,exclude=null,watched=null,excludeAnime=[],progress=null,studio=null,replacement=null) {
     const started=Date.now();
     let data=await this.load(progress),studioMeta=null;
     if(studio){
-      this.studioMetadata??=libraryJSON(await this.core.assets.fetch(new Request('https://quiz-assets.invalid/quiz-library/studio-metadata.json')),16000000);
-      try{studioMeta=await this.studioMetadata;}catch(e){this.studioMetadata=null;throw e;}
+      studioMeta=await this.studioInfo();
       if(studio.dubs){
         data={...data,groups:[...data.groups],sources:[...data.sources],preferred:[...data.preferred],extras:new Map(data.extras),occurrenceAnime:new Map(data.occurrenceAnime)};
         for(const row of studioMeta.dubs){

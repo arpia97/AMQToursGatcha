@@ -1,3 +1,4 @@
+import "./gallery-counts.js";
 import { cardFrameClass, cardAura } from "./card-frames.js";
 import { levelLabel } from "./card-values.js";
 import { rarityClass } from "./card-display.js";
@@ -11,6 +12,7 @@ export function cardSurface(c, options, h) {
     level = 1,
     showLevel = false,
     tag = "",
+    mineStatus = "",
     actions = "",
     details = "",
     meta = "",
@@ -35,7 +37,11 @@ export function cardSurface(c, options, h) {
           : "") +
         "</div>"
       : "";
-  return `<article class="collect-card card-surface tier-${rarityClass(c.rarity)} ${cardFrameClass(level)} ${className} ${showLevel ? "has-card-level" : ""}" data-card-surface="${e(c.id)}" ${interactive ? 'data-card-interactive tabindex="0" aria-label="Card Actions for ' + e(c.name) + '"' : ""}><div class="card-surface-stage"><div class="portrait">${image(c)}${gradeBadge(c)}${tag ? `<span class="card-tag">${e(tag)}</span>` : ""}${showLevel ? `<span class="level-tag">${levelLabel(level)}</span>` : ""}</div><div class="card-front">${identity}${meta ? `<div class="card-front-meta">${meta}</div>` : ""}</div>${interactive ? `<div class="card-back" inert><div class="card-body">${details}<div class="card-action-content">${actions}</div></div></div>` : ""}${icons}</div>${cardAura(level)}</article>`;
+  const roleTag = tag ? `<span class="card-tag">${e(tag)}</span>` : "";
+  const badges = mineStatus
+    ? `<div class="collection-card-badges">${gradeBadge(c)}<div class="collection-card-labels">${roleTag}<strong class="mine-status collection-mine-status" data-mood="${e(mineStatus)}" aria-label="Mine condition: ${e(mineStatus)}">${e(mineStatus)}</strong></div></div>`
+    : gradeBadge(c) + roleTag;
+  return `<article class="collect-card card-surface tier-${rarityClass(c.rarity)} ${cardFrameClass(level)} ${className} ${showLevel ? "has-card-level" : ""}" data-card-surface="${e(c.id)}" ${interactive ? 'data-card-interactive tabindex="0" aria-label="Card Actions for ' + e(c.name) + '"' : ""}><div class="card-surface-stage"><div class="portrait">${image(c)}${badges}${showLevel ? `<span class="level-tag">${levelLabel(level)}</span>` : ""}</div><div class="card-front">${identity}${Object.hasOwn(c,'alternatives')?`<small class="portrait-count">${c.alternatives==null?`<gallery-count data-card="${e(c.id)}" data-primary="${e(c.primaryImage||c.image||'')}">Images · pending</gallery-count>`:c.alternatives+' alternate image'+(c.alternatives===1?'':'s')}</small>`:''}${meta ? `<div class="card-front-meta">${meta}</div>` : ""}</div>${interactive ? `<div class="card-back" inert><div class="card-body">${details}<div class="card-action-content">${actions}</div></div></div>` : ""}${icons}</div>${cardAura(level)}</article>`;
 }
 
 // Hover/focus and touch share the same presentation. A first tap can only

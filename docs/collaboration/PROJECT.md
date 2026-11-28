@@ -1,10 +1,16 @@
 # Project Context
 
+Use flat, minimal icons for site illustrations and controls. Prefer simple shapes, restrained colors and the existing icon style.
+
 Curated on November 9, 2026 (Asia/Seoul). This is a maintained engineering handoff, not a transcript or live database snapshot. Verify mutable facts against source and current deployment evidence. A new user instruction can supersede a product rule here; update this document when that happens.
 
 ## Multiplayer song draws
 
 All multiplayer song selection uses anime, eligible song type, then recording. Random and Unwatched slots apply lobby filters before drawing. Watched draws use the mode’s existing anime weights and custom quotas. Within each selected anime, choose uniformly among eligible OP, ED and IN types, then uniformly among distinct recordings of the chosen type. Apply this rule to Watched slots in Mixed lobbies, repeat-show draws and replacement songs.
+
+## Aoji Credit Mine (local draft)
+
+Each five-minute roll has a 25/288 full-efficiency chance to find credits. A level 1 AG pays 100 credits per find for a 2,500-credit full-efficiency daily benchmark. One fatigue point accrues per two hours worked and recovers per ten hours off duty, including escrow. Level 1 reaches 5% efficiency after 48 hours, and each additional level adds 12 working hours. A fresh level 1 AG averages 1,906.25 credits during its first continuous day.
 
 ## Applications and Addresses
 

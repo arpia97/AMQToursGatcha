@@ -23,6 +23,7 @@ export function fileKey(url){
 
 // Each record begins with its distinct alternative count. Its index breaks ties in sheet order.
 export function bestMasterRecord(snapshot,rows){
+  if(!snapshot.records.length)return undefined;
   let best;
   function consider(key){
     const id=snapshot.keys[key];

@@ -7,6 +7,172 @@ At midnight KST on November 30, 2026, the daily pack and flat daily credits swit
 ## Custom lobby chat and refinement rarity sort
 
 f6ba5f6 deployed as Worker e2391742-c1f6-48d9-aa4e-cfccf2d042a1. New custom matches share the lobby transcript and chat window through play and return. Existing matches finish on their original chat. Alchemy materials support Lowest Rarity. All 660 tests, syntax and the Worker dry-run passed. The live Play route and shared chat and Alchemy assets were verified. Weekly sign-in and mine drafts were excluded.
+## Jam Party rejoining · November 29
+
+Local draft. Players who leave or time out can rejoin an ongoing Jam Party from Recently joined. Leaving removes the participant and their skip vote. Returning listeners reconnect to current playback. The last departure closes the room and clears its invitations and rejoin access. Verified guest leave and rejoin in Chrome and covered host handoff, private chat, room closure and concurrent party membership in the music tests.
+
+## Cloudflare catalog and Jam Party optimization audit · November 29
+
+Local draft. Full catalogue scans use versioned compressed blocks and keep single-shard lookups for individual IDs. Compared the whole bundled catalog for exact shard content and order. Verified import invalidation, damaged-cache recovery and identical Hard ED eligibility. In local workerd the bundle draw went from 14.40s / 101 asset reads to 1.27s / 17. On the refreshed 96-shard fixture a later cold draw went from 98 to 14 SQL rows read (zero writes). Building the cache first cost 27 rows written and used 2.49 MB of compressed payload.
+
+Jam uses visibility, chat and playback state to choose its poll interval, and reads invitations independently of playlists. In a synthetic eight-person room with chat minimized, one hour of playback dropped from 8,224 to 3,600 polls and 137,752 to 18,630 music-handler rows read. Open chat retains its 3.5-second update interval. Verified chat across two browsers, playlist audio, host/listener controls, expiry and host handoff.
+Full suite: 693 passing. Production deployment held.
+
+
+## Music player volume controls
+
+The personal audio toggle sits beside volume in the shared player. Local Chrome verified playlist mute and unmute and separate Jam host and listener controls. Local draft.
+
+## Collection mine badges and Shift Details
+
+The mine condition and role now share one line at the top left of collection cards. The rarity badge stays on the right. Verified the Tired and Supporting layout in Chrome and reran all 11 mine tests.
+
+Local draft. The seven Shift Details entries use the requested copy. My Collection and the profile Collection panel show the base card's mine condition while working or recovering. Verified a sale with a spare, full recovery and badge positioning in Chrome. All 689 tests passed.
+
+## Song pack quantities and session players
+
+Song packs use the card-pack quantity controls (up to 100 affordable packs), atomic bulk draws, paginated results and poster-left reveal tiles. Playlists and Jam Party share an artwork-led player on the right and a compact mobile transport. Verified local opening, listening and party views. Music remains a draft. Include main commit 78c027b (weekly sign-in) when preparing a release.
+
+## Mine payout and fatigue rebalance · local draft
+
+All rarities now find credits 25% more often. A level 1 AG averages 2,500 credits per 24 hours at full efficiency and about 1,906 across a fresh continuous first day. Level 1 reaches the fatigue floor after 48 hours and five hours of rest offset one hour of work. The migration banks previous finds and honors recovery earned before the change, including escrow. All 687 tests, syntax checks and the Worker dry run passed. Held locally with the mine.
+
+## Mine character visibility · local preview
+
+Aoji now has a dedicated responsive header above the mine crew. Verified the five-worker layout at desktop, 390px and 320px, checked syntax, and passed all nine mine tests. Held locally. Previews in outputs/streak-mine-redesign.
+
+## Custom lobby chat and Alchemy sort
+
+Carried the shared lobby transcript, portable chat window, and lowest-rarity material sort into the music draft. The isolated production release is f6ba5f6. Weekly sign-in previews belong to the separate membership draft. Mine values are unchanged.
+
+## Card fatigue and unified Shop · local draft
+
+b86b2d0 tracks working and resting fatigue per base and spare, including transfers in escrow, acquisition, enhancement and recall. A fresh level 1 AG averages 1,050 credits during a continuous first day against its full-efficiency benchmark of 2,000. Recovery is one fatigue hour per four hours off duty. The Donator crew shows five slots with distinct fatigue colors. Shop now groups Card Packs, Marketplace and Auctions and preserves previous notification destinations. Local browser checks covered desktop/mobile crews, the Shop navigation and auction sections. All 685 tests, 419-file syntax check and the Worker dry-run passed. Preview images are in outputs/mine-fatigue-preview. Held locally.
+
+## Mine shifts, party chat and Donator rewards
+
+8e1989a lets assigned cards mine indefinitely with a smooth fatigue curve and a 5% efficiency floor. The mine uses the original character cutout behind the working cards. Mobile Music groups playlist controls, the party roster and playback. Jam Party has private floating chat. Active Donators have six emoji shortcuts and earn one daily songbook Note. The manual character card Obama, Barack uses the supplied portrait at fixed SSS rarity. All 680 tests, syntax checks and the Worker dry-run passed. Two disposable accounts verified chat, member slots, mobile reordering and mine controls. Preview images are in outputs/music-party-mine-update. Held locally.
+
+## Aoji Credit Mine and mobile Music · local draft
+
+819556c adds a Gacha mine with server-owned random finds, fatigue, offline shifts, inventory transfer cutoffs, 3 normal / 5 Donator slots, and transactional credit collection. A level 1 AG averages 2,006.4 per 24 hours. Donator entitlement uses the expiry field shared with the separate membership draft. Music now has opt-in playlist drag sorting for touch/mouse and keyboard support, compact phone controls and a host-first party roster. Verified all 678 tests, syntax checks, Worker dry-run and real touch input in local Chrome. Preview images from disposable accounts are in outputs/music-and-mine. Held locally for review.
+
+## Music concept 3 · local review
+
+eff42aa places playlists beside compact Songbook rows. Playlist and Jam Party queues sit left of the player at desktop widths and beneath it on mobile. Playback follows navigation between the full player, Songbook bar and floating mini player. The Catalogue retains the selected left-fade posters. Local Chrome verified playlist selection and playback, collection controls, seeking, navigation during playback and a two-player Jam Party with host pause and skip voting. Thirteen focused tests, syntax checks and the dry-run build passed. Snapshots are in outputs/music-concept-3. Deployment is on hold.
+
+## Pack page cleanup and Music design review · local draft
+
+8ab93a3 removes the Every Card, Equal Chances and Duplicates Go Further tiles and their redundant equal-chance pack copy. Verified in local Chrome alongside the left-fade Song Catalogue poster treatment at desktop and mobile widths. Syntax checks and the dry-run build passed. The three Music concepts remain available in outputs/music-design-review. Deployment is on hold.
+
+## Anime Collection and Music snapshots · local review
+
+48a6427 renames Full checklist to Expand and removes keyboard shortcut copy from quiz gameplay. Syntax checks and the dry-run build passed. Recaptured the current vinyl packs, tile reveal, Songbook filters, Catalogue, playlist player, Jam Party and anime expansion in local Chrome under outputs/music-redesign-current. The three broader Music layouts are concepts under outputs/music-design-review. Deployment is on hold.
+
+## Transferable artwork and initial gallery scan · local draft
+
+12f3360 carries the enhanced base card's artwork through player shops, auctions and trade escrow, including cancellation, expiration, account locks and final claims. Selling a spare leaves the base card's artwork in place. When two enhanced copies consolidate into one inventory entry their unlocks combine. Original, unlocked, then locked is the gallery order.
+
+The initial scan is running locally against the published catalogue and Tenrai. The checkpoint is in workspace outputs/card-artwork/initial-scan/gallery.sqlite. Resume with `python tools/scan-card-galleries.py ../../outputs/card-artwork/initial-scan` from this checkout after the previous process exits. The scan writes public/gallery-counts/*.json progressively. Include the latest generated shards when preparing the eventual release. Existing database counts take precedence. All 674 tests passed, alongside syntax checks and a local dry-run build. Deployment is on hold.
+
+## Card artwork and featured songs · local review
+
+Commit ef5957d adds card-specific Tenrai galleries, background alternative counts through the favorites scan, max-level rarity-price rolls, and per-owner portrait selection. Locked images use the same grayscale and opacity as missing anime collection characters. The gallery preview in outputs/card-artwork uses real Spike Spiegel images and sample ownership. Music supports a featured profile song and sorting by anime, song, AMQ difficulty and MAL anime popularity. Verified 673 tests, syntax, the local Worker dry-run build, and desktop/mobile gallery rendering. No production deployment or full catalogue crawl was performed.
+
+## Anime collection progress · local review
+
+Commit 4be2c06 adds expandable anime progress with nine rarity bands. Each distinct character and all linked recordings count. Current ownership determines the percentage. Completing a collection awards a permanent title named for the anime. Verified the test suite, loss before and after completion, existing-account backfill, the dry-run build, and desktop and mobile layouts. Previews are in outputs/anime-collection-progress. Deployment is on hold.
+
+## Catalogue poster fade · local review
+
+Commit 53c4090 anchors the full-height anime poster on the left and fades its right edge into the song details and controls. Verified nine focused tests, a dry-run build, desktop and mobile layouts, and opening Collection. Screenshots are in outputs/song-poster-fade. Deployment is on hold.
+
+## Song poster layouts · local review
+
+Local commit 5eecb74 places full portrait thumbnails beside song details in the catalogue and uses bottom-centered poster banners for Songbook and pack reveals. Nine Music and Songbook tests and the dry-run build passed. Desktop and mobile screenshots from disposable accounts are under workspace outputs/song-poster-layouts. Deployment is on hold.
+
+## Song artwork · local draft
+
+The Music catalogue, pack reveals, playlists and Jam Party use MAL-linked anime posters. Refresh the static reference index with `node tools/sync-song-posters.mjs`. The initial Tenrai sync found 30,629 posters. The local bundled song shards have poster coverage for 36,986 of 36,993 distinct MAL-linked audio URLs. Verified 668 tests, the dry-run build, desktop and mobile Catalogue, real poster loads and fallback to a secondary MAL ID. Deployment is on hold.
+
+## Song collection and Music design review · local draft
+
+Song tiles open a paginated Owners and Wishlisted panel. Catalogue exchange is available inside it. Owner visibility follows card collection privacy. Removed the Independent Draws tile from the pack shop. Verified with 668 tests, a dry-run build and a two-player disposable browser fixture. Three Music, playlist and Jam Party design concepts are available under workspace outputs/music-design-review for selection. Deployment remains on hold.
+
+## Song Catalogue and playlist filters · local draft
+
+Catalogue has Cards and Songs sections. Song Packs sit below the card packs. A selected song costs 10 Notes and every duplicate returns 1 Note, including a deliberate duplicate purchase. Song preferences persist across Catalogue, pack reveals, My Songs and playlists. Favorites and protection require ownership. Playlists can be created from My Songs and filled from a filtered owned collection.
+
+Verified Catalogue navigation, Notes balances, playlist creation, track addition, song preferences and mobile layout in Chrome using disposable data. The draft remains undeployed.
+
+## Song Pack and Songbook design · local draft
+
+Song Packs use a flat CSS vinyl icon. Pack reveals, catalog results and owned songs use responsive recording tiles. Tile previews have play, pause and seek controls, with one shared volume control and a compact playlist button. Verified the preview, modal dismissal, audio handoff to the mini player and mobile layout in Chrome. The local draft remains undeployed.
+
+## Music · local song-gacha draft
+
+Gacha Music has Songbook, Playlists and Jam Party tabs. Personal playlists use owned recording IDs and support reordering, shuffle and playback throughout Gacha. Pack reveals can add a recording directly to a playlist. Jam Party invitations use the Gacha friends list and inbox. Guests can listen and queue their own songs. The server tracks playback position, elapsed tracks, host controls, skip votes and host succession. Music pauses locally on Play gameplay entry.
+
+Verified on disposable SQLite and Worker state, including a two-account Chrome run through the Gacha pages with local test audio. Checked private invitation acceptance, synchronized playback, pause/resume, voting, navigation and narrow layout. All 666 tests and the dry-run Worker build passed. Local draft only.
+
+## Song Gacha · local draft only
+
+Song Packs draw three independent recordings from the MAL-linked Play library. Draft economy is 500 credits per pack, one Note per duplicate, and ten Notes for a chosen missing recording. The Gacha songbook includes playback for owned recordings and tracks OP/ED completion plus bonus inserts through the anime checklist. No Encore Pull. No deployment or production mutations. Verified the bundled catalog (33,478 eligible recordings, no overlapping recording aliases), real SQLite purchase/retry/exchange cases, desktop/mobile Packs flow, full 662-test suite, syntax check and dry-run Worker build.
+## Year and Song Type early finishes · November 29
+
+Local only. Stop Quiz saves the current score, credits only a best-score improvement, and opens results. The Songs Played recap omits unheard songs and includes a started, unanswered song as skipped. Early finishes can set a Song Type leaderboard score; only a full finish sets the speed tiebreak. Confirmed the existing Sudden Death control automatically rerolls on a miss in both modes. Verified both flows in Chrome and checked retries, wallet balance, leaderboard ties, and stopping during the opening countdown with disposable state.
+
+## Cloudflare catalog optimization audit · November 29
+
+Local draft. Full catalogue scans use versioned compressed blocks and keep single-shard lookups for individual IDs. Compared the whole bundled catalog for exact shard content and order. Verified import invalidation, damaged-cache recovery and identical Hard ED eligibility. In local workerd the bundle draw went from 14.40s / 101 asset reads to 1.27s / 17. On the refreshed 96-shard fixture a later cold draw went from 98 to 14 SQL rows read (zero writes). Building the cache first cost 27 rows written and used 2.49 MB of compressed payload.
+
+Full suite: 671 passing. Production deployment held.
+
+
+## Year and Song Type quiz audit and audio buffering · November 29
+
+Local draft only. Year and Song Type attempts make the current song playable first and keep the next five audio sources in a rolling browser cache, with at most two background downloads. Changing the run, leaving, or changing the mirror releases the cache. Reconnect restores revealed history. The shared catalogue directory caches availability for 15 seconds and reads player bests separately.
+
+The bundled catalogue yielded 33,288 rated playable recordings, evenly split globally by AMQ guess rate before filtering by song type. 660 unrated recordings were eligible for All songs only. Across 900 seeded 100-song draws there were zero repeat recordings or shows. Sparse pools can reuse shows to fill the quiz.
+
+Local 100-song SQLite benchmark (start, then ready, answer and next for each song): 1,207 to 907 rows read, 1,222 rows written in both, and 2,440,987 to 242,582 bytes of retry receipts. Browser checks covered both audio queues with one simulated failure, all nine leaderboards, difficulty tabs, Friends Only, mobile width, and the 100-song results grid. Quiz checkout passed 669 tests and music checkout passed 689. No production activity was used for these measurements.
+
+
+## Song Type leaderboard popup
+
+Each type header opens its own Top 20, with All songs, Easy and Hard tabs and a Friends Only filter. Difficulty badges show just their value. Chrome verified all nine boards, mobile bounds and the lobby badge. Preview held locally.
+
+## Song Type lobby and progress markers
+
+The Song Type lobby uses the type cover and a prominent difficulty badge shared with gameplay and results. Removed visible row ranges from the progress grid. Local Chrome verified desktop and mobile layout and all 100 markers. Local draft.
+
+## Song Type layout preview
+
+Local draft. OP, ED and IN use distinct record sleeves. Gameplay and results group song markers in labeled rows of 20. Verified 100 markers in Chrome at song 62 and at completion (82/100), plus a 390px results layout. All 48 focused quiz tests and syntax checks passed. Screenshots are in outputs/song-type-redesign.
+
+## Year decades and Song Type quizzes
+
+Local Play draft. Year shows decades from the 1920s through the current decade, including years with insufficient songs as inactive. Song Type offers nine independent OP/ED/IN and All/Easy/Hard combinations. Easy and Hard partition distinct rated recordings across the playable library by AMQ guess rate before applying the type filter. Unrated tracks appear in All songs. Each new best-score point awards 50 credits, up to 5,000 per variant. Uses the existing Top 20 and fastest-time tiebreak. All 667 tests passed, including settlement, retry and ranking coverage. The Worker dry run and local Chrome gameplay checks passed. Previews in outputs/song-type-quiz-review. Held for review.
+
+## Year Quiz layout review
+
+The year directory summarizes completion with a per-year chart. Gameplay uses three rows of square markers. Results retain the three rows using the regular quiz’s thin indicators. Desktop and mobile UI were exercised against a local Play fixture. Held for review. Include main commit 78c027b (weekly sign-in) when preparing a release.
+
+## Year Quiz rewards and shortcut copy · local review
+
+76d8da6 awards 30 credits per new personal-best point and 100 more on the first 30/30 for each year. Rewards cap at 1,000 credits per player and year. The directory shows the 2020s score as a plain fraction. Removed keyboard shortcut copy from quiz gameplay and retained hotkeys. All 664 tests, syntax checks and the dry-run build passed. Local Chrome verified the updated directory, shortcut copy and Enter advancing the reveal. Previews are in outputs/year-rewards-current. Deployment is on hold.
+
+## 2020s quiz completion · local review
+
+Local change aa70e9d measures best-score points against all 300 possible points in 2020–2029. Years without an eligible quiz appear inactive. Five focused tests, a dry-run build and desktop and mobile browser checks passed. Preview is in outputs/year-completion-preview. Deployment remains on hold.
+
+## Year quiz decade performance · local draft
+
+The Year directory shows average personal best, years played, and perfect scores for each selected decade. Unplayed years do not affect the average. Verified 663 tests, a dry-run build, desktop and mobile selection, and decade navigation with a disposable player. Deployment is on hold.
+
+## Year quizzes · local draft
+
+Play Quiz includes a Year directory for completed anime premiere years with a full pool. Each run draws ten distinct recordings of each of OP, ED and IN and favors different shows. The normal anime-answer player handles timing, grading and audio. Per-year best scores are stored separately from existing quiz rewards. Local Chrome covered a full 30-song run, results, three result rows, and desktop and mobile layout. Selection and gameplay captures are in workspace outputs/year-quiz-preview. Deployment is on hold.
 
 ## Ranked profile graph trends
 
@@ -49,6 +215,41 @@ Runtime 49a93f6 deployed as Worker 9cc30ff1-3b02-4d9c-92cb-0d7b2dc849ce. A recor
 ## Play chat emoji picker
 
 Runtime 115a3f7 is live on Worker 698199bc-e711-42fc-969a-46ebc1c32a95. Desktop keyboard and mobile touch checks passed, along with all 656 regression tests. Verified the Play entry point and matched all three live chat assets to the release files. Weekly streak and Donator changes remain local drafts.
+## Weekly sign-in released separately
+
+The isolated main release 78c027b is deployed as Worker ca4a1424-1259-4209-9047-67c4abe33d19. Its server-side cutover is 2026-11-30 at 00:00 Asia/Seoul. Keep that implementation when integrating this older Donator draft. PayPal was excluded from the release.
+
+## Weekly sign-in reward cards · local preview
+
+Weekly sign-in now uses a seven-day reward card track, shop pack art, credit icons and a separate Donator bonus panel. Verified locked and active states, compact layouts, syntax and 39 economy tests. Held locally. Previews in outputs/streak-mine-redesign.
+
+## Weekly reward panel preview
+
+Local membership draft. Standard accounts see all seven Donator extras locked. Active members see each extra and the combined daily award. The seven-day grant schedule is unchanged. Verified all 662 tests, sign-in on desktop and layout at 320, 360 and 390 pixels. Images are under outputs/weekly-login-preview.
+
+## Donator daily Note and chat shortcuts
+
+The held membership draft credits one songbook Note per successful Donator check-in on each of the seven streak days, and enables six emoji quickslots during active membership. All 661 tests passed locally. The Music and mine draft with the companion UI is at 8e1989a. No deployment.
+
+## Donator Membership menu preview
+
+Gacha and Play now show Donator Membership directly in the avatar menu when sandbox checkout is available. Both open the same checkout dialog. Verified both menus and the checkout at desktop and 390px widths, the status check on Gacha, and all 661 tests. Awaiting review. No deployment or real payment was made.
+
+## PayPal Donator checkout — local sandbox
+
+The Donator draft offers a one-time pass alongside monthly support. PayPal Orders v2 uses the signed-in account's opaque checkout reference and validates the selected USD amount before settling. A completed capture grants one calendar month from payment. The return flow and signed webhooks can finish the same order without charging or granting twice. Pass webhook events are `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, and `PAYMENT.CAPTURE.REVERSED`. The pass was verified through the local Worker with simulated PayPal responses. Actual PayPal Sandbox approval and webhook delivery for the pass have not been run.
+
+PayPal Sandbox product `PROD-77A51505TF950570P` and base plan `P-83748229JY806903DNME2JRI` were created by the owner. The signed-in account creates an opaque PayPal subscription binding. The base plan is $1 USD and the backend sets a per-subscription price override for larger amounts selected at checkout. Direct verification on return and signed renewal webhooks reconcile completed transactions against the linked amount and credit one calendar month per verified payment. Refunds and reversals invalidate the corresponding sale without affecting manual grants.
+
+To test against PayPal, use isolated data and runtime credentials `PAYPAL_SANDBOX_CLIENT_ID` and `PAYPAL_SANDBOX_CLIENT_SECRET` with `PAYPAL_SANDBOX_ENABLED=1` and `PAYPAL_SANDBOX_ORIGIN` set to the exact preview origin. Register `/api/paypal-donator-webhook` on the isolated HTTPS preview under the same PayPal app for `PAYMENT.SALE.COMPLETED`, `PAYMENT.SALE.REFUNDED`, and `PAYMENT.SALE.REVERSED`, then provide its ID as `PAYPAL_SANDBOX_WEBHOOK_ID`. All 660 local tests passed, including the payment lifecycle and preview route authorization fixtures. The Worker dry run passed. The local checkout test runner uses an isolated Worker and two disposable accounts. PayPal Sandbox accepted the $1.25 override and issued an approval page, and a temporary webhook was registered. The test was stopped at the owner’s request before buyer approval. No real sandbox payment or webhook grant was verified. A complete isolated Worker fixture verified that the webhook granted only the linked account. The sandbox runner checks this before allowing any return-page status sync. The weekly streak and Donator hold remains in place.
+
+## Play chat emoji suggestions — local preview
+
+Typing a colon opens a searchable emoji list above the chat composer. Chrome desktop and touch emulation verified choosing with arrow keys, Enter, Tab and tap, inserting mid-message and finding personal uploads. Preview only, pending approval.
+
+## Weekly login streak and Donator draft — local only
+
+Awaiting review. Keep these changes out of releases. Gacha and Play check in on a visible, authenticated visit. The seven-day cycle repeats, while the consecutive KST-day count continues until a missed day. Packs earned on days 3, 5 and 7 can be opened later as character or seiyuu. Active Donators get twice the credits and pack quantities, SSS badges, personal Play chat emoji slots and extended trading and wishlist allowances. Favorites already have no numeric cap. An owner-only receipt entry point validates USD cents and extends a calendar month once per receipt. Live payments, subscription events, refunds and automatic payment-provider linking are not configured. All 658 local tests passed.
 
 ## Centered desktop Overview
 

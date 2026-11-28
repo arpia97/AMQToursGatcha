@@ -310,5 +310,17 @@
     "image": "https://amqtours.app/gacha/community-cards/faker.jpg",
     "source": "",
     "fixedRarity": "AG"
+  },
+  {
+    "id": "community-barack-obama",
+    "kind": "character",
+    "name": "Obama, Barack",
+    "series": "",
+    "series_romaji": "",
+    "series_english": "",
+    "role": "main",
+    "image": "https://amqtours.app/gacha/community-cards/barack-obama.webp",
+    "source": "",
+    "fixedRarity": "SSS"
   }
 ]

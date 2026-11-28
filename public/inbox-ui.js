@@ -16,6 +16,7 @@ function describe(row, card) {
       return [name + ({"wish-shop":" is in the shop","wish-auction":" is up for auction","wish-trade":" was listed for trade"}[row.kind]),
         ["On your wishlist", m.seller || m.venue, row.credits ? amount+" credits" : ""].filter(Boolean).join(" · ")];
     case "friend-add": return [(m.byName || "A player")+" added you as a friend","Friends"];
+    case "jam-invite": return [(m.byName || "A friend")+" invited you to a Jam Party","Open Music to join"];
     case "quiz-new": return ["A new quiz is available",m.quizName];
     case "credit-reward": return ["You earned "+amount+" credits",m.reason];
     case "pickem-new": return ["A new tour pick’em is open",m.title];
@@ -112,6 +113,7 @@ export function createInbox({escape:e,cardBy,routeHref}) {
     if(target==="quiz")action='<a class="button" data-inbox-link href="'+e(playQuizHref(m.quiz))+'">Open quiz ↗</a>';
     const marketHref = marketNoticeHref(row, row.card ? cardBy(row.card) : null, routeHref);
     if (marketHref) action='<a class="button" data-inbox-link href="'+e(marketHref)+'">View '+(target==="auctions"?"auctions":row.kind==="trade-request"?"trade offers":row.kind==="wish-trade"?"trades":"shop")+' ↗</a>';
+    if(row.kind==='jam-invite')action='<a class="button" data-inbox-link href="'+e(marketHref)+'">Open Jam Party ↗</a>';
     return '<div class="inbox-detail">'+thumb(row)+'<h2>'+e(title)+'</h2><p>'+e(body||"")+'</p><small>'+e(new Date(row.created).toLocaleString())+'</small><p>'+action+'</p></div>';
   }
   return {query,render,detail,rowButton,rowControl,accept:v=>{data=v;},

@@ -62,6 +62,44 @@ function fixture(t) {
     });
   return { e, db, act, card, inv, list, offer };
 }
+test("card artwork follows the enhanced base through escrow, purchases and both sides of a trade",t=>{
+  const {e,act,card}=fixture(t);
+  e.wallet('c',20,'Test wallet');
+  const giveArt=(player,id,image)=>{
+    e.run('INSERT INTO player_portraits VALUES(?,?,?)',player,id,image);
+    e.run('INSERT INTO portrait_choice VALUES(?,?,?)',player,id,image);
+  };
+  const images=(player,id)=>e.all('SELECT image FROM player_portraits WHERE player=? AND card=? ORDER BY image',player,id).map(r=>r.image);
+  const selected=(player,id)=>e.one('SELECT image FROM portrait_choice WHERE player=? AND card=?',player,id)?.image;
+  card('a','one',6,3);giveArt('a','one','one-art');
+  card('b','two',6);giveArt('b','two','two-art');
+  const shop=variant=>{
+    act('a','list-card',{card:'one',variant,venue:'shop',price:1});
+    return e.one("SELECT id FROM market_listings WHERE status='open' ORDER BY id DESC").id;
+  };
+  const spare=shop('extra');
+  act('c','buy-listing',{listing:spare});
+  assert.deepEqual(images('c','one'),[]);
+  assert.equal(selected('a','one'),'one-art');
+  const base=shop('card');
+  assert.deepEqual(images('a','one'),[]);
+  act('a','cancel-listing',{venue:'shop',listing:base});
+  assert.equal(selected('a','one'),'one-art');
+  const listing=act('a','trade-list',{card:'one',variant:'card',expectedLevel:6}).listing;
+  act('b','trade-offer',{listing,card:'two',variant:'card',expectedLevel:6});
+  const offer=e.one("SELECT id FROM trade_offers WHERE listing=? AND status='open'",listing).id;
+  assert.deepEqual(images('b','two'),[]);
+  act('a','trade-accept',{offer});
+  assert.equal(selected('a','two'),'two-art');
+  assert.equal(selected('b','one'),'one-art');
+  assert.deepEqual(images('a','one'),[]);
+  const bought=act('b','list-card',{card:'one',venue:'shop',variant:'card',price:1});
+  assert.ok(bought.message);
+  const final=e.one("SELECT id FROM market_listings WHERE status='open'").id;
+  act('c','buy-listing',{listing:final});
+  assert.deepEqual(images('b','one'),[]);
+  assert.equal(selected('c','one'),'one-art');
+});
 test("multi-card offers exchange mixed types and enhanced/spare duplicates atomically and refund every losing copy", (t) => {
   const f = fixture(t),
     e = f.e;

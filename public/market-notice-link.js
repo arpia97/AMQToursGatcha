@@ -3,6 +3,7 @@ export function marketNoticeHref(row, card, routeHref) {
   const meta = row.metadata || {};
   let page = "shop", section, view;
   switch (row.kind) {
+    case "jam-invite": return routeHref("music")+"?tab=jam";
     case "flash-open": section = "buy"; break;
     case "wish-shop": section = meta.venue ? "buy" : "market"; break;
     case "market-sale": section = "listings"; break;

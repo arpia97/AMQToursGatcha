@@ -83,12 +83,15 @@ export function autolockAnswer(value, suggestions, highlighted, enabled){
   return suggestions[highlighted] ?? (enabled ? suggestions[0] : undefined) ?? value;
 }
 
-export function answerSearchControls(storage){
+export function answerSearchControls(storage,options){
   return '<div class="answer-search-controls"><label class="fuzzy-anime-search"><input type="checkbox" data-fuzzy-anime'+
     (fuzzyAnimeSearch(storage)?' checked':'')+'> Fuzzy Search</label>'+
-    autolockControl(storage)+'</div>';
+    autolockControl(storage,options)+'</div>';
 }
-export function autolockControl(storage){
-  return '<label class="fuzzy-anime-search" title="With Autolock on, Enter picks the highlighted suggestion or the first one. Ctrl+Enter submits what you typed. Autolock also picks a suggestion when time runs out."><input type="checkbox" data-answer-autolock'+
+export function autolockControl(storage,{showShortcuts=true}={}){
+  const help=showShortcuts
+    ? 'With Autolock on, Enter picks the highlighted suggestion or the first one. Ctrl+Enter submits what you typed. Autolock also picks a suggestion when time runs out.'
+    : 'Autolock uses the highlighted suggestion or the first suggestion when time runs out.';
+  return '<label class="fuzzy-anime-search" title="'+help+'"><input type="checkbox" data-answer-autolock'+
     (answerAutolock(storage)?' checked':'')+'> Autolock</label>';
 }

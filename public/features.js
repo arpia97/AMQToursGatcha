@@ -1,3 +1,4 @@
+import {animeTile} from './anime-completion-ui.js';
 import { reverseCardSortOptions } from "./card-display.js";
 import { routeHref } from "./site-navigation.js";
 import { MAX_SPOTLIGHTS, FREE_SPOTLIGHTS } from "./site-defaults.js";
@@ -23,7 +24,7 @@ export function createFeatures(h, ui) {
     `<div class="toolbar space-top">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<span class="subtext">Page ${page}</span>${btn("Next →", prefix + "-next", more ? "" : "disabled", "secondary")}</div>`;
   const readCard = (id, level = 1, flags = {}, ownShowcase = false) => {
     const c = cardBy(id), s = getState();
-    return cardSurface(c, {
+    return cardSurface(flags.portrait?{...c,primaryImage:c.image,image:flags.portrait}:c, {
       level, showLevel: true, ...flags,
       actions: s.me ? cardQuickActions(c, {
         wishlist: !!s.wishlist?.includes(id),
@@ -35,7 +36,7 @@ export function createFeatures(h, ui) {
   function profileExtras(p, own, arrangement = null) {
     const favorites = p.showcase || [],
       completion = p.completion || {};
-    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade }, own)).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own)}${p.collectionHidden ? '<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="pill">Private</span></div></section>' : `<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
+    return `${arrangement || `<section class="profile-featured"><div class="section-head"><div><span class="eyebrow">THE PRIZED COLLECTION</span>${own ? "" : "<h2>Collector’s Favourites</h2>"}</div>${own ? '<div class="showcase-actions"><span class="subtext">' + favorites.length + "/" + (p.showcase_slots ?? FREE_SPOTLIGHTS) + " Slots</span>" + ((p.showcase_slots ?? FREE_SPOTLIGHTS) < MAX_SPOTLIGHTS ? '<button class="text-button" data-action="showcase-buy-slots">Buy Slots · ✦ 100 Each</button>' : "") + (favorites.length > 1 ? '<button class="text-button" data-action="showcase-arrange">Arrange Showcase</button>' : "") + '<a class="text-button" href="' + routeHref("collection") + '">Choose showcase cards ↗</a></div>' : ""}</div>${favorites.length ? `<div class="showcase-grid">${favorites.map((c) => readCard(c.card, c.level, { portrait:c.portrait, protectedCard: !!c.protected, wishlisted: (p.wishlist || []).includes(c.card), forTrade: !!c.for_trade }, own)).join("")}</div>` : empty("No Spotlights Yet!", own ? "Choose favourites from your collection. Your first 30 slots are free." : "This collector has not selected showcase cards.")}</section>`}${pinnedPanel(p.pinnedAnime || [], own,p.id)}${p.collectionHidden ? '<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="pill">Private</span></div></section>' : `<section class="completion-panel"><div class="section-head"><h2>Collection Completion</h2><span class="subtext">Unique cards · includes cards currently listed for sale</span></div><div class="two-col">${[
       "character",
       "seiyuu",
     ]
@@ -76,13 +77,14 @@ export function createFeatures(h, ui) {
   function shop() {
     return shopUI.render();
   }
-  function userAuctions() {
+  function userAuctions(pane) {
     const data = ui.marketData || { items: [] };
     const own = (getState().myListings || []).filter(
       (x) =>
         x.venue === "auction" && (ui.tab() === "both" || x.kind === ui.tab()),
     );
-    return `${own.length ? `<section class="own-listings"><div class="section-head"><h2>Your Auctions</h2></div><p class="form-hint">Withdraw before the first bid; once bidding starts, the auction runs to completion.</p><div class="card-grid market-card-grid">${own.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div></section>` : ""}<div class="section-head" id="user-auctions"><h2>User Auctions</h2><a href="${routeHref("collection")}" class="text-button">Auction one of your cards ↗</a></div><p class="subtext">Credits are held when bidding. Each new bid must be at least 10% higher, rounded up to a whole credit. Sellers receive payment when the timer ends; winners claim their card here. Unsold cards return automatically.</p>${marketSortControl(ui.marketSort, ui.marketWishlistOnly, !!getState().me, true, ui.marketQuery, !data.items.length, ui.marketFriendsOnly, ui.marketRarity)}${data.items.length ? `<div class="card-grid market-card-grid space-top">${data.items.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty(ui.marketQuery ? "No Matching Auctions." : ui.marketWishlistOnly ? "No Wishlisted Cards at Auction." : "Your Collection Could Be Someone’s Favourite.", ui.marketQuery || ui.marketWishlistOnly ? "Try another search, card type, or wishlist filter." : "List a card from My collection for up to seven days, with an optional buyout.")}${pager("market", ui.marketPage, data.hasMore)}`;
+    if(pane==="mine")return own.length ? `<section class="own-listings"><div class="section-head"><h2>Your Auctions</h2></div><p class="form-hint">Withdraw before the first bid; once bidding starts, the auction runs to completion.</p><div class="card-grid market-card-grid">${own.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div></section>` : empty("No Auctions Listed.","Your active auction listings appear here.",`<a class="button secondary" href="${routeHref("collection")}">Auction a card</a>`);
+    return `<div class="section-head" id="user-auctions"><h2>Player Auctions</h2><a href="${routeHref("collection")}" class="text-button">Auction one of your cards ↗</a></div><p class="subtext">Credits are held when bidding. Each new bid must be at least 10% higher, rounded up to a whole credit. Sellers receive payment when the timer ends; winners claim their card here. Unsold cards return automatically.</p>${marketSortControl(ui.marketSort, ui.marketWishlistOnly, !!getState().me, true, ui.marketQuery, !data.items.length, ui.marketFriendsOnly, ui.marketRarity)}${data.items.length ? `<div class="card-grid market-card-grid space-top">${data.items.map((a) => cardHTML(cardBy(a.card), a)).join("")}</div>` : empty(ui.marketQuery ? "No Matching Auctions." : ui.marketWishlistOnly ? "No Wishlisted Cards at Auction." : "Your Collection Could Be Someone’s Favourite.", ui.marketQuery || ui.marketWishlistOnly ? "Try another search, card type, or wishlist filter." : "List a card from My collection for up to seven days, with an optional buyout.")}${pager("market", ui.marketPage, data.hasMore)}`;
   }
   function ranks() {
     const data = ui.rankData || { rows: [] },
@@ -140,16 +142,12 @@ export function createFeatures(h, ui) {
     ].sort((a, b) => a - b);
     return `<div class="toolbar catalog-pager">${btn("← Previous", prefix + "-prev", page <= 1 ? "disabled" : "", "secondary")}<label>Page<input id="${prefix}-page-input" type="number" min="1" max="${totalPages || 10000}" value="${page}" aria-label="Go to ${prefix === "players" ? "players" : prefix.startsWith("collection") ? "collection" : "catalogue"} page"></label><label>Select page<select id="${prefix}-page-select" aria-label="Select ${prefix === "players" ? "players" : prefix.startsWith("collection") ? "collection" : "catalogue"} page">${pages.map((p) => `<option value="${p}" ${p === page ? "selected" : ""}>${p}</option>`).join("")}</select></label><span class="subtext">${totalPages ? "of " + n(totalPages) + " · " + n(data.total) + (prefix === "players" ? " collectors" : " cards") : "Matching pages · enter a page to jump"}</span>${btn("Next →", prefix + "-next", data?.hasMore ? "" : "disabled", "secondary")}</div>`;
   }
-  function animeCard(c, own = true, pinned = false) {
-    const title = series({ ...c, series: c.series_romaji }),
-      owned = c.owned || 0;
-    if (c.ownershipHidden)
-      return `<article class="anime-progress-card"><span class="eyebrow">★ PINNED ANIME</span><h3>${e(title)}</h3><p class="subtext">Collection progress is private.</p></article>`;
-    return `<article class="anime-progress-card ${owned === c.total ? "complete" : ""}"><span class="eyebrow">${pinned ? "★ PINNED ANIME" : owned === c.total ? "COLLECTION COMPLETE" : "IN PROGRESS"}</span><h3>${own ? `<button type="button" class="anime-checklist-open" data-action="anime-checklist-open" data-series="${e(c.series_key)}">${e(title)} ↗</button>` : e(title)}</h3><div class="completion-label"><strong>${n(owned)} / ${n(c.total)} characters</strong><span>${Math.round((owned * 100) / c.total)}%</span></div><progress aria-label="${e(title)} completion" value="${owned}" max="${Math.max(1, c.total)}"></progress>${own ? `<button class="text-button space-top" data-action="pin-anime" data-series="${e(c.series_key)}" data-pinned="${pinned}">${pinned ? "★ Unpin anime" : "☆ Pin anime"}</button>` : ""}</article>`;
+  function animeCard(c, own=true, pinned=false, player=getState().me?.id){
+    return animeTile(c,{title:series({...c,series:c.series_romaji}),player,own,pinned,escape:e});
   }
-  function pinnedPanel(pins, own) {
+  function pinnedPanel(pins, own, player=getState().me?.id) {
     if (!pins.length) return "";
-    return `<section class="pinned-anime"><div class="section-head"><div><span class="eyebrow">THE STORIES THAT STAY</span><h2>${own ? "Your Pinned Anime" : "Favourite Anime"}</h2></div><span class="pill">${pins.length} / 20</span></div><div class="anime-progress-grid">${pins.map((c) => animeCard(c, own, true)).join("")}</div></section>`;
+    return `<section class="pinned-anime"><div class="section-head"><div><span class="eyebrow">THE STORIES THAT STAY</span><h2>${own ? "Your Pinned Anime" : "Favourite Anime"}</h2></div><span class="pill">${pins.length} / 20</span></div><div class="anime-progress-grid">${pins.map((c) => animeCard(c, own, true,player)).join("")}</div></section>`;
   }
   function animeCollection() {
     const data = ui.animeData || { series: [], pinned: [] },

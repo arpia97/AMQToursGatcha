@@ -1,3 +1,5 @@
+import {addCollectionMineStatus} from './credit-mine.js';
+import {galleryCounts} from './card-gallery.js';
 import { fail, integer, text } from "./engine.js";
 import { collectionView, WISHLIST_SORTS, COLLECTION_SORTS } from "../public/card-display.js";
 import { MAX_WISHLIST } from "../public/site-defaults.js";
@@ -69,7 +71,7 @@ export class Wishlist {
           player,
           card,
         ) &&
-        this.read(player).length >= MAX_WISHLIST
+        !e.player(player).donator && this.read(player).length >= MAX_WISHLIST
       )
         fail(`Your wishlist can hold up to ${MAX_WISHLIST} cards.`);
       e.run(
@@ -181,7 +183,7 @@ export class Wishlist {
     );
     const ownedBy = new Map(owners.map((r) => [r.card, r.owned])),
       wantedBy = new Map(wanted.map((r) => [r.card, r.wanted]));
-    return cards.map((c) => ({
+    return galleryCounts(e,cards).map((c) => ({
       ...c,
       collectors: {
         owned: ownedBy.get(c.id) || 0,
@@ -383,6 +385,7 @@ export class Wishlist {
       );
     else fail("Choose collection, favorites, wishlist or listings.");
     const visible = rows.slice(0, 24);
+    if(view==="collection")addCollectionMineStatus(e,id,visible);
     const wanted =
       view === "wishlist"
         ? new Set(visible.map((r) => r.card))

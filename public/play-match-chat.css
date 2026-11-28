@@ -38,6 +38,11 @@ button,input{font:inherit;color:inherit}button{cursor:pointer}button:focus-visib
 button .chat-emoji,.particle .chat-emoji{width:1.15em;height:1.15em}
 .emoji-search{width:100%;margin-top:10px;padding:6px 9px;background:#12151b;border:1px solid #404753;border-radius:7px}
 .palette{align-content:flex-start;max-height:132px;overflow-y:auto;scrollbar-width:thin;padding:2px}
+
+#uploads{margin:8px 0;color:var(--muted);font-size:12px}
+#uploadEmoji{display:grid;gap:5px;margin-block:6px}
+#uploadEmoji input{max-width:100%}
+
 .chat-entry{position:relative}
 .emoji-menu{position:absolute;z-index:3;bottom:calc(100% + 6px);inset-inline:0;display:flex;flex-direction:column;overflow:hidden;border:1px solid #46534f;border-radius:9px;background:#20252d;box-shadow:0 6px 18px #0006}
 .emoji-menu-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;color:var(--muted);font-size:11px;border-bottom:1px solid #343c44}
@@ -50,3 +55,4 @@ button .chat-emoji,.particle .chat-emoji{width:1.15em;height:1.15em}
 .emoji-art{display:grid;place-items:center;width:26px;height:26px;font-size:19px}
 .emoji-art .chat-emoji{width:25px;height:25px}
 @media(pointer:coarse){.emoji-menu-head>span{display:none}#emojiList [role=option]{min-height:38px}}
+.shortcuts,.slots {flex-wrap:wrap;}

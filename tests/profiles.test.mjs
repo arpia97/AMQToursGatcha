@@ -218,3 +218,38 @@ test("rankings return equipped card portraits and their current enhancement leve
   assert.equal(p.avatar_level, 6);
   assert.ok(ranks.cards.some((c) => c.id === "card-a"));
 });
+
+test('a gallery can be indexed before opening, rolls one new portrait for the rarity price and isolates equipment per owner',async()=>{
+  const {changePortrait,indexGallery,queueGalleries,galleryCounts,galleryView}=await import('../src/card-gallery.js');
+  const {e}=fixture(),id='mal-character-1',base='https://cdn.myanimelist.net/images/characters/10/';
+  e.run('INSERT INTO catalog(id,kind,name,image) VALUES(?,?,?,?)',id,'character','Test entry',base+'1.jpg');
+  const card=e.catalogStore.card(id);
+  queueGalleries(e,[id]);
+  assert.equal(galleryCounts(e,[card])[0].alternatives,null);
+  let requests=0;
+  await indexGallery(e,async path=>{
+    requests++;assert.equal(path,'/characters/1/pictures');
+    return {data:[1,2,2].map(n=>({jpg:{image_url:base+n+'.jpg'}}))};
+  });
+  assert.equal(requests,1);assert.equal(galleryCounts(e,[card])[0].alternatives,1);
+  for(const player of ['001','002'])e.addCard(player,id);
+  const initial=galleryView(e,'001',card);
+  const input={card:id,action:'roll',owned:1,price:initial.price};
+  const roll=key=>e.mutate('001:gallery',key,input,()=>changePortrait(e,'001',input));
+  assert.throws(()=>roll('too-soon'),/Max the card/);
+  e.run("UPDATE inventory SET level=6 WHERE player='001' AND card=?",id);
+  e.run("UPDATE players SET balance=0 WHERE id='001'");
+  assert.throws(()=>roll('poor'),/credit/i);
+  e.run("UPDATE players SET balance=5000 WHERE id='001'");
+  assert.equal(roll('paid').unlocked,base+'2.jpg');
+  assert.equal(roll('paid').unlocked,base+'2.jpg');
+  assert.throws(()=>roll('extra'),/Every available/);
+  assert.equal(e.player('001').balance,5000-initial.price);
+  const equip={card:id,action:'equip',image:base+'2.jpg'};
+  assert.throws(()=>changePortrait(e,'002',equip),/unlocked/);
+  changePortrait(e,'001',equip);
+  assert.equal(e.state('001').inventory.find(c=>c.card===id).portrait,equip.image);
+  assert.equal(galleryView(e,'002',card).pictures[0].selected,true);
+  changePortrait(e,'001',{...equip,image:card.image});
+  assert.equal(galleryView(e,'001',card).pictures[0].selected,true);
+});

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
-import { QuizLibraryCore, WORKING_TITLES_URL } from "../src/quiz-library.js";
+import { QuizLibraryCore, libraryShards, WORKING_TITLES_URL } from "../src/quiz-library.js";
 import {
   compactLibrarySong,
   libraryQuery,
@@ -302,4 +302,33 @@ test("the supplied seed contains all 38194 unique returned records and documents
   }
   assert.equal(ids.size, 38194);
   assert.equal(m.count, ids.size);
+});
+
+
+test('bundled bulk scans preserve every original shard and the manifest order',async t=>{
+  const {db}=dbFixture(t),base=new URL('../public/quiz-library/',import.meta.url);
+  const requests=[];
+  const assets={async fetch(req){const file=new URL(req.url).pathname.split('/').pop();requests.push(file);return new Response(await fs.readFile(new URL(file,base)));}};
+  const core=new QuizLibraryCore(db,assets),m=await core.active(),visited=[];
+  for await(const [bucket,rows] of libraryShards(core,m,m.shards)){
+    visited.push(bucket);
+    assert.deepEqual(rows,JSON.parse(await fs.readFile(new URL(bucket+'.json',base),'utf8')));
+  }
+  assert.deepEqual(visited,m.shards);
+  assert.equal(requests.length,1+Math.ceil(m.shards.length/8));
+});
+
+test('cold import scans reuse the versioned blocks and recover from a damaged block',async t=>{
+  const f=fixture(t),core=f.core;
+  const m={...(await core.active()),version:'import-A',shards:[0]};
+  core.set('active',m.version);
+  core.writeShard(m.version,0,{1:song(1)});
+  const scan=async(core,manifest)=>{const rows=[];for await(const row of libraryShards(core,manifest,manifest.shards))rows.push(row);return rows;};
+  const first=await scan(core,m);
+  const cold=f.restart();cold.shard=()=>{throw Error('Unexpected individual shard read');};
+  assert.deepEqual(await scan(cold,m),first);
+  f.db.run('UPDATE library_bulk SET data=?',new Uint8Array([3]));
+  assert.deepEqual(await scan(f.restart(),m),first);
+  const next={...m,version:'import-B'};core.set('active',next.version);core.writeShard(next.version,0,{2:song(2)});
+  assert.deepEqual(await scan(f.restart(),next),[[0,{2:song(2)}]]);
 });

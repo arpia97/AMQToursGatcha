@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { QuizLibraryCore } from "./quiz-library.js";
 import { PlayLibrary } from './play-library.js';
+import { SongbookCatalog } from './songbook-catalog.js';
 import {PlayAnswerRegistry} from './play-answer-registry.js';
 import {libraryCoverage} from './official-song-coverage.js';
 import {OfficialReferenceStore,officialActorName} from './official-reference-store.js';
@@ -83,9 +84,16 @@ export class QuizLibrary extends DurableObject {
       if (request.method !== "POST")
         return new Response("Method Not Allowed", { status: 405 });
       const raw = await request.text();
-      if (raw.length > (path==='/play-register-amq' ? 5000000 : 1000000))
+      if (raw.length > (path==='/songbook' ? 8000000 : path==='/play-register-amq' ? 5000000 : 1000000))
         return new Response("Request Too Large", { status: 413 });
       const body = JSON.parse(raw);
+      if(path==='/songbook'){
+        const data=await this.play.load();
+        data.songbook??=new SongbookCatalog(data,await this.play.studioInfo());
+        return Response.json(data.songbook.request(body));
+      }
+      if(path==='/song-type-quiz')return Response.json(await this.play.songTypeQuiz(body.id));
+      if(path==='/year-quiz')return Response.json(await this.play.yearQuiz(body.year));
       if(path==='/play-register-amq')return Response.json(this.answerRegistry().register(body.export));
       if(path==='/play-ballot-catalog'){
         const catalog=await this.play.catalog();

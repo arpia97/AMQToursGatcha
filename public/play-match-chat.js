@@ -1,4 +1,5 @@
 import {attachEmojiSuggestions} from './play-emoji-suggestions.js';
+import {emojiLibrary,smallEmoji} from './play-personal-emojis.js';
 import {emojiChoices, isChatShortcode, renderChatText} from './play-chat-emojis.js';
 
 const markup = `<aside class="chat" id="panel" aria-label="Match chat">
@@ -10,9 +11,9 @@ const markup = `<aside class="chat" id="panel" aria-label="Match chat">
 <div id="content" class="content"><div class="stage"><div id="log" class="log" role="log" aria-label="Match messages" aria-live="polite"></div><div class="fx" id="fx" aria-hidden="true"></div></div>
 <div class="controls"><div class="shortcuts" id="quick"><button class="edit" id="edit"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L21 7l-5-5L4 14z"/></svg>Edit</button></div>
 <div class="chat-entry"><div class="emoji-menu" id="emojiMenu" hidden><div class="emoji-menu-head"><strong>Emoji</strong><span><kbd>↑</kbd><kbd>↓</kbd> browse <kbd>Enter</kbd> select</span></div><div id="emojiList" role="listbox" aria-label="Emoji suggestions"></div></div><form id="compose" class="compose"><input id="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="emojiList" aria-label="Message the match" maxlength="220" placeholder="Message the match…" autocomplete="off"><button aria-label="Send message" title="Send message" disabled><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 17-7-6 18-3-8zM11 13l9-10"/></svg></button></form></div></div></div>
-<section class="editor" id="editor" hidden><h2>Emoji shortcuts</h2><p>Choose a slot, then choose an emoji or enter :name:.</p><div class="slots" id="slots" aria-label="Shortcut slots"></div><input class="emoji-search" id="emojiSearch" type="search" aria-label="Find an emoji" placeholder="Find an emoji…" autocomplete="off"><div class="palette" id="palette" aria-label="Emoji choices"></div><form class="custom" id="custom"><input id="customEmoji" aria-label="Emoji for selected slot" placeholder="Emoji or :name:" autocomplete="off"><button class="assign">Save shortcut</button></form><div id="error" class="error" role="status"></div><button class="edit" id="back">Back to chat</button></section></aside>
+<section class="editor" id="editor" hidden><h2>Emoji shortcuts</h2><p>Choose a slot, then choose an emoji or enter :name:.</p><div class="slots" id="slots" aria-label="Shortcut slots"></div><input class="emoji-search" id="emojiSearch" type="search" aria-label="Find an emoji" placeholder="Find an emoji…" autocomplete="off"><div class="palette" id="palette" aria-label="Emoji choices"></div><form class="custom" id="custom"><input id="customEmoji" aria-label="Emoji for selected slot" placeholder="Emoji or :name:" autocomplete="off"><button class="assign">Save shortcut</button></form><details id="uploads" hidden><summary>My uploads <span id="uploadCount"></span></summary><form id="uploadEmoji"><label>Name <input name="name" required maxlength="32" pattern="[A-Za-z0-9_]+" placeholder="emoji_name"></label><input type="file" name="file" accept="image/png,image/jpeg,image/webp" required><button>Upload</button></form><div id="uploadList"></div></details><div id="error" class="error" role="status"></div><button class="edit" id="back">Back to chat</button></section></aside>
 <button class="open" id="open" hidden><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 12a7 7 0 0 1-7 7H9l-5 3v-5a7.4 7.4 0 0 1-2-5V9a6 6 0 0 1 6-6h6a6 6 0 0 1 6 6z"/><path d="M7 9h8M7 13h5"/></svg>Match chat</button>`;
-const defaults = ['🔥','🌋','❓'];
+const baseEmoji = ['🔥','🌋','❓'];
 const segmenter = typeof Intl.Segmenter === 'function' ? new Intl.Segmenter(undefined,{granularity:'grapheme'}) : null;
 function validEmoji(text) {
   if (typeof text === 'string' && isChatShortcode(text)) return true;
@@ -20,7 +21,7 @@ function validEmoji(text) {
     && (segmenter ? Array.from(segmenter.segment(text)).length === 1 : Array.from(text.replace(/[\uFE0E\uFE0F]/g,'')).length === 1);
 }
 
-export function openMatchChat(match, sendText, {label='Match chat',showSelfName=false}={}) {
+export function openMatchChat(match, sendText, {label='Match chat',showSelfName=false,donator=false,minimized=false,onToggle}={}) {
   const host=document.createElement('div');
   host.className='play-match-chat';
   const shadow=host.attachShadow({mode:'open'});
@@ -38,16 +39,28 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     panel.setAttribute('aria-label',label);
   }
   const players=new Map(match.players.map(p=>[p.id,p]));
+  let personal=new Map();
+  const libraries=new Map();
+  function libraryFor(id){
+    const cached=libraries.get(id);
+    if(cached && cached.until>Date.now())return cached.result;
+    const result=emojiLibrary(id);
+    libraries.set(id,{until:Date.now()+15000,result});
+    return result;
+  }
   const key='amqtours-play-chat-emojis:'+match.me;
+  const defaults=donator?[...baseEmoji,'🎵','✨','👏']:baseEmoji;
+  let savedSlots=[];
   let slots=defaults.slice(),selected=0,drag=null,resizing=null;
   try {
     const saved=JSON.parse(localStorage.getItem(key));
-    if(Array.isArray(saved))slots=defaults.map((fallback,i)=>validEmoji(saved[i])?saved[i]:fallback);
+    if(Array.isArray(saved))savedSlots=saved.slice(0,6);
+    if(Array.isArray(saved))slots=defaults.map((fallback,i)=>(validEmoji(saved[i]) || (typeof saved[i]==='string' && /^:[a-z0-9_]{1,32}:$/i.test(saved[i])))?saved[i]:fallback);
   } catch {}
   const events=new AbortController();
   function button(value,cls,label,fn) {
     const b=document.createElement('button');
-    b.type='button';b.className=cls;renderChatText(b,value,cls==='pick');b.title=label;b.setAttribute('aria-label',label);
+    b.type='button';b.className=cls;renderChatText(b,value,cls==='pick',personal);b.title=label;b.setAttribute('aria-label',label);
     b.addEventListener('click',fn);
     return b;
   }
@@ -55,12 +68,12 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     const buttons=slots.map(s=>button(s,'quick','Send '+s,()=>sendText(s)));
     by('quick').replaceChildren(...buttons,by('edit'));
   }
-  function burst(s) {
+  function burst(s,library) {
     if(panel.hidden||by('content').hidden||matchMedia('(prefers-reduced-motion:reduce)').matches)return;
     const random=(a,b)=>a+(b-a)*Math.random();
     for(let i=0;i<9;i++){
       const el=document.createElement('span');
-      el.className='particle';renderChatText(el,s);
+      el.className='particle';renderChatText(el,s,false,library);
       for(const [prop,value] of Object.entries({'--x':random(77,94)+'%','--duration':random(1300,1950)+'ms','--delay':i*90+'ms',
         '--drift':random(-23,7)+'px','--lift':-random(90,165)+'px','--angle':random(-24,23)+'deg'}))el.style.setProperty(prop,value);
       el.style.fontSize=random(14,27)+'px';
@@ -90,23 +103,40 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
         const role=document.createElement('small');
         role.className='chat-role';role.textContent='Spectator';message.append(role);
       }
-      if(validEmoji(row.body)){body.className='emoji';if(animate)burst(row.body);}
+      const tokens=row.body.match(/:[a-z0-9_]{1,32}:/gi)||[];
+      if(tokens.some(t=>!isChatShortcode(t))){
+        libraryFor(id).then(({items})=>{
+          if(!line.isConnected)return;
+          renderChatText(body,row.body,false,items);
+          if(items.has(row.body.toLowerCase())){body.className='emoji';if(animate)burst(row.body,items);}
+        }).catch(()=>{});
+      }else if(validEmoji(row.body)){body.className='emoji';if(animate)burst(row.body);}
+
     }
     message.append(body);line.append(time,message);line.dataset.seq=row.seq;log.insertBefore(line,next||null);
     while(log.children.length>80)log.firstChild.remove();
     if(follow)log.scrollTop=log.scrollHeight;
   }
-  attachEmojiSuggestions({input,panel,menu:by('emojiMenu'),list:by('emojiList'),signal:events.signal});
+  const suggestions=attachEmojiSuggestions({
+    input, panel, menu:by('emojiMenu'), list:by('emojiList'), signal:events.signal,
+    getPersonal:()=>personal,
+    loadPersonal:async()=>{if(match.me)personal=(await libraryFor(match.me)).items;}
+  });
   input.oninput=()=>by('compose').querySelector('button').disabled=!input.value.trim();
-  by('compose').onsubmit=e=>{
+  let sending=false;
+  by('compose').onsubmit=async e=>{
     e.preventDefault();
-    if(input.value.trim()&&sendText(input.value.trim())){input.value='';input.oninput();}
+    const draft=input.value;
+    if(!draft.trim()||sending)return;
+    sending=true;
+    try{if(await sendText(draft.trim())&&input.value===draft){input.value='';input.oninput();}}
+    finally{sending=false;}
     input.focus();
   };
   function paintPalette() {
     by('error').textContent='';
     const query=by('emojiSearch').value.trim().toLowerCase().replaceAll(':','');
-    const choices=emojiChoices.filter(s=>s.toLowerCase().includes(query));
+    const choices=[...personal.keys(),...emojiChoices].filter(s=>s.toLowerCase().includes(query));
     by('palette').replaceChildren(...choices.map(s=>{
       const b=button(s,'pick',s,()=>{emojiInput.value=s;markChoice();emojiInput.focus();});
       b.dataset.emoji=s;
@@ -126,7 +156,35 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     }));
     emojiInput.value=slots[selected];paintPalette();
   }
+  function applyLibrary(data){
+    personal=data.items;
+    suggestions.refresh();
+    by('uploads').hidden=!data.manage;
+    by('uploadCount').textContent=personal.size+'/10';
+    by('uploadList').replaceChildren(...Array.from(personal.values(),item=>{
+      const remove=button('Remove :'+item.name+':','edit','Remove :'+item.name+':',()=>saveLibrary({remove:item.id}));
+      return remove;
+    }));
+    shortcuts();paintPalette();
+  }
+  async function saveLibrary(body){
+    try {
+      const data=await emojiLibrary(match.me,body);
+      libraries.set(match.me,{until:Date.now()+15000,result:Promise.resolve(data)});
+      applyLibrary(data);by('uploadEmoji').reset();
+    }catch(error){by('error').textContent=error.message;}
+  }
+  by('uploadEmoji').onsubmit=async event=>{
+    event.preventDefault();
+    const form=event.currentTarget, fields=new FormData(form);
+    const submit=form.querySelector('button');
+    submit.disabled=true;
+    try{await saveLibrary({name:fields.get('name'),image:await smallEmoji(fields.get('file'))});}
+    catch(error){by('error').textContent=error.message;}
+    finally{submit.disabled=false;}
+  };
   by('edit').onclick=()=>{
+    if(match.me)libraryFor(match.me).then(applyLibrary).catch(()=>{});
     by('emojiSearch').value='';by('content').hidden=true;by('editor').hidden=false;paintEditor();by('slots').children[selected].focus();clamp();
   };
   emojiInput.oninput=markChoice;
@@ -138,13 +196,13 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
   by('custom').onsubmit=e=>{
     e.preventDefault();
     const s=emojiInput.value.trim();
-    if(!validEmoji(s)){by('error').textContent='Choose one emoji for this slot.';return;}
+    if(!validEmoji(s)&&!personal.has(s.toLowerCase())){by('error').textContent='Choose one emoji for this slot.';return;}
     slots[selected]=s;
-    try{localStorage.setItem(key,JSON.stringify(slots));}catch{}
+    try{localStorage.setItem(key,JSON.stringify([...slots,...savedSlots.slice(slots.length)]));}catch{}
     back();
   };
-  by('minimize').onclick=()=>{panel.hidden=true;by('open').hidden=false;by('open').focus();};
-  by('open').onclick=()=>{panel.hidden=false;by('open').hidden=true;clamp();log.scrollTop=log.scrollHeight;by('drag').focus();};
+  by('minimize').onclick=()=>{panel.hidden=true;by('open').hidden=false;by('open').focus();onToggle?.(false);};
+  by('open').onclick=()=>{panel.hidden=false;by('open').hidden=true;clamp();log.scrollTop=log.scrollHeight;by('drag').focus();onToggle?.(true);};
   function place(x,y) {
     const r=panel.getBoundingClientRect();
     panel.style.right=panel.style.bottom='auto';
@@ -194,6 +252,11 @@ export function openMatchChat(match, sendText, {label='Match chat',showSelfName=
     resize(bounds,bounds.width+step[0],bounds.height+step[1]);
   };
   window.addEventListener('resize',clamp,{signal:events.signal});
+  if(minimized){panel.hidden=true;by('open').hidden=false;}
+  if(label==='Party chat'){
+    input.placeholder='Message the party…';input.setAttribute('aria-label','Message the party');
+    log.setAttribute('aria-label','Party messages');
+  }
   shortcuts();
-  return {matchId:match.id,receive,updatePlayers(roster){for(const p of roster)players.set(p.id,p);},close(){events.abort();host.remove();}};
+  return {matchId:match.id,isOpen:()=>!panel.hidden,receive,updatePlayers(roster){for(const p of roster)players.set(p.id,p);},close(){events.abort();host.remove();}};
 }

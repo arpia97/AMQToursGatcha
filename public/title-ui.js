@@ -1,5 +1,5 @@
 import { rarityClass } from "./card-display.js";
-import { roleBadge } from "./role-label.js";
+import { donatorBadge, roleBadge } from "./role-label.js";
 import { titleOrderKey } from "./title-order.js";
 
 function isCard(t) {
@@ -7,6 +7,7 @@ function isCard(t) {
 }
 const isPremium = t => !isCard(t) && t.premium === true;
 function titleBadge(t, e) {
+  if(t.category==='anime-collection')return '<span class="equipped-title anime-earned-title" title="Anime Collection Completion">'+e(t.title)+'</span>';
   const card = isCard(t);
   const premium=isPremium(t);
   const label = card
@@ -27,7 +28,7 @@ function titleBadge(t, e) {
 export function titleBadges(profile, escape) {
   return (
     '<div class="profile-title-stack">' +
-    roleBadge(profile.role) +
+    roleBadge(profile.role) + donatorBadge(profile.donator) +
     '<div class="profile-earned-titles">' +
     (profile.titles || []).map((t) => titleBadge(t, escape)).join("") +
     "</div></div>"
@@ -35,13 +36,14 @@ export function titleBadges(profile, escape) {
 }
 export function titleSettingsPanel(data, e) {
   if (!data) return '<div class="loading">Loading Your Titles…</div>';
-  const role = roleBadge(data.role);
+  const role = roleBadge(data.role) + donatorBadge(data.donator);
   const titles = data.titles || [],
     counts = new Map(),
     seen = new Map();
   for (const t of titles)
     if (isCard(t)) counts.set(t.card, (counts.get(t.card) || 0) + 1);
   function detail(t) {
+    if(t.category==="anime-collection")return "Anime Collection · 100%";
     if (!isCard(t))
       return (
         "Quiz Completion · 20 / 20" + (isPremium(t)?" · Under 1 Minute":"") +
@@ -109,6 +111,6 @@ export function titleSettingsPanel(data, e) {
         '<div class="form-error" role="alert"></div><button class="button mint" type="submit" ' +
         (data.orderRevision === 1 ? "" : "disabled") +
         '>Save Displayed Titles →</button><span id="title-arrange-status" class="card-order-status" role="status"></span></form>'
-      : '<div class="notice space-top">No Earned Titles Yet. Reach MAX with a card or get a perfect quiz score to unlock a title.</div>')
+      : '<div class="notice space-top">No Earned Titles Yet. Complete an anime collection, reach MAX with a card, or get a perfect quiz score to unlock a title.</div>')
   );
 }

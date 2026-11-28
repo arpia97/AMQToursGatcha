@@ -1,5 +1,6 @@
 import { seriesTitle } from "./card-display.js";
 import { wishlistButton } from "./profile-cards-ui.js";
+import {songProgress} from './songbook-ui.js';
 
 export function animeChecklist(
   data,
@@ -13,7 +14,9 @@ export function animeChecklist(
     data.owned +
     " / " +
     data.total +
-    ' Collected</span></div><div class="anime-checklist-grid">' +
+    ' Collected</span></div>' +
+    (data.hasSongbook?`<section class="songbook-checklist-summary"><div class="songbook-progress"><strong>Characters · ${data.owned} / ${data.total}</strong><progress aria-label="Character collection" value="${data.owned}" max="${data.total||1}"></progress></div><div><div data-anime-song-progress>${data.songProgress?songProgress(data.songProgress):'Loading song progress…'}</div><button class="text-button" data-action="songbook-open" data-series="${e(data.series_key)}">View Anime Songbook ↗</button></div></section>`:'')+
+    '<div class="anime-checklist-grid">' +
     data.cards
       .map(
         (c) =>

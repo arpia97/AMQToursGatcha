@@ -3,9 +3,9 @@ import {playQuizHref} from "./play-navigation.js?v=play-quiz-links";
 export const SITE_ROUTES = [
   ["home", "Overview"],
   ["profile", "My Profile"],
-  ["packs", "Card Packs"],
   ["shop", "Shop"],
-  ["auctions", "Auctions"],
+  ["music", "Music"],
+  ["mine", "Aoji Credit Mine"],
   ["pickems", "Pick’ems"],
   ["fusion", "Card Alchemy"],
   ["arcade", "Pachinko"],
@@ -14,7 +14,7 @@ export const SITE_ROUTES = [
   ["ranks", "Rankings"],
   ["catalog", "Catalogue"],
 ];
-const pages = new Set([...SITE_ROUTES.map(([id]) => id), "collection", "titles", "notifications"]);
+const pages = new Set([...SITE_ROUTES.map(([id]) => id), "collection", "titles", "notifications", "packs", "auctions"]);
 export function isPlayerRoute(route) {
   return pages.has(route) || /^player\/[^/]+$/.test(route) || /^pickems\/[1-9]\d*$/.test(route);
 }
@@ -70,21 +70,23 @@ export function installNavigation(onChange) {
     if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey ||
         event.shiftKey || event.altKey || link.target || link.hasAttribute("download")) return;
     const url = new URL(link.href);
-    if (url.origin !== location.origin || !url.pathname.startsWith(basePath) || url.hash || url.search ||
-        !isPlayerRoute(url.pathname.slice(basePath.length) || "home")) return;
+    const route = url.pathname.slice(basePath.length) || "home";
+    if (url.origin !== location.origin || !url.pathname.startsWith(basePath) || url.hash ||
+        (url.search && !(route==="catalog" && url.search==="?section=songs")) || !isPlayerRoute(route)) return;
     event.preventDefault();
-    navigate(url.pathname.slice(basePath.length) || "home");
+    navigate(route,url.search);
   });
 }
-export function navigate(route) {
-  const href = routeHref(route);
+export function navigate(route,search="") {
+  const href = routeHref(route)+search;
   if (staticDemo()) location.hash = route;
-  else if (location.pathname !== href || location.hash) {
+  else if (location.pathname+location.search !== href || location.hash) {
     history.pushState(null, "", href);
     window.dispatchEvent(new Event("popstate"));
   }
 }
 export function navigationSection(route, selfId, profileId) {
+  if (["packs", "auctions"].includes(route)) return "shop";
   if (["collection", "titles"].includes(route)) return "profile";
   if (route === "player")
     return selfId && profileId === selfId ? "profile" : "players";

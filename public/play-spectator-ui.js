@@ -17,7 +17,7 @@ const phases={loading:'Getting Everyone Ready',buffering:'Waiting for Audio',gue
   counting:'Counting Guesses',reveal:'Answers Revealed',finished:'Match Complete',cancelled:'Match Ended'};
 const ended=phase=>phase==='finished'||phase==='cancelled';
 
-export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,onLeave,onJoinLobby,onActivity=()=>{}}){
+export function watchPlayMatch({root,api,apiBase,title,id,viewer,donator,esc,animeTitle,onLeave,onJoinLobby,onActivity=()=>{}}){
   root.innerHTML='<section class="sa-match-layout"><div class="sa-game-heading"><div><span class="sa-eyebrow" data-watch-pool>Spectating</span>'+
     '<div class="play-mode-title"><h1>'+esc(title)+'</h1></div></div><div class="sa-game-actions">'+
     '<label class="quiz-volume-control sa-volume">Volume<input id="watch-volume" type="range" min="0" max="100" step="1" aria-label="Match volume"><output></output></label>'+
@@ -244,7 +244,7 @@ export function watchPlayMatch({root,api,apiBase,title,id,viewer,esc,animeTitle,
         chat??=openMatchChat({id,players:state.players,me:viewer},body=>{
           if(socket.readyState!==1){showStatus('Reconnecting to match chat…');return false;}
           socket.send(JSON.stringify({type:'chat-send',body}));return true;
-        },{showSelfName:true});
+        },{showSelfName:true,donator});
         for(const row of [...message.rows,...earlyChat.splice(0)])chat.receive(row,false);
         return;
       }

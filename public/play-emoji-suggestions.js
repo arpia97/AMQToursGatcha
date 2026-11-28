@@ -9,8 +9,8 @@ function tokenAtCaret(input){
   return {start:caret-match[1].length,end:caret+tail.length,query:match[2].toLowerCase()};
 }
 
-export function attachEmojiSuggestions({input,panel,menu,list,signal}){
-  let choices=[],selected=0,lastQuery=null,composing=false;
+export function attachEmojiSuggestions({input,panel,menu,list,getPersonal,loadPersonal,signal}){
+  let choices=[],selected=0,lastQuery=null,loading=false,loaded=false,composing=false;
   function close(){
     menu.hidden=true;
     input.setAttribute('aria-expanded','false');
@@ -30,20 +30,23 @@ export function attachEmojiSuggestions({input,panel,menu,list,signal}){
     const space=input.getBoundingClientRect().top-panel.getBoundingClientRect().top-40;
     menu.style.maxHeight=Math.max(52,Math.min(184,space))+'px';
   }
-  function update(){
+  function update(force=false){
     if(composing || input.getRootNode().activeElement!==input)return close();
     const token=tokenAtCaret(input);
     if(!token)return close();
     const {query}=token;
-    if(lastQuery===query)return;
+    if(!force && lastQuery===query)return;
     lastQuery=query;
+    const personal=getPersonal();
+    const names=[...Array.from(personal.values(),item=>':'+item.name+':'),...emojiChoices];
     const prefix=[],contains=[];
-    for(const name of emojiChoices){
+    for(const name of names){
       const key=name.slice(1,-1).toLowerCase();
       if(key===query)prefix.unshift(name);
       else if(key.startsWith(query))prefix.push(name);
       else if(key.includes(query))contains.push(name);
     }
+    const prior=force?choices[selected]:null;
     choices=prefix.concat(contains);
     menu.hidden=!choices.length;
     input.setAttribute('aria-expanded',String(!menu.hidden));
@@ -58,13 +61,20 @@ export function attachEmojiSuggestions({input,panel,menu,list,signal}){
         row.setAttribute('aria-selected','false');
         art.className='emoji-art';
         art.setAttribute('aria-hidden','true');
-        renderChatText(art,name,true);
+        renderChatText(art,name,true,personal);
         label.textContent=name;
         row.append(art,label);
         return row;
       }));
       list.scrollTop=0;
-      highlight(0);
+      highlight(Math.max(0,choices.indexOf(prior)));
+    }
+    if(!loaded&&!loading){
+      loading=true;
+      loadPersonal().then(()=>{
+        loaded=true;
+        if(!signal.aborted && lastQuery!==null)update(true);
+      }).catch(()=>{}).finally(()=>{loading=false;});
     }
   }
   function choose(index){
@@ -97,4 +107,5 @@ export function attachEmojiSuggestions({input,panel,menu,list,signal}){
   const observer=new ResizeObserver(()=>{if(!menu.hidden)size();});
   observer.observe(panel);
   signal.addEventListener('abort',()=>observer.disconnect(),{once:true});
+  return {refresh(){if(lastQuery!==null)update(true);}};
 }

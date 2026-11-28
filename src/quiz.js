@@ -5,6 +5,7 @@ import {butterflyPresageTitle, mergeQuizAnswerFields} from '../public/quiz-answe
 import { searchSql } from "./search.js";
 import { fail, integer, text } from "./engine.js";
 import {
+  songTypeQuiz,
   QUIZ_LENGTH,
   QUIZ_CATEGORIES,
   quizAnswerKey,
@@ -50,6 +51,7 @@ export class Quiz {
       "CREATE TABLE IF NOT EXISTS quiz_answers(quiz TEXT NOT NULL,answer TEXT NOT NULL,key TEXT NOT NULL,PRIMARY KEY(quiz,key))",
       "CREATE INDEX IF NOT EXISTS quiz_answer_prefix ON quiz_answers(key)",
       "CREATE TABLE IF NOT EXISTS quiz_progress(player TEXT NOT NULL,quiz TEXT NOT NULL,best INTEGER NOT NULL DEFAULT 0,at INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
+      "CREATE TABLE IF NOT EXISTS year_quiz_bests(player TEXT NOT NULL,year INTEGER NOT NULL,best INTEGER NOT NULL,PRIMARY KEY(player,year))",
       "CREATE TABLE IF NOT EXISTS quiz_runs(player TEXT NOT NULL,quiz TEXT NOT NULL,data TEXT NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE TABLE IF NOT EXISTS quiz_favorites(player TEXT NOT NULL,quiz TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(player,quiz))",
       "CREATE INDEX IF NOT EXISTS quiz_favorites_quiz ON quiz_favorites(quiz)",
@@ -146,9 +148,11 @@ export class Quiz {
     );
   }
   leaderboard(id, player = null, page = 1, friendsOnly = false) {
-    this.definition(id, player);
+    if(!songTypeQuiz(id)){
+      this.definition(id, player);
+      this.ensureBestAt(id);
+    }
     integer(page, 1, 10000);
-    this.ensureBestAt(id);
     const scope = this.e.friends.filter("p.player",player,friendsOnly,true);
     const rows = this.e.all(
       "SELECT p.player AS id,COALESCE(u.display_name,u.name) AS name,p.best,p.best_at AS bestAt,p.best_duration_ms AS durationMs FROM quiz_progress p JOIN players u ON u.id=p.player WHERE p.quiz=?" + scope.sql + " ORDER BY p.best DESC,COALESCE(p.best_duration_ms,9007199254740991),p.best_at,p.player LIMIT 21 OFFSET ?",
@@ -843,6 +847,11 @@ export class Quiz {
           player,
         )
         .map(({ hidden, ...title }) => ({ ...title, premium:Number.isSafeInteger(title.durationMs)&&title.durationMs>=0&&title.durationMs<60000,equipped: !hidden })),
+      ...this.e.all(`SELECT 'anime-collection:'||a.series_key AS quiz,a.title,
+        'anime-collection' AS category,coalesce(t.hidden,0) AS hidden
+        FROM anime_completion_titles a LEFT JOIN profile_title_preferences t
+        ON t.player=a.player AND t.quiz='anime-collection:'||a.series_key
+        WHERE a.player=? ORDER BY a.title COLLATE NOCASE`,player).map(({hidden,...t})=>({...t,equipped:!hidden})),
       ...this.e.cardTitles.options(player),
     ];
     const row = this.e.one(
@@ -862,6 +871,7 @@ export class Quiz {
       player,
       orderRevision: 1,
       role: this.e.player(player).role,
+      donator: this.e.player(player).donator,
       titles: this.titleOptions(player),
     };
   }

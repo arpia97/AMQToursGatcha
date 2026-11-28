@@ -1,5 +1,7 @@
+import {songTypeDirectory,songTypeSleeve,songTypeProgress,songTypeDifficulty,openSongTypeBoard} from './quiz-song-type-ui.js';
+import {yearDirectory,yearProgress} from './quiz-year-ui.js?v=decades';
 import {createEventQuiz} from './quiz-event-ui.js?v=event-field-results';
-import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=autolock-shortcut-help';
+import {amqAnimeOptions,autolockAnswer,answerSearchControls,answerAutolock,saveAnswerAutolock,fuzzyAnimeSearch,saveFuzzyAnimeSearch} from './amq-anime-search.js?v=quiz-controls';
 import {songLoadingBar,updateSongLoadingBar} from './song-loading.js';
 import {songProgressTrigger} from './detail-popover.js';
 import { routeHref } from "./site-navigation.js";
@@ -7,14 +9,14 @@ import {
   QUIZ_SERVERS,
   quizAudioUrl,
   createQuizAudioCache,
+  createRollingQuizAudio,
 } from "./quiz-audio-cache.js";
 import { quizDuration } from "./quiz-time.js";
-import { quizRarity, QUIZ_SONG_MS, QUIZ_CATEGORIES, quizCategoryLabel } from "./quiz-rules.js";
+import { quizRarity, QUIZ_SONG_MS, QUIZ_CATEGORIES, SONG_TYPE_QUIZZES, quizCategoryLabel } from "./quiz-rules.js?v=song-type";
 import { quizAnswerOptions } from "./quiz-autocomplete.js";
 import { rarityClass } from "./card-display.js";
 import {
   DEFAULT_QUIZ_HOTKEYS,
-  QUIZ_HOTKEY_ACTIONS,
   normalizeQuizHotkeys,
   hotkeyActionForEvent,
 } from "./quiz-hotkeys.js";
@@ -41,11 +43,12 @@ export function createQuizUI({
   audioCache,
   getHotkeys,
   gachaLayout = false,
+  yearTab = false,
   prepareTitles = async () => {},
   animeTitle = (song) => song.anime || song.answer || song.answers?.[0] || "",
 }) {
-  const browseCategories = [...QUIZ_CATEGORIES,"event"];
-  const categoryTabs = () => `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${browseCategories.map(c => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "event" ? "Event" : quizCategoryLabel(c)}</button>`).join("")}</div>`;
+  const browseCategories = [...QUIZ_CATEGORIES,...(yearTab?["year","song-type"]:[]),"event"];
+  const categoryTabs = () => `<div class="tabs quiz-categories" role="group" aria-label="Quiz Categories">${browseCategories.map(c => `<button type="button" class="tab ${category === c ? "active" : ""}" data-quiz-category="${c}" aria-pressed="${category === c}">${c === "year" ? "Year" : c === "song-type" ? "Song Type" : c === "event" ? "Event" : quizCategoryLabel(c)}</button>`).join("")}</div>`;
   let fuzzySession = {};
   const hotkeys = () =>
     normalizeQuizHotkeys(
@@ -53,20 +56,6 @@ export function createQuizUI({
         ? getHotkeys()
         : getState()?.me?.quiz_hotkeys || DEFAULT_QUIZ_HOTKEYS,
     );
-  const hotkeyTitle = (id, base) => {
-    const key = hotkeys()[id];
-    return key ? `${base} (Hotkey: ${key})` : base;
-  };
-  const hotkeyHintBar = () => {
-    const map = hotkeys();
-    const items = ['<span><kbd>Enter</kbd> Next / Finish Song</span>', ...QUIZ_HOTKEY_ACTIONS.filter((a) => map[a.id]).map(
-      (a) =>
-        `<span><kbd>${e(map[a.id])}</kbd> ${e(a.label)}</span>`,
-    )];
-    return items.length
-      ? `<p class="quiz-hotkey-hints form-hint">${items.join(" · ")} · Customize in Settings</p>`
-      : "";
-  };
   const time = clock || {
     now: () => Date.now(),
     monotonicNow: () => performance.now(),
@@ -78,6 +67,8 @@ export function createQuizUI({
   const songLists = new Map();
   const songCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
   const cache = audioCache || createQuizAudioCache();
+  const rolling = createRollingQuizAudio();
+  const cachedAudio = source => rolling.url(source,server) || cache.url(source,server);
   let server = "EU",
     competitive = false,
     suddenDeath = false,
@@ -113,6 +104,23 @@ export function createQuizUI({
     favoritesFirst = false,
     hidePerfect = false,
     category = "singers";
+  let yearQuizzes=[],yearDecade=null,yearsLoaded=false;
+  const isYear=()=>yearTab&&selected?.startsWith('year-');
+  let typeQuizzes=[],typeBoard=null;
+  const isType=()=>yearTab&&selected?.startsWith('song-type-');
+  const drawnQuiz=()=>isYear()||isType();
+  const roundCount=()=>isYear()?30:isType()?(run?.songCount??activeQuiz()?.songs??100):20;
+  async function loadSongTypes(){
+    const {counts,bests}=await call('quiz-song-types');
+    typeQuizzes=SONG_TYPE_QUIZZES.map(q=>({...q,songs:counts[q.id]??0,played:Object.hasOwn(bests,q.id),best:bests[q.id]??0}));
+  }
+  const activeQuiz=()=>(isYear()?yearQuizzes:isType()?typeQuizzes:quizzes).find(q=>q.id===selected);
+  async function loadYears(){
+    const {years,bests}=await call('quiz-years');
+    yearQuizzes=years.map(year=>({year,id:'year-'+year,name:String(year),category:'year',published:1,songs:30,
+      played:Object.hasOwn(bests,year),best:bests[year]||0}));
+    yearsLoaded=true;
+  }
   const favoritePending = new Set();
   let sampleStart = 0,
     audioState = "loading",
@@ -147,7 +155,7 @@ export function createQuizUI({
     ? serverAnchor.server + monotonicNow() - serverAnchor.local
     : time.now();
   const elapsed = () => {
-    if (run?.index === 19 && run?.answered) return run.elapsedMs;
+    if (run?.index === roundCount()-1 && run?.answered) return run.elapsedMs;
     if (Number.isSafeInteger(run?.startedAt))
       return Math.max(0, Math.round(serverNow()) - run.startedAt);
     return run?.transport === "session" || run?.timingPending ? 0 : null;
@@ -160,14 +168,14 @@ export function createQuizUI({
       : "";
   async function call(path, body, key) {
     if (run?.transport === "session" && ["quiz-ready", "quiz-answer", "quiz-next"].includes(path)
-        && !(path === "quiz-next" && body.index === 19)) {
+        && !(path === "quiz-next" && body.index === roundCount()-1)) {
       body = { ...body, action: path };
       path = "quiz-session?run=" + encodeURIComponent(body.run);
       key ||= crypto.randomUUID();
     }
     const sent = monotonicNow(),
       controller = new AbortController(),
-      deadline = setTimeout(() => controller.abort(), 12000);
+      deadline = setTimeout(() => controller.abort(), ["quiz-years","quiz-song-types"].includes(path)||drawnQuiz()&&["play-catalog","quiz-start","quiz-restart"].includes(path)?60000:12000);
     try {
       const result = await api(path, body, key, {
         signal: controller.signal,
@@ -228,6 +236,9 @@ export function createQuizUI({
       }
       value = { ...value, progressDetails };
     }
+    if(!value || value.finished || run?.id!==value.id)rolling.clear();
+    if(value && !value.finished && !value.audioWindow && value.id===run?.id && value.index===run.index && run.audioWindow)
+      value={...value,audioWindow:run.audioWindow};
     run = value;
     const key = run ? run.id + ":" + run.index : "";
     if (key !== draftKey) {
@@ -290,7 +301,7 @@ export function createQuizUI({
     timer = null;
   }
   function prefetchNext() {
-    if (!run?.answered || run.finished || !run.nextAudio || run.index >= 19)
+    if (!run?.answered || run.finished || !run.nextAudio || run.index >= roundCount()-1)
       return;
     const key = run.id + ":" + (run.index + 1);
     if (upcoming?.key === key) return;
@@ -298,7 +309,7 @@ export function createQuizUI({
     let src;
     try {
       src =
-        cache.url(run.nextAudio, server) ||
+        cachedAudio(run.nextAudio) ||
         quizAudioUrl(run.nextAudio, server);
     } catch {
       return;
@@ -355,7 +366,7 @@ export function createQuizUI({
     element.load?.();
   }
   async function loadBank(q) {
-    const key = q.id + ":" + q.updated;
+    const key = ["year","song-type"].includes(q.category)?"play-anime-titles":q.id + ":" + q.updated;
     if (banks.has(key)) {
       bank = banks.get(key);
       return;
@@ -364,6 +375,7 @@ export function createQuizUI({
     banks.set(key, entry);
     bank = entry;
     try {
+      if(["year","song-type"].includes(q.category)){entry.answers=(await call("play-catalog")).anime;entry.complete=true;return;}
       let page = 1,
         version = null;
       for (;;) {
@@ -388,6 +400,21 @@ export function createQuizUI({
     }
   }
   async function load() {
+    if(yearTab&&["year","song-type"].includes(category)){
+      if(category==='year')await loadYears();else await loadSongTypes();
+      if(isType()){
+        const id=selected;
+        const board=await call('quiz-leaderboard?quiz='+id+'&page=1'+(friendsOnly?'&friends=1':''));
+        if(selected!==id)return;
+        leaderboardData=board;
+      }
+      if(drawnQuiz()&&getState().me){
+        const id=selected;
+        const [saved]=await Promise.all([call('quiz-run?quiz='+id),loadBank(activeQuiz()),prepareTitles()]);
+        if(id===selected){useRun(saved.run);if(missedSuddenDeath())await mutate('quiz-restart');}
+      }
+      return;
+    }
     const data = await call("quizzes");
     quizzes = data.quizzes;
     if (!getState().me) friendsOnly = false;
@@ -406,7 +433,7 @@ export function createQuizUI({
           if (missedSuddenDeath()) await mutate("quiz-restart");
         }
         else useRun(null);
-        await loadBank(quizzes.find((q) => q.id === selected));
+        await loadBank(activeQuiz());
       } else {
         useRun(null);
         stop();
@@ -459,7 +486,7 @@ export function createQuizUI({
     ">" +
     label +
     "</button>" + secondary +
-    modeControls() +
+    (drawnQuiz()?modeButton("sudden-death","Sudden Death",skullIcon,suddenDeath,"Restart at Song 1 whenever you miss a song."):modeControls()) +
     '</div>' +
     downloadHTML() +
     '<p class="form-error" id="quiz-inline-error" role="alert">' +
@@ -467,8 +494,8 @@ export function createQuizUI({
     "</p>";
   async function start(action) {
     if (preparing || working) return;
-    const q = quizzes.find((q) => q.id === selected);
-    if (competitive) {
+    const q = activeQuiz();
+    if (competitive && !drawnQuiz()) {
       const controller = new AbortController();
       preparing = controller;
       download = null;
@@ -522,7 +549,7 @@ export function createQuizUI({
   function leaderboardRowHTML(
     p,
     rank,
-    { isMe = false, outsideTop = false } = {},
+    { isMe = false, outsideTop = false, count=roundCount() } = {},
   ) {
     const achieved =
       new Date(p.bestAt).toLocaleString("en-GB", {
@@ -543,23 +570,23 @@ export function createQuizUI({
       e(p.name) +
       '</a></td><td title="Time Set: ' +
       e(achieved) +
-      '"><strong' + ((gachaLayout || run?.finished) ? ' class="quiz-rarity-ink tier-' + rarityClass(quizRarity(p.best)) + '"' : '') + '>' +
+      '"><strong' + ((gachaLayout || run?.finished) ? ' class="quiz-rarity-ink tier-' + rarityClass(quizRarity(Math.floor(p.best*20/count))) + '"' : '') + '>' +
       p.best +
-      ' / 20</strong></td><td class="quiz-duration">' +
+      ' / '+count+'</strong></td><td class="quiz-duration">' +
       e(quizDuration(p.durationMs)) +
       "</td></tr>"
     );
   }
-  function leaderboardHTML() {
-    const allRows = leaderboardData?.rows || [],
+  function leaderboardHTML(data=leaderboardData,count=roundCount(),popup=false) {
+    const allRows = data?.rows || [],
       topRows = allRows.slice(0, 20),
-      meId = getState()?.me?.id || leaderboardData?.me?.id || null;
+      meId = getState()?.me?.id || data?.me?.id || null;
     let extraMe = null;
     if (meId && !topRows.some((p) => p.id === meId)) {
-      if (leaderboardData?.me && leaderboardData.me.id === meId) {
+      if (data?.me && data.me.id === meId) {
         extraMe = {
-          ...leaderboardData.me,
-          rank: leaderboardData.me.rank ?? 21,
+          ...data.me,
+          rank: data.me.rank ?? 21,
         };
       } else {
         const idx = allRows.findIndex((p) => p.id === meId);
@@ -569,18 +596,18 @@ export function createQuizUI({
     const rows =
       topRows
         .map((p, i) =>
-          leaderboardRowHTML(p, i + 1, { isMe: !!meId && p.id === meId }),
+          leaderboardRowHTML(p, i + 1, { count, isMe: !!meId && p.id === meId }),
         )
         .join("") +
       (extraMe
         ? leaderboardRowHTML(extraMe, extraMe.rank, {
             isMe: true,
-            outsideTop: true,
+            outsideTop: true,count,
           })
         : "");
     return (
-      '<aside class="quiz-leaderboard' + (gachaLayout || run?.finished ? ' quiz-scroll-leaderboard' : '') + '" aria-label="Quiz Leaderboard"><div class="section-head"><h2>Leaderboard</h2><span class="subtext">Top 20</span></div>' +
-      '<label class="check-label quiz-friends-filter"><input type="checkbox" id="quiz-friends-only" ' + (friendsOnly ? 'checked' : '') + ' ' + (!getState().me ? 'disabled' : '') + '> Friends Only</label>' +
+      '<aside class="quiz-leaderboard' + (gachaLayout || run?.finished ? ' quiz-scroll-leaderboard' : '') + '" aria-label="Quiz Leaderboard"><div class="section-head">' + (popup?'':'<h2>Leaderboard</h2>') + '<span class="subtext">Top 20</span></div>' +
+      (popup?'':'<label class="check-label quiz-friends-filter"><input type="checkbox" id="quiz-friends-only" ' + (friendsOnly ? 'checked' : '') + ' ' + (!getState().me ? 'disabled' : '') + '> Friends Only</label>') +
       (rows
         ? '<div class="table-wrap"' + ((gachaLayout || run?.finished) ? ' tabindex="0" role="region" aria-label="Scroll leaderboard scores"' : '') + '><table><thead><tr><th>#</th><th>Player</th><th>Best Score</th><th>Time Taken</th></tr></thead><tbody>' +
           rows +
@@ -684,12 +711,13 @@ export function createQuizUI({
             ? '<div class="table-wrap quiz-song-list"><table><thead><tr>' + songListHeaders() + '</tr></thead><tbody>' +
               rows +
               "</tbody></table></div>"
-            : '<p class="notice">No songs in this quiz pool yet.</p>') +
+            : (songListIsRecap ? '<p class="notice">No songs were played.</p>' : '<p class="notice">No songs in this quiz pool yet.</p>')) +
       "</section></div>"
     );
   }
   function quizSleeve(q, status = "") {
-    const category = { singers: "Artist", composers: "Composer", franchise: "Franchise", event: "Event" }[q.category] || "Artist";
+    if(q.category==='song-type')return songTypeSleeve(q,status);
+    const category = { singers: "Artist", composers: "Composer", franchise: "Franchise", event: "Event", year: "Year", "song-type":"Song Type" }[q.category] || "Artist";
     return '<header class="quiz-sleeve"><span>' + category + ' Quiz' + status + '</span><h2>' +
       e(q.name) + '</h2><div class="quiz-disc" aria-hidden="true"></div>' +
       (q.cover ? '<img class="quiz-artist-cover" alt="" src="' + e(q.cover) + '">' : '') + '</header>';
@@ -697,6 +725,10 @@ export function createQuizUI({
   function render() {
     if (!selected) {
       stop();
+      if(category==='song-type')return '<div class="page-intro quiz-list-header"><h1>Quiz</h1>'+serverControl()+'</div><div class="quiz-toolbar">'+categoryTabs()+'</div>'+
+        songTypeDirectory(typeQuizzes);
+      if(category==='year')return '<div class="page-intro quiz-list-header"><h1>Quiz</h1>'+serverControl()+'</div><div class="quiz-toolbar">'+categoryTabs()+'</div>'+
+        (yearsLoaded?yearDirectory(yearQuizzes,yearDecade):'<p class="notice" role="status">Loading years…</p>');
       if(category === "event")return '<div class="page-intro quiz-list-header"><h1>Quiz</h1></div><div class="quiz-toolbar">'+categoryTabs()+'</div>'+
         (eventQuiz.current()?'<div data-event-holder></div>':'<p class="notice">Open a shared event link to play an event quiz.</p>');
       const visibleQuizzes = quizzes.filter(
@@ -860,7 +892,7 @@ export function createQuizUI({
         songListModalHTML()
       );
     }
-    const q = quizzes.find((q) => q.id === selected);
+    const q = activeQuiz();
     if (!q) return "";
     const preview = !q.published || run?.preview;
     const lobby = gachaLayout && !leaderboardOnly && !run;
@@ -877,11 +909,7 @@ export function createQuizUI({
         ? (gachaLayout && (lobby || (run && !run.finished)) ? (lobby ? "" : elapsedControl()) : elapsedControl() + serverControl() + volumeControl())
         : "") +
       (!leaderboardOnly && run && !run.finished
-        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart" title="' +
-          e(hotkeyTitle("restart", "Restart this quiz from Song 1")) +
-          '">Restart Quiz ↻</button><button type="button" class="button secondary" data-quiz-action="quiz-stop" title="' +
-          e(hotkeyTitle("stop", "End This Attempt and Return to All Quizzes")) +
-          '">Stop Quiz</button>'
+        ? '<button type="button" class="button secondary" data-quiz-action="quiz-restart" title="Restart this quiz from Song 1">Restart Quiz ↻</button><button type="button" class="button secondary" data-quiz-action="quiz-stop" title="' + (drawnQuiz() ? "Finish with your current score" : "End this attempt and return to all quizzes") + '">Stop Quiz</button>'
         : "") +
       '<button class="button secondary" data-quiz-back>All Quizzes ←</button></div></div>';
     if (preparing && run && !run.finished) top += downloadHTML();
@@ -896,12 +924,14 @@ export function createQuizUI({
       );
     const withLeaderboard = (content) =>
       top +
-      '<div class="quiz-play-layout' + (finished ? ' quiz-results-layout' : '') + '"><div class="quiz-play-main">' +
+      '<div class="quiz-play-layout' + (isYear()?' year-layout':finished ? ' quiz-results-layout' : '') + '"><div class="quiz-play-main">' +
       content +
       (gachaLayout && run && !run.finished ? audioFooter() : "") +
       "</div>" +
-      leaderboardHTML() +
+      (isYear()?'':leaderboardHTML()) +
       "</div>" + songListModalHTML();
+    if(drawnQuiz()&&!run)return withLeaderboard('<section class="quiz-lobby '+(isType()?'st-lobby st-'+q.type:'year-lobby')+'">'+quizSleeve(q)+'<dl class="quiz-lobby-stats"><div><dt>Songs</dt><dd>'+roundCount()+'</dd></div><div><dt>Guess time</dt><dd>20s</dd></div><div><dt>Personal best</dt><dd>'+ (q.played?q.best+' / '+roundCount():'—')+'</dd></div></dl><div class="quiz-lobby-actions">'+
+      (getState().me?startControls('Start Quiz →'):'<button class="button mint" data-action="account">Sign In to Play</button>')+'</div>'+audioFooter()+'</section>');
     if (lobby) {
       stop();
       const songList = '<button type="button" class="button secondary" data-quiz-songs="' + e(q.id) + '">Song List</button>';
@@ -936,21 +966,24 @@ export function createQuizUI({
       stop();
       const reward = run.reward || {};
       const best = reward.best ?? q.best;
-      const recap = run.history?.length
+      const hasRecap = drawnQuiz() ? Array.isArray(run.history) : run.history?.length;
+      const recap = hasRecap
         ? '<button class="button secondary" type="button" data-quiz-recap>Songs Played ↗</button>' : "";
       const gains = !preview && q.category !== "franchise" && Number.isInteger(reward.total)
         ? '<div class="finish-reward"><strong>✦ +' + reward.total + ' credits</strong>' +
           (Number.isInteger(reward.improvement) && Number.isInteger(reward.milestones)
-            ? '<span>New best +' + reward.improvement + ' · Milestones +' + reward.milestones + '</span>' : '') +
+            ? '<span>New best +' + reward.improvement +
+              (drawnQuiz() ? (reward.milestones ? ' · Perfect score +' + reward.milestones : '') : ' · Milestones +' + reward.milestones) +
+              '</span>' : '') +
           '</div>' : "";
       return withLeaderboard(
-        '<section class="quiz-finish tier-' + rarityClass(quizRarity(run.score)) + '">' +
-        quizSleeve(q, preview ? " · Preview complete" : " · Quiz complete") +
+        '<section class="quiz-finish tier-' + rarityClass(quizRarity(Math.floor(run.score*20/roundCount()))) + '">' +
+        quizSleeve(q, run.stoppedEarly ? " · Stopped early" : preview ? " · Preview complete" : " · Quiz complete") +
         '<div class="finish-line"><div><span class="finish-label">Final score</span>' +
-        '<div class="finish-score"><b class="quiz-rarity-ink">' + e(run.score) + '</b><small>/ 20</small></div></div>' +
+        '<div class="finish-score"><b class="quiz-rarity-ink">' + e(run.score) + '</b><small>/ '+roundCount()+'</small></div></div>' +
         '<dl><div><dt>Time taken</dt><dd>' + e(quizDuration(run.durationMs)) + '</dd></div>' +
         (preview ? '' : '<div><dt>Personal best</dt><dd>' +
-          (Number.isInteger(best) ? best + '<small> / 20</small>' : '—') + '</dd></div>') + '</dl></div>' +
+          (Number.isInteger(best) ? best + '<small> / '+roundCount()+'</small>' : '—') + '</dd></div>') + '</dl></div>' +
         '<div class="finish-track">' + songProgressHTML() + '</div>' + gains +
         (reward.title && !preview ? '<p class="finish-title">Title unlocked · ' + e(reward.title) + '</p>' : '') +
         '<div class="quiz-lobby-actions">' + startControls("Play Again →", recap) + '</div></section>',
@@ -959,8 +992,7 @@ export function createQuizUI({
     return withLeaderboard(questionHTML(q));
   }
   function songProgressHTML() {
-    return '<section class="quiz-song-progress" aria-label="Song Progress"><ol class="quiz-song-progress-track">' +
-      Array.from({ length: 20 }, (_, index) => {
+    const cells=Array.from({ length: roundCount() }, (_, index) => {
         const result = run.results?.[index];
         const state = typeof result === "boolean" ? result ? "correct" : "incorrect"
           : !run.finished && index === run.index ? "current" : "upcoming";
@@ -980,16 +1012,17 @@ export function createQuizUI({
         const attributes = details ? "" : ' aria-label="' + label + '" title="' + label + '"';
         return '<li class="quiz-progress-square is-' + state + '"' + attributes +
           (state === "current" ? ' aria-current="step"' : '') + '>' + details + '</li>';
-      }).join("") + '</ol></section>';
+      });
+    if(isYear())return yearProgress(run.types,cells);
+    if(isType())return songTypeProgress(cells,run.results);
+    return '<section class="quiz-song-progress" aria-label="Song Progress"><ol class="quiz-song-progress-track">'+cells.join('')+'</ol></section>';
   }
   function questionHTML(q) {
     const preview = !q.published || run?.preview;
     const answerForm =
       '<form id="quiz-answer-form" class="stack"><div class="quiz-answer-field"><label for="quiz-answer">Anime Title</label><input id="quiz-answer" class="search" name="answer" value="' +
       e(draft) +
-      '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip title="' +
-      e(hotkeyTitle("skip", "Skip the current song")) +
-      '">Skip Song</button></form>';
+      '" role="combobox" aria-autocomplete="list" aria-controls="quiz-suggestions" aria-expanded="false" autocomplete="off" maxlength="300" placeholder="Start typing an anime title…" disabled><ul id="quiz-suggestions" class="quiz-suggestions" role="listbox" aria-label="Anime Titles" hidden></ul></div><button id="quiz-lock-answer" class="button mint" type="submit" disabled>Lock Answer →</button><button type="button" class="text-button" data-quiz-skip title="Skip the current song">Skip Song</button></form>';
     const result =
       '<div class="notice quiz-answer-result" role="status"><strong>' +
       (run.correct ? "Correct!" : run.timedOut ? "Time’s Up" : "Incorrect") +
@@ -1002,23 +1035,25 @@ export function createQuizUI({
       " · " +
       e(run.artist || "") +
       '</small></div><button class="button mint space-top" data-quiz-action="quiz-next">' +
-      (missedSuddenDeath() ? "Restart Quiz" : run.index === 19 ? "Finish Quiz" : "Next Song") +
+      (missedSuddenDeath() ? "Restart Quiz" : run.index === roundCount()-1 ? "Finish Quiz" : "Next Song") +
       " (Enter)" +
       "</button>";
     return (
-      '<section class="quiz-question' +
+      '<section class="quiz-question' + (isType()?' st-question st-'+q.type:'') +
       (run.answered ? (run.correct ? " is-correct" : " is-incorrect") : "") +
-      '"><div class="quiz-question-heading' + (gachaLayout ? ' tier-' + rarityClass(quizRarity(run.score)) : '') + '"><div><h2>Song ' +
+      '"><div class="quiz-question-heading' + (gachaLayout ? ' tier-' + rarityClass(quizRarity(Math.floor(run.score*20/roundCount()))) : '') + '"><div><h2>Song ' +
       (run.index + 1) +
-      (gachaLayout ? ' <small>/ 20</small>' : ' of 20') + '</h2>' +
+      (gachaLayout ? ' <small>/ '+roundCount()+'</small>' : ' of '+roundCount()) + '</h2>' +
+      (isType()?songTypeDifficulty(q):'') +
+      (isYear()?'<small class="year-song-type">'+run.types[run.index]+'</small>':'') +
       (run.suddenDeath ? '<small class="quiz-sudden-status">'+skullIcon+'Sudden Death'+(run.index===0 && restartedAfter?.id===run.id?' · Restarted after Song '+restartedAfter.song:'')+'</small>' : '') +
       '</div><div class="quiz-score tier-' +
-      rarityClass(quizRarity(run.score)) +
+      rarityClass(quizRarity(Math.floor(run.score*20/roundCount()))) +
       '"><span>Score</span><strong>' +
       run.score +
-      (gachaLayout ? " <small>/ 20</small>" : " / 20") + "</strong></div></div>" +
+      (gachaLayout ? " <small>/ "+roundCount()+"</small>" : " / "+roundCount()) + "</strong></div></div>" +
       (!preview && !gachaLayout
-        ? '<p class="form-hint">Personal Best: ' + q.best + " / 20</p>"
+        ? '<p class="form-hint">Personal Best: ' + q.best + ' / '+roundCount()+'</p>'
         : "") +
       (!Number.isSafeInteger(run.startedAt) && !run.timingPending && run.transport !== "session"
         ? '<p class="form-hint">This run predates completion timing. Restart Quiz to record a time.</p>'
@@ -1026,9 +1061,8 @@ export function createQuizUI({
       (!run.answered
         ? '<div class="quiz-countdown-meter" id="quiz-time-progress" role="progressbar" aria-label="Seconds Remaining" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20"><div class="quiz-countdown-fill" aria-hidden="true"></div><span id="quiz-time-left" role="timer">Loading Audio…</span></div>'
         : "") +
-      (run.answered ? result : answerForm+answerSearchControls(storage)) +
+      (run.answered ? result : answerForm+answerSearchControls(storage,{showShortcuts:false})) +
       songProgressHTML() +
-      hotkeyHintBar() +
       (!run.answered ? '<div id="quiz-audio-loading" class="quiz-audio-loading"'+(run.endsAt?' hidden':'')+'>'+songLoadingBar({label:'Preparing Quiz Audio'})+'</div>' : '') +
       '<div class="quiz-audio-line">' +
       (!run.answered
@@ -1042,7 +1076,7 @@ export function createQuizUI({
   }
   function updateQuestion() {
     const section = document.querySelector(".quiz-play-main > .quiz-question");
-    const q = quizzes.find((q) => q.id === selected);
+    const q = activeQuiz();
     if (!section || !q || !run || run.finished || leaderboardOnly) return false;
     section.outerHTML = questionHTML(q);
     mount();
@@ -1138,7 +1172,7 @@ export function createQuizUI({
     const body = {
       quiz: selected,
       ...(action === "quiz-start" ? {suddenDeath} : action === "quiz-restart" ? {suddenDeath: !!run?.suddenDeath} : {}),
-      ...(["quiz-start", "quiz-restart"].includes(action) && competitive ? { competitive: true } : {}),
+      ...(["quiz-start", "quiz-restart"].includes(action) && competitive && !drawnQuiz() ? { competitive: true } : {}),
       ...(run ? { run: run.id, index: run.index } : {}),
       ...(["quiz-start", "quiz-restart"].includes(action) || run?.transport === "session" ? { fastSession: true } : {}),
       ...(answer !== undefined ? { answer } : {}),
@@ -1159,7 +1193,7 @@ export function createQuizUI({
     const move = pendingMove;
     const previousRun = run;
     let restartMissedRun = null;
-    const instantNext = action === "quiz-next" && run?.transport === "session" && run.index < 19 && body.ready && prefetchReady();
+    const instantNext = action === "quiz-next" && run?.transport === "session" && run.index < roundCount()-1 && body.ready && prefetchReady();
     if (action === "quiz-answer") audio?.pause();
     if (action === "quiz-stop") {
       locallyStopped = true;
@@ -1208,12 +1242,15 @@ export function createQuizUI({
       const missedSong = action === "quiz-restart" && missedSuddenDeath() ? run.index + 1 : null;
       useRun(result.run);
       if (missedSong && run) restartedAfter = {id:run.id, song:missedSong};
-      if (action === "quiz-stop") {
+      if (action === "quiz-stop" && !result.run?.finished) {
         selected = null;
         leaderboardOnly = false;
       }
       if (result.me) onWallet(result.me);
-      if (run?.finished) {
+      if(run?.finished&&drawnQuiz()){
+        const q=activeQuiz();q.played=true;q.best=run.reward.best;
+      }
+      if (run?.finished&&!isYear()) {
         const quiz = selected,
           completed = run.id;
         if (!run.preview)
@@ -1229,13 +1266,13 @@ export function createQuizUI({
         // must not keep the result screen locked or hide it on a read failure.
         const filterVersion=leaderboardFilterVersion;
         Promise.allSettled([
-          call("quizzes"),
+          isType()?Promise.resolve(null):call("quizzes"),
           call("quiz-leaderboard?quiz=" + encodeURIComponent(quiz) + "&page=1" + (friendsOnly ? "&friends=1" : "")),
         ])
           .then(([list, ranks]) => {
             if (selected !== quiz || run?.id !== completed || !run.finished)
               return;
-            if (list.status === "fulfilled") quizzes = list.value.quizzes;
+            if (list.status === "fulfilled" && list.value) quizzes = list.value.quizzes;
             if (ranks.status === "fulfilled" && filterVersion===leaderboardFilterVersion) leaderboardData = ranks.value;
             onRender();
           })
@@ -1300,7 +1337,7 @@ export function createQuizUI({
     const stopButton = document.querySelector('[data-quiz-action="quiz-stop"]');
     if (stopButton) {
       stopButton.disabled =
-        working || !!preparing || (run?.index === 19 && run.answered);
+        working || !!preparing || (run?.index === roundCount()-1 && run.answered);
       text(
         stopButton,
         pendingAction === "quiz-stop"
@@ -1316,10 +1353,10 @@ export function createQuizUI({
       text(
         next,
         working && pendingAction === "quiz-next"
-          ? run?.index === 19
+          ? run?.index === roundCount()-1
             ? "Finishing Quiz…"
             : "Loading Next Song…"
-          : (run?.index === 19 ? "Finish Quiz" : "Next Song") +
+          : (run?.index === roundCount()-1 ? "Finish Quiz" : "Next Song") +
               " (Enter)",
       );
     }
@@ -1439,9 +1476,15 @@ export function createQuizUI({
     }
     if (run.answered) {
       stop({ keepPrefetch: true });
-      prefetchNext();
+      const revealGeneration=generation;
+      const pending=rolling.pending(run.nextAudio);
+      if(pending){
+        pending.then(()=>{
+          if(generation===revealGeneration && run?.answered && !run.finished)prefetchNext();
+        });
+      }else prefetchNext();
       tick();
-      if (run.index < 19) timer = time.every(tick, 200);
+      if (run.index < roundCount()-1) timer = time.every(tick, 200);
       return;
     }
     const key = run.id + ":" + run.index;
@@ -1472,7 +1515,7 @@ export function createQuizUI({
       sampleStart = prefetched.sampleStart;
     } else {
       audio = makeAudio(
-        (!direct && cache.url(run.audio, server)) || quizAudioUrl(run.audio, server),
+        (!direct && cachedAudio(run.audio)) || quizAudioUrl(run.audio, server),
       );
       audio.preload = "auto";
     }
@@ -1494,6 +1537,7 @@ export function createQuizUI({
     const ready = async () => {
       if (token !== generation || arming || current.seeking) return;
       if (current.readyState !== undefined && current.readyState < 3) return;
+      if(run.audioWindow)rolling.update(run.id,server,run.audioWindow);
       if (run.startsAt) {
         audioState = "ready";
         tick();
@@ -1587,12 +1631,14 @@ export function createQuizUI({
     render,
     mount,
     updateQuestion,
-    stop,
+    stop() {rolling.clear();stop();},
     async openEvent(key) {
       selected=null;closeSongList();useRun(null);stop();category="event";
       if(eventQuiz.current()!==key)await eventQuiz.open(key);
     },
     leave() {
+      rolling.clear();
+      typeBoard?.close();
       eventQuiz.leave();
       preparing?.abort();
       closeSongList();
@@ -1617,6 +1663,7 @@ export function createQuizUI({
     },
     setServer(value) {
       if (!QUIZ_SERVERS.includes(value) || working || preparing) return;
+      rolling.clear();
       server = value;
       try {
         storage?.setItem("amqtours-quiz-server", value);
@@ -1678,6 +1725,16 @@ export function createQuizUI({
     },
     closeSuggestions,
     async click(button) {
+      if(button.hasAttribute('data-st-board')){
+        const type=button.dataset.stBoard;
+        if(typeBoard?.open||!typeQuizzes.some(q=>q.type===type))return true;
+        typeBoard=openSongTypeBoard(type,typeQuizzes,{
+          fetchRanks:(id,friends)=>call('quiz-leaderboard?quiz='+encodeURIComponent(id)+'&page=1'+(friends?'&friends=1':'')),
+          renderRanks:(data,count)=>leaderboardHTML(data,count,true),
+          signedIn:!!getState().me,onClose:dialog=>{if(dialog===typeBoard)typeBoard=null;}
+        });
+        return true;
+      }
       if (button.hasAttribute("data-quiz-download-cancel")) {
         preparing?.abort();
         return true;
@@ -1711,6 +1768,7 @@ export function createQuizUI({
         }
         return true;
       }
+      if(button.hasAttribute('data-year-decade')){yearDecade=Number(button.dataset.yearDecade);onRender();return true;}
       if (button.hasAttribute("data-quiz-category")) {
         const next = button.dataset.quizCategory;
         if (!browseCategories.includes(next)) return true;
@@ -1719,6 +1777,12 @@ export function createQuizUI({
           const url=new URL(location.href);url.hash="";history.replaceState(history.state,"",url);
         }
         category = next;
+        if(next==='song-type'){onRender();await loadSongTypes();onRender();return true;}
+        if(next==='year'){
+          onRender();
+          try{await loadYears();}catch(error){yearsLoaded=false;throw error;}
+          onRender();return true;
+        }
         if(next !== "event" && !quizzes.length)await load();
         onRender();
         return true;
@@ -1738,12 +1802,12 @@ export function createQuizUI({
         return true;
       }
       if (button.hasAttribute("data-quiz-recap")) {
-        if (!run?.finished || !run.history?.length) return true;
+        if (!run?.finished || !Array.isArray(run.history)) return true;
         closeSongList();
         songListQuiz = selected;
         songListIsRecap = true;
         songListData = {
-          name: quizzes.find((q) => q.id === selected)?.name,
+          name: activeQuiz()?.name,
           songs: run.history,
         };
         onRender();
@@ -1837,6 +1901,7 @@ export function createQuizUI({
       if (!input.disabled) updateInput(input);
     },
     key(event) {
+      if(typeBoard?.open)return;
       if(category==="event" && eventQuiz.current()){eventQuiz.key(event);return;}
       if (event.key === "Tab" && !event.altKey && !event.ctrlKey && !event.metaKey)
         answerFocusPaused = true;
@@ -1948,14 +2013,15 @@ export function createQuizUI({
         if (
           hotkeyAction === "songs" &&
           selected &&
-          (!run || run.finished || leaderboardOnly)
+          (!run || run.finished || leaderboardOnly) && (!drawnQuiz()||run?.finished)
         ) {
           event.preventDefault?.();
           if (songListQuiz === selected) {
             closeSongList();
             onRender();
           } else {
-            openSongListModal(selected).catch(showError);
+            if(drawnQuiz())document.querySelector("[data-quiz-recap]")?.click();
+            else openSongListModal(selected).catch(showError);
           }
           return;
         }

@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {build} from 'esbuild';
 const require=createRequire(import.meta.url),{Miniflare,Response}=createRequire(require.resolve('wrangler/package.json'))('miniflare');
-export async function playRuntimeFixture({groups=false,media,beforeAudio,songCount=40,endingSongs=false}={}){
+export async function playRuntimeFixture({groups=false,media,beforeAudio,songCount=40,endingSongs=false,paypal}={}){
   const bundle=await build({stdin:{resolveDir:fileURLToPath(new URL('../',import.meta.url)),contents:`
     import worker,{Game as OriginalGame} from './src/worker.js';
     import proxy from './src/short-url.js';
@@ -97,6 +97,11 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio,songCou
   const tourSeedRequests=[],unavailableAudio=new Set();
   const outbound=async request=>{
     const url=new URL(request.url);
+    if(paypal&&['https://api-m.sandbox.paypal.com','https://api-m.paypal.com'].includes(url.origin)){
+      const response=await paypal.send(request);
+      const body=response.body?await response.arrayBuffer():null;
+      return new Response(body,{status:response.status,headers:Object.fromEntries(response.headers)});
+    }
     if(url.href==='https://animemusicquiz.com/libraryMasterList')
       return Response.json({masterListId:'20990101000000-1',songMap:{1:{name:'Track',songArtistId:1}},artistMap:{1:{name:'Artist'}},groupMap:{},
         animeMap:{1:{annId:1,songLinks:{OP:[{songId:1,annSongId:999999,uploaded:true}]}}}});
@@ -123,7 +128,7 @@ export async function playRuntimeFixture({groups=false,media,beforeAudio,songCou
     if(mode==='usual')tourSeedRequests.push(id);
     return Response.json({modes:[{mode,correct:[7,8,19,28,40,50,15,30][(Number(id)-1)%8],encounters:100}]});
   };
-  const mf=new Miniflare({workers:[{dev:{outboundService:{type:'fetcher',handler:outbound}},config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
+  const mf=new Miniflare({workers:[{dev:{outboundService:{type:'fetcher',handler:outbound}},config:{name:'play-test',compatibilityDate:'2026-10-01',manifest:{mainModule:'worker.js',modules:{'worker.js':{type:'esm',contents:bundle.outputFiles[0].text}}},exports:Object.fromEntries(names.map(name=>[name,{type:'durable-object',storage:'sqlite',state:'created'}])),env:{...(paypal?Object.fromEntries(Object.entries(paypal.env).map(([name,value])=>[name,{type:'json',value}])):{}),...Object.fromEntries(Object.entries(bindings).map(([key,value])=>[key,{type:'durable-object',worker:'play-test',exportName:value}])),ASSETS:{type:'fetcher',handler:asset},HOST_TOKEN:{type:'json',value:'local-only-test-host-token-123456789'}}}}]});
   mf.tourSeedRequests=tourSeedRequests;mf.unavailableAudio=unavailableAudio;
   return mf;
 }

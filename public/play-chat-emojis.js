@@ -43,23 +43,24 @@ export function isChatShortcode(token) {
   return Boolean(file || glyph);
 }
 
-function emojiNode(token, lazy) {
+function emojiNode(token, lazy, personal) {
   const {file, glyph} = lookup(token);
-  if (!file) return glyph || token;
+  const custom=personal?.get(token.toLowerCase());
+  if (!file && !custom) return glyph || token;
   const image = document.createElement('img');
   image.className = 'chat-emoji';
-  image.alt = image.title = ':' + file.split('.')[0] + ':';
+  image.alt = image.title = ':' + (custom?.name || file.split('.')[0]) + ':';
   if (lazy) image.loading = 'lazy';
-  image.src = new URL('./chat-emojis/' + file, import.meta.url).href;
+  image.src = new URL(custom ? './api/chat-emoji-image?id='+encodeURIComponent(custom.id) : './chat-emojis/' + file, import.meta.url).href;
   return image;
 }
 
-export function renderChatText(element, text, lazy = false) {
+export function renderChatText(element, text, lazy = false, personal) {
   const fragments = [];
   let start = 0;
   for (const match of text.matchAll(/:[a-z0-9_]+:/gi)) {
-    if (!isChatShortcode(match[0])) continue;
-    fragments.push(text.slice(start, match.index), emojiNode(match[0], lazy));
+    if (!isChatShortcode(match[0]) && !personal?.has(match[0].toLowerCase())) continue;
+    fragments.push(text.slice(start, match.index), emojiNode(match[0], lazy, personal));
     start = match.index + match[0].length;
   }
   element.replaceChildren(...fragments, text.slice(start));

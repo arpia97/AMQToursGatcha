@@ -173,6 +173,8 @@ export function profileCardPanel(
         {
           preview: true,
           level: row.level,
+          portrait: row.portrait,
+          mineStatus: row.mineStatus,
           ownerFlags: {
             protectedCard: !!row.protected,
             wishlisted: data.view === "wishlist" || !!row.wishlisted,

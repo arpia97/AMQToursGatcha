@@ -1,0 +1,25 @@
+.unified-shop h1 {font-size:clamp(2rem,3vw,2.6rem);line-height:1.15;margin:0;letter-spacing:-.045em}
+.unified-shop nav {display:flex;flex-direction:row;gap:1.6rem;border-bottom:1px solid var(--border);margin:.5rem 0 1.25rem}
+.unified-shop nav a {display:inline-flex;align-items:center;gap:.5rem;min-height:42px;color:var(--muted);font-weight:650;border-bottom:3px solid transparent}
+.unified-shop nav a[aria-current] {color:var(--pink);border-color:currentColor}
+.unified-shop .nav-icon {width:16px;height:16px}
+.unified-shop+.daily-pack {background:linear-gradient(105deg,#22302b,#1a2024);border-color:#35423c;}
+.pack-type-head {margin:1.2rem 0 .65rem}
+.shop-pack-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin-bottom:1rem}
+.shop-pack-tile {display:flex;flex-direction:column;border:1px solid var(--border);background:var(--panel);border-radius:12px;overflow:hidden}
+.shop-pack-art {display:flex;justify-content:center;align-items:center;overflow:hidden;height:clamp(110px,12vw,169px);background:radial-gradient(ellipse at 50% 100%,#354b42,#1b2726)}
+.shop-pack-art.premium {background:radial-gradient(ellipse at 50% 100%,#594c38,#282620)}
+.shop-pack-art.special {background:radial-gradient(ellipse at 50% 100%,#554462,#292631)}
+.shop-pack-art .pack-illustration {position:static;height:clamp(85px,9vw,132px);width:auto;transform:none;max-width:90%;object-fit:contain}
+.shop-pack-copy {display:flex;flex-direction:column;padding:.85rem 1rem;flex:1}
+.shop-pack-copy h3 {margin:0;font-size:1.15rem}
+.shop-pack-copy p {font-size:.86rem;color:var(--muted);margin:.2rem 0 .8rem}
+.shop-pack-copy>div {display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:auto}
+.shop-pack-copy .button {min-height:30px;padding:.35rem .65rem}
+@media(max-width:660px){
+.unified-shop nav {gap:0}.unified-shop nav a {flex:1;justify-content:center;font-size:.9rem}
+.shop-pack-grid {grid-template-columns:1fr;gap:.55rem}
+.shop-pack-tile {display:grid;grid-template-columns:86px 1fr}
+.shop-pack-art {height:100%;min-height:91px}.shop-pack-art .pack-illustration {height:68px}
+.shop-pack-copy {padding:.55rem .8rem}.shop-pack-copy p {margin-bottom:.45rem}
+}

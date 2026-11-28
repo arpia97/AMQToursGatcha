@@ -1,3 +1,4 @@
+import {donorEmojiRequest} from '../src/donor-emojis.js';
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -555,6 +556,18 @@ test("daily credits and chosen-type packs are separate manual claims, with one p
   assert.equal(e.player("buyer").balance, 10300);
   assert.equal(f.act("buyer", "daily", {}).credits, 300);
 });
+test("active Donators earn one songbook Note per claimed day through expiry", () => {
+  const f = fixture(), e = f.e;
+  e.run("UPDATE players SET donator_until=? WHERE id='buyer'", e.now() + 2 * 86400000);
+  assert.equal(f.act("buyer", "daily", {}, "day-one").notes, 1);
+  assert.equal(f.act("buyer", "daily", {}, "day-one").notes, 1);
+  assert.throws(() => f.act("buyer", "daily", {}), /already claimed/);
+  f.tick(86400000);
+  assert.equal(f.act("buyer", "daily", {}).notes, 1);
+  f.tick(86400000);
+  assert.equal(f.act("buyer", "daily", {}).notes, 0);
+  assert.equal(e.one("SELECT balance FROM songbook_notes WHERE player='buyer'").balance, 2);
+});
 test("an empty chosen daily pool does not consume the claim or fall back to another type", () => {
   const f = fixture(),
     e = f.e;
@@ -578,6 +591,8 @@ test("buyouts refund a third-party bidder, preserve level, and cannot pay twice"
   e.wallet("third", 10000, "Test");
   e.addCard("seller", "mal-character-1");
   e.run("UPDATE inventory SET level=6 WHERE player='seller'");
+  e.run("INSERT INTO player_portraits VALUES('seller','mal-character-1','auction-art')");
+  e.run("INSERT INTO portrait_choice VALUES('seller','mal-character-1','auction-art')");
   for (const hours of [0, 169, 1.5])
     assert.throws(
       () =>
@@ -620,6 +635,8 @@ test("buyouts refund a third-party bidder, preserve level, and cannot pay twice"
   assert.equal(e.player("seller").balance, 10900);
   assert.equal(e.player("third").balance, 9100);
   assert.equal(e.state("third").inventory[0].level, 6);
+  assert.equal(e.state("third").inventory[0].portrait, "auction-art");
+  assert.equal(e.one("SELECT count(*) n FROM player_portraits WHERE player='seller'").n,0);
   assert.throws(
     () => f.act("buyer", "buyout", { auction: a.id }),
     /not available/,
@@ -1343,4 +1360,42 @@ test("weekly KST streak loops, resets and delivers earned packs once",()=>{
   assert.throws(()=>f.act("buyer","daily-pack",{kind:"character",tier:"normal"}),/no earned packs/);
   f.tick(86400000);
   assert.equal(e.economy.checkIn("buyer").consecutive,1);
+});
+
+test("Donator months enforce the minimum, deduplicate receipts and double earned credits and packs",()=>{
+  const f=fixture(), e=f.e; f.tick(Math.max(0,Date.parse("2026-11-30T00:00:00+09:00")-e.now()));
+  const grant=(receipt,cents=100,player="buyer")=>e.tx(()=>e.economy.recordDonatorMonth({player,receipt,cents}));
+  assert.throws(()=>grant("low",99));
+  const first=grant("one");
+  assert.equal(grant("one").expires,first.expires);
+  assert.throws(()=>grant("one",100,"seller"));
+  assert.ok(grant("two",250).expires>first.expires);
+  for(const credits of [600,600,1000]){
+    const award=e.economy.checkIn("buyer");assert.equal(award.credits,credits);assert.equal(award.notes,1);
+    assert.equal(e.economy.checkIn("buyer"),null);f.tick(86400000);
+  }
+  assert.equal(e.one("SELECT quantity FROM login_packs WHERE player='buyer' AND tier='normal'").quantity,2);
+  f.tick(90*86400000);
+  assert.equal(e.one("SELECT balance FROM songbook_notes WHERE player='buyer'").balance,3);
+  assert.equal(e.player("buyer").donator,false);
+  assert.equal(e.economy.checkIn("buyer").credits,300);
+});
+test("personal emoji names are scoped to the sender, with ten slots and expiry",async()=>{
+  const f=fixture(),e=f.e;
+  const image="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  const request=(player,body,owner=player)=>donorEmojiRequest(e,{path:"chat-emojis",post:!!body,player,body,url:new URL("https://example.com/?player="+owner)});
+  assert.throws(()=>request("buyer",{name:"mine",image}),/membership/);
+  for(const player of ["buyer","seller"])e.tx(()=>e.economy.recordDonatorMonth({player,receipt:player,cents:100}));
+  for(let i=0;i<10;i++)request("buyer",{name:"mine"+i,image});
+  assert.throws(()=>request("buyer",{name:"mine10",image}),/10 emojis/);
+  assert.throws(()=>request("buyer",{name:"fire",image}),/unused/);
+  const theirs=await request("seller",null,"buyer").json();
+  assert.equal(theirs.manage,false);assert.equal(theirs.items.length,10);
+  request("seller",{remove:theirs.items[0].id});
+  assert.equal((await request("buyer").json()).items.length,10);
+  request("seller",{name:"mine0",image});
+  request("buyer",{remove:theirs.items[0].id});
+  request("buyer",{name:"new",image});
+  f.tick(40*86400000);
+  assert.equal((await request("buyer").json()).items.length,0);
 });

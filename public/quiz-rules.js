@@ -3,6 +3,17 @@ export const QUIZ_SONG_MS = 20000;
 export const QUIZ_LEAD_IN_MS = 2000;
 export const QUIZ_ANSWER_GRACE_MS = 1000;
 export const QUIZ_LENGTH = 20;
+export const SONG_TYPE_LENGTH = 100;
+export const SONG_TYPE_QUIZZES = ['OP','ED','IN'].flatMap(type =>
+  ['all','easy','hard'].map(difficulty => ({
+    id:'song-type-'+type.toLowerCase()+'-'+difficulty, type, difficulty,
+    name:type+' · '+({all:'All songs',easy:'Easy',hard:'Hard'})[difficulty], category:'song-type', published:1,
+  }))
+);
+export const songTypeQuiz = id => SONG_TYPE_QUIZZES.find(q=>q.id===id);
+export const YEAR_QUIZ_LENGTH = 30;
+export const YEAR_QUIZ_CREDITS_PER_POINT = 30;
+export const YEAR_QUIZ_PERFECT_BONUS = 100;
 export const QUIZ_CATEGORIES = Object.freeze(["singers", "composers", "franchise"]);
 export const quizCategoryLabel = (category) =>
   ({ singers: "Singers", composers: "Composers", franchise: "Franchise" })[category] || "Singers";
@@ -53,16 +64,25 @@ export function normalizedAnimeAnswerKey(key,compact=false) {
   return starAliases.get(key) ?? key;
 }
 export function quizReward(previous, score, category = "singers") {
+  const year = category === "year";
+  const maxScore = year ? YEAR_QUIZ_LENGTH : category === "song-type" ? SONG_TYPE_LENGTH : QUIZ_LENGTH;
   if (
     !Number.isInteger(score) ||
     score < 0 ||
-    score > 20 ||
+    score > maxScore ||
     !Number.isInteger(previous) ||
     previous < 0 ||
-    previous > 20
+    previous > maxScore
   )
     throw Error("Invalid quiz score.");
   const best = Math.max(previous, score);
+  if (category === "song-type") return {best, improvement:(best-previous)*50, milestones:0};
+  if (year)
+    return {
+      best,
+      improvement: (best - previous) * YEAR_QUIZ_CREDITS_PER_POINT,
+      milestones: best === maxScore && previous < maxScore ? YEAR_QUIZ_PERFECT_BONUS : 0,
+    };
   return {
     best,
     improvement: category === "franchise" ? 0 : (best - previous) * 50,

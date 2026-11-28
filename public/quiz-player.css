@@ -167,3 +167,128 @@
   .event-quiz .quiz-sleeve.winter-sleeve {min-height:148px;padding-inline:12%}
   .winter-sleeve .winter-caption {font-size:9px}
 }
+
+.year-directory {max-width:1040px;margin:24px auto;font-variant-numeric:tabular-nums}
+.year-directory header,.year-list-head,.year-summary dl>div {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.year-directory h2,.year-directory h3,.year-directory p,.year-summary dd {margin:0}
+.year-directory h2 {font-size:1.65rem;letter-spacing:-.035em}
+.year-directory p,.year-list-head span,.year-best,.year-summary small,.year-summary dt {color:var(--muted,#a1a7b4);font-size:.82rem}
+.year-decades {display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:6px;padding:16px 1px}
+.year-decade {flex:1 0 auto;display:flex;align-items:center;justify-content:space-between;gap:5px;padding:9px 8px;border:1px solid var(--border);border-radius:6px;background:var(--panel);color:inherit;cursor:pointer}
+.year-decade span {font-size:.74rem;color:var(--muted)}
+.year-decade[aria-pressed=true]{background:#20302b;border-color:#729f8c;color:#b8e1cc}.year-decade[aria-pressed=true] span{color:#b8e1cc}
+.year-breakdown {display:grid;grid-template-columns:minmax(185px,.8fr) minmax(0,2fr);gap:14px;align-items:stretch}
+.year-summary,.year-grid {background:var(--panel,#191b24);border:1px solid var(--border,#393d47);border-radius:10px;padding:18px 22px}
+.year-summary {align-self:start;display:grid;gap:14px;background:linear-gradient(150deg,#243b32,#191e23 74%);border-top:2px solid #aadcc0}
+.year-summary h3 {font-size:1.45rem;letter-spacing:-.04em}
+.year-stat {display:flex;align-items:baseline;gap:.55rem;flex-wrap:wrap}
+.year-stat b {font-family:inherit;font-weight:750;font-size:clamp(2rem,3.8vw,3.3rem);line-height:1;color:#c0f2d4;letter-spacing:-.06em}
+.year-stat span {font-size:.8rem;color:#ccd8d2}
+.year-chart {display:grid;grid-auto-columns:minmax(0,1fr);grid-auto-flow:column;gap:4px}
+.year-chart>span {min-width:0;text-align:center}
+.year-chart i {height:48px;display:flex;align-items:end;background:#ffffff0b;border-radius:3px;overflow:hidden}
+.year-chart s {display:block;width:100%;background:linear-gradient(#b6e5c8,#78b399)}
+.year-chart .inactive i {background:repeating-linear-gradient(135deg,transparent 0 4px,#ffffff0b 4px 5px)}
+.year-chart small {font:10px/1.5 monospace}
+.year-summary dl {margin:0;padding-top:8px;border-top:1px solid var(--border)}
+.year-summary dl>div {padding:3px 0}.year-summary dd{font-size:.88rem;font-weight:650}
+.year-list-head {padding:1px 20px 10px 0}.year-list-head h3{font-size:1rem}
+.year-card {display:grid;grid-template-columns:58px minmax(40px,1fr) 74px 10px;align-items:center;gap:15px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--border);color:inherit;padding:10px 3px;cursor:pointer}
+.year-card:disabled{color:var(--muted);cursor:default}
+.year-card:enabled:is(:hover,:focus-visible){background:#222d29;color:var(--mint)}.year-card strong{font-size:1.08rem}
+.year-track{appearance:none;width:100%;background:#32383d;border:0;height:4px;border-radius:4px;overflow:hidden}.year-track::-webkit-progress-bar{background:#32383d}.year-track::-webkit-progress-value{background:#abd6bf}.year-track::-moz-progress-bar{background:#abd6bf}
+.year-best{text-align:right}.year-best b{color:var(--text,#eee)}.year-arrow{color:var(--mint,#afe0cc);font-size:1.1rem}
+.quiz-play-layout.year-layout,.year-lobby {display:block;max-width:850px;margin-inline:auto}
+.quiz-song-progress.year-progress {width:min(100%,290px);margin-inline:auto;display:grid;gap:6px}
+.year-progress>div {display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:7px}
+.year-progress b,.year-song-type {font:600 11px/1.25 monospace;color:var(--muted,#aab0bc);letter-spacing:.07em}
+.year-progress .quiz-song-progress-track {display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:4px;margin:0}
+.year-progress .quiz-progress-square {width:100%;height:auto;aspect-ratio:1}
+.year-song-type {display:block;margin-top:3px;color:var(--mint,#afe0cc)}
+@media(max-width:700px){
+  .year-directory{margin:16px 0}.year-directory header{align-items:flex-start;flex-direction:column;gap:4px}
+  .year-decade{flex:0 0 auto}.year-breakdown{grid-template-columns:1fr}
+  .year-summary {padding:12px 16px;gap:8px}.year-chart i{height:28px}
+  .year-grid{padding:14px}.year-card{grid-template-columns:45px minmax(20px,1fr) 64px 8px;gap:8px}
+}
+
+
+.finish-track .quiz-song-progress.year-progress {width:min(100%,360px);max-width:360px;margin:12px auto 0;gap:5px}
+.finish-track .year-progress .quiz-song-progress-track {grid-template-columns:repeat(10,minmax(0,1fr));gap:4px}
+.finish-track .year-progress .quiz-progress-square {height:7px;aspect-ratio:auto}
+
+/* Record sleeves and the shared 100-song progress display. */
+.st-OP {--st-ink:#a7e3c6;--st-paper:#173c36}
+.st-ED {--st-ink:#d3bdff;--st-paper:#332847}
+.st-IN {--st-ink:#ffca85;--st-paper:#453226}
+.st-directory {margin-top:20px;border-top:1px solid var(--border);padding-top:24px}
+.st-directory h2 {margin:0;font-size:clamp(24px,3vw,36px);letter-spacing:-.045em}
+.st-directory header p,.st-reward {margin:6px 0;color:var(--muted);font-size:13px}
+.song-type-directory {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:22px 0 14px}
+.st-card {background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.st-cover,.quiz-sleeve.st-sleeve {position:relative;isolation:isolate;overflow:hidden;background:var(--st-paper);color:var(--st-ink)}
+.st-card .st-cover {display:flex;flex-direction:column;justify-content:space-between;height:150px;padding:18px 20px;border-bottom:1px solid var(--border)}
+.st-code {font-size:clamp(45px,5vw,70px);font-weight:800;line-height:1;letter-spacing:-.07em}
+.st-cover h3 {margin:0;font-size:16px;color:#fff}
+.st-art {position:absolute;inset:0;overflow:hidden;z-index:-1;pointer-events:none}
+.st-art i {position:absolute;display:block}
+.st-OP .st-art i,.st-ED .st-art i {width:210px;height:210px;right:-60px;top:-68px;border-radius:50%;border:1px solid currentColor;opacity:.55}
+.st-OP .st-art i {background:repeating-radial-gradient(circle,transparent 0 6px,currentColor 6px 7px,transparent 7px 12px);transform:scale(.94)}
+.st-OP .st-art i ~ i {display:none}
+.st-ED .st-art i {background:var(--st-ink);opacity:.23;top:-100px;right:-100px}
+.st-ED .st-art i:nth-child(2) {right:-74px;top:-46px;background:transparent;opacity:.68}
+.st-ED .st-art i:nth-child(3) {right:-48px;top:8px;background:transparent;opacity:.48}
+.st-IN .st-art {inset:-40% -18% -30% 48%;transform:rotate(28deg);background:repeating-linear-gradient(90deg,transparent 0 17px,color-mix(in srgb,var(--st-ink) 30%,transparent) 17px 24px)}
+.st-choices {padding:3px 15px}
+.st-choices button {width:100%;display:grid;grid-template-columns:1fr auto 10px;align-items:center;gap:10px;text-align:left;background:transparent;color:inherit;border:0;border-radius:0;border-bottom:1px solid var(--border);padding:14px 2px;cursor:pointer;font:inherit}
+.st-choices button:last-child {border:0}
+.st-choices button:hover,.st-choices button:focus-visible {color:var(--st-ink);background:color-mix(in srgb,var(--st-ink) 5%,transparent)}
+.st-choices small {color:var(--muted);font-size:11px}
+.st-choices b {font-size:16px;color:var(--st-ink)}
+.st-choices button:disabled {opacity:.5;cursor:default}
+.st-reward b {color:#edc479;margin-right:4px}
+.quiz-sleeve.st-sleeve {align-items:flex-start;text-align:left;min-height:150px;border-bottom:2px solid var(--st-ink)}
+.st-sleeve-title {display:flex;align-items:center;gap:12px 18px;flex-wrap:wrap}
+.quiz-sleeve .st-sleeve-title h2 {max-width:100%}
+.st-difficulty {--diff-color:var(--st-ink);display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;background:var(--diff-color);color:#16191e;line-height:1.2;font-family:inherit;font-size:16px;font-weight:750;white-space:nowrap}
+.st-difficulty-hard {--diff-color:#ffabba}
+.st-difficulty-easy {--diff-color:#afe2c5}
+.st-question .st-difficulty {font-size:13px;margin-top:5px;padding:4px 8px}
+.st-lobby .quiz-lobby-stats {border-bottom:1px solid var(--border)}
+.st-lobby .quiz-lobby-stats dt {color:var(--st-ink)}
+.st-question .quiz-question-heading {border-top:2px solid var(--st-ink)}
+.quiz-song-progress.song-type-progress,.finish-track .quiz-song-progress.song-type-progress {width:min(100%,530px);margin:14px auto 0;max-width:530px}
+.song-type-progress header {display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:10px}
+.song-type-progress header strong {font-size:12px}
+.song-type-progress header small {display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)}
+.song-type-progress header i {background:#88d4a8;border-radius:50%;width:6px;height:6px}
+.song-type-progress header i:last-of-type {background:#e97b8d;margin-left:5px}
+.st-progress-row {margin:4px 0}
+.quiz-song-progress.song-type-progress .quiz-song-progress-track {display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px;margin:0}
+.song-type-progress .quiz-progress-square {width:100%;max-width:none;min-width:0;aspect-ratio:auto;height:12px}
+.finish-track .song-type-progress .quiz-progress-square {height:9px}
+@media(max-width:720px){
+  .song-type-directory {grid-template-columns:1fr;gap:10px}
+  .st-card {display:grid;grid-template-columns:minmax(90px,32%) 1fr}
+  .st-card .st-cover {height:auto;padding:14px;border:0}
+  .st-choices button {padding:10px 2px}
+  .st-code {font-size:38px}
+  .quiz-song-progress.song-type-progress .quiz-song-progress-track {gap:2px}
+}
+
+.st-board-open {position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:5px;padding:5px 8px;font:inherit;font-size:11px;font-weight:650;color:var(--st-ink);background:var(--st-paper);border:1px solid currentColor;border-radius:6px;cursor:pointer}
+.st-board-open svg {width:16px;height:16px}
+.st-board-open:hover {background:var(--st-ink);color:var(--st-paper)}
+.st-board-dialog {width:min(540px,calc(100% - 24px));max-height:85dvh;padding:18px;border:1px solid var(--border);border-top:2px solid var(--st-ink);background:var(--panel);color:inherit}
+.st-board-dialog>header,.st-board-tools {display:flex;align-items:center;justify-content:space-between;gap:10px}
+.st-board-dialog>header h2 {margin:0}
+.st-board-dialog [data-close] {background:transparent;color:var(--muted);border:0;font-size:22px;cursor:pointer}
+.st-board-dialog .st-board-tools {margin:16px 0 8px;flex-wrap:wrap}
+.st-board-dialog .tabs {margin:0}
+.st-board-dialog .quiz-leaderboard {border:none;background:transparent;padding:0}
+.st-board-dialog .quiz-leaderboard .section-head {justify-content:flex-end}
+@media(max-width:720px){
+  .st-board-open {top:6px;right:6px;min-height:26px;padding:4px}
+  .st-board-open span {display:none}
+  .st-card .st-cover {padding-top:32px}
+}

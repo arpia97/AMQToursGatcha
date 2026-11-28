@@ -1,4 +1,4 @@
-const selector = '.collection-toolbar-main, .market-sort-controls, .trade-search, .fusion-filters';
+const selector = '.collection-toolbar-main:not([data-song-filters]), .market-sort-controls, .trade-search, .fusion-filters';
 const expanded = new Set();
 const strictScopes = new Set();
 const favoriteScopes = new Set();

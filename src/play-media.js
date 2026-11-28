@@ -11,6 +11,9 @@ const TICKET_LENGTH = Math.ceil((TICKET_BYTES + PLAY_AUDIO_OVERHEAD) * 4 / 3);
 const random = size => crypto.getRandomValues(new Uint8Array(size));
 
 export function playAudioSource(value) {
+  if(value==null||value==="")return null;
+  // The catalogue overwhelmingly stores already canonical mirror URLs.
+  if(typeof value==="string" && /^https:\/\/(?:eu|nae|naw)dist\.animemusicquiz\.com\/[A-Za-z0-9_-]+\.mp3$/.test(value))return value;
   try {
     const url = new URL(value);
     return url.protocol === "https:" && HOST.test(url.hostname) && !url.port &&

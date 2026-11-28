@@ -15,6 +15,10 @@ const fail = (message, status = 400) => {
 };
 // Consume in catalogue order while bounding the number of parsed shards in memory.
 export async function* libraryShards(core, manifest, buckets) {
+  if(core.fullShards && buckets===manifest.shards){
+    yield* core.fullShards(manifest);
+    return;
+  }
   for (let start = 0; start < buckets.length; start += 4) {
     const batch = buckets.slice(start, start + 4);
     const rows = await Promise.all(batch.map(bucket => core.shard(manifest, bucket)));
@@ -139,6 +143,47 @@ export class QuizLibraryCore {
     while (this.cache.size > 8)
       this.cache.delete(this.cache.keys().next().value);
     return value;
+  }
+  // Point lookups still use individual shards. Full scans can read eight at a
+  // time from the immutable bundle or a compressed cache of the active import.
+  async *fullShards(manifest) {
+    const buckets=manifest.shards;
+    const bundled=manifest.version===this.seedData?.version || manifest.version.startsWith('seed-');
+    const packedSeed=bundled && manifest.bulkSize===8 &&
+      !this.db.one('SELECT 1 AS present FROM library_shards WHERE version=? LIMIT 1',manifest.version);
+    if(!bundled)this.db.run('CREATE TABLE IF NOT EXISTS library_bulk(version TEXT NOT NULL, first_bucket INTEGER NOT NULL, data BLOB NOT NULL, PRIMARY KEY(version,first_bucket))');
+    for(let start=0;start<buckets.length;start+=8){
+      const batch=buckets.slice(start,start+8);
+      let rows;
+      try{
+        let compressed;
+        if(packedSeed){
+          const response=await this.assets.fetch(new Request(ASSET+'bulk-'+start+'.bin'));
+          if(response.ok)compressed=response.body;
+        }else if(!bundled){
+          const hit=this.db.one('SELECT data FROM library_bulk WHERE version=? AND first_bucket=?',manifest.version,batch[0]);
+          if(hit)compressed=new Response(hit.data).body;
+        }
+        if(compressed){
+          const pack=await libraryJSON(new Response(compressed.pipeThrough(new DecompressionStream('gzip'))),15000000);
+          if(pack.version===manifest.version && Array.isArray(pack.rows) && pack.rows.length===batch.length &&
+              batch.every((b,i)=>b===pack.buckets?.[i] && pack.rows[i] && typeof pack.rows[i]==='object'))rows=pack.rows;
+        }
+      }catch{ /* The individual shards are authoritative if a pack is unavailable. */ }
+      if(!rows){
+        rows=await Promise.all(batch.map(b=>this.shard(manifest,b)));
+        if(!bundled){
+          try{
+            const text=JSON.stringify({version:manifest.version,buckets:batch,rows});
+            const packed=await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+            if(packed.byteLength<1800000 && this.get('active')===manifest.version){
+              this.db.run('INSERT OR REPLACE INTO library_bulk VALUES(?,?,?)',manifest.version,batch[0],new Uint8Array(packed));
+            }
+          }catch{ /* A cache write must not interrupt the draw. */ }
+        }
+      }
+      for(const [i,b] of batch.entries())yield [b,rows[i]];
+    }
   }
   async lookup(query) {
     const manifest = await this.active(),
@@ -513,6 +558,8 @@ export class QuizLibraryCore {
           this.db.tx(() => {
             this.set("manifest:" + job.id, manifest);
             this.set("active", job.id);
+            if(this.db.one("SELECT 1 AS present FROM sqlite_master WHERE type='table' AND name='library_bulk'"))
+              this.db.run('DELETE FROM library_bulk WHERE version<>?',job.id);
             job.status = "completed";
             job.finished = this.now();
             delete job.ids;

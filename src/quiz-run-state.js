@@ -26,16 +26,19 @@ export function quizRunView(q, run, now, includeProgress = false) {
       now,
       run: {
         id: run.id,
-        index: 20,
+        ...(q.category==="song-type"?{songCount:run.songs.length}:{}),
+      ...(q.category==="year"?{types:run.songs.map(s=>s.type)}:{}),
+        index: run.songs.length,
         score,
-        results: run.answers.slice(0, 20).map((a) => !!a.correct),
+        results: run.answers.slice(0, run.songs.length).map((a) => !!a.correct),
         finished: true,
+        ...(run.stoppedEarly ? {stoppedEarly:true} : {}),
         startedAt: run.startedAt ?? null,
         ...(run.fast || run.clockFromAudio ? { clockFromAudio: true } : {}),
         durationMs: run.durationMs ?? null,
         reward: run.reward,
         preview: !!run.preview || !q.published,
-        history: run.songs.map((song, index) => {
+        history: (run.stoppedEarly ? run.songs.slice(0,run.answers.length) : run.songs).map((song, index) => {
           const answer = run.answers[index] || {};
           return {
             ...revealedSong(song, answer, index),
@@ -57,6 +60,8 @@ export function quizRunView(q, run, now, includeProgress = false) {
     now,
     run: {
       id: run.id,
+      ...(q.category==="song-type"?{songCount:run.songs.length}:{}),
+      ...(q.category==="year"?{types:run.songs.map(s=>s.type)}:{}),
       ...(run.suddenDeath ? {suddenDeath:true} : {}),
       ...(run.fast ? { transport: "session" } : {}),
       index: run.index,
@@ -123,7 +128,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
       responseMs: quizElapsed(run.timing?.startsAt, receivedAt),
       correct: !!answer && run.songs[run.index].answers.some(a => animeGradingKey(a) === animeGradingKey(answer)),
     });
-    if (run.index === 19) {
+    if (run.index === run.songs.length-1) {
       run.completedAt = receivedAt;
       run.durationMs = quizElapsed(run.startedAt, receivedAt);
     }
@@ -132,7 +137,7 @@ export function advanceQuizRun(run, action, b, now, arrival = now) {
   if (action !== "quiz-next") reject("Unknown quiz action.", 404);
   if (!run.answers[run.index]) reject("Lock an answer first.");
   if (run.suddenDeath && !run.answers[run.index].correct) reject("Restart this Sudden Death attempt.");
-  if (run.index === 19) reject("Finish this quiz through the reward server.");
+  if (run.index === run.songs.length-1) reject("Finish this quiz through the reward server.");
   run.index++;
   run.timing = b.ready === true
     ? { index: run.index, startsAt: now, endsAt: now + QUIZ_SONG_MS } : null;
