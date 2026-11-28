@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Custom lobby chat and refinement rarity sort
+
+f6ba5f6 deployed as Worker e2391742-c1f6-48d9-aa4e-cfccf2d042a1. New custom matches share the lobby transcript and chat window through play and return. Existing matches finish on their original chat. Alchemy materials support Lowest Rarity. All 660 tests, syntax and the Worker dry-run passed. The live Play route and shared chat and Alchemy assets were verified. Weekly sign-in and mine drafts were excluded.
+
 ## Ranked profile graph trends
 
 Released 99af108 as Worker 60c617a4-c04d-48a0-b053-11316a3ed2ca. Rating tooltips display the signed match change from its rating receipt. Verified gain, loss, neutral and missing values in the browser, checked both receipt tables and verified the live frontend assets. All 659 tests passed.
