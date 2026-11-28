@@ -32,6 +32,7 @@ export function createMusicPlayer({hostCommand,refreshRoom,toast}){
   const control=id=>dock.querySelector('[data-control="'+id+'"]');
   const seek=control('seek');
   let queue=[],at=0,room=null,myId=null,key='',enabled=false,offset=0,wantsPlay=false,lastDuration='';
+  let bookQueue=null;
   let slot=null,listId=null,scrubbing=false;
   let lastVolume=.5;
   audio.volume=lastVolume;
@@ -117,9 +118,28 @@ export function createMusicPlayer({hostCommand,refreshRoom,toast}){
     enabled=false;audio.pause();paint();
   }
   function stop(){
-    enabled=false;room=null;queue=[];at=0;listId=null;align();
+    enabled=false;room=null;bookQueue=null;queue=[];at=0;listId=null;align();
+  }
+  async function stepBook(delta){
+    const cursor=bookQueue;
+    if(!cursor||cursor.loading)return;
+    const index=at+delta;
+    if(index>=0&&index<queue.length){at=index;enabled=true;align();return;}
+    cursor.loading=true;
+    try{
+      const page=delta<0?(cursor.page>1?cursor.page-1:'last'):(cursor.hasMore?cursor.page+1:1);
+      const result=await cursor.loadPage(page);
+      if(cursor!==bookQueue)return;
+      if(!result.rows.length){stop();return;}
+      queue=result.rows;at=delta<0?queue.length-1:0;
+      cursor.page=result.page;cursor.hasMore=result.hasMore;
+      if(key==='local:'+queue[at].id)audio.currentTime=0;
+      enabled=true;align();
+    }catch(err){if(bookQueue===cursor)toast(err.message,true);}
+    finally{cursor.loading=false;}
   }
   function localNext(){
+    if(bookQueue){void stepBook(1);return;}
     if(++at>=queue.length){stop();return;}
     align();
   }
@@ -140,6 +160,7 @@ export function createMusicPlayer({hostCommand,refreshRoom,toast}){
   dock.onclick=ev=>{
     const action=ev.target.closest('button')?.dataset.control;
     if(action==='previous'&&!room){
+      if(bookQueue){void stepBook(-1);return;}
       if(audio.currentTime>3||at===0)audio.currentTime=0;
       else {at--;align();}
       return;
@@ -186,14 +207,15 @@ export function createMusicPlayer({hostCommand,refreshRoom,toast}){
     slot=next;
     paint();
     if(focused&&dock.contains(focused)&&!dock.hidden&&!focused.hidden)focused.focus({preventScroll:true});
-  },start(tracks,shuffle,id=null){
+  },start(tracks,shuffle,id=null,cursor=null){
     if(room){toast('Leave your Jam Party to play a personal playlist.',true);return;}
-    stop();queue=[...tracks];listId=id;
+    stop();queue=[...tracks];listId=id;bookQueue=cursor;
+    if(cursor){at=queue.findIndex(s=>s.id===cursor.id);if(at<0){stop();return;}}
     if(shuffle)for(let i=queue.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[queue[i],queue[j]]=[queue[j],queue[i]];}
     enabled=true;align();
   },room(state,id,clockOffset){
     if(!state&&!room)return;
-    if(state&&room?.id!==state.id){queue=[];at=0;listId=null;enabled=false;}
+    if(state&&room?.id!==state.id){bookQueue=null;queue=[];at=0;listId=null;enabled=false;}
     room=state;myId=id;offset=clockOffset;align();
   },sync(clockOffset){offset=clockOffset;if(room)align();}};
 }

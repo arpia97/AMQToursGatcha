@@ -1,8 +1,8 @@
 import {jamPollDelay} from './jam-polling.js';
 import {openMatchChat} from './play-match-chat.js?v=party';
 import {songPoster} from './song-posters.js';
-import {createMusicPlayer,playerIcon} from './music-player.js?v=party-mine';
-import {songAddButton,songCollectionButton,songQuickActions,songTile} from './song-tiles.js?v=music-layout';
+import {createMusicPlayer,playerIcon} from './music-player.js?v=songbook-queue';
+import {songAddButton,songCollectionButton,songQuickActions,songTile} from './song-tiles.js?v=pack-choice';
 import {compareSongs,matchesSong,matchesSongFlags,songFilters,songFilterBar,songFilterParams,SONG_FILTER_DEFAULTS} from './song-filters.js';
 import {DUPLICATE_NOTES,SONG_EXCHANGE_COST} from './song-pack-rules.js';
 
@@ -118,9 +118,10 @@ export function createMusicUI({api,escape:e,modal,toast,avatar,rememberCards,rou
     return page>1||data.hasMore?`<div class="songbook-pagination">${btn('prev','Previous',page===1?'disabled':'')} Page ${page} ${btn('next-page','Next',data.hasMore?'':'disabled')}</div>`:'';
   }
   function cataloguePage(){
-    return `<header class="section-head"><h1>Song Catalogue</h1>${catalogue?`<span class="song-notes">♫ ${catalogue.notes} Notes</span>`:''}</header>
+    const exchange=new URLSearchParams(location.search).get('choose')==='1';
+    return `<header class="section-head"><h1>${exchange?'Choose a song':'Song Catalogue'}</h1>${catalogue?`<span class="song-notes">♫ ${catalogue.notes} Notes</span>`:''}</header>
       ${filters('Library order',true)}${catalogue?`<p class="subtext song-catalogue-price">Choose any song for ${SONG_EXCHANGE_COST} Notes. Duplicates return ${DUPLICATE_NOTES} Note.</p>
-      ${catalogue.rows.length?`<ul class="song-tiles song-tiles--catalogue">${catalogue.rows.map(s=>songTile(s,{escape:e,dock:true,catalogue:true,version:catalogue.version,
+      ${catalogue.rows.length?`<ul class="song-tiles song-tiles--catalogue">${catalogue.rows.map(s=>songTile(s,{escape:e,dock:true,catalogue:true,exchange,notes:catalogue.notes,version:catalogue.version,
         badge:s.owned?'<span class="song-badge song-badge--owned">Owned</span>':''})).join('')}</ul>`:'<p class="subtext">No matching songs.</p>'}${pages(catalogue)}`:'<p class="subtext" role="status">Loading songs…</p>'}`;
   }
   function playlistLinks(){
@@ -314,7 +315,16 @@ export function createMusicUI({api,escape:e,modal,toast,avatar,rememberCards,rou
       tab='lists';addingSongs=false;rearranging=false;list={id,name:'',tracks:[]};
     }
     else if(op==='single'){
-      player.start((view==='song-catalogue'?catalogue.rows:book.rows).filter(s=>s.id===Number(id)),false);return;
+      if(view==='song-catalogue')player.start(catalogue.rows.filter(s=>s.id===Number(id)),false);
+      else{
+        const params=songFilterParams(scopes.book.filters);
+        params.set('owned','1');
+        player.start(book.rows,false,null,{id:Number(id),page:book.page,hasMore:book.hasMore,loadPage:page=>{
+          const next=new URLSearchParams(params);next.set('page',page);
+          return api('songbook?'+next);
+        }});
+      }
+      return;
     }
     else if(op==='listen'||op==='shuffle'){player.start(list.tracks,op==='shuffle',list.id);return;}
     else if(op==='add'){

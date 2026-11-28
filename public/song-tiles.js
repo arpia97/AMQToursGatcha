@@ -1,3 +1,4 @@
+import {SONG_EXCHANGE_COST} from './song-pack-rules.js';
 import {songPoster} from './song-posters.js';
 import {cardActionIcon} from './card-quick-actions.js';
 
@@ -25,7 +26,7 @@ export function songAddButton(song,escape,addToList){
     title="${addToList?'Already in playlist':'Add to playlist'}" aria-label="${addToList?'Already in playlist':`Add ${escape(song.title)} to playlist`}">${addToList?'✓':'＋'}</button>`;
 }
 
-export function songTile(song, {escape, badge = '', dock = false, catalogue = false, version = ''}){
+export function songTile(song, {escape, badge = '', dock = false, catalogue = false, exchange = false, notes = 0, version = ''}){
   const anime = song.anime || [];
   const types = [...new Set(anime.flatMap(entry => entry.types || []))];
   const theme = types[0] === 'ED' ? 'ending' : types[0] === 'IN' ? 'insert' : 'opening';
@@ -47,7 +48,8 @@ export function songTile(song, {escape, badge = '', dock = false, catalogue = fa
       <h3>${title}</h3><p>${escape(song.artist)}</p>
       ${series ? `<span class="song-tile-series" title="${escape(series)}">${escape(anime[0].name)}${anime.length > 1 ? ` +${anime.length - 1}` : ''}</span>` : ''}
     </div>
-    ${song.id||playback?`<div class="song-tile-actions">${playback}
+    ${song.id||playback||exchange?`<div class="song-tile-actions">${playback}
+      ${exchange?`<button type="button" class="button secondary" data-action="songbook-choice" ${notes<SONG_EXCHANGE_COST?'disabled title="More Notes needed"':''} data-title="${title}" data-index="${song.index}" data-key="${escape(song.key)}" data-version="${escape(version)}" data-duplicate="${!!song.owned}">Choose · ${SONG_EXCHANGE_COST} Notes</button>`:''}
       ${song.id ? songAddButton(song,escape) : ''}
     </div>`:''}
     <div class="song-tile-options">${songQuickActions(song,escape,version)}${songCollectionButton(song,escape,version)}</div>

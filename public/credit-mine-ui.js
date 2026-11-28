@@ -1,7 +1,11 @@
+import {MAX_CARD_LEVEL} from './card-values.js';
 import {cardComparator,rarityOrder} from './card-display.js';
 import {cardMatcher} from './search.js';
+if(typeof document!=='undefined')document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)document.querySelector('[data-mine-root]')?.dispatchEvent(new Event('mine-resume'));
+});
 function duration(ms){
-  const minutes=Math.ceil(Math.max(0,ms)/60000);
+  const minutes=Math.floor(Math.max(0,ms)/60000);
   return minutes>=60?Math.floor(minutes/60)+'h '+minutes%60+'m':minutes+'m';
 }
 
@@ -14,10 +18,14 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
     body.innerHTML=demo?'Open the Gacha site to work a shift.':'<button class="button" data-action="account">Sign in</button>';
     return;
   }
+  let timer,sequence=0;
+  root.addEventListener('mine-resume',load);
   async function load(){
+    clearTimeout(timer);
+    const request=++sequence;
     try{
       const data=await api('credit-mine');
-      if(!root.isConnected)return;
+      if(!root.isConnected||request!==sequence)return;
       const workers=data.shifts.length;
       const assigned=new Set(data.shifts.map(s=>s.card));
       const resting=new Map(data.resting.map(s=>[s.card,s]));
@@ -26,8 +34,8 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
         const badge=s.working?s.status:'Shift complete';
         return `<article class="mine-worker" data-mood="${s.working?e(s.status):'Off duty'}"><div class="mine-portrait">${image({...c,image:stock?.portrait||c.image})}
           ${badge?`<strong class="mine-status">${e(badge)}</strong>`:''}</div>
-          <div class="mine-worker-info"><h3>${e(c.name)}</h3><small>${e(c.rarity||'')} · Lv. ${s.level}</small>
-          ${s.working?`<div class="mine-eff"><span>Efficiency</span><b>${s.efficiency}%</b></div><progress class="mine-meter" aria-label="Mining efficiency" max="100" value="${s.efficiency}"></progress><small>${duration(data.now-s.start)} worked</small>`:'<p>Ready to collect</p>'}
+          <div class="mine-worker-info"><h3>${e(c.name)}</h3><small>${e(c.rarity||'')} · Lv. ${s.level>=MAX_CARD_LEVEL?'Max':s.level}</small>
+          ${s.working?`<div class="mine-eff"><span>Efficiency</span><b>${s.efficiency}%</b></div><progress class="mine-meter" aria-label="Mining efficiency" max="100" value="${s.efficiency}"></progress><small>${duration(data.now-s.start)} worked · ${Math.floor(Math.max(0,data.now-s.start)/300000)} rolls</small>`:'<p>Ready to collect</p>'}
           <strong>✦ ${s.available.toLocaleString()} credits</strong></div>
           <div class="mine-actions"><button class="button" data-op="collect" data-card="${e(s.card)}" ${s.working&&!s.available?'disabled':''}>Collect</button>
           ${s.working?`<button class="text-button" data-card="${e(s.card)}" data-op="recall">Recall</button>`:''}</div></article>`;
@@ -93,9 +101,9 @@ export async function mountCreditMine({root,state,demo,api,execute,escape:e,card
       // Refresh at the next potential find, even if the tab was idle for most of the shift.
       const next=Math.min(...data.shifts.filter(s=>s.working).map(s=>300000-(data.now-s.start)%300000),
         ...data.resting.map(s=>Math.min(60000,s.readyAt-data.now)));
-      if(Number.isFinite(next))setTimeout(()=>{if(root.isConnected)void load();},Math.max(1000,next+150));
+      if(Number.isFinite(next))timer=setTimeout(()=>{if(root.isConnected)void load();},Math.max(1000,next+150));
     }catch(err){
-      if(root.isConnected){
+      if(root.isConnected&&request===sequence){
         body.innerHTML=`<p role="alert">${e(err.message)} <button class="text-button">Retry</button></p>`;
         body.querySelector('button').onclick=load;
       }

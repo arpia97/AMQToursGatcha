@@ -1,5 +1,9 @@
 # Shared Status and Handoff
 
+## Songbook navigation and portrait pricing
+
+My Songs follows the filtered, ordered list across page boundaries. Song Packs links directly to a 10-Note song picker using the catalogue filters. Anime tiles have a consistent collapsed height. The mine shows MAX levels and roll counts, refreshing on return. Alternative images cost 500 credits per step on each card. The one-time refund uses the payer and historical gallery quote saved at purchase.
+
 ## Song marketplace, titles and mine picker
 
 Song follows Both in the shared category selectors. Owned songs can be listed at a fixed credit price or auctioned with the usual bid holds and settlement. Profile song collections and favorites respect collection privacy. The mine assignment picker uses paginated card tiles. Legacy shifts suppress their early Tired badge. Anime completion titles and newly earned titles are opt-in from the categorized title picker.

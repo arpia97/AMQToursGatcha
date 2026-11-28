@@ -1,6 +1,26 @@
 import {fail,randomInt} from './engine.js';
-import {MAX_CARD_LEVEL,SHOP_PRICES} from '../public/card-values.js';
+import {MAX_CARD_LEVEL} from '../public/card-values.js';
 import {sourcePortrait} from '../public/mal-portraits.js';
+
+const portraitRollCost = alternatives => 500 * (alternatives + 1);
+
+export function refundPortraitOverpayments(e){
+  const key='portrait-roll-pricing-v2';
+  if(e.one('SELECT 1 FROM settings WHERE key=?',key))return;
+  e.tx(()=>{
+    if(e.one('SELECT 1 FROM settings WHERE key=?',key))return;
+    // Legacy rolls saved the quote and owned image count (including the original).
+    const rolls=e.all(`SELECT p.id,r.input FROM players p CROSS JOIN receipts r
+      WHERE r.scope=p.id||':card-gallery' AND json_extract(r.input,'$.action')='roll'
+      AND json_type(r.result,'$.unlocked')='text'`);
+    for(const roll of rolls){
+      const {price,owned}=JSON.parse(roll.input);
+      const refund=price-portraitRollCost(Math.max(0,owned-1));
+      if(Number.isSafeInteger(refund)&&refund>0)e.wallet(roll.id,refund,'Alternative image roll price refund');
+    }
+    e.run('INSERT INTO settings(key,value) VALUES(?,?)',key,e.now());
+  });
+}
 
 export function installCardGallery(e){
   e.run('CREATE TABLE IF NOT EXISTS gallery_queue(card TEXT PRIMARY KEY,due INTEGER NOT NULL)');
@@ -102,7 +122,7 @@ export function galleryView(e,player,card){
     if(!urls.has(key(url)))urls.set(key(url),url);
   }
   const pictures=[...urls.values()].map(url=>({url,owned:!!stock&&(url===card.image||owned.has(key(url))),selected:!!stock&&(chosen?key(chosen)===key(url):url===card.image)}));
-  return {card:card.id,name:card.name,rarity:card.rarity,level:stock?.level||0,price:SHOP_PRICES[card.rarity||'Pending'],
+  return {card:card.id,name:card.name,rarity:card.rarity,level:stock?.level||0,price:portraitRollCost(owned.size),
     balance:e.player(player).balance,pictures};
 }
 export function changePortrait(e,player,body){

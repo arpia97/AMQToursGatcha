@@ -1,4 +1,4 @@
-import {galleryCounts,installCardGallery} from './card-gallery.js';
+import {galleryCounts,installCardGallery,refundPortraitOverpayments} from './card-gallery.js';
 import { importedPortrait } from "./community-cards.js";
 import { installInbox, inboxSummary, saveNoticePreferences } from "./inbox.js";
 import { installFavoriteOwnership, ownedCardCopies, pruneFavorite } from "./card-ownership.js";
@@ -157,6 +157,7 @@ export class Engine {
     installPackResultSales(this);
     installSongbook(this);
     installCardGallery(this);
+    refundPortraitOverpayments(this);
     installAnimeCompletion(this);
     installMusic(this);
     installMine(this);

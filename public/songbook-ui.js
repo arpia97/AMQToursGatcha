@@ -7,7 +7,7 @@ const packArt = '<span class="song-pack-art" aria-hidden="true"><span class="son
 const volumeControl = '<label class="song-preview-volume">Volume <input type="range" data-song-volume min="0" max="1" step=".05" value=".5"></label>';
 
 export function songPackTile(catalogueHref){
-  return `<section class="songbook-tile"><div><h2>Song Pack</h2><p>${SONG_PACK_SIZE} recordings per pack · ${DUPLICATE_NOTES} Note per duplicate</p><div class="song-pack-buttons"><button class="button" data-action="songbook-review">✦ ${SONG_PACK_PRICE} · Open pack</button><a class="button secondary" href="${catalogueHref}">Song Catalogue</a></div></div>${packArt}</section>`;
+  return `<section class="songbook-tile"><div><h2>Song Pack</h2><p>${SONG_PACK_SIZE} recordings per pack · ${DUPLICATE_NOTES} Note per duplicate</p><div class="song-pack-buttons"><button class="button" data-action="songbook-review">✦ ${SONG_PACK_PRICE} · Open pack</button><a class="button secondary" href="${catalogueHref}&amp;choose=1">Choose a song · ${SONG_EXCHANGE_COST} Notes</a><a class="text-button" href="${catalogueHref}">Song Catalogue</a></div></div>${packArt}</section>`;
 }
 export function songProgress({themes,inserts,linked}){
   if(linked===false)return '<small>This anime has no verified MAL link yet.</small>';

@@ -49,6 +49,20 @@ test('working fatigue increases continuously, resting takes five times as long a
   act('recall',0,{start:read().start});advance(200*hour);assert.equal(view().resting.length,0);
   act('assign',0);assert.equal(read().efficiency,100);
 });
+test('a 27-minute unattended shift keeps its original rolls and fatigue across a worker restart',()=>{
+  const {e,act,advance,view,setRoll}=fixture();
+  setRoll(0);act('assign',0);
+  setRoll(719999);act('assign',1);
+  advance(27*60000);
+  const before=view().shifts;
+  assert.deepEqual(before.map(s=>s.available),[500,0]);
+  assert.ok(before.every(s=>s.efficiency<100));
+  installMine(e);
+  assert.deepEqual(view().shifts,before);
+  act('collect',0,{start:before[0].start});
+  assert.equal(view().shifts[0].available,0);
+  assert.equal(view().shifts[0].efficiency,before[0].efficiency);
+});
 test('legacy shifts retire their Tired badge while working and resting, retaining fatigue',()=>{
   const {act,advance,view}=fixture(Date.parse('2026-11-28T18:00:00Z'));
   act('assign',0);advance(3*hour);

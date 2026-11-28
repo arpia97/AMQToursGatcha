@@ -32,6 +32,16 @@ function fixture(){
   const call=(path,body=null,key=null,source=library)=>songbookRequest(e,'p',path.split('?')[0],new URL('https://local/'+path),!!body,body,key,source,()=>{});
   return {e,call,data};
 }
+test('My Songs can navigate to the last page under its current filters and ordering',async()=>{
+  const {call,e}=fixture();
+  for(let i=0;i<44;i++)e.run('INSERT INTO songbook_owned(player,recording,acquired) VALUES(?,?,?)','p',
+    JSON.stringify({title:'Song '+String(i).padStart(2,'0'),artist:i%2?'Odd':'Even',anime:[]}),i);
+  const last=await call('songbook?owned=1&page=last');
+  assert.equal(last.page,3);assert.equal(last.rows.at(-1).title,'Song 00');
+  const filtered=await call('songbook?owned=1&q=Odd&order=title&page=last');
+  assert.equal(filtered.page,2);assert.equal(filtered.rows.at(-1).title,'Song 43');
+  assert.equal(filtered.hasMore,false);
+});
 test('three independent draws use one wallet receipt and duplicate Notes, even on retries',async()=>{
   const {call,e}=fixture();
   const [first,repeat]=await Promise.all([call('songbook-pack',{},'one'),call('songbook-pack',{},'one')]);

@@ -605,7 +605,7 @@
 }
 .anime-progress-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 16px;
   margin-top: 24px;
 }
@@ -5872,7 +5872,7 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
 .pack-panel.special-paid { border-color:#81c9bc66;background:radial-gradient(ellipse at top right,#63c8b81c,transparent 70%),#191e25; }
 .pack-panel.special-paid .eyebrow { color:#b6e2c5; }
 
-.anime-progress-grid {align-items:start;}
+.anime-progress-grid,.pinned-anime .anime-progress-grid {align-items:start;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:12px;}
 .anime-collection-tile,.anime-collection-summary {
   --accent:#797985;--halo:3px;min-width:0;border:1px solid color-mix(in srgb,var(--accent) 64%,#252831);
   border-radius:9px;background:#1a1d24;box-shadow:0 0 var(--halo) color-mix(in srgb,var(--accent) 24%,transparent);
@@ -5889,7 +5889,12 @@ html[data-title-motion][data-title-hidden] .quiz-premium-title::after { animatio
 .anime-collection-tile summary{cursor:pointer;list-style:none;border-radius:inherit;}
 .anime-collection-tile summary::-webkit-details-marker{display:none;}
 .anime-collection-tile summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.anime-collection-tile summary strong{overflow-wrap:anywhere;}
+.anime-collection-tile summary,.anime-collection-summary{box-sizing:border-box;height:5.25rem;}
+.anime-collection-summary{height:calc(5.25rem + 2px);}
+.anime-collection-tile summary strong,.anime-collection-summary strong{min-width:0;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;line-height:1.2;}
+.anime-collection-tile summary span,.anime-collection-summary small{flex:none;}
+.anime-collection-tile[open] summary{height:auto;min-height:5.25rem;}
+.anime-collection-tile[open] summary strong{display:block;}
 .anime-collection-tile summary span{font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--accent) 70%,white);}
 .anime-collection-body{padding:0 15px 12px;border-top:1px solid var(--border);}
 .anime-collection-body section{padding-top:12px;}

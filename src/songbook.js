@@ -133,7 +133,8 @@ export async function profileSongPage(e,viewer,params,library){
 export async function songbookRequest(e,player,path,url,post,body,key,library,checkSession){
   e.assertAccountUnlocked(player);
   if(path==='songbook'&&!post){
-    const page=integer(Number(url.searchParams.get('page')||1),1,100000);
+    const tail=url.searchParams.get('owned')==='1'&&!url.searchParams.has('view')&&url.searchParams.get('page')==='last';
+    let page=tail?1:integer(Number(url.searchParams.get('page')||1),1,100000);
     if(url.searchParams.get('view')==='collection'){
       const params=url.searchParams;
       let aliases;
@@ -158,13 +159,15 @@ export async function songbookRequest(e,player,path,url,post,body,key,library,ch
     const series=url.searchParams.get('series');
     if(url.searchParams.get('owned')==='1'){
       const filtered=Object.values(filters).some(Boolean);
-      const offset=(page-1)*20;
+      if(tail&&!filtered)page=Math.max(1,Math.ceil(e.one('SELECT count(*) AS n FROM songbook_owned WHERE player=?',player).n/20));
+      let offset=(page-1)*20;
       let rows=filtered?e.all(ownedSelect+' ORDER BY s.id DESC',player).map(ownedRecording)
         :e.all(ownedSelect+' ORDER BY s.id DESC LIMIT 21 OFFSET ?',player,offset).map(ownedRecording);
       if(filtered){
         rows=rows.filter(song=>matchesSong(song,filters)&&matchesSongFlags(song,filters));
         if(['difficulty','popularity'].includes(filters.order))await fillSongMetrics(e,player,rows,library);
         if(filters.order)rows.sort((a,b)=>compareSongs(a,b,filters.order)||b.id-a.id);
+        if(tail){page=Math.max(1,Math.ceil(rows.length/20));offset=(page-1)*20;}
         rows=rows.slice(offset,offset+21);
       }
       return {rows:rows.slice(0,20),page,hasMore:rows.length>20,notes:notes(e,player)};

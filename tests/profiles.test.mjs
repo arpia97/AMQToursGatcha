@@ -219,7 +219,19 @@ test("rankings return equipped card portraits and their current enhancement leve
   assert.ok(ranks.cards.some((c) => c.id === "card-a"));
 });
 
-test('a gallery can be indexed before opening, rolls one new portrait for the rarity price and isolates equipment per owner',async()=>{
+test('portrait repricing refunds only the difference per successful roll once to its payer',async()=>{
+  const {refundPortraitOverpayments}=await import('../src/card-gallery.js');
+  const {e}=fixture();
+  e.run("DELETE FROM settings WHERE key='portrait-roll-pricing-v2'");
+  const before=e.player('001');
+  for(const [key,price,owned] of [['first',800,1],['second',1600,2],['cheap',400,1]]){
+    e.mutate('001:card-gallery',key,{action:'roll',card:'old',price,owned},()=>({unlocked:'image'+key}));
+  }
+  refundPortraitOverpayments(e);refundPortraitOverpayments(e);
+  assert.equal(e.player('001').balance-before.balance,900);
+  assert.equal(e.player('001').earned,before.earned);
+});
+test('a gallery can be indexed before opening, rolls one new portrait for the progressive price and isolates equipment per owner',async()=>{
   const {changePortrait,indexGallery,queueGalleries,galleryCounts,galleryView}=await import('../src/card-gallery.js');
   const {e}=fixture(),id='mal-character-1',base='https://cdn.myanimelist.net/images/characters/10/';
   e.run('INSERT INTO catalog(id,kind,name,image) VALUES(?,?,?,?)',id,'character','Test entry',base+'1.jpg');
@@ -234,6 +246,7 @@ test('a gallery can be indexed before opening, rolls one new portrait for the ra
   assert.equal(requests,1);assert.equal(galleryCounts(e,[card])[0].alternatives,1);
   for(const player of ['001','002'])e.addCard(player,id);
   const initial=galleryView(e,'001',card);
+  assert.equal(initial.price,500);
   const input={card:id,action:'roll',owned:1,price:initial.price};
   const roll=key=>e.mutate('001:gallery',key,input,()=>changePortrait(e,'001',input));
   assert.throws(()=>roll('too-soon'),/Max the card/);
@@ -243,6 +256,7 @@ test('a gallery can be indexed before opening, rolls one new portrait for the ra
   e.run("UPDATE players SET balance=5000 WHERE id='001'");
   assert.equal(roll('paid').unlocked,base+'2.jpg');
   assert.equal(roll('paid').unlocked,base+'2.jpg');
+  assert.equal(galleryView(e,'001',card).price,1000);
   assert.throws(()=>roll('extra'),/Every available/);
   assert.equal(e.player('001').balance,5000-initial.price);
   const equip={card:id,action:'equip',image:base+'2.jpg'};

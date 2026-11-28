@@ -7,13 +7,13 @@ function completion(count,total) {
 }
 
 export function animeTile(row,{title,player,own,pinned,escape:e}){
-  if(row.ownershipHidden)return `<article class="anime-collection-summary"><strong>${e(title)}</strong><small aria-label="Collection progress is private">Private</small></article>`;
+  if(row.ownershipHidden)return `<article class="anime-collection-summary"><strong title="${e(title)}">${e(title)}</strong><small aria-label="Collection progress is private">Private</small></article>`;
   const count=(row.owned||0)+(row.songOwned||0);
   const total=row.total+(row.songTotal||0);
   const {tier,percent}=completion(count,total);
   const key=e(row.series_key);
   return `<details class="anime-collection-tile" data-tier="${row.completionUnavailable?'unknown':tier}" data-player="${e(player||'')}" data-series="${key}">
-    <summary><strong>${e(title)}</strong><span>${row.completionUnavailable?'—':percent+'%'}</span></summary>
+    <summary><strong title="${e(title)}">${e(title)}</strong><span>${row.completionUnavailable?'—':percent+'%'}</span></summary>
     <div class="anime-collection-body"><div data-anime-items role="status"></div>
     ${own && row.total?`<footer><button class="text-button" data-action="anime-checklist-open" data-series="${key}">Expand</button><button class="text-button" data-action="pin-anime" data-series="${key}" data-pinned="${pinned}">${pinned?'Unpin':'Pin anime'}</button></footer>`:''}</div>
   </details>`;
